@@ -7,9 +7,16 @@ public class OAuth2TokenProvider(
     string clientId,
     string clientSecret,
     string? scope = null,
+    bool skipCertValidation = false,
     ILogger<OAuth2TokenProvider>? logger = null) : IDisposable
 {
-    private readonly HttpClient _httpClient = new();
+    private readonly HttpClient _httpClient = skipCertValidation
+        ? new(new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+        })
+        : new();
+
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     private string? _cachedToken;

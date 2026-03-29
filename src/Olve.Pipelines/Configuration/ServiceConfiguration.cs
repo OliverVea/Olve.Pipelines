@@ -1,10 +1,10 @@
 using Olve.Pipelines.Building;
 using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Persistence;
 using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.Processing;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Sourcing;
 
 namespace Olve.Pipelines.Configuration;
@@ -39,6 +39,7 @@ public static class ServiceConfiguration
         services.AddScoped<VerificationService>();
         services.AddScoped<SourceBundleService>();
         services.AddScoped<ArtifactBundleService>();
-        services.AddHostedService<PipelinePersistenceService>();
+        services.AddHostedService<ConfigurationPersistenceService>();
+        services.AddHostedService<BundlePersistenceService>();
     }
 }

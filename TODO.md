@@ -9,23 +9,30 @@
 - [x] Type enum on each entity (None → specific type when attachment is set)
 - [x] Manual trigger endpoints (sourcing, building, processing) with placeholder bundles
 - [x] SourceBundle and ArtifactBundle entities with in-memory storage
+- [x] IBundleStore interface with S3BundleStore implementation (upload/download/list bundles)
+- [x] BundlePersistenceService loads bundles from S3 on startup
+- [x] Integration test infrastructure (AppFixture with Testcontainers + MinIO)
 
-## Bundle S3 storage (next)
+## Kubernetes Job runner (next)
 
-- [ ] Upload SourceBundle metadata + contents to S3 on creation
-- [ ] Upload ArtifactBundle metadata + contents to S3 on creation
-- [ ] Load bundle history from S3 on startup
-- [ ] S3 key scheme: `bundles/source/{bundleId}.json`, `bundles/artifact/{bundleId}.json`
+All pipeline steps (sourcing, building, processing, verification) execute as K8s Jobs.
 
-## Real execution
+- [ ] K8s client integration (in-cluster auth)
+- [ ] Job runner: create K8s Job from step config (image, script, env vars)
+- [ ] Job runner: mount pipeline secrets (K8s Secrets) into Jobs
+- [ ] Job runner: pass input bundle reference (S3 key) to Job
+- [ ] Job runner: capture output bundle from Job and upload to S3
+- [ ] Job runner: stream/collect Job logs
+- [ ] Job runner: track Job status → update bundle status (Pending/Completed/Failed)
+- [ ] Wire trigger endpoints to use Job runner instead of placeholders
 
-- [ ] Sourcing: HardcodedSource returns its values, GitHubSource resolves HEAD commit SHA
-- [ ] Building: ScriptBuilder runs shell script via Process.Start
-- [ ] Processing: ScriptProcessing runs shell script via Process.Start
-- [ ] Verification: ScriptVerification runs shell script, exit code = pass/fail
-- [ ] Bundle status: Pending while running, Completed/Failed on finish
-- [ ] Store execution output/logs on bundles
-- [ ] Runner infrastructure: decide where runners execute (local process, K8s job, etc.) and how to configure runner targets per environment
+## Pipeline secrets
+
+- [ ] K8s Secret per pipeline (e.g. `olve-pipeline-{id}`)
+- [ ] API: `PUT /api/pipelines/{id}/secrets/{name}` (set)
+- [ ] API: `DELETE /api/pipelines/{id}/secrets/{name}` (remove)
+- [ ] API: `GET /api/pipelines/{id}/secrets` (list names only)
+- [ ] Auto-mount pipeline secret into all Jobs for that pipeline
 
 ## Automatic downstream triggering
 
@@ -36,9 +43,7 @@
 
 ## Persistence
 
-- [ ] S3 storage for SourceBundles and ArtifactBundles
 - [ ] S3 storage for pipeline configuration (replace current persistence service)
-- [ ] Bundle contents: actual source snapshots and built artifacts stored in S3
 
 ## Source change detection
 
@@ -52,7 +57,14 @@
 - [ ] Show bundle status (pending/completed/failed)
 - [ ] Show verification results per processing step
 
+## Typed step templates (future)
+
+Templates generate script + image + env for K8s Jobs. Scripts remain as the "custom" fallback.
+
+- [ ] Build templates: .NET build, Helm chart, static frontend, Docker image
+- [ ] Processing templates: K8s deployment, publish to store
+- [ ] Verification templates: health check, integration test
+
 ## Cleanup
 
-- [ ] Update DESIGN.md to reflect current state (bundles are no longer future)
 - [ ] Processing step ordering (currently unordered)

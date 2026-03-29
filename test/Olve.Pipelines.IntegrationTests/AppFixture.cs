@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Images;
 using DotNet.Testcontainers.Networks;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -21,42 +22,75 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
     private const int ContainerPort = 5000;
     private const int MinioPort = 9000;
 
-    private readonly INetwork _network = new NetworkBuilder().Build();
-
-    private MinioContainer _minio = null!;
+    private INetwork? _network;
+    private MinioContainer? _minio;
     private IContainer _container = null!;
     private string _baseUrl = null!;
 
+    private static bool UseBetaS3 =>
+        Environment.GetEnvironmentVariable("STORAGE__AUTHURL") is not null
+        || Environment.GetEnvironmentVariable("STORAGE__ACCESSKEY") is not null;
+
     public async Task InitializeAsync()
     {
-        _minio = new MinioBuilder("minio/minio:latest")
-            .WithNetwork(_network)
-            .WithNetworkAliases("minio")
-            .Build();
+        var repoRoot = FindRepoRoot();
+        IImage image;
 
-        await _minio.StartAsync();
+        var prebuiltTag = Environment.GetEnvironmentVariable("INTEGRATION_TEST_IMAGE");
+        if (prebuiltTag is not null)
+        {
+            image = new DockerImage(prebuiltTag);
+        }
+        else
+        {
+            var futureImage = new ImageFromDockerfileBuilder()
+                .WithDockerfileDirectory(repoRoot)
+                .WithDockerfile("src/Olve.Pipelines/Dockerfile")
+                .Build();
 
-        var image = new ImageFromDockerfileBuilder()
-            .WithDockerfileDirectory(CommonDirectoryPath.GetSolutionDirectory(), string.Empty)
-            .WithDockerfile("src/Olve.Pipelines/Dockerfile")
-            .Build();
+            await futureImage.CreateAsync();
+            image = futureImage;
+        }
 
-        await image.CreateAsync();
-
-        _container = new ContainerBuilder(image)
-            .WithNetwork(_network)
+        var containerBuilder = new ContainerBuilder(image)
             .WithPortBinding(ContainerPort, assignRandomHostPort: true)
             .WithEnvironment("Auth__SigningKey", SigningKey)
             .WithEnvironment("Auth__Authority", Issuer)
             .WithEnvironment("Auth__Audience", Audience)
             .WithEnvironment("Host", "0.0.0.0")
-            .WithEnvironment("Storage__Endpoint", $"http://minio:{MinioPort}")
-            .WithEnvironment("Storage__AccessKey", _minio.GetAccessKey())
-            .WithEnvironment("Storage__SecretKey", _minio.GetSecretKey())
-            .WithEnvironment("Storage__Bucket", "olve-pipelines-test")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(ContainerPort).ForPath("/api/health")))
-            .Build();
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(
+                r => r.ForPort(ContainerPort).ForPath("/api/health")));
 
+        if (UseBetaS3)
+        {
+            // Pass through S3 config from environment (OIDC/STS or static)
+            containerBuilder = PassthroughEnv(containerBuilder,
+                "STORAGE__ENDPOINT", "STORAGE__BUCKET",
+                "STORAGE__ACCESSKEY", "STORAGE__SECRETKEY",
+                "STORAGE__AUTHURL", "STORAGE__CLIENTID", "STORAGE__CLIENTSECRET",
+                "STORAGE__ROLEARN", "STORAGE__SCOPE");
+        }
+        else
+        {
+            // Spin up local MinIO testcontainer
+            _network = new NetworkBuilder().Build();
+
+            _minio = new MinioBuilder("minio/minio:latest")
+                .WithNetwork(_network)
+                .WithNetworkAliases("minio")
+                .Build();
+
+            await _minio.StartAsync();
+
+            containerBuilder = containerBuilder
+                .WithNetwork(_network)
+                .WithEnvironment("Storage__Endpoint", $"http://minio:{MinioPort}")
+                .WithEnvironment("Storage__AccessKey", _minio.GetAccessKey())
+                .WithEnvironment("Storage__SecretKey", _minio.GetSecretKey())
+                .WithEnvironment("Storage__Bucket", "olve-pipelines-test");
+        }
+
+        _container = containerBuilder.Build();
         await _container.StartAsync();
 
         var hostPort = _container.GetMappedPublicPort(ContainerPort);
@@ -65,10 +99,16 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
 
     public IOlvePipelinesv1 CreateApiClient()
     {
+        var client = CreateAuthenticatedHttpClient();
+        return RestService.For<IOlvePipelinesv1>(client);
+    }
+
+    public HttpClient CreateAuthenticatedHttpClient()
+    {
         var client = new HttpClient { BaseAddress = new Uri(_baseUrl) };
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", GenerateJwt());
-        return RestService.For<IOlvePipelinesv1>(client);
+        return client;
     }
 
     public HttpClient CreateUnauthenticatedHttpClient() =>
@@ -77,8 +117,32 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _container.DisposeAsync();
-        await _minio.DisposeAsync();
-        await _network.DisposeAsync();
+        if (_minio is not null) await _minio.DisposeAsync();
+        if (_network is not null) await _network.DisposeAsync();
+    }
+
+    private static ContainerBuilder PassthroughEnv(ContainerBuilder builder, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = Environment.GetEnvironmentVariable(key);
+            if (value is not null)
+            {
+                // Convert STORAGE__ENDPOINT to Storage__Endpoint format
+                var configKey = string.Join("__", key.Split("__")
+                    .Select(part => char.ToUpper(part[0]) + part[1..].ToLower()));
+                builder = builder.WithEnvironment(configKey, value);
+            }
+        }
+        return builder;
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+            dir = dir.Parent;
+        return dir?.FullName ?? throw new InvalidOperationException("Could not find repository root");
     }
 
     private static string GenerateJwt()

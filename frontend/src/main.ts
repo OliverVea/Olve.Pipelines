@@ -1,5 +1,6 @@
 import './style.css'
 import { client } from './api.js'
+import type { Pipeline, PipelineBuilder, PipelineSource, ProcessingStep, ScriptVerification, Verification } from '@olve/olve-pipelines-client/src/models/index.js'
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -66,15 +67,15 @@ async function renderPipeline(pid: string) {
   `;
 
   // Pipeline header
-  p.get().then(pipeline => {
+  p.get().then((pipeline: Pipeline | undefined) => {
     if (!pipeline) { app.innerHTML = `<p>Not found.</p><p><a href="/" data-link>Back</a></p>`; return; }
     fill('#pipeline-header', `<h1>${pipeline.name}</h1>`);
-  }).catch(e => fill('#pipeline-header', err(e)));
+  }).catch((e: unknown) => fill('#pipeline-header', err(e)));
 
   // Sources
-  p.sources.get().then(async sources => {
+  p.sources.get().then(async (sources: PipelineSource[] | undefined) => {
     const list = sources ?? [];
-    const withConfig = await Promise.all(list.map(async s => ({
+    const withConfig = await Promise.all(list.map(async (s: PipelineSource) => ({
       source: s,
       github: await p.sources.bySourceId(s.id!).github.get().catch(() => null),
       hardcoded: await p.sources.bySourceId(s.id!).hardcoded.get().catch(() => null),
@@ -167,12 +168,12 @@ async function renderPipeline(pid: string) {
       });
       await navigate();
     });
-  }).catch(e => fill('#sources-content', err(e)));
+  }).catch((e: unknown) => fill('#sources-content', err(e)));
 
   // Builders
-  p.builders.get().then(async builders => {
+  p.builders.get().then(async (builders: PipelineBuilder[] | undefined) => {
     const list = builders ?? [];
-    const withScript = await Promise.all(list.map(async b => ({
+    const withScript = await Promise.all(list.map(async (b: PipelineBuilder) => ({
       builder: b,
       script: await p.builders.byBuilderId(b.id!).script.get().catch(() => null),
     })));
@@ -211,16 +212,16 @@ async function renderPipeline(pid: string) {
       await p.builders.byBuilderId(bid).script.put({ script: fd(e).get('script') as string });
       await navigate();
     });
-  }).catch(e => fill('#builders-content', err(e)));
+  }).catch((e: unknown) => fill('#builders-content', err(e)));
 
   // Processing
-  p.processing.get().then(async steps => {
+  p.processing.get().then(async (steps: ProcessingStep[] | undefined) => {
     const list = steps ?? [];
-    const withDetails = await Promise.all(list.map(async s => ({
+    const withDetails = await Promise.all(list.map(async (s: ProcessingStep) => ({
       step: s,
       script: await p.processing.byProcessingId(s.id!).script.get().catch(() => null),
       verifications: await Promise.all(
-        ((await p.processing.byProcessingId(s.id!).verifications.get()) ?? []).map(async v => ({
+        ((await p.processing.byProcessingId(s.id!).verifications.get()) ?? []).map(async (v: Verification) => ({
           verification: v,
           script: await p.processing.byProcessingId(s.id!).verifications.byVerificationId(v.id!).script.get().catch(() => null),
         }))
@@ -241,7 +242,7 @@ async function renderPipeline(pid: string) {
           `}
           <div class="sub-items">
             <h3>Verifications</h3>
-            ${verifications.map(({ verification: v, script: vs }) => `
+            ${verifications.map(({ verification: v, script: vs }: { verification: Verification; script: ScriptVerification | null | undefined }) => `
               <div class="chip-row">
                 <span class="chip">${v.name}${vs ? ` — <code>${esc(vs.script ?? '')}</code>` : ''}
                   <button class="delete-verification" data-processing="${s.id}" data-id="${v.id}">&times;</button>
@@ -300,7 +301,7 @@ async function renderPipeline(pid: string) {
       });
       await navigate();
     });
-  }).catch(e => fill('#processing-content', err(e)));
+  }).catch((e: unknown) => fill('#processing-content', err(e)));
 
   // Triggers
   fill('#triggers-content', `

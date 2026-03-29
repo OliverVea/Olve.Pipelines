@@ -37,9 +37,20 @@ Step implementations (scripts, GitHub config, etc.) are attached via composition
 
 Configuration defines *what* each step does. Execution (source polling, build runners, artifact storage) is triggered via `/trigger/sourcing`, `/trigger/building`, `/trigger/processing/{id}`.
 
-### Execution Runners
+### Execution
 
-Sourcing, building, and processing steps run as external processes (shell scripts, docker commands, etc.). Runner infrastructure is TBD — needs decisions on where runners execute (local process, Kubernetes job, etc.), how they report status, and how to configure runner targets per environment.
+All pipeline steps execute as **Kubernetes Jobs**. Each Job gets:
+- A container image (e.g. git image for sourcing, SDK image for building, kubectl image for deploy)
+- A script to run
+- Environment variables from step configuration
+- Pipeline secrets (stored as K8s Secrets, auto-mounted)
+- Input bundle reference (S3 key) and output capture back to S3
+
+Current step types (ScriptBuilder, ScriptProcessing, etc.) define the script directly. Future typed templates (e.g. DotNetBuild, HelmBuild, K8sDeployment) will generate the script + image + env, keeping scripts as the "custom" fallback.
+
+### Pipeline Secrets
+
+Each pipeline has a K8s Secret (e.g. `olve-pipeline-{id}`) containing credentials needed by its steps (registry tokens, deploy keys, API keys). Secrets are managed via the API but injected directly from K8s into Jobs — they never pass through the app at runtime.
 
 ## Commands
 

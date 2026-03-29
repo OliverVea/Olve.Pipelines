@@ -20,4 +20,6 @@ public class AttachmentStore<TParent, TAttachment> where TParent : IHasId<Id<TPa
         => _attachments.TryGetValue(id, out attachment);
 
     public bool Remove(Id<TParent> id) => _attachments.TryRemove(id, out _);
+
+    public IReadOnlyDictionary<Id<TParent>, TAttachment> GetAll() => _attachments.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 }

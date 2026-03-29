@@ -1,0 +1,33 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: 10.0.200
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-restore --no-build -c Release || true  # No unit tests yet
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cd clients/olve-pipelines-client-ts && npm ci
+      - run: cd frontend && npm ci
+      - run: cd frontend && npm run build

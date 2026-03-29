@@ -1,0 +1,15 @@
+{
+  "name": "@olve/olve-pipelines-client",
+  "version": "0.0.0",
+  "description": "Generated TypeScript client for Olve.Pipelines",
+  "type": "module",
+  "main": "src/olvePipelinesClient.ts",
+  "dependencies": {
+    "@microsoft/kiota-abstractions": "^1.0.0-preview.100",
+    "@microsoft/kiota-http-fetchlibrary": "^1.0.0-preview.100",
+    "@microsoft/kiota-serialization-form": "^1.0.0-preview.100",
+    "@microsoft/kiota-serialization-json": "^1.0.0-preview.100",
+    "@microsoft/kiota-serialization-multipart": "^1.0.0-preview.100",
+    "@microsoft/kiota-serialization-text": "^1.0.0-preview.100"
+  }
+}

@@ -37,6 +37,10 @@ Step implementations (scripts, GitHub config, etc.) are attached via composition
 
 Configuration defines *what* each step does. Execution (source polling, build runners, artifact storage) is triggered via `/trigger/sourcing`, `/trigger/building`, `/trigger/processing/{id}`.
 
+### Execution Runners
+
+Sourcing, building, and processing steps run as external processes (shell scripts, docker commands, etc.). Runner infrastructure is TBD — needs decisions on where runners execute (local process, Kubernetes job, etc.), how they report status, and how to configure runner targets per environment.
+
 ## Commands
 
 ```bash

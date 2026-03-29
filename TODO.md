@@ -25,6 +25,7 @@
 - [ ] Verification: ScriptVerification runs shell script, exit code = pass/fail
 - [ ] Bundle status: Pending while running, Completed/Failed on finish
 - [ ] Store execution output/logs on bundles
+- [ ] Runner infrastructure: decide where runners execute (local process, K8s job, etc.) and how to configure runner targets per environment
 
 ## Automatic downstream triggering
 

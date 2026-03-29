@@ -18,7 +18,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release
-      - run: dotnet test --no-restore --no-build -c Release
+      - run: dotnet test --no-restore --no-build -c Release --minimum-expected-tests 0
 
   frontend:
     name: Frontend

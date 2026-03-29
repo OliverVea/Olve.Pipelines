@@ -1,0 +1,11 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UserSecretsId>bb7510ca-51f0-4345-a273-8368b69a2524</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

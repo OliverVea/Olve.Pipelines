@@ -1,0 +1,6 @@
+.git
+.claude
+.template.config
+TestResults
+**/bin
+**/obj

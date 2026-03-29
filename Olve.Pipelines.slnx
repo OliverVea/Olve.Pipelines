@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Olve.Pipelines/Olve.Pipelines.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj" />
+    <Project Path="test/Olve.Pipelines.IntegrationTests/Olve.Pipelines.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/clients/">
+    <Project Path="clients/Olve.Pipelines.Client/Olve.Pipelines.Client.csproj" />
+  </Folder>
+</Solution>

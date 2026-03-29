@@ -1,0 +1,65 @@
+{{- if .Values.slo.enabled }}
+apiVersion: sloth.slok.dev/v1
+kind: PrometheusServiceLevel
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    {{- range $key, $value := .Values.slo.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+spec:
+  service: {{ .Release.Name | quote }}
+  labels:
+    {{- range $key, $value := .Values.slo.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  slos:
+    - name: "requests-availability"
+      objective: {{ .Values.slo.objectives.availability.target }}
+      description: {{ .Values.slo.objectives.availability.description | quote }}
+      labels:
+        category: availability
+      sli:
+        events:
+          errorQuery: sum(rate(http_server_request_duration_seconds_count{job="{{ .Release.Name }}",http_response_status_code=~"5.."}[{{`{{.window}}`}}]))
+          totalQuery: sum(rate(http_server_request_duration_seconds_count{job="{{ .Release.Name }}"}[{{`{{.window}}`}}]))
+      alerting:
+        name: {{ .Release.Name | camelcase }}HighErrorRate
+        labels:
+          category: availability
+        annotations:
+          summary: "High error rate on {{ .Release.Name }}"
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
+
+    - name: "requests-latency"
+      objective: {{ .Values.slo.objectives.latency.target }}
+      description: {{ .Values.slo.objectives.latency.description | quote }}
+      labels:
+        category: latency
+      sli:
+        events:
+          errorQuery: |
+            (sum(rate(http_server_request_duration_seconds_count{job="{{ .Release.Name }}"}[{{`{{.window}}`}}]))
+            -
+            sum(rate(http_server_request_duration_seconds_bucket{job="{{ .Release.Name }}",le="{{ .Values.slo.objectives.latency.threshold }}"}[{{`{{.window}}`}}])))
+          totalQuery: sum(rate(http_server_request_duration_seconds_count{job="{{ .Release.Name }}"}[{{`{{.window}}`}}]))
+      alerting:
+        name: {{ .Release.Name | camelcase }}HighLatency
+        labels:
+          category: latency
+        annotations:
+          summary: "High latency on {{ .Release.Name }}"
+        pageAlert:
+          labels:
+            severity: critical
+        ticketAlert:
+          labels:
+            severity: warning
+{{- end }}

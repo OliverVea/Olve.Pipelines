@@ -1,0 +1,52 @@
+replicaCount: 1
+
+image:
+  repository: olve-pipelines
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+container:
+  port: 5000
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+config:
+  Host: "0.0.0.0"
+  Port: "5000"
+  Logging__LogLevel__Default: "Information"
+  Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+  Auth__Authority: "https://auth.ovea.pro/application/o/olve-pipelines/"
+  Auth__Audience: "olve-pipelines"
+  OpenTelemetry__Endpoint: "https://otel.ovea.pro"
+  OpenTelemetry__Protocol: "http"
+  OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"
+  OpenTelemetry__OAuth2__ClientId: "otel"
+
+secrets:
+  - name: authentik-oidc-secrets
+    envMap:
+      OpenTelemetry__OAuth2__ClientSecret: olve-pipelines-client-secret
+
+slo:
+  enabled: true
+  labels:
+    owner: "oliver"
+    tier: "2"
+  objectives:
+    availability:
+      target: 99.9
+      description: "HTTP requests should not return 5xx errors."
+    latency:
+      target: 99
+      threshold: "0.5"
+      description: "HTTP requests should complete within 500ms."

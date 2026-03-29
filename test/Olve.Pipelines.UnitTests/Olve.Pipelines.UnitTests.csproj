@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsTestProject Condition="'$(RunUnitTests)' == 'false'">false</IsTestProject>
+    <IsTestingPlatformApplication Condition="'$(RunUnitTests)' == 'false'">false</IsTestingPlatformApplication>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Olve.Results.TUnit" />
+    <PackageReference Include="Rocks" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Olve.Pipelines/Olve.Pipelines.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -8,6 +8,7 @@ namespace Olve.Pipelines.PipelineBuilders.Api;
 public static class PipelineBuilderEndpoints
 {
     public record CreatePipelineBuilderRequest(string Name);
+    public record SetScriptBuilderRequest(string Script);
 
     public static void MapPipelineBuilderEndpoints(this WebApplication app)
     {
@@ -76,6 +77,47 @@ public static class PipelineBuilderEndpoints
             {
                 return Result.Failure(new ResultProblem($"Builder '{builderId}' not found."));
             }
+
+            return Result.Success();
+        })
+        .WithResultMapping();
+
+        // Script builder attachment
+        group.MapPut("/{builderId:guid}/script", Result<ScriptBuilder> (
+            PipelineBuilderService builders,
+            Guid builderId,
+            SetScriptBuilderRequest request) =>
+        {
+            var id = new Id<PipelineBuilder>(new Id(builderId));
+            if (!builders.TryGet(id, out _))
+                return Result.Failure<ScriptBuilder>(new ResultProblem($"Builder '{builderId}' not found."));
+
+            var script = new ScriptBuilder(request.Script);
+            builders.SetScript(id, script);
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptBuilder>();
+
+        group.MapGet("/{builderId:guid}/script", Result<ScriptBuilder> (
+            PipelineBuilderService builders,
+            Guid builderId) =>
+        {
+            var id = new Id<PipelineBuilder>(new Id(builderId));
+            if (!builders.TryGetScript(id, out var script))
+                return Result.Failure<ScriptBuilder>(new ResultProblem($"Builder '{builderId}' has no script configuration."));
+
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptBuilder>()
+        .AllowAnonymous();
+
+        group.MapDelete("/{builderId:guid}/script", (
+            PipelineBuilderService builders,
+            Guid builderId) =>
+        {
+            var id = new Id<PipelineBuilder>(new Id(builderId));
+            if (!builders.RemoveScript(id))
+                return Result.Failure(new ResultProblem($"Builder '{builderId}' has no script configuration."));
 
             return Result.Success();
         })

@@ -1,9 +1,12 @@
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Health;
-using Olve.Pipelines.PipelineArtifacts.Api;
+using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineBuilders.Api;
+using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Api;
+using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.PipelineSources.Api;
+using Olve.Pipelines.Processing;
 using Olve.Pipelines.Processing.Api;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -17,6 +20,27 @@ builder.Services.AddPipelineServices();
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    DevelopmentPipelineSeeder.SeedImplementations(
+        scope.ServiceProvider.GetRequiredService<PipelineSourceService>(),
+        scope.ServiceProvider.GetRequiredService<PipelineBuilderService>(),
+        scope.ServiceProvider.GetRequiredService<ProcessingStepService>(),
+        scope.ServiceProvider.GetRequiredService<VerificationService>());
+}
+
+app.Use(async (context, next) =>
+{
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    await next();
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/api"))
+    {
+        app.Logger.LogInformation("{Method} {Path} {StatusCode} {Elapsed}ms",
+            context.Request.Method, path, context.Response.StatusCode, sw.ElapsedMilliseconds);
+    }
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -26,8 +50,8 @@ app.MapHealthEndpoints();
 app.MapPipelineEndpoints();
 app.MapPipelineSourceEndpoints();
 app.MapPipelineBuilderEndpoints();
-app.MapPipelineArtifactEndpoints();
 app.MapProcessingEndpoints();
+app.MapPipelineTriggerEndpoints();
 
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

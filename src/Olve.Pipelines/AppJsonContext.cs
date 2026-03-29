@@ -1,6 +1,5 @@
 using System.Text.Json.Serialization;
-using Olve.Pipelines.PipelineArtifacts;
-using Olve.Pipelines.PipelineArtifacts.Api;
+using Olve.Pipelines.Building;
 using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
@@ -8,11 +7,13 @@ using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.PipelineSources.Api;
 using Olve.Pipelines.Processing;
 using Olve.Pipelines.Processing.Api;
+using Olve.Pipelines.Sourcing;
 using Olve.Results;
 
 namespace Olve.Pipelines;
 
 [JsonSerializable(typeof(Guid))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(Result))]
 [JsonSerializable(typeof(ResultProblem[]))]
 [JsonSerializable(typeof(Result<Pipeline>))]
@@ -23,13 +24,22 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<PipelineBuilder>))]
 [JsonSerializable(typeof(Result<PipelineBuilder[]>))]
 [JsonSerializable(typeof(PipelineBuilderEndpoints.CreatePipelineBuilderRequest))]
-[JsonSerializable(typeof(Result<PipelineArtifact>))]
-[JsonSerializable(typeof(Result<PipelineArtifact[]>))]
-[JsonSerializable(typeof(PipelineArtifactEndpoints.CreatePipelineArtifactRequest))]
 [JsonSerializable(typeof(Result<ProcessingStep>))]
 [JsonSerializable(typeof(Result<ProcessingStep[]>))]
 [JsonSerializable(typeof(ProcessingEndpoints.CreateProcessingStepRequest))]
 [JsonSerializable(typeof(Result<Verification>))]
 [JsonSerializable(typeof(Result<Verification[]>))]
 [JsonSerializable(typeof(ProcessingEndpoints.CreateVerificationRequest))]
+[JsonSerializable(typeof(Result<HardcodedSource>))]
+[JsonSerializable(typeof(PipelineSourceEndpoints.SetHardcodedSourceRequest))]
+[JsonSerializable(typeof(Result<GitHubSource>))]
+[JsonSerializable(typeof(PipelineSourceEndpoints.SetGitHubSourceRequest))]
+[JsonSerializable(typeof(Result<ScriptBuilder>))]
+[JsonSerializable(typeof(PipelineBuilderEndpoints.SetScriptBuilderRequest))]
+[JsonSerializable(typeof(Result<ScriptProcessing>))]
+[JsonSerializable(typeof(ProcessingEndpoints.SetScriptProcessingRequest))]
+[JsonSerializable(typeof(Result<ScriptVerification>))]
+[JsonSerializable(typeof(ProcessingEndpoints.SetScriptVerificationRequest))]
+[JsonSerializable(typeof(Result<SourceBundle>))]
+[JsonSerializable(typeof(Result<ArtifactBundle>))]
 internal partial class AppJsonContext : JsonSerializerContext;

@@ -8,7 +8,9 @@ namespace Olve.Pipelines.Processing.Api;
 public static class ProcessingEndpoints
 {
     public record CreateProcessingStepRequest(string Name);
+    public record SetScriptProcessingRequest(string Script);
     public record CreateVerificationRequest(string Name);
+    public record SetScriptVerificationRequest(string Script);
 
     public static void MapProcessingEndpoints(this WebApplication app)
     {
@@ -82,6 +84,47 @@ public static class ProcessingEndpoints
         })
         .WithResultMapping();
 
+        // Script processing attachment
+        group.MapPut("/{processingId:guid}/script", Result<ScriptProcessing> (
+            ProcessingStepService processing,
+            Guid processingId,
+            SetScriptProcessingRequest request) =>
+        {
+            var id = new Id<ProcessingStep>(new Id(processingId));
+            if (!processing.TryGet(id, out _))
+                return Result.Failure<ScriptProcessing>(new ResultProblem($"Processing step '{processingId}' not found."));
+
+            var script = new ScriptProcessing(request.Script);
+            processing.SetScript(id, script);
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptProcessing>();
+
+        group.MapGet("/{processingId:guid}/script", Result<ScriptProcessing> (
+            ProcessingStepService processing,
+            Guid processingId) =>
+        {
+            var id = new Id<ProcessingStep>(new Id(processingId));
+            if (!processing.TryGetScript(id, out var script))
+                return Result.Failure<ScriptProcessing>(new ResultProblem($"Processing step '{processingId}' has no script configuration."));
+
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptProcessing>()
+        .AllowAnonymous();
+
+        group.MapDelete("/{processingId:guid}/script", (
+            ProcessingStepService processing,
+            Guid processingId) =>
+        {
+            var id = new Id<ProcessingStep>(new Id(processingId));
+            if (!processing.RemoveScript(id))
+                return Result.Failure(new ResultProblem($"Processing step '{processingId}' has no script configuration."));
+
+            return Result.Success();
+        })
+        .WithResultMapping();
+
         // Verification endpoints
         var verificationGroup = app.MapGroup("/api/pipelines/{pipelineId:guid}/processing/{processingId:guid}/verifications");
 
@@ -148,6 +191,47 @@ public static class ProcessingEndpoints
             {
                 return Result.Failure(new ResultProblem($"Verification '{verificationId}' not found."));
             }
+
+            return Result.Success();
+        })
+        .WithResultMapping();
+
+        // Script verification attachment
+        verificationGroup.MapPut("/{verificationId:guid}/script", Result<ScriptVerification> (
+            VerificationService verifications,
+            Guid verificationId,
+            SetScriptVerificationRequest request) =>
+        {
+            var id = new Id<Verification>(new Id(verificationId));
+            if (!verifications.TryGet(id, out _))
+                return Result.Failure<ScriptVerification>(new ResultProblem($"Verification '{verificationId}' not found."));
+
+            var script = new ScriptVerification(request.Script);
+            verifications.SetScript(id, script);
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptVerification>();
+
+        verificationGroup.MapGet("/{verificationId:guid}/script", Result<ScriptVerification> (
+            VerificationService verifications,
+            Guid verificationId) =>
+        {
+            var id = new Id<Verification>(new Id(verificationId));
+            if (!verifications.TryGetScript(id, out var script))
+                return Result.Failure<ScriptVerification>(new ResultProblem($"Verification '{verificationId}' has no script configuration."));
+
+            return Result.Success(script);
+        })
+        .WithResultMapping<ScriptVerification>()
+        .AllowAnonymous();
+
+        verificationGroup.MapDelete("/{verificationId:guid}/script", (
+            VerificationService verifications,
+            Guid verificationId) =>
+        {
+            var id = new Id<Verification>(new Id(verificationId));
+            if (!verifications.RemoveScript(id))
+                return Result.Failure(new ResultProblem($"Verification '{verificationId}' has no script configuration."));
 
             return Result.Success();
         })

@@ -4,4 +4,6 @@ using Olve.Utilities.Lookup;
 
 namespace Olve.Pipelines.Processing;
 
-public record ProcessingStep(Id<ProcessingStep> Id, string Name, Id<Pipeline> PipelineId) : IHasId<Id<ProcessingStep>>;
+public enum ProcessingStepType { None, Script }
+
+public record ProcessingStep(Id<ProcessingStep> Id, string Name, Id<Pipeline> PipelineId, ProcessingStepType Type = ProcessingStepType.None) : IHasId<Id<ProcessingStep>>;

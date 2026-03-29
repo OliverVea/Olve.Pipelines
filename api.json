@@ -343,6 +343,262 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded": {
+      "put": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetHardcodedSourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardcodedSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HardcodedSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/sources/{sourceId}/github": {
+      "put": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGitHubSourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/builders": {
       "post": {
         "tags": [
@@ -517,8 +773,8 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/builders/{builderId}/artifacts": {
-      "post": {
+    "/api/pipelines/{pipelineId}/builders/{builderId}/script": {
+      "put": {
         "tags": [
           "Olve.Pipelines"
         ],
@@ -537,7 +793,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePipelineArtifactRequest"
+                "$ref": "#/components/schemas/SetScriptBuilderRequest"
               }
             }
           },
@@ -549,7 +805,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineArtifact"
+                  "$ref": "#/components/schemas/ScriptBuilder"
                 }
               }
             }
@@ -590,53 +846,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PipelineArtifact"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/builders/{builderId}/artifacts/{artifactId}": {
-      "get": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "parameters": [
-          {
-            "name": "artifactId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineArtifact"
+                  "$ref": "#/components/schemas/ScriptBuilder"
                 }
               }
             }
@@ -662,7 +872,7 @@
         ],
         "parameters": [
           {
-            "name": "artifactId",
+            "name": "builderId",
             "in": "path",
             "required": true,
             "schema": {
@@ -811,6 +1021,134 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProcessingStep"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "processingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/processing/{processingId}/script": {
+      "put": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "processingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetScriptProcessingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptProcessing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "processingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptProcessing"
                 }
               }
             }
@@ -1038,20 +1376,306 @@
           }
         }
       }
+    },
+    "/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script": {
+      "put": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetScriptVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptVerification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptVerification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "verificationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/trigger/sourcing": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/trigger/building": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/trigger/processing/{processingStepId}": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "processingStepId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
-      "CreatePipelineArtifactRequest": {
+      "ArtifactBundle": {
         "required": [
-          "name"
+          "id",
+          "pipelineId",
+          "sourceBundleId",
+          "createdAt",
+          "status"
         ],
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
+          "id": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "sourceBundleId": {
+            "$ref": "#/components/schemas/IdOfSourceBundle"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ArtifactBundleStatus"
           }
         }
+      },
+      "ArtifactBundleStatus": {
+        "type": "integer"
       },
       "CreatePipelineBuilderRequest": {
         "required": [
@@ -1097,12 +1721,67 @@
           }
         }
       },
-      "IdOfPipeline": { },
-      "IdOfPipelineArtifact": { },
-      "IdOfPipelineBuilder": { },
-      "IdOfPipelineSource": { },
-      "IdOfProcessingStep": { },
-      "IdOfVerification": { },
+      "GitHubSource": {
+        "required": [
+          "owner",
+          "repository",
+          "branch"
+        ],
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
+        }
+      },
+      "HardcodedSource": {
+        "required": [
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "IdOfArtifactBundle": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfPipeline": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfPipelineBuilder": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfPipelineSource": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfProcessingStep": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfSourceBundle": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfVerification": {
+        "type": "string",
+        "format": "uuid"
+      },
       "Pipeline": {
         "required": [
           "id",
@@ -1115,25 +1794,6 @@
           },
           "name": {
             "type": "string"
-          }
-        }
-      },
-      "PipelineArtifact": {
-        "required": [
-          "id",
-          "name",
-          "builderId"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/IdOfPipelineArtifact"
-          },
-          "name": {
-            "type": "string"
-          },
-          "builderId": {
-            "$ref": "#/components/schemas/IdOfPipelineBuilder"
           }
         }
       },
@@ -1153,8 +1813,15 @@
           },
           "pipelineId": {
             "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PipelineBuilderType"
           }
         }
+      },
+      "PipelineBuilderType": {
+        "type": "integer",
+        "default": 0
       },
       "PipelineSource": {
         "required": [
@@ -1172,8 +1839,15 @@
           },
           "pipelineId": {
             "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PipelineSourceType"
           }
         }
+      },
+      "PipelineSourceType": {
+        "type": "integer",
+        "default": 0
       },
       "ProcessingStep": {
         "required": [
@@ -1191,8 +1865,15 @@
           },
           "pipelineId": {
             "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ProcessingStepType"
           }
         }
+      },
+      "ProcessingStepType": {
+        "type": "integer",
+        "default": 0
       },
       "ResultProblem": {
         "required": [
@@ -1238,6 +1919,132 @@
           }
         }
       },
+      "ScriptBuilder": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "ScriptProcessing": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "ScriptVerification": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "SetGitHubSourceRequest": {
+        "required": [
+          "owner",
+          "repository",
+          "branch"
+        ],
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          }
+        }
+      },
+      "SetHardcodedSourceRequest": {
+        "required": [
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SetScriptBuilderRequest": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "SetScriptProcessingRequest": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "SetScriptVerificationRequest": {
+        "required": [
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceBundle": {
+        "required": [
+          "id",
+          "pipelineId",
+          "createdAt",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfSourceBundle"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SourceBundleStatus"
+          }
+        }
+      },
+      "SourceBundleStatus": {
+        "type": "integer"
+      },
       "Verification": {
         "required": [
           "id",
@@ -1254,8 +2061,15 @@
           },
           "processingStepId": {
             "$ref": "#/components/schemas/IdOfProcessingStep"
+          },
+          "type": {
+            "$ref": "#/components/schemas/VerificationType"
           }
         }
+      },
+      "VerificationType": {
+        "type": "integer",
+        "default": 0
       }
     }
   },

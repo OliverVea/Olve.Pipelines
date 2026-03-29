@@ -481,8 +481,8 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Generated API clients
-clients/
+# Client node_modules
+clients/*/node_modules/
 
 # Frontend build output
 frontend/dist/

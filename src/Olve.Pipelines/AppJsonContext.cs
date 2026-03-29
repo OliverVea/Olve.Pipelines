@@ -1,11 +1,13 @@
 using System.Text.Json.Serialization;
 using Olve.Pipelines.PipelineArtifacts;
 using Olve.Pipelines.PipelineArtifacts.Api;
-using Olve.Pipelines.PipelineBuilds;
-using Olve.Pipelines.PipelineBuilds.Api;
+using Olve.Pipelines.PipelineBuilders;
+using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.PipelineSources.Api;
+using Olve.Pipelines.Processing;
+using Olve.Pipelines.Processing.Api;
 using Olve.Results;
 
 namespace Olve.Pipelines;
@@ -17,20 +19,17 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<Pipeline[]>))]
 [JsonSerializable(typeof(Result<PipelineSource>))]
 [JsonSerializable(typeof(Result<PipelineSource[]>))]
-[JsonSerializable(typeof(PipelineSource))]
-[JsonSerializable(typeof(GitHubRepositorySource))]
-[JsonSerializable(typeof(PipelineSourceEndpoints.SetPipelineSourceRequest))]
-[JsonSerializable(typeof(PipelineSourceEndpoints.SetGitHubSourceRequest))]
-[JsonSerializable(typeof(Result<PipelineBuild>))]
-[JsonSerializable(typeof(Result<PipelineBuild[]>))]
-[JsonSerializable(typeof(PipelineBuildEndpoints.CreatePipelineBuildRequest))]
+[JsonSerializable(typeof(PipelineSourceEndpoints.CreatePipelineSourceRequest))]
+[JsonSerializable(typeof(Result<PipelineBuilder>))]
+[JsonSerializable(typeof(Result<PipelineBuilder[]>))]
+[JsonSerializable(typeof(PipelineBuilderEndpoints.CreatePipelineBuilderRequest))]
 [JsonSerializable(typeof(Result<PipelineArtifact>))]
 [JsonSerializable(typeof(Result<PipelineArtifact[]>))]
 [JsonSerializable(typeof(PipelineArtifactEndpoints.CreatePipelineArtifactRequest))]
-[JsonSerializable(typeof(Result<PipelineProcessing.PipelineProcessingStep>))]
-[JsonSerializable(typeof(Result<PipelineProcessing.PipelineProcessingStep[]>))]
-[JsonSerializable(typeof(PipelineProcessing.Api.PipelineProcessingEndpoints.CreatePipelineProcessingRequest))]
-[JsonSerializable(typeof(Result<PipelineProcessing.PipelineVerification>))]
-[JsonSerializable(typeof(Result<PipelineProcessing.PipelineVerification[]>))]
-[JsonSerializable(typeof(PipelineProcessing.Api.PipelineProcessingEndpoints.CreatePipelineVerificationRequest))]
+[JsonSerializable(typeof(Result<ProcessingStep>))]
+[JsonSerializable(typeof(Result<ProcessingStep[]>))]
+[JsonSerializable(typeof(ProcessingEndpoints.CreateProcessingStepRequest))]
+[JsonSerializable(typeof(Result<Verification>))]
+[JsonSerializable(typeof(Result<Verification[]>))]
+[JsonSerializable(typeof(ProcessingEndpoints.CreateVerificationRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

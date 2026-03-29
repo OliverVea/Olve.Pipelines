@@ -1,7 +1,7 @@
 using Olve.Pipelines.PipelineArtifacts;
-using Olve.Pipelines.PipelineBuilds;
-using Olve.Pipelines.PipelineProcessing;
+using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineSources;
+using Olve.Pipelines.Processing;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.Pipelines;
@@ -10,10 +10,10 @@ public static class DevelopmentPipelineSeeder
 {
     private static readonly Id<Pipeline> PipelineId = Id.FromName<Pipeline>("Olve.Pipelines");
     private static readonly Id<PipelineSource> SourceId = Id.FromName<PipelineSource>("Olve.Pipelines");
-    private static readonly Id<PipelineBuild> BuildId = Id.FromName<PipelineBuild>("Olve.Pipelines.Docker");
+    private static readonly Id<PipelineBuilder> BuilderId = Id.FromName<PipelineBuilder>("Olve.Pipelines.Docker");
     private static readonly Id<PipelineArtifact> ArtifactId = Id.FromName<PipelineArtifact>("Olve.Pipelines.Docker.Image");
-    private static readonly Id<PipelineProcessingStep> ProcessingId = Id.FromName<PipelineProcessingStep>("Olve.Pipelines.Deploy");
-    private static readonly Id<PipelineVerification> VerificationId = Id.FromName<PipelineVerification>("Olve.Pipelines.Deploy.HealthCheck");
+    private static readonly Id<ProcessingStep> ProcessingId = Id.FromName<ProcessingStep>("Olve.Pipelines.Deploy");
+    private static readonly Id<Verification> VerificationId = Id.FromName<Verification>("Olve.Pipelines.Deploy.HealthCheck");
 
     public static IEnumerable<Pipeline> GetPipelines() =>
     [
@@ -22,26 +22,26 @@ public static class DevelopmentPipelineSeeder
 
     public static IEnumerable<PipelineSource> GetPipelineSources() =>
     [
-        new GitHubRepositorySource(SourceId, "Olve.Pipelines", PipelineId, "OliverVea", "Olve.Pipelines", "main"),
+        new PipelineSource(SourceId, "Olve.Pipelines", PipelineId),
     ];
 
-    public static IEnumerable<PipelineBuild> GetPipelineBuilds() =>
+    public static IEnumerable<PipelineBuilder> GetPipelineBuilders() =>
     [
-        new PipelineBuild(BuildId, "Docker", PipelineId),
+        new PipelineBuilder(BuilderId, "Docker", PipelineId),
     ];
 
     public static IEnumerable<PipelineArtifact> GetPipelineArtifacts() =>
     [
-        new PipelineArtifact(ArtifactId, "Docker Image", BuildId),
+        new PipelineArtifact(ArtifactId, "Docker Image", BuilderId),
     ];
 
-    public static IEnumerable<PipelineProcessingStep> GetPipelineProcessing() =>
+    public static IEnumerable<ProcessingStep> GetProcessingSteps() =>
     [
-        new PipelineProcessingStep(ProcessingId, "Deploy", PipelineId),
+        new ProcessingStep(ProcessingId, "Deploy", PipelineId),
     ];
 
-    public static IEnumerable<PipelineVerification> GetPipelineVerifications() =>
+    public static IEnumerable<Verification> GetVerifications() =>
     [
-        new PipelineVerification(VerificationId, "Health Check", ProcessingId),
+        new Verification(VerificationId, "Health Check", ProcessingId),
     ];
 }

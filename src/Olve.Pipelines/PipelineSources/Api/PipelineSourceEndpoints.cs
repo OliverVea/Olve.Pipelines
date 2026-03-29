@@ -1,4 +1,3 @@
-using System.Text.Json.Serialization;
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
 using Olve.Results;
@@ -8,11 +7,7 @@ namespace Olve.Pipelines.PipelineSources.Api;
 
 public static class PipelineSourceEndpoints
 {
-    [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-    [JsonDerivedType(typeof(SetGitHubSourceRequest), "github")]
-    public abstract record SetPipelineSourceRequest;
-
-    public record SetGitHubSourceRequest(string Name, string Owner, string Repository, string Branch) : SetPipelineSourceRequest;
+    public record CreatePipelineSourceRequest(string Name);
 
     public static void MapPipelineSourceEndpoints(this WebApplication app)
     {
@@ -22,7 +17,7 @@ public static class PipelineSourceEndpoints
             PipelineService pipelines,
             PipelineSourceService sources,
             Guid pipelineId,
-            SetPipelineSourceRequest request) =>
+            CreatePipelineSourceRequest request) =>
         {
             var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
 
@@ -31,14 +26,7 @@ public static class PipelineSourceEndpoints
                 return Result.Failure<PipelineSource>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var sourceId = Id.New<PipelineSource>();
-
-            var source = request switch
-            {
-                SetGitHubSourceRequest gh => (PipelineSource)new GitHubRepositorySource(sourceId, gh.Name, pipelineIdTyped, gh.Owner, gh.Repository, gh.Branch),
-                _ => throw new InvalidOperationException("Unknown source type."),
-            };
-
+            var source = new PipelineSource(Id.New<PipelineSource>(), request.Name, pipelineIdTyped);
             sources.Set(source);
             return Result.Success(source);
         })

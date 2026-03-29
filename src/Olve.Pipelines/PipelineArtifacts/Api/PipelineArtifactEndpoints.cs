@@ -1,5 +1,5 @@
 using Olve.MinimalApi;
-using Olve.Pipelines.PipelineBuilds;
+using Olve.Pipelines.PipelineBuilders;
 using Olve.Results;
 using Olve.Utilities.Ids;
 
@@ -11,22 +11,22 @@ public static class PipelineArtifactEndpoints
 
     public static void MapPipelineArtifactEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/builds/{buildId:guid}/artifacts");
+        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/builders/{builderId:guid}/artifacts");
 
         group.MapPost("/", Result<PipelineArtifact> (
-            PipelineBuildService builds,
+            PipelineBuilderService builders,
             PipelineArtifactService artifacts,
-            Guid buildId,
+            Guid builderId,
             CreatePipelineArtifactRequest request) =>
         {
-            var buildIdTyped = new Id<PipelineBuild>(new Id(buildId));
+            var builderIdTyped = new Id<PipelineBuilder>(new Id(builderId));
 
-            if (!builds.TryGet(buildIdTyped, out _))
+            if (!builders.TryGet(builderIdTyped, out _))
             {
-                return Result.Failure<PipelineArtifact>(new ResultProblem($"Build '{buildId}' not found."));
+                return Result.Failure<PipelineArtifact>(new ResultProblem($"Builder '{builderId}' not found."));
             }
 
-            var artifact = new PipelineArtifact(Id.New<PipelineArtifact>(), request.Name, buildIdTyped);
+            var artifact = new PipelineArtifact(Id.New<PipelineArtifact>(), request.Name, builderIdTyped);
             artifacts.Set(artifact);
             return Result.Success(artifact);
         })
@@ -49,19 +49,19 @@ public static class PipelineArtifactEndpoints
         .AllowAnonymous();
 
         group.MapGet("/", Result<PipelineArtifact[]> (
-            PipelineBuildService builds,
+            PipelineBuilderService builders,
             PipelineArtifactService artifacts,
-            Guid buildId) =>
+            Guid builderId) =>
         {
-            var buildIdTyped = new Id<PipelineBuild>(new Id(buildId));
+            var builderIdTyped = new Id<PipelineBuilder>(new Id(builderId));
 
-            if (!builds.TryGet(buildIdTyped, out _))
+            if (!builders.TryGet(builderIdTyped, out _))
             {
-                return Result.Failure<PipelineArtifact[]>(new ResultProblem($"Build '{buildId}' not found."));
+                return Result.Failure<PipelineArtifact[]>(new ResultProblem($"Builder '{builderId}' not found."));
             }
 
-            var buildArtifacts = artifacts.GetByBuildId(buildIdTyped).ToArray();
-            return Result.Success(buildArtifacts);
+            var builderArtifacts = artifacts.GetByBuilderId(builderIdTyped).ToArray();
+            return Result.Success(builderArtifacts);
         })
         .WithResultMapping<PipelineArtifact[]>()
         .AllowAnonymous();

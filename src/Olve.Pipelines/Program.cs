@@ -1,10 +1,10 @@
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Health;
 using Olve.Pipelines.PipelineArtifacts.Api;
-using Olve.Pipelines.PipelineBuilds.Api;
-using Olve.Pipelines.PipelineProcessing.Api;
+using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines.Api;
 using Olve.Pipelines.PipelineSources.Api;
+using Olve.Pipelines.Processing.Api;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -25,9 +25,9 @@ app.MapAuthentication();
 app.MapHealthEndpoints();
 app.MapPipelineEndpoints();
 app.MapPipelineSourceEndpoints();
-app.MapPipelineBuildEndpoints();
+app.MapPipelineBuilderEndpoints();
 app.MapPipelineArtifactEndpoints();
-app.MapPipelineProcessingEndpoints();
+app.MapProcessingEndpoints();
 
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

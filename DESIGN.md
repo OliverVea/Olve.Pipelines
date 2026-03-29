@@ -1,33 +1,53 @@
 # Design
 
-Olve.Pipelines is a lightweight CI/CD pipeline configuration and orchestration service.
+Olve.Pipelines is a lightweight CI/CD pipeline configuration and orchestration service for a homelab.
 
-## Pipeline
+## Pipeline Flow
 
-A **pipeline** is the top-level entity. It groups sources, builds, and processing steps.
+A pipeline has three phases that execute in sequence:
 
-## Sources
+```
+Sourcing ──(SourceBundle)──> Building ──(ArtifactBundle)──> Processing 1 ──(ArtifactBundle)──> ... ──> Processing N
+```
 
-A pipeline has one or more named **sources** (e.g. a GitHub repository). When any source detects a change, all sources are snapshotted together and fed to the build step. Sources can also be triggered manually.
+Each phase can be triggered independently ("run this step with whatever is at your input").
 
-## Builds
+## Terminology
 
-A pipeline has one or more named **builds**. A build takes the source snapshot as input and produces **artifacts**. Each build defines the set of named artifacts it outputs (e.g. "Docker Image").
+### Pipeline
 
-## Processing Steps
+The top-level entity. Groups all configuration for a single CI/CD workflow.
 
-A pipeline has an ordered list of **processing steps** (e.g. "Deploy to Staging", "Deploy to Production"). Each processing step:
+### PipelineSource
 
-- Takes a build's artifacts as input.
-- Runs a main action (e.g. deployment).
-- Runs a list of **verification steps** (e.g. health check, smoke test).
-- On success, promotes the artifacts to the next processing step.
-- On verification failure, blocks further progress until it succeeds.
+Defines where code or data comes from (e.g. a GitHub repository). A pipeline has many sources. During **sourcing**, all sources are snapshotted together into a **SourceBundle**.
 
-## Manual Triggers
+### PipelineBuilder
 
-Each step in the pipeline (source snapshot, build, processing) can be triggered independently with a "run this step with whatever is currently at your input" action.
+Defines how to build. A pipeline has many builders. During **building**, each builder takes a SourceBundle as input and produces named **Artifacts**. The combined output is an **ArtifactBundle**.
 
-## Current Scope
+### PipelineArtifact
 
-For now, only pipeline **configuration** is modeled (entities, CRUD endpoints). Actual execution (source polling, build runners, S3 storage, artifact bundling) will be added later.
+A named output of a builder (e.g. "Docker Image"). Belongs to a specific builder.
+
+### ProcessingStep
+
+A post-build action (e.g. deploy to staging, deploy to production). A pipeline has an ordered list of processing steps. Each step takes an ArtifactBundle as input and, on success, promotes it to the next step.
+
+### Verification
+
+A check that gates a processing step (e.g. health check, smoke test). A processing step has many verifications. If any verification fails, promotion is blocked until it passes.
+
+### SourceBundle (future)
+
+A snapshot of all sources at a point in time. Produced by the sourcing phase. Has an ID for traceability.
+
+### ArtifactBundle (future)
+
+The collected build outputs. Produced by the building phase and passed through processing steps. Has an ID for traceability.
+
+## Configuration vs Execution
+
+Currently, only **configuration** is modeled — entities define what each step does, not how it runs. Execution (source polling, build runners, S3 storage, artifact bundling) will be added later.
+
+Step implementations (e.g. "run this script", "pull from GitHub") will be attached to steps via composition, not inheritance. Each step type gets a dedicated sub-resource endpoint (e.g. `PUT /sources/{id}/github`).

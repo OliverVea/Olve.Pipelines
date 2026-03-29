@@ -189,7 +189,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPipelineSourceRequest"
+                "$ref": "#/components/schemas/CreatePipelineSourceRequest"
               }
             }
           },
@@ -343,7 +343,7 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/builds": {
+    "/api/pipelines/{pipelineId}/builders": {
       "post": {
         "tags": [
           "Olve.Pipelines"
@@ -363,7 +363,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePipelineBuildRequest"
+                "$ref": "#/components/schemas/CreatePipelineBuilderRequest"
               }
             }
           },
@@ -375,7 +375,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineBuild"
+                  "$ref": "#/components/schemas/PipelineBuilder"
                 }
               }
             }
@@ -418,7 +418,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PipelineBuild"
+                    "$ref": "#/components/schemas/PipelineBuilder"
                   }
                 }
               }
@@ -440,14 +440,14 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/builds/{buildId}": {
+    "/api/pipelines/{pipelineId}/builders/{builderId}": {
       "get": {
         "tags": [
           "Olve.Pipelines"
         ],
         "parameters": [
           {
-            "name": "buildId",
+            "name": "builderId",
             "in": "path",
             "required": true,
             "schema": {
@@ -462,7 +462,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineBuild"
+                  "$ref": "#/components/schemas/PipelineBuilder"
                 }
               }
             }
@@ -488,7 +488,7 @@
         ],
         "parameters": [
           {
-            "name": "buildId",
+            "name": "builderId",
             "in": "path",
             "required": true,
             "schema": {
@@ -517,14 +517,14 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/builds/{buildId}/artifacts": {
+    "/api/pipelines/{pipelineId}/builders/{builderId}/artifacts": {
       "post": {
         "tags": [
           "Olve.Pipelines"
         ],
         "parameters": [
           {
-            "name": "buildId",
+            "name": "builderId",
             "in": "path",
             "required": true,
             "schema": {
@@ -575,7 +575,7 @@
         ],
         "parameters": [
           {
-            "name": "buildId",
+            "name": "builderId",
             "in": "path",
             "required": true,
             "schema": {
@@ -614,7 +614,7 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/builds/{buildId}/artifacts/{artifactId}": {
+    "/api/pipelines/{pipelineId}/builders/{builderId}/artifacts/{artifactId}": {
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -711,7 +711,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePipelineProcessingRequest"
+                "$ref": "#/components/schemas/CreateProcessingStepRequest"
               }
             }
           },
@@ -723,7 +723,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineProcessingStep"
+                  "$ref": "#/components/schemas/ProcessingStep"
                 }
               }
             }
@@ -766,7 +766,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PipelineProcessingStep"
+                    "$ref": "#/components/schemas/ProcessingStep"
                   }
                 }
               }
@@ -810,7 +810,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineProcessingStep"
+                  "$ref": "#/components/schemas/ProcessingStep"
                 }
               }
             }
@@ -885,7 +885,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePipelineVerificationRequest"
+                "$ref": "#/components/schemas/CreateVerificationRequest"
               }
             }
           },
@@ -897,7 +897,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineVerification"
+                  "$ref": "#/components/schemas/Verification"
                 }
               }
             }
@@ -940,7 +940,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PipelineVerification"
+                    "$ref": "#/components/schemas/Verification"
                   }
                 }
               }
@@ -984,7 +984,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineVerification"
+                  "$ref": "#/components/schemas/Verification"
                 }
               }
             }
@@ -1053,7 +1053,7 @@
           }
         }
       },
-      "CreatePipelineBuildRequest": {
+      "CreatePipelineBuilderRequest": {
         "required": [
           "name"
         ],
@@ -1064,7 +1064,7 @@
           }
         }
       },
-      "CreatePipelineProcessingRequest": {
+      "CreatePipelineSourceRequest": {
         "required": [
           "name"
         ],
@@ -1075,7 +1075,18 @@
           }
         }
       },
-      "CreatePipelineVerificationRequest": {
+      "CreateProcessingStepRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateVerificationRequest": {
         "required": [
           "name"
         ],
@@ -1088,10 +1099,10 @@
       },
       "IdOfPipeline": { },
       "IdOfPipelineArtifact": { },
-      "IdOfPipelineBuild": { },
-      "IdOfPipelineProcessingStep": { },
+      "IdOfPipelineBuilder": { },
       "IdOfPipelineSource": { },
-      "IdOfPipelineVerification": { },
+      "IdOfProcessingStep": { },
+      "IdOfVerification": { },
       "Pipeline": {
         "required": [
           "id",
@@ -1111,7 +1122,7 @@
         "required": [
           "id",
           "name",
-          "buildId"
+          "builderId"
         ],
         "type": "object",
         "properties": {
@@ -1121,12 +1132,12 @@
           "name": {
             "type": "string"
           },
-          "buildId": {
-            "$ref": "#/components/schemas/IdOfPipelineBuild"
+          "builderId": {
+            "$ref": "#/components/schemas/IdOfPipelineBuilder"
           }
         }
       },
-      "PipelineBuild": {
+      "PipelineBuilder": {
         "required": [
           "id",
           "name",
@@ -1135,26 +1146,7 @@
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfPipelineBuild"
-          },
-          "name": {
-            "type": "string"
-          },
-          "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
-          }
-        }
-      },
-      "PipelineProcessingStep": {
-        "required": [
-          "id",
-          "name",
-          "pipelineId"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/IdOfPipelineProcessingStep"
+            "$ref": "#/components/schemas/IdOfPipelineBuilder"
           },
           "name": {
             "type": "string"
@@ -1166,46 +1158,12 @@
       },
       "PipelineSource": {
         "required": [
-          "type"
-        ],
-        "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/PipelineSourceGitHubRepositorySource"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "github": "#/components/schemas/PipelineSourceGitHubRepositorySource"
-          }
-        }
-      },
-      "PipelineSourceGitHubRepositorySource": {
-        "required": [
-          "owner",
-          "repository",
-          "branch",
           "id",
           "name",
           "pipelineId"
         ],
+        "type": "object",
         "properties": {
-          "type": {
-            "enum": [
-              "github"
-            ],
-            "type": "string"
-          },
-          "owner": {
-            "type": "string"
-          },
-          "repository": {
-            "type": "string"
-          },
-          "branch": {
-            "type": "string"
-          },
           "id": {
             "$ref": "#/components/schemas/IdOfPipelineSource"
           },
@@ -1217,22 +1175,22 @@
           }
         }
       },
-      "PipelineVerification": {
+      "ProcessingStep": {
         "required": [
           "id",
           "name",
-          "processingId"
+          "pipelineId"
         ],
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfPipelineVerification"
+            "$ref": "#/components/schemas/IdOfProcessingStep"
           },
           "name": {
             "type": "string"
           },
-          "processingId": {
-            "$ref": "#/components/schemas/IdOfPipelineProcessingStep"
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
           }
         }
       },
@@ -1280,48 +1238,22 @@
           }
         }
       },
-      "SetPipelineSourceRequest": {
+      "Verification": {
         "required": [
-          "type"
+          "id",
+          "name",
+          "processingStepId"
         ],
         "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/SetPipelineSourceRequestSetGitHubSourceRequest"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "github": "#/components/schemas/SetPipelineSourceRequestSetGitHubSourceRequest"
-          }
-        }
-      },
-      "SetPipelineSourceRequestSetGitHubSourceRequest": {
-        "required": [
-          "name",
-          "owner",
-          "repository",
-          "branch"
-        ],
         "properties": {
-          "type": {
-            "enum": [
-              "github"
-            ],
-            "type": "string"
+          "id": {
+            "$ref": "#/components/schemas/IdOfVerification"
           },
           "name": {
             "type": "string"
           },
-          "owner": {
-            "type": "string"
-          },
-          "repository": {
-            "type": "string"
-          },
-          "branch": {
-            "type": "string"
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
           }
         }
       }

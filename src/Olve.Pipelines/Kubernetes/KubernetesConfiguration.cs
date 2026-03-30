@@ -11,9 +11,10 @@ public static class KubernetesConfiguration
         var clientId = builder.Configuration["Storage:ClientId"];
         var clientSecret = builder.Configuration["Storage:ClientSecret"];
 
+        builder.Services.AddSingleton<JobTracker>();
+
         if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
         {
-            builder.Services.AddSingleton<JobTracker>();
             builder.Services.AddSingleton(new KubernetesOptions("", ""));
             builder.Services.AddSingleton<KubernetesClient>(sp =>
                 throw new InvalidOperationException("Kubernetes is not configured."));
@@ -45,12 +46,15 @@ public static class KubernetesConfiguration
             skipCertValidation: skipCertValidation,
             logger: LoggerFactory.Create(b => b.AddConsole()).CreateLogger<OpenBaoClient>());
 
+        var credentialsProvider = new OpenBaoCredentialsProvider(openBaoClient);
+
         builder.Services.AddSingleton(openBaoClient);
-        builder.Services.AddSingleton<JobTracker>();
+        builder.Services.AddSingleton<ICredentialsProvider<KubernetesCredentials>>(credentialsProvider);
 
         builder.Services.AddSingleton(sp =>
         {
-            var credentials = openBaoClient.GetCredentialsAsync().GetAwaiter().GetResult();
+            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
+                .GetCredentialsAsync().GetAwaiter().GetResult();
             var configNs = builder.Configuration["Kubernetes:Namespace"];
 
             sp.GetRequiredService<ILogger<KubernetesClient>>()
@@ -62,7 +66,8 @@ public static class KubernetesConfiguration
 
         builder.Services.AddSingleton(sp =>
         {
-            var credentials = openBaoClient.GetCredentialsAsync().GetAwaiter().GetResult();
+            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
+                .GetCredentialsAsync().GetAwaiter().GetResult();
             return new KubernetesClient(
                 credentials,
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
@@ -83,7 +88,6 @@ public static class KubernetesConfiguration
                 sp.GetRequiredService<Building.ArtifactBundleService>(),
                 sp.GetRequiredService<ILogger<JobRunnerService>>());
         });
-
     }
 }
 

@@ -827,6 +827,66 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </exception>
         [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/secrets")]
+        Task<ICollection<string>> SecretsAll(System.Guid pipelineId);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <param name="name">name parameter</param>
+        /// <param name="body">body parameter</param>
+        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json", "Content-Type: application/json")]
+        [Put("/api/pipelines/{pipelineId}/secrets/{name}")]
+        Task SecretsPUT(System.Guid pipelineId, string name, [Body] SetSecretRequest body);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <param name="name">name parameter</param>
+        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Delete("/api/pipelines/{pipelineId}/secrets/{name}")]
+        Task SecretsDELETE(System.Guid pipelineId, string name);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/source-bundles")]
         Task<ICollection<SourceBundle>> SourceBundlesAll(System.Guid pipelineId);
 
@@ -1431,6 +1491,25 @@ namespace Olve.Pipelines.Client
         [JsonPropertyName("script")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Script { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SetSecretRequest
+    {
+
+        [JsonPropertyName("value")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Value { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 

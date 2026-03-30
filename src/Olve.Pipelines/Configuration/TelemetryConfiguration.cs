@@ -21,10 +21,11 @@ public static class TelemetryConfiguration
         var clientSecret = builder.Configuration["OpenTelemetry:OAuth2:ClientSecret"];
         var scope = builder.Configuration["OpenTelemetry:OAuth2:Scope"];
 
-        OAuth2TokenProvider? tokenProvider = null;
+        ICredentialsProvider<OTelCredentials>? credentialsProvider = null;
         if (tokenUrl is not null && clientId is not null && clientSecret is not null)
         {
-            tokenProvider = new OAuth2TokenProvider(tokenUrl, clientId, clientSecret, scope);
+            var tokenProvider = new OAuth2TokenProvider(tokenUrl, clientId, clientSecret, scope);
+            credentialsProvider = new OTelCredentialsProvider(tokenProvider);
         }
 
         var baseEndpoint = endpoint.TrimEnd('/');
@@ -38,10 +39,10 @@ public static class TelemetryConfiguration
                 options.Protocol = OtlpExportProtocol.HttpProtobuf;
             }
 
-            if (tokenProvider is not null)
+            if (credentialsProvider is not null)
             {
-                var token = tokenProvider.GetAccessToken();
-                options.Headers = $"Authorization=Bearer {token}";
+                var creds = credentialsProvider.GetCredentialsAsync().GetAwaiter().GetResult();
+                options.Headers = $"Authorization=Bearer {creds.BearerToken}";
             }
         }
 

@@ -1,39 +1,30 @@
-using System.Xml.Linq;
-using Amazon.Runtime;
-
 namespace Olve.Pipelines.Configuration;
 
-/// <summary>
-/// AWS credentials obtained by exchanging an OIDC token for temporary S3 credentials
-/// via STS AssumeRoleWithWebIdentity. Credentials are lazily refreshed when expired.
-/// </summary>
-public class StsCredentials(
+public record S3Credentials(string AccessKey, string SecretKey, string? SessionToken = null);
+
+public class StsCredentialsProvider(
     OAuth2TokenProvider tokenProvider,
     string stsEndpoint,
     string roleArn,
     bool skipCertValidation = false,
-    ILogger<StsCredentials>? logger = null) : AWSCredentials
+    ILogger<StsCredentialsProvider>? logger = null) : ICredentialsProvider<S3Credentials>
 {
     private readonly SemaphoreSlim _lock = new(1, 1);
-    private ImmutableCredentials? _cached;
+    private S3Credentials? _cached;
     private DateTimeOffset _expiry = DateTimeOffset.MinValue;
 
-    public override async Task<ImmutableCredentials> GetCredentialsAsync()
+    public async Task<S3Credentials> GetCredentialsAsync(CancellationToken ct = default)
     {
         if (_cached is not null && DateTimeOffset.UtcNow < _expiry.AddSeconds(-60))
-        {
             return _cached;
-        }
 
-        await _lock.WaitAsync();
+        await _lock.WaitAsync(ct);
         try
         {
             if (_cached is not null && DateTimeOffset.UtcNow < _expiry.AddSeconds(-60))
-            {
                 return _cached;
-            }
 
-            var token = await tokenProvider.GetAccessTokenAsync();
+            var token = await tokenProvider.GetAccessTokenAsync(ct);
 
             using var httpClient = skipCertValidation
                 ? new HttpClient(new HttpClientHandler
@@ -48,16 +39,16 @@ public class StsCredentials(
                 ["WebIdentityToken"] = token,
                 ["RoleArn"] = roleArn,
                 ["Version"] = "2011-06-15",
-            }));
+            }), ct);
 
-            var xml = await response.Content.ReadAsStringAsync();
+            var xml = await response.Content.ReadAsStringAsync(ct);
             if (!response.IsSuccessStatusCode)
             {
                 logger?.LogError("STS token exchange failed: {StatusCode} {Body}", response.StatusCode, xml);
                 throw new InvalidOperationException($"STS token exchange failed: {response.StatusCode}");
             }
 
-            var doc = XDocument.Parse(xml);
+            var doc = System.Xml.Linq.XDocument.Parse(xml);
             var ns = doc.Root!.Name.Namespace;
             var credentials = doc.Descendants(ns + "Credentials").First();
 
@@ -66,7 +57,7 @@ public class StsCredentials(
             var sessionToken = credentials.Element(ns + "SessionToken")!.Value;
             var expiration = DateTimeOffset.Parse(credentials.Element(ns + "Expiration")!.Value);
 
-            _cached = new ImmutableCredentials(accessKeyId, secretAccessKey, sessionToken);
+            _cached = new S3Credentials(accessKeyId, secretAccessKey, sessionToken);
             _expiry = expiration;
 
             logger?.LogInformation("STS credentials obtained (expires {Expiry})", _expiry);
@@ -78,6 +69,4 @@ public class StsCredentials(
             _lock.Release();
         }
     }
-
-    public override ImmutableCredentials GetCredentials() => GetCredentialsAsync().GetAwaiter().GetResult();
 }

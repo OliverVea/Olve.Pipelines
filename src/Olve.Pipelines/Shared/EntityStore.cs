@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Olve.Pipelines.Jobs;
 using Olve.Utilities.Ids;
 using Olve.Utilities.Lookup;
 
@@ -42,9 +43,12 @@ public class EntityStore<T> where T : IHasId<Id<T>>
         return true;
     }
 
+    public bool Contains(Id<T> id) => _entities.ContainsKey(id);
+
     public EntityStoreIndex<T, TKey> CreateIndex<TKey>(Func<T, TKey> keySelector) where TKey : notnull
         => new(this, keySelector);
 
     public EntityStoreUniqueIndex<T, TKey> CreateUniqueIndex<TKey>(Func<T, TKey> keySelector) where TKey : notnull
         => new(this, keySelector);
+
 }

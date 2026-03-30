@@ -13,34 +13,23 @@ namespace Olve.Pipelines.Jobs;
 
 public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
-    private Id<Job> GetNewJobId() => idProvider.Create<Job>();
-    private DateTimeOffset GetCreationTime() => timeProvider.GetUtcNow();
-    private JobStatus GetJobStatus() => new Scheduled();
-
-    private readonly Dictionary<SourcingJob.Key, Id<Job>> _pendingSourcingJobs = new();
-    private readonly Dictionary<BuildJob.Key, Id<Job>> _pendingBuildJobs = new();
-    private readonly Dictionary<ProcessingJob.Key, Id<Job>> _pendingProcessingJobs = new();
-
     public Result<Job> CreateSourcingJob(Id<Pipeline> pipelineId)
     {
-        SourcingJob job = new(GetNewJobId(), pipelineId, GetCreationTime(), GetJobStatus());
-        ObsoleteExistingJobs<SourcingJob, SourcingJob.Key>(job.Id, job.JobKey, _pendingSourcingJobs);
+        SourcingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled());
         store.Set(job);
         return job;
     }
 
     public Result<Job> CreateBuildJob(Id<Pipeline> pipelineId, Id<SourceBundle> sourceBundleId)
     {
-        BuildJob job = new(GetNewJobId(), pipelineId, GetCreationTime(), GetJobStatus(), sourceBundleId);
-        ObsoleteExistingJobs<BuildJob, BuildJob.Key>(job.Id, job.JobKey, _pendingBuildJobs);
+        BuildJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), sourceBundleId);
         store.Set(job);
         return job;
     }
 
     public Result<Job> CreateProcessingJob(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
     {
-        ProcessingJob job = new(GetNewJobId(), pipelineId, GetCreationTime(), GetJobStatus(), artifactBundleId, processingStepId);
-        ObsoleteExistingJobs<ProcessingJob, ProcessingJob.Key>(job.Id, job.JobKey, _pendingProcessingJobs);
+        ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), artifactBundleId, processingStepId);
         store.Set(job);
         return job;
     }
@@ -93,27 +82,7 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
             return DeletionResult.NotFound();
         }
 
-        // TODO: clean up pending dictionaries.
-
         return DeletionResult.Success();
-    }
-
-    private void ObsoleteExistingJobs<TJob, TJobKey>(Id<Job> newJobId, TJobKey jobKey, Dictionary<TJobKey, Id<Job>> pendingJobs)
-        where TJob : Job where TJobKey : notnull
-    {
-        lock (pendingJobs)
-        {
-            if (pendingJobs.TryGetValue(jobKey, out var existingJobId))
-            {
-                var updateResult = UpdateJob<TJob>(existingJobId, j => j with { Status = new Obsolete(newJobId) });
-                if (updateResult.TryPickProblems(out var problems))
-                {
-                    logger.LogWarning("Failed to cancel previous job with id '{ExistingJobId}' and key '{JobKey}' while scheduling new job with id '{NewJobId}': {Problems}", existingJobId, jobKey, newJobId, problems);
-                }
-            }
-
-            pendingJobs[jobKey] = newJobId;
-        }
     }
 }
 

@@ -181,7 +181,7 @@ public class S3BundleStore(
                 ContinuationToken = continuationToken,
             }, ct);
 
-            foreach (var obj in response.S3Objects)
+            foreach (var obj in response.S3Objects ?? [])
             {
                 if (!obj.Key.EndsWith(".json"))
                     continue;

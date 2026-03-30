@@ -1,4 +1,5 @@
 using Olve.Pipelines.Building;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.PipelineSources;
@@ -27,6 +28,12 @@ public static class ServiceConfiguration
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<SourceBundle>>();
         services.AddSingleton<EntityStore<ArtifactBundle>>();
+        services.AddTransient<IEnumerable<Job>>(_ => []);
+        services.AddSingleton<EntityStore<Job>>();
+        services.AddSingleton<IdProvider>();
+        services.AddSingleton<JobService>();
+        services.AddSingleton<JobObsoletionService>();
+        services.AddSingleton<JobQueueService>();
         services.AddSingleton<AttachmentStore<PipelineSource, HardcodedSource>>();
         services.AddSingleton<AttachmentStore<PipelineSource, GitHubSource>>();
         services.AddSingleton<AttachmentStore<PipelineBuilder, ScriptBuilder>>();

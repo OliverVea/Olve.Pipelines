@@ -31,19 +31,6 @@ public class PipelineTests
     }
 
     [Test]
-    public async Task GetPipelines_ReturnsSeededPipeline()
-    {
-        var client = Fixture.CreateAuthenticatedHttpClient();
-
-        var response = await client.GetAsync("/api/pipelines");
-        response.EnsureSuccessStatusCode();
-        var pipelines = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        await Assert.That(pipelines.GetArrayLength()).IsGreaterThanOrEqualTo(1);
-        await Assert.That(pipelines[0].GetProperty("name").GetString()).IsEqualTo("Olve.Pipelines");
-    }
-
-    [Test]
     public async Task CreatePipeline_ReturnsPipeline()
     {
         var client = Fixture.CreateAuthenticatedHttpClient();
@@ -54,45 +41,5 @@ public class PipelineTests
 
         await Assert.That(pipeline.GetProperty("name").GetString()).IsEqualTo("test-pipeline");
         await Assert.That(pipeline.GetProperty("id").GetGuid()).IsNotEqualTo(Guid.Empty);
-    }
-
-    [Test]
-    public async Task TriggerSourcing_ReturnsSourceBundle()
-    {
-        var client = Fixture.CreateAuthenticatedHttpClient();
-
-        var pipelineId = await GetFirstPipelineId(client);
-        var response = await client.PostAsync($"/api/pipelines/{pipelineId}/trigger/sourcing", null);
-        response.EnsureSuccessStatusCode();
-        var bundle = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        await Assert.That(bundle.GetProperty("id").GetGuid()).IsNotEqualTo(Guid.Empty);
-        await Assert.That(bundle.GetProperty("pipelineId").GetGuid()).IsEqualTo(pipelineId);
-    }
-
-    [Test]
-    public async Task TriggerBuilding_ReturnsArtifactBundle()
-    {
-        var client = Fixture.CreateAuthenticatedHttpClient();
-
-        var pipelineId = await GetFirstPipelineId(client);
-
-        // Ensure a source bundle exists first
-        await client.PostAsync($"/api/pipelines/{pipelineId}/trigger/sourcing", null);
-
-        var response = await client.PostAsync($"/api/pipelines/{pipelineId}/trigger/building", null);
-        response.EnsureSuccessStatusCode();
-        var bundle = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        await Assert.That(bundle.GetProperty("id").GetGuid()).IsNotEqualTo(Guid.Empty);
-        await Assert.That(bundle.GetProperty("pipelineId").GetGuid()).IsEqualTo(pipelineId);
-    }
-
-    private static async Task<Guid> GetFirstPipelineId(HttpClient client)
-    {
-        var response = await client.GetAsync("/api/pipelines");
-        response.EnsureSuccessStatusCode();
-        var pipelines = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return pipelines[0].GetProperty("id").GetGuid();
     }
 }

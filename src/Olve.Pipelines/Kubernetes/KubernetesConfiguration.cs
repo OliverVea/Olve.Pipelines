@@ -6,18 +6,33 @@ public static class KubernetesConfiguration
 {
     public static void ConfigureKubernetes(this WebApplicationBuilder builder)
     {
-        var openBaoUrl = builder.Configuration["Kubernetes:OpenBaoUrl"]
-            ?? throw new InvalidOperationException("Kubernetes:OpenBaoUrl is required.");
+        var openBaoUrl = builder.Configuration["Kubernetes:OpenBaoUrl"];
+        var authUrl = builder.Configuration["Storage:AuthUrl"];
+        var clientId = builder.Configuration["Storage:ClientId"];
+        var clientSecret = builder.Configuration["Storage:ClientSecret"];
+
+        if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
+        {
+            builder.Services.AddSingleton<JobTracker>();
+            builder.Services.AddSingleton(new KubernetesOptions("", ""));
+            builder.Services.AddSingleton<KubernetesClient>(sp =>
+                throw new InvalidOperationException("Kubernetes is not configured."));
+            builder.Services.AddScoped(sp => new JobRunnerService(
+                null,
+                "",
+                "",
+                sp.GetRequiredService<JobTracker>(),
+                sp.GetRequiredService<PipelineSources.PipelineSourceService>(),
+                sp.GetRequiredService<PipelineBuilders.PipelineBuilderService>(),
+                sp.GetRequiredService<Processing.ProcessingStepService>(),
+                sp.GetRequiredService<Sourcing.SourceBundleService>(),
+                sp.GetRequiredService<Building.ArtifactBundleService>(),
+                sp.GetRequiredService<ILogger<JobRunnerService>>()));
+            return;
+        }
 
         var defaultImage = builder.Configuration["Kubernetes:DefaultImage"] ?? "alpine:latest";
         var skipCertValidation = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
-
-        var authUrl = builder.Configuration["Storage:AuthUrl"]
-            ?? throw new InvalidOperationException("Storage:AuthUrl is required for OpenBao authentication.");
-        var clientId = builder.Configuration["Storage:ClientId"]
-            ?? throw new InvalidOperationException("Storage:ClientId is required for OpenBao authentication.");
-        var clientSecret = builder.Configuration["Storage:ClientSecret"]
-            ?? throw new InvalidOperationException("Storage:ClientSecret is required for OpenBao authentication.");
 
         var tokenProvider = new OAuth2TokenProvider(
             authUrl, clientId, clientSecret,

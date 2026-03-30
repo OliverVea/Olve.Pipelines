@@ -752,6 +752,141 @@ namespace Olve.Pipelines.Client
         [Post("/api/pipelines/{pipelineId}/trigger/processing/{processingStepId}")]
         Task<ArtifactBundle> ProcessingPOST2(System.Guid pipelineId, System.Guid processingStepId);
 
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/jobs")]
+        Task<ICollection<JobRecord>> JobsAll(System.Guid pipelineId);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <param name="jobName">jobName parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/jobs/{jobName}")]
+        Task<KubernetesJobStatus> Jobs(System.Guid pipelineId, string jobName);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <param name="jobName">jobName parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/jobs/{jobName}/logs")]
+        Task<string> Logs(System.Guid pipelineId, string jobName);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/source-bundles")]
+        Task<ICollection<SourceBundle>> SourceBundlesAll(System.Guid pipelineId);
+
+        /// <param name="bundleId">bundleId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/source-bundles/{bundleId}")]
+        Task<SourceBundle> SourceBundles(System.Guid bundleId);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/artifact-bundles")]
+        Task<ICollection<ArtifactBundle>> ArtifactBundlesAll(System.Guid pipelineId);
+
+        /// <param name="bundleId">bundleId parameter</param>
+        /// <returns>OK</returns>
+        /// <exception cref="ApiException">
+        /// Thrown when the request returns a non-success status code:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </exception>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/artifact-bundles/{bundleId}")]
+        Task<ArtifactBundle> ArtifactBundles(System.Guid bundleId);
+
 
     }
 
@@ -929,6 +1064,67 @@ namespace Olve.Pipelines.Client
         [JsonPropertyName("files")]
         [System.ComponentModel.DataAnnotations.Required]
         public IDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobRecord
+    {
+
+        [JsonPropertyName("jobName")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string JobName { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("phase")]
+        public int Phase { get; set; }
+
+        [JsonPropertyName("sourceBundleId")]
+        public System.Guid? SourceBundleId { get; set; }
+
+        [JsonPropertyName("artifactBundleId")]
+        public System.Guid? ArtifactBundleId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class KubernetesJobStatus
+    {
+
+        [JsonPropertyName("jobName")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string JobName { get; set; }
+
+        [JsonPropertyName("phase")]
+        public int Phase { get; set; }
+
+        [JsonPropertyName("message")]
+        public string Message { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 

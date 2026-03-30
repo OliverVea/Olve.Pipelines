@@ -10,7 +10,7 @@ using Olve.Utilities.Ids;
 namespace Olve.Pipelines.Kubernetes;
 
 public class JobRunnerService(
-    KubernetesClient kubernetesClient,
+    KubernetesClient? kubernetesClient,
     string kubernetesNamespace,
     string defaultImage,
     JobTracker jobTracker,
@@ -21,6 +21,9 @@ public class JobRunnerService(
     ArtifactBundleService artifactBundles,
     ILogger<JobRunnerService> _logger)
 {
+    private KubernetesClient RequireKubernetesClient()
+        => kubernetesClient ?? throw new InvalidOperationException("Kubernetes is not configured. Set Kubernetes:OpenBaoUrl and Storage credentials.");
+
     public async Task<Result<SourceBundle>> RunSourcingAsync(Id<Pipeline> pipelineId, CancellationToken ct = default)
     {
         var bundle = sourceBundles.Create(pipelineId, SourceBundleStatus.Pending);
@@ -36,7 +39,7 @@ public class JobRunnerService(
             OutputBundleS3Key: $"bundles/source/{bundle.Id.Value.Value}");
 
         _logger.LogInformation("Created sourcing Job {JobName} for pipeline {PipelineId}", spec.Name, pipelineId);
-        await kubernetesClient.CreateJobAsync(kubernetesNamespace, spec, ct);
+        await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
             spec.Name, pipelineId.Value.Value, JobRecordPhase.Sourcing,
@@ -61,7 +64,7 @@ public class JobRunnerService(
             InputBundleS3Key: $"bundles/source/{sourceBundleId.Value.Value}",
             OutputBundleS3Key: $"bundles/artifact/{bundle.Id.Value.Value}");
 
-        await kubernetesClient.CreateJobAsync(kubernetesNamespace, spec, ct);
+        await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
             spec.Name, pipelineId.Value.Value, JobRecordPhase.Building,
@@ -96,7 +99,7 @@ public class JobRunnerService(
             SecretName: $"olve-pipeline-{pipelineId.Value.Value:N}",
             InputBundleS3Key: $"bundles/artifact/{artifactBundleId.Value.Value}");
 
-        await kubernetesClient.CreateJobAsync(kubernetesNamespace, spec, ct);
+        await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
             spec.Name, pipelineId.Value.Value, JobRecordPhase.Processing,

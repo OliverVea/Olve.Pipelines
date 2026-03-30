@@ -114,6 +114,14 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
     public HttpClient CreateUnauthenticatedHttpClient() =>
         new() { BaseAddress = new Uri(_baseUrl) };
 
+    public async Task RestartAsync()
+    {
+        await _container.StopAsync();
+        await _container.StartAsync();
+        var hostPort = _container.GetMappedPublicPort(ContainerPort);
+        _baseUrl = $"http://localhost:{hostPort}";
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _container.DisposeAsync();

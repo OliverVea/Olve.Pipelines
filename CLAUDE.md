@@ -48,6 +48,28 @@ All pipeline steps execute as **Kubernetes Jobs**. Each Job gets:
 
 Current step types (ScriptBuilder, ScriptProcessing, etc.) define the script directly. Future typed templates (e.g. DotNetBuild, HelmBuild, K8sDeployment) will generate the script + image + env, keeping scripts as the "custom" fallback.
 
+### Job Scheduling
+
+Jobs are first-class persisted entities managed by a **JobQueue**. The queue controls when and how jobs are submitted to Kubernetes.
+
+**Job entity:**
+- Type: `Sourcing | Building | Processing`
+- Status: `Scheduled → InProgress → Succeeded | Failed | Obsolete`
+- Type-specific payload (e.g. Building has input source bundle ID, output artifact bundle ID)
+- Timestamps: created, started, completed
+- Error message on failure
+
+**Scheduling rules:**
+- **Global concurrency limit** — at most N jobs run in parallel (configurable, e.g. 5).
+- **Keyed on (pipeline, step)** — each step can have at most one `InProgress` job at a time.
+- **Latest-wins** — when a new job is scheduled for a (pipeline, step) that already has `Scheduled` jobs, those become `Obsolete` with a reference to the superseding job. Only the newest scheduled job will run.
+- **Auto-pickup** — when an `InProgress` job finishes, the queue checks for the next `Scheduled` job to start.
+
+**Step status display** (derived from latest job for that step):
+- `Succeeded (12:34 pm, 43m 21s)`
+- `In Progress (12m 34s)`
+- `Failed (12:34 pm, 43m 21s): <error message>`
+
 ### Pipeline Secrets
 
 Each pipeline has a K8s Secret (e.g. `olve-pipeline-{id}`) containing credentials needed by its steps (registry tokens, deploy keys, API keys). Secrets are managed via the API but injected directly from K8s into Jobs — they never pass through the app at runtime.

@@ -111,6 +111,30 @@ button:hover { background: #f5f5f5; }
   margin-top: 0.5rem;
 }
 
+.job-phase-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.status-ok { background: #d4edda; color: #155724; }
+.status-fail { background: #f8d7da; color: #721c24; }
+.status-pending { background: #fff3cd; color: #856404; }
+
+.job-log-content {
+  max-height: 300px;
+  overflow: auto;
+  background: #f6f6f6;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .set-hardcoded .file-entries {
   display: flex;
   flex-direction: column;

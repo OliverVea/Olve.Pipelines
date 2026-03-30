@@ -17,17 +17,23 @@ public class ArtifactBundleService
         _byPipeline = store.CreateIndex(b => b.PipelineId);
     }
 
-    public ArtifactBundle Create(Id<Pipeline> pipelineId, Id<SourceBundle> sourceBundleId)
+    public ArtifactBundle Create(Id<Pipeline> pipelineId, Id<SourceBundle> sourceBundleId, ArtifactBundleStatus status = ArtifactBundleStatus.Completed)
     {
         var bundle = new ArtifactBundle(
             Id.New<ArtifactBundle>(),
             pipelineId,
             sourceBundleId,
             DateTimeOffset.UtcNow,
-            ArtifactBundleStatus.Completed);
+            status);
 
         _store.Set(bundle);
         return bundle;
+    }
+
+    public void UpdateStatus(Id<ArtifactBundle> id, ArtifactBundleStatus status)
+    {
+        if (_store.TryGet(id, out var bundle))
+            _store.Set(bundle with { Status = status });
     }
 
     public bool TryGet(Id<ArtifactBundle> id, [NotNullWhen(true)] out ArtifactBundle? bundle)

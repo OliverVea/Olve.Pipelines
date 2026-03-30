@@ -16,16 +16,22 @@ public class SourceBundleService
         _byPipeline = store.CreateIndex(b => b.PipelineId);
     }
 
-    public SourceBundle Create(Id<Pipeline> pipelineId)
+    public SourceBundle Create(Id<Pipeline> pipelineId, SourceBundleStatus status = SourceBundleStatus.Completed)
     {
         var bundle = new SourceBundle(
             Id.New<SourceBundle>(),
             pipelineId,
             DateTimeOffset.UtcNow,
-            SourceBundleStatus.Completed);
+            status);
 
         _store.Set(bundle);
         return bundle;
+    }
+
+    public void UpdateStatus(Id<SourceBundle> id, SourceBundleStatus status)
+    {
+        if (_store.TryGet(id, out var bundle))
+            _store.Set(bundle with { Status = status });
     }
 
     public bool TryGet(Id<SourceBundle> id, [NotNullWhen(true)] out SourceBundle? bundle)

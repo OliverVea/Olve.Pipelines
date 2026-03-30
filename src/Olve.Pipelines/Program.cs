@@ -1,5 +1,8 @@
+using Olve.Pipelines.Building.Api;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Health;
+using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
@@ -8,6 +11,7 @@ using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.PipelineSources.Api;
 using Olve.Pipelines.Processing;
 using Olve.Pipelines.Processing.Api;
+using Olve.Pipelines.Sourcing.Api;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -16,6 +20,7 @@ builder.ConfigureJson();
 builder.ConfigureAuthentication();
 builder.ConfigureTelemetry();
 builder.ConfigureStorage();
+builder.ConfigureKubernetes();
 builder.Services.AddPipelineServices();
 
 var app = builder.Build();
@@ -52,6 +57,9 @@ app.MapPipelineSourceEndpoints();
 app.MapPipelineBuilderEndpoints();
 app.MapProcessingEndpoints();
 app.MapPipelineTriggerEndpoints();
+app.MapJobEndpoints();
+app.MapSourceBundleEndpoints();
+app.MapArtifactBundleEndpoints();
 
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

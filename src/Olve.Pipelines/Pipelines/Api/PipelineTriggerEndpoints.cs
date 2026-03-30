@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Building;
+using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Processing;
 using Olve.Pipelines.Sourcing;
 using Olve.Results;
@@ -13,10 +14,11 @@ public static class PipelineTriggerEndpoints
     {
         var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/trigger");
 
-        group.MapPost("/sourcing", Result<SourceBundle> (
+        group.MapPost("/sourcing", async Task<Result<SourceBundle>> (
             PipelineService pipelines,
-            SourceBundleService sourceBundles,
-            Guid pipelineId) =>
+            JobRunnerService jobRunner,
+            Guid pipelineId,
+            CancellationToken ct) =>
         {
             var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
 
@@ -25,16 +27,16 @@ public static class PipelineTriggerEndpoints
                 return Result.Failure<SourceBundle>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var bundle = sourceBundles.Create(pipelineIdTyped);
-            return Result.Success(bundle);
+            return await jobRunner.RunSourcingAsync(pipelineIdTyped, ct);
         })
         .WithResultMapping<SourceBundle>();
 
-        group.MapPost("/building", Result<ArtifactBundle> (
+        group.MapPost("/building", async Task<Result<ArtifactBundle>> (
             PipelineService pipelines,
             SourceBundleService sourceBundles,
-            ArtifactBundleService artifactBundles,
-            Guid pipelineId) =>
+            JobRunnerService jobRunner,
+            Guid pipelineId,
+            CancellationToken ct) =>
         {
             var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
 
@@ -49,17 +51,18 @@ public static class PipelineTriggerEndpoints
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' has no source bundle. Run sourcing first."));
             }
 
-            var bundle = artifactBundles.Create(pipelineIdTyped, latestSource.Id);
-            return Result.Success(bundle);
+            return await jobRunner.RunBuildingAsync(pipelineIdTyped, latestSource.Id, ct);
         })
         .WithResultMapping<ArtifactBundle>();
 
-        group.MapPost("/processing/{processingStepId:guid}", Result<ArtifactBundle> (
+        group.MapPost("/processing/{processingStepId:guid}", async Task<Result<ArtifactBundle>> (
             PipelineService pipelines,
             ProcessingStepService processingSteps,
             ArtifactBundleService artifactBundles,
+            JobRunnerService jobRunner,
             Guid pipelineId,
-            Guid processingStepId) =>
+            Guid processingStepId,
+            CancellationToken ct) =>
         {
             var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
             var processingStepIdTyped = new Id<ProcessingStep>(new Id(processingStepId));
@@ -80,9 +83,7 @@ public static class PipelineTriggerEndpoints
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' has no artifact bundle. Run building first."));
             }
 
-            // Placeholder: in the future this will run the processing step and verifications.
-            // For now, just return the latest artifact bundle.
-            return Result.Success(latestArtifact);
+            return await jobRunner.RunProcessingAsync(pipelineIdTyped, processingStepIdTyped, latestArtifact.Id, ct);
         })
         .WithResultMapping<ArtifactBundle>();
     }

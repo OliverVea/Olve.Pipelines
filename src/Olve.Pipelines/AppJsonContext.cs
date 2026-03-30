@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Olve.Pipelines.Building;
+using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
@@ -41,5 +42,11 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<ScriptVerification>))]
 [JsonSerializable(typeof(ProcessingEndpoints.SetScriptVerificationRequest))]
 [JsonSerializable(typeof(Result<SourceBundle>))]
+[JsonSerializable(typeof(Result<SourceBundle[]>))]
 [JsonSerializable(typeof(Result<ArtifactBundle>))]
+[JsonSerializable(typeof(Result<ArtifactBundle[]>))]
+[JsonSerializable(typeof(Result<string>))]
+[JsonSerializable(typeof(Result<string[]>))]
+[JsonSerializable(typeof(Result<JobRecord[]>))]
+[JsonSerializable(typeof(Result<KubernetesJobStatus>))]
 internal partial class AppJsonContext : JsonSerializerContext;

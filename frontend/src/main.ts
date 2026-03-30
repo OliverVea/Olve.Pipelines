@@ -2,6 +2,9 @@ import './style.css'
 import { client } from './api.js'
 import type { Pipeline, PipelineBuilder, PipelineSource, ProcessingStep, ScriptVerification, Verification } from '@olve/olve-pipelines-client/src/models/index.js'
 
+interface JobRecord { jobName: string; pipelineId: string; phase: string; sourceBundleId?: string; artifactBundleId?: string; createdAt: string; }
+interface KubernetesJobStatus { jobName: string; phase: string; message?: string; }
+
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 function showError(error: unknown) {
@@ -63,6 +66,7 @@ async function renderPipeline(pid: string) {
     <section><h2>Sources</h2><div id="sources-content" class="loading">Loading...</div></section>
     <section><h2>Builders</h2><div id="builders-content" class="loading">Loading...</div></section>
     <section><h2>Processing</h2><div id="processing-content" class="loading">Loading...</div></section>
+    <section><h2>Jobs</h2><div id="jobs-content" class="loading">Loading...</div></section>
     <section><h2>Triggers</h2><div id="triggers-content"></div></section>
   `;
 
@@ -303,26 +307,86 @@ async function renderPipeline(pid: string) {
     });
   }).catch((e: unknown) => fill('#processing-content', err(e)));
 
+  // Jobs
+  async function loadJobs() {
+    try {
+      const jobs = await fetch(`/api/pipelines/${pid}/jobs`).then(r => r.json()) as JobRecord[];
+      const withStatus = await Promise.all(jobs.map(async (j) => ({
+        job: j,
+        status: await fetch(`/api/pipelines/${pid}/jobs/${encodeURIComponent(j.jobName)}`).then(r => r.json()).catch(() => null) as KubernetesJobStatus | null,
+      })));
+      withStatus.sort((a, b) => new Date(b.job.createdAt).getTime() - new Date(a.job.createdAt).getTime());
+      fill('#jobs-content', `
+        ${withStatus.map(({ job: j, status: s }) => `
+          <div class="card job-card">
+            <div>
+              <span class="job-phase-badge ${statusClass(s?.phase)}">${s?.phase ?? '?'}</span>
+              <strong>${esc(j.jobName)}</strong>
+              <span class="attachment">${j.phase} — ${new Date(j.createdAt).toLocaleString()}</span>
+            </div>
+            ${s?.message ? `<div class="attachment">${esc(s.message)}</div>` : ''}
+            <details class="job-logs"><summary>Logs</summary><pre class="job-log-content loading" data-job="${esc(j.jobName)}">Click to load...</pre></details>
+          </div>
+        `).join('') || '<p>No jobs.</p>'}
+      `);
+      document.querySelectorAll('.job-logs').forEach(el => {
+        el.addEventListener('toggle', async (e) => {
+          const details = e.target as HTMLDetailsElement;
+          if (!details.open) return;
+          const pre = details.querySelector('.job-log-content')!;
+          if (pre.classList.contains('loaded')) return;
+          const jobName = (pre as HTMLElement).dataset.job!;
+          try {
+            const logs = await fetch(`/api/pipelines/${pid}/jobs/${encodeURIComponent(jobName)}/logs`).then(r => r.json()) as string;
+            pre.textContent = logs || '(empty)';
+          } catch { pre.textContent = '(failed to load logs)'; }
+          pre.classList.remove('loading');
+          pre.classList.add('loaded');
+        });
+      });
+    } catch (e) { fill('#jobs-content', err(e)); }
+  }
+  loadJobs();
+
   // Triggers
-  fill('#triggers-content', `
-    <div class="card">
-      <button id="trigger-sourcing">Run Sourcing</button>
-      <button id="trigger-building">Run Building</button>
-    </div>
-  `);
-  on('trigger-sourcing', 'click', async () => {
-    await p.trigger.sourcing.post();
-    alert('Sourcing triggered');
-  });
-  on('trigger-building', 'click', async () => {
-    await p.trigger.building.post();
-    alert('Building triggered');
-  });
+  p.processing.get().then((steps: ProcessingStep[] | undefined) => {
+    const list = steps ?? [];
+    fill('#triggers-content', `
+      <div class="card">
+        <button id="trigger-sourcing">Run Sourcing</button>
+        <button id="trigger-building">Run Building</button>
+        ${list.map(s => `
+          <button class="trigger-processing" data-id="${s.id}">Run ${esc(s.name ?? 'Processing')}</button>
+        `).join('')}
+      </div>
+      <div id="trigger-result"></div>
+    `);
+    on('trigger-sourcing', 'click', async () => {
+      fill('#trigger-result', '<p class="loading">Running sourcing...</p>');
+      const bundle = await p.trigger.sourcing.post();
+      fill('#trigger-result', `<div class="card"><strong>Source Bundle</strong> ${bundle?.id} — status: ${bundle?.status ?? 'unknown'}</div>`);
+      await loadJobs();
+    });
+    on('trigger-building', 'click', async () => {
+      fill('#trigger-result', '<p class="loading">Running building...</p>');
+      const bundle = await p.trigger.building.post();
+      fill('#trigger-result', `<div class="card"><strong>Artifact Bundle</strong> ${bundle?.id} — status: ${bundle?.status ?? 'unknown'}</div>`);
+      await loadJobs();
+    });
+    onAll('.trigger-processing', 'click', async (e) => {
+      const stepId = (e.currentTarget as HTMLElement).dataset.id!;
+      fill('#trigger-result', '<p class="loading">Running processing...</p>');
+      const bundle = await p.trigger.processing.byProcessingStepId(stepId).post();
+      fill('#trigger-result', `<div class="card"><strong>Artifact Bundle</strong> ${bundle?.id} — status: ${bundle?.status ?? 'unknown'}</div>`);
+      await loadJobs();
+    });
+  }).catch((e: unknown) => fill('#triggers-content', err(e)));
 }
 
 // --- Helpers ---
 
 function err(e: unknown) { return `<pre style="color:red">${e}</pre>`; }
+function statusClass(phase?: string) { return phase === 'Succeeded' ? 'status-ok' : phase === 'Failed' ? 'status-fail' : 'status-pending'; }
 function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function on(id: string, event: string, handler: (e: Event) => Promise<void>) {
   document.getElementById(id)?.addEventListener(event, (e) => handler(e).catch(showError));

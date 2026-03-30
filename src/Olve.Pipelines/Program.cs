@@ -58,6 +58,7 @@ app.MapPipelineBuilderEndpoints();
 app.MapProcessingEndpoints();
 app.MapPipelineTriggerEndpoints();
 app.MapJobEndpoints();
+app.MapSecretEndpoints();
 app.MapSourceBundleEndpoints();
 app.MapArtifactBundleEndpoints();
 

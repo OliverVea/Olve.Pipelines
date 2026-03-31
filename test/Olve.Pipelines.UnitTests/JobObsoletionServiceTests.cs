@@ -17,15 +17,16 @@ public class JobObsoletionServiceTests
     private static (JobService Service, EntityStore<Job> Store) CreateServices()
     {
         var store = new EntityStore<Job>([]);
+        var timeProvider = new TimeProviderMake().Instance();
+
         var jobService = new JobService(
             NullLogger<JobService>.Instance,
             store,
             new IdProvider(),
-            TimeProvider.System);
+            timeProvider);
 
         _ = new JobObsoletionService(
             jobService,
-            store,
             NullLogger<JobObsoletionService>.Instance);
 
         return (jobService, store);
@@ -37,7 +38,7 @@ public class JobObsoletionServiceTests
         return job!;
     }
 
-    private static Job CreateAndGet(JobService service, EntityStore<Job> store, Func<JobService, Olve.Results.Result<Job>> create)
+    private static Job CreateAndGet(JobService service, Func<JobService, Olve.Results.Result<Job>> create)
     {
         var result = create(service);
         result.TryPickProblems(out _, out var job);
@@ -50,8 +51,8 @@ public class JobObsoletionServiceTests
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateSourcingJob(pipelineId));
-        var job2 = CreateAndGet(service, store, s => s.CreateSourcingJob(pipelineId));
+        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
 
         var updatedJob1 = GetJob(store, job1.Id);
         await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
@@ -65,8 +66,8 @@ public class JobObsoletionServiceTests
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
-        var job2 = CreateAndGet(service, store, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
+        var job1 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
+        var job2 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
 
         var updatedJob1 = GetJob(store, job1.Id);
         await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
@@ -81,8 +82,8 @@ public class JobObsoletionServiceTests
         var pipelineId = Id.New<Pipeline>();
         var stepId = Id.New<ProcessingStep>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), stepId));
-        var job2 = CreateAndGet(service, store, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), stepId));
+        var job1 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), stepId));
+        var job2 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), stepId));
 
         var updatedJob1 = GetJob(store, job1.Id);
         await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
@@ -95,8 +96,8 @@ public class JobObsoletionServiceTests
     {
         var (service, store) = CreateServices();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateSourcingJob(Id.New<Pipeline>()));
-        var job2 = CreateAndGet(service, store, s => s.CreateSourcingJob(Id.New<Pipeline>()));
+        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(Id.New<Pipeline>()));
+        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(Id.New<Pipeline>()));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
@@ -108,8 +109,8 @@ public class JobObsoletionServiceTests
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), Id.New<ProcessingStep>()));
-        var job2 = CreateAndGet(service, store, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), Id.New<ProcessingStep>()));
+        var job1 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), Id.New<ProcessingStep>()));
+        var job2 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), Id.New<ProcessingStep>()));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
@@ -121,8 +122,8 @@ public class JobObsoletionServiceTests
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateSourcingJob(pipelineId));
-        var job2 = CreateAndGet(service, store, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
+        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
@@ -134,11 +135,11 @@ public class JobObsoletionServiceTests
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, store, s => s.CreateSourcingJob(pipelineId));
+        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
 
         service.UpdateJob<SourcingJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
 
-        var job2 = CreateAndGet(service, store, s => s.CreateSourcingJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();

@@ -4,5 +4,5 @@ namespace Olve.Pipelines.Jobs;
 
 public class IdProvider
 {
-    public Id<T> Create<T>() => Id.New<T>();
+    public virtual Id<T> Create<T>() => Id.New<T>();
 }

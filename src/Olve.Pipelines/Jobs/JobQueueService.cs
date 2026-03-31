@@ -4,20 +4,10 @@ using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobQueueService
+public class JobQueueService(EntityStore<Job> store)
 {
-    private readonly EntityStore<Job> _store;
     private readonly List<Id<Job>> _queue = [];
     private readonly object _lock = new();
-
-    public JobQueueService(EntityStore<Job> store)
-    {
-        _store = store;
-
-        store.OnAdded += OnJobAdded;
-        store.OnUpdated += OnJobUpdated;
-        store.OnDeleted += OnJobDeleted;
-    }
 
     public IReadOnlyList<Id<Job>> GetQueuedJobIds()
     {
@@ -27,9 +17,9 @@ public class JobQueueService
         }
     }
 
-    private void OnJobAdded(Id<Job> jobId)
+    public void HandleJobAdded(Id<Job> jobId)
     {
-        if (!_store.TryGet(jobId, out var job))
+        if (!store.TryGet(jobId, out var job))
             return;
 
         if (job.Status is not Scheduled)
@@ -41,9 +31,9 @@ public class JobQueueService
         }
     }
 
-    private void OnJobUpdated(Id<Job> jobId)
+    public void HandleJobUpdated(Id<Job> jobId)
     {
-        if (!_store.TryGet(jobId, out var job))
+        if (!store.TryGet(jobId, out var job))
             return;
 
         if (job.Status is Scheduled)
@@ -55,7 +45,7 @@ public class JobQueueService
         }
     }
 
-    private void OnJobDeleted(Id<Job> jobId)
+    public void HandleJobDeleted(Id<Job> jobId)
     {
         lock (_lock)
         {

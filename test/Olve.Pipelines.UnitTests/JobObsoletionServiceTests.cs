@@ -18,16 +18,20 @@ public class JobObsoletionServiceTests
     {
         var store = new EntityStore<Job>([]);
         var timeProvider = new TimeProviderMake().Instance();
+        var events = new JobEvents();
 
         var jobService = new JobService(
             NullLogger<JobService>.Instance,
             store,
             new IdProvider(),
-            timeProvider);
+            timeProvider,
+            events);
 
-        _ = new JobObsoletionService(
+        var obsoletion = new JobObsoletionService(
             jobService,
             NullLogger<JobObsoletionService>.Instance);
+
+        events.OnAdded.Subscribe(obsoletion.HandleJobAdded);
 
         return (jobService, store);
     }

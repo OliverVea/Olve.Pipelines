@@ -4,34 +4,23 @@ using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobObsoletionService
+public class JobObsoletionService(JobService jobService, ILogger<JobObsoletionService> logger)
 {
-    private readonly JobService _jobService;
-    private readonly ILogger<JobObsoletionService> _logger;
-
-    public JobObsoletionService(JobService jobService, ILogger<JobObsoletionService> logger)
+    public void HandleJobAdded(Id<Job> jobId)
     {
-        _jobService = jobService;
-        _logger = logger;
-
-        jobService.OnJobAdded += OnJobAdded;
-    }
-
-    private void OnJobAdded(Id<Job> jobId)
-    {
-        if (!_jobService.TryGetJob<Job>(jobId, out var newJob))
+        if (!jobService.TryGetJob<Job>(jobId, out var newJob))
             return;
 
-        var existingJob = _jobService.ListJobs()
+        var existingJob = jobService.ListJobs()
             .FirstOrDefault(j => j.Id != newJob.Id && j.Status is Scheduled && HasSameKey(j, newJob));
 
         if (existingJob is null)
             return;
 
-        var result = _jobService.UpdateJob<Job>(existingJob.Id, j => j with { Status = new Obsolete(newJob.Id) });
+        var result = jobService.UpdateJob<Job>(existingJob.Id, j => j with { Status = new Obsolete(newJob.Id) });
         if (result.TryPickProblems(out var problems))
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "Failed to obsolete job '{ExistingJobId}' when superseded by '{NewJobId}': {Problems}",
                 existingJob.Id, newJob.Id, problems);
         }

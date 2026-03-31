@@ -31,9 +31,11 @@ public static class ServiceConfiguration
         services.AddTransient<IEnumerable<Job>>(_ => []);
         services.AddSingleton<EntityStore<Job>>();
         services.AddSingleton<IdProvider>();
+        services.AddSingleton<JobEvents>();
         services.AddSingleton<JobService>();
         services.AddSingleton<JobObsoletionService>();
         services.AddSingleton<JobQueueService>();
+        services.AddHostedService<JobEventSubscriptions>();
         services.AddSingleton<AttachmentStore<PipelineSource, HardcodedSource>>();
         services.AddSingleton<AttachmentStore<PipelineSource, GitHubSource>>();
         services.AddSingleton<AttachmentStore<PipelineBuilder, ScriptBuilder>>();

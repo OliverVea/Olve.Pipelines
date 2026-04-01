@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Olve.Pipelines.Configuration;
 
 namespace Olve.Pipelines.Kubernetes;

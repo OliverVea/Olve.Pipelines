@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Http;
-using Olve.Results;
-
 namespace Olve.Pipelines.Shared;
 
 public static class DeletionMappingExtensions

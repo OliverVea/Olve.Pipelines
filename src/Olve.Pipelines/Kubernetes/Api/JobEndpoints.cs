@@ -9,16 +9,14 @@ public static class JobEndpoints
 {
     public static void MapJobEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/jobs");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/jobs");
 
         group.MapGet("/", Result<JobRecord[]> (
             PipelineService pipelines,
             JobTracker jobTracker,
-            Guid pipelineId) =>
+            Id<Pipeline> pipelineId) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure<JobRecord[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var jobs = jobTracker.GetByPipelineId(pipelineId);
@@ -30,13 +28,11 @@ public static class JobEndpoints
             PipelineService pipelines,
             KubernetesClient kubernetesClient,
             KubernetesOptions options,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             string jobName,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure<KubernetesJobStatus>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var status = await kubernetesClient.GetJobStatusAsync(options.Namespace, jobName, ct);
@@ -48,13 +44,11 @@ public static class JobEndpoints
             PipelineService pipelines,
             KubernetesClient kubernetesClient,
             KubernetesOptions options,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             string jobName,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure<string>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var logs = await kubernetesClient.GetPodLogsAsync(options.Namespace, jobName, ct);

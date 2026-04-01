@@ -10,30 +10,26 @@ public static class ArtifactBundleEndpoints
 {
     public static void MapArtifactBundleEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/artifact-bundles");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/artifact-bundles");
 
         group.MapGet("/", Result<ArtifactBundle[]> (
             PipelineService pipelines,
             ArtifactBundleService artifactBundles,
-            Guid pipelineId) =>
+            Id<Pipeline> pipelineId) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure<ArtifactBundle[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
-            var bundles = artifactBundles.GetByPipelineId(pipelineIdTyped);
+            var bundles = artifactBundles.GetByPipelineId(pipelineId);
             return Result.Success(bundles.ToArray());
         })
         .WithResultMapping<ArtifactBundle[]>();
 
-        group.MapGet("/{bundleId:guid}", Result<ArtifactBundle> (
+        group.MapGet("/{bundleId}", Result<ArtifactBundle> (
             ArtifactBundleService artifactBundles,
-            Guid bundleId) =>
+            Id<ArtifactBundle> bundleId) =>
         {
-            var bundleIdTyped = new Id<ArtifactBundle>(new Id(bundleId));
-
-            if (!artifactBundles.TryGet(bundleIdTyped, out var bundle))
+            if (!artifactBundles.TryGet(bundleId, out var bundle))
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Artifact bundle '{bundleId}' not found."));
 
             return Result.Success(bundle);

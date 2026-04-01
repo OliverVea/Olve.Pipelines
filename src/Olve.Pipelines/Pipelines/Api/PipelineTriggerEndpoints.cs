@@ -12,22 +12,20 @@ public static class PipelineTriggerEndpoints
 {
     public static void MapPipelineTriggerEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/trigger");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/trigger");
 
         group.MapPost("/sourcing", async Task<Result<SourceBundle>> (
             PipelineService pipelines,
             JobRunnerService jobRunner,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<SourceBundle>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            return await jobRunner.RunSourcingAsync(pipelineIdTyped, ct);
+            return await jobRunner.RunSourcingAsync(pipelineId, ct);
         })
         .WithResultMapping<SourceBundle>();
 
@@ -35,55 +33,50 @@ public static class PipelineTriggerEndpoints
             PipelineService pipelines,
             SourceBundleService sourceBundles,
             JobRunnerService jobRunner,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var latestSource = sourceBundles.GetLatest(pipelineIdTyped);
+            var latestSource = sourceBundles.GetLatest(pipelineId);
             if (latestSource is null)
             {
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' has no source bundle. Run sourcing first."));
             }
 
-            return await jobRunner.RunBuildingAsync(pipelineIdTyped, latestSource.Id, ct);
+            return await jobRunner.RunBuildingAsync(pipelineId, latestSource.Id, ct);
         })
         .WithResultMapping<ArtifactBundle>();
 
-        group.MapPost("/processing/{processingStepId:guid}", async Task<Result<ArtifactBundle>> (
+        group.MapPost("/processing/{processingStepId}", async Task<Result<ArtifactBundle>> (
             PipelineService pipelines,
             ProcessingStepService processingSteps,
             ArtifactBundleService artifactBundles,
             JobRunnerService jobRunner,
-            Guid pipelineId,
-            Guid processingStepId,
+            Id<Pipeline> pipelineId,
+            Id<ProcessingStep> processingStepId,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-            var processingStepIdTyped = new Id<ProcessingStep>(new Id(processingStepId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            if (!processingSteps.TryGet(processingStepIdTyped, out _))
+            if (!processingSteps.TryGet(processingStepId, out _))
             {
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Processing step '{processingStepId}' not found."));
             }
 
-            var latestArtifact = artifactBundles.GetLatest(pipelineIdTyped);
+            var latestArtifact = artifactBundles.GetLatest(pipelineId);
             if (latestArtifact is null)
             {
                 return Result.Failure<ArtifactBundle>(new ResultProblem($"Pipeline '{pipelineId}' has no artifact bundle. Run building first."));
             }
 
-            return await jobRunner.RunProcessingAsync(pipelineIdTyped, processingStepIdTyped, latestArtifact.Id, ct);
+            return await jobRunner.RunProcessingAsync(pipelineId, processingStepId, latestArtifact.Id, ct);
         })
         .WithResultMapping<ArtifactBundle>();
     }

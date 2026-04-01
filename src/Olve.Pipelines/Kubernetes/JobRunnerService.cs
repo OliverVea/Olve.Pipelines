@@ -42,8 +42,8 @@ public class JobRunnerService(
         await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
-            spec.Name, pipelineId.Value.Value, JobRecordPhase.Sourcing,
-            SourceBundleId: bundle.Id.Value.Value, ArtifactBundleId: null,
+            spec.Name, pipelineId, JobRecordPhase.Sourcing,
+            SourceBundleId: bundle.Id, ArtifactBundleId: null,
             CreatedAt: DateTimeOffset.UtcNow));
 
         return Result.Success(bundle);
@@ -67,8 +67,8 @@ public class JobRunnerService(
         await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
-            spec.Name, pipelineId.Value.Value, JobRecordPhase.Building,
-            SourceBundleId: sourceBundleId.Value.Value, ArtifactBundleId: bundle.Id.Value.Value,
+            spec.Name, pipelineId, JobRecordPhase.Building,
+            SourceBundleId: sourceBundleId, ArtifactBundleId: bundle.Id,
             CreatedAt: DateTimeOffset.UtcNow));
 
         return Result.Success(bundle);
@@ -102,8 +102,8 @@ public class JobRunnerService(
         await RequireKubernetesClient().CreateJobAsync(kubernetesNamespace, spec, ct);
 
         jobTracker.Track(new JobRecord(
-            spec.Name, pipelineId.Value.Value, JobRecordPhase.Processing,
-            SourceBundleId: null, ArtifactBundleId: artifactBundleId.Value.Value,
+            spec.Name, pipelineId, JobRecordPhase.Processing,
+            SourceBundleId: null, ArtifactBundleId: artifactBundleId,
             CreatedAt: DateTimeOffset.UtcNow));
 
         return Result.Success(artifactBundle);

@@ -39,8 +39,8 @@ public class S3BundleStore(
     {
         await EnsureBucketAsync(ct);
         var data = new SourceBundlePersistedData(
-            metadata.Id.Value.Value,
-            metadata.PipelineId.Value.Value,
+            metadata.Id,
+            metadata.PipelineId,
             metadata.CreatedAt);
 
         await UploadBundleAsync(
@@ -57,9 +57,9 @@ public class S3BundleStore(
     {
         await EnsureBucketAsync(ct);
         var data = new ArtifactBundlePersistedData(
-            metadata.Id.Value.Value,
-            metadata.PipelineId.Value.Value,
-            metadata.SourceBundleId.Value.Value,
+            metadata.Id,
+            metadata.PipelineId,
+            metadata.SourceBundleId,
             metadata.CreatedAt);
 
         await UploadBundleAsync(
@@ -105,8 +105,8 @@ public class S3BundleStore(
             ct))
         {
             var bundle = new SourceBundle(
-                new Id<SourceBundle>(new Id(data.Id)),
-                new Id<Pipeline>(new Id(data.PipelineId)),
+                data.Id,
+                data.PipelineId,
                 data.CreatedAt,
                 SourceBundleStatus.Completed);
 
@@ -127,9 +127,9 @@ public class S3BundleStore(
             ct))
         {
             var bundle = new ArtifactBundle(
-                new Id<ArtifactBundle>(new Id(data.Id)),
-                new Id<Pipeline>(new Id(data.PipelineId)),
-                new Id<SourceBundle>(new Id(data.SourceBundleId)),
+                data.Id,
+                data.PipelineId,
+                data.SourceBundleId,
                 data.CreatedAt,
                 ArtifactBundleStatus.Completed);
 

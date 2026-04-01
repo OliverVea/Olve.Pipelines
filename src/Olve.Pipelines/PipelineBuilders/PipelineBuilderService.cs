@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
+using Olve.Results;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.PipelineBuilders;
@@ -37,7 +38,7 @@ public class PipelineBuilderService
         return results;
     }
 
-    public bool Delete(Id<PipelineBuilder> id) => _store.Delete(id);
+    public DeletionResult Delete(Id<PipelineBuilder> id) => _store.Delete(id);
 
     public void SetScript(Id<PipelineBuilder> id, ScriptBuilder script)
     {

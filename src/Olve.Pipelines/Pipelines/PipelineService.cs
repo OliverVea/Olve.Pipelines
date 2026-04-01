@@ -1,14 +1,16 @@
 using System.Diagnostics.CodeAnalysis;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Shared;
+using Olve.Results;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.Pipelines;
 
-public class PipelineService(EntityStore<Pipeline> store)
+public class PipelineService(EntityStore<Pipeline> store, IdProvider idProvider)
 {
     public Pipeline Create(string name)
     {
-        var pipeline = new Pipeline(Id.New<Pipeline>(), name);
+        var pipeline = new Pipeline(idProvider.Create<Pipeline>(), name);
         store.Set(pipeline);
         return pipeline;
     }
@@ -17,5 +19,5 @@ public class PipelineService(EntityStore<Pipeline> store)
 
     public IReadOnlyList<Pipeline> List() => store.List();
 
-    public bool Delete(Id<Pipeline> id) => store.Delete(id);
+    public DeletionResult Delete(Id<Pipeline> id) => store.Delete(id);
 }

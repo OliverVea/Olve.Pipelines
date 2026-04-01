@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Utilities.Ids;
 
@@ -61,18 +62,11 @@ public static class PipelineBuilderEndpoints
         .WithResultMapping<PipelineBuilder[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{builderId}", (
+        group.MapDelete("/{builderId}", DeletionResult (
             PipelineBuilderService builders,
             Id<PipelineBuilder> builderId) =>
-        {
-            if (!builders.Delete(builderId))
-            {
-                return Result.Failure(new ResultProblem($"Builder '{builderId}' not found."));
-            }
-
-            return Result.Success();
-        })
-        .WithResultMapping();
+            builders.Delete(builderId))
+        .WithDeletionMapping();
 
         // Script builder attachment
         group.MapPut("/{builderId}/script", Result<ScriptBuilder> (

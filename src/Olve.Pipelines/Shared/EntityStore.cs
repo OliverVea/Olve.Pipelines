@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Olve.Results;
 using Olve.Utilities.Ids;
 using Olve.Utilities.Lookup;
 
@@ -33,13 +34,13 @@ public class EntityStore<T> where T : IHasId<Id<T>>
 
     public IReadOnlyList<T> List() => _entities.Values.ToList();
 
-    public bool Delete(Id<T> id)
+    public DeletionResult Delete(Id<T> id)
     {
         if (!_entities.TryRemove(id, out _))
-            return false;
+            return DeletionResult.NotFound();
 
         OnDeleted.Invoke(id);
-        return true;
+        return DeletionResult.Success();
     }
 
     public bool Contains(Id<T> id) => _entities.ContainsKey(id);

@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Shared;
+using Olve.Results;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.Processing;
@@ -36,7 +37,7 @@ public class VerificationService
         return results;
     }
 
-    public bool Delete(Id<Verification> id) => _store.Delete(id);
+    public DeletionResult Delete(Id<Verification> id) => _store.Delete(id);
 
     public void SetScript(Id<Verification> id, ScriptVerification script)
     {

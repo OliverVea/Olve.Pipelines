@@ -20,6 +20,8 @@ public static class ServiceConfiguration
         services.AddTransient<IEnumerable<ProcessingStep>>(_ => DevelopmentPipelineSeeder.GetProcessingSteps());
         services.AddTransient<IEnumerable<Verification>>(_ => DevelopmentPipelineSeeder.GetVerifications());
         services.AddSingleton<EntityStore<Pipeline>>();
+        services.AddSingleton<PipelineEvents>();
+        services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();
         services.AddSingleton<EntityStore<PipelineSource>>();
         services.AddSingleton<EntityStore<PipelineBuilder>>();
         services.AddSingleton<EntityStore<ProcessingStep>>();

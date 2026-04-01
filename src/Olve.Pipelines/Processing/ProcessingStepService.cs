@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
+using Olve.Results;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.Processing;
@@ -37,7 +38,7 @@ public class ProcessingStepService
         return results;
     }
 
-    public bool Delete(Id<ProcessingStep> id) => _store.Delete(id);
+    public DeletionResult Delete(Id<ProcessingStep> id) => _store.Delete(id);
 
     public void SetScript(Id<ProcessingStep> id, ScriptProcessing script)
     {

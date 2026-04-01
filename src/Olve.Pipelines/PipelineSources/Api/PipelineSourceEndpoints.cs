@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Utilities.Ids;
 
@@ -62,18 +63,11 @@ public static class PipelineSourceEndpoints
         .WithResultMapping<PipelineSource[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{sourceId}", (
+        group.MapDelete("/{sourceId}", DeletionResult (
             PipelineSourceService sources,
             Id<PipelineSource> sourceId) =>
-        {
-            if (!sources.Delete(sourceId))
-            {
-                return Result.Failure(new ResultProblem($"Source '{sourceId}' not found."));
-            }
-
-            return Result.Success();
-        })
-        .WithResultMapping();
+            sources.Delete(sourceId))
+        .WithDeletionMapping();
 
         // Hardcoded source attachment
         group.MapPut("/{sourceId}/hardcoded", Result<HardcodedSource> (

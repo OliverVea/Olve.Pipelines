@@ -77,13 +77,5 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         return Result.Success();
     }
 
-    public DeletionResult DeleteJob(Id<Job> jobId)
-    {
-        if (!store.Delete(jobId))
-        {
-            return DeletionResult.NotFound();
-        }
-
-        return DeletionResult.Success();
-    }
+    public DeletionResult DeleteJob(Id<Job> jobId) => store.Delete(jobId);
 }

@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Utilities.Ids;
 
@@ -63,18 +64,11 @@ public static class ProcessingEndpoints
         .WithResultMapping<ProcessingStep[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{processingId}", (
+        group.MapDelete("/{processingId}", DeletionResult (
             ProcessingStepService processing,
             Id<ProcessingStep> processingId) =>
-        {
-            if (!processing.Delete(processingId))
-            {
-                return Result.Failure(new ResultProblem($"Processing step '{processingId}' not found."));
-            }
-
-            return Result.Success();
-        })
-        .WithResultMapping();
+            processing.Delete(processingId))
+        .WithDeletionMapping();
 
         // Script processing attachment
         group.MapPut("/{processingId}/script", Result<ScriptProcessing> (
@@ -164,18 +158,11 @@ public static class ProcessingEndpoints
         .WithResultMapping<Verification[]>()
         .AllowAnonymous();
 
-        verificationGroup.MapDelete("/{verificationId}", (
+        verificationGroup.MapDelete("/{verificationId}", DeletionResult (
             VerificationService verifications,
             Id<Verification> verificationId) =>
-        {
-            if (!verifications.Delete(verificationId))
-            {
-                return Result.Failure(new ResultProblem($"Verification '{verificationId}' not found."));
-            }
-
-            return Result.Success();
-        })
-        .WithResultMapping();
+            verifications.Delete(verificationId))
+        .WithDeletionMapping();
 
         // Script verification attachment
         verificationGroup.MapPut("/{verificationId}/script", Result<ScriptVerification> (

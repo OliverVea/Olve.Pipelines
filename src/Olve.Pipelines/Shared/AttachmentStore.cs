@@ -11,7 +11,7 @@ public class AttachmentStore<TParent, TAttachment> where TParent : IHasId<Id<TPa
 
     public AttachmentStore(EntityStore<TParent> parentStore)
     {
-        parentStore.OnDeleted += id => Remove(id);
+        parentStore.OnDeleted.Subscribe(id => Remove(id));
     }
 
     public void Set(Id<TParent> id, TAttachment attachment) => _attachments[id] = attachment;

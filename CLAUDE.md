@@ -84,6 +84,24 @@ dotnet test -p:RunIntegrationTests=true                     # All tests
 dotnet run --project src/Olve.Pipelines                  # Run locally
 ```
 
+### Architecture Patterns
+
+**Service layers (per domain area):**
+- **EntityStore\<T\>** — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `Event<Id<T>>` on mutations)
+- **Domain event hubs** (e.g. `JobEvents`) — hold `Event<T>` properties, receive forwarded store events, can also be invoked directly by services (singleton)
+- **Domain CRUD services** (e.g. `JobService`) — typed create/read/update/delete over the store, no event awareness (transient)
+- **Domain rule services** (e.g. `JobObsoletionService`) — implement business rules, event-driven (transient)
+- **Domain query services** (e.g. `JobQueueService`) — stateless queries over the store (transient)
+
+**Key principles:**
+- **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).
+- **Two-tier events** — EntityStore fires low-level CRUD events, forwarded to domain event hubs. Subscribers subscribe to domain hubs, not the store.
+- **Explicit event registration** — each domain area has a `*EventRegistration` class implementing `IRunOnStartup`. Each line is one subscription. Handlers are resolved from `IServiceProvider` at dispatch time so services stay transient.
+- **Transient by default, singleton only for state** — don't cache what you can query. Keep derived state as queries until performance proves otherwise.
+- **Result error handling** — no exceptions, `Olve.Results` everywhere.
+- **IRunOnStartup over IHostedService** — domain startup wiring uses `IRunOnStartup` (sync, returns `Result`). A single `StartupRunner` hosted service runs them all. Keeps `IHostedService` out of domain code.
+- **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store → events → subscribers explicitly in tests, no DI container needed.
+
 ## Conventions
 
 - .NET 10, C# with file-scoped namespaces, nullable enabled, implicit usings

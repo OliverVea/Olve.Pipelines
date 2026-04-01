@@ -32,10 +32,11 @@ public static class ServiceConfiguration
         services.AddSingleton<EntityStore<Job>>();
         services.AddSingleton<IdProvider>();
         services.AddSingleton<JobEvents>();
-        services.AddSingleton<JobService>();
-        services.AddSingleton<JobObsoletionService>();
-        services.AddSingleton<JobQueueService>();
-        services.AddHostedService<JobEventSubscriptions>();
+        services.AddTransient<JobService>();
+        services.AddTransient<JobObsoletionService>();
+        services.AddTransient<JobQueueService>();
+        services.AddSingleton<IRunOnStartup, JobEventRegistration>();
+        services.AddHostedService<StartupRunner>();
         services.AddSingleton<AttachmentStore<PipelineSource, HardcodedSource>>();
         services.AddSingleton<AttachmentStore<PipelineSource, GitHubSource>>();
         services.AddSingleton<AttachmentStore<PipelineBuilder, ScriptBuilder>>();

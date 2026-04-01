@@ -21,8 +21,8 @@ public sealed class EntityStoreIndex<T, TKey>
             Add(entity.Id);
         }
 
-        store.OnAdded += Add;
-        store.OnDeleted += Remove;
+        store.OnAdded.Subscribe(Add);
+        store.OnDeleted.Subscribe(Remove);
     }
 
     private void Add(Id<T> id)

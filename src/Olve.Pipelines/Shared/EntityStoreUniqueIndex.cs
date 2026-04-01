@@ -21,8 +21,8 @@ public sealed class EntityStoreUniqueIndex<T, TKey>
             _index[keySelector(entity)] = entity.Id;
         }
 
-        store.OnAdded += Add;
-        store.OnDeleted += Remove;
+        store.OnAdded.Subscribe(Add);
+        store.OnDeleted.Subscribe(Remove);
     }
 
     private void Add(Id<T> id)

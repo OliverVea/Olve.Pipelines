@@ -12,34 +12,30 @@ public static class PipelineBuilderEndpoints
 
     public static void MapPipelineBuilderEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/builders");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/builders");
 
         group.MapPost("/", Result<PipelineBuilder> (
             PipelineService pipelines,
             PipelineBuilderService builders,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CreatePipelineBuilderRequest request) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<PipelineBuilder>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var builder = new PipelineBuilder(Id.New<PipelineBuilder>(), request.Name, pipelineIdTyped);
+            var builder = new PipelineBuilder(Id.New<PipelineBuilder>(), request.Name, pipelineId);
             builders.Set(builder);
             return Result.Success(builder);
         })
         .WithResultMapping<PipelineBuilder>();
 
-        group.MapGet("/{builderId:guid}", Result<PipelineBuilder> (
+        group.MapGet("/{builderId}", Result<PipelineBuilder> (
             PipelineBuilderService builders,
-            Guid builderId) =>
+            Id<PipelineBuilder> builderId) =>
         {
-            var builderIdTyped = new Id<PipelineBuilder>(new Id(builderId));
-
-            if (!builders.TryGet(builderIdTyped, out var builder))
+            if (!builders.TryGet(builderId, out var builder))
             {
                 return Result.Failure<PipelineBuilder>(new ResultProblem($"Builder '{builderId}' not found."));
             }
@@ -52,28 +48,24 @@ public static class PipelineBuilderEndpoints
         group.MapGet("/", Result<PipelineBuilder[]> (
             PipelineService pipelines,
             PipelineBuilderService builders,
-            Guid pipelineId) =>
+            Id<Pipeline> pipelineId) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<PipelineBuilder[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var pipelineBuilders = builders.GetByPipelineId(pipelineIdTyped).ToArray();
+            var pipelineBuilders = builders.GetByPipelineId(pipelineId).ToArray();
             return Result.Success(pipelineBuilders);
         })
         .WithResultMapping<PipelineBuilder[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{builderId:guid}", (
+        group.MapDelete("/{builderId}", (
             PipelineBuilderService builders,
-            Guid builderId) =>
+            Id<PipelineBuilder> builderId) =>
         {
-            var builderIdTyped = new Id<PipelineBuilder>(new Id(builderId));
-
-            if (!builders.Delete(builderIdTyped))
+            if (!builders.Delete(builderId))
             {
                 return Result.Failure(new ResultProblem($"Builder '{builderId}' not found."));
             }
@@ -83,27 +75,25 @@ public static class PipelineBuilderEndpoints
         .WithResultMapping();
 
         // Script builder attachment
-        group.MapPut("/{builderId:guid}/script", Result<ScriptBuilder> (
+        group.MapPut("/{builderId}/script", Result<ScriptBuilder> (
             PipelineBuilderService builders,
-            Guid builderId,
+            Id<PipelineBuilder> builderId,
             SetScriptBuilderRequest request) =>
         {
-            var id = new Id<PipelineBuilder>(new Id(builderId));
-            if (!builders.TryGet(id, out _))
+            if (!builders.TryGet(builderId, out _))
                 return Result.Failure<ScriptBuilder>(new ResultProblem($"Builder '{builderId}' not found."));
 
             var script = new ScriptBuilder(request.Script);
-            builders.SetScript(id, script);
+            builders.SetScript(builderId, script);
             return Result.Success(script);
         })
         .WithResultMapping<ScriptBuilder>();
 
-        group.MapGet("/{builderId:guid}/script", Result<ScriptBuilder> (
+        group.MapGet("/{builderId}/script", Result<ScriptBuilder> (
             PipelineBuilderService builders,
-            Guid builderId) =>
+            Id<PipelineBuilder> builderId) =>
         {
-            var id = new Id<PipelineBuilder>(new Id(builderId));
-            if (!builders.TryGetScript(id, out var script))
+            if (!builders.TryGetScript(builderId, out var script))
                 return Result.Failure<ScriptBuilder>(new ResultProblem($"Builder '{builderId}' has no script configuration."));
 
             return Result.Success(script);
@@ -111,12 +101,11 @@ public static class PipelineBuilderEndpoints
         .WithResultMapping<ScriptBuilder>()
         .AllowAnonymous();
 
-        group.MapDelete("/{builderId:guid}/script", (
+        group.MapDelete("/{builderId}/script", (
             PipelineBuilderService builders,
-            Guid builderId) =>
+            Id<PipelineBuilder> builderId) =>
         {
-            var id = new Id<PipelineBuilder>(new Id(builderId));
-            if (!builders.RemoveScript(id))
+            if (!builders.RemoveScript(builderId))
                 return Result.Failure(new ResultProblem($"Builder '{builderId}' has no script configuration."));
 
             return Result.Success();

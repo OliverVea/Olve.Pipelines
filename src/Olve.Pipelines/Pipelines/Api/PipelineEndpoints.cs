@@ -17,11 +17,9 @@ public static class PipelineEndpoints
         })
         .WithResultMapping<Pipeline>();
 
-        group.MapGet("/{id:guid}", Result<Pipeline> (PipelineService service, Guid id) =>
+        group.MapGet("/{id}", Result<Pipeline> (PipelineService service, Id<Pipeline> id) =>
         {
-            var pipelineId = new Id<Pipeline>(new Id(id));
-
-            if (!service.TryGet(pipelineId, out var pipeline))
+            if (!service.TryGet(id, out var pipeline))
             {
                 return Result.Failure<Pipeline>(new ResultProblem($"Pipeline '{id}' not found."));
             }
@@ -39,11 +37,9 @@ public static class PipelineEndpoints
         .WithResultMapping<Pipeline[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{id:guid}", (PipelineService service, Guid id) =>
+        group.MapDelete("/{id}", (PipelineService service, Id<Pipeline> id) =>
         {
-            var pipelineId = new Id<Pipeline>(new Id(id));
-
-            if (!service.Delete(pipelineId))
+            if (!service.Delete(id))
             {
                 return Result.Failure(new ResultProblem($"Pipeline '{id}' not found."));
             }

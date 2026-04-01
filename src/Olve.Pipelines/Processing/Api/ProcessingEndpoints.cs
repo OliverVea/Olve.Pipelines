@@ -14,34 +14,30 @@ public static class ProcessingEndpoints
 
     public static void MapProcessingEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/processing");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/processing");
 
         group.MapPost("/", Result<ProcessingStep> (
             PipelineService pipelines,
             ProcessingStepService processing,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CreateProcessingStepRequest request) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<ProcessingStep>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var step = new ProcessingStep(Id.New<ProcessingStep>(), request.Name, pipelineIdTyped);
+            var step = new ProcessingStep(Id.New<ProcessingStep>(), request.Name, pipelineId);
             processing.Set(step);
             return Result.Success(step);
         })
         .WithResultMapping<ProcessingStep>();
 
-        group.MapGet("/{processingId:guid}", Result<ProcessingStep> (
+        group.MapGet("/{processingId}", Result<ProcessingStep> (
             ProcessingStepService processing,
-            Guid processingId) =>
+            Id<ProcessingStep> processingId) =>
         {
-            var processingIdTyped = new Id<ProcessingStep>(new Id(processingId));
-
-            if (!processing.TryGet(processingIdTyped, out var step))
+            if (!processing.TryGet(processingId, out var step))
             {
                 return Result.Failure<ProcessingStep>(new ResultProblem($"Processing step '{processingId}' not found."));
             }
@@ -54,28 +50,24 @@ public static class ProcessingEndpoints
         group.MapGet("/", Result<ProcessingStep[]> (
             PipelineService pipelines,
             ProcessingStepService processing,
-            Guid pipelineId) =>
+            Id<Pipeline> pipelineId) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<ProcessingStep[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var steps = processing.GetByPipelineId(pipelineIdTyped).ToArray();
+            var steps = processing.GetByPipelineId(pipelineId).ToArray();
             return Result.Success(steps);
         })
         .WithResultMapping<ProcessingStep[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{processingId:guid}", (
+        group.MapDelete("/{processingId}", (
             ProcessingStepService processing,
-            Guid processingId) =>
+            Id<ProcessingStep> processingId) =>
         {
-            var processingIdTyped = new Id<ProcessingStep>(new Id(processingId));
-
-            if (!processing.Delete(processingIdTyped))
+            if (!processing.Delete(processingId))
             {
                 return Result.Failure(new ResultProblem($"Processing step '{processingId}' not found."));
             }
@@ -85,27 +77,25 @@ public static class ProcessingEndpoints
         .WithResultMapping();
 
         // Script processing attachment
-        group.MapPut("/{processingId:guid}/script", Result<ScriptProcessing> (
+        group.MapPut("/{processingId}/script", Result<ScriptProcessing> (
             ProcessingStepService processing,
-            Guid processingId,
+            Id<ProcessingStep> processingId,
             SetScriptProcessingRequest request) =>
         {
-            var id = new Id<ProcessingStep>(new Id(processingId));
-            if (!processing.TryGet(id, out _))
+            if (!processing.TryGet(processingId, out _))
                 return Result.Failure<ScriptProcessing>(new ResultProblem($"Processing step '{processingId}' not found."));
 
             var script = new ScriptProcessing(request.Script);
-            processing.SetScript(id, script);
+            processing.SetScript(processingId, script);
             return Result.Success(script);
         })
         .WithResultMapping<ScriptProcessing>();
 
-        group.MapGet("/{processingId:guid}/script", Result<ScriptProcessing> (
+        group.MapGet("/{processingId}/script", Result<ScriptProcessing> (
             ProcessingStepService processing,
-            Guid processingId) =>
+            Id<ProcessingStep> processingId) =>
         {
-            var id = new Id<ProcessingStep>(new Id(processingId));
-            if (!processing.TryGetScript(id, out var script))
+            if (!processing.TryGetScript(processingId, out var script))
                 return Result.Failure<ScriptProcessing>(new ResultProblem($"Processing step '{processingId}' has no script configuration."));
 
             return Result.Success(script);
@@ -113,12 +103,11 @@ public static class ProcessingEndpoints
         .WithResultMapping<ScriptProcessing>()
         .AllowAnonymous();
 
-        group.MapDelete("/{processingId:guid}/script", (
+        group.MapDelete("/{processingId}/script", (
             ProcessingStepService processing,
-            Guid processingId) =>
+            Id<ProcessingStep> processingId) =>
         {
-            var id = new Id<ProcessingStep>(new Id(processingId));
-            if (!processing.RemoveScript(id))
+            if (!processing.RemoveScript(processingId))
                 return Result.Failure(new ResultProblem($"Processing step '{processingId}' has no script configuration."));
 
             return Result.Success();
@@ -126,34 +115,30 @@ public static class ProcessingEndpoints
         .WithResultMapping();
 
         // Verification endpoints
-        var verificationGroup = app.MapGroup("/api/pipelines/{pipelineId:guid}/processing/{processingId:guid}/verifications");
+        var verificationGroup = app.MapGroup("/api/pipelines/{pipelineId}/processing/{processingId}/verifications");
 
         verificationGroup.MapPost("/", Result<Verification> (
             ProcessingStepService processing,
             VerificationService verifications,
-            Guid processingId,
+            Id<ProcessingStep> processingId,
             CreateVerificationRequest request) =>
         {
-            var processingIdTyped = new Id<ProcessingStep>(new Id(processingId));
-
-            if (!processing.TryGet(processingIdTyped, out _))
+            if (!processing.TryGet(processingId, out _))
             {
                 return Result.Failure<Verification>(new ResultProblem($"Processing step '{processingId}' not found."));
             }
 
-            var verification = new Verification(Id.New<Verification>(), request.Name, processingIdTyped);
+            var verification = new Verification(Id.New<Verification>(), request.Name, processingId);
             verifications.Set(verification);
             return Result.Success(verification);
         })
         .WithResultMapping<Verification>();
 
-        verificationGroup.MapGet("/{verificationId:guid}", Result<Verification> (
+        verificationGroup.MapGet("/{verificationId}", Result<Verification> (
             VerificationService verifications,
-            Guid verificationId) =>
+            Id<Verification> verificationId) =>
         {
-            var verificationIdTyped = new Id<Verification>(new Id(verificationId));
-
-            if (!verifications.TryGet(verificationIdTyped, out var verification))
+            if (!verifications.TryGet(verificationId, out var verification))
             {
                 return Result.Failure<Verification>(new ResultProblem($"Verification '{verificationId}' not found."));
             }
@@ -166,28 +151,24 @@ public static class ProcessingEndpoints
         verificationGroup.MapGet("/", Result<Verification[]> (
             ProcessingStepService processing,
             VerificationService verifications,
-            Guid processingId) =>
+            Id<ProcessingStep> processingId) =>
         {
-            var processingIdTyped = new Id<ProcessingStep>(new Id(processingId));
-
-            if (!processing.TryGet(processingIdTyped, out _))
+            if (!processing.TryGet(processingId, out _))
             {
                 return Result.Failure<Verification[]>(new ResultProblem($"Processing step '{processingId}' not found."));
             }
 
-            var steps = verifications.GetByProcessingStepId(processingIdTyped).ToArray();
+            var steps = verifications.GetByProcessingStepId(processingId).ToArray();
             return Result.Success(steps);
         })
         .WithResultMapping<Verification[]>()
         .AllowAnonymous();
 
-        verificationGroup.MapDelete("/{verificationId:guid}", (
+        verificationGroup.MapDelete("/{verificationId}", (
             VerificationService verifications,
-            Guid verificationId) =>
+            Id<Verification> verificationId) =>
         {
-            var verificationIdTyped = new Id<Verification>(new Id(verificationId));
-
-            if (!verifications.Delete(verificationIdTyped))
+            if (!verifications.Delete(verificationId))
             {
                 return Result.Failure(new ResultProblem($"Verification '{verificationId}' not found."));
             }
@@ -197,27 +178,25 @@ public static class ProcessingEndpoints
         .WithResultMapping();
 
         // Script verification attachment
-        verificationGroup.MapPut("/{verificationId:guid}/script", Result<ScriptVerification> (
+        verificationGroup.MapPut("/{verificationId}/script", Result<ScriptVerification> (
             VerificationService verifications,
-            Guid verificationId,
+            Id<Verification> verificationId,
             SetScriptVerificationRequest request) =>
         {
-            var id = new Id<Verification>(new Id(verificationId));
-            if (!verifications.TryGet(id, out _))
+            if (!verifications.TryGet(verificationId, out _))
                 return Result.Failure<ScriptVerification>(new ResultProblem($"Verification '{verificationId}' not found."));
 
             var script = new ScriptVerification(request.Script);
-            verifications.SetScript(id, script);
+            verifications.SetScript(verificationId, script);
             return Result.Success(script);
         })
         .WithResultMapping<ScriptVerification>();
 
-        verificationGroup.MapGet("/{verificationId:guid}/script", Result<ScriptVerification> (
+        verificationGroup.MapGet("/{verificationId}/script", Result<ScriptVerification> (
             VerificationService verifications,
-            Guid verificationId) =>
+            Id<Verification> verificationId) =>
         {
-            var id = new Id<Verification>(new Id(verificationId));
-            if (!verifications.TryGetScript(id, out var script))
+            if (!verifications.TryGetScript(verificationId, out var script))
                 return Result.Failure<ScriptVerification>(new ResultProblem($"Verification '{verificationId}' has no script configuration."));
 
             return Result.Success(script);
@@ -225,12 +204,11 @@ public static class ProcessingEndpoints
         .WithResultMapping<ScriptVerification>()
         .AllowAnonymous();
 
-        verificationGroup.MapDelete("/{verificationId:guid}/script", (
+        verificationGroup.MapDelete("/{verificationId}/script", (
             VerificationService verifications,
-            Guid verificationId) =>
+            Id<Verification> verificationId) =>
         {
-            var id = new Id<Verification>(new Id(verificationId));
-            if (!verifications.RemoveScript(id))
+            if (!verifications.RemoveScript(verificationId))
                 return Result.Failure(new ResultProblem($"Verification '{verificationId}' has no script configuration."));
 
             return Result.Success();

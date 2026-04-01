@@ -1,4 +1,8 @@
 using System.Collections.Concurrent;
+using Olve.Pipelines.Building;
+using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Sourcing;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.Kubernetes;
 
@@ -16,7 +20,7 @@ public class JobTracker
         return _jobs.Values.ToArray();
     }
 
-    public IReadOnlyList<JobRecord> GetByPipelineId(Guid pipelineId)
+    public IReadOnlyList<JobRecord> GetByPipelineId(Id<Pipeline> pipelineId)
     {
         return _jobs.Values.Where(j => j.PipelineId == pipelineId).ToArray();
     }
@@ -34,10 +38,10 @@ public class JobTracker
 
 public record JobRecord(
     string JobName,
-    Guid PipelineId,
+    Id<Pipeline> PipelineId,
     JobRecordPhase Phase,
-    Guid? SourceBundleId,
-    Guid? ArtifactBundleId,
+    Id<SourceBundle>? SourceBundleId,
+    Id<ArtifactBundle>? ArtifactBundleId,
     DateTimeOffset CreatedAt);
 
 public enum JobRecordPhase

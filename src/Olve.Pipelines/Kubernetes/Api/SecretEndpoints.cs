@@ -7,22 +7,20 @@ namespace Olve.Pipelines.Kubernetes.Api;
 
 public static class SecretEndpoints
 {
-    private static string SecretName(Guid pipelineId) => $"olve-pipeline-{pipelineId:N}";
+    private static string SecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
 
     public static void MapSecretEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/secrets");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/secrets");
 
         group.MapGet("/", async Task<Result<string[]>> (
             PipelineService pipelines,
             KubernetesClient kubernetesClient,
             KubernetesOptions options,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure<string[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var data = await kubernetesClient.GetSecretAsync(options.Namespace, SecretName(pipelineId), ct);
@@ -35,14 +33,12 @@ public static class SecretEndpoints
             PipelineService pipelines,
             KubernetesClient kubernetesClient,
             KubernetesOptions options,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             string name,
             SetSecretRequest request,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var secretName = SecretName(pipelineId);
@@ -67,13 +63,11 @@ public static class SecretEndpoints
             PipelineService pipelines,
             KubernetesClient kubernetesClient,
             KubernetesOptions options,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             string name,
             CancellationToken ct) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
                 return Result.Failure(new ResultProblem($"Pipeline '{pipelineId}' not found."));
 
             var secretName = SecretName(pipelineId);

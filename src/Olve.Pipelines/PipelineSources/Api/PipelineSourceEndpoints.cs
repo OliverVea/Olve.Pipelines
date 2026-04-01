@@ -13,34 +13,30 @@ public static class PipelineSourceEndpoints
 
     public static void MapPipelineSourceEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId:guid}/sources");
+        var group = app.MapGroup("/api/pipelines/{pipelineId}/sources");
 
         group.MapPost("/", Result<PipelineSource> (
             PipelineService pipelines,
             PipelineSourceService sources,
-            Guid pipelineId,
+            Id<Pipeline> pipelineId,
             CreatePipelineSourceRequest request) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<PipelineSource>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var source = new PipelineSource(Id.New<PipelineSource>(), request.Name, pipelineIdTyped);
+            var source = new PipelineSource(Id.New<PipelineSource>(), request.Name, pipelineId);
             sources.Set(source);
             return Result.Success(source);
         })
         .WithResultMapping<PipelineSource>();
 
-        group.MapGet("/{sourceId:guid}", Result<PipelineSource> (
+        group.MapGet("/{sourceId}", Result<PipelineSource> (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var sourceIdTyped = new Id<PipelineSource>(new Id(sourceId));
-
-            if (!sources.TryGet(sourceIdTyped, out var source))
+            if (!sources.TryGet(sourceId, out var source))
             {
                 return Result.Failure<PipelineSource>(new ResultProblem($"Source '{sourceId}' not found."));
             }
@@ -53,28 +49,24 @@ public static class PipelineSourceEndpoints
         group.MapGet("/", Result<PipelineSource[]> (
             PipelineService pipelines,
             PipelineSourceService sources,
-            Guid pipelineId) =>
+            Id<Pipeline> pipelineId) =>
         {
-            var pipelineIdTyped = new Id<Pipeline>(new Id(pipelineId));
-
-            if (!pipelines.TryGet(pipelineIdTyped, out _))
+            if (!pipelines.TryGet(pipelineId, out _))
             {
                 return Result.Failure<PipelineSource[]>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
             }
 
-            var pipelineSources = sources.GetByPipelineId(pipelineIdTyped).ToArray();
+            var pipelineSources = sources.GetByPipelineId(pipelineId).ToArray();
             return Result.Success(pipelineSources);
         })
         .WithResultMapping<PipelineSource[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{sourceId:guid}", (
+        group.MapDelete("/{sourceId}", (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var sourceIdTyped = new Id<PipelineSource>(new Id(sourceId));
-
-            if (!sources.Delete(sourceIdTyped))
+            if (!sources.Delete(sourceId))
             {
                 return Result.Failure(new ResultProblem($"Source '{sourceId}' not found."));
             }
@@ -84,27 +76,25 @@ public static class PipelineSourceEndpoints
         .WithResultMapping();
 
         // Hardcoded source attachment
-        group.MapPut("/{sourceId:guid}/hardcoded", Result<HardcodedSource> (
+        group.MapPut("/{sourceId}/hardcoded", Result<HardcodedSource> (
             PipelineSourceService sources,
-            Guid sourceId,
+            Id<PipelineSource> sourceId,
             SetHardcodedSourceRequest request) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.TryGet(id, out _))
+            if (!sources.TryGet(sourceId, out _))
                 return Result.Failure<HardcodedSource>(new ResultProblem($"Source '{sourceId}' not found."));
 
             var hardcoded = new HardcodedSource(request.Files);
-            sources.SetHardcoded(id, hardcoded);
+            sources.SetHardcoded(sourceId, hardcoded);
             return Result.Success(hardcoded);
         })
         .WithResultMapping<HardcodedSource>();
 
-        group.MapGet("/{sourceId:guid}/hardcoded", Result<HardcodedSource> (
+        group.MapGet("/{sourceId}/hardcoded", Result<HardcodedSource> (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.TryGetHardcoded(id, out var hardcoded))
+            if (!sources.TryGetHardcoded(sourceId, out var hardcoded))
                 return Result.Failure<HardcodedSource>(new ResultProblem($"Source '{sourceId}' has no hardcoded configuration."));
 
             return Result.Success(hardcoded);
@@ -112,12 +102,11 @@ public static class PipelineSourceEndpoints
         .WithResultMapping<HardcodedSource>()
         .AllowAnonymous();
 
-        group.MapDelete("/{sourceId:guid}/hardcoded", (
+        group.MapDelete("/{sourceId}/hardcoded", (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.RemoveHardcoded(id))
+            if (!sources.RemoveHardcoded(sourceId))
                 return Result.Failure(new ResultProblem($"Source '{sourceId}' has no hardcoded configuration."));
 
             return Result.Success();
@@ -125,27 +114,25 @@ public static class PipelineSourceEndpoints
         .WithResultMapping();
 
         // GitHub source attachment
-        group.MapPut("/{sourceId:guid}/github", Result<GitHubSource> (
+        group.MapPut("/{sourceId}/github", Result<GitHubSource> (
             PipelineSourceService sources,
-            Guid sourceId,
+            Id<PipelineSource> sourceId,
             SetGitHubSourceRequest request) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.TryGet(id, out _))
+            if (!sources.TryGet(sourceId, out _))
                 return Result.Failure<GitHubSource>(new ResultProblem($"Source '{sourceId}' not found."));
 
             var github = new GitHubSource(request.Owner, request.Repository, request.Branch);
-            sources.SetGitHub(id, github);
+            sources.SetGitHub(sourceId, github);
             return Result.Success(github);
         })
         .WithResultMapping<GitHubSource>();
 
-        group.MapGet("/{sourceId:guid}/github", Result<GitHubSource> (
+        group.MapGet("/{sourceId}/github", Result<GitHubSource> (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.TryGetGitHub(id, out var github))
+            if (!sources.TryGetGitHub(sourceId, out var github))
                 return Result.Failure<GitHubSource>(new ResultProblem($"Source '{sourceId}' has no GitHub configuration."));
 
             return Result.Success(github);
@@ -153,12 +140,11 @@ public static class PipelineSourceEndpoints
         .WithResultMapping<GitHubSource>()
         .AllowAnonymous();
 
-        group.MapDelete("/{sourceId:guid}/github", (
+        group.MapDelete("/{sourceId}/github", (
             PipelineSourceService sources,
-            Guid sourceId) =>
+            Id<PipelineSource> sourceId) =>
         {
-            var id = new Id<PipelineSource>(new Id(sourceId));
-            if (!sources.RemoveGitHub(id))
+            if (!sources.RemoveGitHub(sourceId))
                 return Result.Failure(new ResultProblem($"Source '{sourceId}' has no GitHub configuration."));
 
             return Result.Success();

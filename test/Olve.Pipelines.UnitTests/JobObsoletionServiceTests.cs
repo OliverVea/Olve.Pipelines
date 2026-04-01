@@ -20,12 +20,13 @@ public class JobObsoletionServiceTests
         var timeProvider = new TimeProviderMake().Instance();
         var events = new JobEvents();
 
+        store.OnAdded.Subscribe(events.OnAdded.Invoke);
+
         var jobService = new JobService(
             NullLogger<JobService>.Instance,
             store,
             new IdProvider(),
-            timeProvider,
-            events);
+            timeProvider);
 
         var obsoletion = new JobObsoletionService(
             jobService,

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Olve.Pipelines.Jobs;
 using Olve.Utilities.Ids;
 using Olve.Utilities.Lookup;
 
@@ -15,9 +14,9 @@ public class EntityStore<T> where T : IHasId<Id<T>>
         _entities = new(initialEntities.Select(e => new KeyValuePair<Id<T>, T>(e.Id, e)));
     }
 
-    public event Action<Id<T>>? OnAdded;
-    public event Action<Id<T>>? OnUpdated;
-    public event Action<Id<T>>? OnDeleted;
+    public Event<Id<T>> OnAdded { get; } = new();
+    public Event<Id<T>> OnUpdated { get; } = new();
+    public Event<Id<T>> OnDeleted { get; } = new();
 
     public void Set(T entity)
     {
@@ -25,9 +24,9 @@ public class EntityStore<T> where T : IHasId<Id<T>>
         _entities[entity.Id] = entity;
 
         if (isUpdate)
-            OnUpdated?.Invoke(entity.Id);
+            OnUpdated.Invoke(entity.Id);
         else
-            OnAdded?.Invoke(entity.Id);
+            OnAdded.Invoke(entity.Id);
     }
 
     public bool TryGet(Id<T> id, [NotNullWhen(true)] out T? entity) => _entities.TryGetValue(id, out entity);
@@ -39,7 +38,7 @@ public class EntityStore<T> where T : IHasId<Id<T>>
         if (!_entities.TryRemove(id, out _))
             return false;
 
-        OnDeleted?.Invoke(id);
+        OnDeleted.Invoke(id);
         return true;
     }
 
@@ -50,5 +49,4 @@ public class EntityStore<T> where T : IHasId<Id<T>>
 
     public EntityStoreUniqueIndex<T, TKey> CreateUniqueIndex<TKey>(Func<T, TKey> keySelector) where TKey : notnull
         => new(this, keySelector);
-
 }

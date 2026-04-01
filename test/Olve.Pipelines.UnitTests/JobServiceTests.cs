@@ -32,8 +32,7 @@ public class JobServiceTests
             NullLogger<JobService>.Instance,
             store,
             idProvider ?? new IdProvider(),
-            timeProvider,
-            new JobEvents());
+            timeProvider);
     }
 
     [Test]

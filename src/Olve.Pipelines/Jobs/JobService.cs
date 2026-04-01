@@ -11,7 +11,7 @@ using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider, JobEvents events)
+public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
     public IReadOnlyList<Job> ListJobs() => store.List();
 
@@ -19,7 +19,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
     {
         SourcingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled());
         store.Set(job);
-        events.OnAdded.Invoke(job.Id);
         return job;
     }
 
@@ -27,7 +26,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
     {
         BuildJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), sourceBundleId);
         store.Set(job);
-        events.OnAdded.Invoke(job.Id);
         return job;
     }
 
@@ -35,7 +33,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
     {
         ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), artifactBundleId, processingStepId);
         store.Set(job);
-        events.OnAdded.Invoke(job.Id);
         return job;
     }
 
@@ -77,7 +74,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         }
 
         store.Set(updatedJob);
-        events.OnUpdated.Invoke(jobId);
         return Result.Success();
     }
 
@@ -88,7 +84,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
             return DeletionResult.NotFound();
         }
 
-        events.OnDeleted.Invoke(jobId);
         return DeletionResult.Success();
     }
 }

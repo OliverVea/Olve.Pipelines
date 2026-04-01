@@ -25,15 +25,6 @@ builder.Services.AddPipelineServices();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    DevelopmentPipelineSeeder.SeedImplementations(
-        scope.ServiceProvider.GetRequiredService<PipelineSourceService>(),
-        scope.ServiceProvider.GetRequiredService<PipelineBuilderService>(),
-        scope.ServiceProvider.GetRequiredService<ProcessingStepService>(),
-        scope.ServiceProvider.GetRequiredService<VerificationService>());
-}
-
 app.Use(async (context, next) =>
 {
     var sw = System.Diagnostics.Stopwatch.StartNew();

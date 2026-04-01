@@ -75,7 +75,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{id}")]
-        Task<Pipeline> PipelinesGET(System.Guid id);
+        Task<Pipeline> PipelinesGET(string id);
 
         /// <param name="id">id parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -94,7 +94,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{id}")]
-        Task PipelinesDELETE(System.Guid id);
+        Task PipelinesDELETE(string id);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -114,7 +114,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/sources")]
-        Task<PipelineSource> SourcesPOST(System.Guid pipelineId, [Body] CreatePipelineSourceRequest body);
+        Task<PipelineSource> SourcesPOST(string pipelineId, [Body] CreatePipelineSourceRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -133,7 +133,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources")]
-        Task<ICollection<PipelineSource>> SourcesAll(System.Guid pipelineId);
+        Task<ICollection<PipelineSource>> SourcesAll(string pipelineId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>OK</returns>
@@ -152,7 +152,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task<PipelineSource> SourcesGET(System.Guid sourceId);
+        Task<PipelineSource> SourcesGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -171,7 +171,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task SourcesDELETE(System.Guid sourceId);
+        Task SourcesDELETE(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <param name="body">body parameter</param>
@@ -191,7 +191,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<HardcodedSource> HardcodedPUT(System.Guid sourceId, [Body] SetHardcodedSourceRequest body);
+        Task<HardcodedSource> HardcodedPUT(string sourceId, [Body] SetHardcodedSourceRequest body);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>OK</returns>
@@ -210,7 +210,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<HardcodedSource> HardcodedGET(System.Guid sourceId);
+        Task<HardcodedSource> HardcodedGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -229,7 +229,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task HardcodedDELETE(System.Guid sourceId);
+        Task HardcodedDELETE(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <param name="body">body parameter</param>
@@ -249,7 +249,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<GitHubSource> GithubPUT(System.Guid sourceId, [Body] SetGitHubSourceRequest body);
+        Task<GitHubSource> GithubPUT(string sourceId, [Body] SetGitHubSourceRequest body);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>OK</returns>
@@ -268,7 +268,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<GitHubSource> GithubGET(System.Guid sourceId);
+        Task<GitHubSource> GithubGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -287,7 +287,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task GithubDELETE(System.Guid sourceId);
+        Task GithubDELETE(string sourceId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -307,7 +307,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/builders")]
-        Task<PipelineBuilder> BuildersPOST(System.Guid pipelineId, [Body] CreatePipelineBuilderRequest body);
+        Task<PipelineBuilder> BuildersPOST(string pipelineId, [Body] CreatePipelineBuilderRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -326,7 +326,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders")]
-        Task<ICollection<PipelineBuilder>> BuildersAll(System.Guid pipelineId);
+        Task<ICollection<PipelineBuilder>> BuildersAll(string pipelineId);
 
         /// <param name="builderId">builderId parameter</param>
         /// <returns>OK</returns>
@@ -345,7 +345,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task<PipelineBuilder> BuildersGET(System.Guid builderId);
+        Task<PipelineBuilder> BuildersGET(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -364,7 +364,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task BuildersDELETE(System.Guid builderId);
+        Task BuildersDELETE(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
         /// <param name="body">body parameter</param>
@@ -384,7 +384,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<ScriptBuilder> ScriptPUT(System.Guid builderId, [Body] SetScriptBuilderRequest body);
+        Task<ScriptBuilder> ScriptPUT(string builderId, [Body] SetScriptBuilderRequest body);
 
         /// <param name="builderId">builderId parameter</param>
         /// <returns>OK</returns>
@@ -403,7 +403,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<ScriptBuilder> ScriptGET(System.Guid builderId);
+        Task<ScriptBuilder> ScriptGET(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -422,7 +422,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task ScriptDELETE(System.Guid builderId);
+        Task ScriptDELETE(string builderId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -442,7 +442,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/processing")]
-        Task<ProcessingStep> ProcessingPOST(System.Guid pipelineId, [Body] CreateProcessingStepRequest body);
+        Task<ProcessingStep> ProcessingPOST(string pipelineId, [Body] CreateProcessingStepRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -461,7 +461,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing")]
-        Task<ICollection<ProcessingStep>> ProcessingAll(System.Guid pipelineId);
+        Task<ICollection<ProcessingStep>> ProcessingAll(string pipelineId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <returns>OK</returns>
@@ -480,7 +480,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task<ProcessingStep> ProcessingGET(System.Guid processingId);
+        Task<ProcessingStep> ProcessingGET(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -499,7 +499,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task ProcessingDELETE(System.Guid processingId);
+        Task ProcessingDELETE(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <param name="body">body parameter</param>
@@ -519,7 +519,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<ScriptProcessing> ScriptPUT2(System.Guid processingId, [Body] SetScriptProcessingRequest body);
+        Task<ScriptProcessing> ScriptPUT2(string processingId, [Body] SetScriptProcessingRequest body);
 
         /// <param name="processingId">processingId parameter</param>
         /// <returns>OK</returns>
@@ -538,7 +538,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<ScriptProcessing> ScriptGET2(System.Guid processingId);
+        Task<ScriptProcessing> ScriptGET2(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -557,7 +557,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task ScriptDELETE2(System.Guid processingId);
+        Task ScriptDELETE2(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <param name="body">body parameter</param>
@@ -577,7 +577,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<Verification> VerificationsPOST(System.Guid processingId, [Body] CreateVerificationRequest body);
+        Task<Verification> VerificationsPOST(string processingId, [Body] CreateVerificationRequest body);
 
         /// <param name="processingId">processingId parameter</param>
         /// <returns>OK</returns>
@@ -596,7 +596,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<ICollection<Verification>> VerificationsAll(System.Guid processingId);
+        Task<ICollection<Verification>> VerificationsAll(string processingId);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <returns>OK</returns>
@@ -615,7 +615,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task<Verification> VerificationsGET(System.Guid verificationId);
+        Task<Verification> VerificationsGET(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -634,7 +634,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task VerificationsDELETE(System.Guid verificationId);
+        Task VerificationsDELETE(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <param name="body">body parameter</param>
@@ -654,7 +654,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<ScriptVerification> ScriptPUT3(System.Guid verificationId, [Body] SetScriptVerificationRequest body);
+        Task<ScriptVerification> ScriptPUT3(string verificationId, [Body] SetScriptVerificationRequest body);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <returns>OK</returns>
@@ -673,7 +673,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<ScriptVerification> ScriptGET3(System.Guid verificationId);
+        Task<ScriptVerification> ScriptGET3(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
@@ -692,7 +692,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task ScriptDELETE3(System.Guid verificationId);
+        Task ScriptDELETE3(string verificationId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -711,7 +711,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines/{pipelineId}/trigger/sourcing")]
-        Task<SourceBundle> Sourcing(System.Guid pipelineId);
+        Task<SourceBundle> Sourcing(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -730,7 +730,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines/{pipelineId}/trigger/building")]
-        Task<ArtifactBundle> Building(System.Guid pipelineId);
+        Task<ArtifactBundle> Building(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="processingStepId">processingStepId parameter</param>
@@ -750,7 +750,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines/{pipelineId}/trigger/processing/{processingStepId}")]
-        Task<ArtifactBundle> ProcessingPOST2(System.Guid pipelineId, System.Guid processingStepId);
+        Task<ArtifactBundle> ProcessingPOST2(string pipelineId, string processingStepId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -769,7 +769,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/jobs")]
-        Task<ICollection<JobRecord>> JobsAll(System.Guid pipelineId);
+        Task<ICollection<JobRecord>> JobsAll(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="jobName">jobName parameter</param>
@@ -789,7 +789,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/jobs/{jobName}")]
-        Task<KubernetesJobStatus> Jobs(System.Guid pipelineId, string jobName);
+        Task<KubernetesJobStatus> Jobs(string pipelineId, string jobName);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="jobName">jobName parameter</param>
@@ -809,7 +809,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/jobs/{jobName}/logs")]
-        Task<string> Logs(System.Guid pipelineId, string jobName);
+        Task<string> Logs(string pipelineId, string jobName);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -828,7 +828,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/secrets")]
-        Task<ICollection<string>> SecretsAll(System.Guid pipelineId);
+        Task<ICollection<string>> SecretsAll(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
@@ -849,7 +849,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task SecretsPUT(System.Guid pipelineId, string name, [Body] SetSecretRequest body);
+        Task SecretsPUT(string pipelineId, string name, [Body] SetSecretRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
@@ -869,7 +869,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task SecretsDELETE(System.Guid pipelineId, string name);
+        Task SecretsDELETE(string pipelineId, string name);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -888,7 +888,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/source-bundles")]
-        Task<ICollection<SourceBundle>> SourceBundlesAll(System.Guid pipelineId);
+        Task<ICollection<SourceBundle>> SourceBundlesAll(string pipelineId);
 
         /// <param name="bundleId">bundleId parameter</param>
         /// <returns>OK</returns>
@@ -907,7 +907,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/source-bundles/{bundleId}")]
-        Task<SourceBundle> SourceBundles(System.Guid bundleId);
+        Task<SourceBundle> SourceBundles(string bundleId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>OK</returns>
@@ -926,7 +926,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/artifact-bundles")]
-        Task<ICollection<ArtifactBundle>> ArtifactBundlesAll(System.Guid pipelineId);
+        Task<ICollection<ArtifactBundle>> ArtifactBundlesAll(string pipelineId);
 
         /// <param name="bundleId">bundleId parameter</param>
         /// <returns>OK</returns>
@@ -945,7 +945,7 @@ namespace Olve.Pipelines.Client
         /// </exception>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/artifact-bundles/{bundleId}")]
-        Task<ArtifactBundle> ArtifactBundles(System.Guid bundleId);
+        Task<ArtifactBundle> ArtifactBundles(string bundleId);
 
 
     }

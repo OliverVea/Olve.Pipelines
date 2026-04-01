@@ -42,13 +42,13 @@ public static class ServiceConfiguration
         services.AddSingleton<AttachmentStore<PipelineBuilder, ScriptBuilder>>();
         services.AddSingleton<AttachmentStore<ProcessingStep, ScriptProcessing>>();
         services.AddSingleton<AttachmentStore<Verification, ScriptVerification>>();
-        services.AddScoped<PipelineService>();
-        services.AddScoped<PipelineSourceService>();
-        services.AddScoped<PipelineBuilderService>();
-        services.AddScoped<ProcessingStepService>();
-        services.AddScoped<VerificationService>();
-        services.AddScoped<SourceBundleService>();
-        services.AddScoped<ArtifactBundleService>();
+        services.AddTransient<PipelineService>();
+        services.AddTransient<PipelineSourceService>();
+        services.AddTransient<PipelineBuilderService>();
+        services.AddTransient<ProcessingStepService>();
+        services.AddTransient<VerificationService>();
+        services.AddTransient<SourceBundleService>();
+        services.AddTransient<ArtifactBundleService>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
     }

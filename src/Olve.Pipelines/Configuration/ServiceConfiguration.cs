@@ -14,11 +14,6 @@ public static class ServiceConfiguration
 {
     public static void AddPipelineServices(this IServiceCollection services)
     {
-        services.AddTransient<IEnumerable<Pipeline>>(_ => DevelopmentPipelineSeeder.GetPipelines());
-        services.AddTransient<IEnumerable<PipelineSource>>(_ => DevelopmentPipelineSeeder.GetPipelineSources());
-        services.AddTransient<IEnumerable<PipelineBuilder>>(_ => DevelopmentPipelineSeeder.GetPipelineBuilders());
-        services.AddTransient<IEnumerable<ProcessingStep>>(_ => DevelopmentPipelineSeeder.GetProcessingSteps());
-        services.AddTransient<IEnumerable<Verification>>(_ => DevelopmentPipelineSeeder.GetVerifications());
         services.AddSingleton<EntityStore<Pipeline>>();
         services.AddSingleton<PipelineEvents>();
         services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();

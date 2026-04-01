@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
+using Olve.Results;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.PipelineSources;
@@ -40,7 +41,7 @@ public class PipelineSourceService
         return results;
     }
 
-    public bool Delete(Id<PipelineSource> id) => _store.Delete(id);
+    public DeletionResult Delete(Id<PipelineSource> id) => _store.Delete(id);
 
     public void SetHardcoded(Id<PipelineSource> id, HardcodedSource source)
     {

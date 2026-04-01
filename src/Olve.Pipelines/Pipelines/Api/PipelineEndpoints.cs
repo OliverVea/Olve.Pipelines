@@ -1,4 +1,5 @@
 using Olve.MinimalApi;
+using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Utilities.Ids;
 
@@ -37,15 +38,8 @@ public static class PipelineEndpoints
         .WithResultMapping<Pipeline[]>()
         .AllowAnonymous();
 
-        group.MapDelete("/{id}", (PipelineService service, Id<Pipeline> id) =>
-        {
-            if (!service.Delete(id))
-            {
-                return Result.Failure(new ResultProblem($"Pipeline '{id}' not found."));
-            }
-
-            return Result.Success();
-        })
-        .WithResultMapping();
+        group.MapDelete("/{id}", DeletionResult (PipelineService service, Id<Pipeline> id) =>
+            service.Delete(id))
+        .WithDeletionMapping();
     }
 }

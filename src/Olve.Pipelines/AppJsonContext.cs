@@ -47,5 +47,6 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<ArtifactBundle[]>))]
 [JsonSerializable(typeof(Result<string>))]
 [JsonSerializable(typeof(Result<string[]>))]
+[JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

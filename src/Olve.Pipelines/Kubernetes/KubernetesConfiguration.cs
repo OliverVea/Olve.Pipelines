@@ -11,24 +11,11 @@ public static class KubernetesConfiguration
         var clientId = builder.Configuration["Storage:ClientId"];
         var clientSecret = builder.Configuration["Storage:ClientSecret"];
 
-        builder.Services.AddSingleton<JobTracker>();
-
         if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
         {
             builder.Services.AddSingleton(new KubernetesOptions("", ""));
             builder.Services.AddSingleton<KubernetesClient>(sp =>
                 throw new InvalidOperationException("Kubernetes is not configured."));
-            builder.Services.AddScoped(sp => new JobRunnerService(
-                null,
-                "",
-                "",
-                sp.GetRequiredService<JobTracker>(),
-                sp.GetRequiredService<PipelineSources.PipelineSourceService>(),
-                sp.GetRequiredService<PipelineBuilders.PipelineBuilderService>(),
-                sp.GetRequiredService<Processing.ProcessingStepService>(),
-                sp.GetRequiredService<Sourcing.SourceBundleService>(),
-                sp.GetRequiredService<Building.ArtifactBundleService>(),
-                sp.GetRequiredService<ILogger<JobRunnerService>>()));
             return;
         }
 
@@ -71,22 +58,6 @@ public static class KubernetesConfiguration
             return new KubernetesClient(
                 credentials,
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
-        });
-
-        builder.Services.AddScoped(sp =>
-        {
-            var options = sp.GetRequiredService<KubernetesOptions>();
-            return new JobRunnerService(
-                sp.GetRequiredService<KubernetesClient>(),
-                options.Namespace,
-                options.DefaultImage,
-                sp.GetRequiredService<JobTracker>(),
-                sp.GetRequiredService<PipelineSources.PipelineSourceService>(),
-                sp.GetRequiredService<PipelineBuilders.PipelineBuilderService>(),
-                sp.GetRequiredService<Processing.ProcessingStepService>(),
-                sp.GetRequiredService<Sourcing.SourceBundleService>(),
-                sp.GetRequiredService<Building.ArtifactBundleService>(),
-                sp.GetRequiredService<ILogger<JobRunnerService>>());
         });
     }
 }

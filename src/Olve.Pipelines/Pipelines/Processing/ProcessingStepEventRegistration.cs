@@ -1,11 +1,11 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
 
-namespace Olve.Pipelines.PipelineSources;
+namespace Olve.Pipelines.Pipelines.Processing;
 
-public class PipelineSourceEventRegistration(
-    EntityStore<PipelineSource> store,
-    PipelineSourceEvents events,
+public class ProcessingStepEventRegistration(
+    EntityStore<ProcessingStep> store,
+    ProcessingStepEvents events,
     PipelineEvents pipelineEvents,
     IServiceProvider sp) : IRunOnStartup
 {
@@ -15,7 +15,7 @@ public class PipelineSourceEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<PipelineSourceCleanupService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<ProcessingStepCleanupService>().HandlePipelineDeleted(id));
 
         return Result.Success();
     }

@@ -1,9 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Shared;
-using Olve.Pipelines.Sourcing;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
@@ -13,16 +12,9 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
 {
     public IReadOnlyList<Job> ListJobs() => store.List();
 
-    public Result<Job> CreateSourcingJob(Id<Pipeline> pipelineId)
+    public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId)
     {
-        SourcingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled());
-        store.Set(job);
-        return job;
-    }
-
-    public Result<Job> CreateBuildJob(Id<Pipeline> pipelineId, Id<SourceBundle> sourceBundleId)
-    {
-        BuildJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), sourceBundleId);
+        ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled());
         store.Set(job);
         return job;
     }

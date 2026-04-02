@@ -2,9 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Shared;
-using Olve.Pipelines.Sourcing;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
@@ -51,28 +50,13 @@ public class JobObsoletionServiceTests
     }
 
     [Test]
-    public async Task SourcingJob_SupersedesPendingForSamePipeline()
+    public async Task ProductionJob_SupersedesPendingForSamePipeline()
     {
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
-        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
-
-        var updatedJob1 = GetJob(store, job1.Id);
-        await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
-        await Assert.That(((Obsolete)updatedJob1.Status).SupersedingJobId).IsEqualTo(job2.Id);
-        await Assert.That(job2.Status).IsTypeOf<Scheduled>();
-    }
-
-    [Test]
-    public async Task BuildJob_SupersedesPendingForSamePipeline()
-    {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-
-        var job1 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
-        var job2 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
+        var job1 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId));
 
         var updatedJob1 = GetJob(store, job1.Id);
         await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
@@ -97,12 +81,12 @@ public class JobObsoletionServiceTests
     }
 
     [Test]
-    public async Task SourcingJob_DifferentPipelines_NoSuperseding()
+    public async Task ProductionJob_DifferentPipelines_NoSuperseding()
     {
         var (service, store) = CreateServices();
 
-        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(Id.New<Pipeline>()));
-        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(Id.New<Pipeline>()));
+        var job1 = CreateAndGet(service, s => s.CreateProductionJob(Id.New<Pipeline>()));
+        var job2 = CreateAndGet(service, s => s.CreateProductionJob(Id.New<Pipeline>()));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
@@ -122,29 +106,29 @@ public class JobObsoletionServiceTests
     }
 
     [Test]
-    public async Task SourcingAndBuildJob_SamePipeline_NoSuperseding()
+    public async Task ProductionAndProcessingJob_SamePipeline_NoSuperseding()
     {
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
-        var job2 = CreateAndGet(service, s => s.CreateBuildJob(pipelineId, Id.New<SourceBundle>()));
+        var job1 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<ArtifactBundle>(), Id.New<ProcessingStep>()));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]
-    public async Task SourcingJob_AfterFirstInProgress_NoSuperseding()
+    public async Task ProductionJob_AfterFirstInProgress_NoSuperseding()
     {
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
 
-        var job1 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
+        var job1 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId));
 
-        service.UpdateJob<SourcingJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
+        service.UpdateJob<ProductionJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
 
-        var job2 = CreateAndGet(service, s => s.CreateSourcingJob(pipelineId));
+        var job2 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId));
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();

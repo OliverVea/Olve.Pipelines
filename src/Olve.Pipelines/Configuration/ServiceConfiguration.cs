@@ -1,12 +1,10 @@
 using Olve.Pipelines.Building;
 using Olve.Pipelines.Jobs;
-using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.PipelineSources;
-using Olve.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Shared.Persistence;
-using Olve.Pipelines.Sourcing;
 
 namespace Olve.Pipelines.Configuration;
 
@@ -17,16 +15,21 @@ public static class ServiceConfiguration
         services.AddSingleton<EntityStore<Pipeline>>();
         services.AddSingleton<PipelineEvents>();
         services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();
-        services.AddSingleton<EntityStore<PipelineSource>>();
-        services.AddSingleton<PipelineSourceEvents>();
-        services.AddSingleton<IRunOnStartup, PipelineSourceEventRegistration>();
-        services.AddSingleton<EntityStore<PipelineBuilder>>();
+        services.AddSingleton<EntityStore<ProductionStep>>();
+        services.AddSingleton<AttachmentStore<ProductionStep, StepConfiguration>>();
+        services.AddSingleton<ProductionStepEvents>();
+        services.AddSingleton<IRunOnStartup, ProductionStepEventRegistration>();
+        services.AddTransient<ProductionStepService>();
+        services.AddTransient<ProductionStepCleanupService>();
         services.AddSingleton<EntityStore<ProcessingStep>>();
-        services.AddSingleton<EntityStore<Verification>>();
-        services.AddTransient<IEnumerable<SourceBundle>>(_ => []);
+        services.AddSingleton<AttachmentStore<ProcessingStep, StepConfiguration>>();
+        services.AddSingleton<ProcessingStepEvents>();
+        services.AddSingleton<IRunOnStartup, ProcessingStepEventRegistration>();
+        services.AddTransient<ProcessingStepService>();
+        services.AddTransient<ProcessingStepCleanupService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
-        services.AddSingleton<EntityStore<SourceBundle>>();
         services.AddSingleton<EntityStore<ArtifactBundle>>();
+        services.AddTransient<ArtifactBundleService>();
         services.AddTransient<IEnumerable<Job>>(_ => []);
         services.AddSingleton<EntityStore<Job>>();
         services.AddSingleton<IdProvider>();
@@ -37,19 +40,7 @@ public static class ServiceConfiguration
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         services.AddHostedService<StartupRunner>();
-        services.AddSingleton<AttachmentStore<PipelineSource, HardcodedSource>>();
-        services.AddSingleton<AttachmentStore<PipelineSource, GitHubSource>>();
-        services.AddSingleton<AttachmentStore<PipelineBuilder, ScriptBuilder>>();
-        services.AddSingleton<AttachmentStore<ProcessingStep, ScriptProcessing>>();
-        services.AddSingleton<AttachmentStore<Verification, ScriptVerification>>();
         services.AddTransient<PipelineService>();
-        services.AddTransient<PipelineSourceService>();
-        services.AddTransient<PipelineSourceCleanupService>();
-        services.AddTransient<PipelineBuilderService>();
-        services.AddTransient<ProcessingStepService>();
-        services.AddTransient<VerificationService>();
-        services.AddTransient<SourceBundleService>();
-        services.AddTransient<ArtifactBundleService>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
     }

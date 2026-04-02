@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
-using Olve.Pipelines.Sourcing;
 
 namespace Olve.Pipelines.Building;
 
@@ -16,12 +15,11 @@ public class ArtifactBundleService
         _byPipeline = store.CreateIndex(b => b.PipelineId);
     }
 
-    public ArtifactBundle Create(Id<Pipeline> pipelineId, Id<SourceBundle> sourceBundleId, ArtifactBundleStatus status = ArtifactBundleStatus.Completed)
+    public ArtifactBundle Create(Id<Pipeline> pipelineId, ArtifactBundleStatus status = ArtifactBundleStatus.Completed)
     {
         var bundle = new ArtifactBundle(
             Id.New<ArtifactBundle>(),
             pipelineId,
-            sourceBundleId,
             DateTimeOffset.UtcNow,
             status);
 

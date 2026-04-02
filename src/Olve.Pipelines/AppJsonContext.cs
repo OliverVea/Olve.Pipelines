@@ -2,13 +2,10 @@ using System.Text.Json.Serialization;
 using Olve.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Api;
-using Olve.Pipelines.PipelineBuilders;
-using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.PipelineSources;
-using Olve.Pipelines.Processing;
-using Olve.Pipelines.Processing.Api;
-using Olve.Pipelines.Sourcing;
+using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines;
 
@@ -18,30 +15,16 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(ResultProblem[]))]
 [JsonSerializable(typeof(Result<Pipeline>))]
 [JsonSerializable(typeof(Result<Pipeline[]>))]
-[JsonSerializable(typeof(Result<PipelineSource>))]
-[JsonSerializable(typeof(Result<PipelineSource[]>))]
-[JsonSerializable(typeof(PipelineSourceEndpoints.CreatePipelineSourceRequest))]
-[JsonSerializable(typeof(Result<PipelineBuilder>))]
-[JsonSerializable(typeof(Result<PipelineBuilder[]>))]
-[JsonSerializable(typeof(PipelineBuilderEndpoints.CreatePipelineBuilderRequest))]
+[JsonSerializable(typeof(Result<ProductionStep>))]
+[JsonSerializable(typeof(Result<ProductionStep[]>))]
+[JsonSerializable(typeof(ProductionStepEndpoints.CreateProductionStepRequest))]
+[JsonSerializable(typeof(ProductionStepEndpoints.SetStepConfigurationRequest), TypeInfoPropertyName = "ProductionSetStepConfigurationRequest")]
+[JsonSerializable(typeof(Result<StepConfiguration>))]
 [JsonSerializable(typeof(Result<ProcessingStep>))]
 [JsonSerializable(typeof(Result<ProcessingStep[]>))]
-[JsonSerializable(typeof(ProcessingEndpoints.CreateProcessingStepRequest))]
-[JsonSerializable(typeof(Result<Verification>))]
-[JsonSerializable(typeof(Result<Verification[]>))]
-[JsonSerializable(typeof(ProcessingEndpoints.CreateVerificationRequest))]
-[JsonSerializable(typeof(Result<HardcodedSource>))]
-[JsonSerializable(typeof(PipelineSourceEndpoints.SetHardcodedSourceRequest))]
-[JsonSerializable(typeof(Result<GitHubSource>))]
-[JsonSerializable(typeof(PipelineSourceEndpoints.SetGitHubSourceRequest))]
-[JsonSerializable(typeof(Result<ScriptBuilder>))]
-[JsonSerializable(typeof(PipelineBuilderEndpoints.SetScriptBuilderRequest))]
-[JsonSerializable(typeof(Result<ScriptProcessing>))]
-[JsonSerializable(typeof(ProcessingEndpoints.SetScriptProcessingRequest))]
-[JsonSerializable(typeof(Result<ScriptVerification>))]
-[JsonSerializable(typeof(ProcessingEndpoints.SetScriptVerificationRequest))]
-[JsonSerializable(typeof(Result<SourceBundle>))]
-[JsonSerializable(typeof(Result<SourceBundle[]>))]
+[JsonSerializable(typeof(ProcessingStepEndpoints.CreateProcessingStepRequest))]
+[JsonSerializable(typeof(ProcessingStepEndpoints.SetStepConfigurationRequest), TypeInfoPropertyName = "ProcessingSetStepConfigurationRequest")]
+[JsonSerializable(typeof(ProcessingStepEndpoints.UpdateOrderRequest))]
 [JsonSerializable(typeof(Result<ArtifactBundle>))]
 [JsonSerializable(typeof(Result<ArtifactBundle[]>))]
 [JsonSerializable(typeof(Result<string>))]
@@ -49,8 +32,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<Job>))]
 [JsonSerializable(typeof(Result<Job[]>))]
 [JsonSerializable(typeof(Result<Id<Job>[]>))]
-[JsonSerializable(typeof(Job.SourcingJob))]
-[JsonSerializable(typeof(Job.BuildJob))]
+[JsonSerializable(typeof(Job.ProductionJob))]
 [JsonSerializable(typeof(Job.ProcessingJob))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]

@@ -2,24 +2,18 @@ using System.Text.Json;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Olve.Pipelines.Configuration;
-using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.PipelineSources;
-using Olve.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 
 namespace Olve.Pipelines.Shared.Persistence;
 
 public class ConfigurationPersistenceService(
     EntityStore<Pipeline> pipelines,
-    EntityStore<PipelineSource> sources,
-    EntityStore<PipelineBuilder> builders,
+    EntityStore<ProductionStep> productionSteps,
+    AttachmentStore<ProductionStep, StepConfiguration> productionConfigs,
     EntityStore<ProcessingStep> processingSteps,
-    EntityStore<Verification> verifications,
-    AttachmentStore<PipelineSource, GitHubSource> githubSources,
-    AttachmentStore<PipelineSource, HardcodedSource> hardcodedSources,
-    AttachmentStore<PipelineBuilder, ScriptBuilder> scriptBuilders,
-    AttachmentStore<ProcessingStep, ScriptProcessing> scriptProcessing,
-    AttachmentStore<Verification, ScriptVerification> scriptVerifications,
+    AttachmentStore<ProcessingStep, StepConfiguration> processingConfigs,
     StorageOptions storageOptions,
     ILogger<ConfigurationPersistenceService> logger,
     IAmazonS3? s3 = null) : IHostedLifecycleService
@@ -49,9 +43,8 @@ public class ConfigurationPersistenceService(
             LoadSnapshot(snapshot);
 
             logger.LogInformation(
-                "Loaded configuration: {Pipelines} pipelines, {Sources} sources, {Builders} builders, {Steps} processing steps, {Verifications} verifications",
-                snapshot.Pipelines.Length, snapshot.Sources.Length, snapshot.Builders.Length,
-                snapshot.ProcessingSteps.Length, snapshot.Verifications.Length);
+                "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps",
+                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length);
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -88,9 +81,8 @@ public class ConfigurationPersistenceService(
             }, cancellationToken);
 
             logger.LogInformation(
-                "Saved configuration: {Pipelines} pipelines, {Sources} sources, {Builders} builders, {Steps} processing steps, {Verifications} verifications",
-                snapshot.Pipelines.Length, snapshot.Sources.Length, snapshot.Builders.Length,
-                snapshot.ProcessingSteps.Length, snapshot.Verifications.Length);
+                "Saved configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps",
+                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length);
         }
         catch (Exception ex)
         {
@@ -98,47 +90,26 @@ public class ConfigurationPersistenceService(
         }
     }
 
-    // TODO: Add periodic background save for crash resilience
-
     private ConfigurationSnapshot CreateSnapshot()
     {
-        var ghAll = githubSources.GetAll();
-        var hcAll = hardcodedSources.GetAll();
-        var sbAll = scriptBuilders.GetAll();
-        var spAll = scriptProcessing.GetAll();
-        var svAll = scriptVerifications.GetAll();
+        var prodConfigs = productionConfigs.GetAll();
+        var procConfigs = processingConfigs.GetAll();
 
         return new ConfigurationSnapshot(
             Pipelines: pipelines.List().Select(p => new PipelineData(p.Id, p.Name)).ToArray(),
-            Sources: sources.List().Select(s =>
+            ProductionSteps: productionSteps.List().Select(s =>
             {
-                ghAll.TryGetValue(s.Id, out var gh);
-                hcAll.TryGetValue(s.Id, out var hc);
-                return new SourceData(
-                    s.Id, s.Name, s.PipelineId, s.Type.ToString(),
-                    gh is not null ? new GitHubSourceData(gh.Owner, gh.Repository, gh.Branch) : null,
-                    hc is not null ? new HardcodedSourceData(hc.Files) : null);
-            }).ToArray(),
-            Builders: builders.List().Select(b =>
-            {
-                sbAll.TryGetValue(b.Id, out var script);
-                return new BuilderData(
-                    b.Id, b.Name, b.PipelineId, b.Type.ToString(),
-                    script is not null ? new ScriptData(script.Script) : null);
+                prodConfigs.TryGetValue(s.Id, out var config);
+                return new ProductionStepData(
+                    s.Id, s.Name, s.PipelineId,
+                    config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
             }).ToArray(),
             ProcessingSteps: processingSteps.List().Select(s =>
             {
-                spAll.TryGetValue(s.Id, out var script);
+                procConfigs.TryGetValue(s.Id, out var config);
                 return new ProcessingStepData(
-                    s.Id, s.Name, s.PipelineId, s.Type.ToString(),
-                    script is not null ? new ScriptData(script.Script) : null);
-            }).ToArray(),
-            Verifications: verifications.List().Select(v =>
-            {
-                svAll.TryGetValue(v.Id, out var script);
-                return new VerificationData(
-                    v.Id, v.Name, v.ProcessingStepId, v.Type.ToString(),
-                    script is not null ? new ScriptData(script.Script) : null);
+                    s.Id, s.Name, s.PipelineId, s.Order,
+                    config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
             }).ToArray());
     }
 
@@ -147,42 +118,20 @@ public class ConfigurationPersistenceService(
         foreach (var p in snapshot.Pipelines)
             pipelines.Set(new Pipeline(p.Id, p.Name));
 
-        foreach (var s in snapshot.Sources)
+        foreach (var s in snapshot.ProductionSteps)
         {
-            Enum.TryParse<PipelineSourceType>(s.Type, out var type);
-            sources.Set(new PipelineSource(s.Id, s.Name, s.PipelineId, type));
+            productionSteps.Set(new ProductionStep(s.Id, s.Name, s.PipelineId));
 
-            if (s.GitHub is not null)
-                githubSources.Set(s.Id, new GitHubSource(s.GitHub.Owner, s.GitHub.Repository, s.GitHub.Branch));
-            if (s.Hardcoded is not null)
-                hardcodedSources.Set(s.Id, new HardcodedSource(s.Hardcoded.Files));
-        }
-
-        foreach (var b in snapshot.Builders)
-        {
-            Enum.TryParse<PipelineBuilderType>(b.Type, out var type);
-            builders.Set(new PipelineBuilder(b.Id, b.Name, b.PipelineId, type));
-
-            if (b.Script is not null)
-                scriptBuilders.Set(b.Id, new ScriptBuilder(b.Script.Script));
+            if (s.Configuration is not null)
+                productionConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
         }
 
         foreach (var s in snapshot.ProcessingSteps)
         {
-            Enum.TryParse<ProcessingStepType>(s.Type, out var type);
-            processingSteps.Set(new ProcessingStep(s.Id, s.Name, s.PipelineId, type));
+            processingSteps.Set(new ProcessingStep(s.Id, s.Name, s.PipelineId, s.Order));
 
-            if (s.Script is not null)
-                scriptProcessing.Set(s.Id, new ScriptProcessing(s.Script.Script));
-        }
-
-        foreach (var v in snapshot.Verifications)
-        {
-            Enum.TryParse<VerificationType>(v.Type, out var type);
-            verifications.Set(new Verification(v.Id, v.Name, v.ProcessingStepId, type));
-
-            if (v.Script is not null)
-                scriptVerifications.Set(v.Id, new ScriptVerification(v.Script.Script));
+            if (s.Configuration is not null)
+                processingConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
         }
     }
 

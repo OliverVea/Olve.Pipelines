@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Amazon.S3;
 using Amazon.S3.Model;
-using Olve.Pipelines.Building;
+using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Configuration;
 
 namespace Olve.Pipelines.Shared.Persistence;

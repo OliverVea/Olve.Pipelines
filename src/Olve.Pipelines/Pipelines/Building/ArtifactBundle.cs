@@ -1,7 +1,7 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Utilities.Lookup;
 
-namespace Olve.Pipelines.Building;
+namespace Olve.Pipelines.Pipelines.Building;
 
 public enum ArtifactBundleStatus { Pending, Completed, Failed }
 

@@ -1,7 +1,7 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
 
-namespace Olve.Pipelines.Building.Api;
+namespace Olve.Pipelines.Pipelines.Building;
 
 public static class ArtifactBundleEndpoints
 {

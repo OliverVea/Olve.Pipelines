@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using Olve.Pipelines.Building;
+using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
 
 namespace Olve.Pipelines.Shared.Persistence;

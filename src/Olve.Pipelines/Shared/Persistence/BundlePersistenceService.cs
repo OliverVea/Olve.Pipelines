@@ -1,7 +1,9 @@
+using Olve.Pipelines.Pipelines.Building;
+
 namespace Olve.Pipelines.Shared.Persistence;
 
 public class BundlePersistenceService(
-    EntityStore<Building.ArtifactBundle> artifactStore,
+    EntityStore<ArtifactBundle> artifactStore,
     ILogger<BundlePersistenceService> logger,
     IBundleStore? bundleStore = null) : IHostedLifecycleService
 {

@@ -8,67 +8,53 @@ Olve.Pipelines is a lightweight CD pipeline configuration and orchestration serv
 
 ### Pipeline Flow
 
-A pipeline has three phases that execute in sequence:
+A pipeline has two phases:
 
 ```
-Sourcing ──(SourceBundle)──> Building ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N
+Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N [sequential]
 ```
 
-Each phase can be triggered independently ("run this step with whatever is at your input").
+Each production step runs in parallel and writes output to `bundle/<step-name>/`. The combined output is an **ArtifactBundle**. Processing steps run sequentially, each receiving the full ArtifactBundle.
 
 ### Entities
 
 - **Pipeline** — top-level entity grouping all configuration for a single CD workflow.
-- **PipelineSource** — where code/data comes from (e.g. GitHub repo). A pipeline has many sources. During sourcing, all sources are snapshotted into a **SourceBundle**.
-- **PipelineBuilder** — defines how to build. A pipeline has many builders. Each builder runs a script and writes output files to `bundle/<builder-name>/`. The combined output of all builders is an **ArtifactBundle**.
-- **ProcessingStep** — a post-build action (e.g. deploy to staging). A pipeline has an ordered list of processing steps. Each takes an ArtifactBundle, runs its action, then runs verifications before promoting to the next step.
-- **Verification** — a check that gates a processing step (e.g. health check). If any fails, promotion is blocked.
-
-### Bundles
-
-- **SourceBundle** — a snapshot of all sources at a point in time. Produced by sourcing.
-- **ArtifactBundle** — the collected build outputs as a zipped directory in S3: `bundle/<builder-name>/<files>`. Produced by building, consumed by processing steps.
+- **ProductionStep** — a parallel build/source step. A pipeline has many production steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment. Combined output of all production steps is an **ArtifactBundle**.
+- **ProcessingStep** — a sequential post-build action (e.g. deploy to staging). A pipeline has an ordered list of processing steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment.
+- **ArtifactBundle** — the collected outputs as a zipped directory in S3: `bundle/<step-name>/<files>`. Produced by production, consumed by processing steps.
+- **Job** — a scheduled unit of work. Two types: `ProductionJob` and `ProcessingJob`.
 
 ### Step Configuration
 
-Step implementations (scripts, GitHub config, etc.) are attached via composition, not inheritance. Each gets a dedicated sub-resource endpoint (e.g. `PUT /sources/{id}/github`, `PUT /builders/{id}/script`).
+Every step (production or processing) shares the same configuration shape: `StepConfiguration(Image, Script, EnvironmentVariables)`. Configuration is attached via `AttachmentStore<TStep, StepConfiguration>` (composition, not inheritance). Future typed templates (e.g. DotNetBuild, HelmDeploy) will be additional attachment types that pre-populate image/script/env.
 
 ### Configuration vs Execution
 
-Configuration defines *what* each step does. Execution (source polling, build runners, artifact storage) is triggered via `/trigger/sourcing`, `/trigger/building`, `/trigger/processing/{id}`.
+Configuration defines *what* each step does. Execution is triggered via `POST /api/pipelines/{id}/trigger/production`. Processing step triggering will propagate the artifact bundle through the pipeline automatically.
 
 ### Execution
 
 All pipeline steps execute as **Kubernetes Jobs**. Each Job gets:
-- A container image (e.g. git image for sourcing, SDK image for building, kubectl image for deploy)
+- A container image
 - A script to run
 - Environment variables from step configuration
 - Pipeline secrets (stored as K8s Secrets, auto-mounted)
-- Input bundle reference (S3 key) and output capture back to S3
-
-Current step types (ScriptBuilder, ScriptProcessing, etc.) define the script directly. Future typed templates (e.g. DotNetBuild, HelmBuild, K8sDeployment) will generate the script + image + env, keeping scripts as the "custom" fallback.
+- Input/output bundle references (S3 keys)
 
 ### Job Scheduling
 
 Jobs are first-class persisted entities managed by a **JobQueue**. The queue controls when and how jobs are submitted to Kubernetes.
 
-**Job entity:**
-- Type: `Sourcing | Building | Processing`
-- Status: `Scheduled → InProgress → Succeeded | Failed | Obsolete`
-- Type-specific payload (e.g. Building has input source bundle ID, output artifact bundle ID)
-- Timestamps: created, started, completed
-- Error message on failure
+**Job types:**
+- `ProductionJob` — runs all production steps, produces an ArtifactBundle
+- `ProcessingJob` — runs a single processing step with a given ArtifactBundle
+
+**Job statuses:** `Scheduled`, `InProgress`, `Done`, `Obsolete`, `Cancelled`
 
 **Scheduling rules:**
-- **Global concurrency limit** — at most N jobs run in parallel (configurable, e.g. 5).
 - **Keyed on (pipeline, step)** — each step can have at most one `InProgress` job at a time.
-- **Latest-wins** — when a new job is scheduled for a (pipeline, step) that already has `Scheduled` jobs, those become `Obsolete` with a reference to the superseding job. Only the newest scheduled job will run.
-- **Auto-pickup** — when an `InProgress` job finishes, the queue checks for the next `Scheduled` job to start.
-
-**Step status display** (derived from latest job for that step):
-- `Succeeded (12:34 pm, 43m 21s)`
-- `In Progress (12m 34s)`
-- `Failed (12:34 pm, 43m 21s): <error message>`
+- **Latest-wins** — when a new job is scheduled for a key that already has `Scheduled` jobs, those become `Obsolete`. Only the newest scheduled job will run.
+- **Cascade on pipeline delete** — all scheduled/in-progress jobs are cancelled.
 
 ### Pipeline Secrets
 
@@ -81,17 +67,19 @@ dotnet build                                                # Build
 dotnet test                                                 # Unit tests only
 dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only
 dotnet test -p:RunIntegrationTests=true                     # All tests
-dotnet run --project src/Olve.Pipelines                  # Run locally
+dotnet run --project src/Olve.Pipelines                     # Run locally
 ```
 
 ### Architecture Patterns
 
 **Service layers (per domain area):**
 - **EntityStore\<T\>** — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `Event<Id<T>>` on mutations)
-- **Domain event hubs** (e.g. `JobEvents`) — hold `Event<T>` properties, receive forwarded store events, can also be invoked directly by services (singleton)
+- **AttachmentStore\<TParent, TAttachment\>** — parallel store for optional attachments, auto-cleanup on parent deletion (singleton)
+- **Domain event hubs** (e.g. `JobEvents`) — hold `Event<T>` properties, receive forwarded store events (singleton)
 - **Domain CRUD services** (e.g. `JobService`) — typed create/read/update/delete over the store, no event awareness (transient)
 - **Domain rule services** (e.g. `JobObsoletionService`) — implement business rules, event-driven (transient)
 - **Domain query services** (e.g. `JobQueueService`) — stateless queries over the store (transient)
+- **Cleanup services** (e.g. `ProductionStepCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
 
 **Key principles:**
 - **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).
@@ -100,7 +88,9 @@ dotnet run --project src/Olve.Pipelines                  # Run locally
 - **Transient by default, singleton only for state** — don't cache what you can query. Keep derived state as queries until performance proves otherwise.
 - **Result error handling** — no exceptions, `Olve.Results` everywhere.
 - **IRunOnStartup over IHostedService** — domain startup wiring uses `IRunOnStartup` (sync, returns `Result`). A single `StartupRunner` hosted service runs them all. Keeps `IHostedService` out of domain code.
-- **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store → events → subscribers explicitly in tests, no DI container needed.
+- **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store -> events -> subscribers explicitly in tests, no DI container needed.
+- **Named endpoints** — all endpoints use `.WithName()` to set `operationId` in the OpenAPI spec, giving clean generated client method names.
+- **Split routes for nested resources** — pipeline-scoped operations (create, list) use `/api/pipelines/{pipelineId}/...`, step-scoped operations (get, delete, config) use `/api/production-steps/{stepId}/...` to avoid Refit parameter mismatch.
 
 ## Conventions
 
@@ -110,9 +100,10 @@ dotnet run --project src/Olve.Pipelines                  # Run locally
 - OpenAPI spec `api.json` is generated on build by `Microsoft.Extensions.ApiDescription.Server`
 - AOT publishing enabled — do not add AOT-incompatible libraries (e.g. EF Core)
 - Namespaces are always plural/more general than contained types (e.g. `Pipeline` type in `Pipelines` namespace)
+- Domain subnamespaces nest under their parent (e.g. `Pipelines.Production`, `Pipelines.Processing`, `Pipelines.Building`)
 - Storage via S3-compatible MinIO (minio.ovea.pro) — JSON files for persistence, zipped directories for bundles
-- Frontend is vanilla TS + Vite, served as static files from the .NET app. API under `/api`, frontend at `/`
 - TypeScript client generated from OpenAPI via Kiota
+- C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes)
 
 ## References
 

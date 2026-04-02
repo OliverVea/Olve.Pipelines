@@ -1,101 +1,162 @@
 # Olve.Pipelines
 
-A .NET 10 minimal API service template. Install with `dotnet new` and scaffold a full solution with auth, telemetry, Helm chart, and client generation.
+A lightweight CD pipeline configuration and orchestration service for a homelab. Manages pipeline definitions with production steps (parallel builds) and processing steps (sequential deployments), executed as Kubernetes Jobs.
 
-## Usage
+## Pipeline Model
 
-```bash
-# Install the template
-dotnet new install .
-
-# Create a new project
-dotnet new olve-api -n "MyCompany.MyService"
 ```
+Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N [sequential]
+```
+
+- **Production steps** run in parallel. Each produces output to `bundle/<step-name>/`. Combined output = ArtifactBundle.
+- **Processing steps** run sequentially. Each receives the full ArtifactBundle.
+- Every step is configured as `(image, script, env)` and executed as a Kubernetes Job.
 
 ## Project Structure
 
 ```
-src/Olve.Pipelines/                          # API application (minimal API)
-├── Configuration/                              # Auth, telemetry, JSON, host config
-├── Message/                                    # Message service (example feature)
-├── Health/                                     # Health check endpoints
-├── Dockerfile                                  # Multi-stage build (AOT, chiseled)
-└── appsettings.json                            # Default configuration
-test/Olve.Pipelines.UnitTests/               # Unit tests (TUnit + Rocks)
-test/Olve.Pipelines.IntegrationTests/        # Integration tests (TUnit + WebApplicationFactory)
-clients/Olve.Pipelines.Client/               # Generated C# client (Refitter source gen)
-clients/olve-pipelines-client-ts/            # Generated TypeScript client (Kiota)
-tools/version.cs                                # CalVer versioning script
-helm/                                           # Helm chart for Kubernetes
-Directory.Build.props                           # Shared build properties (TFM, nullable, etc.)
-Directory.Packages.props                        # Central package version management
+src/Olve.Pipelines/                             # API application (minimal API, AOT)
+├── Configuration/                               # Auth, telemetry, JSON, host, storage config
+├── Health/                                      # Health check endpoint
+├── Jobs/                                        # Job scheduling, obsoletion, cancellation
+├── Kubernetes/                                  # K8s client, secrets, job specs
+├── Pipelines/                                   # Pipeline CRUD, events
+│   ├── Building/                                # ArtifactBundle entity and endpoints
+│   ├── Processing/                              # ProcessingStep entity, service, endpoints
+│   └── Production/                              # ProductionStep entity, service, endpoints
+├── Shared/                                      # EntityStore, AttachmentStore, events, persistence
+└── Dockerfile                                   # Multi-stage build (AOT, chiseled)
+test/Olve.Pipelines.UnitTests/                   # Unit tests (TUnit + Rocks)
+test/Olve.Pipelines.IntegrationTests/            # Integration tests (TUnit + Testcontainers)
+clients/Olve.Pipelines.Client/                   # Generated C# client (Refitter source gen)
+clients/olve-pipelines-client-ts/                # Generated TypeScript client (Kiota)
+helm/                                            # Helm chart for Kubernetes
+tools/version.cs                                 # CalVer versioning script
 ```
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/health` | No | Health check, returns 200 |
-| GET | `/message` | No | Retrieve stored message |
-| POST | `/message?message=<text>` | Yes (JWT) | Store a message |
-| GET | `/openapi/v1.json` | No | OpenAPI spec |
+### Pipelines
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipelines?name=<name>` | Create pipeline |
+| GET | `/api/pipelines` | List pipelines |
+| GET | `/api/pipelines/{id}` | Get pipeline |
+| DELETE | `/api/pipelines/{id}` | Delete pipeline (cascades) |
+| POST | `/api/pipelines/{id}/trigger/production` | Trigger production jobs |
+
+### Production Steps
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipelines/{pipelineId}/production` | Create production step |
+| GET | `/api/pipelines/{pipelineId}/production` | List production steps |
+| GET | `/api/production-steps/{stepId}` | Get production step |
+| DELETE | `/api/production-steps/{stepId}` | Delete production step |
+| PUT | `/api/production-steps/{stepId}/configuration` | Set step configuration |
+| GET | `/api/production-steps/{stepId}/configuration` | Get step configuration |
+| DELETE | `/api/production-steps/{stepId}/configuration` | Remove step configuration |
+
+### Processing Steps
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipelines/{pipelineId}/processing` | Create processing step |
+| GET | `/api/pipelines/{pipelineId}/processing` | List processing steps (ordered) |
+| GET | `/api/processing-steps/{stepId}` | Get processing step |
+| DELETE | `/api/processing-steps/{stepId}` | Delete processing step |
+| PUT | `/api/processing-steps/{stepId}/order` | Update step order |
+| PUT | `/api/processing-steps/{stepId}/configuration` | Set step configuration |
+| GET | `/api/processing-steps/{stepId}/configuration` | Get step configuration |
+| DELETE | `/api/processing-steps/{stepId}/configuration` | Remove step configuration |
+
+### Artifact Bundles
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/pipelines/{pipelineId}/artifact-bundles` | List artifact bundles |
+| GET | `/api/artifact-bundles/{bundleId}` | Get artifact bundle |
+
+### Jobs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/jobs` | List all jobs |
+| GET | `/api/jobs/{id}` | Get job |
+| GET | `/api/jobs/queue` | Get scheduled job queue |
+| POST | `/api/jobs/{id}/cancel` | Cancel job |
+| DELETE | `/api/jobs/{id}` | Delete job |
+
+### Secrets
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/pipelines/{pipelineId}/secrets` | List secret names |
+| PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set secret |
+| DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete secret |
+
+### Other
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check |
 
 ## Build & Test
 
 ```bash
-# Restore and build
-dotnet restore
-dotnet build
-
-# Unit tests only (default)
-dotnet test
-
-# Integration tests only
-dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false
-
-# All tests
-dotnet test -p:RunIntegrationTests=true
+dotnet build                                                   # Build
+dotnet test                                                    # Unit tests only
+dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only (requires Docker)
+dotnet test -p:RunIntegrationTests=true                        # All tests
+dotnet run --project src/Olve.Pipelines                        # Run locally
 ```
 
-Integration tests use `WebApplicationFactory` with [Testcontainers](https://dotnet.testcontainers.org/) for external dependencies. The `AppFixture` class manages the test server and container lifecycle via TUnit's `ClassDataSource` pattern.
+Integration tests use [Testcontainers](https://dotnet.testcontainers.org/) to build and run the app in Docker with a MinIO sidecar for S3 storage.
 
-To add a dependency (e.g. PostgreSQL):
+## Configuration
 
-1. Add the Testcontainers module to `Directory.Packages.props` and the integration test project:
-   ```xml
-   <!-- Directory.Packages.props -->
-   <PackageVersion Include="Testcontainers.PostgreSql" Version="4.11.0" />
+Sources in priority order (highest wins):
 
-   <!-- Integration test .csproj -->
-   <PackageReference Include="Testcontainers.PostgreSql" />
-   ```
+1. CLI args (`--Port 9090`)
+2. User secrets (`dotnet user-secrets set "Key" "value"`)
+3. Environment variables
+4. `appsettings.json`
 
-2. Update `AppFixture` to start the container and wire the connection string:
-   ```csharp
-   private readonly PostgreSqlContainer _pg = new PostgreSqlBuilder().Build();
+| Key | Default | Description |
+|-----|---------|-------------|
+| `Host` | `localhost` | Listen address |
+| `Port` | `5000` | Listen port |
+| `Auth:Authority` | — | OIDC authority |
+| `Auth:Audience` | `olve-pipelines` | JWT audience |
+| `Auth:SigningKey` | — | Local HS256 key (bypasses OIDC, for dev) |
+| `Storage:Endpoint` | — | S3-compatible endpoint (MinIO) |
+| `Storage:AccessKey` | — | S3 access key |
+| `Storage:SecretKey` | — | S3 secret key |
+| `Storage:Bucket` | — | S3 bucket name |
+| `Kubernetes:Namespace` | — | K8s namespace for jobs and secrets |
+| `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
 
-   public async Task InitializeAsync()
-   {
-       await _pg.StartAsync();
+## Client Generation
 
-       _factory = new WebApplicationFactory<Program>()
-           .WithWebHostBuilder(builder =>
-           {
-               // ... existing config ...
-               builder.UseSetting("ConnectionStrings:Default", _pg.GetConnectionString());
-           });
-   }
+### C# ([Refitter](https://refitter.github.io/))
 
-   public async ValueTask DisposeAsync()
-   {
-       await _factory.DisposeAsync();
-       await _pg.DisposeAsync();
-   }
-   ```
+The `clients/Olve.Pipelines.Client/` project uses the Refitter source generator to produce a typed Refit interface from `api.json` at build time. The `.refitter` config uses `returnIApiResponse: true` so error responses don't throw exceptions.
 
-Test execution is controlled by MSBuild properties:
-- `RunUnitTests=false` skips unit tests
-- `RunIntegrationTests=true` enables integration tests (disabled by default)
+### TypeScript ([Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview))
+
+```bash
+dotnet tool restore
+dotnet kiota generate -l typescript -d api.json -c OlvePipelinesApiClient -o clients/olve-pipelines-client-ts/src -n OlvePipelinesApi
+```
+
+## Versioning
+
+```bash
+dotnet run tools/version.cs                                          # 0.0.0-dev+cb9a99b
+dotnet run tools/version.cs -- --ci --run-number 42                  # 2026.3.28.42+cb9a99b
+dotnet run tools/version.cs -- --ci --run-number 42 --rid linux-x64  # artifact name
+```
 
 ## Running
 
@@ -106,142 +167,3 @@ dotnet run --project src/Olve.Pipelines
 # Kubernetes
 helm install olve-pipelines helm/
 ```
-
-## Configuration
-
-Sources in priority order (highest wins):
-
-1. CLI args (`--Port 9090`)
-2. User secrets (`dotnet user-secrets set "Key" "value"`)
-3. Environment variables
-4. `appsettings.{Environment}.json`
-5. `appsettings.json`
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `Host` | `localhost` | Listen address |
-| `Port` | `5000` | Listen port |
-| `Auth:Authority` | `https://auth.ovea.pro/...` | OIDC authority (Authentik) |
-| `Auth:Audience` | `olve-pipelines` | JWT audience |
-| `Auth:SigningKey` | _(null)_ | Local HS256 key (bypasses OIDC, for dev) |
-| `OpenTelemetry:Endpoint` | `https://otel.ovea.pro` | OTLP endpoint (null = disabled) |
-
-## Client Generation
-
-### C# ([Refitter](https://refitter.github.io/))
-
-The `clients/Olve.Pipelines.Client/` project uses the [Refitter source generator](https://www.nuget.org/packages/Refitter.SourceGenerator) to produce a typed [Refit](https://github.com/reactiveui/refit) interface from `api.json` at build time. Just build the solution — no manual codegen step needed.
-
-### TypeScript ([Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview))
-
-```bash
-dotnet tool restore
-dotnet kiota generate -l typescript -d api.json -c OlveTemplateApiClient -o clients/olve-pipelines-client-ts/src -n OlveTemplateApi
-```
-
-## Versioning
-
-The `tools/version.cs` script computes CalVer versions:
-
-```bash
-# Local development
-dotnet run tools/version.cs
-# version=0.0.0-dev+cb9a99b
-
-# CI (pass run number from GitHub Actions)
-dotnet run tools/version.cs -- --ci --run-number 42
-# version=2026.3.28.42+cb9a99b
-
-# With runtime identifier for artifact naming
-dotnet run tools/version.cs -- --ci --run-number 42 --rid linux-x64
-# artifact-name=olve-pipelines-2026.3.28.42+cb9a99b-linux-x64
-```
-
-## CI
-
-This template does not include a CI workflow — the actual workflow should live in the service's deployment repo. Below are examples to copy and adapt.
-
-### Example: PR workflow
-
-```yaml
-# .github/workflows/pr.yml
-name: PR
-
-on:
-  pull_request:
-    branches: [main]
-
-env:
-  DOTNET_VERSION: 10.0.100
-
-jobs:
-  build-and-test:
-    name: Build and test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: dotnet restore
-      - run: dotnet build --no-restore -c Release
-      - run: dotnet test --no-restore --no-build -c Release
-      - run: dotnet test --no-restore --no-build -c Release -p:RunIntegrationTests=true -p:RunUnitTests=false
-```
-
-### Example: Push to main workflow
-
-```yaml
-# .github/workflows/push-main.yml
-name: Push to main
-
-on:
-  push:
-    branches: [main]
-
-env:
-  DOTNET_VERSION: 10.0.100
-
-jobs:
-  build-and-test:
-    name: Build and test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      - run: dotnet restore
-      - run: dotnet build --no-restore -c Release
-      - run: dotnet test --no-restore --no-build -c Release
-      - run: dotnet test --no-restore --no-build -c Release -p:RunIntegrationTests=true -p:RunUnitTests=false
-
-  version:
-    name: Compute version
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      artifact-name: ${{ steps.version.outputs.artifact-name }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Compute version
-        id: version
-        run: |
-          dotnet run tools/version.cs -- --ci --run-number ${{ github.run_number }} \
-            | tee -a "$GITHUB_OUTPUT"
-```
-
-## References
-
-- [Olve.MinimalApi](https://olivervea.github.io/Olve.Utilities/src/Olve.MinimalApi/README.html) — Minimal API extensions for result mapping, validation, and JSON conversion
-- [Olve.Results](https://olivervea.github.io/Olve.Utilities/src/Olve.Results/README.html) — Functional result types for non-throwing error handling
-- [Olve.Validation](https://olivervea.github.io/Olve.Utilities/src/Olve.Validation/README.html) — Fluent input validation built on Olve.Results
-- [Olve.Utilities](https://olivervea.github.io/Olve.Utilities/src/Olve.Utilities/README.html) — Meta-package bundling utility libraries including identifiers, collections, and graph types
-- [TUnit](https://tunit.dev/docs/intro) — Test framework (not xUnit/NUnit). Uses `await Assert.That(...)` fluent syntax
-- [Rocks](https://raw.githubusercontent.com/JasonBock/Rocks/refs/heads/main/docs/Overview.md) — Source-generated mocking library for AOT-compatible test doubles
-- [Refitter](https://refitter.github.io/articles/refitter-file-format.html) — Source generator for typed C# HTTP clients from OpenAPI specs via Refit
-- [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview) — Microsoft's OpenAPI client generator for TypeScript (and other languages)

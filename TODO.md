@@ -1,43 +1,34 @@
 # TODO
 
-## Pipeline secrets
+## Job execution
 
-- [ ] API: `PUT /api/pipelines/{id}/secrets/{name}` (set)
-- [ ] API: `DELETE /api/pipelines/{id}/secrets/{name}` (remove)
-- [ ] API: `GET /api/pipelines/{id}/secrets` (list names only)
-- [ ] Frontend: secret management UI
+- [ ] Submit ProductionJob to Kubernetes (create K8s Job per production step, collect outputs into ArtifactBundle)
+- [ ] Submit ProcessingJob to Kubernetes (create K8s Job with ArtifactBundle as input)
+- [ ] Job status polling / K8s watch to update job status (InProgress -> Done/Failed)
+- [ ] Signal protocol for steps to communicate back (progress, verification results, artifact labels)
 
 ## Automatic downstream triggering
 
-- [ ] Sourcing completion triggers building automatically
-- [ ] Building completion triggers first processing step automatically
-- [ ] Processing step success (all verifications pass) triggers next processing step
-- [ ] Verification failure blocks promotion until re-triggered and passes
-
-## Persistence
-
-- [ ] S3 storage for pipeline configuration (replace current persistence service)
+- [ ] Production completion triggers first processing step automatically
+- [ ] Processing step success triggers next processing step
+- [ ] Processing trigger endpoint (`POST /api/pipelines/{id}/trigger/processing/{stepId}`)
 
 ## Source change detection
 
-- [ ] GitHub webhook endpoint to trigger sourcing on push
+- [ ] GitHub webhook endpoint to trigger production on push
 - [ ] Polling option for sources without webhook support
-
-## Frontend
-
-- [ ] Show pipeline phases with trigger buttons
-- [ ] Display bundle history per phase
-- [ ] Show bundle status (pending/completed/failed)
-- [ ] Show verification results per processing step
 
 ## Typed step templates (future)
 
-Templates generate script + image + env for K8s Jobs. Scripts remain as the "custom" fallback.
+Templates pre-populate `(image, script, env)` for common patterns. Scripts remain as the "custom" fallback.
 
-- [ ] Build templates: .NET build, Helm chart, static frontend, Docker image
-- [ ] Processing templates: K8s deployment, publish to store
-- [ ] Verification templates: health check, integration test
+- [ ] Production templates: .NET build, Helm chart, Docker image build, static frontend
+- [ ] Processing templates: K8s deployment, Helm upgrade, publish to registry
+- [ ] Template attachment stores (composition, extensible by addition)
 
 ## Cleanup
 
-- [ ] Processing step ordering (currently unordered)
+- [ ] Regenerate TypeScript client (stale, still references old sourcing/building/verification endpoints)
+- [ ] Remove `frontend/` directory (no longer served)
+- [ ] Bundle upload/download endpoints (currently only metadata is served)
+- [ ] Periodic background save for crash resilience (ConfigurationPersistenceService TODO)

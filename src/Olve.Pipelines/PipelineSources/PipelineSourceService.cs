@@ -1,83 +1,96 @@
-using System.Diagnostics.CodeAnalysis;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.PipelineSources;
 
-public class PipelineSourceService
+public class PipelineSourceService(
+    EntityStore<PipelineSource> store,
+    AttachmentStore<PipelineSource, HardcodedSource> hardcoded,
+    AttachmentStore<PipelineSource, GitHubSource> github,
+    IdProvider idProvider)
 {
-    private readonly EntityStore<PipelineSource> _store;
-    private readonly EntityStoreIndex<PipelineSource, Id<Pipeline>> _byPipeline;
-    private readonly AttachmentStore<PipelineSource, HardcodedSource> _hardcoded;
-    private readonly AttachmentStore<PipelineSource, GitHubSource> _github;
+    private readonly EntityStoreIndex<PipelineSource, Id<Pipeline>> _byPipeline = store.CreateIndex(s => s.PipelineId);
 
-    public PipelineSourceService(
-        EntityStore<PipelineSource> store,
-        AttachmentStore<PipelineSource, HardcodedSource> hardcoded,
-        AttachmentStore<PipelineSource, GitHubSource> github)
+    public Result<PipelineSource> Create(Id<Pipeline> pipelineId, string name)
     {
-        _store = store;
-        _byPipeline = store.CreateIndex(s => s.PipelineId);
-        _hardcoded = hardcoded;
-        _github = github;
+        var source = new PipelineSource(idProvider.Create<PipelineSource>(), name, pipelineId);
+        store.Set(source);
+        return source;
     }
 
-    public void Set(PipelineSource source) => _store.Set(source);
+    public Result<PipelineSource> TryGet(Id<PipelineSource> id)
+        => store.TryGet(id, out var source)
+            ? source
+            : Result.Failure<PipelineSource>(new ResultProblem($"Source '{id}' not found."));
 
-    public bool TryGet(Id<PipelineSource> id, [NotNullWhen(true)] out PipelineSource? source)
-        => _store.TryGet(id, out source);
-
-    public IReadOnlyList<PipelineSource> GetByPipelineId(Id<Pipeline> pipelineId)
+    public Result<PipelineSource[]> GetByPipelineId(Id<Pipeline> pipelineId)
     {
         var ids = _byPipeline.GetForKey(pipelineId);
         var results = new List<PipelineSource>(ids.Count);
         foreach (var id in ids)
         {
-            if (_store.TryGet(id, out var source))
+            if (store.TryGet(id, out var source))
                 results.Add(source);
         }
-        return results;
+        return results.ToArray();
     }
 
-    public DeletionResult Delete(Id<PipelineSource> id) => _store.Delete(id);
+    public DeletionResult Delete(Id<PipelineSource> id) => store.Delete(id);
 
-    public void SetHardcoded(Id<PipelineSource> id, HardcodedSource source)
+    public Result<HardcodedSource> SetHardcoded(Id<PipelineSource> id, HardcodedSource source)
     {
-        _github.Remove(id);
-        _hardcoded.Set(id, source);
+        if (!store.TryGet(id, out _))
+            return Result.Failure<HardcodedSource>(new ResultProblem($"Source '{id}' not found."));
+
+        github.Remove(id);
+        hardcoded.Set(id, source);
         UpdateType(id, PipelineSourceType.Hardcoded);
+        return source;
     }
 
-    public bool TryGetHardcoded(Id<PipelineSource> id, [NotNullWhen(true)] out HardcodedSource? source)
-        => _hardcoded.TryGet(id, out source);
+    public Result<HardcodedSource> TryGetHardcoded(Id<PipelineSource> id)
+        => hardcoded.TryGet(id, out var source)
+            ? source
+            : Result.Failure<HardcodedSource>(new ResultProblem($"Source '{id}' has no hardcoded configuration."));
 
-    public bool RemoveHardcoded(Id<PipelineSource> id)
+    public Result RemoveHardcoded(Id<PipelineSource> id)
     {
-        if (!_hardcoded.Remove(id)) return false;
+        if (!hardcoded.Remove(id))
+            return Result.Failure(new ResultProblem($"Source '{id}' has no hardcoded configuration."));
+
         UpdateType(id, PipelineSourceType.None);
-        return true;
+        return Result.Success();
     }
 
-    public void SetGitHub(Id<PipelineSource> id, GitHubSource source)
+    public Result<GitHubSource> SetGitHub(Id<PipelineSource> id, GitHubSource source)
     {
-        _hardcoded.Remove(id);
-        _github.Set(id, source);
+        if (!store.TryGet(id, out _))
+            return Result.Failure<GitHubSource>(new ResultProblem($"Source '{id}' not found."));
+
+        hardcoded.Remove(id);
+        github.Set(id, source);
         UpdateType(id, PipelineSourceType.GitHub);
+        return source;
     }
 
-    public bool TryGetGitHub(Id<PipelineSource> id, [NotNullWhen(true)] out GitHubSource? source)
-        => _github.TryGet(id, out source);
+    public Result<GitHubSource> TryGetGitHub(Id<PipelineSource> id)
+        => github.TryGet(id, out var source)
+            ? source
+            : Result.Failure<GitHubSource>(new ResultProblem($"Source '{id}' has no GitHub configuration."));
 
-    public bool RemoveGitHub(Id<PipelineSource> id)
+    public Result RemoveGitHub(Id<PipelineSource> id)
     {
-        if (!_github.Remove(id)) return false;
+        if (!github.Remove(id))
+            return Result.Failure(new ResultProblem($"Source '{id}' has no GitHub configuration."));
+
         UpdateType(id, PipelineSourceType.None);
-        return true;
+        return Result.Success();
     }
 
     private void UpdateType(Id<PipelineSource> id, PipelineSourceType type)
     {
-        if (_store.TryGet(id, out var entity))
-            _store.Set(entity with { Type = type });
+        if (store.TryGet(id, out var entity))
+            store.Set(entity with { Type = type });
     }
 }

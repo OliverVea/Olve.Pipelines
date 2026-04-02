@@ -6,7 +6,7 @@ namespace Olve.Pipelines.Pipelines;
 
 public class PipelineService(EntityStore<Pipeline> store, IdProvider idProvider)
 {
-    public Pipeline Create(string name)
+    public Result<Pipeline> Create(string name)
     {
         var pipeline = new Pipeline(idProvider.Create<Pipeline>(), name);
         store.Set(pipeline);

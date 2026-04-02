@@ -37,6 +37,7 @@ public static class ServiceConfiguration
         services.AddTransient<JobService>();
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();
+        services.AddTransient<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         services.AddHostedService<StartupRunner>();

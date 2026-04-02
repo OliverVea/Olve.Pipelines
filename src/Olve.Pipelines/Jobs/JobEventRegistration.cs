@@ -16,6 +16,7 @@ public class JobEventRegistration(
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
         events.OnAdded.Subscribe(id => sp.GetRequiredService<JobObsoletionService>().HandleJobAdded(id));
+        events.OnAdded.Subscribe(id => sp.GetRequiredService<JobRunner>().HandleJobAdded(id));
         pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<JobCancellationService>().HandlePipelineDeleted(id));
 
         return Result.Success();

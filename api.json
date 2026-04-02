@@ -17,11 +17,55 @@
         }
       }
     },
+    "/api/artifact-bundles/{bundleId}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetArtifactBundle",
+        "parameters": [
+          {
+            "name": "bundleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactBundle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines": {
       "post": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "CreatePipeline",
         "parameters": [
           {
             "name": "name",
@@ -62,6 +106,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListPipelines",
         "responses": {
           "200": {
             "description": "OK",
@@ -97,6 +142,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetPipeline",
         "parameters": [
           {
             "name": "id",
@@ -137,6 +183,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "DeletePipeline",
         "parameters": [
           {
             "name": "id",
@@ -170,11 +217,55 @@
         }
       }
     },
+    "/api/pipelines/{id}/trigger/production": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "TriggerProduction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/production": {
       "post": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "CreateProductionStep",
         "parameters": [
           {
             "name": "pipelineId",
@@ -225,6 +316,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListProductionSteps",
         "parameters": [
           {
             "name": "pipelineId",
@@ -265,11 +357,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/production/{stepId}": {
+    "/api/production-steps/{stepId}": {
       "get": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetProductionStep",
         "parameters": [
           {
             "name": "stepId",
@@ -310,6 +403,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "DeleteProductionStep",
         "parameters": [
           {
             "name": "stepId",
@@ -343,11 +437,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/production/{stepId}/configuration": {
+    "/api/production-steps/{stepId}/configuration": {
       "put": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "SetProductionStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -398,6 +493,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetProductionStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -438,6 +534,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "RemoveProductionStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -473,6 +570,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "CreateProcessingStep",
         "parameters": [
           {
             "name": "pipelineId",
@@ -523,6 +621,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListProcessingSteps",
         "parameters": [
           {
             "name": "pipelineId",
@@ -563,11 +662,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/processing/{stepId}": {
+    "/api/processing-steps/{stepId}": {
       "get": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetProcessingStep",
         "parameters": [
           {
             "name": "stepId",
@@ -608,6 +708,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "DeleteProcessingStep",
         "parameters": [
           {
             "name": "stepId",
@@ -641,11 +742,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/processing/{stepId}/order": {
+    "/api/processing-steps/{stepId}/order": {
       "put": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "UpdateProcessingStepOrder",
         "parameters": [
           {
             "name": "stepId",
@@ -693,11 +795,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/processing/{stepId}/configuration": {
+    "/api/processing-steps/{stepId}/configuration": {
       "put": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "SetProcessingStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -748,6 +851,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetProcessingStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -788,6 +892,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "RemoveProcessingStepConfiguration",
         "parameters": [
           {
             "name": "stepId",
@@ -823,6 +928,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListSecrets",
         "parameters": [
           {
             "name": "pipelineId",
@@ -868,6 +974,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "SetSecret",
         "parameters": [
           {
             "name": "pipelineId",
@@ -919,6 +1026,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "DeleteSecret",
         "parameters": [
           {
             "name": "pipelineId",
@@ -962,6 +1070,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListArtifactBundles",
         "parameters": [
           {
             "name": "pipelineId",
@@ -1002,53 +1111,12 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/artifact-bundles/{bundleId}": {
-      "get": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "parameters": [
-          {
-            "name": "bundleId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArtifactBundle"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/jobs": {
       "get": {
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "ListJobs",
         "responses": {
           "200": {
             "description": "OK",
@@ -1084,6 +1152,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetJob",
         "parameters": [
           {
             "name": "id",
@@ -1124,6 +1193,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "DeleteJob",
         "parameters": [
           {
             "name": "id",
@@ -1162,6 +1232,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetJobQueue",
         "responses": {
           "200": {
             "description": "OK",
@@ -1194,6 +1265,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "CancelJob",
         "parameters": [
           {
             "name": "id",

@@ -32,6 +32,28 @@ namespace Olve.Pipelines.Client
         [Get("/api/health")]
         Task<IApiResponse> Health();
 
+        /// <param name="bundleId">bundleId parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/artifact-bundles/{bundleId}")]
+        Task<IApiResponse<ArtifactBundle>> GetArtifactBundle(string bundleId);
+
         /// <param name="name">name parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -52,7 +74,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines")]
-        Task<IApiResponse<Pipeline>> PipelinesPOST([Query] string name);
+        Task<IApiResponse<Pipeline>> CreatePipeline([Query] string name);
 
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -73,7 +95,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines")]
-        Task<IApiResponse<ICollection<Pipeline>>> PipelinesAll();
+        Task<IApiResponse<ICollection<Pipeline>>> ListPipelines();
 
         /// <param name="id">id parameter</param>
         /// <returns>
@@ -95,7 +117,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{id}")]
-        Task<IApiResponse<Pipeline>> PipelinesGET(string id);
+        Task<IApiResponse<Pipeline>> GetPipeline(string id);
 
         /// <param name="id">id parameter</param>
         /// <returns>
@@ -121,7 +143,29 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{id}")]
-        Task<IApiResponse> PipelinesDELETE(string id);
+        Task<IApiResponse> DeletePipeline(string id);
+
+        /// <param name="id">id parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Post("/api/pipelines/{id}/trigger/production")]
+        Task<IApiResponse<Job>> TriggerProduction(string id);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -144,7 +188,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/production")]
-        Task<IApiResponse<ProductionStep>> ProductionPOST(string pipelineId, [Body] CreateProductionStepRequest body);
+        Task<IApiResponse<ProductionStep>> CreateProductionStep(string pipelineId, [Body] CreateProductionStepRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -166,7 +210,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/production")]
-        Task<IApiResponse<ICollection<ProductionStep>>> ProductionAll(string pipelineId);
+        Task<IApiResponse<ICollection<ProductionStep>>> ListProductionSteps(string pipelineId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -187,8 +231,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/production/{stepId}")]
-        Task<IApiResponse<ProductionStep>> ProductionGET(string stepId);
+        [Get("/api/production-steps/{stepId}")]
+        Task<IApiResponse<ProductionStep>> GetProductionStep(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -213,8 +257,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/production/{stepId}")]
-        Task<IApiResponse> ProductionDELETE(string stepId);
+        [Delete("/api/production-steps/{stepId}")]
+        Task<IApiResponse> DeleteProductionStep(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
@@ -236,8 +280,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
-        Task<IApiResponse<StepConfiguration>> ConfigurationPUT(string stepId, [Body] SetStepConfigurationRequest body);
+        [Put("/api/production-steps/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> SetProductionStepConfiguration(string stepId, [Body] SetStepConfigurationRequest body);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -258,8 +302,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
-        Task<IApiResponse<StepConfiguration>> ConfigurationGET(string stepId);
+        [Get("/api/production-steps/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> GetProductionStepConfiguration(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -280,8 +324,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
-        Task<IApiResponse> ConfigurationDELETE(string stepId);
+        [Delete("/api/production-steps/{stepId}/configuration")]
+        Task<IApiResponse> RemoveProductionStepConfiguration(string stepId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -304,7 +348,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/processing")]
-        Task<IApiResponse<ProcessingStep>> ProcessingPOST(string pipelineId, [Body] CreateProcessingStepRequest body);
+        Task<IApiResponse<ProcessingStep>> CreateProcessingStep(string pipelineId, [Body] CreateProcessingStepRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -326,7 +370,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing")]
-        Task<IApiResponse<ICollection<ProcessingStep>>> ProcessingAll(string pipelineId);
+        Task<IApiResponse<ICollection<ProcessingStep>>> ListProcessingSteps(string pipelineId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -347,8 +391,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{stepId}")]
-        Task<IApiResponse<ProcessingStep>> ProcessingGET(string stepId);
+        [Get("/api/processing-steps/{stepId}")]
+        Task<IApiResponse<ProcessingStep>> GetProcessingStep(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -373,8 +417,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{stepId}")]
-        Task<IApiResponse> ProcessingDELETE(string stepId);
+        [Delete("/api/processing-steps/{stepId}")]
+        Task<IApiResponse> DeleteProcessingStep(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
@@ -396,8 +440,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/processing/{stepId}/order")]
-        Task<IApiResponse<ProcessingStep>> Order(string stepId, [Body] UpdateOrderRequest body);
+        [Put("/api/processing-steps/{stepId}/order")]
+        Task<IApiResponse<ProcessingStep>> UpdateProcessingStepOrder(string stepId, [Body] UpdateOrderRequest body);
 
         /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
@@ -419,8 +463,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
-        Task<IApiResponse<StepConfiguration>> ConfigurationPUT2(string stepId, [Body] SetStepConfigurationRequest body);
+        [Put("/api/processing-steps/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> SetProcessingStepConfiguration(string stepId, [Body] SetStepConfigurationRequest body);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -441,8 +485,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
-        Task<IApiResponse<StepConfiguration>> ConfigurationGET2(string stepId);
+        [Get("/api/processing-steps/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> GetProcessingStepConfiguration(string stepId);
 
         /// <param name="stepId">stepId parameter</param>
         /// <returns>
@@ -463,8 +507,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
-        Task<IApiResponse> ConfigurationDELETE2(string stepId);
+        [Delete("/api/processing-steps/{stepId}/configuration")]
+        Task<IApiResponse> RemoveProcessingStepConfiguration(string stepId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -486,7 +530,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/secrets")]
-        Task<IApiResponse<ICollection<string>>> SecretsAll(string pipelineId);
+        Task<IApiResponse<ICollection<string>>> ListSecrets(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
@@ -510,7 +554,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task<IApiResponse> SecretsPUT(string pipelineId, string name, [Body] SetSecretRequest body);
+        Task<IApiResponse> SetSecret(string pipelineId, string name, [Body] SetSecretRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
@@ -533,7 +577,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task<IApiResponse> SecretsDELETE(string pipelineId, string name);
+        Task<IApiResponse> DeleteSecret(string pipelineId, string name);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -555,29 +599,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/artifact-bundles")]
-        Task<IApiResponse<ICollection<ArtifactBundle>>> ArtifactBundlesAll(string pipelineId);
-
-        /// <param name="bundleId">bundleId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/artifact-bundles/{bundleId}")]
-        Task<IApiResponse<ArtifactBundle>> ArtifactBundles(string bundleId);
+        Task<IApiResponse<ICollection<ArtifactBundle>>> ListArtifactBundles(string pipelineId);
 
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -598,7 +620,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/jobs")]
-        Task<IApiResponse<ICollection<Job>>> JobsAll();
+        Task<IApiResponse<ICollection<Job>>> ListJobs();
 
         /// <param name="id">id parameter</param>
         /// <returns>
@@ -620,7 +642,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/jobs/{id}")]
-        Task<IApiResponse<Job>> JobsGET(string id);
+        Task<IApiResponse<Job>> GetJob(string id);
 
         /// <param name="id">id parameter</param>
         /// <returns>
@@ -646,7 +668,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/jobs/{id}")]
-        Task<IApiResponse> JobsDELETE(string id);
+        Task<IApiResponse> DeleteJob(string id);
 
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -667,7 +689,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/jobs/queue")]
-        Task<IApiResponse<ICollection<object>>> Queue();
+        Task<IApiResponse<ICollection<object>>> GetJobQueue();
 
         /// <param name="id">id parameter</param>
         /// <returns>
@@ -689,7 +711,7 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Post("/api/jobs/{id}/cancel")]
-        Task<IApiResponse> Cancel(string id);
+        Task<IApiResponse> CancelJob(string id);
 
 
     }

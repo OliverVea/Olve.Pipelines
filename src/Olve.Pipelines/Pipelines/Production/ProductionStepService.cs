@@ -35,6 +35,19 @@ public class ProductionStepService(
         return results.ToArray();
     }
 
+    public bool HasConfiguredSteps(Id<Pipeline> pipelineId)
+    {
+        var ids = _byPipeline.GetForKey(pipelineId);
+        if (ids.Count == 0) return false;
+
+        foreach (var id in ids)
+        {
+            if (!configuration.TryGet(id, out _))
+                return false;
+        }
+        return true;
+    }
+
     public DeletionResult Delete(Id<ProductionStep> id) => store.Delete(id);
 
     public Result<StepConfiguration> SetConfiguration(Id<ProductionStep> id, StepConfiguration config)

@@ -12,7 +12,7 @@ public class JobTests
     {
         var client = Fixture.CreateApiClient();
 
-        var response = await client.JobsAll();
+        var response = await client.ListJobs();
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
         await Assert.That(response.Content).IsNotNull();
@@ -23,9 +23,9 @@ public class JobTests
     {
         var client = Fixture.CreateApiClient();
 
-        var response = await client.JobsGET(Guid.NewGuid().ToString());
+        var response = await client.GetJob(Guid.NewGuid().ToString());
 
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.UnprocessableEntity);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
@@ -33,7 +33,7 @@ public class JobTests
     {
         var client = Fixture.CreateApiClient();
 
-        var response = await client.Queue();
+        var response = await client.GetJobQueue();
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
         await Assert.That(response.Content).IsNotNull();
@@ -44,7 +44,7 @@ public class JobTests
     {
         var client = Fixture.CreateApiClient();
 
-        var response = await client.JobsDELETE(Guid.NewGuid().ToString());
+        var response = await client.DeleteJob(Guid.NewGuid().ToString());
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
@@ -54,8 +54,8 @@ public class JobTests
     {
         var client = Fixture.CreateApiClient();
 
-        var response = await client.Cancel(Guid.NewGuid().ToString());
+        var response = await client.CancelJob(Guid.NewGuid().ToString());
 
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.UnprocessableEntity);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 }

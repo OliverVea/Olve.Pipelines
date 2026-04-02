@@ -11,23 +11,17 @@ public static class ProductionStepEndpoints
 
     public static void MapProductionStepEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId}/production");
+        var pipelineGroup = app.MapGroup("/api/pipelines/{pipelineId}/production");
 
-        group.MapPost("/", Result<ProductionStep> (
+        pipelineGroup.MapPost("/", Result<ProductionStep> (
             PipelineService pipelines,
             ProductionStepService steps,
             Id<Pipeline> pipelineId,
             CreateProductionStepRequest request) => pipelines.TryGet(pipelineId, out _) ? steps.Create(pipelineId, request.Name) : new ResultProblem($"Pipeline '{pipelineId}' not found."))
-            .WithResultMapping<ProductionStep>();
-
-        group.MapGet("/{stepId}", Result<ProductionStep> (
-            ProductionStepService steps,
-            Id<ProductionStep> stepId)
-                => steps.TryGet(stepId))
             .WithResultMapping<ProductionStep>()
-            .AllowAnonymous();
+            .WithName("CreateProductionStep");
 
-        group.MapGet("/", Result<ProductionStep[]> (
+        pipelineGroup.MapGet("/", Result<ProductionStep[]> (
             PipelineService pipelines,
             ProductionStepService steps,
             Id<Pipeline> pipelineId) =>
@@ -38,32 +32,47 @@ public static class ProductionStepEndpoints
                 return steps.GetByPipelineId(pipelineId);
             })
             .WithResultMapping<ProductionStep[]>()
+            .WithName("ListProductionSteps")
             .AllowAnonymous();
 
-        group.MapDelete("/{stepId}", DeletionResult (
+        var stepGroup = app.MapGroup("/api/production-steps/{stepId}");
+
+        stepGroup.MapGet("/", Result<ProductionStep> (
+            ProductionStepService steps,
+            Id<ProductionStep> stepId)
+                => steps.TryGet(stepId))
+            .WithResultMapping<ProductionStep>()
+            .WithName("GetProductionStep")
+            .AllowAnonymous();
+
+        stepGroup.MapDelete("/", DeletionResult (
             ProductionStepService steps,
             Id<ProductionStep> stepId)
                 => steps.Delete(stepId))
-            .WithDeletionMapping();
+            .WithDeletionMapping()
+            .WithName("DeleteProductionStep");
 
-        group.MapPut("/{stepId}/configuration", Result<StepConfiguration> (
+        stepGroup.MapPut("/configuration", Result<StepConfiguration> (
             ProductionStepService steps,
             Id<ProductionStep> stepId,
             SetStepConfigurationRequest request)
                 => steps.SetConfiguration(stepId, new StepConfiguration(request.Image, request.Script, request.EnvironmentVariables)))
-            .WithResultMapping<StepConfiguration>();
+            .WithResultMapping<StepConfiguration>()
+            .WithName("SetProductionStepConfiguration");
 
-        group.MapGet("/{stepId}/configuration", Result<StepConfiguration> (
+        stepGroup.MapGet("/configuration", Result<StepConfiguration> (
             ProductionStepService steps,
             Id<ProductionStep> stepId)
                 => steps.TryGetConfiguration(stepId))
             .WithResultMapping<StepConfiguration>()
+            .WithName("GetProductionStepConfiguration")
             .AllowAnonymous();
 
-        group.MapDelete("/{stepId}/configuration", Result (
+        stepGroup.MapDelete("/configuration", Result (
             ProductionStepService steps,
             Id<ProductionStep> stepId)
                 => steps.RemoveConfiguration(stepId))
-            .WithResultMapping();
+            .WithResultMapping()
+            .WithName("RemoveProductionStepConfiguration");
     }
 }

@@ -25,7 +25,8 @@ public static class SecretEndpoints
             var names = data?.Keys.ToArray() ?? [];
             return Result.Success(names);
         })
-        .WithResultMapping<string[]>();
+        .WithResultMapping<string[]>()
+        .WithName("ListSecrets");
 
         group.MapPut("/{name}", async Task<Result> (
             PipelineService pipelines,
@@ -55,7 +56,8 @@ public static class SecretEndpoints
 
             return Result.Success();
         })
-        .WithResultMapping();
+        .WithResultMapping()
+        .WithName("SetSecret");
 
         group.MapDelete("/{name}", async Task<Result> (
             PipelineService pipelines,
@@ -81,7 +83,8 @@ public static class SecretEndpoints
 
             return Result.Success();
         })
-        .WithResultMapping();
+        .WithResultMapping()
+        .WithName("DeleteSecret");
     }
 }
 

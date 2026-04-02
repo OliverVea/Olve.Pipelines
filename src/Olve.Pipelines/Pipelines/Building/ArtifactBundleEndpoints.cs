@@ -7,9 +7,9 @@ public static class ArtifactBundleEndpoints
 {
     public static void MapArtifactBundleEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("/api/pipelines/{pipelineId}/artifact-bundles");
+        var pipelineGroup = app.MapGroup("/api/pipelines/{pipelineId}/artifact-bundles");
 
-        group.MapGet("/", Result<ArtifactBundle[]> (
+        pipelineGroup.MapGet("/", Result<ArtifactBundle[]> (
             PipelineService pipelines,
             ArtifactBundleService artifactBundles,
             Id<Pipeline> pipelineId) =>
@@ -20,9 +20,10 @@ public static class ArtifactBundleEndpoints
             var bundles = artifactBundles.GetByPipelineId(pipelineId);
             return Result.Success(bundles.ToArray());
         })
-        .WithResultMapping<ArtifactBundle[]>();
+        .WithResultMapping<ArtifactBundle[]>()
+        .WithName("ListArtifactBundles");
 
-        group.MapGet("/{bundleId}", Result<ArtifactBundle> (
+        app.MapGet("/api/artifact-bundles/{bundleId}", Result<ArtifactBundle> (
             ArtifactBundleService artifactBundles,
             Id<ArtifactBundle> bundleId) =>
         {
@@ -31,6 +32,7 @@ public static class ArtifactBundleEndpoints
 
             return Result.Success(bundle);
         })
-        .WithResultMapping<ArtifactBundle>();
+        .WithResultMapping<ArtifactBundle>()
+        .WithName("GetArtifactBundle");
     }
 }

@@ -1799,6 +1799,186 @@
           }
         }
       }
+    },
+    "/api/jobs": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{id}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/queue": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1833,6 +2013,14 @@
       },
       "ArtifactBundleStatus": {
         "type": "integer"
+      },
+      "BuildJobKey": {
+        "type": "object",
+        "properties": {
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          }
+        }
       },
       "CreatePipelineBuilderRequest": {
         "required": [
@@ -1915,6 +2103,10 @@
         "type": "string",
         "format": "uuid"
       },
+      "IdOfJob": {
+        "type": "string",
+        "format": "uuid"
+      },
       "IdOfPipeline": {
         "type": "string",
         "format": "uuid"
@@ -1938,6 +2130,301 @@
       "IdOfVerification": {
         "type": "string",
         "format": "uuid"
+      },
+      "Job": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/JobSourcingJob"
+          },
+          {
+            "$ref": "#/components/schemas/JobBuildJob"
+          },
+          {
+            "$ref": "#/components/schemas/JobProcessingJob"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "sourcing": "#/components/schemas/JobSourcingJob",
+            "build": "#/components/schemas/JobBuildJob",
+            "processing": "#/components/schemas/JobProcessingJob"
+          }
+        }
+      },
+      "JobBuildJob": {
+        "required": [
+          "sourceBundleId",
+          "id",
+          "pipelineId",
+          "createdAt",
+          "status"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "build"
+            ],
+            "type": "string"
+          },
+          "sourceBundleId": {
+            "$ref": "#/components/schemas/IdOfSourceBundle"
+          },
+          "buildResult": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResultOfIdOfArtifactBundle"
+              }
+            ]
+          },
+          "jobKey": {
+            "$ref": "#/components/schemas/BuildJobKey"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdOfJob"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        }
+      },
+      "JobProcessingJob": {
+        "required": [
+          "artifactBundleId",
+          "processingStepId",
+          "id",
+          "pipelineId",
+          "createdAt",
+          "status"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "processing"
+            ],
+            "type": "string"
+          },
+          "artifactBundleId": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          },
+          "processingResult": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Result"
+              }
+            ]
+          },
+          "validationResults": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Result"
+            }
+          },
+          "jobKey": {
+            "$ref": "#/components/schemas/ProcessingJobKey"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdOfJob"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        }
+      },
+      "JobSourcingJob": {
+        "required": [
+          "id",
+          "pipelineId",
+          "createdAt",
+          "status"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "sourcing"
+            ],
+            "type": "string"
+          },
+          "sourcingResult": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResultOfIdOfSourceBundle"
+              }
+            ]
+          },
+          "jobKey": {
+            "$ref": "#/components/schemas/SourcingJobKey"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdOfJob"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        }
+      },
+      "JobStatus": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/JobStatusScheduled"
+          },
+          {
+            "$ref": "#/components/schemas/JobStatusInProgress"
+          },
+          {
+            "$ref": "#/components/schemas/JobStatusDone"
+          },
+          {
+            "$ref": "#/components/schemas/JobStatusObsolete"
+          },
+          {
+            "$ref": "#/components/schemas/JobStatusCancelled"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "scheduled": "#/components/schemas/JobStatusScheduled",
+            "in-progress": "#/components/schemas/JobStatusInProgress",
+            "done": "#/components/schemas/JobStatusDone",
+            "obsolete": "#/components/schemas/JobStatusObsolete",
+            "cancelled": "#/components/schemas/JobStatusCancelled"
+          }
+        }
+      },
+      "JobStatusCancelled": {
+        "required": [
+          "startedAt",
+          "cancelledAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobStatusDone": {
+        "required": [
+          "startedAt",
+          "completedAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "done"
+            ],
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobStatusInProgress": {
+        "required": [
+          "startedAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "in-progress"
+            ],
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobStatusObsolete": {
+        "required": [
+          "supersedingJobId"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "obsolete"
+            ],
+            "type": "string"
+          },
+          "supersedingJobId": {
+            "$ref": "#/components/schemas/IdOfJob"
+          }
+        }
+      },
+      "JobStatusScheduled": {
+        "properties": {
+          "$type": {
+            "enum": [
+              "scheduled"
+            ],
+            "type": "string"
+          }
+        }
       },
       "Pipeline": {
         "required": [
@@ -2006,6 +2493,17 @@
         "type": "integer",
         "default": 0
       },
+      "ProcessingJobKey": {
+        "type": "object",
+        "properties": {
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          }
+        }
+      },
       "ProcessingStep": {
         "required": [
           "id",
@@ -2031,6 +2529,72 @@
       "ProcessingStepType": {
         "type": "integer",
         "default": 0
+      },
+      "Result": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "problems": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ResultProblem"
+            }
+          }
+        }
+      },
+      "ResultOfIdOfArtifactBundle": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "problems": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ResultProblem"
+            }
+          },
+          "value": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          }
+        }
+      },
+      "ResultOfIdOfSourceBundle": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "problems": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ResultProblem"
+            }
+          },
+          "value": {
+            "$ref": "#/components/schemas/IdOfSourceBundle"
+          }
+        }
       },
       "ResultProblem": {
         "required": [
@@ -2212,6 +2776,14 @@
       },
       "SourceBundleStatus": {
         "type": "integer"
+      },
+      "SourcingJobKey": {
+        "type": "object",
+        "properties": {
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          }
+        }
       },
       "Verification": {
         "required": [

@@ -1,15 +1,12 @@
 using Olve.Pipelines.Building.Api;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Health;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Api;
-using Olve.Pipelines.PipelineBuilders;
 using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Api;
-using Olve.Pipelines.PipelineSources;
 using Olve.Pipelines.PipelineSources.Api;
-using Olve.Pipelines.Processing;
 using Olve.Pipelines.Processing.Api;
 using Olve.Pipelines.Sourcing.Api;
 
@@ -50,6 +47,7 @@ app.MapProcessingEndpoints();
 app.MapSecretEndpoints();
 app.MapSourceBundleEndpoints();
 app.MapArtifactBundleEndpoints();
+app.MapJobEndpoints();
 
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

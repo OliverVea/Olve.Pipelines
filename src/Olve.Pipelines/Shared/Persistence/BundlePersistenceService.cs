@@ -1,7 +1,6 @@
 namespace Olve.Pipelines.Shared.Persistence;
 
 public class BundlePersistenceService(
-    EntityStore<Sourcing.SourceBundle> sourceStore,
     EntityStore<Building.ArtifactBundle> artifactStore,
     ILogger<BundlePersistenceService> logger,
     IBundleStore? bundleStore = null) : IHostedLifecycleService
@@ -16,17 +15,12 @@ public class BundlePersistenceService(
 
         try
         {
-            var sourceBundles = await bundleStore.ListSourceBundlesAsync(cancellationToken);
-            foreach (var bundle in sourceBundles)
-                sourceStore.Set(bundle);
-
             var artifactBundles = await bundleStore.ListArtifactBundlesAsync(cancellationToken);
             foreach (var bundle in artifactBundles)
                 artifactStore.Set(bundle);
 
             logger.LogInformation(
-                "Loaded {SourceCount} source bundles and {ArtifactCount} artifact bundles from store",
-                sourceBundles.Count,
+                "Loaded {ArtifactCount} artifact bundles from store",
                 artifactBundles.Count);
         }
         catch (Exception ex)

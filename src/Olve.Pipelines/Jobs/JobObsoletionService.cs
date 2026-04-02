@@ -27,8 +27,7 @@ public class JobObsoletionService(JobService jobService, ILogger<JobObsoletionSe
 
     private static bool HasSameKey(Job a, Job b) => (a, b) switch
     {
-        (SourcingJob sa, SourcingJob sb) => sa.JobKey == sb.JobKey,
-        (BuildJob ba, BuildJob bb) => ba.JobKey == bb.JobKey,
+        (ProductionJob pa, ProductionJob pb) => pa.JobKey == pb.JobKey,
         (ProcessingJob pa, ProcessingJob pb) => pa.JobKey == pb.JobKey,
         _ => false
     };

@@ -143,8 +143,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Post("/api/pipelines/{pipelineId}/sources")]
-        Task<IApiResponse<PipelineSource>> SourcesPOST(string pipelineId, [Body] CreatePipelineSourceRequest body);
+        [Post("/api/pipelines/{pipelineId}/production")]
+        Task<IApiResponse<ProductionStep>> ProductionPOST(string pipelineId, [Body] CreateProductionStepRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -165,10 +165,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/sources")]
-        Task<IApiResponse<ICollection<PipelineSource>>> SourcesAll(string pipelineId);
+        [Get("/api/pipelines/{pipelineId}/production")]
+        Task<IApiResponse<ICollection<ProductionStep>>> ProductionAll(string pipelineId);
 
-        /// <param name="sourceId">sourceId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -187,10 +187,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task<IApiResponse<PipelineSource>> SourcesGET(string sourceId);
+        [Get("/api/pipelines/{pipelineId}/production/{stepId}")]
+        Task<IApiResponse<ProductionStep>> ProductionGET(string stepId);
 
-        /// <param name="sourceId">sourceId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -213,10 +213,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task<IApiResponse> SourcesDELETE(string sourceId);
+        [Delete("/api/pipelines/{pipelineId}/production/{stepId}")]
+        Task<IApiResponse> ProductionDELETE(string stepId);
 
-        /// <param name="sourceId">sourceId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -236,10 +236,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<IApiResponse<HardcodedSource>> HardcodedPUT(string sourceId, [Body] SetHardcodedSourceRequest body);
+        [Put("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> ConfigurationPUT(string stepId, [Body] SetStepConfigurationRequest body);
 
-        /// <param name="sourceId">sourceId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -258,10 +258,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<IApiResponse<HardcodedSource>> HardcodedGET(string sourceId);
+        [Get("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> ConfigurationGET(string stepId);
 
-        /// <param name="sourceId">sourceId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -280,235 +280,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<IApiResponse> HardcodedDELETE(string sourceId);
-
-        /// <param name="sourceId">sourceId parameter</param>
-        /// <param name="body">body parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<IApiResponse<GitHubSource>> GithubPUT(string sourceId, [Body] SetGitHubSourceRequest body);
-
-        /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<IApiResponse<GitHubSource>> GithubGET(string sourceId);
-
-        /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<IApiResponse> GithubDELETE(string sourceId);
-
-        /// <param name="pipelineId">pipelineId parameter</param>
-        /// <param name="body">body parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Post("/api/pipelines/{pipelineId}/builders")]
-        Task<IApiResponse<PipelineBuilder>> BuildersPOST(string pipelineId, [Body] CreatePipelineBuilderRequest body);
-
-        /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/builders")]
-        Task<IApiResponse<ICollection<PipelineBuilder>>> BuildersAll(string pipelineId);
-
-        /// <param name="builderId">builderId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task<IApiResponse<PipelineBuilder>> BuildersGET(string builderId);
-
-        /// <param name="builderId">builderId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// <item>
-        /// <term>404</term>
-        /// <description>Not Found</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task<IApiResponse> BuildersDELETE(string builderId);
-
-        /// <param name="builderId">builderId parameter</param>
-        /// <param name="body">body parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<IApiResponse<ScriptBuilder>> ScriptPUT(string builderId, [Body] SetScriptBuilderRequest body);
-
-        /// <param name="builderId">builderId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<IApiResponse<ScriptBuilder>> ScriptGET(string builderId);
-
-        /// <param name="builderId">builderId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<IApiResponse> ScriptDELETE(string builderId);
+        [Delete("/api/pipelines/{pipelineId}/production/{stepId}/configuration")]
+        Task<IApiResponse> ConfigurationDELETE(string stepId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -555,7 +328,7 @@ namespace Olve.Pipelines.Client
         [Get("/api/pipelines/{pipelineId}/processing")]
         Task<IApiResponse<ICollection<ProcessingStep>>> ProcessingAll(string pipelineId);
 
-        /// <param name="processingId">processingId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -574,10 +347,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task<IApiResponse<ProcessingStep>> ProcessingGET(string processingId);
+        [Get("/api/pipelines/{pipelineId}/processing/{stepId}")]
+        Task<IApiResponse<ProcessingStep>> ProcessingGET(string stepId);
 
-        /// <param name="processingId">processingId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -600,10 +373,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task<IApiResponse> ProcessingDELETE(string processingId);
+        [Delete("/api/pipelines/{pipelineId}/processing/{stepId}")]
+        Task<IApiResponse> ProcessingDELETE(string stepId);
 
-        /// <param name="processingId">processingId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -623,54 +396,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<IApiResponse<ScriptProcessing>> ScriptPUT2(string processingId, [Body] SetScriptProcessingRequest body);
+        [Put("/api/pipelines/{pipelineId}/processing/{stepId}/order")]
+        Task<IApiResponse<ProcessingStep>> Order(string stepId, [Body] UpdateOrderRequest body);
 
-        /// <param name="processingId">processingId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<IApiResponse<ScriptProcessing>> ScriptGET2(string processingId);
-
-        /// <param name="processingId">processingId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<IApiResponse> ScriptDELETE2(string processingId);
-
-        /// <param name="processingId">processingId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <param name="body">body parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
@@ -690,10 +419,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Post("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<IApiResponse<Verification>> VerificationsPOST(string processingId, [Body] CreateVerificationRequest body);
+        [Put("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> ConfigurationPUT2(string stepId, [Body] SetStepConfigurationRequest body);
 
-        /// <param name="processingId">processingId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -712,10 +441,10 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<IApiResponse<ICollection<Verification>>> VerificationsAll(string processingId);
+        [Get("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
+        Task<IApiResponse<StepConfiguration>> ConfigurationGET2(string stepId);
 
-        /// <param name="verificationId">verificationId parameter</param>
+        /// <param name="stepId">stepId parameter</param>
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -734,101 +463,8 @@ namespace Olve.Pipelines.Client
         /// </list>
         /// </returns>
         [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task<IApiResponse<Verification>> VerificationsGET(string verificationId);
-
-        /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// <item>
-        /// <term>404</term>
-        /// <description>Not Found</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task<IApiResponse> VerificationsDELETE(string verificationId);
-
-        /// <param name="verificationId">verificationId parameter</param>
-        /// <param name="body">body parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json", "Content-Type: application/json")]
-        [Put("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<IApiResponse<ScriptVerification>> ScriptPUT3(string verificationId, [Body] SetScriptVerificationRequest body);
-
-        /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<IApiResponse<ScriptVerification>> ScriptGET3(string verificationId);
-
-        /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<IApiResponse> ScriptDELETE3(string verificationId);
+        [Delete("/api/pipelines/{pipelineId}/processing/{stepId}/configuration")]
+        Task<IApiResponse> ConfigurationDELETE2(string stepId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -898,50 +534,6 @@ namespace Olve.Pipelines.Client
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/secrets/{name}")]
         Task<IApiResponse> SecretsDELETE(string pipelineId, string name);
-
-        /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/source-bundles")]
-        Task<IApiResponse<ICollection<SourceBundle>>> SourceBundlesAll(string pipelineId);
-
-        /// <param name="bundleId">bundleId parameter</param>
-        /// <returns>
-        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
-        /// <list type="table">
-        /// <listheader>
-        /// <term>Status</term>
-        /// <description>Description</description>
-        /// </listheader>
-        /// <item>
-        /// <term>200</term>
-        /// <description>OK</description>
-        /// </item>
-        /// <item>
-        /// <term>400</term>
-        /// <description>Bad Request</description>
-        /// </item>
-        /// </list>
-        /// </returns>
-        [Headers("Accept: application/json")]
-        [Get("/api/pipelines/{pipelineId}/source-bundles/{bundleId}")]
-        Task<IApiResponse<SourceBundle>> SourceBundles(string bundleId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <returns>
@@ -1144,72 +736,12 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.Guid PipelineId { get; set; }
 
-        [JsonPropertyName("sourceBundleId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid SourceBundleId { get; set; }
-
         [JsonPropertyName("createdAt")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset CreatedAt { get; set; }
 
         [JsonPropertyName("status")]
         public int Status { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class BuildJobKey
-    {
-
-        [JsonPropertyName("pipelineId")]
-        public System.Guid PipelineId { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreatePipelineBuilderRequest
-    {
-
-        [JsonPropertyName("name")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Name { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreatePipelineSourceRequest
-    {
-
-        [JsonPropertyName("name")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Name { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1230,6 +762,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public string Name { get; set; }
 
+        [JsonPropertyName("order")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public int Order { get; set; }
+
         private IDictionary<string, object> _additionalProperties;
 
         [JsonExtensionData]
@@ -1242,7 +779,7 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class CreateVerificationRequest
+    public partial class CreateProductionStepRequest
     {
 
         [JsonPropertyName("name")]
@@ -1260,101 +797,10 @@ namespace Olve.Pipelines.Client
 
     }
 
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class GitHubSource
-    {
-
-        [JsonPropertyName("owner")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Owner { get; set; }
-
-        [JsonPropertyName("repository")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Repository { get; set; }
-
-        [JsonPropertyName("branch")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Branch { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class HardcodedSource
-    {
-
-        [JsonPropertyName("files")]
-        [System.ComponentModel.DataAnnotations.Required]
-        public IDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
     [JsonInheritanceConverter(typeof(Job), "$type")]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
     {
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobBuildJob
-    {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobBuildJobType>))]
-        public JobBuildJobType Type { get; set; }
-
-        [JsonPropertyName("sourceBundleId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid SourceBundleId { get; set; }
-
-        [JsonPropertyName("buildResult")]
-        public ResultOfIdOfArtifactBundle BuildResult { get; set; }
-
-        [JsonPropertyName("jobKey")]
-        public BuildJobKey JobKey { get; set; }
-
-        [JsonPropertyName("id")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid Id { get; set; }
-
-        [JsonPropertyName("pipelineId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid PipelineId { get; set; }
-
-        [JsonPropertyName("createdAt")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.DateTimeOffset CreatedAt { get; set; }
-
-        [JsonPropertyName("status")]
-        [System.ComponentModel.DataAnnotations.Required]
-        public JobStatus Status { get; set; } = new JobStatus();
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1385,9 +831,6 @@ namespace Olve.Pipelines.Client
 
         [JsonPropertyName("processingResult")]
         public Result ProcessingResult { get; set; }
-
-        [JsonPropertyName("validationResults")]
-        public IDictionary<string, Result> ValidationResults { get; set; }
 
         [JsonPropertyName("jobKey")]
         public ProcessingJobKey JobKey { get; set; }
@@ -1420,18 +863,18 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobSourcingJob
+    public partial class JobProductionJob
     {
 
         [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobSourcingJobType>))]
-        public JobSourcingJobType Type { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter<JobProductionJobType>))]
+        public JobProductionJobType Type { get; set; }
 
-        [JsonPropertyName("sourcingResult")]
-        public ResultOfIdOfSourceBundle SourcingResult { get; set; }
+        [JsonPropertyName("productionResult")]
+        public ResultOfIdOfArtifactBundle ProductionResult { get; set; }
 
         [JsonPropertyName("jobKey")]
-        public SourcingJobKey JobKey { get; set; }
+        public ProductionJobKey JobKey { get; set; }
 
         [JsonPropertyName("id")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1618,66 +1061,6 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class PipelineBuilder
-    {
-
-        [JsonPropertyName("id")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Name { get; set; }
-
-        [JsonPropertyName("pipelineId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid PipelineId { get; set; }
-
-        [JsonPropertyName("type")]
-        public int Type { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class PipelineSource
-    {
-
-        [JsonPropertyName("id")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Name { get; set; }
-
-        [JsonPropertyName("pipelineId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid PipelineId { get; set; }
-
-        [JsonPropertyName("type")]
-        public int Type { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ProcessingJobKey
     {
 
@@ -1714,8 +1097,55 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.Guid PipelineId { get; set; }
 
-        [JsonPropertyName("type")]
-        public int Type { get; set; }
+        [JsonPropertyName("order")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public int Order { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ProductionJobKey
+    {
+
+        [JsonPropertyName("pipelineId")]
+        public System.Guid PipelineId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ProductionStep
+    {
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("name")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Name { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1780,33 +1210,6 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ResultOfIdOfSourceBundle
-    {
-
-        [JsonPropertyName("succeeded")]
-        public bool Succeeded { get; set; }
-
-        [JsonPropertyName("failed")]
-        public bool Failed { get; set; }
-
-        [JsonPropertyName("problems")]
-        public ICollection<ResultProblem> Problems { get; set; }
-
-        [JsonPropertyName("value")]
-        public System.Guid Value { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ResultProblem
     {
 
@@ -1840,166 +1243,6 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ScriptBuilder
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ScriptProcessing
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ScriptVerification
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SetGitHubSourceRequest
-    {
-
-        [JsonPropertyName("owner")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Owner { get; set; }
-
-        [JsonPropertyName("repository")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Repository { get; set; }
-
-        [JsonPropertyName("branch")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Branch { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SetHardcodedSourceRequest
-    {
-
-        [JsonPropertyName("files")]
-        [System.ComponentModel.DataAnnotations.Required]
-        public IDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SetScriptBuilderRequest
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SetScriptProcessingRequest
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SetScriptVerificationRequest
-    {
-
-        [JsonPropertyName("script")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Script { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class SetSecretRequest
     {
 
@@ -2019,23 +1262,19 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SourceBundle
+    public partial class SetStepConfigurationRequest
     {
 
-        [JsonPropertyName("id")]
+        [JsonPropertyName("image")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid Id { get; set; }
+        public string Image { get; set; }
 
-        [JsonPropertyName("pipelineId")]
+        [JsonPropertyName("script")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid PipelineId { get; set; }
+        public string Script { get; set; }
 
-        [JsonPropertyName("createdAt")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.DateTimeOffset CreatedAt { get; set; }
-
-        [JsonPropertyName("status")]
-        public int Status { get; set; }
+        [JsonPropertyName("environmentVariables")]
+        public IDictionary<string, string> EnvironmentVariables { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -2049,11 +1288,19 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class SourcingJobKey
+    public partial class StepConfiguration
     {
 
-        [JsonPropertyName("pipelineId")]
-        public System.Guid PipelineId { get; set; }
+        [JsonPropertyName("image")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Image { get; set; }
+
+        [JsonPropertyName("script")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Script { get; set; }
+
+        [JsonPropertyName("environmentVariables")]
+        public IDictionary<string, string> EnvironmentVariables { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -2067,23 +1314,13 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class Verification
+    public partial class UpdateOrderRequest
     {
 
-        [JsonPropertyName("id")]
+        [JsonPropertyName("order")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid Id { get; set; }
-
-        [JsonPropertyName("name")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public string Name { get; set; }
-
-        [JsonPropertyName("processingStepId")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid ProcessingStepId { get; set; }
-
-        [JsonPropertyName("type")]
-        public int Type { get; set; }
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public int Order { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -2093,15 +1330,6 @@ namespace Olve.Pipelines.Client
             get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobBuildJobType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"build")]
-        Build = 0,
 
     }
 
@@ -2115,11 +1343,11 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobSourcingJobType
+    public enum JobProductionJobType
     {
 
-        [System.Runtime.Serialization.EnumMember(Value = @"sourcing")]
-        Sourcing = 0,
+        [System.Runtime.Serialization.EnumMember(Value = @"production")]
+        Production = 0,
 
     }
 

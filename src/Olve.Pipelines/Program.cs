@@ -4,11 +4,9 @@ using Olve.Pipelines.Health;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Api;
-using Olve.Pipelines.PipelineBuilders.Api;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.PipelineSources;
-using Olve.Pipelines.Processing.Api;
-using Olve.Pipelines.Sourcing.Api;
+using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -41,11 +39,9 @@ app.MapJson();
 app.MapAuthentication();
 app.MapHealthEndpoints();
 app.MapPipelineEndpoints();
-app.MapPipelineSourceEndpoints();
-app.MapPipelineBuilderEndpoints();
-app.MapProcessingEndpoints();
+app.MapProductionStepEndpoints();
+app.MapProcessingStepEndpoints();
 app.MapSecretEndpoints();
-app.MapSourceBundleEndpoints();
 app.MapArtifactBundleEndpoints();
 app.MapJobEndpoints();
 

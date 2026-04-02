@@ -2,9 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Shared;
-using Olve.Pipelines.Sourcing;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using Rocks;
@@ -36,32 +35,16 @@ public class JobServiceTests
     }
 
     [Test]
-    public async Task CreateSourcingJob_ReturnsScheduledJob()
+    public async Task CreateProductionJob_ReturnsScheduledJob()
     {
         var service = CreateService();
         var pipelineId = Id.New<Pipeline>();
 
-        var result = service.CreateSourcingJob(pipelineId);
+        var result = service.CreateProductionJob(pipelineId);
 
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<SourcingJob>());
+        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
         result.TryPickProblems(out _, out var job);
         await Assert.That(job!.Status).IsTypeOf<Scheduled>();
-        await Assert.That(job.PipelineId).IsEqualTo(pipelineId);
-    }
-
-    [Test]
-    public async Task CreateBuildJob_ReturnsScheduledJob()
-    {
-        var service = CreateService();
-        var pipelineId = Id.New<Pipeline>();
-        var sourceBundleId = Id.New<SourceBundle>();
-
-        var result = service.CreateBuildJob(pipelineId, sourceBundleId);
-
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<BuildJob>());
-        result.TryPickProblems(out _, out var job);
-        await Assert.That(((BuildJob)job!).SourceBundleId).IsEqualTo(sourceBundleId);
-        await Assert.That(job.Status).IsTypeOf<Scheduled>();
         await Assert.That(job.PipelineId).IsEqualTo(pipelineId);
     }
 
@@ -85,7 +68,7 @@ public class JobServiceTests
     }
 
     [Test]
-    public async Task CreateSourcingJob_WithDuplicateId_OverwritesExisting()
+    public async Task CreateProductionJob_WithDuplicateId_OverwritesExisting()
     {
         var id = Id.New<Job>();
 
@@ -99,8 +82,8 @@ public class JobServiceTests
         var pipelineId1 = Id.New<Pipeline>();
         var pipelineId2 = Id.New<Pipeline>();
 
-        service.CreateSourcingJob(pipelineId1);
-        service.CreateSourcingJob(pipelineId2);
+        service.CreateProductionJob(pipelineId1);
+        service.CreateProductionJob(pipelineId2);
 
         store.TryGet(id, out var job);
         await Assert.That(job!.PipelineId).IsEqualTo(pipelineId2);
@@ -108,15 +91,15 @@ public class JobServiceTests
     }
 
     [Test]
-    public async Task CreateSourcingJob_WithPrepopulatedStore_AddsNewJob()
+    public async Task CreateProductionJob_WithPrepopulatedStore_AddsNewJob()
     {
-        var existingJob = new SourcingJob(Id.New<Job>(), Id.New<Pipeline>(), DateTimeOffset.UtcNow, new Scheduled());
+        var existingJob = new ProductionJob(Id.New<Job>(), Id.New<Pipeline>(), DateTimeOffset.UtcNow, new Scheduled());
         var store = new EntityStore<Job>([existingJob]);
         var service = CreateService(store: store);
 
-        var result = service.CreateSourcingJob(Id.New<Pipeline>());
+        var result = service.CreateProductionJob(Id.New<Pipeline>());
 
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<SourcingJob>());
+        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
         await Assert.That(store.List()).Count().IsEqualTo(2);
     }
 }

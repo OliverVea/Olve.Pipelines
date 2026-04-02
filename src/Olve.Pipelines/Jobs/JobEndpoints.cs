@@ -12,6 +12,7 @@ public static class JobEndpoints
         group.MapGet("/", Result<Job[]> (JobService service)
                 => service.ListJobs().ToArray())
             .WithResultMapping<Job[]>()
+            .WithName("ListJobs")
             .AllowAnonymous();
 
         group.MapGet("/{id}", Result<Job> (JobService service, Id<Job> id)
@@ -19,19 +20,23 @@ public static class JobEndpoints
                     ? Result.Success(job)
                     : Result.Failure<Job>(new ResultProblem($"Job '{id}' not found.")))
             .WithResultMapping<Job>()
+            .WithName("GetJob")
             .AllowAnonymous();
 
         group.MapGet("/queue", Result<Id<Job>[]> (JobQueueService service)
                 => service.GetQueuedJobIds().ToArray())
             .WithResultMapping<Id<Job>[]>()
+            .WithName("GetJobQueue")
             .AllowAnonymous();
 
         group.MapPost("/{id}/cancel", Result (JobService service, Id<Job> id)
                 => service.CancelJob(id))
-            .WithResultMapping();
+            .WithResultMapping()
+            .WithName("CancelJob");
 
         group.MapDelete("/{id}", DeletionResult (JobService service, Id<Job> id)
                 => service.DeleteJob(id))
-            .WithDeletionMapping();
+            .WithDeletionMapping()
+            .WithName("DeleteJob");
     }
 }

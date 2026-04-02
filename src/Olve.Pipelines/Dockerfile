@@ -1,11 +1,3 @@
-FROM node:24-alpine AS frontend
-WORKDIR /app
-COPY clients/olve-pipelines-client-ts/ clients/olve-pipelines-client-ts/
-COPY frontend/package.json frontend/package-lock.json frontend/
-RUN cd frontend && npm ci
-COPY frontend/ frontend/
-RUN cd frontend && npm run build
-
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 RUN apt-get update && apt-get install -y clang zlib1g-dev
 WORKDIR /src
@@ -20,6 +12,5 @@ RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
 WORKDIR /app
 COPY --from=build /app .
-COPY --from=frontend /app/frontend/dist wwwroot
 
 ENTRYPOINT ["./Olve.Pipelines"]

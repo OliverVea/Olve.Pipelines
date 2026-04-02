@@ -32,9 +32,6 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
-
 app.MapJson();
 app.MapAuthentication();
 app.MapHealthEndpoints();
@@ -44,8 +41,6 @@ app.MapProcessingStepEndpoints();
 app.MapSecretEndpoints();
 app.MapArtifactBundleEndpoints();
 app.MapJobEndpoints();
-
-app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();
 

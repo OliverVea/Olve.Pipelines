@@ -1,4 +1,4 @@
-using Olve.Pipelines.Building;
+using Olve.Pipelines.Pipelines.Building;
 
 namespace Olve.Pipelines.Shared.Persistence;
 

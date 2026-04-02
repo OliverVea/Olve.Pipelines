@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
 
-namespace Olve.Pipelines.Building;
+namespace Olve.Pipelines.Pipelines.Building;
 
 public class ArtifactBundleService
 {

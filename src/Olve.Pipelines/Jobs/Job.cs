@@ -12,6 +12,10 @@ namespace Olve.Pipelines.Jobs;
 [JsonDerivedType(typeof(ProcessingJob), "processing")]
 public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset CreatedAt, JobStatus Status) : IHasId<Id<Job>>
 {
+    public readonly record struct SourcingJobKey(Id<Pipeline> PipelineId);
+    public readonly record struct BuildJobKey(Id<Pipeline> PipelineId);
+    public readonly record struct ProcessingJobKey(Id<Pipeline> PipelineId, Id<ProcessingStep> ProcessingStepId);
+
     public record SourcingJob(
         Id<Job> Id,
         Id<Pipeline> PipelineId,
@@ -19,9 +23,7 @@ public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset C
         JobStatus Status,
         Result<Id<SourceBundle>>? SourcingResult = null) : Job(Id, PipelineId, CreatedAt, Status)
     {
-        public readonly record struct Key(Id<Pipeline> PipelineId);
-
-        public Key JobKey => new(PipelineId);
+        public SourcingJobKey JobKey => new(PipelineId);
     }
 
     public record BuildJob(
@@ -32,9 +34,7 @@ public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset C
         Id<SourceBundle> SourceBundleId,
         Result<Id<ArtifactBundle>>? BuildResult = null) : Job(Id, PipelineId, CreatedAt, Status)
     {
-        public readonly record struct Key(Id<Pipeline> PipelineId);
-
-        public Key JobKey => new(PipelineId);
+        public BuildJobKey JobKey => new(PipelineId);
     }
 
     public record ProcessingJob(
@@ -47,8 +47,6 @@ public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset C
         Result? ProcessingResult = null,
         IReadOnlyDictionary<Id<Verification>, Result?>? ValidationResults = null) : Job(Id, PipelineId, CreatedAt, Status)
     {
-        public readonly record struct Key(Id<Pipeline> PipelineId, Id<ProcessingStep> ProcessingStepId);
-
-        public Key JobKey => new(PipelineId, ProcessingStepId);
+        public ProcessingJobKey JobKey => new(PipelineId, ProcessingStepId);
     }
 }

@@ -75,5 +75,28 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         return Result.Success();
     }
 
+    public Result CancelJob(Id<Job> jobId)
+    {
+        if (!store.TryGet(jobId, out var job))
+        {
+            return new ResultProblem("Job with id '{0}' not found.", jobId);
+        }
+
+        var cancelled = job.Status switch
+        {
+            Scheduled => job with { Status = new Cancelled(null, timeProvider.GetUtcNow()) },
+            InProgress inProgress => job with { Status = new Cancelled(inProgress.StartedAt, timeProvider.GetUtcNow()) },
+            _ => (Job?)null,
+        };
+
+        if (cancelled is null)
+        {
+            return new ResultProblem("Job with id '{0}' cannot be cancelled because it is {1}.", jobId, job.Status.GetType().Name);
+        }
+
+        store.Set(cancelled);
+        return Result.Success();
+    }
+
     public DeletionResult DeleteJob(Id<Job> jobId) => store.Delete(jobId);
 }

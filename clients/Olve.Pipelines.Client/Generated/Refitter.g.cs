@@ -16,819 +16,1088 @@ namespace Olve.Pipelines.Client
     [System.CodeDom.Compiler.GeneratedCode("Refitter", "1.7.3.0")]
     public partial interface IOlvePipelinesv1
     {
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">Thrown when the request returns a non-success status code.</exception>
-        [Get("/api/health")]
-        Task Health();
-
-        /// <param name="name">name parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Get("/api/health")]
+        Task<IApiResponse> Health();
+
+        /// <param name="name">name parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines")]
-        Task<Pipeline> PipelinesPOST([Query] string name);
+        Task<IApiResponse<Pipeline>> PipelinesPOST([Query] string name);
 
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines")]
-        Task<ICollection<Pipeline>> PipelinesAll();
+        Task<IApiResponse<ICollection<Pipeline>>> PipelinesAll();
 
         /// <param name="id">id parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{id}")]
-        Task<Pipeline> PipelinesGET(string id);
+        Task<IApiResponse<Pipeline>> PipelinesGET(string id);
 
         /// <param name="id">id parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{id}")]
-        Task PipelinesDELETE(string id);
+        Task<IApiResponse> PipelinesDELETE(string id);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/sources")]
-        Task<PipelineSource> SourcesPOST(string pipelineId, [Body] CreatePipelineSourceRequest body);
+        Task<IApiResponse<PipelineSource>> SourcesPOST(string pipelineId, [Body] CreatePipelineSourceRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources")]
-        Task<ICollection<PipelineSource>> SourcesAll(string pipelineId);
+        Task<IApiResponse<ICollection<PipelineSource>>> SourcesAll(string pipelineId);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task<PipelineSource> SourcesGET(string sourceId);
+        Task<IApiResponse<PipelineSource>> SourcesGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}")]
-        Task SourcesDELETE(string sourceId);
+        Task<IApiResponse> SourcesDELETE(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<HardcodedSource> HardcodedPUT(string sourceId, [Body] SetHardcodedSourceRequest body);
+        Task<IApiResponse<HardcodedSource>> HardcodedPUT(string sourceId, [Body] SetHardcodedSourceRequest body);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task<HardcodedSource> HardcodedGET(string sourceId);
+        Task<IApiResponse<HardcodedSource>> HardcodedGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/hardcoded")]
-        Task HardcodedDELETE(string sourceId);
+        Task<IApiResponse> HardcodedDELETE(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<GitHubSource> GithubPUT(string sourceId, [Body] SetGitHubSourceRequest body);
+        Task<IApiResponse<GitHubSource>> GithubPUT(string sourceId, [Body] SetGitHubSourceRequest body);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task<GitHubSource> GithubGET(string sourceId);
+        Task<IApiResponse<GitHubSource>> GithubGET(string sourceId);
 
         /// <param name="sourceId">sourceId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/sources/{sourceId}/github")]
-        Task GithubDELETE(string sourceId);
+        Task<IApiResponse> GithubDELETE(string sourceId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/builders")]
-        Task<PipelineBuilder> BuildersPOST(string pipelineId, [Body] CreatePipelineBuilderRequest body);
+        Task<IApiResponse<PipelineBuilder>> BuildersPOST(string pipelineId, [Body] CreatePipelineBuilderRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders")]
-        Task<ICollection<PipelineBuilder>> BuildersAll(string pipelineId);
+        Task<IApiResponse<ICollection<PipelineBuilder>>> BuildersAll(string pipelineId);
 
         /// <param name="builderId">builderId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task<PipelineBuilder> BuildersGET(string builderId);
+        Task<IApiResponse<PipelineBuilder>> BuildersGET(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/builders/{builderId}")]
-        Task BuildersDELETE(string builderId);
+        Task<IApiResponse> BuildersDELETE(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<ScriptBuilder> ScriptPUT(string builderId, [Body] SetScriptBuilderRequest body);
+        Task<IApiResponse<ScriptBuilder>> ScriptPUT(string builderId, [Body] SetScriptBuilderRequest body);
 
         /// <param name="builderId">builderId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task<ScriptBuilder> ScriptGET(string builderId);
+        Task<IApiResponse<ScriptBuilder>> ScriptGET(string builderId);
 
         /// <param name="builderId">builderId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/builders/{builderId}/script")]
-        Task ScriptDELETE(string builderId);
+        Task<IApiResponse> ScriptDELETE(string builderId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/processing")]
-        Task<ProcessingStep> ProcessingPOST(string pipelineId, [Body] CreateProcessingStepRequest body);
+        Task<IApiResponse<ProcessingStep>> ProcessingPOST(string pipelineId, [Body] CreateProcessingStepRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing")]
-        Task<ICollection<ProcessingStep>> ProcessingAll(string pipelineId);
+        Task<IApiResponse<ICollection<ProcessingStep>>> ProcessingAll(string pipelineId);
 
         /// <param name="processingId">processingId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task<ProcessingStep> ProcessingGET(string processingId);
+        Task<IApiResponse<ProcessingStep>> ProcessingGET(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}")]
-        Task ProcessingDELETE(string processingId);
+        Task<IApiResponse> ProcessingDELETE(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<ScriptProcessing> ScriptPUT2(string processingId, [Body] SetScriptProcessingRequest body);
+        Task<IApiResponse<ScriptProcessing>> ScriptPUT2(string processingId, [Body] SetScriptProcessingRequest body);
 
         /// <param name="processingId">processingId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task<ScriptProcessing> ScriptGET2(string processingId);
+        Task<IApiResponse<ScriptProcessing>> ScriptGET2(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/script")]
-        Task ScriptDELETE2(string processingId);
+        Task<IApiResponse> ScriptDELETE2(string processingId);
 
         /// <param name="processingId">processingId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Post("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<Verification> VerificationsPOST(string processingId, [Body] CreateVerificationRequest body);
+        Task<IApiResponse<Verification>> VerificationsPOST(string processingId, [Body] CreateVerificationRequest body);
 
         /// <param name="processingId">processingId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications")]
-        Task<ICollection<Verification>> VerificationsAll(string processingId);
+        Task<IApiResponse<ICollection<Verification>>> VerificationsAll(string processingId);
 
         /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task<Verification> VerificationsGET(string verificationId);
+        Task<IApiResponse<Verification>> VerificationsGET(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}")]
-        Task VerificationsDELETE(string verificationId);
+        Task<IApiResponse> VerificationsDELETE(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<ScriptVerification> ScriptPUT3(string verificationId, [Body] SetScriptVerificationRequest body);
+        Task<IApiResponse<ScriptVerification>> ScriptPUT3(string verificationId, [Body] SetScriptVerificationRequest body);
 
         /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task<ScriptVerification> ScriptGET3(string verificationId);
+        Task<IApiResponse<ScriptVerification>> ScriptGET3(string verificationId);
 
         /// <param name="verificationId">verificationId parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/processing/{processingId}/verifications/{verificationId}/script")]
-        Task ScriptDELETE3(string verificationId);
+        Task<IApiResponse> ScriptDELETE3(string verificationId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/secrets")]
-        Task<ICollection<string>> SecretsAll(string pipelineId);
+        Task<IApiResponse<ICollection<string>>> SecretsAll(string pipelineId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
         /// <param name="body">body parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json", "Content-Type: application/json")]
         [Put("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task SecretsPUT(string pipelineId, string name, [Body] SetSecretRequest body);
+        Task<IApiResponse> SecretsPUT(string pipelineId, string name, [Body] SetSecretRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="name">name parameter</param>
-        /// <returns>A <see cref="Task"/> that completes when the request is finished.</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Delete("/api/pipelines/{pipelineId}/secrets/{name}")]
-        Task SecretsDELETE(string pipelineId, string name);
+        Task<IApiResponse> SecretsDELETE(string pipelineId, string name);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/source-bundles")]
-        Task<ICollection<SourceBundle>> SourceBundlesAll(string pipelineId);
+        Task<IApiResponse<ICollection<SourceBundle>>> SourceBundlesAll(string pipelineId);
 
         /// <param name="bundleId">bundleId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/source-bundles/{bundleId}")]
-        Task<SourceBundle> SourceBundles(string bundleId);
+        Task<IApiResponse<SourceBundle>> SourceBundles(string bundleId);
 
         /// <param name="pipelineId">pipelineId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/artifact-bundles")]
-        Task<ICollection<ArtifactBundle>> ArtifactBundlesAll(string pipelineId);
+        Task<IApiResponse<ICollection<ArtifactBundle>>> ArtifactBundlesAll(string pipelineId);
 
         /// <param name="bundleId">bundleId parameter</param>
-        /// <returns>OK</returns>
-        /// <exception cref="ApiException">
-        /// Thrown when the request returns a non-success status code:
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
         /// <listheader>
         /// <term>Status</term>
         /// <description>Description</description>
         /// </listheader>
         /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
         /// <term>400</term>
         /// <description>Bad Request</description>
         /// </item>
         /// </list>
-        /// </exception>
+        /// </returns>
         [Headers("Accept: application/json")]
         [Get("/api/pipelines/{pipelineId}/artifact-bundles/{bundleId}")]
-        Task<ArtifactBundle> ArtifactBundles(string bundleId);
+        Task<IApiResponse<ArtifactBundle>> ArtifactBundles(string bundleId);
+
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/jobs")]
+        Task<IApiResponse<ICollection<Job>>> JobsAll();
+
+        /// <param name="id">id parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/jobs/{id}")]
+        Task<IApiResponse<Job>> JobsGET(string id);
+
+        /// <param name="id">id parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Delete("/api/jobs/{id}")]
+        Task<IApiResponse> JobsDELETE(string id);
+
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/jobs/queue")]
+        Task<IApiResponse<ICollection<object>>> Queue();
+
+        /// <param name="id">id parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Post("/api/jobs/{id}/cancel")]
+        Task<IApiResponse> Cancel(string id);
 
 
     }
@@ -885,6 +1154,24 @@ namespace Olve.Pipelines.Client
 
         [JsonPropertyName("status")]
         public int Status { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class BuildJobKey
+    {
+
+        [JsonPropertyName("pipelineId")]
+        public System.Guid PipelineId { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1019,6 +1306,294 @@ namespace Olve.Pipelines.Client
 
     }
 
+    [JsonInheritanceConverter(typeof(Job), "$type")]
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Job
+    {
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobBuildJob
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobBuildJobType>))]
+        public JobBuildJobType Type { get; set; }
+
+        [JsonPropertyName("sourceBundleId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid SourceBundleId { get; set; }
+
+        [JsonPropertyName("buildResult")]
+        public ResultOfIdOfArtifactBundle BuildResult { get; set; }
+
+        [JsonPropertyName("jobKey")]
+        public BuildJobKey JobKey { get; set; }
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public JobStatus Status { get; set; } = new JobStatus();
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobProcessingJob
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobProcessingJobType>))]
+        public JobProcessingJobType Type { get; set; }
+
+        [JsonPropertyName("artifactBundleId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ArtifactBundleId { get; set; }
+
+        [JsonPropertyName("processingStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProcessingStepId { get; set; }
+
+        [JsonPropertyName("processingResult")]
+        public Result ProcessingResult { get; set; }
+
+        [JsonPropertyName("validationResults")]
+        public IDictionary<string, Result> ValidationResults { get; set; }
+
+        [JsonPropertyName("jobKey")]
+        public ProcessingJobKey JobKey { get; set; }
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public JobStatus Status { get; set; } = new JobStatus();
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobSourcingJob
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobSourcingJobType>))]
+        public JobSourcingJobType Type { get; set; }
+
+        [JsonPropertyName("sourcingResult")]
+        public ResultOfIdOfSourceBundle SourcingResult { get; set; }
+
+        [JsonPropertyName("jobKey")]
+        public SourcingJobKey JobKey { get; set; }
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        [JsonPropertyName("status")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public JobStatus Status { get; set; } = new JobStatus();
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [JsonInheritanceConverter(typeof(JobStatus), "$type")]
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatus
+    {
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusCancelled
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusCancelledType>))]
+        public JobStatusCancelledType Type { get; set; }
+
+        [JsonPropertyName("startedAt")]
+        public System.DateTimeOffset? StartedAt { get; set; }
+
+        [JsonPropertyName("cancelledAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CancelledAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusDone
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusDoneType>))]
+        public JobStatusDoneType Type { get; set; }
+
+        [JsonPropertyName("startedAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset StartedAt { get; set; }
+
+        [JsonPropertyName("completedAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CompletedAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusInProgress
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusInProgressType>))]
+        public JobStatusInProgressType Type { get; set; }
+
+        [JsonPropertyName("startedAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset StartedAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusObsolete
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusObsoleteType>))]
+        public JobStatusObsoleteType Type { get; set; }
+
+        [JsonPropertyName("supersedingJobId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid SupersedingJobId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusScheduled
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusScheduledType>))]
+        public JobStatusScheduledType Type { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Pipeline
     {
@@ -1103,6 +1678,27 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ProcessingJobKey
+    {
+
+        [JsonPropertyName("pipelineId")]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("processingStepId")]
+        public System.Guid ProcessingStepId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class ProcessingStep
     {
 
@@ -1120,6 +1716,84 @@ namespace Olve.Pipelines.Client
 
         [JsonPropertyName("type")]
         public int Type { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Result
+    {
+
+        [JsonPropertyName("succeeded")]
+        public bool Succeeded { get; set; }
+
+        [JsonPropertyName("failed")]
+        public bool Failed { get; set; }
+
+        [JsonPropertyName("problems")]
+        public ICollection<ResultProblem> Problems { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ResultOfIdOfArtifactBundle
+    {
+
+        [JsonPropertyName("succeeded")]
+        public bool Succeeded { get; set; }
+
+        [JsonPropertyName("failed")]
+        public bool Failed { get; set; }
+
+        [JsonPropertyName("problems")]
+        public ICollection<ResultProblem> Problems { get; set; }
+
+        [JsonPropertyName("value")]
+        public System.Guid Value { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class ResultOfIdOfSourceBundle
+    {
+
+        [JsonPropertyName("succeeded")]
+        public bool Succeeded { get; set; }
+
+        [JsonPropertyName("failed")]
+        public bool Failed { get; set; }
+
+        [JsonPropertyName("problems")]
+        public ICollection<ResultProblem> Problems { get; set; }
+
+        [JsonPropertyName("value")]
+        public System.Guid Value { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1375,6 +2049,24 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SourcingJobKey
+    {
+
+        [JsonPropertyName("pipelineId")]
+        public System.Guid PipelineId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Verification
     {
 
@@ -1402,6 +2094,219 @@ namespace Olve.Pipelines.Client
             set { _additionalProperties = value; }
         }
 
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobBuildJobType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"build")]
+        Build = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobProcessingJobType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
+        Processing = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobSourcingJobType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"sourcing")]
+        Sourcing = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusCancelledType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"cancelled")]
+        Cancelled = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusDoneType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"done")]
+        Done = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusInProgressType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"in-progress")]
+        InProgress = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusObsoleteType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"obsolete")]
+        Obsolete = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusScheduledType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"scheduled")]
+        Scheduled = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Interface, AllowMultiple = true)]
+    internal class JsonInheritanceAttribute : System.Attribute
+    {
+        public JsonInheritanceAttribute(string key, System.Type type)
+        {
+            Key = key;
+            Type = type;
+        }
+
+        public string Key { get; }
+
+        public System.Type Type { get; }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal class JsonInheritanceConverterAttribute : JsonConverterAttribute
+    {
+        public string DiscriminatorName { get; }
+
+        public JsonInheritanceConverterAttribute(System.Type baseType, string discriminatorName = "discriminator")
+            : base(typeof(JsonInheritanceConverter<>).MakeGenericType(baseType))
+        {
+            DiscriminatorName = discriminatorName;
+        }
+    }
+
+    public class JsonInheritanceConverter<TBase> : JsonConverter<TBase>
+    {
+        private readonly string _discriminatorName;
+
+        public JsonInheritanceConverter()
+        {
+            var attribute = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<JsonInheritanceConverterAttribute>(typeof(TBase));
+            _discriminatorName = attribute?.DiscriminatorName ?? "discriminator";
+        }
+
+        public JsonInheritanceConverter(string discriminatorName)
+        {
+            _discriminatorName = discriminatorName;
+        }
+
+        public string DiscriminatorName { get { return _discriminatorName; } }
+
+        public override TBase Read(ref System.Text.Json.Utf8JsonReader reader, System.Type typeToConvert, System.Text.Json.JsonSerializerOptions options)
+        {
+            var document = System.Text.Json.JsonDocument.ParseValue(ref reader);
+            var hasDiscriminator = document.RootElement.TryGetProperty(_discriminatorName, out var discriminator);
+            var subtype = GetDiscriminatorType(document.RootElement, typeToConvert, hasDiscriminator ? discriminator.GetString() : null);
+
+            var bufferWriter = new System.IO.MemoryStream();
+            using (var writer = new System.Text.Json.Utf8JsonWriter(bufferWriter))
+            {
+                document.RootElement.WriteTo(writer);
+            }
+
+            return (TBase)System.Text.Json.JsonSerializer.Deserialize(bufferWriter.ToArray(), subtype, options);
+        }
+
+        public override void Write(System.Text.Json.Utf8JsonWriter writer, TBase value, System.Text.Json.JsonSerializerOptions options)
+        {
+            if (value != null)
+            {
+                writer.WriteStartObject();
+                writer.WriteString(_discriminatorName, GetDiscriminatorValue(value.GetType()));
+
+                var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes((object)value, options);
+                var document = System.Text.Json.JsonDocument.Parse(bytes);
+                foreach (var property in document.RootElement.EnumerateObject())
+                {
+                    property.WriteTo(writer);
+                }
+
+                writer.WriteEndObject();
+            }
+            else
+            {
+                writer.WriteNullValue();
+            }
+        }
+
+        public string GetDiscriminatorValue(System.Type type)
+        {
+            var jsonInheritanceAttributeDiscriminator = GetSubtypeDiscriminator(type);
+            if (jsonInheritanceAttributeDiscriminator != null)
+            {
+                return jsonInheritanceAttributeDiscriminator;
+            }
+
+            return type.Name;
+        }
+
+        protected System.Type GetDiscriminatorType(System.Text.Json.JsonElement jObject, System.Type objectType, string discriminatorValue)
+        {
+            if (discriminatorValue != null)
+            {
+                var jsonInheritanceAttributeSubtype = GetObjectSubtype(objectType, discriminatorValue);
+                if (jsonInheritanceAttributeSubtype != null)
+                {
+                    return jsonInheritanceAttributeSubtype;
+                }
+
+                if (objectType.Name == discriminatorValue)
+                {
+                    return objectType;
+                }
+
+                var typeName = objectType.Namespace + "." + discriminatorValue;
+                var subtype = System.Reflection.IntrospectionExtensions.GetTypeInfo(objectType).Assembly.GetType(typeName);
+                if (subtype != null)
+                {
+                    return subtype;
+                }
+            }
+
+            throw new System.InvalidOperationException("Could not find subtype of '" + objectType.Name + "' with discriminator '" + discriminatorValue + "'.");
+        }
+
+        private System.Type GetObjectSubtype(System.Type baseType, string discriminatorValue)
+        {
+            foreach (var attribute in System.Reflection.CustomAttributeExtensions.GetCustomAttributes<JsonInheritanceAttribute>(System.Reflection.IntrospectionExtensions.GetTypeInfo(baseType), true))
+            {
+                if (attribute.Key == discriminatorValue)
+                    return attribute.Type;
+            }
+
+            return null;
+        }
+
+        private string GetSubtypeDiscriminator(System.Type objectType)
+        {
+            foreach (var attribute in System.Reflection.CustomAttributeExtensions.GetCustomAttributes<JsonInheritanceAttribute>(System.Reflection.IntrospectionExtensions.GetTypeInfo(objectType), true))
+            {
+                if (attribute.Type == objectType)
+                    return attribute.Key;
+            }
+
+            return null;
+        }
     }
 
 

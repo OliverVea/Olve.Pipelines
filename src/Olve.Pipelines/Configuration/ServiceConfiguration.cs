@@ -18,6 +18,8 @@ public static class ServiceConfiguration
         services.AddSingleton<PipelineEvents>();
         services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();
         services.AddSingleton<EntityStore<PipelineSource>>();
+        services.AddSingleton<PipelineSourceEvents>();
+        services.AddSingleton<IRunOnStartup, PipelineSourceEventRegistration>();
         services.AddSingleton<EntityStore<PipelineBuilder>>();
         services.AddSingleton<EntityStore<ProcessingStep>>();
         services.AddSingleton<EntityStore<Verification>>();
@@ -31,6 +33,7 @@ public static class ServiceConfiguration
         services.AddSingleton<JobEvents>();
         services.AddTransient<JobService>();
         services.AddTransient<JobObsoletionService>();
+        services.AddTransient<JobCancellationService>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         services.AddHostedService<StartupRunner>();
@@ -41,6 +44,7 @@ public static class ServiceConfiguration
         services.AddSingleton<AttachmentStore<Verification, ScriptVerification>>();
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineSourceService>();
+        services.AddTransient<PipelineSourceCleanupService>();
         services.AddTransient<PipelineBuilderService>();
         services.AddTransient<ProcessingStepService>();
         services.AddTransient<VerificationService>();

@@ -1,11 +1,11 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
 
-namespace Olve.Pipelines.Jobs;
+namespace Olve.Pipelines.PipelineSources;
 
-public class JobEventRegistration(
-    EntityStore<Job> store,
-    JobEvents events,
+public class PipelineSourceEventRegistration(
+    EntityStore<PipelineSource> store,
+    PipelineSourceEvents events,
     PipelineEvents pipelineEvents,
     IServiceProvider sp) : IRunOnStartup
 {
@@ -15,8 +15,7 @@ public class JobEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        events.OnAdded.Subscribe(id => sp.GetRequiredService<JobObsoletionService>().HandleJobAdded(id));
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<JobCancellationService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<PipelineSourceCleanupService>().HandlePipelineDeleted(id));
 
         return Result.Success();
     }

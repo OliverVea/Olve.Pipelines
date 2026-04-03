@@ -1510,6 +1510,9 @@
           },
           {
             "$ref": "#/components/schemas/JobStatusCancelled"
+          },
+          {
+            "$ref": "#/components/schemas/JobStatusFailed"
           }
         ],
         "discriminator": {
@@ -1519,7 +1522,8 @@
             "in-progress": "#/components/schemas/JobStatusInProgress",
             "done": "#/components/schemas/JobStatusDone",
             "obsolete": "#/components/schemas/JobStatusObsolete",
-            "cancelled": "#/components/schemas/JobStatusCancelled"
+            "cancelled": "#/components/schemas/JobStatusCancelled",
+            "failed": "#/components/schemas/JobStatusFailed"
           }
         }
       },
@@ -1567,6 +1571,34 @@
           "completedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "JobStatusFailed": {
+        "required": [
+          "startedAt",
+          "failedAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "failed"
+            ],
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

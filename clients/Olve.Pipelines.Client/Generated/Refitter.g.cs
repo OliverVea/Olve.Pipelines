@@ -995,6 +995,36 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobStatusFailed
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusFailedType>))]
+        public JobStatusFailedType Type { get; set; }
+
+        [JsonPropertyName("startedAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset StartedAt { get; set; }
+
+        [JsonPropertyName("failedAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset FailedAt { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JobStatusInProgress
     {
 
@@ -1388,6 +1418,15 @@ namespace Olve.Pipelines.Client
 
         [System.Runtime.Serialization.EnumMember(Value = @"done")]
         Done = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobStatusFailedType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"failed")]
+        Failed = 0,
 
     }
 

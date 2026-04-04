@@ -4,6 +4,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
@@ -40,14 +41,14 @@ public class JobRunnerTests
 
     private static Id<Job> CreateProductionJob(JobService jobService)
     {
-        var result = jobService.CreateProductionJob(Id.New<Pipeline>());
+        var result = jobService.CreateProductionJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ProductionStep>());
         result.TryPickProblems(out _, out var job);
         return job!.Id;
     }
 
     private static Id<Job> CreateProcessingJob(JobService jobService)
     {
-        var result = jobService.CreateProcessingJob(Id.New<Pipeline>(), Id.New<ArtifactBundle>(), Id.New<ProcessingStep>());
+        var result = jobService.CreateProcessingJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ArtifactBundle>(), Id.New<ProcessingStep>());
         result.TryPickProblems(out _, out var job);
         return job!.Id;
     }
@@ -69,23 +70,18 @@ public class JobRunnerTests
     {
         var (runner, jobService, executor, store) = CreateRunner();
         var jobId = CreateProductionJob(jobService);
-        var bundleId = Id.New<ArtifactBundle>();
 
         using var cts = new CancellationTokenSource();
         _ = runner.StartAsync(cts.Token);
 
         await WaitForPendingAsync(executor, jobId);
-        executor.Finish(jobId, new JobExecutionResult.Success(bundleId));
+        executor.Finish(jobId, new JobExecutionResult.Success());
 
         await Task.Delay(100);
         cts.Cancel();
 
         store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<Done>();
-        var productionJob = (ProductionJob)job;
-        await Assert.That(productionJob.ProductionResult).IsNotNull();
-        productionJob.ProductionResult!.Value.TryPickProblems(out _, out var resultBundleId);
-        await Assert.That(resultBundleId).IsEqualTo(bundleId);
     }
 
     [Test]
@@ -142,7 +138,7 @@ public class JobRunnerTests
         store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<InProgress>();
 
-        executor.Finish(jobId, new JobExecutionResult.Success(Id.New<ArtifactBundle>()));
+        executor.Finish(jobId, new JobExecutionResult.Success());
         await Task.Delay(100);
         cts.Cancel();
     }
@@ -169,14 +165,14 @@ public class JobRunnerTests
         await Assert.That(job3Entity!.Status).IsTypeOf<Scheduled>();
 
         // Finish one job to free a slot
-        executor.Finish(job1, new JobExecutionResult.Success(Id.New<ArtifactBundle>()));
+        executor.Finish(job1, new JobExecutionResult.Success());
 
         // Now job3 should get picked up
         await WaitForPendingAsync(executor, job3);
         await Assert.That(executor.HasPendingJob(job3)).IsTrue();
 
-        executor.Finish(job2, new JobExecutionResult.Success(Id.New<ArtifactBundle>()));
-        executor.Finish(job3, new JobExecutionResult.Success(Id.New<ArtifactBundle>()));
+        executor.Finish(job2, new JobExecutionResult.Success());
+        executor.Finish(job3, new JobExecutionResult.Success());
         await Task.Delay(100);
         cts.Cancel();
     }
@@ -195,7 +191,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(executor, job1);
         await WaitForPendingAsync(executor, job2);
 
-        executor.Finish(job1, new JobExecutionResult.Success(Id.New<ArtifactBundle>()));
+        executor.Finish(job1, new JobExecutionResult.Success());
         executor.Finish(job2, new JobExecutionResult.Success());
 
         await Task.Delay(100);

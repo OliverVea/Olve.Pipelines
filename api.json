@@ -239,7 +239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/JobGroup"
                 }
               }
             }
@@ -1365,6 +1365,10 @@
         "type": "string",
         "format": "uuid"
       },
+      "IdOfJobGroup": {
+        "type": "string",
+        "format": "uuid"
+      },
       "IdOfPipeline": {
         "type": "string",
         "format": "uuid"
@@ -1398,6 +1402,89 @@
           }
         }
       },
+      "JobGroup": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/JobGroupProductionJobGroup"
+          },
+          {
+            "$ref": "#/components/schemas/JobGroupProcessingJobGroup"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "production": "#/components/schemas/JobGroupProductionJobGroup",
+            "processing": "#/components/schemas/JobGroupProcessingJobGroup"
+          }
+        }
+      },
+      "JobGroupProcessingJobGroup": {
+        "required": [
+          "artifactBundleId",
+          "processingStepId",
+          "id",
+          "pipelineId",
+          "createdAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "processing"
+            ],
+            "type": "string"
+          },
+          "artifactBundleId": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdOfJobGroup"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobGroupProductionJobGroup": {
+        "required": [
+          "artifactBundleId",
+          "id",
+          "pipelineId",
+          "createdAt"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "production"
+            ],
+            "type": "string"
+          },
+          "artifactBundleId": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "id": {
+            "$ref": "#/components/schemas/IdOfJobGroup"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "JobProcessingJob": {
         "required": [
           "artifactBundleId",
@@ -1405,7 +1492,8 @@
           "id",
           "pipelineId",
           "createdAt",
-          "status"
+          "status",
+          "jobGroupId"
         ],
         "properties": {
           "$type": {
@@ -1445,15 +1533,20 @@
           },
           "status": {
             "$ref": "#/components/schemas/JobStatus"
+          },
+          "jobGroupId": {
+            "$ref": "#/components/schemas/IdOfJobGroup"
           }
         }
       },
       "JobProductionJob": {
         "required": [
+          "productionStepId",
           "id",
           "pipelineId",
           "createdAt",
-          "status"
+          "status",
+          "jobGroupId"
         ],
         "properties": {
           "$type": {
@@ -1462,15 +1555,8 @@
             ],
             "type": "string"
           },
-          "productionResult": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ResultOfIdOfArtifactBundle"
-              }
-            ]
+          "productionStepId": {
+            "$ref": "#/components/schemas/IdOfProductionStep"
           },
           "jobKey": {
             "$ref": "#/components/schemas/ProductionJobKey"
@@ -1487,6 +1573,9 @@
           },
           "status": {
             "$ref": "#/components/schemas/JobStatus"
+          },
+          "jobGroupId": {
+            "$ref": "#/components/schemas/IdOfJobGroup"
           }
         }
       },
@@ -1704,6 +1793,9 @@
         "properties": {
           "pipelineId": {
             "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "productionStepId": {
+            "$ref": "#/components/schemas/IdOfProductionStep"
           }
         }
       },
@@ -1743,29 +1835,6 @@
             "items": {
               "$ref": "#/components/schemas/ResultProblem"
             }
-          }
-        }
-      },
-      "ResultOfIdOfArtifactBundle": {
-        "type": "object",
-        "properties": {
-          "succeeded": {
-            "type": "boolean"
-          },
-          "failed": {
-            "type": "boolean"
-          },
-          "problems": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/ResultProblem"
-            }
-          },
-          "value": {
-            "$ref": "#/components/schemas/IdOfArtifactBundle"
           }
         }
       },

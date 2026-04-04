@@ -34,6 +34,9 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<Id<Job>[]>))]
 [JsonSerializable(typeof(Job.ProductionJob))]
 [JsonSerializable(typeof(Job.ProcessingJob))]
+[JsonSerializable(typeof(Result<JobGroup>))]
+[JsonSerializable(typeof(ProductionJobGroup))]
+[JsonSerializable(typeof(ProcessingJobGroup))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

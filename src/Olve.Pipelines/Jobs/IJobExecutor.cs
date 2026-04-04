@@ -1,5 +1,3 @@
-using Olve.Pipelines.Pipelines.Building;
-
 namespace Olve.Pipelines.Jobs;
 
 public interface IJobExecutor
@@ -9,6 +7,6 @@ public interface IJobExecutor
 
 public abstract record JobExecutionResult
 {
-    public record Success(Id<ArtifactBundle>? ArtifactBundleId = null) : JobExecutionResult;
+    public record Success : JobExecutionResult;
     public record Failure(string Reason) : JobExecutionResult;
 }

@@ -32,12 +32,16 @@ public static class ServiceConfiguration
         services.AddTransient<ArtifactBundleService>();
         services.AddTransient<IEnumerable<Job>>(_ => []);
         services.AddSingleton<EntityStore<Job>>();
+        services.AddTransient<IEnumerable<JobGroup>>(_ => []);
+        services.AddSingleton<EntityStore<JobGroup>>();
         services.AddSingleton<IdProvider>();
         services.AddSingleton<JobEvents>();
+        services.AddSingleton<JobGroupEvents>();
         services.AddTransient<JobService>();
+        services.AddTransient<JobGroupService>();
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();
-        services.AddTransient<IJobExecutor, NoOpJobExecutor>();
+        services.AddTransient<JobGroupCompletionService>();
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();

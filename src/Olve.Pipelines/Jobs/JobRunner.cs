@@ -86,8 +86,8 @@ public class JobRunner(IServiceProvider sp, ILogger<JobRunner> logger) : Backgro
 
             switch (result)
             {
-                case JobExecutionResult.Success success:
-                    CompleteJob(jobId, job, jobService, success, startedAt, completedAt);
+                case JobExecutionResult.Success:
+                    CompleteJob(jobId, job, jobService, startedAt, completedAt);
                     break;
                 case JobExecutionResult.Failure failure:
                     FailJob(jobId, jobService, startedAt, completedAt, failure.Reason);
@@ -109,19 +109,15 @@ public class JobRunner(IServiceProvider sp, ILogger<JobRunner> logger) : Backgro
         Id<Job> jobId,
         Job job,
         JobService jobService,
-        JobExecutionResult.Success success,
         DateTimeOffset startedAt,
         DateTimeOffset completedAt)
     {
         switch (job)
         {
             case ProductionJob:
-                var bundleId = success.ArtifactBundleId
-                    ?? throw new InvalidOperationException("Production job must produce an artifact bundle");
                 jobService.UpdateJob<ProductionJob>(jobId, j => j with
                 {
                     Status = new Done(startedAt, completedAt),
-                    ProductionResult = bundleId,
                 });
                 break;
             case ProcessingJob:

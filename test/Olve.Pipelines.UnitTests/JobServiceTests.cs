@@ -3,6 +3,7 @@ using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
@@ -39,8 +40,10 @@ public class JobServiceTests
     {
         var service = CreateService();
         var pipelineId = Id.New<Pipeline>();
+        var jobGroupId = Id.New<JobGroup>();
+        var stepId = Id.New<ProductionStep>();
 
-        var result = service.CreateProductionJob(pipelineId);
+        var result = service.CreateProductionJob(pipelineId, jobGroupId, stepId);
 
         await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
         result.TryPickProblems(out _, out var job);
@@ -53,10 +56,11 @@ public class JobServiceTests
     {
         var service = CreateService();
         var pipelineId = Id.New<Pipeline>();
+        var jobGroupId = Id.New<JobGroup>();
         var artifactBundleId = Id.New<ArtifactBundle>();
         var processingStepId = Id.New<ProcessingStep>();
 
-        var result = service.CreateProcessingJob(pipelineId, artifactBundleId, processingStepId);
+        var result = service.CreateProcessingJob(pipelineId, jobGroupId, artifactBundleId, processingStepId);
 
         await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProcessingJob>());
         result.TryPickProblems(out _, out var job);
@@ -82,8 +86,8 @@ public class JobServiceTests
         var pipelineId1 = Id.New<Pipeline>();
         var pipelineId2 = Id.New<Pipeline>();
 
-        service.CreateProductionJob(pipelineId1);
-        service.CreateProductionJob(pipelineId2);
+        service.CreateProductionJob(pipelineId1, Id.New<JobGroup>(), Id.New<ProductionStep>());
+        service.CreateProductionJob(pipelineId2, Id.New<JobGroup>(), Id.New<ProductionStep>());
 
         store.TryGet(id, out var job);
         await Assert.That(job!.PipelineId).IsEqualTo(pipelineId2);
@@ -93,11 +97,11 @@ public class JobServiceTests
     [Test]
     public async Task CreateProductionJob_WithPrepopulatedStore_AddsNewJob()
     {
-        var existingJob = new ProductionJob(Id.New<Job>(), Id.New<Pipeline>(), DateTimeOffset.UtcNow, new Scheduled());
+        var existingJob = new ProductionJob(Id.New<Job>(), Id.New<Pipeline>(), DateTimeOffset.UtcNow, new Scheduled(), Id.New<JobGroup>(), Id.New<ProductionStep>());
         var store = new EntityStore<Job>([existingJob]);
         var service = CreateService(store: store);
 
-        var result = service.CreateProductionJob(Id.New<Pipeline>());
+        var result = service.CreateProductionJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ProductionStep>());
 
         await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
         await Assert.That(store.List()).Count().IsEqualTo(2);

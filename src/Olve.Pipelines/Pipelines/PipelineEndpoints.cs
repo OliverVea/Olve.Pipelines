@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 
@@ -35,21 +36,35 @@ public static class PipelineEndpoints
             .WithDeletionMapping()
             .WithName("DeletePipeline");
 
-        group.MapPost("/{id}/trigger/production", Result<Job> (
+        group.MapPost("/{id}/trigger/production", Result<JobGroup> (
             PipelineService pipelines,
             ProductionStepService productionSteps,
+            ArtifactBundleService bundles,
+            JobGroupService jobGroups,
             JobService jobs,
             Id<Pipeline> id) =>
             {
                 if (!pipelines.TryGet(id, out _))
-                    return Result.Failure<Job>(new ResultProblem($"Pipeline '{id}' not found."));
+                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' not found."));
 
                 if (!productionSteps.HasConfiguredSteps(id))
-                    return Result.Failure<Job>(new ResultProblem($"Pipeline '{id}' has no configured production steps."));
+                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' has no configured production steps."));
 
-                return jobs.CreateProductionJob(id);
+                var steps = productionSteps.GetByPipelineId(id);
+                if (steps.TryPickProblems(out var problems, out var stepArray))
+                    return problems;
+
+                var bundle = bundles.Create(id, ArtifactBundleStatus.Pending);
+                var jobGroup = jobGroups.CreateProductionGroup(id, bundle.Id);
+
+                foreach (var step in stepArray)
+                {
+                    jobs.CreateProductionJob(id, jobGroup.Id, step.Id);
+                }
+
+                return jobGroup;
             })
-            .WithResultMapping<Job>()
+            .WithResultMapping<JobGroup>()
             .WithName("TriggerProduction");
     }
 }

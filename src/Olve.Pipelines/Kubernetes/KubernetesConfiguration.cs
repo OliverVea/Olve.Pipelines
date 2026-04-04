@@ -1,4 +1,6 @@
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines;
 
 namespace Olve.Pipelines.Kubernetes;
 
@@ -59,6 +61,9 @@ public static class KubernetesConfiguration
                 credentials,
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
         });
+
+        builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
+        builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
     }
 }
 

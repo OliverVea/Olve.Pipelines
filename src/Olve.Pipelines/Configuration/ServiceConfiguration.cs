@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
@@ -41,6 +42,7 @@ public static class ServiceConfiguration
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();
         services.AddTransient<JobGroupCompletionService>();
+        services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();

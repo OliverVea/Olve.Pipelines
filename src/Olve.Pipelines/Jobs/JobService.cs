@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
+using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -10,20 +11,34 @@ namespace Olve.Pipelines.Jobs;
 
 public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
+    private readonly EntityStoreIndex<Job, Id<JobGroup>> _byGroup = store.CreateIndex(j => j.JobGroupId);
+
     public IReadOnlyList<Job> ListJobs() => store.List();
 
-    public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId)
+    public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ProductionStep> productionStepId)
     {
-        ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled());
+        ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, productionStepId);
         store.Set(job);
         return job;
     }
 
-    public Result<Job> CreateProcessingJob(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
+    public Result<Job> CreateProcessingJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
     {
-        ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), artifactBundleId, processingStepId);
+        ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, artifactBundleId, processingStepId);
         store.Set(job);
         return job;
+    }
+
+    public IReadOnlyList<Job> GetJobsByGroup(Id<JobGroup> jobGroupId)
+    {
+        var ids = _byGroup.GetForKey(jobGroupId);
+        var results = new List<Job>(ids.Count);
+        foreach (var id in ids)
+        {
+            if (store.TryGet(id, out var job))
+                results.Add(job);
+        }
+        return results;
     }
 
     public bool TryGetJob<T>(Id<Job> jobId, [MaybeNullWhen(false)] out T job)

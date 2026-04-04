@@ -1,22 +1,35 @@
+using System.Collections.Concurrent;
 using Olve.Pipelines.Pipelines.Building;
 using static Olve.Pipelines.Jobs.Job;
 
 namespace Olve.Pipelines.Jobs;
 
-public class NoOpJobExecutor(ArtifactBundleService artifactBundleService, ILogger<NoOpJobExecutor> logger) : IJobExecutor
+public class NoOpJobExecutor(ILogger<NoOpJobExecutor> logger) : IJobExecutor
 {
-    public Task<JobExecutionResult> ExecuteAsync(Job job, CancellationToken ct)
+    private readonly ConcurrentDictionary<Id<Job>, TaskCompletionSource<JobExecutionResult>> _pending = new();
+
+    public async Task<JobExecutionResult> ExecuteAsync(Job job, CancellationToken ct)
     {
-        logger.LogInformation("No-op execution for job '{JobId}'", job.Id);
+        logger.LogInformation("No-op execution for job '{JobId}', awaiting Finish", job.Id);
 
-        JobExecutionResult result = job switch
+        var tcs = new TaskCompletionSource<JobExecutionResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[job.Id] = tcs;
+
+        await using (ct.Register(() => tcs.TrySetCanceled(ct)))
         {
-            ProductionJob productionJob => new JobExecutionResult.Success(
-                artifactBundleService.Create(productionJob.PipelineId).Id),
-            ProcessingJob => new JobExecutionResult.Success(),
-            _ => new JobExecutionResult.Failure($"Unknown job type: {job.GetType().Name}"),
-        };
-
-        return Task.FromResult(result);
+            return await tcs.Task;
+        }
     }
+
+    public void Finish(Id<Job> jobId, JobExecutionResult result)
+    {
+        if (!_pending.TryRemove(jobId, out var tcs))
+            throw new InvalidOperationException($"No pending execution for job '{jobId}'.");
+
+        tcs.TrySetResult(result);
+    }
+
+    public bool HasPendingJob(Id<Job> jobId) => _pending.ContainsKey(jobId);
+
+    public int PendingCount => _pending.Count;
 }

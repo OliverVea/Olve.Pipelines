@@ -39,4 +39,5 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(ProcessingJobGroup))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
+[JsonSerializable(typeof(TriggerProcessingRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

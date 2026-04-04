@@ -1,6 +1,7 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Building;
+using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 
@@ -66,5 +67,41 @@ public static class PipelineEndpoints
             })
             .WithResultMapping<JobGroup>()
             .WithName("TriggerProduction");
+
+        group.MapPost("/{id}/trigger/processing", Result<JobGroup> (
+            PipelineService pipelines,
+            ProcessingStepService processingSteps,
+            ArtifactBundleService bundles,
+            JobGroupService jobGroups,
+            JobService jobs,
+            Id<Pipeline> id,
+            TriggerProcessingRequest request) =>
+            {
+                if (!pipelines.TryGet(id, out _))
+                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' not found."));
+
+                if (!bundles.TryGet(request.ArtifactBundleId, out var bundle))
+                    return Result.Failure<JobGroup>(new ResultProblem($"Artifact bundle '{request.ArtifactBundleId}' not found."));
+
+                var stepResult = processingSteps.TryGet(request.ProcessingStepId);
+                if (stepResult.TryPickProblems(out var problems, out var step))
+                    return problems;
+
+                if (step.PipelineId != id)
+                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{request.ProcessingStepId}' does not belong to pipeline '{id}'."));
+
+                var configResult = processingSteps.TryGetConfiguration(step.Id);
+                if (configResult.TryPickProblems(out problems))
+                    return problems;
+
+                var jobGroup = jobGroups.CreateProcessingGroup(id, bundle.Id, step.Id);
+                jobs.CreateProcessingJob(id, jobGroup.Id, bundle.Id, step.Id);
+
+                return jobGroup;
+            })
+            .WithResultMapping<JobGroup>()
+            .WithName("TriggerProcessing");
     }
 }
+
+public record TriggerProcessingRequest(Id<ArtifactBundle> ArtifactBundleId, Id<ProcessingStep> ProcessingStepId);

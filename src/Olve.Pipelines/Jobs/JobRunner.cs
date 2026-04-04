@@ -1,4 +1,3 @@
-using Olve.Pipelines.Shared;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
@@ -8,28 +7,53 @@ public class JobRunner(IServiceProvider sp, ILogger<JobRunner> logger) : Backgro
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
+    public int MaxConcurrentJobs { get; init; } = 4;
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        var semaphore = new SemaphoreSlim(MaxConcurrentJobs);
+        var runningTasks = new List<Task>();
+
         while (!ct.IsCancellationRequested)
         {
-            await ProcessQueueAsync(ct);
+            runningTasks.RemoveAll(t => t.IsCompleted);
+
+            var jobIds = GetQueuedJobIds();
+            foreach (var jobId in jobIds)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                await semaphore.WaitAsync(ct);
+                runningTasks.Add(RunJobAsync(jobId, semaphore, ct));
+            }
+
             await Task.Delay(PollInterval, ct);
         }
+
+        await Task.WhenAll(runningTasks);
     }
 
-    private async Task ProcessQueueAsync(CancellationToken ct)
+    private List<Id<Job>> GetQueuedJobIds()
     {
         using var scope = sp.CreateScope();
         var queue = scope.ServiceProvider.GetRequiredService<JobQueueService>();
-        var jobService = scope.ServiceProvider.GetRequiredService<JobService>();
-        var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
-        var time = scope.ServiceProvider.GetRequiredService<TimeProvider>();
+        return queue.GetQueuedJobIds().ToList();
+    }
 
-        var jobIds = queue.GetQueuedJobIds().ToList();
-        foreach (var jobId in jobIds)
+    private async Task RunJobAsync(Id<Job> jobId, SemaphoreSlim semaphore, CancellationToken ct)
+    {
+        try
         {
-            if (ct.IsCancellationRequested) break;
+            using var scope = sp.CreateScope();
+            var jobService = scope.ServiceProvider.GetRequiredService<JobService>();
+            var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
+            var time = scope.ServiceProvider.GetRequiredService<TimeProvider>();
+
             await ProcessJobAsync(jobId, jobService, executor, time, ct);
+        }
+        finally
+        {
+            semaphore.Release();
         }
     }
 
@@ -53,7 +77,6 @@ public class JobRunner(IServiceProvider sp, ILogger<JobRunner> logger) : Backgro
 
         logger.LogInformation("Job '{JobId}' started", jobId);
 
-        // Re-fetch to get updated job
         if (!jobService.TryGetJob<Job>(jobId, out job)) return;
 
         try

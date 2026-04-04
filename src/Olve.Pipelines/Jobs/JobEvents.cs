@@ -7,4 +7,6 @@ public class JobEvents
     public Event<Id<Job>> OnAdded { get; } = new();
     public Event<Id<Job>> OnUpdated { get; } = new();
     public Event<Id<Job>> OnDeleted { get; } = new();
+    public Event<Id<JobGroup>> OnGroupCompleted { get; } = new();
+    public Event<Id<JobGroup>> OnGroupFailed { get; } = new();
 }

@@ -7,7 +7,7 @@ public class JobGroupCompletionService(
     JobService jobService,
     JobGroupService jobGroupService,
     ArtifactBundleService artifactBundleService,
-    JobGroupEvents jobGroupEvents,
+    JobEvents jobEvents,
     ILogger<JobGroupCompletionService> logger)
 {
     public void HandleJobUpdated(Id<Job> jobId)
@@ -15,12 +15,12 @@ public class JobGroupCompletionService(
         if (!jobService.TryGetJob<Job>(jobId, out var job))
             return;
 
-        if (!IsTerminal(job.Status))
+        if (!job.Status.IsTerminal())
             return;
 
         var groupJobs = jobService.GetJobsByGroup(job.JobGroupId);
 
-        if (groupJobs.Any(j => !IsTerminal(j.Status)))
+        if (groupJobs.Any(j => !j.Status.IsTerminal()))
             return;
 
         var allSucceeded = groupJobs.All(j => j.Status is Done);
@@ -37,7 +37,7 @@ public class JobGroupCompletionService(
                 artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Completed);
 
             logger.LogInformation("JobGroup '{GroupId}' completed successfully", group.Id);
-            jobGroupEvents.OnCompleted.Invoke(group.Id);
+            jobEvents.OnGroupCompleted.Invoke(group.Id);
         }
         else
         {
@@ -45,9 +45,7 @@ public class JobGroupCompletionService(
                 artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Failed);
 
             logger.LogWarning("JobGroup '{GroupId}' failed", group.Id);
-            jobGroupEvents.OnFailed.Invoke(group.Id);
+            jobEvents.OnGroupFailed.Invoke(group.Id);
         }
     }
-
-    private static bool IsTerminal(JobStatus status) => status is Done or Failed or Cancelled or Obsolete;
 }

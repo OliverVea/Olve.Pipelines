@@ -1280,6 +1280,49 @@
         }
       }
     },
+    "/api/jobs/{id}/logs": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetJobLogs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs/queue": {
       "get": {
         "tags": [

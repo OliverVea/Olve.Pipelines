@@ -89,7 +89,7 @@ public class KubernetesClient : IDisposable
         return new KubernetesJobStatus(jobName, phase, message);
     }
 
-    public async Task<string?> GetPodLogsAsync(string ns, string jobName, CancellationToken ct = default)
+    public async Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default)
     {
         var podListResponse = await _httpClient.GetAsync(
             $"api/v1/namespaces/{ns}/pods?labelSelector=batch.kubernetes.io/job-name={jobName}", ct);
@@ -102,8 +102,9 @@ public class KubernetesClient : IDisposable
         var podName = podList?.Items.FirstOrDefault()?.Metadata.Name;
         if (podName is null) return null;
 
+        var containerQuery = container is not null ? $"?container={container}" : "";
         var logResponse = await _httpClient.GetAsync(
-            $"api/v1/namespaces/{ns}/pods/{podName}/log", ct);
+            $"api/v1/namespaces/{ns}/pods/{podName}/log{containerQuery}", ct);
 
         logResponse.EnsureSuccessStatusCode();
 

@@ -1,3 +1,6 @@
+using System.Text;
+using Amazon.S3;
+using Amazon.S3.Model;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
@@ -16,6 +19,8 @@ public class KubernetesJobExecutor(
     JobGroupService jobGroupService,
     IPipelineSecretStore secretStore,
     ICredentialsProvider<S3Credentials> s3CredentialsProvider,
+    IAmazonS3 s3,
+    StorageOptions storageOptions,
     ILogger<KubernetesJobExecutor> logger) : IJobExecutor
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
@@ -56,7 +61,8 @@ public class KubernetesJobExecutor(
             EnvironmentVariables: config.EnvironmentVariables,
             SecretName: secretName);
 
-        return await CreatePollAndCleanupAsync(spec, s3SecretName, ct);
+        var logKey = LogS3Key(job.PipelineId, productionGroup.ArtifactBundleId, job.Id);
+        return await CreatePollAndCleanupAsync(spec, s3SecretName, logKey, ct);
     }
 
     private async Task<JobExecutionResult> ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
@@ -83,7 +89,8 @@ public class KubernetesJobExecutor(
             SecretName: secretName,
             InputBundleS3Prefix: $"{prefix}/production");
 
-        return await CreatePollAndCleanupAsync(spec, s3SecretName, ct);
+        var logKey = LogS3Key(job.PipelineId, job.ArtifactBundleId, job.Id);
+        return await CreatePollAndCleanupAsync(spec, s3SecretName, logKey, ct);
     }
 
     private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)
@@ -109,7 +116,7 @@ public class KubernetesJobExecutor(
         return secretName;
     }
 
-    private async Task<JobExecutionResult> CreatePollAndCleanupAsync(KubernetesJobSpec spec, string s3SecretName, CancellationToken ct)
+    private async Task<JobExecutionResult> CreatePollAndCleanupAsync(KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
     {
         try
         {
@@ -126,9 +133,11 @@ public class KubernetesJobExecutor(
                 {
                     case JobPhase.Succeeded:
                         logger.LogInformation("K8s Job '{JobName}' succeeded", spec.Name);
+                        await UploadLogsAsync(spec.Name, logKey, ct);
                         return new JobExecutionResult.Success();
                     case JobPhase.Failed:
                         logger.LogWarning("K8s Job '{JobName}' failed: {Message}", spec.Name, status.Message);
+                        await UploadLogsAsync(spec.Name, logKey, ct);
                         return new JobExecutionResult.Failure(status.Message ?? "K8s job failed");
                 }
             }
@@ -139,6 +148,34 @@ public class KubernetesJobExecutor(
         finally
         {
             await CleanupS3SecretAsync(s3SecretName);
+        }
+    }
+
+    private async Task UploadLogsAsync(string k8sJobName, string logKey, CancellationToken ct)
+    {
+        try
+        {
+            var logs = await kubernetesClient.GetPodLogsAsync(options.Namespace, k8sJobName, container: "runner", ct: ct);
+            if (logs is null)
+            {
+                logger.LogWarning("No pod found for K8s Job '{JobName}' — cannot persist logs", k8sJobName);
+                return;
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(logs);
+            await s3.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = storageOptions.Bucket,
+                Key = logKey,
+                InputStream = new MemoryStream(bytes),
+                ContentType = "text/plain; charset=utf-8",
+            }, ct);
+
+            logger.LogInformation("Persisted logs for K8s Job '{JobName}' to '{LogKey}'", k8sJobName, logKey);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to persist logs for K8s Job '{JobName}' to '{LogKey}'", k8sJobName, logKey);
         }
     }
 
@@ -161,8 +198,11 @@ public class KubernetesJobExecutor(
         return hasSecrets ? $"olve-pipeline-{pipelineId.Value.Value:N}" : null;
     }
 
-    private static string S3Prefix(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId)
+    internal static string S3Prefix(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId)
         => $"bundles/{pipelineId.Value.Value:N}/{artifactBundleId.Value.Value:N}";
+
+    internal static string LogS3Key(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<Job> jobId)
+        => $"{S3Prefix(pipelineId, artifactBundleId)}/logs/{jobId.Value.Value:N}.log";
 
     private static string JobName(Id<Job> jobId)
     {

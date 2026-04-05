@@ -23,6 +23,12 @@ public static class JobEndpoints
             .WithName("GetJob")
             .AllowAnonymous();
 
+        group.MapGet("/{id}/logs", async Task<Result<string>> (JobLogService service, Id<Job> id, CancellationToken ct)
+                => await service.GetLogsAsync(id, ct))
+            .WithResultMapping<string>()
+            .WithName("GetJobLogs")
+            .AllowAnonymous();
+
         group.MapGet("/queue", Result<Id<Job>[]> (JobQueueService service)
                 => service.GetQueuedJobIds().ToArray())
             .WithResultMapping<Id<Job>[]>()

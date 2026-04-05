@@ -39,6 +39,7 @@ public static class ServiceConfiguration
         services.AddSingleton<JobEvents>();
         services.AddTransient<JobService>();
         services.AddTransient<JobGroupService>();
+        services.AddTransient<JobLogService>();
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();
         services.AddTransient<JobGroupCompletionService>();

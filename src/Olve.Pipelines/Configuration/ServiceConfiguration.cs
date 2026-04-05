@@ -42,6 +42,7 @@ public static class ServiceConfiguration
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();
         services.AddTransient<JobGroupCompletionService>();
+        services.AddTransient<DownstreamTriggerService>();
         services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();

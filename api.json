@@ -260,6 +260,59 @@
         }
       }
     },
+    "/api/pipelines/{id}/trigger/processing": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "TriggerProcessing",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerProcessingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/production": {
       "post": {
         "tags": [
@@ -1939,6 +1992,21 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "TriggerProcessingRequest": {
+        "required": [
+          "artifactBundleId",
+          "processingStepId"
+        ],
+        "type": "object",
+        "properties": {
+          "artifactBundleId": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
           }
         }
       },

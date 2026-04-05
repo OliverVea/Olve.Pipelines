@@ -5,6 +5,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Persistence;
 
 namespace Olve.Pipelines.Configuration;
@@ -28,6 +29,12 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, ProcessingStepEventRegistration>();
         services.AddTransient<ProcessingStepService>();
         services.AddTransient<ProcessingStepCleanupService>();
+        services.AddSingleton<EntityStore<Trigger>>();
+        services.AddSingleton<TriggerEvents>();
+        services.AddSingleton<IRunOnStartup, TriggerEventRegistration>();
+        services.AddTransient<TriggerService>();
+        services.AddTransient<TriggerCleanupService>();
+        services.AddTransient<TriggerExecutionService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();
         services.AddTransient<ArtifactBundleService>();

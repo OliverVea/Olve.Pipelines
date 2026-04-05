@@ -1391,6 +1391,242 @@
           }
         }
       }
+    },
+    "/api/pipelines/{pipelineId}/triggers": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "CreateTrigger",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTriggerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trigger"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListTriggers",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Trigger"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/triggers/{triggerId}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetTrigger",
+        "parameters": [
+          {
+            "name": "triggerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Trigger"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "DeleteTrigger",
+        "parameters": [
+          {
+            "name": "triggerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{triggerId}": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ExecuteWebhook",
+        "parameters": [
+          {
+            "name": "triggerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/WebhookRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1453,6 +1689,21 @@
           }
         }
       },
+      "CreateTriggerRequest": {
+        "required": [
+          "name",
+          "target"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TriggerTarget"
+          }
+        }
+      },
       "IdOfArtifactBundle": {
         "type": "string",
         "format": "uuid"
@@ -1474,6 +1725,10 @@
         "format": "uuid"
       },
       "IdOfProductionStep": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfTrigger": {
         "type": "string",
         "format": "uuid"
       },
@@ -2038,6 +2293,38 @@
           }
         }
       },
+      "Trigger": {
+        "required": [
+          "id",
+          "pipelineId",
+          "name",
+          "target",
+          "secret",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfTrigger"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TriggerTarget"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "TriggerProcessingRequest": {
         "required": [
           "artifactBundleId",
@@ -2050,6 +2337,53 @@
           },
           "processingStepId": {
             "$ref": "#/components/schemas/IdOfProcessingStep"
+          }
+        }
+      },
+      "TriggerTarget": {
+        "required": [
+          "$type"
+        ],
+        "type": "object",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTargetProductionTriggerTarget"
+          },
+          {
+            "$ref": "#/components/schemas/TriggerTargetProcessingTriggerTarget"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "$type",
+          "mapping": {
+            "production": "#/components/schemas/TriggerTargetProductionTriggerTarget",
+            "processing": "#/components/schemas/TriggerTargetProcessingTriggerTarget"
+          }
+        }
+      },
+      "TriggerTargetProcessingTriggerTarget": {
+        "required": [
+          "processingStepId"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "processing"
+            ],
+            "type": "string"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          }
+        }
+      },
+      "TriggerTargetProductionTriggerTarget": {
+        "properties": {
+          "$type": {
+            "enum": [
+              "production"
+            ],
+            "type": "string"
           }
         }
       },
@@ -2066,6 +2400,24 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "WebhookRequest": {
+        "required": [
+          "artifactBundleId"
+        ],
+        "type": "object",
+        "properties": {
+          "artifactBundleId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IdOfArtifactBundle"
+              }
+            ]
           }
         }
       }

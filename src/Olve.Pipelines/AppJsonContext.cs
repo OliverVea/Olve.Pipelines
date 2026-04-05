@@ -5,6 +5,7 @@ using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines;
@@ -37,6 +38,12 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<JobGroup>))]
 [JsonSerializable(typeof(ProductionJobGroup))]
 [JsonSerializable(typeof(ProcessingJobGroup))]
+[JsonSerializable(typeof(Result<Trigger>))]
+[JsonSerializable(typeof(Result<Trigger[]>))]
+[JsonSerializable(typeof(TriggerEndpoints.CreateTriggerRequest))]
+[JsonSerializable(typeof(TriggerEndpoints.WebhookRequest))]
+[JsonSerializable(typeof(ProductionTriggerTarget))]
+[JsonSerializable(typeof(ProcessingTriggerTarget))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 [JsonSerializable(typeof(TriggerProcessingRequest))]

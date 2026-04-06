@@ -44,7 +44,7 @@ public class ConfigurationPersistenceService(
 
             logger.LogInformation(
                 "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps",
-                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length);
+                snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0);
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -54,9 +54,13 @@ public class ConfigurationPersistenceService(
         {
             logger.LogWarning(ex, "Failed to load configuration from S3, starting fresh");
         }
+
+        await SaveAsync(cancellationToken);
     }
 
-    public async Task StoppingAsync(CancellationToken cancellationToken)
+    public Task StoppingAsync(CancellationToken cancellationToken) => SaveAsync(cancellationToken);
+
+    private async Task SaveAsync(CancellationToken cancellationToken)
     {
         if (s3 is null)
         {
@@ -115,10 +119,10 @@ public class ConfigurationPersistenceService(
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
     {
-        foreach (var p in snapshot.Pipelines)
+        foreach (var p in snapshot.Pipelines ?? [])
             pipelines.Set(new Pipeline(p.Id, p.Name));
 
-        foreach (var s in snapshot.ProductionSteps)
+        foreach (var s in snapshot.ProductionSteps ?? [])
         {
             productionSteps.Set(new ProductionStep(s.Id, s.Name, s.PipelineId));
 
@@ -126,7 +130,7 @@ public class ConfigurationPersistenceService(
                 productionConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
         }
 
-        foreach (var s in snapshot.ProcessingSteps)
+        foreach (var s in snapshot.ProcessingSteps ?? [])
         {
             processingSteps.Set(new ProcessingStep(s.Id, s.Name, s.PipelineId, s.Order));
 

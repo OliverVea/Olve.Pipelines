@@ -11,6 +11,7 @@
     <PackageReference Include="Olve.Results.TUnit" />
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.Minio" />
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="TUnit" />
     <PackageReference Include="Refit" />
   </ItemGroup>

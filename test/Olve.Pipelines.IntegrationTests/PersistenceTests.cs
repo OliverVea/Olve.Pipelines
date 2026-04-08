@@ -1,8 +1,14 @@
+using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using Amazon.Runtime;
+using Amazon.S3;
+using Amazon.S3.Model;
 
 namespace Olve.Pipelines.IntegrationTests;
 
+[NotInParallel(Order = int.MaxValue)]
 public class PersistenceTests
 {
     [ClassDataSource<AppFixture>(Shared = SharedType.PerAssembly)]
@@ -41,5 +47,44 @@ public class PersistenceTests
         }
 
         await Assert.That(found).IsTrue();
+    }
+
+    [Test]
+    public async Task NullArraysInSnapshot_ToleratedOnStartup()
+    {
+        var connectionString = Fixture.GetMinioConnectionString();
+        if (connectionString is null)
+        {
+            throw new TUnit.Core.Exceptions.SkipTestException("Requires local MinIO container (not beta S3)");
+        }
+
+        // Write a malformed snapshot with null arrays to S3
+        var s3Config = new AmazonS3Config
+        {
+            ServiceURL = connectionString.StartsWith("http") ? connectionString : $"http://{connectionString}",
+            ForcePathStyle = true,
+        };
+        var credentials = new BasicAWSCredentials(Fixture.GetMinioAccessKey(), Fixture.GetMinioSecretKey());
+        using var s3 = new AmazonS3Client(credentials, s3Config);
+
+        var malformedSnapshot = """{"Pipelines": null, "ProductionSteps": null, "ProcessingSteps": null}""";
+        await s3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = Fixture.MinioBucket,
+            Key = "configuration.json",
+            ContentBody = malformedSnapshot,
+        });
+
+        // Restart the app — it should tolerate the null arrays
+        await Fixture.RestartAsync();
+
+        // Verify the app started successfully
+        var client = Fixture.CreateUnauthenticatedHttpClient();
+        var healthResponse = await client.GetAsync("/api/health");
+        await Assert.That(healthResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        // Clean up: remove the malformed snapshot so subsequent tests start clean
+        await s3.DeleteObjectAsync(Fixture.MinioBucket, "configuration.json");
+        await Fixture.RestartAsync();
     }
 }

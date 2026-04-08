@@ -13,9 +13,14 @@ public static class KubernetesConfiguration
         var clientId = builder.Configuration["Storage:ClientId"];
         var clientSecret = builder.Configuration["Storage:ClientSecret"];
 
+        var s3HelperImage = builder.Configuration["Kubernetes:S3HelperImage"] ?? "minio/mc";
+        var s3Bucket = builder.Configuration["Storage:Bucket"] ?? "olve-pipelines";
+        var s3Endpoint = builder.Configuration["Storage:Endpoint"] ?? "";
+        var s3SkipCert = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
+
         if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
         {
-            builder.Services.AddSingleton(new KubernetesOptions("", ""));
+            builder.Services.AddSingleton(new KubernetesOptions("", "", s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert));
             builder.Services.AddSingleton<KubernetesClient>(sp =>
                 throw new InvalidOperationException("Kubernetes is not configured."));
             return;
@@ -50,7 +55,7 @@ public static class KubernetesConfiguration
                 .LogInformation("Kubernetes configured: server={Server}, namespace={Namespace}",
                     credentials.Server, configNs ?? credentials.Namespace);
 
-            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage);
+            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
         });
 
         builder.Services.AddSingleton(sp =>
@@ -67,4 +72,10 @@ public static class KubernetesConfiguration
     }
 }
 
-public record KubernetesOptions(string Namespace, string DefaultImage);
+public record KubernetesOptions(
+    string Namespace,
+    string DefaultImage,
+    string S3HelperImage,
+    string S3Bucket,
+    string S3Endpoint,
+    bool S3SkipCertValidation);

@@ -23,6 +23,8 @@ public record K8sPodTemplateSpec(
 
 public record K8sPodSpec(
     [property: JsonPropertyName("containers")] K8sContainer[] Containers,
+    [property: JsonPropertyName("initContainers")] K8sContainer[]? InitContainers = null,
+    [property: JsonPropertyName("volumes")] K8sVolume[]? Volumes = null,
     [property: JsonPropertyName("restartPolicy")] string RestartPolicy = "Never");
 
 public record K8sContainer(
@@ -31,7 +33,8 @@ public record K8sContainer(
     [property: JsonPropertyName("command")] string[]? Command = null,
     [property: JsonPropertyName("args")] string[]? Args = null,
     [property: JsonPropertyName("env")] K8sEnvVar[]? Env = null,
-    [property: JsonPropertyName("envFrom")] K8sEnvFromSource[]? EnvFrom = null);
+    [property: JsonPropertyName("envFrom")] K8sEnvFromSource[]? EnvFrom = null,
+    [property: JsonPropertyName("volumeMounts")] K8sVolumeMount[]? VolumeMounts = null);
 
 public record K8sEnvVar(
     [property: JsonPropertyName("name")] string Name,
@@ -42,6 +45,17 @@ public record K8sEnvFromSource(
 
 public record K8sSecretRef(
     [property: JsonPropertyName("name")] string Name);
+
+public record K8sVolume(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("emptyDir")] K8sEmptyDir? EmptyDir = null);
+
+public record K8sEmptyDir;
+
+public record K8sVolumeMount(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("mountPath")] string MountPath,
+    [property: JsonPropertyName("readOnly")] bool? ReadOnly = null);
 
 // K8s Job status response
 public record K8sJobResponse(

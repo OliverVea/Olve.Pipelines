@@ -4,13 +4,17 @@ WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/Olve.Pipelines/Olve.Pipelines.csproj src/Olve.Pipelines/
-RUN dotnet restore src/Olve.Pipelines -r linux-x64
+COPY test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj test/Olve.Pipelines.UnitTests/
+RUN dotnet restore src/Olve.Pipelines -r linux-x64 && dotnet restore test/Olve.Pipelines.UnitTests
 
 COPY src/Olve.Pipelines/ src/Olve.Pipelines/
+COPY test/Olve.Pipelines.UnitTests/ test/Olve.Pipelines.UnitTests/
+RUN dotnet run --project test/Olve.Pipelines.UnitTests -c Release --no-restore
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
 WORKDIR /app
+EXPOSE 5000
 COPY --from=build /app .
 
 ENTRYPOINT ["./Olve.Pipelines"]

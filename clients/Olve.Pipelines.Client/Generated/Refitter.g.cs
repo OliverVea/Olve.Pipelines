@@ -165,7 +165,30 @@ namespace Olve.Pipelines.Client
         /// </returns>
         [Headers("Accept: application/json")]
         [Post("/api/pipelines/{id}/trigger/production")]
-        Task<IApiResponse<Job>> TriggerProduction(string id);
+        Task<IApiResponse<JobGroup>> TriggerProduction(string id);
+
+        /// <param name="id">id parameter</param>
+        /// <param name="body">body parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json", "Content-Type: application/json")]
+        [Post("/api/pipelines/{id}/trigger/processing")]
+        Task<IApiResponse<JobGroup>> TriggerProcessing(string id, [Body] TriggerProcessingRequest body);
 
         /// <param name="pipelineId">pipelineId parameter</param>
         /// <param name="body">body parameter</param>
@@ -670,6 +693,28 @@ namespace Olve.Pipelines.Client
         [Delete("/api/jobs/{id}")]
         Task<IApiResponse> DeleteJob(string id);
 
+        /// <param name="id">id parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/jobs/{id}/logs")]
+        Task<IApiResponse<string>> GetJobLogs(string id);
+
         /// <returns>
         /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
         /// <list type="table">
@@ -712,6 +757,122 @@ namespace Olve.Pipelines.Client
         [Headers("Accept: application/json")]
         [Post("/api/jobs/{id}/cancel")]
         Task<IApiResponse> CancelJob(string id);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <param name="body">body parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json", "Content-Type: application/json")]
+        [Post("/api/pipelines/{pipelineId}/triggers")]
+        Task<IApiResponse<Trigger>> CreateTrigger(string pipelineId, [Body] CreateTriggerRequest body);
+
+        /// <param name="pipelineId">pipelineId parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/pipelines/{pipelineId}/triggers")]
+        Task<IApiResponse<ICollection<Trigger>>> ListTriggers(string pipelineId);
+
+        /// <param name="triggerId">triggerId parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Get("/api/triggers/{triggerId}")]
+        Task<IApiResponse<Trigger>> GetTrigger(string triggerId);
+
+        /// <param name="triggerId">triggerId parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// <item>
+        /// <term>404</term>
+        /// <description>Not Found</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json")]
+        [Delete("/api/triggers/{triggerId}")]
+        Task<IApiResponse> DeleteTrigger(string triggerId);
+
+        /// <param name="triggerId">triggerId parameter</param>
+        /// <param name="body">body parameter</param>
+        /// <returns>
+        /// A <see cref="Task"/> representing the <see cref="IApiResponse"/> instance containing the result:
+        /// <list type="table">
+        /// <listheader>
+        /// <term>Status</term>
+        /// <description>Description</description>
+        /// </listheader>
+        /// <item>
+        /// <term>200</term>
+        /// <description>OK</description>
+        /// </item>
+        /// <item>
+        /// <term>400</term>
+        /// <description>Bad Request</description>
+        /// </item>
+        /// </list>
+        /// </returns>
+        [Headers("Accept: application/json", "Content-Type: application/json")]
+        [Post("/api/webhooks/{triggerId}")]
+        Task<IApiResponse<JobGroup>> ExecuteWebhook(string triggerId, [Body] WebhookRequest body);
 
 
     }
@@ -819,10 +980,123 @@ namespace Olve.Pipelines.Client
 
     }
 
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class CreateTriggerRequest
+    {
+
+        [JsonPropertyName("name")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Name { get; set; }
+
+        [JsonPropertyName("target")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public TriggerTarget Target { get; set; } = new TriggerTarget();
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
     [JsonInheritanceConverter(typeof(Job), "$type")]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
     {
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [JsonInheritanceConverter(typeof(JobGroup), "$type")]
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobGroup
+    {
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobGroupProcessingJobGroup
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobGroupProcessingJobGroupType>))]
+        public JobGroupProcessingJobGroupType Type { get; set; }
+
+        [JsonPropertyName("artifactBundleId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ArtifactBundleId { get; set; }
+
+        [JsonPropertyName("processingStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProcessingStepId { get; set; }
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class JobGroupProductionJobGroup
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<JobGroupProductionJobGroupType>))]
+        public JobGroupProductionJobGroupType Type { get; set; }
+
+        [JsonPropertyName("artifactBundleId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ArtifactBundleId { get; set; }
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -873,6 +1147,10 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required]
         public JobStatus Status { get; set; } = new JobStatus();
 
+        [JsonPropertyName("jobGroupId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid JobGroupId { get; set; }
+
         private IDictionary<string, object> _additionalProperties;
 
         [JsonExtensionData]
@@ -892,8 +1170,9 @@ namespace Olve.Pipelines.Client
         [JsonConverter(typeof(JsonStringEnumConverter<JobProductionJobType>))]
         public JobProductionJobType Type { get; set; }
 
-        [JsonPropertyName("productionResult")]
-        public ResultOfIdOfArtifactBundle ProductionResult { get; set; }
+        [JsonPropertyName("productionStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProductionStepId { get; set; }
 
         [JsonPropertyName("jobKey")]
         public ProductionJobKey JobKey { get; set; }
@@ -913,6 +1192,10 @@ namespace Olve.Pipelines.Client
         [JsonPropertyName("status")]
         [System.ComponentModel.DataAnnotations.Required]
         public JobStatus Status { get; set; } = new JobStatus();
+
+        [JsonPropertyName("jobGroupId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid JobGroupId { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1172,6 +1455,9 @@ namespace Olve.Pipelines.Client
         [JsonPropertyName("pipelineId")]
         public System.Guid PipelineId { get; set; }
 
+        [JsonPropertyName("productionStepId")]
+        public System.Guid ProductionStepId { get; set; }
+
         private IDictionary<string, object> _additionalProperties;
 
         [JsonExtensionData]
@@ -1222,33 +1508,6 @@ namespace Olve.Pipelines.Client
 
         [JsonPropertyName("problems")]
         public ICollection<ResultProblem> Problems { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class ResultOfIdOfArtifactBundle
-    {
-
-        [JsonPropertyName("succeeded")]
-        public bool Succeeded { get; set; }
-
-        [JsonPropertyName("failed")]
-        public bool Failed { get; set; }
-
-        [JsonPropertyName("problems")]
-        public ICollection<ResultProblem> Problems { get; set; }
-
-        [JsonPropertyName("value")]
-        public System.Guid Value { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
 
@@ -1366,6 +1625,126 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class Trigger
+    {
+
+        [JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid Id { get; set; }
+
+        [JsonPropertyName("pipelineId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid PipelineId { get; set; }
+
+        [JsonPropertyName("name")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Name { get; set; }
+
+        [JsonPropertyName("target")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public TriggerTarget Target { get; set; } = new TriggerTarget();
+
+        [JsonPropertyName("secret")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Secret { get; set; }
+
+        [JsonPropertyName("createdAt")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreatedAt { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TriggerProcessingRequest
+    {
+
+        [JsonPropertyName("artifactBundleId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ArtifactBundleId { get; set; }
+
+        [JsonPropertyName("processingStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProcessingStepId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [JsonInheritanceConverter(typeof(TriggerTarget), "$type")]
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TriggerTarget
+    {
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TriggerTargetProcessingTriggerTarget
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<TriggerTargetProcessingTriggerTargetType>))]
+        public TriggerTargetProcessingTriggerTargetType Type { get; set; }
+
+        [JsonPropertyName("processingStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProcessingStepId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class TriggerTargetProductionTriggerTarget
+    {
+
+        [JsonPropertyName("$type")]
+        [JsonConverter(typeof(JsonStringEnumConverter<TriggerTargetProductionTriggerTargetType>))]
+        public TriggerTargetProductionTriggerTargetType Type { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class UpdateOrderRequest
     {
 
@@ -1382,6 +1761,42 @@ namespace Olve.Pipelines.Client
             get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class WebhookRequest
+    {
+
+        [JsonPropertyName("artifactBundleId")]
+        public System.Guid? ArtifactBundleId { get; set; }
+
+        private IDictionary<string, object> _additionalProperties;
+
+        [JsonExtensionData]
+        public IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobGroupProcessingJobGroupType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
+        Processing = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum JobGroupProductionJobGroupType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"production")]
+        Production = 0,
 
     }
 
@@ -1454,6 +1869,24 @@ namespace Olve.Pipelines.Client
 
         [System.Runtime.Serialization.EnumMember(Value = @"scheduled")]
         Scheduled = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum TriggerTargetProcessingTriggerTargetType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
+        Processing = 0,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
+    public enum TriggerTargetProductionTriggerTargetType
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"production")]
+        Production = 0,
 
     }
 

@@ -2,16 +2,16 @@
 
 ## Job execution
 
-- [ ] Submit ProductionJob to Kubernetes (create K8s Job per production step, collect outputs into ArtifactBundle)
-- [ ] Submit ProcessingJob to Kubernetes (create K8s Job with ArtifactBundle as input)
-- [ ] Job status polling / K8s watch to update job status (InProgress -> Done/Failed)
+- [x] Submit ProductionJob to Kubernetes (KubernetesJobExecutor)
+- [x] Submit ProcessingJob to Kubernetes (KubernetesJobExecutor)
+- [x] Job status polling (KubernetesJobExecutor polls K8s API every 5s until completion)
 - [ ] Signal protocol for steps to communicate back (progress, verification results, artifact labels)
 
 ## Automatic downstream triggering
 
-- [ ] Production completion triggers first processing step automatically
-- [ ] Processing step success triggers next processing step
-- [ ] Processing trigger endpoint (`POST /api/pipelines/{id}/trigger/processing/{stepId}`)
+- [x] Production completion triggers first processing step automatically (DownstreamTriggerService)
+- [x] Processing step success triggers next processing step (DownstreamTriggerService)
+- [x] Processing trigger endpoint (`POST /api/pipelines/{id}/trigger/processing`)
 
 ## Source change detection
 

@@ -31,6 +31,9 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
         Environment.GetEnvironmentVariable("STORAGE__AUTHURL") is not null
         || Environment.GetEnvironmentVariable("STORAGE__ACCESSKEY") is not null;
 
+    public static bool UseBetaK8s =>
+        Environment.GetEnvironmentVariable("KUBERNETES__OPENBAOURL") is not null;
+
     public async Task InitializeAsync()
     {
         var repoRoot = FindRepoRoot();
@@ -45,7 +48,7 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
         {
             var futureImage = new ImageFromDockerfileBuilder()
                 .WithDockerfileDirectory(repoRoot)
-                .WithDockerfile("src/Olve.Pipelines/Dockerfile")
+                .WithDockerfile("Dockerfile")
                 .Build();
 
             await futureImage.CreateAsync();
@@ -69,6 +72,15 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
                 "STORAGE__ACCESSKEY", "STORAGE__SECRETKEY",
                 "STORAGE__AUTHURL", "STORAGE__CLIENTID", "STORAGE__CLIENTSECRET",
                 "STORAGE__ROLEARN", "STORAGE__SCOPE");
+        }
+
+        if (UseBetaK8s)
+        {
+            // Pass through K8s config (OpenBao + optional overrides)
+            containerBuilder = PassthroughEnv(containerBuilder,
+                "KUBERNETES__OPENBAOURL", "KUBERNETES__NAMESPACE",
+                "KUBERNETES__S3HELPERIMAGE", "KUBERNETES__DEFAULTIMAGE",
+                "STORAGE__SKIPCERTVALIDATION");
         }
         else
         {
@@ -113,6 +125,17 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
 
     public HttpClient CreateUnauthenticatedHttpClient() =>
         new() { BaseAddress = new Uri(_baseUrl) };
+
+    public string? GetMinioConnectionString() =>
+        _minio is not null ? _minio.GetConnectionString() : null;
+
+    public string? GetMinioAccessKey() =>
+        _minio is not null ? _minio.GetAccessKey() : null;
+
+    public string? GetMinioSecretKey() =>
+        _minio is not null ? _minio.GetSecretKey() : null;
+
+    public string MinioBucket => "olve-pipelines-test";
 
     public async Task RestartAsync()
     {

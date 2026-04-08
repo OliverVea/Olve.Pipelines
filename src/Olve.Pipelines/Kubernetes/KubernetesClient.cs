@@ -89,7 +89,7 @@ public class KubernetesClient : IDisposable
         return new KubernetesJobStatus(jobName, phase, message);
     }
 
-    public async Task<string?> GetPodLogsAsync(string ns, string jobName, CancellationToken ct = default)
+    public async Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default)
     {
         var podListResponse = await _httpClient.GetAsync(
             $"api/v1/namespaces/{ns}/pods?labelSelector=batch.kubernetes.io/job-name={jobName}", ct);
@@ -102,8 +102,9 @@ public class KubernetesClient : IDisposable
         var podName = podList?.Items.FirstOrDefault()?.Metadata.Name;
         if (podName is null) return null;
 
+        var containerQuery = container is not null ? $"?container={container}" : "";
         var logResponse = await _httpClient.GetAsync(
-            $"api/v1/namespaces/{ns}/pods/{podName}/log", ct);
+            $"api/v1/namespaces/{ns}/pods/{podName}/log{containerQuery}", ct);
 
         logResponse.EnsureSuccessStatusCode();
 
@@ -201,29 +202,80 @@ public class KubernetesClient : IDisposable
 
     private static K8sJobManifest BuildJobManifest(KubernetesJobSpec spec)
     {
-        var envVars = new List<K8sEnvVar>();
-        if (spec.EnvironmentVariables is not null)
-        {
-            foreach (var (key, value) in spec.EnvironmentVariables)
-            {
-                envVars.Add(new K8sEnvVar(key, value));
-            }
-        }
-
-        if (spec.InputBundleS3Key is not null)
-            envVars.Add(new K8sEnvVar("INPUT_BUNDLE_S3_KEY", spec.InputBundleS3Key));
-        if (spec.OutputBundleS3Key is not null)
-            envVars.Add(new K8sEnvVar("OUTPUT_BUNDLE_S3_KEY", spec.OutputBundleS3Key));
-
-        var envFrom = spec.SecretName is not null
-            ? new[] { new K8sEnvFromSource(new K8sSecretRef(spec.SecretName)) }
-            : (K8sEnvFromSource[]?)null;
-
         var labels = new Dictionary<string, string>
         {
             ["app"] = "olve-pipelines",
             ["job-name"] = spec.Name,
         };
+
+        var volumes = new[]
+        {
+            new K8sVolume("input", new K8sEmptyDir()),
+            new K8sVolume("output", new K8sEmptyDir()),
+        };
+
+        // Runner env vars (user-defined + pipeline secrets)
+        var runnerEnv = new List<K8sEnvVar>();
+        if (spec.EnvironmentVariables is not null)
+        {
+            foreach (var (key, value) in spec.EnvironmentVariables)
+                runnerEnv.Add(new K8sEnvVar(key, value));
+        }
+
+        var runnerEnvFrom = spec.SecretName is not null
+            ? new[] { new K8sEnvFromSource(new K8sSecretRef(spec.SecretName)) }
+            : (K8sEnvFromSource[]?)null;
+
+        var runnerVolumeMounts = new[]
+        {
+            new K8sVolumeMount("input", "/input", ReadOnly: true),
+            new K8sVolumeMount("output", "/output"),
+        };
+
+        var runner = new K8sContainer(
+            "runner",
+            spec.Image,
+            Command: ["/bin/sh", "-c"],
+            Args: [spec.Script],
+            Env: runnerEnv.Count > 0 ? runnerEnv.ToArray() : null,
+            EnvFrom: runnerEnvFrom,
+            VolumeMounts: runnerVolumeMounts);
+
+        // S3 helper env/credentials
+        var s3HelperEnvFrom = new[] { new K8sEnvFromSource(new K8sSecretRef(spec.S3CredentialsSecretName)) };
+
+        // Build init containers
+        var initContainers = new List<K8sContainer>();
+
+        var insecureFlag = spec.S3SkipCertValidation ? " --insecure" : "";
+
+        // s3-download init container (processing jobs with input)
+        if (spec.InputBundleS3Prefix is not null)
+        {
+            var downloadScript = $"mc mirror{insecureFlag} s3/{spec.S3Bucket}/{spec.InputBundleS3Prefix}/ /input/";
+
+            initContainers.Add(new K8sContainer(
+                "s3-download",
+                spec.S3HelperImage,
+                Command: ["/bin/sh", "-c"],
+                Args: [downloadScript],
+                EnvFrom: s3HelperEnvFrom,
+                VolumeMounts: [new K8sVolumeMount("input", "/input")]));
+        }
+
+        // Runner runs as init container (so upload only happens on success)
+        initContainers.Add(runner);
+
+        // Main container: s3-upload
+        var uploadScript = $"mc mirror{insecureFlag} /output/ s3/{spec.S3Bucket}/{spec.OutputBundleS3Prefix}/";
+
+        var s3Upload = new K8sContainer(
+            "s3-upload",
+            spec.S3HelperImage,
+            Command: ["/bin/sh", "-c"],
+            Args: [uploadScript],
+            EnvFrom: s3HelperEnvFrom,
+            VolumeMounts: [new K8sVolumeMount("output", "/output", ReadOnly: true)]);
 
         return new K8sJobManifest(
             "batch/v1",
@@ -232,15 +284,10 @@ public class KubernetesClient : IDisposable
             new K8sJobSpecBody(
                 new K8sPodTemplateSpec(
                     new K8sMetadata(spec.Name, labels),
-                    new K8sPodSpec([
-                        new K8sContainer(
-                            "runner",
-                            spec.Image,
-                            Command: ["/bin/sh", "-c"],
-                            Args: [spec.Script],
-                            Env: envVars.Count > 0 ? envVars.ToArray() : null,
-                            EnvFrom: envFrom),
-                    ]))));
+                    new K8sPodSpec(
+                        Containers: [s3Upload],
+                        InitContainers: initContainers.ToArray(),
+                        Volumes: volumes))));
     }
 
     private static Dictionary<string, string> EncodeSecretData(Dictionary<string, string> data)

@@ -31,11 +31,21 @@ config:
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"
   OpenTelemetry__OAuth2__ClientId: "otel"
+  Storage__Endpoint: "https://minio.ovea.pro"
+  Storage__Bucket: "olve-pipelines"
+  Storage__AuthUrl: "https://auth.ovea.pro/application/o/token/"
+  Kubernetes__OpenBaoUrl: "https://openbao.ovea.pro"
+  Kubernetes__Namespace: "olve-runners"
 
 secrets:
   - name: authentik-oidc-secrets
     envMap:
-      OpenTelemetry__OAuth2__ClientSecret: olve-pipelines-client-secret
+      OpenTelemetry__OAuth2__ClientSecret: otel-client-secret
+  - name: olve-pipelines-oidc
+    envMap:
+      Storage__ClientId: client-id
+      Storage__ClientSecret: client-secret
+      Storage__RoleArn: role-arn
 
 slo:
   enabled: true

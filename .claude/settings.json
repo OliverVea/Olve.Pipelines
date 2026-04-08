@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "olve-packages": {
+      "source": {
+        "source": "github",
+        "repo": "OliverVea/Olve.Utilities",
+        "sparsePaths": [
+          ".claude-plugin",
+          "olve-packages"
+        ]
+      }
+    }
+  },
+  "enabledPlugins": {
+    "olve-packages@olve-packages": true
+  }
+}

@@ -46,7 +46,22 @@
       "WebSearch",
       "Bash(docker build:*)",
       "Bash(docker run:*)",
-      "Bash(xargs docker:*)"
+      "Bash(xargs docker:*)",
+      "Bash(grep -E \"\\\\.cs$\")",
+      "Bash(grep -E \"\\\\.\\(sln|yml|yaml|props|targets\\)$\")",
+      "Bash(grep:*)",
+      "WebFetch(domain:tunit.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(python3 -c \" import subprocess result = subprocess.run\\(['dotnet', 'exec', '--runtimeconfig', '/dev/null'], capture_output=True\\) \")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "Bash(find:*)",
+      "Bash(xargs ls:*)",
+      "Bash(docker save:*)",
+      "Bash(scp -r helm/ oliver@bulwark-m2:/tmp/olve-pipelines-helm/)",
+      "Bash(gzip)",
+      "Bash(nslookup pipelines-private.ovea.pro)",
+      "Bash(ping -n 1 100.100.117.17)"
     ]
   }
 }

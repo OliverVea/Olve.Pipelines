@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-private
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "100.100.117.17"
+spec:
+  rules:
+    - host: pipelines-private.ovea.pro
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port:
+                  number: {{ .Values.service.port }}

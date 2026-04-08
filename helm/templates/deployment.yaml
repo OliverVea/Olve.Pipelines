@@ -47,5 +47,14 @@ spec:
               port: {{ .Values.container.port }}
             initialDelaySeconds: 3
             periodSeconds: 5
+          volumeMounts:
+            - name: authentik-ca
+              mountPath: /etc/ssl/certs/auth-prod-ca.crt
+              subPath: auth-prod-ca.crt
+              readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: authentik-ca
+          configMap:
+            name: authentik-ca

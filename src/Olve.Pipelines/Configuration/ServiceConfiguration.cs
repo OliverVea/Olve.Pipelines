@@ -59,5 +59,6 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineService>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
+        services.AddHostedService<JobPersistenceService>();
     }
 }

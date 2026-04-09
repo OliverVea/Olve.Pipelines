@@ -5,6 +5,7 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Pipelines.Triggers;
 
 namespace Olve.Pipelines.Shared.Persistence;
 
@@ -14,11 +15,16 @@ public class ConfigurationPersistenceService(
     AttachmentStore<ProductionStep, StepConfiguration> productionConfigs,
     EntityStore<ProcessingStep> processingSteps,
     AttachmentStore<ProcessingStep, StepConfiguration> processingConfigs,
+    EntityStore<Trigger> triggers,
     StorageOptions storageOptions,
     ILogger<ConfigurationPersistenceService> logger,
-    IAmazonS3? s3 = null) : IHostedLifecycleService
+    IAmazonS3? s3 = null) : IHostedLifecycleService, IDisposable
 {
     private const string Key = "configuration.json";
+
+    private volatile bool _dirty;
+    private volatile bool _loading;
+    private Timer? _timer;
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
@@ -40,11 +46,19 @@ public class ConfigurationPersistenceService(
 
             if (snapshot is null) return;
 
-            LoadSnapshot(snapshot);
+            _loading = true;
+            try
+            {
+                LoadSnapshot(snapshot);
+            }
+            finally
+            {
+                _loading = false;
+            }
 
             logger.LogInformation(
-                "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps",
-                snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0);
+                "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
+                snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0, snapshot.Triggers?.Length ?? 0);
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -58,7 +72,48 @@ public class ConfigurationPersistenceService(
         await SaveAsync(cancellationToken);
     }
 
+    public Task StartedAsync(CancellationToken cancellationToken)
+    {
+        pipelines.OnAdded.Subscribe(_ => RequestSave());
+        pipelines.OnUpdated.Subscribe(_ => RequestSave());
+        pipelines.OnDeleted.Subscribe(_ => RequestSave());
+
+        productionSteps.OnAdded.Subscribe(_ => RequestSave());
+        productionSteps.OnUpdated.Subscribe(_ => RequestSave());
+        productionSteps.OnDeleted.Subscribe(_ => RequestSave());
+        productionConfigs.OnSet.Subscribe(_ => RequestSave());
+        productionConfigs.OnRemoved.Subscribe(_ => RequestSave());
+
+        processingSteps.OnAdded.Subscribe(_ => RequestSave());
+        processingSteps.OnUpdated.Subscribe(_ => RequestSave());
+        processingSteps.OnDeleted.Subscribe(_ => RequestSave());
+        processingConfigs.OnSet.Subscribe(_ => RequestSave());
+        processingConfigs.OnRemoved.Subscribe(_ => RequestSave());
+
+        triggers.OnAdded.Subscribe(_ => RequestSave());
+        triggers.OnUpdated.Subscribe(_ => RequestSave());
+        triggers.OnDeleted.Subscribe(_ => RequestSave());
+
+        _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        return Task.CompletedTask;
+    }
+
     public Task StoppingAsync(CancellationToken cancellationToken) => SaveAsync(cancellationToken);
+
+    private void RequestSave()
+    {
+        if (_loading) return;
+        _dirty = true;
+    }
+
+    private async void OnTimerTick(object? state)
+    {
+        if (!_dirty) return;
+        _dirty = false;
+
+        await SaveAsync(CancellationToken.None);
+    }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
@@ -85,8 +140,8 @@ public class ConfigurationPersistenceService(
             }, cancellationToken);
 
             logger.LogInformation(
-                "Saved configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps",
-                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length);
+                "Saved configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
+                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length, snapshot.Triggers?.Length ?? 0);
         }
         catch (Exception ex)
         {
@@ -114,7 +169,8 @@ public class ConfigurationPersistenceService(
                 return new ProcessingStepData(
                     s.Id, s.Name, s.PipelineId, s.Order,
                     config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
-            }).ToArray());
+            }).ToArray(),
+            Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray());
     }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
@@ -137,10 +193,14 @@ public class ConfigurationPersistenceService(
             if (s.Configuration is not null)
                 processingConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
         }
+
+        foreach (var t in snapshot.Triggers ?? [])
+            triggers.Set(new Trigger(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task StartedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StoppedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public void Dispose() => _timer?.Dispose();
 }

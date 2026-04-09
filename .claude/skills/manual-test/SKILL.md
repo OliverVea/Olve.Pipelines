@@ -33,72 +33,95 @@ TOKEN=$(curl -sk -X POST "https://auth-beta.ovea.pro/application/o/token/" \
   -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')")
 ```
 
+For **production** (deployed instance):
+```bash
+TOKEN=$(curl -sk -X POST "https://auth.ovea.pro/application/o/token/" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=olve-pipelines" \
+  -d "client_secret=d178464f2442ec91434117c488e1f70706ed03458634c4cace376d998bc59020" \
+  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')")
+```
+
 **Important:** Token fetch and API calls must happen in the **same shell invocation** (Bash tool calls don't share env vars). Chain with `&&`.
 
-## 3. API call reference
+## 3. API base URLs
+
+| Environment | Base URL | Auth provider |
+|---|---|---|
+| Local | `http://localhost:5000` | `auth-beta.ovea.pro` |
+| Production | `https://pipelines-private.ovea.pro` (use `-sk` with curl) | `auth.ovea.pro` |
+
+## 4. API call reference
 
 All mutating endpoints require `Authorization: Bearer $TOKEN`. GET list/get endpoints are anonymous.
 
 ### Create pipeline
 ```bash
-curl -s -X POST "http://localhost:5000/api/pipelines?name=my-pipeline" \
+curl -s -X POST "$BASE/api/pipelines?name=my-pipeline" \
   -H "Authorization: Bearer $TOKEN"
 # Returns: {"id":"...","name":"my-pipeline"}
 ```
 
 ### Create production step
 ```bash
-curl -s -X POST "http://localhost:5000/api/pipelines/$PIPELINE_ID/production" \
+curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/production" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"name":"my-step"}'
-# Returns: {"id":"...","name":"my-step","pipelineId":"..."}
+```
+
+### Create processing step
+```bash
+curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/processing" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"my-step"}'
 ```
 
 ### Set step configuration
 ```bash
-curl -s -X PUT "http://localhost:5000/api/production-steps/$STEP_ID/configuration" \
+curl -s -X PUT "$BASE/api/production-steps/$STEP_ID/configuration" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"image":"alpine:latest","script":"echo hello","environmentVariables":null}'
+  -d '{"image":"alpine:latest","script":"echo hello","environmentVariables":{}}'
+# Same pattern for processing-steps
 ```
 
-### Trigger production
+### Set pipeline secret (one at a time)
 ```bash
-curl -s -X POST "http://localhost:5000/api/pipelines/$PIPELINE_ID/trigger/production" \
+curl -s -X PUT "$BASE/api/pipelines/$PIPELINE_ID/secrets/MY_SECRET" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"value":"secret-value-here"}'
+```
+
+### Create webhook trigger
+```bash
+curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/triggers" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"my-trigger","target":{"$type":"production"}}'
+# Returns: {"id":"...","secret":"..."}
+```
+
+### Fire webhook trigger
+```bash
+curl -s -X POST "$BASE/api/webhooks/$TRIGGER_ID" \
+  -H "Authorization: Bearer $TRIGGER_SECRET"
+# No app-level auth — the trigger secret IS the auth
+```
+
+### Trigger production (direct, needs app auth)
+```bash
+curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/trigger/production" \
   -H "Authorization: Bearer $TOKEN"
-# Returns: job group with artifactBundleId
 ```
 
 ### List jobs
 ```bash
-curl -s http://localhost:5000/api/jobs
+curl -s $BASE/api/jobs
 # Anonymous. Returns array of jobs with status.
 ```
 
 ### Get job logs
 ```bash
-curl -s http://localhost:5000/api/jobs/$JOB_ID/logs
+curl -s $BASE/api/jobs/$JOB_ID/logs
 # Anonymous. Returns log string. Only available after job completes.
-```
-
-## 4. Full E2E test (single command)
-
-```bash
-TOKEN=$(curl -sk -X POST "https://auth-beta.ovea.pro/application/o/token/" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=<Storage:ClientId>" \
-  -d "client_secret=<Storage:ClientSecret>" \
-  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')") && \
-H="Authorization: Bearer $TOKEN" && \
-PIPELINE=$(curl -s -X POST "http://localhost:5000/api/pipelines?name=e2e-test" -H "$H") && \
-PID=$(echo "$PIPELINE" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
-STEP=$(curl -s -X POST "http://localhost:5000/api/pipelines/$PID/production" \
-  -H "$H" -H "Content-Type: application/json" -d '{"name":"echo-step"}') && \
-SID=$(echo "$STEP" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
-curl -s -X PUT "http://localhost:5000/api/production-steps/$SID/configuration" \
-  -H "$H" -H "Content-Type: application/json" \
-  -d '{"image":"alpine:latest","script":"echo hello from pipeline","environmentVariables":null}' > /dev/null && \
-curl -s -X POST "http://localhost:5000/api/pipelines/$PID/trigger/production" -H "$H" && \
-echo "" && echo "Triggered. Wait ~10s then check: curl -s http://localhost:5000/api/jobs"
 ```
 
 ## 5. Monitor K8s jobs
@@ -106,14 +129,19 @@ echo "" && echo "Triggered. Wait ~10s then check: curl -s http://localhost:5000/
 Jobs execute on the remote K8s cluster via SSH:
 
 ```bash
+# Production runners
+ssh oliver@bulwark-m2 "kubectl get jobs,pods -n olve-runners"
+# Beta runners
 ssh oliver@bulwark-m2 "kubectl get jobs,pods -n olve-runners-beta"
-ssh oliver@bulwark-m2 "kubectl logs <pod-name> -n olve-runners-beta"
+# Pod logs
+ssh oliver@bulwark-m2 "kubectl logs <pod-name> -n olve-runners -c runner"
 ```
 
 ## Notes
 
-- The app connects to MinIO at `https://minio-beta.ovea.pro` and K8s via OpenBao at `https://openbao-beta.ovea.pro`
+- **Beta**: MinIO at `minio-beta.ovea.pro`, K8s via OpenBao at `openbao-beta.ovea.pro`, runners in `olve-runners-beta`
+- **Production**: MinIO at `minio.ovea.pro`, K8s via OpenBao at `openbao.ovea.pro`, runners in `olve-runners`
 - Tokens expire after 1 hour — re-run the token command if you get 401s
-- The `olve-runners-beta` namespace is where K8s jobs are created
 - Pipeline creation takes `name` as a **query parameter**, not JSON body
 - Production/processing step creation takes `name` in a **JSON body**
+- Secrets endpoint is `PUT .../secrets/{name}` with `{"value":"..."}` — one secret at a time, not bulk

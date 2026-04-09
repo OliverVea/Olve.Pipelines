@@ -4,20 +4,12 @@
 // @ts-ignore
 import { createProcessingStepFromDiscriminatorValue, createResultProblemFromDiscriminatorValue, serializeCreateProcessingStepRequest, serializeProcessingStep, type CreateProcessingStepRequest, type ProcessingStep, type ResultProblem } from '../../../../models/index.js';
 // @ts-ignore
-import { type WithProcessingItemRequestBuilder, WithProcessingItemRequestBuilderNavigationMetadata, WithProcessingItemRequestBuilderRequestsMetadata } from './item/index.js';
-// @ts-ignore
-import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /api/pipelines/{-id}/processing
  */
 export interface ProcessingRequestBuilder extends BaseRequestBuilder<ProcessingRequestBuilder> {
-    /**
-     * Gets an item from the OlvePipelines.api.pipelines.item.processing.item collection
-     * @param processingId Unique identifier of the item
-     * @returns {WithProcessingItemRequestBuilder}
-     */
-     byProcessingId(processingId: Guid) : WithProcessingItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ProcessingStep[]>}
@@ -47,16 +39,6 @@ export interface ProcessingRequestBuilder extends BaseRequestBuilder<ProcessingR
  * Uri template for the request builder.
  */
 export const ProcessingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/processing";
-/**
- * Metadata for all the navigation properties in the request builder.
- */
-export const ProcessingRequestBuilderNavigationMetadata: Record<Exclude<keyof ProcessingRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    byProcessingId: {
-        requestsMetadata: WithProcessingItemRequestBuilderRequestsMetadata,
-        navigationMetadata: WithProcessingItemRequestBuilderNavigationMetadata,
-        pathParametersMappings: ["processingId"],
-    },
-};
 /**
  * Metadata for all the requests in the request builder.
  */

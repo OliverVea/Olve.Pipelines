@@ -5,6 +5,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Pipelines.Polling;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Persistence;
 
@@ -35,6 +36,7 @@ public static class ServiceConfiguration
         services.AddTransient<TriggerService>();
         services.AddTransient<TriggerCleanupService>();
         services.AddTransient<TriggerExecutionService>();
+        services.AddHostedService<PollTriggerService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();
         services.AddTransient<ArtifactBundleService>();

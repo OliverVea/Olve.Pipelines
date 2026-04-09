@@ -2351,13 +2351,56 @@
           },
           {
             "$ref": "#/components/schemas/TriggerTargetProcessingTriggerTarget"
+          },
+          {
+            "$ref": "#/components/schemas/TriggerTargetPollTriggerTarget"
           }
         ],
         "discriminator": {
           "propertyName": "$type",
           "mapping": {
             "production": "#/components/schemas/TriggerTargetProductionTriggerTarget",
-            "processing": "#/components/schemas/TriggerTargetProcessingTriggerTarget"
+            "processing": "#/components/schemas/TriggerTargetProcessingTriggerTarget",
+            "poll": "#/components/schemas/TriggerTargetPollTriggerTarget"
+          }
+        }
+      },
+      "TriggerTargetPollTriggerTarget": {
+        "required": [
+          "url",
+          "headers",
+          "valuePath"
+        ],
+        "properties": {
+          "$type": {
+            "enum": [
+              "poll"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "headers": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "valuePath": {
+            "type": "string"
+          },
+          "intervalSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 60
           }
         }
       },

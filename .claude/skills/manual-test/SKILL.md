@@ -99,6 +99,29 @@ curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/triggers" \
 # Returns: {"id":"...","secret":"..."}
 ```
 
+### Create poll trigger
+```bash
+curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/triggers" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "name":"my-poll",
+    "target":{
+      "$type":"poll",
+      "url":"https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
+      "headers":{
+        "Authorization":"Bearer $SECRET:GITHUB_TOKEN",
+        "User-Agent":"Olve.Pipelines",
+        "Accept":"application/vnd.github+json"
+      },
+      "valuePath":"sha",
+      "intervalSeconds":60
+    }
+  }'
+# Returns: {"id":"...","secret":"..."}
+# The poller starts automatically — no webhook call needed
+# Header values with $SECRET:NAME are resolved from pipeline K8s secrets at poll time
+```
+
 ### Fire webhook trigger
 ```bash
 curl -s -X POST "$BASE/api/webhooks/$TRIGGER_ID" \

@@ -116,7 +116,34 @@ curl -sk -X PUT "https://pipelines-private.ovea.pro/api/pipelines/$PID/secrets/S
   -d "{\"value\":$(echo "$SSH_KEY" | uv run python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))")}"
 ```
 
-## Step 8: Create webhook trigger
+## Step 8: Create trigger
+
+### Option A: Poll trigger (recommended — no external webhook needed)
+
+Creates a poll trigger that checks the GitHub API for new commits on `main` every 60 seconds. Requires `GITHUB_TOKEN` to be set as a pipeline secret (Step 7).
+
+```bash
+TRIGGER=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PID/triggers" \
+  -H "$H" -H "Content-Type: application/json" \
+  -d '{
+    "name":"github-poll",
+    "target":{
+      "$type":"poll",
+      "url":"https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
+      "headers":{
+        "Authorization":"Bearer $SECRET:GITHUB_TOKEN",
+        "User-Agent":"Olve.Pipelines",
+        "Accept":"application/vnd.github+json"
+      },
+      "valuePath":"sha",
+      "intervalSeconds":60
+    }
+  }') && \
+TRIGGER_ID=$(echo "$TRIGGER" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
+echo "Trigger ID: $TRIGGER_ID"
+```
+
+### Option B: Webhook trigger
 
 ```bash
 TRIGGER=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PID/triggers" \
@@ -146,4 +173,6 @@ Print the new IDs for the user:
 - Processing step ID
 - Webhook trigger ID and secret
 
-Then tell the user they can run `/deploy` to trigger a deployment.
+If a poll trigger was created, tell the user that deployments will happen automatically when new commits are pushed to `main`. They can also run `/deploy` to trigger a manual deployment.
+
+If a webhook trigger was created, tell the user they can run `/deploy` to trigger a deployment.

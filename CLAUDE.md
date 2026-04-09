@@ -21,6 +21,10 @@ Each production step runs in parallel and writes output to `bundle/<step-name>/`
 - **Pipeline** — top-level entity grouping all configuration for a single CD workflow.
 - **ProductionStep** — a parallel build/source step. A pipeline has many production steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment. Combined output of all production steps is an **ArtifactBundle**.
 - **ProcessingStep** — a sequential post-build action (e.g. deploy to staging). A pipeline has an ordered list of processing steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment.
+- **Trigger** — a named trigger attached to a pipeline. Three target types:
+  - `ProductionTriggerTarget` — fires all production steps (used by webhooks).
+  - `ProcessingTriggerTarget(ProcessingStepId)` — fires a specific processing step with an artifact bundle.
+  - `PollTriggerTarget(Url, Headers, ValuePath, IntervalSeconds)` — background poller that GETs a URL, extracts a JSON value via dot-path, and triggers production when the value changes. Header values can reference pipeline K8s secrets via `$SECRET:NAME`.
 - **ArtifactBundle** — the collected outputs as a zipped directory in S3: `bundle/<step-name>/<files>`. Produced by production, consumed by processing steps.
 - **Job** — a scheduled unit of work. Two types: `ProductionJob` and `ProcessingJob`.
 
@@ -69,6 +73,21 @@ dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tes
 dotnet test -p:RunIntegrationTests=true                     # All tests
 dotnet run --project src/Olve.Pipelines                     # Run locally
 ```
+
+### Frontend
+
+See [frontend/README.md](frontend/README.md) for full details.
+
+```bash
+cd frontend && npm install                                  # Install
+cd frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
+cd frontend && npm run build                                # Production build
+```
+
+- Stack: Lit + Vite + TypeScript
+- API client: Kiota-generated at `clients/olve-pipelines-client-ts/`, linked via `file:` reference
+- Regenerate client after API changes: `kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output`
+- Client deps must be installed separately: `cd clients/olve-pipelines-client-ts && npm install`
 
 ### Architecture Patterns
 

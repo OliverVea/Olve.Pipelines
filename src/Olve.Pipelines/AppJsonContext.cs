@@ -44,6 +44,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(TriggerEndpoints.WebhookRequest))]
 [JsonSerializable(typeof(ProductionTriggerTarget))]
 [JsonSerializable(typeof(ProcessingTriggerTarget))]
+[JsonSerializable(typeof(PollTriggerTarget))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 [JsonSerializable(typeof(TriggerProcessingRequest))]

@@ -6,18 +6,18 @@ import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscrimina
 // @ts-ignore
 import { ItemRequestBuilderNavigationMetadata, ItemRequestBuilderRequestsMetadata, type ItemRequestBuilder } from './item/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /api/pipelines
  */
 export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelines.api.pipelines.item collection
+     * Gets an item from the OlvePipelinesClient.api.pipelines.item collection
      * @param id Unique identifier of the item
      * @returns {ItemRequestBuilder}
      */
-     byId(id: Guid) : ItemRequestBuilder;
+     byId(id: string) : ItemRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Pipeline[]>}

@@ -22,12 +22,14 @@ src/Olve.Pipelines/                             # API application (minimal API, 
 ├── Kubernetes/                                  # K8s client, secrets, job specs
 ├── Pipelines/                                   # Pipeline CRUD, events
 │   ├── Building/                                # ArtifactBundle entity and endpoints
+│   ├── Polling/                                 # Poll trigger background service
 │   ├── Processing/                              # ProcessingStep entity, service, endpoints
 │   └── Production/                              # ProductionStep entity, service, endpoints
 ├── Shared/                                      # EntityStore, AttachmentStore, events, persistence
 └── Dockerfile                                   # Multi-stage build (AOT, chiseled)
 test/Olve.Pipelines.UnitTests/                   # Unit tests (TUnit + Rocks)
 test/Olve.Pipelines.IntegrationTests/            # Integration tests (TUnit + Testcontainers)
+frontend/                                        # Dashboard UI (Lit + Vite + TypeScript)
 clients/Olve.Pipelines.Client/                   # Generated C# client (Refitter source gen)
 clients/olve-pipelines-client-ts/                # Generated TypeScript client (Kiota)
 helm/                                            # Helm chart for Kubernetes
@@ -87,6 +89,21 @@ tools/version.cs                                 # CalVer versioning script
 | GET | `/api/jobs/queue` | Get scheduled job queue |
 | POST | `/api/jobs/{id}/cancel` | Cancel job |
 | DELETE | `/api/jobs/{id}` | Delete job |
+
+### Triggers
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipelines/{pipelineId}/triggers` | Create trigger |
+| GET | `/api/pipelines/{pipelineId}/triggers` | List triggers |
+| GET | `/api/triggers/{triggerId}` | Get trigger |
+| DELETE | `/api/triggers/{triggerId}` | Delete trigger |
+| POST | `/api/webhooks/{triggerId}` | Fire webhook trigger |
+
+Trigger types:
+- **production** — triggers all production steps
+- **processing** — triggers a specific processing step with an artifact bundle
+- **poll** — periodically GETs a URL, extracts a JSON value via dot-path, and triggers production when the value changes. Supports `$SECRET:NAME` references in headers resolved from pipeline K8s secrets.
 
 ### Secrets
 

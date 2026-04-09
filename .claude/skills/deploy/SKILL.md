@@ -89,4 +89,4 @@ production (build-and-package) ~3-5 min
     → app restarts with new image
 ```
 
-**Note:** Once the persistence fix (save-on-mutate) is deployed, pipeline config survives restarts — no need to run `/setup-pipeline` after every deploy. Until then, you'll need to run `/setup-pipeline` again before the next deploy.
+**Note:** Pipeline config is persisted to S3 and survives restarts. If using a poll trigger, deployments are also triggered automatically when the polled value changes (e.g. new commit on `main`).

@@ -4,13 +4,17 @@
 // @ts-ignore
 import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscriminatorValue, type Pipeline, type ResultProblem } from '../../../models/index.js';
 // @ts-ignore
-import { BuildersRequestBuilderNavigationMetadata, BuildersRequestBuilderRequestsMetadata, type BuildersRequestBuilder } from './builders/index.js';
+import { ArtifactBundlesRequestBuilderRequestsMetadata, type ArtifactBundlesRequestBuilder } from './artifactBundles/index.js';
 // @ts-ignore
-import { ProcessingRequestBuilderNavigationMetadata, ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
+import { ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
 // @ts-ignore
-import { SourcesRequestBuilderNavigationMetadata, SourcesRequestBuilderRequestsMetadata, type SourcesRequestBuilder } from './sources/index.js';
+import { ProductionRequestBuilderRequestsMetadata, type ProductionRequestBuilder } from './production/index.js';
+// @ts-ignore
+import { SecretsRequestBuilderNavigationMetadata, SecretsRequestBuilderRequestsMetadata, type SecretsRequestBuilder } from './secrets/index.js';
 // @ts-ignore
 import { TriggerRequestBuilderNavigationMetadata, type TriggerRequestBuilder } from './trigger/index.js';
+// @ts-ignore
+import { TriggersRequestBuilderRequestsMetadata, type TriggersRequestBuilder } from './triggers/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -19,21 +23,29 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilder> {
     /**
-     * The builders property
+     * The artifactBundles property
      */
-    get builders(): BuildersRequestBuilder;
+    get artifactBundles(): ArtifactBundlesRequestBuilder;
     /**
      * The processing property
      */
     get processing(): ProcessingRequestBuilder;
     /**
-     * The sources property
+     * The production property
      */
-    get sources(): SourcesRequestBuilder;
+    get production(): ProductionRequestBuilder;
+    /**
+     * The secrets property
+     */
+    get secrets(): SecretsRequestBuilder;
     /**
      * The trigger property
      */
     get trigger(): TriggerRequestBuilder;
+    /**
+     * The triggers property
+     */
+    get triggers(): TriggersRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
@@ -65,20 +77,24 @@ export const ItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}";
  * Metadata for all the navigation properties in the request builder.
  */
 export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    builders: {
-        requestsMetadata: BuildersRequestBuilderRequestsMetadata,
-        navigationMetadata: BuildersRequestBuilderNavigationMetadata,
+    artifactBundles: {
+        requestsMetadata: ArtifactBundlesRequestBuilderRequestsMetadata,
     },
     processing: {
         requestsMetadata: ProcessingRequestBuilderRequestsMetadata,
-        navigationMetadata: ProcessingRequestBuilderNavigationMetadata,
     },
-    sources: {
-        requestsMetadata: SourcesRequestBuilderRequestsMetadata,
-        navigationMetadata: SourcesRequestBuilderNavigationMetadata,
+    production: {
+        requestsMetadata: ProductionRequestBuilderRequestsMetadata,
+    },
+    secrets: {
+        requestsMetadata: SecretsRequestBuilderRequestsMetadata,
+        navigationMetadata: SecretsRequestBuilderNavigationMetadata,
     },
     trigger: {
         navigationMetadata: TriggerRequestBuilderNavigationMetadata,
+    },
+    triggers: {
+        requestsMetadata: TriggersRequestBuilderRequestsMetadata,
     },
 };
 /**

@@ -61,7 +61,18 @@
       "Bash(scp -r helm/ oliver@bulwark-m2:/tmp/olve-pipelines-helm/)",
       "Bash(gzip)",
       "Bash(nslookup pipelines-private.ovea.pro)",
-      "Bash(ping -n 1 100.100.117.17)"
+      "Bash(ping -n 1 100.100.117.17)",
+      "Bash(xargs -I{} curl -sk \"https://pipelines-private.ovea.pro/api/jobs/{}/logs\")",
+      "Bash(echo \"exit: $?\")",
+      "Skill(setup-pipeline)",
+      "Bash(npx @microsoft/kiota --version)",
+      "Bash(kiota generate:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx vite:*)",
+      "Bash(rtk npm:*)",
+      "Bash(rtk npx:*)"
     ]
   }
 }

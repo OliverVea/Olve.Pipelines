@@ -18,10 +18,6 @@ export interface ArtifactBundle extends AdditionalDataHolder, Parsable {
      */
     pipelineId?: Guid | null;
     /**
-     * The sourceBundleId property
-     */
-    sourceBundleId?: Guid | null;
-    /**
      * The status property
      */
     status?: number | null;
@@ -38,24 +34,6 @@ export function createArtifactBundleFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CreatePipelineBuilderRequest}
- */
-// @ts-ignore
-export function createCreatePipelineBuilderRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCreatePipelineBuilderRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CreatePipelineSourceRequest}
- */
-// @ts-ignore
-export function createCreatePipelineSourceRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCreatePipelineSourceRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {CreateProcessingStepRequest}
  */
 // @ts-ignore
@@ -65,53 +43,146 @@ export function createCreateProcessingStepRequestFromDiscriminatorValue(parseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CreateVerificationRequest}
+ * @returns {CreateProductionStepRequest}
  */
 // @ts-ignore
-export function createCreateVerificationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCreateVerificationRequest;
+export function createCreateProductionStepRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateProductionStepRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {GitHubSource}
+ * @returns {CreateTriggerRequest}
  */
 // @ts-ignore
-export function createGitHubSourceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoGitHubSource;
+export function createCreateTriggerRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateTriggerRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {HardcodedSource_files}
+ * @returns {IdOfArtifactBundle}
  */
 // @ts-ignore
-export function createHardcodedSource_filesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoHardcodedSource_files;
+export function createIdOfArtifactBundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoIdOfArtifactBundle;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {HardcodedSource}
+ * @returns {JobGroupProcessingJobGroup}
  */
 // @ts-ignore
-export function createHardcodedSourceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoHardcodedSource;
+export function createJobGroupProcessingJobGroupFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobGroupProcessingJobGroup;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineBuilder}
+ * @returns {JobGroupProductionJobGroup}
  */
 // @ts-ignore
-export function createPipelineBuilderFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineBuilder;
+export function createJobGroupProductionJobGroupFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobGroupProductionJobGroup;
 }
-export interface CreatePipelineBuilderRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The name property
-     */
-    name?: string | null;
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobProcessingJob_processingResultMember1 | Result}
+ */
+// @ts-ignore
+export function createJobProcessingJob_processingResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobProcessingJob_processingResult;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobProcessingJob_processingResultMember1}
+ */
+// @ts-ignore
+export function createJobProcessingJob_processingResultMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobProcessingJob_processingResultMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobProcessingJob}
+ */
+// @ts-ignore
+export function createJobProcessingJobFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobProcessingJob;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobProductionJob}
+ */
+// @ts-ignore
+export function createJobProductionJobFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobProductionJob;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusCancelled}
+ */
+// @ts-ignore
+export function createJobStatusCancelledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusCancelled;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusDone}
+ */
+// @ts-ignore
+export function createJobStatusDoneFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusDone;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusFailed}
+ */
+// @ts-ignore
+export function createJobStatusFailedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusFailed;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled}
+ */
+// @ts-ignore
+export function createJobStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatus;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusInProgress}
+ */
+// @ts-ignore
+export function createJobStatusInProgressFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusInProgress;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusObsolete}
+ */
+// @ts-ignore
+export function createJobStatusObsoleteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusObsolete;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JobStatusScheduled}
+ */
+// @ts-ignore
+export function createJobStatusScheduledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJobStatusScheduled;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -125,17 +196,11 @@ export function createPipelineFromDiscriminatorValue(parseNode: ParseNode | unde
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineSource}
+ * @returns {ProcessingJobKey}
  */
 // @ts-ignore
-export function createPipelineSourceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineSource;
-}
-export interface CreatePipelineSourceRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The name property
-     */
-    name?: string | null;
+export function createProcessingJobKeyFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProcessingJobKey;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -151,6 +216,43 @@ export interface CreateProcessingStepRequest extends AdditionalDataHolder, Parsa
      * The name property
      */
     name?: string | null;
+    /**
+     * The order property
+     */
+    order?: UntypedNode | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProductionJobKey}
+ */
+// @ts-ignore
+export function createProductionJobKeyFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProductionJobKey;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProductionStep}
+ */
+// @ts-ignore
+export function createProductionStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProductionStep;
+}
+export interface CreateProductionStepRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Result}
+ */
+// @ts-ignore
+export function createResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoResult;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -164,107 +266,138 @@ export function createResultProblemFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ScriptBuilder}
+ * @returns {SetSecretRequest}
  */
 // @ts-ignore
-export function createScriptBuilderFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoScriptBuilder;
+export function createSetSecretRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetSecretRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ScriptProcessing}
+ * @returns {SetStepConfigurationRequest_environmentVariables}
  */
 // @ts-ignore
-export function createScriptProcessingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoScriptProcessing;
+export function createSetStepConfigurationRequest_environmentVariablesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetStepConfigurationRequest_environmentVariables;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ScriptVerification}
+ * @returns {SetStepConfigurationRequest}
  */
 // @ts-ignore
-export function createScriptVerificationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoScriptVerification;
+export function createSetStepConfigurationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetStepConfigurationRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetGitHubSourceRequest}
+ * @returns {StepConfiguration_environmentVariables}
  */
 // @ts-ignore
-export function createSetGitHubSourceRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetGitHubSourceRequest;
+export function createStepConfiguration_environmentVariablesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepConfiguration_environmentVariables;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetHardcodedSourceRequest_files}
+ * @returns {StepConfiguration}
  */
 // @ts-ignore
-export function createSetHardcodedSourceRequest_filesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetHardcodedSourceRequest_files;
+export function createStepConfigurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepConfiguration;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetHardcodedSourceRequest}
+ * @returns {Trigger}
  */
 // @ts-ignore
-export function createSetHardcodedSourceRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetHardcodedSourceRequest;
+export function createTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTrigger;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetScriptBuilderRequest}
+ * @returns {TriggerProcessingRequest}
  */
 // @ts-ignore
-export function createSetScriptBuilderRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetScriptBuilderRequest;
+export function createTriggerProcessingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerProcessingRequest;
 }
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetScriptProcessingRequest}
- */
-// @ts-ignore
-export function createSetScriptProcessingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetScriptProcessingRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetScriptVerificationRequest}
- */
-// @ts-ignore
-export function createSetScriptVerificationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetScriptVerificationRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SourceBundle}
- */
-// @ts-ignore
-export function createSourceBundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSourceBundle;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {Verification}
- */
-// @ts-ignore
-export function createVerificationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoVerification;
-}
-export interface CreateVerificationRequest extends AdditionalDataHolder, Parsable {
+export interface CreateTriggerRequest extends AdditionalDataHolder, Parsable {
     /**
      * The name property
      */
     name?: string | null;
+    /**
+     * The target property
+     */
+    target?: TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget}
+ */
+// @ts-ignore
+export function createTriggerTargetFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTarget;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetProcessingTriggerTarget}
+ */
+// @ts-ignore
+export function createTriggerTargetProcessingTriggerTargetFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetProcessingTriggerTarget;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetProductionTriggerTarget}
+ */
+// @ts-ignore
+export function createTriggerTargetProductionTriggerTargetFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetProductionTriggerTarget;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateOrderRequest}
+ */
+// @ts-ignore
+export function createUpdateOrderRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateOrderRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1}
+ */
+// @ts-ignore
+export function createWebhookRequest_artifactBundleIdFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWebhookRequest_artifactBundleId;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WebhookRequest_artifactBundleIdMember1}
+ */
+// @ts-ignore
+export function createWebhookRequest_artifactBundleIdMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWebhookRequest_artifactBundleIdMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {WebhookRequest}
+ */
+// @ts-ignore
+export function createWebhookRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoWebhookRequest;
 }
 /**
  * The deserialization information for the current model
@@ -277,30 +410,7 @@ export function deserializeIntoArtifactBundle(artifactBundle: Partial<ArtifactBu
         "createdAt": n => { artifactBundle.createdAt = n.getDateValue(); },
         "id": n => { artifactBundle.id = n.getGuidValue(); },
         "pipelineId": n => { artifactBundle.pipelineId = n.getGuidValue(); },
-        "sourceBundleId": n => { artifactBundle.sourceBundleId = n.getGuidValue(); },
         "status": n => { artifactBundle.status = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param CreatePipelineBuilderRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoCreatePipelineBuilderRequest(createPipelineBuilderRequest: Partial<CreatePipelineBuilderRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "name": n => { createPipelineBuilderRequest.name = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param CreatePipelineSourceRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoCreatePipelineSourceRequest(createPipelineSourceRequest: Partial<CreatePipelineSourceRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "name": n => { createPipelineSourceRequest.name = n.getStringValue(); },
     }
 }
 /**
@@ -312,51 +422,222 @@ export function deserializeIntoCreatePipelineSourceRequest(createPipelineSourceR
 export function deserializeIntoCreateProcessingStepRequest(createProcessingStepRequest: Partial<CreateProcessingStepRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "name": n => { createProcessingStepRequest.name = n.getStringValue(); },
+        "order": n => { createProcessingStepRequest.order = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param CreateVerificationRequest The instance to deserialize into.
+ * @param CreateProductionStepRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoCreateVerificationRequest(createVerificationRequest: Partial<CreateVerificationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoCreateProductionStepRequest(createProductionStepRequest: Partial<CreateProductionStepRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "name": n => { createVerificationRequest.name = n.getStringValue(); },
+        "name": n => { createProductionStepRequest.name = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param GitHubSource The instance to deserialize into.
+ * @param CreateTriggerRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoGitHubSource(gitHubSource: Partial<GitHubSource> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoCreateTriggerRequest(createTriggerRequest: Partial<CreateTriggerRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "branch": n => { gitHubSource.branch = n.getStringValue(); },
-        "owner": n => { gitHubSource.owner = n.getStringValue(); },
-        "repository": n => { gitHubSource.repository = n.getStringValue(); },
+        "name": n => { createTriggerRequest.name = n.getStringValue(); },
+        "target": n => { createTriggerRequest.target = n.getObjectValue<TriggerTargetProcessingTriggerTarget>(createTriggerTargetProcessingTriggerTargetFromDiscriminatorValue) ?? n.getObjectValue<TriggerTargetProductionTriggerTarget>(createTriggerTargetProductionTriggerTargetFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param HardcodedSource The instance to deserialize into.
+ * @param IdOfArtifactBundle The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoHardcodedSource(hardcodedSource: Partial<HardcodedSource> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoIdOfArtifactBundle(idOfArtifactBundle: Partial<IdOfArtifactBundle> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "files": n => { hardcodedSource.files = n.getObjectValue<HardcodedSource_files>(createHardcodedSource_filesFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param HardcodedSource_files The instance to deserialize into.
+ * @param JobGroupProcessingJobGroup The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoHardcodedSource_files(hardcodedSource_files: Partial<HardcodedSource_files> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoJobGroupProcessingJobGroup(jobGroupProcessingJobGroup: Partial<JobGroupProcessingJobGroup> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "artifactBundleId": n => { jobGroupProcessingJobGroup.artifactBundleId = n.getGuidValue(); },
+        "createdAt": n => { jobGroupProcessingJobGroup.createdAt = n.getDateValue(); },
+        "id": n => { jobGroupProcessingJobGroup.id = n.getGuidValue(); },
+        "pipelineId": n => { jobGroupProcessingJobGroup.pipelineId = n.getGuidValue(); },
+        "processingStepId": n => { jobGroupProcessingJobGroup.processingStepId = n.getGuidValue(); },
+        "$type": n => { jobGroupProcessingJobGroup.type = n.getEnumValue<JobGroupProcessingJobGroup_Type>(JobGroupProcessingJobGroup_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobGroupProductionJobGroup The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobGroupProductionJobGroup(jobGroupProductionJobGroup: Partial<JobGroupProductionJobGroup> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "artifactBundleId": n => { jobGroupProductionJobGroup.artifactBundleId = n.getGuidValue(); },
+        "createdAt": n => { jobGroupProductionJobGroup.createdAt = n.getDateValue(); },
+        "id": n => { jobGroupProductionJobGroup.id = n.getGuidValue(); },
+        "pipelineId": n => { jobGroupProductionJobGroup.pipelineId = n.getGuidValue(); },
+        "$type": n => { jobGroupProductionJobGroup.type = n.getEnumValue<JobGroupProductionJobGroup_Type>(JobGroupProductionJobGroup_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobProcessingJob The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobProcessingJob(jobProcessingJob: Partial<JobProcessingJob> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "artifactBundleId": n => { jobProcessingJob.artifactBundleId = n.getGuidValue(); },
+        "createdAt": n => { jobProcessingJob.createdAt = n.getDateValue(); },
+        "id": n => { jobProcessingJob.id = n.getGuidValue(); },
+        "jobGroupId": n => { jobProcessingJob.jobGroupId = n.getGuidValue(); },
+        "jobKey": n => { jobProcessingJob.jobKey = n.getObjectValue<ProcessingJobKey>(createProcessingJobKeyFromDiscriminatorValue); },
+        "pipelineId": n => { jobProcessingJob.pipelineId = n.getGuidValue(); },
+        "processingResult": n => { jobProcessingJob.processingResult = n.getObjectValue<JobProcessingJob_processingResultMember1>(createJobProcessingJob_processingResultMember1FromDiscriminatorValue) ?? n.getObjectValue<Result>(createResultFromDiscriminatorValue); },
+        "processingStepId": n => { jobProcessingJob.processingStepId = n.getGuidValue(); },
+        "status": n => { jobProcessingJob.status = n.getObjectValue<JobStatusCancelled>(createJobStatusCancelledFromDiscriminatorValue) ?? n.getObjectValue<JobStatusDone>(createJobStatusDoneFromDiscriminatorValue) ?? n.getObjectValue<JobStatusFailed>(createJobStatusFailedFromDiscriminatorValue) ?? n.getObjectValue<JobStatusInProgress>(createJobStatusInProgressFromDiscriminatorValue) ?? n.getObjectValue<JobStatusObsolete>(createJobStatusObsoleteFromDiscriminatorValue) ?? n.getObjectValue<JobStatusScheduled>(createJobStatusScheduledFromDiscriminatorValue); },
+        "$type": n => { jobProcessingJob.type = n.getEnumValue<JobProcessingJob_Type>(JobProcessingJob_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobProcessingJob_processingResult The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobProcessingJob_processingResult(jobProcessingJob_processingResult: Partial<JobProcessingJob_processingResultMember1 | Result> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoJobProcessingJob_processingResultMember1(jobProcessingJob_processingResult as JobProcessingJob_processingResultMember1),
+        ...deserializeIntoResult(jobProcessingJob_processingResult as Result),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobProcessingJob_processingResultMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobProcessingJob_processingResultMember1(jobProcessingJob_processingResultMember1: Partial<JobProcessingJob_processingResultMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobProductionJob The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobProductionJob(jobProductionJob: Partial<JobProductionJob> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "createdAt": n => { jobProductionJob.createdAt = n.getDateValue(); },
+        "id": n => { jobProductionJob.id = n.getGuidValue(); },
+        "jobGroupId": n => { jobProductionJob.jobGroupId = n.getGuidValue(); },
+        "jobKey": n => { jobProductionJob.jobKey = n.getObjectValue<ProductionJobKey>(createProductionJobKeyFromDiscriminatorValue); },
+        "pipelineId": n => { jobProductionJob.pipelineId = n.getGuidValue(); },
+        "productionStepId": n => { jobProductionJob.productionStepId = n.getGuidValue(); },
+        "status": n => { jobProductionJob.status = n.getObjectValue<JobStatusCancelled>(createJobStatusCancelledFromDiscriminatorValue) ?? n.getObjectValue<JobStatusDone>(createJobStatusDoneFromDiscriminatorValue) ?? n.getObjectValue<JobStatusFailed>(createJobStatusFailedFromDiscriminatorValue) ?? n.getObjectValue<JobStatusInProgress>(createJobStatusInProgressFromDiscriminatorValue) ?? n.getObjectValue<JobStatusObsolete>(createJobStatusObsoleteFromDiscriminatorValue) ?? n.getObjectValue<JobStatusScheduled>(createJobStatusScheduledFromDiscriminatorValue); },
+        "$type": n => { jobProductionJob.type = n.getEnumValue<JobProductionJob_Type>(JobProductionJob_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatus The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatus(jobStatus: Partial<JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoJobStatusCancelled(jobStatus as JobStatusCancelled),
+        ...deserializeIntoJobStatusDone(jobStatus as JobStatusDone),
+        ...deserializeIntoJobStatusFailed(jobStatus as JobStatusFailed),
+        ...deserializeIntoJobStatusInProgress(jobStatus as JobStatusInProgress),
+        ...deserializeIntoJobStatusObsolete(jobStatus as JobStatusObsolete),
+        ...deserializeIntoJobStatusScheduled(jobStatus as JobStatusScheduled),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusCancelled The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusCancelled(jobStatusCancelled: Partial<JobStatusCancelled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "cancelledAt": n => { jobStatusCancelled.cancelledAt = n.getDateValue(); },
+        "startedAt": n => { jobStatusCancelled.startedAt = n.getDateValue(); },
+        "$type": n => { jobStatusCancelled.type = n.getEnumValue<JobStatusCancelled_Type>(JobStatusCancelled_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusDone The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusDone(jobStatusDone: Partial<JobStatusDone> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "completedAt": n => { jobStatusDone.completedAt = n.getDateValue(); },
+        "startedAt": n => { jobStatusDone.startedAt = n.getDateValue(); },
+        "$type": n => { jobStatusDone.type = n.getEnumValue<JobStatusDone_Type>(JobStatusDone_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusFailed The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusFailed(jobStatusFailed: Partial<JobStatusFailed> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "failedAt": n => { jobStatusFailed.failedAt = n.getDateValue(); },
+        "reason": n => { jobStatusFailed.reason = n.getStringValue(); },
+        "startedAt": n => { jobStatusFailed.startedAt = n.getDateValue(); },
+        "$type": n => { jobStatusFailed.type = n.getEnumValue<JobStatusFailed_Type>(JobStatusFailed_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusInProgress The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusInProgress(jobStatusInProgress: Partial<JobStatusInProgress> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "startedAt": n => { jobStatusInProgress.startedAt = n.getDateValue(); },
+        "$type": n => { jobStatusInProgress.type = n.getEnumValue<JobStatusInProgress_Type>(JobStatusInProgress_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusObsolete The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusObsolete(jobStatusObsolete: Partial<JobStatusObsolete> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "supersedingJobId": n => { jobStatusObsolete.supersedingJobId = n.getGuidValue(); },
+        "$type": n => { jobStatusObsolete.type = n.getEnumValue<JobStatusObsolete_Type>(JobStatusObsolete_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param JobStatusScheduled The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJobStatusScheduled(jobStatusScheduled: Partial<JobStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "$type": n => { jobStatusScheduled.type = n.getEnumValue<JobStatusScheduled_Type>(JobStatusScheduled_TypeObject); },
     }
 }
 /**
@@ -373,30 +654,14 @@ export function deserializeIntoPipeline(pipeline: Partial<Pipeline> | undefined 
 }
 /**
  * The deserialization information for the current model
- * @param PipelineBuilder The instance to deserialize into.
+ * @param ProcessingJobKey The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoPipelineBuilder(pipelineBuilder: Partial<PipelineBuilder> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoProcessingJobKey(processingJobKey: Partial<ProcessingJobKey> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "id": n => { pipelineBuilder.id = n.getGuidValue(); },
-        "name": n => { pipelineBuilder.name = n.getStringValue(); },
-        "pipelineId": n => { pipelineBuilder.pipelineId = n.getGuidValue(); },
-        "type": n => { pipelineBuilder.type = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PipelineSource The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPipelineSource(pipelineSource: Partial<PipelineSource> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "id": n => { pipelineSource.id = n.getGuidValue(); },
-        "name": n => { pipelineSource.name = n.getStringValue(); },
-        "pipelineId": n => { pipelineSource.pipelineId = n.getGuidValue(); },
-        "type": n => { pipelineSource.type = n.getNumberValue(); },
+        "pipelineId": n => { processingJobKey.pipelineId = n.getGuidValue(); },
+        "processingStepId": n => { processingJobKey.processingStepId = n.getGuidValue(); },
     }
 }
 /**
@@ -409,8 +674,46 @@ export function deserializeIntoProcessingStep(processingStep: Partial<Processing
     return {
         "id": n => { processingStep.id = n.getGuidValue(); },
         "name": n => { processingStep.name = n.getStringValue(); },
+        "order": n => { processingStep.order = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "pipelineId": n => { processingStep.pipelineId = n.getGuidValue(); },
-        "type": n => { processingStep.type = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProductionJobKey The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProductionJobKey(productionJobKey: Partial<ProductionJobKey> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "pipelineId": n => { productionJobKey.pipelineId = n.getGuidValue(); },
+        "productionStepId": n => { productionJobKey.productionStepId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProductionStep The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProductionStep(productionStep: Partial<ProductionStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "id": n => { productionStep.id = n.getGuidValue(); },
+        "name": n => { productionStep.name = n.getStringValue(); },
+        "pipelineId": n => { productionStep.pipelineId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param Result The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoResult(result: Partial<Result> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "failed": n => { result.failed = n.getBooleanValue(); },
+        "problems": n => { result.problems = n.getCollectionOfObjectValues<ResultProblem>(createResultProblemFromDiscriminatorValue); },
+        "succeeded": n => { result.succeeded = n.getBooleanValue(); },
     }
 }
 /**
@@ -430,154 +733,380 @@ export function deserializeIntoResultProblem(resultProblem: Partial<ResultProble
 }
 /**
  * The deserialization information for the current model
- * @param ScriptBuilder The instance to deserialize into.
+ * @param SetSecretRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoScriptBuilder(scriptBuilder: Partial<ScriptBuilder> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetSecretRequest(setSecretRequest: Partial<SetSecretRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "script": n => { scriptBuilder.script = n.getStringValue(); },
+        "value": n => { setSecretRequest.value = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param ScriptProcessing The instance to deserialize into.
+ * @param SetStepConfigurationRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoScriptProcessing(scriptProcessing: Partial<ScriptProcessing> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetStepConfigurationRequest(setStepConfigurationRequest: Partial<SetStepConfigurationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "script": n => { scriptProcessing.script = n.getStringValue(); },
+        "environmentVariables": n => { setStepConfigurationRequest.environmentVariables = n.getObjectValue<SetStepConfigurationRequest_environmentVariables>(createSetStepConfigurationRequest_environmentVariablesFromDiscriminatorValue); },
+        "image": n => { setStepConfigurationRequest.image = n.getStringValue(); },
+        "script": n => { setStepConfigurationRequest.script = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param ScriptVerification The instance to deserialize into.
+ * @param SetStepConfigurationRequest_environmentVariables The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoScriptVerification(scriptVerification: Partial<ScriptVerification> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "script": n => { scriptVerification.script = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SetGitHubSourceRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSetGitHubSourceRequest(setGitHubSourceRequest: Partial<SetGitHubSourceRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "branch": n => { setGitHubSourceRequest.branch = n.getStringValue(); },
-        "owner": n => { setGitHubSourceRequest.owner = n.getStringValue(); },
-        "repository": n => { setGitHubSourceRequest.repository = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SetHardcodedSourceRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSetHardcodedSourceRequest(setHardcodedSourceRequest: Partial<SetHardcodedSourceRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "files": n => { setHardcodedSourceRequest.files = n.getObjectValue<SetHardcodedSourceRequest_files>(createSetHardcodedSourceRequest_filesFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SetHardcodedSourceRequest_files The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSetHardcodedSourceRequest_files(setHardcodedSourceRequest_files: Partial<SetHardcodedSourceRequest_files> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetStepConfigurationRequest_environmentVariables(setStepConfigurationRequest_environmentVariables: Partial<SetStepConfigurationRequest_environmentVariables> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
     }
 }
 /**
  * The deserialization information for the current model
- * @param SetScriptBuilderRequest The instance to deserialize into.
+ * @param StepConfiguration The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetScriptBuilderRequest(setScriptBuilderRequest: Partial<SetScriptBuilderRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoStepConfiguration(stepConfiguration: Partial<StepConfiguration> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "script": n => { setScriptBuilderRequest.script = n.getStringValue(); },
+        "environmentVariables": n => { stepConfiguration.environmentVariables = n.getObjectValue<StepConfiguration_environmentVariables>(createStepConfiguration_environmentVariablesFromDiscriminatorValue); },
+        "image": n => { stepConfiguration.image = n.getStringValue(); },
+        "script": n => { stepConfiguration.script = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param SetScriptProcessingRequest The instance to deserialize into.
+ * @param StepConfiguration_environmentVariables The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetScriptProcessingRequest(setScriptProcessingRequest: Partial<SetScriptProcessingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoStepConfiguration_environmentVariables(stepConfiguration_environmentVariables: Partial<StepConfiguration_environmentVariables> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "script": n => { setScriptProcessingRequest.script = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param SetScriptVerificationRequest The instance to deserialize into.
+ * @param Trigger The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetScriptVerificationRequest(setScriptVerificationRequest: Partial<SetScriptVerificationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoTrigger(trigger: Partial<Trigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "script": n => { setScriptVerificationRequest.script = n.getStringValue(); },
+        "createdAt": n => { trigger.createdAt = n.getDateValue(); },
+        "id": n => { trigger.id = n.getGuidValue(); },
+        "name": n => { trigger.name = n.getStringValue(); },
+        "pipelineId": n => { trigger.pipelineId = n.getGuidValue(); },
+        "secret": n => { trigger.secret = n.getStringValue(); },
+        "target": n => { trigger.target = n.getObjectValue<TriggerTargetProcessingTriggerTarget>(createTriggerTargetProcessingTriggerTargetFromDiscriminatorValue) ?? n.getObjectValue<TriggerTargetProductionTriggerTarget>(createTriggerTargetProductionTriggerTargetFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param SourceBundle The instance to deserialize into.
+ * @param TriggerProcessingRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSourceBundle(sourceBundle: Partial<SourceBundle> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoTriggerProcessingRequest(triggerProcessingRequest: Partial<TriggerProcessingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "createdAt": n => { sourceBundle.createdAt = n.getDateValue(); },
-        "id": n => { sourceBundle.id = n.getGuidValue(); },
-        "pipelineId": n => { sourceBundle.pipelineId = n.getGuidValue(); },
-        "status": n => { sourceBundle.status = n.getNumberValue(); },
+        "artifactBundleId": n => { triggerProcessingRequest.artifactBundleId = n.getGuidValue(); },
+        "processingStepId": n => { triggerProcessingRequest.processingStepId = n.getGuidValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param Verification The instance to deserialize into.
+ * @param TriggerTarget The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoVerification(verification: Partial<Verification> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoTriggerTarget(triggerTarget: Partial<TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "id": n => { verification.id = n.getGuidValue(); },
-        "name": n => { verification.name = n.getStringValue(); },
-        "processingStepId": n => { verification.processingStepId = n.getGuidValue(); },
-        "type": n => { verification.type = n.getNumberValue(); },
+        ...deserializeIntoTriggerTargetProcessingTriggerTarget(triggerTarget as TriggerTargetProcessingTriggerTarget),
+        ...deserializeIntoTriggerTargetProductionTriggerTarget(triggerTarget as TriggerTargetProductionTriggerTarget),
     }
 }
-export interface GitHubSource extends AdditionalDataHolder, Parsable {
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetProcessingTriggerTarget The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetProcessingTriggerTarget(triggerTargetProcessingTriggerTarget: Partial<TriggerTargetProcessingTriggerTarget> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "processingStepId": n => { triggerTargetProcessingTriggerTarget.processingStepId = n.getGuidValue(); },
+        "$type": n => { triggerTargetProcessingTriggerTarget.type = n.getEnumValue<TriggerTargetProcessingTriggerTarget_Type>(TriggerTargetProcessingTriggerTarget_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetProductionTriggerTarget The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetProductionTriggerTarget(triggerTargetProductionTriggerTarget: Partial<TriggerTargetProductionTriggerTarget> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "$type": n => { triggerTargetProductionTriggerTarget.type = n.getEnumValue<TriggerTargetProductionTriggerTarget_Type>(TriggerTargetProductionTriggerTarget_TypeObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateOrderRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateOrderRequest(updateOrderRequest: Partial<UpdateOrderRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "order": n => { updateOrderRequest.order = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WebhookRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWebhookRequest(webhookRequest: Partial<WebhookRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "artifactBundleId": n => { webhookRequest.artifactBundleId = n.getObjectValue<IdOfArtifactBundle>(createIdOfArtifactBundleFromDiscriminatorValue) ?? n.getObjectValue<WebhookRequest_artifactBundleIdMember1>(createWebhookRequest_artifactBundleIdMember1FromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WebhookRequest_artifactBundleId The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWebhookRequest_artifactBundleId(webhookRequest_artifactBundleId: Partial<IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoIdOfArtifactBundle(webhookRequest_artifactBundleId as IdOfArtifactBundle),
+        ...deserializeIntoWebhookRequest_artifactBundleIdMember1(webhookRequest_artifactBundleId as WebhookRequest_artifactBundleIdMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param WebhookRequest_artifactBundleIdMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoWebhookRequest_artifactBundleIdMember1(webhookRequest_artifactBundleIdMember1: Partial<WebhookRequest_artifactBundleIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+export interface IdOfArtifactBundle extends AdditionalDataHolder, Parsable {
+}
+export interface JobGroupProcessingJobGroup extends AdditionalDataHolder, Parsable {
     /**
-     * The branch property
+     * The artifactBundleId property
      */
-    branch?: string | null;
+    artifactBundleId?: Guid | null;
     /**
-     * The owner property
+     * The createdAt property
      */
-    owner?: string | null;
+    createdAt?: Date | null;
     /**
-     * The repository property
+     * The id property
      */
-    repository?: string | null;
-}
-export interface HardcodedSource extends AdditionalDataHolder, Parsable {
+    id?: Guid | null;
     /**
-     * The files property
+     * The pipelineId property
      */
-    files?: HardcodedSource_files | null;
+    pipelineId?: Guid | null;
+    /**
+     * The processingStepId property
+     */
+    processingStepId?: Guid | null;
+    /**
+     * The Type property
+     */
+    type?: JobGroupProcessingJobGroup_Type | null;
 }
-export interface HardcodedSource_files extends AdditionalDataHolder, Parsable {
+export type JobGroupProcessingJobGroup_Type = (typeof JobGroupProcessingJobGroup_TypeObject)[keyof typeof JobGroupProcessingJobGroup_TypeObject];
+export interface JobGroupProductionJobGroup extends AdditionalDataHolder, Parsable {
+    /**
+     * The artifactBundleId property
+     */
+    artifactBundleId?: Guid | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The Type property
+     */
+    type?: JobGroupProductionJobGroup_Type | null;
 }
+export type JobGroupProductionJobGroup_Type = (typeof JobGroupProductionJobGroup_TypeObject)[keyof typeof JobGroupProductionJobGroup_TypeObject];
+export interface JobProcessingJob extends AdditionalDataHolder, Parsable {
+    /**
+     * The artifactBundleId property
+     */
+    artifactBundleId?: Guid | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The jobGroupId property
+     */
+    jobGroupId?: Guid | null;
+    /**
+     * The jobKey property
+     */
+    jobKey?: ProcessingJobKey | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The processingResult property
+     */
+    processingResult?: JobProcessingJob_processingResultMember1 | Result | null;
+    /**
+     * The processingStepId property
+     */
+    processingStepId?: Guid | null;
+    /**
+     * The status property
+     */
+    status?: JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled | null;
+    /**
+     * The Type property
+     */
+    type?: JobProcessingJob_Type | null;
+}
+export type JobProcessingJob_processingResult = JobProcessingJob_processingResultMember1 | Result;
+export interface JobProcessingJob_processingResultMember1 extends AdditionalDataHolder, Parsable {
+}
+export type JobProcessingJob_Type = (typeof JobProcessingJob_TypeObject)[keyof typeof JobProcessingJob_TypeObject];
+export interface JobProductionJob extends AdditionalDataHolder, Parsable {
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The jobGroupId property
+     */
+    jobGroupId?: Guid | null;
+    /**
+     * The jobKey property
+     */
+    jobKey?: ProductionJobKey | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The productionStepId property
+     */
+    productionStepId?: Guid | null;
+    /**
+     * The status property
+     */
+    status?: JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled | null;
+    /**
+     * The Type property
+     */
+    type?: JobProductionJob_Type | null;
+}
+export type JobProductionJob_Type = (typeof JobProductionJob_TypeObject)[keyof typeof JobProductionJob_TypeObject];
+export type JobStatus = JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled;
+export interface JobStatusCancelled extends AdditionalDataHolder, Parsable {
+    /**
+     * The cancelledAt property
+     */
+    cancelledAt?: Date | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The Type property
+     */
+    type?: JobStatusCancelled_Type | null;
+}
+export type JobStatusCancelled_Type = (typeof JobStatusCancelled_TypeObject)[keyof typeof JobStatusCancelled_TypeObject];
+export interface JobStatusDone extends AdditionalDataHolder, Parsable {
+    /**
+     * The completedAt property
+     */
+    completedAt?: Date | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The Type property
+     */
+    type?: JobStatusDone_Type | null;
+}
+export type JobStatusDone_Type = (typeof JobStatusDone_TypeObject)[keyof typeof JobStatusDone_TypeObject];
+export interface JobStatusFailed extends AdditionalDataHolder, Parsable {
+    /**
+     * The failedAt property
+     */
+    failedAt?: Date | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The Type property
+     */
+    type?: JobStatusFailed_Type | null;
+}
+export type JobStatusFailed_Type = (typeof JobStatusFailed_TypeObject)[keyof typeof JobStatusFailed_TypeObject];
+export interface JobStatusInProgress extends AdditionalDataHolder, Parsable {
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The Type property
+     */
+    type?: JobStatusInProgress_Type | null;
+}
+export type JobStatusInProgress_Type = (typeof JobStatusInProgress_TypeObject)[keyof typeof JobStatusInProgress_TypeObject];
+export interface JobStatusObsolete extends AdditionalDataHolder, Parsable {
+    /**
+     * The supersedingJobId property
+     */
+    supersedingJobId?: Guid | null;
+    /**
+     * The Type property
+     */
+    type?: JobStatusObsolete_Type | null;
+}
+export type JobStatusObsolete_Type = (typeof JobStatusObsolete_TypeObject)[keyof typeof JobStatusObsolete_TypeObject];
+export interface JobStatusScheduled extends AdditionalDataHolder, Parsable {
+    /**
+     * The Type property
+     */
+    type?: JobStatusScheduled_Type | null;
+}
+export type JobStatusScheduled_Type = (typeof JobStatusScheduled_TypeObject)[keyof typeof JobStatusScheduled_TypeObject];
 export interface Pipeline extends AdditionalDataHolder, Parsable {
     /**
      * The id property
@@ -588,41 +1117,15 @@ export interface Pipeline extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
-export interface PipelineBuilder extends AdditionalDataHolder, Parsable {
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
+export interface ProcessingJobKey extends AdditionalDataHolder, Parsable {
     /**
      * The pipelineId property
      */
     pipelineId?: Guid | null;
     /**
-     * The type property
+     * The processingStepId property
      */
-    type?: number | null;
-}
-export interface PipelineSource extends AdditionalDataHolder, Parsable {
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The pipelineId property
-     */
-    pipelineId?: Guid | null;
-    /**
-     * The type property
-     */
-    type?: number | null;
+    processingStepId?: Guid | null;
 }
 export interface ProcessingStep extends AdditionalDataHolder, Parsable {
     /**
@@ -634,13 +1137,51 @@ export interface ProcessingStep extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The order property
+     */
+    order?: UntypedNode | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+}
+export interface ProductionJobKey extends AdditionalDataHolder, Parsable {
+    /**
      * The pipelineId property
      */
     pipelineId?: Guid | null;
     /**
-     * The type property
+     * The productionStepId property
      */
-    type?: number | null;
+    productionStepId?: Guid | null;
+}
+export interface ProductionStep extends AdditionalDataHolder, Parsable {
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+}
+export interface Result extends AdditionalDataHolder, Parsable {
+    /**
+     * The failed property
+     */
+    failed?: boolean | null;
+    /**
+     * The problems property
+     */
+    problems?: ResultProblem[] | null;
+    /**
+     * The succeeded property
+     */
+    succeeded?: boolean | null;
 }
 export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable {
     /**
@@ -664,24 +1205,6 @@ export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable 
      */
     tags?: string[] | null;
 }
-export interface ScriptBuilder extends AdditionalDataHolder, Parsable {
-    /**
-     * The script property
-     */
-    script?: string | null;
-}
-export interface ScriptProcessing extends AdditionalDataHolder, Parsable {
-    /**
-     * The script property
-     */
-    script?: string | null;
-}
-export interface ScriptVerification extends AdditionalDataHolder, Parsable {
-    /**
-     * The script property
-     */
-    script?: string | null;
-}
 /**
  * Serializes information the current object
  * @param ArtifactBundle The instance to serialize from.
@@ -694,33 +1217,8 @@ export function serializeArtifactBundle(writer: SerializationWriter, artifactBun
     writer.writeDateValue("createdAt", artifactBundle.createdAt);
     writer.writeGuidValue("id", artifactBundle.id);
     writer.writeGuidValue("pipelineId", artifactBundle.pipelineId);
-    writer.writeGuidValue("sourceBundleId", artifactBundle.sourceBundleId);
     writer.writeNumberValue("status", artifactBundle.status);
     writer.writeAdditionalData(artifactBundle.additionalData);
-}
-/**
- * Serializes information the current object
- * @param CreatePipelineBuilderRequest The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeCreatePipelineBuilderRequest(writer: SerializationWriter, createPipelineBuilderRequest: Partial<CreatePipelineBuilderRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!createPipelineBuilderRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("name", createPipelineBuilderRequest.name);
-    writer.writeAdditionalData(createPipelineBuilderRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param CreatePipelineSourceRequest The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeCreatePipelineSourceRequest(writer: SerializationWriter, createPipelineSourceRequest: Partial<CreatePipelineSourceRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!createPipelineSourceRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("name", createPipelineSourceRequest.name);
-    writer.writeAdditionalData(createPipelineSourceRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -732,56 +1230,235 @@ export function serializeCreatePipelineSourceRequest(writer: SerializationWriter
 export function serializeCreateProcessingStepRequest(writer: SerializationWriter, createProcessingStepRequest: Partial<CreateProcessingStepRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!createProcessingStepRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("name", createProcessingStepRequest.name);
+    writer.writeObjectValue("order", createProcessingStepRequest.order);
     writer.writeAdditionalData(createProcessingStepRequest.additionalData);
 }
 /**
  * Serializes information the current object
- * @param CreateVerificationRequest The instance to serialize from.
+ * @param CreateProductionStepRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeCreateVerificationRequest(writer: SerializationWriter, createVerificationRequest: Partial<CreateVerificationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!createVerificationRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("name", createVerificationRequest.name);
-    writer.writeAdditionalData(createVerificationRequest.additionalData);
+export function serializeCreateProductionStepRequest(writer: SerializationWriter, createProductionStepRequest: Partial<CreateProductionStepRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createProductionStepRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", createProductionStepRequest.name);
+    writer.writeAdditionalData(createProductionStepRequest.additionalData);
 }
 /**
  * Serializes information the current object
- * @param GitHubSource The instance to serialize from.
+ * @param CreateTriggerRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeGitHubSource(writer: SerializationWriter, gitHubSource: Partial<GitHubSource> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!gitHubSource || isSerializingDerivedType) { return; }
-    writer.writeStringValue("branch", gitHubSource.branch);
-    writer.writeStringValue("owner", gitHubSource.owner);
-    writer.writeStringValue("repository", gitHubSource.repository);
-    writer.writeAdditionalData(gitHubSource.additionalData);
+export function serializeCreateTriggerRequest(writer: SerializationWriter, createTriggerRequest: Partial<CreateTriggerRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createTriggerRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", createTriggerRequest.name);
+    writer.writeObjectValue<TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget>("target", createTriggerRequest.target, serializeTriggerTarget);
+    writer.writeAdditionalData(createTriggerRequest.additionalData);
 }
 /**
  * Serializes information the current object
- * @param HardcodedSource The instance to serialize from.
+ * @param IdOfArtifactBundle The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeHardcodedSource(writer: SerializationWriter, hardcodedSource: Partial<HardcodedSource> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!hardcodedSource || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<HardcodedSource_files>("files", hardcodedSource.files, serializeHardcodedSource_files);
-    writer.writeAdditionalData(hardcodedSource.additionalData);
+export function serializeIdOfArtifactBundle(writer: SerializationWriter, idOfArtifactBundle: Partial<IdOfArtifactBundle> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!idOfArtifactBundle || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(idOfArtifactBundle.additionalData);
 }
 /**
  * Serializes information the current object
- * @param HardcodedSource_files The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobGroupProcessingJobGroup The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeHardcodedSource_files(writer: SerializationWriter, hardcodedSource_files: Partial<HardcodedSource_files> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!hardcodedSource_files || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(hardcodedSource_files.additionalData);
+export function serializeJobGroupProcessingJobGroup(writer: SerializationWriter, jobGroupProcessingJobGroup: Partial<JobGroupProcessingJobGroup> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobGroupProcessingJobGroup || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("artifactBundleId", jobGroupProcessingJobGroup.artifactBundleId);
+    writer.writeDateValue("createdAt", jobGroupProcessingJobGroup.createdAt);
+    writer.writeGuidValue("id", jobGroupProcessingJobGroup.id);
+    writer.writeGuidValue("pipelineId", jobGroupProcessingJobGroup.pipelineId);
+    writer.writeGuidValue("processingStepId", jobGroupProcessingJobGroup.processingStepId);
+    writer.writeEnumValue<JobGroupProcessingJobGroup_Type>("$type", jobGroupProcessingJobGroup.type);
+    writer.writeAdditionalData(jobGroupProcessingJobGroup.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobGroupProductionJobGroup The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobGroupProductionJobGroup(writer: SerializationWriter, jobGroupProductionJobGroup: Partial<JobGroupProductionJobGroup> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobGroupProductionJobGroup || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("artifactBundleId", jobGroupProductionJobGroup.artifactBundleId);
+    writer.writeDateValue("createdAt", jobGroupProductionJobGroup.createdAt);
+    writer.writeGuidValue("id", jobGroupProductionJobGroup.id);
+    writer.writeGuidValue("pipelineId", jobGroupProductionJobGroup.pipelineId);
+    writer.writeEnumValue<JobGroupProductionJobGroup_Type>("$type", jobGroupProductionJobGroup.type);
+    writer.writeAdditionalData(jobGroupProductionJobGroup.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobProcessingJob The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobProcessingJob(writer: SerializationWriter, jobProcessingJob: Partial<JobProcessingJob> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobProcessingJob || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("artifactBundleId", jobProcessingJob.artifactBundleId);
+    writer.writeDateValue("createdAt", jobProcessingJob.createdAt);
+    writer.writeGuidValue("id", jobProcessingJob.id);
+    writer.writeGuidValue("jobGroupId", jobProcessingJob.jobGroupId);
+    writer.writeObjectValue<ProcessingJobKey>("jobKey", jobProcessingJob.jobKey, serializeProcessingJobKey);
+    writer.writeGuidValue("pipelineId", jobProcessingJob.pipelineId);
+    writer.writeObjectValue<JobProcessingJob_processingResultMember1 | Result>("processingResult", jobProcessingJob.processingResult, serializeJobProcessingJob_processingResult);
+    writer.writeGuidValue("processingStepId", jobProcessingJob.processingStepId);
+    writer.writeObjectValue<JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled>("status", jobProcessingJob.status, serializeJobStatus);
+    writer.writeEnumValue<JobProcessingJob_Type>("$type", jobProcessingJob.type);
+    writer.writeAdditionalData(jobProcessingJob.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobProcessingJob_processingResult The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobProcessingJob_processingResult(writer: SerializationWriter, jobProcessingJob_processingResult: Partial<JobProcessingJob_processingResultMember1 | Result> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeJobProcessingJob_processingResultMember1(writer, jobProcessingJob_processingResult as JobProcessingJob_processingResultMember1);
+    serializeResult(writer, jobProcessingJob_processingResult as Result);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobProcessingJob_processingResultMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobProcessingJob_processingResultMember1(writer: SerializationWriter, jobProcessingJob_processingResultMember1: Partial<JobProcessingJob_processingResultMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobProcessingJob_processingResultMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(jobProcessingJob_processingResultMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobProductionJob The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobProductionJob(writer: SerializationWriter, jobProductionJob: Partial<JobProductionJob> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobProductionJob || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", jobProductionJob.createdAt);
+    writer.writeGuidValue("id", jobProductionJob.id);
+    writer.writeGuidValue("jobGroupId", jobProductionJob.jobGroupId);
+    writer.writeObjectValue<ProductionJobKey>("jobKey", jobProductionJob.jobKey, serializeProductionJobKey);
+    writer.writeGuidValue("pipelineId", jobProductionJob.pipelineId);
+    writer.writeGuidValue("productionStepId", jobProductionJob.productionStepId);
+    writer.writeObjectValue<JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled>("status", jobProductionJob.status, serializeJobStatus);
+    writer.writeEnumValue<JobProductionJob_Type>("$type", jobProductionJob.type);
+    writer.writeAdditionalData(jobProductionJob.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatus The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatus(writer: SerializationWriter, jobStatus: Partial<JobStatusCancelled | JobStatusDone | JobStatusFailed | JobStatusInProgress | JobStatusObsolete | JobStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeJobStatusCancelled(writer, jobStatus as JobStatusCancelled);
+    serializeJobStatusDone(writer, jobStatus as JobStatusDone);
+    serializeJobStatusFailed(writer, jobStatus as JobStatusFailed);
+    serializeJobStatusInProgress(writer, jobStatus as JobStatusInProgress);
+    serializeJobStatusObsolete(writer, jobStatus as JobStatusObsolete);
+    serializeJobStatusScheduled(writer, jobStatus as JobStatusScheduled);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusCancelled The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusCancelled(writer: SerializationWriter, jobStatusCancelled: Partial<JobStatusCancelled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusCancelled || isSerializingDerivedType) { return; }
+    writer.writeDateValue("cancelledAt", jobStatusCancelled.cancelledAt);
+    writer.writeDateValue("startedAt", jobStatusCancelled.startedAt);
+    writer.writeEnumValue<JobStatusCancelled_Type>("$type", jobStatusCancelled.type);
+    writer.writeAdditionalData(jobStatusCancelled.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusDone The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusDone(writer: SerializationWriter, jobStatusDone: Partial<JobStatusDone> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusDone || isSerializingDerivedType) { return; }
+    writer.writeDateValue("completedAt", jobStatusDone.completedAt);
+    writer.writeDateValue("startedAt", jobStatusDone.startedAt);
+    writer.writeEnumValue<JobStatusDone_Type>("$type", jobStatusDone.type);
+    writer.writeAdditionalData(jobStatusDone.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusFailed The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusFailed(writer: SerializationWriter, jobStatusFailed: Partial<JobStatusFailed> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusFailed || isSerializingDerivedType) { return; }
+    writer.writeDateValue("failedAt", jobStatusFailed.failedAt);
+    writer.writeStringValue("reason", jobStatusFailed.reason);
+    writer.writeDateValue("startedAt", jobStatusFailed.startedAt);
+    writer.writeEnumValue<JobStatusFailed_Type>("$type", jobStatusFailed.type);
+    writer.writeAdditionalData(jobStatusFailed.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusInProgress The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusInProgress(writer: SerializationWriter, jobStatusInProgress: Partial<JobStatusInProgress> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusInProgress || isSerializingDerivedType) { return; }
+    writer.writeDateValue("startedAt", jobStatusInProgress.startedAt);
+    writer.writeEnumValue<JobStatusInProgress_Type>("$type", jobStatusInProgress.type);
+    writer.writeAdditionalData(jobStatusInProgress.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusObsolete The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusObsolete(writer: SerializationWriter, jobStatusObsolete: Partial<JobStatusObsolete> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusObsolete || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("supersedingJobId", jobStatusObsolete.supersedingJobId);
+    writer.writeEnumValue<JobStatusObsolete_Type>("$type", jobStatusObsolete.type);
+    writer.writeAdditionalData(jobStatusObsolete.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JobStatusScheduled The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJobStatusScheduled(writer: SerializationWriter, jobStatusScheduled: Partial<JobStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jobStatusScheduled || isSerializingDerivedType) { return; }
+    writer.writeEnumValue<JobStatusScheduled_Type>("$type", jobStatusScheduled.type);
+    writer.writeAdditionalData(jobStatusScheduled.additionalData);
 }
 /**
  * Serializes information the current object
@@ -799,32 +1476,15 @@ export function serializePipeline(writer: SerializationWriter, pipeline: Partial
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineBuilder The instance to serialize from.
+ * @param ProcessingJobKey The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializePipelineBuilder(writer: SerializationWriter, pipelineBuilder: Partial<PipelineBuilder> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineBuilder || isSerializingDerivedType) { return; }
-    writer.writeGuidValue("id", pipelineBuilder.id);
-    writer.writeStringValue("name", pipelineBuilder.name);
-    writer.writeGuidValue("pipelineId", pipelineBuilder.pipelineId);
-    writer.writeNumberValue("type", pipelineBuilder.type);
-    writer.writeAdditionalData(pipelineBuilder.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineSource The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePipelineSource(writer: SerializationWriter, pipelineSource: Partial<PipelineSource> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineSource || isSerializingDerivedType) { return; }
-    writer.writeGuidValue("id", pipelineSource.id);
-    writer.writeStringValue("name", pipelineSource.name);
-    writer.writeGuidValue("pipelineId", pipelineSource.pipelineId);
-    writer.writeNumberValue("type", pipelineSource.type);
-    writer.writeAdditionalData(pipelineSource.additionalData);
+export function serializeProcessingJobKey(writer: SerializationWriter, processingJobKey: Partial<ProcessingJobKey> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!processingJobKey || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("pipelineId", processingJobKey.pipelineId);
+    writer.writeGuidValue("processingStepId", processingJobKey.processingStepId);
+    writer.writeAdditionalData(processingJobKey.additionalData);
 }
 /**
  * Serializes information the current object
@@ -837,9 +1497,50 @@ export function serializeProcessingStep(writer: SerializationWriter, processingS
     if (!processingStep || isSerializingDerivedType) { return; }
     writer.writeGuidValue("id", processingStep.id);
     writer.writeStringValue("name", processingStep.name);
+    writer.writeObjectValue("order", processingStep.order);
     writer.writeGuidValue("pipelineId", processingStep.pipelineId);
-    writer.writeNumberValue("type", processingStep.type);
     writer.writeAdditionalData(processingStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProductionJobKey The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProductionJobKey(writer: SerializationWriter, productionJobKey: Partial<ProductionJobKey> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!productionJobKey || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("pipelineId", productionJobKey.pipelineId);
+    writer.writeGuidValue("productionStepId", productionJobKey.productionStepId);
+    writer.writeAdditionalData(productionJobKey.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProductionStep The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProductionStep(writer: SerializationWriter, productionStep: Partial<ProductionStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!productionStep || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("id", productionStep.id);
+    writer.writeStringValue("name", productionStep.name);
+    writer.writeGuidValue("pipelineId", productionStep.pipelineId);
+    writer.writeAdditionalData(productionStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param Result The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeResult(writer: SerializationWriter, result: Partial<Result> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!result || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("failed", result.failed);
+    writer.writeCollectionOfObjectValues<ResultProblem>("problems", result.problems, serializeResultProblem);
+    writer.writeBooleanValue("succeeded", result.succeeded);
+    writer.writeAdditionalData(result.additionalData);
 }
 /**
  * Serializes information the current object
@@ -860,183 +1561,216 @@ export function serializeResultProblem(writer: SerializationWriter, resultProble
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ScriptBuilder The instance to serialize from.
+ * @param SetSecretRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeScriptBuilder(writer: SerializationWriter, scriptBuilder: Partial<ScriptBuilder> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!scriptBuilder || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", scriptBuilder.script);
-    writer.writeAdditionalData(scriptBuilder.additionalData);
+export function serializeSetSecretRequest(writer: SerializationWriter, setSecretRequest: Partial<SetSecretRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setSecretRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("value", setSecretRequest.value);
+    writer.writeAdditionalData(setSecretRequest.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ScriptProcessing The instance to serialize from.
+ * @param SetStepConfigurationRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeScriptProcessing(writer: SerializationWriter, scriptProcessing: Partial<ScriptProcessing> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!scriptProcessing || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", scriptProcessing.script);
-    writer.writeAdditionalData(scriptProcessing.additionalData);
+export function serializeSetStepConfigurationRequest(writer: SerializationWriter, setStepConfigurationRequest: Partial<SetStepConfigurationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setStepConfigurationRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<SetStepConfigurationRequest_environmentVariables>("environmentVariables", setStepConfigurationRequest.environmentVariables, serializeSetStepConfigurationRequest_environmentVariables);
+    writer.writeStringValue("image", setStepConfigurationRequest.image);
+    writer.writeStringValue("script", setStepConfigurationRequest.script);
+    writer.writeAdditionalData(setStepConfigurationRequest.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ScriptVerification The instance to serialize from.
+ * @param SetStepConfigurationRequest_environmentVariables The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeScriptVerification(writer: SerializationWriter, scriptVerification: Partial<ScriptVerification> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!scriptVerification || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", scriptVerification.script);
-    writer.writeAdditionalData(scriptVerification.additionalData);
+export function serializeSetStepConfigurationRequest_environmentVariables(writer: SerializationWriter, setStepConfigurationRequest_environmentVariables: Partial<SetStepConfigurationRequest_environmentVariables> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setStepConfigurationRequest_environmentVariables || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(setStepConfigurationRequest_environmentVariables.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetGitHubSourceRequest The instance to serialize from.
+ * @param StepConfiguration The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetGitHubSourceRequest(writer: SerializationWriter, setGitHubSourceRequest: Partial<SetGitHubSourceRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setGitHubSourceRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("branch", setGitHubSourceRequest.branch);
-    writer.writeStringValue("owner", setGitHubSourceRequest.owner);
-    writer.writeStringValue("repository", setGitHubSourceRequest.repository);
-    writer.writeAdditionalData(setGitHubSourceRequest.additionalData);
+export function serializeStepConfiguration(writer: SerializationWriter, stepConfiguration: Partial<StepConfiguration> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepConfiguration || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<StepConfiguration_environmentVariables>("environmentVariables", stepConfiguration.environmentVariables, serializeStepConfiguration_environmentVariables);
+    writer.writeStringValue("image", stepConfiguration.image);
+    writer.writeStringValue("script", stepConfiguration.script);
+    writer.writeAdditionalData(stepConfiguration.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetHardcodedSourceRequest The instance to serialize from.
+ * @param StepConfiguration_environmentVariables The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetHardcodedSourceRequest(writer: SerializationWriter, setHardcodedSourceRequest: Partial<SetHardcodedSourceRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setHardcodedSourceRequest || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<SetHardcodedSourceRequest_files>("files", setHardcodedSourceRequest.files, serializeSetHardcodedSourceRequest_files);
-    writer.writeAdditionalData(setHardcodedSourceRequest.additionalData);
+export function serializeStepConfiguration_environmentVariables(writer: SerializationWriter, stepConfiguration_environmentVariables: Partial<StepConfiguration_environmentVariables> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepConfiguration_environmentVariables || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(stepConfiguration_environmentVariables.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetHardcodedSourceRequest_files The instance to serialize from.
+ * @param Trigger The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetHardcodedSourceRequest_files(writer: SerializationWriter, setHardcodedSourceRequest_files: Partial<SetHardcodedSourceRequest_files> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setHardcodedSourceRequest_files || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(setHardcodedSourceRequest_files.additionalData);
+export function serializeTrigger(writer: SerializationWriter, trigger: Partial<Trigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!trigger || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", trigger.createdAt);
+    writer.writeGuidValue("id", trigger.id);
+    writer.writeStringValue("name", trigger.name);
+    writer.writeGuidValue("pipelineId", trigger.pipelineId);
+    writer.writeStringValue("secret", trigger.secret);
+    writer.writeObjectValue<TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget>("target", trigger.target, serializeTriggerTarget);
+    writer.writeAdditionalData(trigger.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetScriptBuilderRequest The instance to serialize from.
+ * @param TriggerProcessingRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetScriptBuilderRequest(writer: SerializationWriter, setScriptBuilderRequest: Partial<SetScriptBuilderRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setScriptBuilderRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", setScriptBuilderRequest.script);
-    writer.writeAdditionalData(setScriptBuilderRequest.additionalData);
+export function serializeTriggerProcessingRequest(writer: SerializationWriter, triggerProcessingRequest: Partial<TriggerProcessingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerProcessingRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("artifactBundleId", triggerProcessingRequest.artifactBundleId);
+    writer.writeGuidValue("processingStepId", triggerProcessingRequest.processingStepId);
+    writer.writeAdditionalData(triggerProcessingRequest.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetScriptProcessingRequest The instance to serialize from.
+ * @param TriggerTarget The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetScriptProcessingRequest(writer: SerializationWriter, setScriptProcessingRequest: Partial<SetScriptProcessingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setScriptProcessingRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", setScriptProcessingRequest.script);
-    writer.writeAdditionalData(setScriptProcessingRequest.additionalData);
+export function serializeTriggerTarget(writer: SerializationWriter, triggerTarget: Partial<TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeTriggerTargetProcessingTriggerTarget(writer, triggerTarget as TriggerTargetProcessingTriggerTarget);
+    serializeTriggerTargetProductionTriggerTarget(writer, triggerTarget as TriggerTargetProductionTriggerTarget);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetScriptVerificationRequest The instance to serialize from.
+ * @param TriggerTargetProcessingTriggerTarget The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetScriptVerificationRequest(writer: SerializationWriter, setScriptVerificationRequest: Partial<SetScriptVerificationRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setScriptVerificationRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("script", setScriptVerificationRequest.script);
-    writer.writeAdditionalData(setScriptVerificationRequest.additionalData);
+export function serializeTriggerTargetProcessingTriggerTarget(writer: SerializationWriter, triggerTargetProcessingTriggerTarget: Partial<TriggerTargetProcessingTriggerTarget> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetProcessingTriggerTarget || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("processingStepId", triggerTargetProcessingTriggerTarget.processingStepId);
+    writer.writeEnumValue<TriggerTargetProcessingTriggerTarget_Type>("$type", triggerTargetProcessingTriggerTarget.type);
+    writer.writeAdditionalData(triggerTargetProcessingTriggerTarget.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SourceBundle The instance to serialize from.
+ * @param TriggerTargetProductionTriggerTarget The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSourceBundle(writer: SerializationWriter, sourceBundle: Partial<SourceBundle> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!sourceBundle || isSerializingDerivedType) { return; }
-    writer.writeDateValue("createdAt", sourceBundle.createdAt);
-    writer.writeGuidValue("id", sourceBundle.id);
-    writer.writeGuidValue("pipelineId", sourceBundle.pipelineId);
-    writer.writeNumberValue("status", sourceBundle.status);
-    writer.writeAdditionalData(sourceBundle.additionalData);
+export function serializeTriggerTargetProductionTriggerTarget(writer: SerializationWriter, triggerTargetProductionTriggerTarget: Partial<TriggerTargetProductionTriggerTarget> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetProductionTriggerTarget || isSerializingDerivedType) { return; }
+    writer.writeEnumValue<TriggerTargetProductionTriggerTarget_Type>("$type", triggerTargetProductionTriggerTarget.type);
+    writer.writeAdditionalData(triggerTargetProductionTriggerTarget.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param Verification The instance to serialize from.
+ * @param UpdateOrderRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeVerification(writer: SerializationWriter, verification: Partial<Verification> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!verification || isSerializingDerivedType) { return; }
-    writer.writeGuidValue("id", verification.id);
-    writer.writeStringValue("name", verification.name);
-    writer.writeGuidValue("processingStepId", verification.processingStepId);
-    writer.writeNumberValue("type", verification.type);
-    writer.writeAdditionalData(verification.additionalData);
+export function serializeUpdateOrderRequest(writer: SerializationWriter, updateOrderRequest: Partial<UpdateOrderRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateOrderRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue("order", updateOrderRequest.order);
+    writer.writeAdditionalData(updateOrderRequest.additionalData);
 }
-export interface SetGitHubSourceRequest extends AdditionalDataHolder, Parsable {
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WebhookRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWebhookRequest(writer: SerializationWriter, webhookRequest: Partial<WebhookRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!webhookRequest || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1>("artifactBundleId", webhookRequest.artifactBundleId, serializeWebhookRequest_artifactBundleId);
+    writer.writeAdditionalData(webhookRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WebhookRequest_artifactBundleId The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWebhookRequest_artifactBundleId(writer: SerializationWriter, webhookRequest_artifactBundleId: Partial<IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeIdOfArtifactBundle(writer, webhookRequest_artifactBundleId as IdOfArtifactBundle);
+    serializeWebhookRequest_artifactBundleIdMember1(writer, webhookRequest_artifactBundleId as WebhookRequest_artifactBundleIdMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param WebhookRequest_artifactBundleIdMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeWebhookRequest_artifactBundleIdMember1(writer: SerializationWriter, webhookRequest_artifactBundleIdMember1: Partial<WebhookRequest_artifactBundleIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!webhookRequest_artifactBundleIdMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(webhookRequest_artifactBundleIdMember1.additionalData);
+}
+export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The branch property
+     * The value property
      */
-    branch?: string | null;
-    /**
-     * The owner property
-     */
-    owner?: string | null;
-    /**
-     * The repository property
-     */
-    repository?: string | null;
+    value?: string | null;
 }
-export interface SetHardcodedSourceRequest extends AdditionalDataHolder, Parsable {
+export interface SetStepConfigurationRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The files property
+     * The environmentVariables property
      */
-    files?: SetHardcodedSourceRequest_files | null;
-}
-export interface SetHardcodedSourceRequest_files extends AdditionalDataHolder, Parsable {
-}
-export interface SetScriptBuilderRequest extends AdditionalDataHolder, Parsable {
+    environmentVariables?: SetStepConfigurationRequest_environmentVariables | null;
+    /**
+     * The image property
+     */
+    image?: string | null;
     /**
      * The script property
      */
     script?: string | null;
 }
-export interface SetScriptProcessingRequest extends AdditionalDataHolder, Parsable {
+export interface SetStepConfigurationRequest_environmentVariables extends AdditionalDataHolder, Parsable {
+}
+export interface StepConfiguration extends AdditionalDataHolder, Parsable {
+    /**
+     * The environmentVariables property
+     */
+    environmentVariables?: StepConfiguration_environmentVariables | null;
+    /**
+     * The image property
+     */
+    image?: string | null;
     /**
      * The script property
      */
     script?: string | null;
 }
-export interface SetScriptVerificationRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The script property
-     */
-    script?: string | null;
+export interface StepConfiguration_environmentVariables extends AdditionalDataHolder, Parsable {
 }
-export interface SourceBundle extends AdditionalDataHolder, Parsable {
+export interface Trigger extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
      */
@@ -1046,31 +1780,101 @@ export interface SourceBundle extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
+     * The name property
+     */
+    name?: string | null;
+    /**
      * The pipelineId property
      */
     pipelineId?: Guid | null;
     /**
-     * The status property
+     * The secret property
      */
-    status?: number | null;
+    secret?: string | null;
+    /**
+     * The target property
+     */
+    target?: TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget | null;
 }
-export interface Verification extends AdditionalDataHolder, Parsable {
+export interface TriggerProcessingRequest extends AdditionalDataHolder, Parsable {
     /**
-     * The id property
+     * The artifactBundleId property
      */
-    id?: Guid | null;
+    artifactBundleId?: Guid | null;
     /**
-     * The name property
+     * The processingStepId property
      */
-    name?: string | null;
+    processingStepId?: Guid | null;
+}
+export type TriggerTarget = TriggerTargetProcessingTriggerTarget | TriggerTargetProductionTriggerTarget;
+export interface TriggerTargetProcessingTriggerTarget extends AdditionalDataHolder, Parsable {
     /**
      * The processingStepId property
      */
     processingStepId?: Guid | null;
     /**
-     * The type property
+     * The Type property
      */
-    type?: number | null;
+    type?: TriggerTargetProcessingTriggerTarget_Type | null;
 }
+export type TriggerTargetProcessingTriggerTarget_Type = (typeof TriggerTargetProcessingTriggerTarget_TypeObject)[keyof typeof TriggerTargetProcessingTriggerTarget_TypeObject];
+export interface TriggerTargetProductionTriggerTarget extends AdditionalDataHolder, Parsable {
+    /**
+     * The Type property
+     */
+    type?: TriggerTargetProductionTriggerTarget_Type | null;
+}
+export type TriggerTargetProductionTriggerTarget_Type = (typeof TriggerTargetProductionTriggerTarget_TypeObject)[keyof typeof TriggerTargetProductionTriggerTarget_TypeObject];
+export interface UpdateOrderRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The order property
+     */
+    order?: UntypedNode | null;
+}
+export interface WebhookRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The artifactBundleId property
+     */
+    artifactBundleId?: IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1 | null;
+}
+export type WebhookRequest_artifactBundleId = IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1;
+export interface WebhookRequest_artifactBundleIdMember1 extends AdditionalDataHolder, Parsable {
+}
+export const JobGroupProcessingJobGroup_TypeObject = {
+    Processing: "processing",
+} as const;
+export const JobGroupProductionJobGroup_TypeObject = {
+    Production: "production",
+} as const;
+export const JobProcessingJob_TypeObject = {
+    Processing: "processing",
+} as const;
+export const JobProductionJob_TypeObject = {
+    Production: "production",
+} as const;
+export const JobStatusCancelled_TypeObject = {
+    Cancelled: "cancelled",
+} as const;
+export const JobStatusDone_TypeObject = {
+    Done: "done",
+} as const;
+export const JobStatusFailed_TypeObject = {
+    Failed: "failed",
+} as const;
+export const JobStatusInProgress_TypeObject = {
+    InProgress: "in-progress",
+} as const;
+export const JobStatusObsolete_TypeObject = {
+    Obsolete: "obsolete",
+} as const;
+export const JobStatusScheduled_TypeObject = {
+    Scheduled: "scheduled",
+} as const;
+export const TriggerTargetProcessingTriggerTarget_TypeObject = {
+    Processing: "processing",
+} as const;
+export const TriggerTargetProductionTriggerTarget_TypeObject = {
+    Production: "production",
+} as const;
 /* tslint:enable */
 /* eslint-enable */

@@ -23,6 +23,19 @@ public class TriggerExecutionService(
         if (trigger.Secret != secret)
             return Result.Failure<JobGroup>(new ResultProblem("Invalid secret."));
 
+        return ExecuteInternal(trigger, artifactBundleId);
+    }
+
+    public Result<JobGroup> ExecuteInternal(Id<Trigger> triggerId)
+    {
+        if (!store.TryGet(triggerId, out var trigger))
+            return Result.Failure<JobGroup>(new ResultProblem($"Trigger '{triggerId}' not found."));
+
+        return ExecuteInternal(trigger, artifactBundleId: null);
+    }
+
+    private Result<JobGroup> ExecuteInternal(Trigger trigger, Id<ArtifactBundle>? artifactBundleId)
+    {
         if (!pipelines.TryGet(trigger.PipelineId, out _))
             return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{trigger.PipelineId}' not found."));
 
@@ -30,6 +43,7 @@ public class TriggerExecutionService(
         {
             ProductionTriggerTarget => ExecuteProduction(trigger),
             ProcessingTriggerTarget processing => ExecuteProcessing(trigger, processing, artifactBundleId),
+            PollTriggerTarget => ExecuteProduction(trigger),
             _ => Result.Failure<JobGroup>(new ResultProblem($"Unknown trigger target type."))
         };
     }

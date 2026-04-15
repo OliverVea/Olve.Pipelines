@@ -1,14 +1,3 @@
-FROM node:22-slim AS frontend
-WORKDIR /frontend
-
-COPY clients/olve-pipelines-client-ts/ /clients/olve-pipelines-client-ts/
-RUN cd /clients/olve-pipelines-client-ts && npm install
-
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm install
-COPY frontend/ ./
-RUN npm run build
-
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 RUN apt-get update && apt-get install -y clang zlib1g-dev
 WORKDIR /src
@@ -23,10 +12,17 @@ COPY test/Olve.Pipelines.UnitTests/ test/Olve.Pipelines.UnitTests/
 RUN dotnet run --project test/Olve.Pipelines.UnitTests -c Release --no-restore
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app
 
+FROM node:22-slim AS frontend
+WORKDIR /build
+COPY clients/olve-pipelines-client-ts/ ./clients/olve-pipelines-client-ts/
+RUN cd clients/olve-pipelines-client-ts && npm install
+COPY frontend/ ./frontend/
+RUN cd frontend && npm install && npm run build
+
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
 WORKDIR /app
 EXPOSE 5000
 COPY --from=build /app .
-COPY --from=frontend /frontend/dist ./wwwroot/
+COPY --from=frontend /build/frontend/dist ./wwwroot/
 
 ENTRYPOINT ["./Olve.Pipelines"]

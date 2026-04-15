@@ -81,11 +81,18 @@ export class AppShell extends LitElement {
     }
   `;
 
-  @state() private _route: ResolvedRoute = resolve(window.location.pathname);
-  @state() private _user: AuthUser | null = null;
-  @state() private _authReady = false;
+  @state() private declare _route: ResolvedRoute;
+  @state() private declare _user: AuthUser | null;
+  @state() private declare _authReady: boolean;
 
   private _unsubAuth?: () => void;
+
+  constructor() {
+    super();
+    this._route = resolve(window.location.pathname);
+    this._user = null;
+    this._authReady = false;
+  }
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -109,7 +116,8 @@ export class AppShell extends LitElement {
         this._user = await getUser();
         this._authReady = true;
         navigate(returnPath);
-      } catch {
+      } catch (e) {
+        console.error('OIDC callback failed:', e);
         this._authReady = true;
         navigate('/');
       }

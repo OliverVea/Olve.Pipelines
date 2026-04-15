@@ -28,12 +28,23 @@ public static class AuthenticationConfiguration
                 options.Authority = authority;
                 options.Audience = audience;
 
+                var frontendAuthority = builder.Configuration["Auth:FrontendAuthority"];
+                var frontendAudience = builder.Configuration["Auth:FrontendAudience"];
+
+                var validIssuers = new List<string>();
+                if (authority is not null) validIssuers.Add(authority);
+                if (frontendAuthority is not null) validIssuers.Add(frontendAuthority);
+
+                var validAudiences = new List<string>();
+                if (audience is not null) validAudiences.Add(audience);
+                if (frontendAudience is not null) validAudiences.Add(frontendAudience);
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = authority is not null,
-                    ValidIssuer = authority,
-                    ValidateAudience = audience is not null,
-                    ValidAudience = audience,
+                    ValidateIssuer = validIssuers.Count > 0,
+                    ValidIssuers = validIssuers,
+                    ValidateAudience = validAudiences.Count > 0,
+                    ValidAudiences = validAudiences,
                     ValidateLifetime = true,
                 };
 

@@ -46,14 +46,25 @@ export class PipelineDetailView extends LitElement {
     }
   `;
 
-  @property() pipelineId = '';
+  @property() declare pipelineId: string;
 
-  @state() private _pipeline: Pipeline | null = null;
-  @state() private _productionSteps: ProductionStep[] = [];
-  @state() private _processingSteps: ProcessingStep[] = [];
-  @state() private _jobs: (JobProcessingJob | JobProductionJob)[] = [];
-  @state() private _loading = true;
-  @state() private _error: string | null = null;
+  @state() private declare _pipeline: Pipeline | null;
+  @state() private declare _productionSteps: ProductionStep[];
+  @state() private declare _processingSteps: ProcessingStep[];
+  @state() private declare _jobs: (JobProcessingJob | JobProductionJob)[];
+  @state() private declare _loading: boolean;
+  @state() private declare _error: string | null;
+
+  constructor() {
+    super();
+    this.pipelineId = '';
+    this._pipeline = null;
+    this._productionSteps = [];
+    this._processingSteps = [];
+    this._jobs = [];
+    this._loading = true;
+    this._error = null;
+  }
 
   connectedCallback(): void {
     super.connectedCallback();

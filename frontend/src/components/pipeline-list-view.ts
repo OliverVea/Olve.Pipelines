@@ -98,9 +98,16 @@ export class PipelineListView extends LitElement {
     }
   `;
 
-  @state() private _pipelines: Pipeline[] = [];
-  @state() private _loading = true;
-  @state() private _error: string | null = null;
+  @state() private declare _pipelines: Pipeline[];
+  @state() private declare _loading: boolean;
+  @state() private declare _error: string | null;
+
+  constructor() {
+    super();
+    this._pipelines = [];
+    this._loading = true;
+    this._error = null;
+  }
 
   connectedCallback(): void {
     super.connectedCallback();

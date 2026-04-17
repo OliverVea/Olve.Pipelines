@@ -136,13 +136,22 @@ export class StepNode extends LitElement {
     }
   `;
 
-  @property() stepId = '';
-  @property() stepName = '';
-  @property() stepType: 'production' | 'processing' = 'production';
-  @property() pipelineId = '';
-  @property({ attribute: false }) latestJob: Job | undefined;
+  @property() declare stepId: string;
+  @property() declare stepName: string;
+  @property() declare stepType: 'production' | 'processing';
+  @property() declare pipelineId: string;
+  @property({ attribute: false }) declare latestJob: Job | undefined;
 
-  @state() private _expanded = false;
+  @state() private declare _expanded: boolean;
+
+  constructor() {
+    super();
+    this.stepId = '';
+    this.stepName = '';
+    this.stepType = 'production';
+    this.pipelineId = '';
+    this._expanded = false;
+  }
 
   render() {
     const status = getStatus(this.latestJob);

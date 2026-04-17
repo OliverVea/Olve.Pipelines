@@ -68,8 +68,8 @@ public partial class PollTriggerService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Poll failed for trigger '{TriggerId}' ({Url}), will retry next interval",
-                    trigger.Id, target.Url);
+                logger.LogWarning(ex, "Poll failed for trigger '{TriggerId}' ({Url}): {ExceptionType}: {ExceptionMessage}. Will retry next interval",
+                    trigger.Id, target.Url, ex.GetType().Name, ex.Message);
             }
         }
 

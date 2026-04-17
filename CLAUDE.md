@@ -2,6 +2,8 @@
 
 See [README.md](README.md) for project structure, endpoints, configuration, CI examples, and client generation.
 
+Beads label for this project: `project:olve-pipelines` (kebab-case, not `Olve.Pipelines`). Use `bd ready --label project:olve-pipelines` to find ready work.
+
 ## Design
 
 Olve.Pipelines is a lightweight CD pipeline configuration and orchestration service for a homelab.

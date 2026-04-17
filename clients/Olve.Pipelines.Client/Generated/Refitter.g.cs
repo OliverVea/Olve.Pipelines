@@ -946,8 +946,6 @@ namespace Olve.Pipelines.Client
         public string Name { get; set; }
 
         [JsonPropertyName("order")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
         public int Order { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
@@ -1003,7 +1001,9 @@ namespace Olve.Pipelines.Client
 
     }
 
-    [JsonInheritanceConverter(typeof(Job), "$type")]
+    [JsonInheritanceConverter(typeof(Job), "type")]
+    [JsonInheritanceAttribute("production", typeof(JobProductionJob))]
+    [JsonInheritanceAttribute("processing", typeof(JobProcessingJob))]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class Job
     {
@@ -1019,7 +1019,9 @@ namespace Olve.Pipelines.Client
 
     }
 
-    [JsonInheritanceConverter(typeof(JobGroup), "$type")]
+    [JsonInheritanceConverter(typeof(JobGroup), "type")]
+    [JsonInheritanceAttribute("production", typeof(JobGroupProductionJobGroup))]
+    [JsonInheritanceAttribute("processing", typeof(JobGroupProcessingJobGroup))]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JobGroup
     {
@@ -1036,12 +1038,8 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobGroupProcessingJobGroup
+    public partial class JobGroupProcessingJobGroup : JobGroup
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobGroupProcessingJobGroupType>))]
-        public JobGroupProcessingJobGroupType Type { get; set; }
 
         [JsonPropertyName("artifactBundleId")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1063,24 +1061,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset CreatedAt { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobGroupProductionJobGroup
+    public partial class JobGroupProductionJobGroup : JobGroup
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobGroupProductionJobGroupType>))]
-        public JobGroupProductionJobGroupType Type { get; set; }
 
         [JsonPropertyName("artifactBundleId")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1098,24 +1083,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset CreatedAt { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobProcessingJob
+    public partial class JobProcessingJob : Job
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobProcessingJobType>))]
-        public JobProcessingJobType Type { get; set; }
 
         [JsonPropertyName("artifactBundleId")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1151,24 +1123,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.Guid JobGroupId { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobProductionJob
+    public partial class JobProductionJob : Job
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobProductionJobType>))]
-        public JobProductionJobType Type { get; set; }
 
         [JsonPropertyName("productionStepId")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1197,18 +1156,14 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.Guid JobGroupId { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
-    [JsonInheritanceConverter(typeof(JobStatus), "$type")]
+    [JsonInheritanceConverter(typeof(JobStatus), "type")]
+    [JsonInheritanceAttribute("in-progress", typeof(JobStatusInProgress))]
+    [JsonInheritanceAttribute("done", typeof(JobStatusDone))]
+    [JsonInheritanceAttribute("obsolete", typeof(JobStatusObsolete))]
+    [JsonInheritanceAttribute("cancelled", typeof(JobStatusCancelled))]
+    [JsonInheritanceAttribute("failed", typeof(JobStatusFailed))]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class JobStatus
     {
@@ -1225,12 +1180,8 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusCancelled
+    public partial class JobStatusCancelled : JobStatus
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusCancelledType>))]
-        public JobStatusCancelledType Type { get; set; }
 
         [JsonPropertyName("startedAt")]
         public System.DateTimeOffset? StartedAt { get; set; }
@@ -1239,24 +1190,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset CancelledAt { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusDone
+    public partial class JobStatusDone : JobStatus
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusDoneType>))]
-        public JobStatusDoneType Type { get; set; }
 
         [JsonPropertyName("startedAt")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1266,24 +1204,11 @@ namespace Olve.Pipelines.Client
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset CompletedAt { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusFailed
+    public partial class JobStatusFailed : JobStatus
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusFailedType>))]
-        public JobStatusFailedType Type { get; set; }
 
         [JsonPropertyName("startedAt")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
@@ -1296,79 +1221,25 @@ namespace Olve.Pipelines.Client
         [JsonPropertyName("reason")]
         public string Reason { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusInProgress
+    public partial class JobStatusInProgress : JobStatus
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusInProgressType>))]
-        public JobStatusInProgressType Type { get; set; }
 
         [JsonPropertyName("startedAt")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.DateTimeOffset StartedAt { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusObsolete
+    public partial class JobStatusObsolete : JobStatus
     {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusObsoleteType>))]
-        public JobStatusObsoleteType Type { get; set; }
 
         [JsonPropertyName("supersedingJobId")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         public System.Guid SupersedingJobId { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class JobStatusScheduled
-    {
-
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<JobStatusScheduledType>))]
-        public JobStatusScheduledType Type { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
 
     }
 
@@ -1433,8 +1304,6 @@ namespace Olve.Pipelines.Client
         public System.Guid PipelineId { get; set; }
 
         [JsonPropertyName("order")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
         public int Order { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
@@ -1532,8 +1401,6 @@ namespace Olve.Pipelines.Client
         public ICollection<string> Tags { get; set; }
 
         [JsonPropertyName("severity")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
         public int Severity { get; set; }
 
         [JsonPropertyName("source")]
@@ -1686,7 +1553,9 @@ namespace Olve.Pipelines.Client
 
     }
 
-    [JsonInheritanceConverter(typeof(TriggerTarget), "$type")]
+    [JsonInheritanceConverter(typeof(TriggerTarget), "type")]
+    [JsonInheritanceAttribute("processing", typeof(TriggerTargetProcessingTriggerTarget))]
+    [JsonInheritanceAttribute("poll", typeof(TriggerTargetPollTriggerTarget))]
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
     public partial class TriggerTarget
     {
@@ -1703,44 +1572,32 @@ namespace Olve.Pipelines.Client
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class TriggerTargetProcessingTriggerTarget
+    public partial class TriggerTargetPollTriggerTarget : TriggerTarget
     {
 
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<TriggerTargetProcessingTriggerTargetType>))]
-        public TriggerTargetProcessingTriggerTargetType Type { get; set; }
-
-        [JsonPropertyName("processingStepId")]
+        [JsonPropertyName("url")]
         [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        public System.Guid ProcessingStepId { get; set; }
+        public string Url { get; set; }
 
-        private IDictionary<string, object> _additionalProperties;
+        [JsonPropertyName("headers")]
+        public IDictionary<string, string> Headers { get; set; }
 
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
+        [JsonPropertyName("valuePath")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string ValuePath { get; set; }
+
+        [JsonPropertyName("intervalSeconds")]
+        public int IntervalSeconds { get; set; } = 60;
 
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public partial class TriggerTargetProductionTriggerTarget
+    public partial class TriggerTargetProcessingTriggerTarget : TriggerTarget
     {
 
-        [JsonPropertyName("$type")]
-        [JsonConverter(typeof(JsonStringEnumConverter<TriggerTargetProductionTriggerTargetType>))]
-        public TriggerTargetProductionTriggerTargetType Type { get; set; }
-
-        private IDictionary<string, object> _additionalProperties;
-
-        [JsonExtensionData]
-        public IDictionary<string, object> AdditionalProperties
-        {
-            get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
-            set { _additionalProperties = value; }
-        }
+        [JsonPropertyName("processingStepId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.Guid ProcessingStepId { get; set; }
 
     }
 
@@ -1749,8 +1606,6 @@ namespace Olve.Pipelines.Client
     {
 
         [JsonPropertyName("order")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
-        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
         public int Order { get; set; }
 
         private IDictionary<string, object> _additionalProperties;
@@ -1779,114 +1634,6 @@ namespace Olve.Pipelines.Client
             get { return _additionalProperties ?? (_additionalProperties = new Dictionary<string, object>()); }
             set { _additionalProperties = value; }
         }
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobGroupProcessingJobGroupType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
-        Processing = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobGroupProductionJobGroupType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"production")]
-        Production = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobProcessingJobType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
-        Processing = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobProductionJobType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"production")]
-        Production = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusCancelledType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"cancelled")]
-        Cancelled = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusDoneType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"done")]
-        Done = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusFailedType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"failed")]
-        Failed = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusInProgressType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"in-progress")]
-        InProgress = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusObsoleteType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"obsolete")]
-        Obsolete = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum JobStatusScheduledType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"scheduled")]
-        Scheduled = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum TriggerTargetProcessingTriggerTargetType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"processing")]
-        Processing = 0,
-
-    }
-
-    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.6.3.0 (NJsonSchema v11.5.2.0 (Newtonsoft.Json v13.0.0.0))")]
-    public enum TriggerTargetProductionTriggerTargetType
-    {
-
-        [System.Runtime.Serialization.EnumMember(Value = @"production")]
-        Production = 0,
 
     }
 

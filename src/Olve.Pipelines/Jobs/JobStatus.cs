@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Olve.Pipelines.Jobs;
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(Scheduled), "scheduled")]
 [JsonDerivedType(typeof(InProgress), "in-progress")]
 [JsonDerivedType(typeof(Done), "done")]

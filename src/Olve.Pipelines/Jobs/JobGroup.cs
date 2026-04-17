@@ -6,6 +6,7 @@ using Olve.Utilities.Lookup;
 
 namespace Olve.Pipelines.Jobs;
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(ProductionJobGroup), "production")]
 [JsonDerivedType(typeof(ProcessingJobGroup), "processing")]
 public abstract record JobGroup(

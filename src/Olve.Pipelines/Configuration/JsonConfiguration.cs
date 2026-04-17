@@ -24,6 +24,12 @@ public static class JsonConfiguration
                 }
                 return Task.CompletedTask;
             });
+            options.AddDocumentTransformer((document, _, _) =>
+            {
+                PolymorphicSchemaRewriter.RewriteAnyOfToAllOf(document);
+                PolymorphicSchemaRewriter.NormalizeIntegerFormats(document);
+                return Task.CompletedTask;
+            });
         });
     }
 

@@ -1670,10 +1670,7 @@
           },
           "order": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -1734,19 +1731,16 @@
       },
       "Job": {
         "required": [
-          "$type"
+          "type"
         ],
         "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/JobProductionJob"
-          },
-          {
-            "$ref": "#/components/schemas/JobProcessingJob"
+        "properties": {
+          "type": {
+            "type": "string"
           }
-        ],
+        },
         "discriminator": {
-          "propertyName": "$type",
+          "propertyName": "type",
           "mapping": {
             "production": "#/components/schemas/JobProductionJob",
             "processing": "#/components/schemas/JobProcessingJob"
@@ -1755,19 +1749,16 @@
       },
       "JobGroup": {
         "required": [
-          "$type"
+          "type"
         ],
         "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/JobGroupProductionJobGroup"
-          },
-          {
-            "$ref": "#/components/schemas/JobGroupProcessingJobGroup"
+        "properties": {
+          "type": {
+            "type": "string"
           }
-        ],
+        },
         "discriminator": {
-          "propertyName": "$type",
+          "propertyName": "type",
           "mapping": {
             "production": "#/components/schemas/JobGroupProductionJobGroup",
             "processing": "#/components/schemas/JobGroupProcessingJobGroup"
@@ -1782,13 +1773,12 @@
           "pipelineId",
           "createdAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobGroup"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "processing"
-            ],
-            "type": "string"
-          },
           "artifactBundleId": {
             "$ref": "#/components/schemas/IdOfArtifactBundle"
           },
@@ -1814,13 +1804,12 @@
           "pipelineId",
           "createdAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobGroup"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "production"
-            ],
-            "type": "string"
-          },
           "artifactBundleId": {
             "$ref": "#/components/schemas/IdOfArtifactBundle"
           },
@@ -1846,13 +1835,12 @@
           "status",
           "jobGroupId"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Job"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "processing"
-            ],
-            "type": "string"
-          },
           "artifactBundleId": {
             "$ref": "#/components/schemas/IdOfArtifactBundle"
           },
@@ -1899,13 +1887,12 @@
           "status",
           "jobGroupId"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Job"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "production"
-            ],
-            "type": "string"
-          },
           "productionStepId": {
             "$ref": "#/components/schemas/IdOfProductionStep"
           },
@@ -1932,31 +1919,16 @@
       },
       "JobStatus": {
         "required": [
-          "$type"
+          "type"
         ],
         "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/JobStatusScheduled"
-          },
-          {
-            "$ref": "#/components/schemas/JobStatusInProgress"
-          },
-          {
-            "$ref": "#/components/schemas/JobStatusDone"
-          },
-          {
-            "$ref": "#/components/schemas/JobStatusObsolete"
-          },
-          {
-            "$ref": "#/components/schemas/JobStatusCancelled"
-          },
-          {
-            "$ref": "#/components/schemas/JobStatusFailed"
+        "properties": {
+          "type": {
+            "type": "string"
           }
-        ],
+        },
         "discriminator": {
-          "propertyName": "$type",
+          "propertyName": "type",
           "mapping": {
             "scheduled": "#/components/schemas/JobStatusScheduled",
             "in-progress": "#/components/schemas/JobStatusInProgress",
@@ -1972,13 +1944,12 @@
           "startedAt",
           "cancelledAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "cancelled"
-            ],
-            "type": "string"
-          },
           "startedAt": {
             "type": [
               "null",
@@ -1997,13 +1968,12 @@
           "startedAt",
           "completedAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "done"
-            ],
-            "type": "string"
-          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
@@ -2019,13 +1989,12 @@
           "startedAt",
           "failedAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "failed"
-            ],
-            "type": "string"
-          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
@@ -2046,13 +2015,12 @@
         "required": [
           "startedAt"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "in-progress"
-            ],
-            "type": "string"
-          },
           "startedAt": {
             "type": "string",
             "format": "date-time"
@@ -2063,27 +2031,23 @@
         "required": [
           "supersedingJobId"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "obsolete"
-            ],
-            "type": "string"
-          },
           "supersedingJobId": {
             "$ref": "#/components/schemas/IdOfJob"
           }
         }
       },
       "JobStatusScheduled": {
-        "properties": {
-          "$type": {
-            "enum": [
-              "scheduled"
-            ],
-            "type": "string"
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/JobStatus"
           }
-        }
+        ]
       },
       "Pipeline": {
         "required": [
@@ -2131,10 +2095,7 @@
           },
           "order": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }
@@ -2213,10 +2174,7 @@
           },
           "severity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           },
           "source": {
@@ -2342,22 +2300,16 @@
       },
       "TriggerTarget": {
         "required": [
-          "$type"
+          "type"
         ],
         "type": "object",
-        "anyOf": [
-          {
-            "$ref": "#/components/schemas/TriggerTargetProductionTriggerTarget"
-          },
-          {
-            "$ref": "#/components/schemas/TriggerTargetProcessingTriggerTarget"
-          },
-          {
-            "$ref": "#/components/schemas/TriggerTargetPollTriggerTarget"
+        "properties": {
+          "type": {
+            "type": "string"
           }
-        ],
+        },
         "discriminator": {
-          "propertyName": "$type",
+          "propertyName": "type",
           "mapping": {
             "production": "#/components/schemas/TriggerTargetProductionTriggerTarget",
             "processing": "#/components/schemas/TriggerTargetProcessingTriggerTarget",
@@ -2371,13 +2323,12 @@
           "headers",
           "valuePath"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTarget"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "poll"
-            ],
-            "type": "string"
-          },
           "url": {
             "type": "string"
           },
@@ -2395,10 +2346,7 @@
           },
           "intervalSeconds": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32",
             "default": 60
           }
@@ -2408,27 +2356,23 @@
         "required": [
           "processingStepId"
         ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTarget"
+          }
+        ],
         "properties": {
-          "$type": {
-            "enum": [
-              "processing"
-            ],
-            "type": "string"
-          },
           "processingStepId": {
             "$ref": "#/components/schemas/IdOfProcessingStep"
           }
         }
       },
       "TriggerTargetProductionTriggerTarget": {
-        "properties": {
-          "$type": {
-            "enum": [
-              "production"
-            ],
-            "type": "string"
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTarget"
           }
-        }
+        ]
       },
       "UpdateOrderRequest": {
         "required": [
@@ -2438,10 +2382,7 @@
         "properties": {
           "order": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
+            "type": "integer",
             "format": "int32"
           }
         }

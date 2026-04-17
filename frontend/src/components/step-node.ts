@@ -15,8 +15,7 @@ interface StatusInfo {
 function getStatus(job: Job | undefined): StatusInfo {
   if (!job || !job.status) return { label: 'Idle', cssClass: 'idle' };
 
-  const status = job.status as Record<string, unknown>;
-  const type = (status['$type'] as string) ?? (status.type as string) ?? '';
+  const type = (job.status as { type?: string }).type ?? '';
 
   switch (type) {
     case 'scheduled':
@@ -32,7 +31,7 @@ function getStatus(job: Job | undefined): StatusInfo {
     case 'obsolete':
       return { label: 'Obsolete', cssClass: 'obsolete' };
     default:
-      console.warn('step-node: unrecognized job status', { job, status });
+      console.warn('step-node: unrecognized job status', { job });
       return { label: type || 'Unknown', cssClass: 'idle' };
   }
 }

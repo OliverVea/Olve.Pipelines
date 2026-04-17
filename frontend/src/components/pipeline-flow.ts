@@ -92,10 +92,18 @@ export class PipelineFlow extends LitElement {
     }
   `;
 
-  @property({ attribute: false }) pipelineId = '';
-  @property({ attribute: false }) productionSteps: ProductionStep[] = [];
-  @property({ attribute: false }) processingSteps: ProcessingStep[] = [];
-  @property({ attribute: false }) jobs: Job[] = [];
+  @property({ attribute: false }) declare pipelineId: string;
+  @property({ attribute: false }) declare productionSteps: ProductionStep[];
+  @property({ attribute: false }) declare processingSteps: ProcessingStep[];
+  @property({ attribute: false }) declare jobs: Job[];
+
+  constructor() {
+    super();
+    this.pipelineId = '';
+    this.productionSteps = [];
+    this.processingSteps = [];
+    this.jobs = [];
+  }
 
   render() {
     const hasProduction = this.productionSteps.length > 0;

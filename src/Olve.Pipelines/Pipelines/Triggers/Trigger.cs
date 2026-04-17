@@ -12,6 +12,7 @@ public record Trigger(
     string Secret,
     DateTimeOffset CreatedAt) : IHasId<Id<Trigger>>;
 
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(ProductionTriggerTarget), "production")]
 [JsonDerivedType(typeof(ProcessingTriggerTarget), "processing")]
 [JsonDerivedType(typeof(PollTriggerTarget), "poll")]

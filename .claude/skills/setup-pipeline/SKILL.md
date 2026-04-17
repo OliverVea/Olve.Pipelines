@@ -6,7 +6,7 @@ allowed-tools: Bash Read
 
 # Setup Self-Deploy Pipeline
 
-Pipeline configuration is in-memory and lost on every app restart. This skill recreates the full self-deploy pipeline: production step (Kaniko build), processing step (SSH deploy), secrets, and webhook trigger.
+Pipeline configuration now persists to S3, so this skill is only needed after a hard reset (S3 state deleted or incompatible schema migration). It recreates the full self-deploy pipeline: production step (Kaniko build), processing step (SSH deploy), secrets, and a poll trigger.
 
 ## Step 1: Verify the app is running
 
@@ -19,13 +19,13 @@ If not reachable, the app may need to be restarted:
 ssh oliver@bulwark-m2 "kubectl rollout restart deploy/olve-pipelines -n apps && kubectl rollout status deploy/olve-pipelines -n apps --timeout=60s"
 ```
 
-## Step 2: Check if pipeline already exists
+## Step 2: Confirm no pipeline exists
 
 ```bash
 curl -sk "https://pipelines-private.ovea.pro/api/pipelines"
 ```
 
-If a pipeline named `olve-pipelines` already exists, skip to verification. Otherwise continue.
+This skill is for recreating from scratch after a reset. If a pipeline named `olve-pipelines` still exists, the state you intended to delete is still there — do not proceed or you will create a duplicate pipeline with a new ID, leaving the old one orphaned.
 
 ## Step 3: Get an auth token
 
@@ -51,7 +51,7 @@ PROD=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PID/p
 PROD_ID=$(echo "$PROD" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
 echo "Production step: $PROD_ID" && \
 PROC=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PID/processing" \
-  -H "$H" -H "Content-Type: application/json" -d '{"name":"deploy"}') && \
+  -H "$H" -H "Content-Type: application/json" -d '{"name":"deploy","order":0}') && \
 PROC_ID=$(echo "$PROC" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
 echo "Processing step: $PROC_ID"
 ```
@@ -128,7 +128,7 @@ TRIGGER=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PI
   -d '{
     "name":"github-poll",
     "target":{
-      "$type":"poll",
+      "type":"poll",
       "url":"https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
       "headers":{
         "Authorization":"Bearer $SECRET:GITHUB_TOKEN",
@@ -148,7 +148,7 @@ echo "Trigger ID: $TRIGGER_ID"
 ```bash
 TRIGGER=$(curl -sk -X POST "https://pipelines-private.ovea.pro/api/pipelines/$PID/triggers" \
   -H "$H" -H "Content-Type: application/json" \
-  -d '{"name":"deploy-on-push","target":{"$type":"production"}}') && \
+  -d '{"name":"deploy-on-push","target":{"type":"production"}}') && \
 TRIGGER_ID=$(echo "$TRIGGER" | uv run python -c "import sys,json; print(json.load(sys.stdin)['id'], end='')") && \
 TRIGGER_SECRET=$(echo "$TRIGGER" | uv run python -c "import sys,json; print(json.load(sys.stdin)['secret'], end='')") && \
 echo "Trigger ID: $TRIGGER_ID" && \

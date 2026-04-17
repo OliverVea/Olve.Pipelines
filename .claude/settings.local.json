@@ -72,7 +72,20 @@
       "Bash(npm ls:*)",
       "Bash(npx vite:*)",
       "Bash(rtk npm:*)",
-      "Bash(rtk npx:*)"
+      "Bash(rtk npx:*)",
+      "Bash(npm run:*)",
+      "Skill(deploy)",
+      "Bash(export PATH=\"$HOME/go/bin:/c/msys64/mingw64/bin:$PATH\")",
+      "Read(//c/Users/olive/knowledge-bases/main/**)",
+      "Read(//c/Users/olive/.claude/**)",
+      "Skill(update-config)",
+      "Bash(timeout 8 bash -c 'npx vite --mode prod-api --port 5199 >/tmp/vite.log 2>&1 & *)",
+      "Bash(npm --prefix C:/Users/olive/RiderProjects/Olve.Pipelines/frontend run build)",
+      "Bash(node -e 'console.log\\(JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(\"/tmp/jobs.json\",\"utf8\"\\)\\).length\\)')",
+      "Bash(echo \"Jobs count: $\\(node -e 'console.log\\(JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(\"/tmp/jobs.json\",\"utf8\"\\)\\).length\\)'\\)\")",
+      "Bash(node -e 'const d=JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(\"/tmp/jobs.json\",\"utf8\"\\)\\); const j=d[0]; console.log\\(\"  id:\", j.id\\); console.log\\(\"  type:\", j[\"$type\"]\\); console.log\\(\"  pipelineId:\", j.pipelineId\\); console.log\\(\"  status:\", j.status[\"$type\"]\\); console.log\\(\"  createdAt:\", j.createdAt\\)')",
+      "Bash(node -e 'const d=JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(\"/tmp/pipelines.json\",\"utf8\"\\)\\); d.forEach\\(p => console.log\\(\"  -\", p.id, p.name\\)\\)')",
+      "Bash(node -e 'let d=\"\"; process.stdin.on\\(\"data\",c=>d+=c\\); process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\); console.log\\(\"issuer:\", j.issuer\\); console.log\\(\"authorization_endpoint:\", j.authorization_endpoint\\); console.log\\(\"token_endpoint:\", j.token_endpoint\\); console.log\\(\"userinfo_endpoint:\", j.userinfo_endpoint\\); console.log\\(\"jwks_uri:\", j.jwks_uri\\);}\\)')"
     ]
   }
 }

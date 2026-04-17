@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Shared;
+using Olve.Utilities.Paginations;
 
 namespace Olve.Pipelines.Jobs;
 
@@ -9,9 +10,9 @@ public static class JobEndpoints
     {
         var group = app.MapGroup("/api/jobs");
 
-        group.MapGet("/", Result<Job[]> (JobService service)
-                => service.ListJobs().ToArray())
-            .WithResultMapping<Job[]>()
+        group.MapGet("/", Result<Page<Job>> (JobService service, [AsParameters] ListJobsRequest request)
+                => service.ListJobs(request))
+            .WithResultMapping<Page<Job>>()
             .WithName("ListJobs")
             .AllowAnonymous();
 

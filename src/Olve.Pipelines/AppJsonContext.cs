@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
+using Olve.Utilities.Paginations;
 
 namespace Olve.Pipelines;
 
@@ -32,6 +33,8 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<string[]>))]
 [JsonSerializable(typeof(Result<Job>))]
 [JsonSerializable(typeof(Result<Job[]>))]
+[JsonSerializable(typeof(Result<Page<Job>>))]
+[JsonSerializable(typeof(JobSortField))]
 [JsonSerializable(typeof(Result<Id<Job>[]>))]
 [JsonSerializable(typeof(Job.ProductionJob))]
 [JsonSerializable(typeof(Job.ProcessingJob))]

@@ -252,6 +252,24 @@ export function createJobStatusScheduledFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageOfJob}
+ */
+// @ts-ignore
+export function createPageOfJobFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfJob;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Pagination}
+ */
+// @ts-ignore
+export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPagination;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {Pipeline}
  */
 // @ts-ignore
@@ -757,6 +775,36 @@ export function deserializeIntoJobStatusScheduled(jobStatusScheduled: Partial<Jo
 }
 /**
  * The deserialization information for the current model
+ * @param PageOfJob The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageOfJob(pageOfJob: Partial<PageOfJob> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "hasNextPage": n => { pageOfJob.hasNextPage = n.getBooleanValue(); },
+        "items": n => { pageOfJob.items = n.getCollectionOfObjectValues<Job>(createJobFromDiscriminatorValue); },
+        "next": n => { pageOfJob.next = n.getObjectValue<Pagination>(createPaginationFromDiscriminatorValue); },
+        "pageNumber": n => { pageOfJob.pageNumber = n.getNumberValue(); },
+        "pageSize": n => { pageOfJob.pageSize = n.getNumberValue(); },
+        "totalCount": n => { pageOfJob.totalCount = n.getNumberValue(); },
+        "totalPages": n => { pageOfJob.totalPages = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param Pagination The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPagination(pagination: Partial<Pagination> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "offset": n => { pagination.offset = n.getNumberValue(); },
+        "page": n => { pagination.page = n.getNumberValue(); },
+        "pageSize": n => { pagination.pageSize = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Pipeline The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1213,6 +1261,50 @@ export interface JobStatusObsolete extends JobStatus, Parsable {
 }
 export interface JobStatusScheduled extends JobStatus, Parsable {
 }
+export interface PageOfJob extends AdditionalDataHolder, Parsable {
+    /**
+     * The hasNextPage property
+     */
+    hasNextPage?: boolean | null;
+    /**
+     * The items property
+     */
+    items?: Job[] | null;
+    /**
+     * The next property
+     */
+    next?: Pagination | null;
+    /**
+     * The pageNumber property
+     */
+    pageNumber?: number | null;
+    /**
+     * The pageSize property
+     */
+    pageSize?: number | null;
+    /**
+     * The totalCount property
+     */
+    totalCount?: number | null;
+    /**
+     * The totalPages property
+     */
+    totalPages?: number | null;
+}
+export interface Pagination extends AdditionalDataHolder, Parsable {
+    /**
+     * The offset property
+     */
+    offset?: number | null;
+    /**
+     * The page property
+     */
+    page?: number | null;
+    /**
+     * The pageSize property
+     */
+    pageSize?: number | null;
+}
 export interface Pipeline extends AdditionalDataHolder, Parsable {
     /**
      * The id property
@@ -1612,6 +1704,38 @@ export function serializeJobStatusObsolete(writer: SerializationWriter, jobStatu
 export function serializeJobStatusScheduled(writer: SerializationWriter, jobStatusScheduled: Partial<JobStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!jobStatusScheduled || isSerializingDerivedType) { return; }
     serializeJobStatus(writer, jobStatusScheduled, isSerializingDerivedType)
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageOfJob The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageOfJob(writer: SerializationWriter, pageOfJob: Partial<PageOfJob> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfJob || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("hasNextPage", pageOfJob.hasNextPage);
+    writer.writeCollectionOfObjectValues<Job>("items", pageOfJob.items, serializeJob);
+    writer.writeObjectValue<Pagination>("next", pageOfJob.next, serializePagination);
+    writer.writeNumberValue("pageNumber", pageOfJob.pageNumber);
+    writer.writeNumberValue("pageSize", pageOfJob.pageSize);
+    writer.writeNumberValue("totalCount", pageOfJob.totalCount);
+    writer.writeNumberValue("totalPages", pageOfJob.totalPages);
+    writer.writeAdditionalData(pageOfJob.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param Pagination The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePagination(writer: SerializationWriter, pagination: Partial<Pagination> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pagination || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("offset", pagination.offset);
+    writer.writeNumberValue("page", pagination.page);
+    writer.writeNumberValue("pageSize", pagination.pageSize);
+    writer.writeAdditionalData(pagination.additionalData);
 }
 /**
  * Serializes information the current object

@@ -76,11 +76,16 @@ export class PipelineDetailView extends LitElement {
     this._error = null;
     try {
       const p = client.api.pipelines.byId(this.pipelineId);
-      const [pipeline, production, processing, jobs] = await Promise.all([
+      const [pipeline, production, processing, jobsPage] = await Promise.all([
         p.get(),
         p.production.get(),
         p.processing.get(),
-        client.api.jobs.get(),
+        client.api.jobs.get({
+          queryParameters: {
+            pipelineId: this.pipelineId,
+            pageSize: '50',
+          },
+        }),
       ]);
       this._pipeline = pipeline ?? null;
       this._productionSteps = production ?? [];
@@ -91,13 +96,10 @@ export class PipelineDetailView extends LitElement {
           return ao - bo;
         },
       );
-      this._jobs = (jobs ?? []).filter(
-        (j: JobProcessingJob | JobProductionJob) => {
-          const pid =
-            'pipelineId' in j ? (j.pipelineId as string) : undefined;
-          return pid === this.pipelineId;
-        },
-      );
+      this._jobs = (jobsPage?.items ?? []) as (
+        | JobProcessingJob
+        | JobProductionJob
+      )[];
     } catch (e) {
       this._error = e instanceof Error ? e.message : String(e);
     } finally {

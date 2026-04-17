@@ -4,6 +4,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Utilities.Paginations;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
@@ -12,8 +13,45 @@ namespace Olve.Pipelines.Jobs;
 public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
     private readonly EntityStoreIndex<Job, Id<JobGroup>> _byGroup = store.CreateIndex(j => j.JobGroupId);
+    private readonly EntityStoreIndex<Job, Id<Pipeline>> _byPipeline = store.CreateIndex(j => j.PipelineId);
 
     public IReadOnlyList<Job> ListJobs() => store.List();
+
+    public Page<Job> ListJobs(ListJobsRequest request)
+    {
+        IEnumerable<Job> source;
+        if (request.PipelineId is { } pipelineId)
+        {
+            var ids = _byPipeline.GetForKey(pipelineId);
+            var list = new List<Job>(ids.Count);
+            foreach (var id in ids)
+            {
+                if (store.TryGet(id, out var job))
+                    list.Add(job);
+            }
+            source = list;
+        }
+        else
+        {
+            source = store.List();
+        }
+
+        var sorted = request.Sort switch
+        {
+            JobSortField.CreatedAtAsc => source.OrderBy(j => j.CreatedAt),
+            _ => source.OrderByDescending(j => j.CreatedAt),
+        };
+
+        var materialized = sorted.ToList();
+        var pageNumber = Math.Max(0, request.Page);
+        var pageSize = Math.Max(1, request.PageSize);
+        var items = materialized
+            .Skip(pageNumber * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new Page<Job>(items, pageNumber, pageSize, materialized.Count);
+    }
 
     public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ProductionStep> productionStepId)
     {

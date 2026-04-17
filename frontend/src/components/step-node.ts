@@ -19,17 +19,17 @@ function getStatus(job: Job | undefined): StatusInfo {
   const type = (status.type as string) ?? '';
 
   switch (type) {
-    case 'Scheduled':
+    case 'scheduled':
       return { label: 'Scheduled', cssClass: 'scheduled' };
-    case 'InProgress':
+    case 'in-progress':
       return { label: 'Running', cssClass: 'running' };
-    case 'Done':
+    case 'done':
       return { label: 'Done', cssClass: 'done' };
-    case 'Failed':
+    case 'failed':
       return { label: 'Failed', cssClass: 'failed' };
-    case 'Cancelled':
+    case 'cancelled':
       return { label: 'Cancelled', cssClass: 'cancelled' };
-    case 'Obsolete':
+    case 'obsolete':
       return { label: 'Obsolete', cssClass: 'obsolete' };
     default:
       return { label: type || 'Unknown', cssClass: 'idle' };

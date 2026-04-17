@@ -83,6 +83,7 @@ public partial class PollTriggerService(
     {
         using var client = new HttpClient();
         var request = new HttpRequestMessage(HttpMethod.Get, target.Url);
+        request.Headers.UserAgent.ParseAdd("olve-pipelines");
 
         if (target.Headers is not null)
         {

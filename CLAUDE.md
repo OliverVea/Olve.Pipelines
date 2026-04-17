@@ -83,6 +83,7 @@ See [frontend/README.md](frontend/README.md) for full details.
 ```bash
 cd frontend && npm install                                  # Install
 cd frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
+cd frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
 cd frontend && npm run build                                # Production build
 ```
 

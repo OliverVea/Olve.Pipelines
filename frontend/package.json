@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:prod": "vite --mode prod-api",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.app.json",
     "preview": "vite preview",

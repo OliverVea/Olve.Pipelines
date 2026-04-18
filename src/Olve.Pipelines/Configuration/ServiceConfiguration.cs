@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Pipelines.Polling;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Persistence;
 
@@ -65,6 +66,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
+        services.AddTransient<PipelineDocumentBuilder>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();

@@ -60,6 +60,49 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/document": {
+      "get": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "GetPipelineDocument",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines": {
       "post": {
         "tags": [
@@ -2170,6 +2213,43 @@
           }
         }
       },
+      "PipelineDocument": {
+        "required": [
+          "apiVersion",
+          "name",
+          "productionSteps",
+          "processingSteps",
+          "triggers"
+        ],
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "productionSteps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductionStepDocument"
+            }
+          },
+          "processingSteps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessingStepDocument"
+            }
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TriggerDocument"
+            }
+          }
+        },
+        "description": "Beta: shape may change within the 0.x major version."
+      },
       "ProcessingJobKey": {
         "type": "object",
         "properties": {
@@ -2206,6 +2286,28 @@
           }
         }
       },
+      "ProcessingStepDocument": {
+        "required": [
+          "name",
+          "configuration"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "configuration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StepConfigurationDocument"
+              }
+            ]
+          }
+        }
+      },
       "ProductionJobKey": {
         "type": "object",
         "properties": {
@@ -2233,6 +2335,28 @@
           },
           "pipelineId": {
             "$ref": "#/components/schemas/IdOfPipeline"
+          }
+        }
+      },
+      "ProductionStepDocument": {
+        "required": [
+          "name",
+          "configuration"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "configuration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StepConfigurationDocument"
+              }
+            ]
           }
         }
       },
@@ -2357,6 +2481,31 @@
           }
         }
       },
+      "StepConfigurationDocument": {
+        "required": [
+          "image",
+          "script",
+          "environmentVariables"
+        ],
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string"
+          },
+          "script": {
+            "type": "string"
+          },
+          "environmentVariables": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "Trigger": {
         "required": [
           "id",
@@ -2386,6 +2535,21 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TriggerDocument": {
+        "required": [
+          "name",
+          "target"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TriggerTargetDocument"
           }
         }
       },
@@ -2422,6 +2586,82 @@
             "poll": "#/components/schemas/TriggerTargetPollTriggerTarget"
           }
         }
+      },
+      "TriggerTargetDocument": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "production": "#/components/schemas/TriggerTargetDocumentProductionTargetDocument",
+            "processing": "#/components/schemas/TriggerTargetDocumentProcessingTargetDocument",
+            "poll": "#/components/schemas/TriggerTargetDocumentPollTargetDocument"
+          }
+        }
+      },
+      "TriggerTargetDocumentPollTargetDocument": {
+        "required": [
+          "url",
+          "headers",
+          "valuePath"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTargetDocument"
+          }
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "headers": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "valuePath": {
+            "type": "string"
+          },
+          "intervalSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32",
+            "default": 60
+          }
+        }
+      },
+      "TriggerTargetDocumentProcessingTargetDocument": {
+        "required": [
+          "processingStepName"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTargetDocument"
+          }
+        ],
+        "properties": {
+          "processingStepName": {
+            "type": "string"
+          }
+        }
+      },
+      "TriggerTargetDocumentProductionTargetDocument": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTargetDocument"
+          }
+        ]
       },
       "TriggerTargetPollTriggerTarget": {
         "required": [
@@ -2516,6 +2756,9 @@
   "tags": [
     {
       "name": "Olve.Pipelines"
+    },
+    {
+      "name": "beta"
     }
   ]
 }

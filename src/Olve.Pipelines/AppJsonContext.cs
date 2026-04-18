@@ -5,6 +5,7 @@ using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Paginations;
@@ -48,6 +49,11 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(ProductionTriggerTarget))]
 [JsonSerializable(typeof(ProcessingTriggerTarget))]
 [JsonSerializable(typeof(PollTriggerTarget))]
+[JsonSerializable(typeof(PipelineDocument))]
+[JsonSerializable(typeof(Result<PipelineDocument>))]
+[JsonSerializable(typeof(ProductionTargetDocument))]
+[JsonSerializable(typeof(ProcessingTargetDocument))]
+[JsonSerializable(typeof(PollTargetDocument))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 [JsonSerializable(typeof(TriggerProcessingRequest))]

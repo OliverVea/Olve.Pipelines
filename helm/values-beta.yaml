@@ -1,0 +1,27 @@
+config:
+  Auth__Authority: "https://auth-beta.ovea.pro/application/o/olve-pipelines/"
+  Auth__Audience: "olve-pipelines-beta"
+  Auth__FrontendAuthority: "https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/"
+  Auth__FrontendAudience: "olve-pipelines-frontend-beta"
+  OpenTelemetry__Endpoint: "http://otel-beta.ovea.pro"
+  OpenTelemetry__Protocol: "http"
+  OpenTelemetry__OAuth2__TokenUrl: ""
+  OpenTelemetry__OAuth2__ClientId: ""
+  Storage__Endpoint: "https://minio-beta.ovea.pro"
+  Storage__Bucket: "olve-pipelines-beta"
+  Storage__AuthUrl: "https://auth-beta.ovea.pro/application/o/token/"
+  Kubernetes__OpenBaoUrl: "https://openbao-beta.ovea.pro"
+  Kubernetes__Namespace: "olve-runners-beta"
+
+secrets:
+  - name: olve-pipelines-oidc
+    envMap:
+      Storage__ClientId: client-id
+      Storage__ClientSecret: client-secret
+      Storage__RoleArn: role-arn
+
+authentikCa:
+  fileName: auth-beta-ca.crt
+
+ingress:
+  host: pipelines-beta.ovea.pro

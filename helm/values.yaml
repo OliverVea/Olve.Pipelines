@@ -47,6 +47,12 @@ secrets:
       Storage__ClientSecret: client-secret
       Storage__RoleArn: role-arn
 
+authentikCa:
+  fileName: auth-prod-ca.crt
+
+ingress:
+  host: pipelines-private.ovea.pro
+
 slo:
   enabled: true
   labels:

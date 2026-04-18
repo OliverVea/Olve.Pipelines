@@ -22,8 +22,10 @@ spec:
             - containerPort: {{ .Values.container.port }}
           env:
             {{- range $key, $value := .Values.config }}
+            {{- if $value }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
             {{- end }}
             {{- range .Values.secrets }}
             {{- $secretName := .name }}
@@ -49,8 +51,8 @@ spec:
             periodSeconds: 5
           volumeMounts:
             - name: authentik-ca
-              mountPath: /etc/ssl/certs/auth-prod-ca.crt
-              subPath: auth-prod-ca.crt
+              mountPath: /etc/ssl/certs/{{ .Values.authentikCa.fileName }}
+              subPath: {{ .Values.authentikCa.fileName }}
               readOnly: true
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

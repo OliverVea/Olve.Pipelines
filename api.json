@@ -17,6 +17,19 @@
         }
       }
     },
+    "/api/config/frontend": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetFrontendConfig",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/artifact-bundles/{bundleId}": {
       "get": {
         "tags": [

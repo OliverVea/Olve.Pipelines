@@ -30,7 +30,7 @@ export function resolve(path: string): ResolvedRoute {
   return { view: 'pipeline-list-view', params: {} };
 }
 
-export function navigate(path: string): void {
-  history.pushState(null, '', path);
+export function navigate(path: string, state: unknown = null): void {
+  history.pushState(state, '', path);
   window.dispatchEvent(new CustomEvent('route-changed'));
 }

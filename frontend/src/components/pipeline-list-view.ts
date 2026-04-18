@@ -11,6 +11,59 @@ export class PipelineListView extends LitElement {
       display: block;
     }
 
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      flex: 1;
+    }
+
+    .reload-btn {
+      width: 2rem;
+      height: 2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text);
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .reload-btn:hover:not(:disabled) {
+      background: var(--color-surface-hover);
+      border-color: var(--color-primary);
+    }
+
+    .reload-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .reload-btn svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .reload-btn.loading svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     .pipeline-card {
       display: flex;
       align-items: center;
@@ -101,12 +154,14 @@ export class PipelineListView extends LitElement {
   @state() private declare _pipelines: Pipeline[];
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
+  @state() private declare _loaded: boolean;
 
   constructor() {
     super();
     this._pipelines = [];
     this._loading = true;
     this._error = null;
+    this._loaded = false;
   }
 
   connectedCallback(): void {
@@ -119,6 +174,7 @@ export class PipelineListView extends LitElement {
     this._error = null;
     try {
       this._pipelines = (await client.api.pipelines.get()) ?? [];
+      this._loaded = true;
     } catch (e) {
       this._error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -127,16 +183,35 @@ export class PipelineListView extends LitElement {
   }
 
   render() {
-    if (this._loading) return html`<p>Loading...</p>`;
-    if (this._error) return html`<p class="error">${this._error}</p>`;
-
     return html`
-      ${this._pipelines.length === 0
+      <div class="header">
+        <h2>Pipelines</h2>
+        <button
+          class="reload-btn ${this._loading ? 'loading' : ''}"
+          @click=${this._load}
+          ?disabled=${this._loading}
+          title="Refresh"
+          aria-label="Refresh"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+      </div>
+      ${this._error ? html`<p class="error">${this._error}</p>` : ''}
+      ${!this._loaded
+        ? ''
+        : this._pipelines.length === 0
         ? html`<p class="empty">No pipelines yet.</p>`
         : this._pipelines.map(
             (p) => html`
               <div class="pipeline-card">
-                <a href="/pipeline/${p.id}" @click=${this._nav}>${p.name}</a>
+                <a
+                  href="/pipeline/${p.id}"
+                  @click=${(e: Event) => this._navToPipeline(e, p.name ?? '')}
+                  >${p.name}</a
+                >
                 <button class="btn-delete" @click=${() => this._delete(p.id!)}>
                   Delete
                 </button>
@@ -150,9 +225,10 @@ export class PipelineListView extends LitElement {
     `;
   }
 
-  private _nav(e: Event) {
+  private _navToPipeline(e: Event, name: string) {
     e.preventDefault();
-    navigate((e.currentTarget as HTMLAnchorElement).getAttribute('href')!);
+    const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href')!;
+    navigate(href, { pipelineName: name });
   }
 
   private async _create(e: SubmitEvent) {

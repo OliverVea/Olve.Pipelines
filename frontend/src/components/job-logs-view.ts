@@ -44,19 +44,43 @@ export class JobLogsView extends LitElement {
     }
 
     .reload-btn {
-      padding: 0.35rem 0.75rem;
+      width: 2rem;
+      height: 2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
       border-radius: var(--radius);
       border: 1px solid var(--color-border);
       background: var(--color-surface);
       color: var(--color-text);
-      font-size: 0.8rem;
       cursor: pointer;
       transition: background var(--transition), border-color var(--transition);
     }
 
-    .reload-btn:hover {
+    .reload-btn:hover:not(:disabled) {
       background: var(--color-surface-hover);
       border-color: var(--color-primary);
+    }
+
+    .reload-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .reload-btn svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .reload-btn.loading svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     pre {
@@ -165,14 +189,23 @@ export class JobLogsView extends LitElement {
         <h2>Job Logs</h2>
       </div>
       <div class="toolbar">
-        <button class="reload-btn" @click=${this._load} ?disabled=${this._loading}>
-          ${this._loading ? 'Loading...' : 'Reload'}
+        <button
+          class="reload-btn ${this._loading ? 'loading' : ''}"
+          @click=${this._load}
+          ?disabled=${this._loading}
+          title="Reload"
+          aria-label="Reload"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
         </button>
       </div>
       ${this._error
         ? html`<p class="error">${this._error}</p>`
         : this._loading
-        ? html`<p class="empty">Loading logs...</p>`
+        ? ''
         : this._unavailable
         ? html`<p class="empty">
             Logs are not available for this job yet. Try again once it has

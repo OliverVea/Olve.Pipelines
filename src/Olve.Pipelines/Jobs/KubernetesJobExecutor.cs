@@ -1,6 +1,7 @@
 using System.Text;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
@@ -8,11 +9,15 @@ using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using static Olve.Pipelines.Jobs.Job;
+using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
 public class KubernetesJobExecutor(
-    KubernetesClient kubernetesClient,
+    IServiceScopeFactory scopeFactory,
+    JobWatcherRegistry registry,
+    IHostApplicationLifetime lifetime,
+    IKubernetesClient kubernetesClient,
     KubernetesOptions options,
     ProductionStepService productionStepService,
     ProcessingStepService processingStepService,
@@ -21,28 +26,43 @@ public class KubernetesJobExecutor(
     ICredentialsProvider<S3Credentials> s3CredentialsProvider,
     IAmazonS3 s3,
     StorageOptions storageOptions,
-    ILogger<KubernetesJobExecutor> logger) : IJobExecutor
+    JobService jobService,
+    TimeProvider time,
+    ILogger<KubernetesJobExecutor> logger)
+    : JobExecutorBase(scopeFactory, registry, lifetime, logger)
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
-    public async Task<JobExecutionResult> ExecuteAsync(Job job, CancellationToken ct)
+    protected internal override async Task RunToCompletionAsync(Job job, CancellationToken ct)
     {
-        return job switch
+        switch (job)
         {
-            ProductionJob pj => await ExecuteProductionJobAsync(pj, ct),
-            ProcessingJob cj => await ExecuteProcessingJobAsync(cj, ct),
-            _ => new JobExecutionResult.Failure($"Unknown job type: {job.GetType().Name}"),
-        };
+            case ProductionJob pj:
+                await ExecuteProductionJobAsync(pj, ct);
+                break;
+            case ProcessingJob cj:
+                await ExecuteProcessingJobAsync(cj, ct);
+                break;
+            default:
+                FailJob(job, job.Status as InProgress, $"Unknown job type: {job.GetType().Name}");
+                break;
+        }
     }
 
-    private async Task<JobExecutionResult> ExecuteProductionJobAsync(ProductionJob job, CancellationToken ct)
+    private async Task ExecuteProductionJobAsync(ProductionJob job, CancellationToken ct)
     {
         var configResult = productionStepService.TryGetConfiguration(job.ProductionStepId);
         if (configResult.TryPickProblems(out var problems, out var config))
-            return new JobExecutionResult.Failure($"Missing configuration for production step '{job.ProductionStepId}': {problems}");
+        {
+            FailJob(job, job.Status as InProgress, $"Missing configuration for production step '{job.ProductionStepId}': {problems}");
+            return;
+        }
 
         if (!jobGroupService.TryGet(job.JobGroupId, out var group) || group is not ProductionJobGroup productionGroup)
-            return new JobExecutionResult.Failure($"Production job group '{job.JobGroupId}' not found.");
+        {
+            FailJob(job, job.Status as InProgress, $"Production job group '{job.JobGroupId}' not found.");
+            return;
+        }
 
         var secretName = await GetSecretNameIfExists(job.PipelineId, ct);
         var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, ct);
@@ -62,14 +82,17 @@ public class KubernetesJobExecutor(
             SecretName: secretName);
 
         var logKey = LogS3Key(job.PipelineId, productionGroup.ArtifactBundleId, job.Id);
-        return await CreatePollAndCleanupAsync(spec, s3SecretName, logKey, ct);
+        await SubmitOrReattachAsync(job, spec, s3SecretName, logKey, ct);
     }
 
-    private async Task<JobExecutionResult> ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
+    private async Task ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
     {
         var configResult = processingStepService.TryGetConfiguration(job.ProcessingStepId);
         if (configResult.TryPickProblems(out var problems, out var config))
-            return new JobExecutionResult.Failure($"Missing configuration for processing step '{job.ProcessingStepId}': {problems}");
+        {
+            FailJob(job, job.Status as InProgress, $"Missing configuration for processing step '{job.ProcessingStepId}': {problems}");
+            return;
+        }
 
         var secretName = await GetSecretNameIfExists(job.PipelineId, ct);
         var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, ct);
@@ -90,7 +113,117 @@ public class KubernetesJobExecutor(
             InputBundleS3Prefix: $"{prefix}/production");
 
         var logKey = LogS3Key(job.PipelineId, job.ArtifactBundleId, job.Id);
-        return await CreatePollAndCleanupAsync(spec, s3SecretName, logKey, ct);
+        await SubmitOrReattachAsync(job, spec, s3SecretName, logKey, ct);
+    }
+
+    private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
+    {
+        try
+        {
+            var existing = await kubernetesClient.TryGetJobStatusAsync(options.Namespace, spec.Name, ct);
+
+            if (existing is null)
+            {
+                logger.LogInformation("Creating K8s Job '{JobName}'", spec.Name);
+                await kubernetesClient.CreateJobAsync(options.Namespace, spec, ct);
+            }
+            else
+            {
+                logger.LogInformation("Reattaching to existing K8s Job '{JobName}' (phase={Phase})", spec.Name, existing.Phase);
+            }
+
+            var startedAt = EnsureInProgress(job);
+
+            if (existing is { Phase: JobPhase.Succeeded })
+            {
+                await UploadLogsAsync(spec.Name, logKey, ct);
+                WriteDone(job, startedAt);
+                return;
+            }
+
+            if (existing is { Phase: JobPhase.Failed } failed)
+            {
+                await UploadLogsAsync(spec.Name, logKey, ct);
+                FailJob(job, startedAt, failed.Message ?? "K8s job failed");
+                return;
+            }
+
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(PollInterval, ct);
+
+                var status = await kubernetesClient.GetJobStatusAsync(options.Namespace, spec.Name, ct);
+
+                switch (status.Phase)
+                {
+                    case JobPhase.Succeeded:
+                        logger.LogInformation("K8s Job '{JobName}' succeeded", spec.Name);
+                        await UploadLogsAsync(spec.Name, logKey, ct);
+                        WriteDone(job, startedAt);
+                        return;
+                    case JobPhase.Failed:
+                        logger.LogWarning("K8s Job '{JobName}' failed: {Message}", spec.Name, status.Message);
+                        await UploadLogsAsync(spec.Name, logKey, ct);
+                        FailJob(job, startedAt, status.Message ?? "K8s job failed");
+                        return;
+                }
+            }
+
+            ct.ThrowIfCancellationRequested();
+        }
+        finally
+        {
+            await CleanupS3SecretAsync(s3SecretName);
+        }
+    }
+
+    private DateTimeOffset EnsureInProgress(Job job)
+    {
+        if (job.Status is InProgress inProgress) return inProgress.StartedAt;
+
+        var startedAt = time.GetUtcNow();
+        jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) });
+        return startedAt;
+    }
+
+    private void WriteDone(Job job, DateTimeOffset startedAt)
+    {
+        var completedAt = time.GetUtcNow();
+        switch (job)
+        {
+            case ProductionJob:
+                jobService.UpdateJob<ProductionJob>(job.Id, j => j with
+                {
+                    Status = new Done(startedAt, completedAt),
+                });
+                break;
+            case ProcessingJob:
+                jobService.UpdateJob<ProcessingJob>(job.Id, j => j with
+                {
+                    Status = new Done(startedAt, completedAt),
+                    ProcessingResult = Result.Success(),
+                });
+                break;
+        }
+
+        logger.LogInformation("Job '{JobId}' completed", job.Id);
+    }
+
+    private void FailJob(Job job, InProgress? currentInProgress, string reason)
+    {
+        var startedAt = currentInProgress?.StartedAt ?? time.GetUtcNow();
+        FailJob(job, startedAt, reason);
+    }
+
+    private void FailJob(Job job, DateTimeOffset startedAt, string reason)
+    {
+        var failedAt = time.GetUtcNow();
+        jobService.UpdateJob<Job>(job.Id, j => j with
+        {
+            Status = new Failed(startedAt, failedAt, reason),
+        });
+
+        logger.LogWarning("Job '{JobId}' failed: {Reason}", job.Id, reason);
     }
 
     private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)
@@ -114,41 +247,6 @@ public class KubernetesJobExecutor(
         logger.LogInformation("Created S3 credentials secret '{SecretName}'", secretName);
 
         return secretName;
-    }
-
-    private async Task<JobExecutionResult> CreatePollAndCleanupAsync(KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
-    {
-        try
-        {
-            logger.LogInformation("Creating K8s Job '{JobName}'", spec.Name);
-            await kubernetesClient.CreateJobAsync(options.Namespace, spec, ct);
-
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(PollInterval, ct);
-
-                var status = await kubernetesClient.GetJobStatusAsync(options.Namespace, spec.Name, ct);
-
-                switch (status.Phase)
-                {
-                    case JobPhase.Succeeded:
-                        logger.LogInformation("K8s Job '{JobName}' succeeded", spec.Name);
-                        await UploadLogsAsync(spec.Name, logKey, ct);
-                        return new JobExecutionResult.Success();
-                    case JobPhase.Failed:
-                        logger.LogWarning("K8s Job '{JobName}' failed: {Message}", spec.Name, status.Message);
-                        await UploadLogsAsync(spec.Name, logKey, ct);
-                        return new JobExecutionResult.Failure(status.Message ?? "K8s job failed");
-                }
-            }
-
-            ct.ThrowIfCancellationRequested();
-            return new JobExecutionResult.Failure("Unreachable");
-        }
-        finally
-        {
-            await CleanupS3SecretAsync(s3SecretName);
-        }
     }
 
     private async Task UploadLogsAsync(string k8sJobName, string logKey, CancellationToken ct)
@@ -204,6 +302,8 @@ public class KubernetesJobExecutor(
     internal static string LogS3Key(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<Job> jobId)
         => $"{S3Prefix(pipelineId, artifactBundleId)}/logs/{jobId.Value.Value:N}.log";
 
+    // Determinism is load-bearing: on app restart, the watcher dispatcher derives this name from the
+    // persisted Id<Job> and calls TryGetJobStatusAsync to decide whether to submit or reattach.
     private static string JobName(Id<Job> jobId)
     {
         var name = $"olve-{jobId.Value.Value:N}";

@@ -53,7 +53,13 @@ public static class ServiceConfiguration
         services.AddTransient<JobCancellationService>();
         services.AddTransient<JobGroupCompletionService>();
         services.AddTransient<DownstreamTriggerService>();
+        services.AddSingleton<NoOpJobExecutorPendingStore>();
         services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
+
+        // Registry must be registered before JobPersistenceService so IHostedLifecycleService
+        // reverse-order StoppingAsync drains live watchers before persistence flushes.
+        services.AddSingleton<JobWatcherRegistry>();
+        services.AddSingleton<IHostedLifecycleService>(sp => sp.GetRequiredService<JobWatcherRegistry>());
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();

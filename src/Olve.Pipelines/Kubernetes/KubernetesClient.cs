@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Olve.Pipelines.Kubernetes;
 
-public class KubernetesClient : IDisposable
+public class KubernetesClient : IKubernetesClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<KubernetesClient>? _logger;
@@ -75,6 +75,27 @@ public class KubernetesClient : IDisposable
         var jobResponse = await response.Content.ReadFromJsonAsync(
             KubernetesJsonContext.Default.K8sJobResponse, ct);
 
+        return ToJobStatus(jobName, jobResponse);
+    }
+
+    public async Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync(
+            $"apis/batch/v1/namespaces/{ns}/jobs/{jobName}", ct);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+
+        var jobResponse = await response.Content.ReadFromJsonAsync(
+            KubernetesJsonContext.Default.K8sJobResponse, ct);
+
+        return ToJobStatus(jobName, jobResponse);
+    }
+
+    private static KubernetesJobStatus ToJobStatus(string jobName, K8sJobResponse? jobResponse)
+    {
         var status = jobResponse?.Status;
         var phase = status switch
         {
@@ -139,6 +160,12 @@ public class KubernetesClient : IDisposable
             secret,
             KubernetesJsonContext.Default.K8sSecret,
             ct);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            _logger?.LogInformation("K8s Secret '{SecretName}' already exists — reusing (likely reattach after restart)", secretName);
+            return;
+        }
 
         if (!response.IsSuccessStatusCode)
         {

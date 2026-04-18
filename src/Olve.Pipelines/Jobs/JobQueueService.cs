@@ -10,4 +10,10 @@ public class JobQueueService(EntityStore<Job> store)
             .Where(j => j.Status is Scheduled)
             .OrderBy(j => j.CreatedAt)
             .Select(j => j.Id);
+
+    public IEnumerable<Id<Job>> GetActiveJobIds()
+        => store.List()
+            .Where(j => j.Status is Scheduled or InProgress)
+            .OrderBy(j => j.CreatedAt)
+            .Select(j => j.Id);
 }

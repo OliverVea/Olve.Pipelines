@@ -135,28 +135,14 @@ public class JobPersistenceService(
 
     private void LoadSnapshot(JobSnapshot snapshot)
     {
-        var now = TimeProvider.System.GetUtcNow();
-
         foreach (var group in snapshot.JobGroups)
             jobGroups.Set(group);
 
+        // Restore jobs as-is. Scheduled/InProgress jobs are reconciled on the next JobRunner tick:
+        // the executor calls TryGetJobStatusAsync(JobName(job.Id)) and either reattaches to the
+        // existing K8s Job or submits a fresh one. K8s is the source of truth for in-flight state.
         foreach (var job in snapshot.Jobs)
-        {
-            var loaded = job.Status switch
-            {
-                JobStatus.InProgress s => job with
-                {
-                    Status = new JobStatus.Failed(s.StartedAt, now, "Application restarted"),
-                },
-                JobStatus.Scheduled => job with
-                {
-                    Status = new JobStatus.Cancelled(null, now),
-                },
-                _ => job,
-            };
-
-            jobs.Set(loaded);
-        }
+            jobs.Set(job);
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

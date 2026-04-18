@@ -23,6 +23,7 @@ public static class KubernetesConfiguration
             builder.Services.AddSingleton(new KubernetesOptions("", "", s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert));
             builder.Services.AddSingleton<KubernetesClient>(sp =>
                 throw new InvalidOperationException("Kubernetes is not configured."));
+            builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
             return;
         }
 
@@ -66,6 +67,7 @@ public static class KubernetesConfiguration
                 credentials,
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
         });
+        builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();

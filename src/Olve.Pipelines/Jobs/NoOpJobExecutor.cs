@@ -1,35 +1,74 @@
-using System.Collections.Concurrent;
+using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Pipelines.Building;
 using static Olve.Pipelines.Jobs.Job;
+using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class NoOpJobExecutor(ILogger<NoOpJobExecutor> logger) : IJobExecutor
+public class NoOpJobExecutor(
+    IServiceScopeFactory scopeFactory,
+    JobWatcherRegistry registry,
+    IHostApplicationLifetime lifetime,
+    NoOpJobExecutorPendingStore pendingStore,
+    JobService jobService,
+    TimeProvider time,
+    ILogger<NoOpJobExecutor> logger)
+    : JobExecutorBase(scopeFactory, registry, lifetime, logger)
 {
-    private readonly ConcurrentDictionary<Id<Job>, TaskCompletionSource<JobExecutionResult>> _pending = new();
-
-    public async Task<JobExecutionResult> ExecuteAsync(Job job, CancellationToken ct)
+    protected internal override async Task RunToCompletionAsync(Job job, CancellationToken ct)
     {
         logger.LogInformation("No-op execution for job '{JobId}', awaiting Finish", job.Id);
 
-        var tcs = new TaskCompletionSource<JobExecutionResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[job.Id] = tcs;
+        var startedAt = time.GetUtcNow();
+        if (job.Status is Scheduled)
+        {
+            jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) });
+        }
+        else if (job.Status is InProgress ip)
+        {
+            startedAt = ip.StartedAt;
+        }
 
+        var tcs = pendingStore.Register(job.Id);
+
+        NoOpJobResult result;
         await using (ct.Register(() => tcs.TrySetCanceled(ct)))
         {
-            return await tcs.Task;
+            result = await tcs.Task;
+        }
+
+        var completedAt = time.GetUtcNow();
+        switch (result)
+        {
+            case NoOpJobResult.Success:
+                WriteDone(job, startedAt, completedAt);
+                break;
+            case NoOpJobResult.Failure failure:
+                jobService.UpdateJob<Job>(job.Id, j => j with
+                {
+                    Status = new Failed(startedAt, completedAt, failure.Reason),
+                });
+                break;
         }
     }
 
-    public void Finish(Id<Job> jobId, JobExecutionResult result)
+    private void WriteDone(Job job, DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
-        if (!_pending.TryRemove(jobId, out var tcs))
-            throw new InvalidOperationException($"No pending execution for job '{jobId}'.");
-
-        tcs.TrySetResult(result);
+        switch (job)
+        {
+            case ProductionJob:
+                jobService.UpdateJob<ProductionJob>(job.Id, j => j with
+                {
+                    Status = new Done(startedAt, completedAt),
+                });
+                break;
+            case ProcessingJob:
+                jobService.UpdateJob<ProcessingJob>(job.Id, j => j with
+                {
+                    Status = new Done(startedAt, completedAt),
+                    ProcessingResult = Result.Success(),
+                });
+                break;
+        }
     }
-
-    public bool HasPendingJob(Id<Job> jobId) => _pending.ContainsKey(jobId);
-
-    public int PendingCount => _pending.Count;
 }

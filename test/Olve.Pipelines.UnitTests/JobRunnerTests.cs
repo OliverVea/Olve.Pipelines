@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
@@ -14,29 +15,62 @@ namespace Olve.Pipelines.UnitTests;
 
 public class JobRunnerTests
 {
-    private static (JobRunner Runner, JobService JobService, NoOpJobExecutor Executor, EntityStore<Job> Store) CreateRunner(
-        int maxConcurrentJobs = 4)
+    private sealed class NullApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+        public void StopApplication() { }
+    }
+
+    private sealed class TestHarness(
+        JobRunner runner,
+        JobService jobService,
+        NoOpJobExecutorPendingStore pendingStore,
+        JobWatcherRegistry registry,
+        EntityStore<Job> store)
+    {
+        public JobRunner Runner => runner;
+        public JobService JobService => jobService;
+        public NoOpJobExecutorPendingStore PendingStore => pendingStore;
+        public JobWatcherRegistry Registry => registry;
+        public EntityStore<Job> Store => store;
+    }
+
+    private static TestHarness CreateRunner(int maxConcurrentJobs = 4)
     {
         var jobStore = new EntityStore<Job>([]);
-        var executor = new NoOpJobExecutor(NullLogger<NoOpJobExecutor>.Instance);
+        var pendingStore = new NoOpJobExecutorPendingStore();
+        var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
+        var lifetime = new NullApplicationLifetime();
 
         var services = new ServiceCollection();
         services.AddSingleton(jobStore);
         services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton(pendingStore);
+        services.AddSingleton(registry);
+        services.AddSingleton<IHostApplicationLifetime>(lifetime);
         services.AddTransient(_ => new JobService(
             NullLogger<JobService>.Instance, jobStore, new IdProvider(), TimeProvider.System));
         services.AddTransient<JobQueueService>(_ => new JobQueueService(jobStore));
-        services.AddSingleton<IJobExecutor>(executor);
+        services.AddTransient<IJobExecutor>(sp => new NoOpJobExecutor(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            registry,
+            lifetime,
+            pendingStore,
+            sp.GetRequiredService<JobService>(),
+            TimeProvider.System,
+            NullLogger<NoOpJobExecutor>.Instance));
         var sp = services.BuildServiceProvider();
 
-        var runner = new JobRunner(sp, NullLogger<JobRunner>.Instance)
+        var runner = new JobRunner(sp, registry, NullLogger<JobRunner>.Instance)
         {
             MaxConcurrentJobs = maxConcurrentJobs,
         };
 
         var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, new IdProvider(), TimeProvider.System);
 
-        return (runner, jobService, executor, jobStore);
+        return new TestHarness(runner, jobService, pendingStore, registry, jobStore);
     }
 
     private static Id<Job> CreateProductionJob(JobService jobService)
@@ -53,11 +87,11 @@ public class JobRunnerTests
         return job!.Id;
     }
 
-    private static async Task WaitForPendingAsync(NoOpJobExecutor executor, Id<Job> jobId, TimeSpan? timeout = null)
+    private static async Task WaitForPendingAsync(NoOpJobExecutorPendingStore pendingStore, Id<Job> jobId, TimeSpan? timeout = null)
     {
         timeout ??= TimeSpan.FromSeconds(5);
         var deadline = DateTimeOffset.UtcNow + timeout.Value;
-        while (!executor.HasPendingJob(jobId))
+        while (!pendingStore.HasPendingJob(jobId))
         {
             if (DateTimeOffset.UtcNow > deadline)
                 throw new TimeoutException($"Job '{jobId}' did not become pending within {timeout}.");
@@ -68,57 +102,57 @@ public class JobRunnerTests
     [Test]
     public async Task ProductionJob_FinishSuccess_TransitionsToDone()
     {
-        var (runner, jobService, executor, store) = CreateRunner();
-        var jobId = CreateProductionJob(jobService);
+        var h = CreateRunner();
+        var jobId = CreateProductionJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, jobId);
-        executor.Finish(jobId, new JobExecutionResult.Success());
+        await WaitForPendingAsync(h.PendingStore, jobId);
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
 
         await Task.Delay(100);
         cts.Cancel();
 
-        store.TryGet(jobId, out var job);
+        h.Store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<Done>();
     }
 
     [Test]
     public async Task ProcessingJob_FinishSuccess_TransitionsToDone()
     {
-        var (runner, jobService, executor, store) = CreateRunner();
-        var jobId = CreateProcessingJob(jobService);
+        var h = CreateRunner();
+        var jobId = CreateProcessingJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, jobId);
-        executor.Finish(jobId, new JobExecutionResult.Success());
+        await WaitForPendingAsync(h.PendingStore, jobId);
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
 
         await Task.Delay(100);
         cts.Cancel();
 
-        store.TryGet(jobId, out var job);
+        h.Store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<Done>();
     }
 
     [Test]
     public async Task Job_FinishFailure_TransitionsToFailed()
     {
-        var (runner, jobService, executor, store) = CreateRunner();
-        var jobId = CreateProductionJob(jobService);
+        var h = CreateRunner();
+        var jobId = CreateProductionJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, jobId);
-        executor.Finish(jobId, new JobExecutionResult.Failure("script exited with code 1"));
+        await WaitForPendingAsync(h.PendingStore, jobId);
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Failure("script exited with code 1"));
 
         await Task.Delay(100);
         cts.Cancel();
 
-        store.TryGet(jobId, out var job);
+        h.Store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<Failed>();
         var failed = (Failed)job.Status;
         await Assert.That(failed.Reason).IsEqualTo("script exited with code 1");
@@ -127,18 +161,18 @@ public class JobRunnerTests
     [Test]
     public async Task Job_BeforeFinish_IsInProgress()
     {
-        var (runner, jobService, executor, store) = CreateRunner();
-        var jobId = CreateProductionJob(jobService);
+        var h = CreateRunner();
+        var jobId = CreateProductionJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, jobId);
+        await WaitForPendingAsync(h.PendingStore, jobId);
 
-        store.TryGet(jobId, out var job);
+        h.Store.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<InProgress>();
 
-        executor.Finish(jobId, new JobExecutionResult.Success());
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
         await Task.Delay(100);
         cts.Cancel();
     }
@@ -146,33 +180,34 @@ public class JobRunnerTests
     [Test]
     public async Task MaxConcurrentJobs_LimitsConcurrency()
     {
-        var (runner, jobService, executor, store) = CreateRunner(maxConcurrentJobs: 2);
+        var h = CreateRunner(maxConcurrentJobs: 2);
 
-        var job1 = CreateProductionJob(jobService);
-        var job2 = CreateProductionJob(jobService);
-        var job3 = CreateProductionJob(jobService);
+        var job1 = CreateProductionJob(h.JobService);
+        var job2 = CreateProductionJob(h.JobService);
+        var job3 = CreateProductionJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, job1);
-        await WaitForPendingAsync(executor, job2);
+        await WaitForPendingAsync(h.PendingStore, job1);
+        await WaitForPendingAsync(h.PendingStore, job2);
 
         // Third job should still be scheduled because max is 2
         await Task.Delay(200);
-        await Assert.That(executor.HasPendingJob(job3)).IsFalse();
-        store.TryGet(job3, out var job3Entity);
+        await Assert.That(h.PendingStore.HasPendingJob(job3)).IsFalse();
+        await Assert.That(h.Registry.ActiveCount).IsEqualTo(2);
+        h.Store.TryGet(job3, out var job3Entity);
         await Assert.That(job3Entity!.Status).IsTypeOf<Scheduled>();
 
         // Finish one job to free a slot
-        executor.Finish(job1, new JobExecutionResult.Success());
+        h.PendingStore.Finish(job1, new NoOpJobResult.Success());
 
         // Now job3 should get picked up
-        await WaitForPendingAsync(executor, job3);
-        await Assert.That(executor.HasPendingJob(job3)).IsTrue();
+        await WaitForPendingAsync(h.PendingStore, job3);
+        await Assert.That(h.PendingStore.HasPendingJob(job3)).IsTrue();
 
-        executor.Finish(job2, new JobExecutionResult.Success());
-        executor.Finish(job3, new JobExecutionResult.Success());
+        h.PendingStore.Finish(job2, new NoOpJobResult.Success());
+        h.PendingStore.Finish(job3, new NoOpJobResult.Success());
         await Task.Delay(100);
         cts.Cancel();
     }
@@ -180,25 +215,25 @@ public class JobRunnerTests
     [Test]
     public async Task MultipleJobs_AllComplete()
     {
-        var (runner, jobService, executor, store) = CreateRunner();
+        var h = CreateRunner();
 
-        var job1 = CreateProductionJob(jobService);
-        var job2 = CreateProcessingJob(jobService);
+        var job1 = CreateProductionJob(h.JobService);
+        var job2 = CreateProcessingJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
-        _ = runner.StartAsync(cts.Token);
+        _ = h.Runner.StartAsync(cts.Token);
 
-        await WaitForPendingAsync(executor, job1);
-        await WaitForPendingAsync(executor, job2);
+        await WaitForPendingAsync(h.PendingStore, job1);
+        await WaitForPendingAsync(h.PendingStore, job2);
 
-        executor.Finish(job1, new JobExecutionResult.Success());
-        executor.Finish(job2, new JobExecutionResult.Success());
+        h.PendingStore.Finish(job1, new NoOpJobResult.Success());
+        h.PendingStore.Finish(job2, new NoOpJobResult.Success());
 
         await Task.Delay(100);
         cts.Cancel();
 
-        store.TryGet(job1, out var j1);
-        store.TryGet(job2, out var j2);
+        h.Store.TryGet(job1, out var j1);
+        h.Store.TryGet(job2, out var j2);
         await Assert.That(j1!.Status).IsTypeOf<Done>();
         await Assert.That(j2!.Status).IsTypeOf<Done>();
     }

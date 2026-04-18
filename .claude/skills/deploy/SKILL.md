@@ -49,7 +49,7 @@ curl -sk -X POST "https://pipelines-private.ovea.pro/api/webhooks/$TRIGGER_ID" \
 
 ### 4. Monitor jobs
 
-Poll every 30 seconds. The production step (Kaniko build) takes ~3-5 minutes. The processing step (deploy) takes ~1-2 minutes.
+Poll every 30 seconds. The production step (Kaniko build) takes ~3-5 minutes. Each processing step (deploy-beta, then deploy-prod) takes ~1-2 minutes. If beta fails, prod is skipped.
 
 ```bash
 curl -sk "https://pipelines-private.ovea.pro/api/jobs" | uv run python -c "
@@ -85,8 +85,9 @@ curl -sk "https://pipelines-private.ovea.pro/api/health"
 
 ```
 production (build-and-package) ~3-5 min
-  → processing (deploy) ~1-2 min
-    → app restarts with new image
+  → processing (deploy-beta) ~1-2 min  — fails fast if beta rollout is unhealthy
+    → processing (deploy) ~1-2 min     — prod deploy, skipped on beta failure
+      → prod app restarts with new image
 ```
 
 **Note:** Pipeline config is persisted to S3 and survives restarts. If using a poll trigger, deployments are also triggered automatically when the polled value changes (e.g. new commit on `main`).

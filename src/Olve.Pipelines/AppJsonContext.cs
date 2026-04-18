@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Api;
@@ -57,4 +58,5 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]
 [JsonSerializable(typeof(TriggerProcessingRequest))]
+[JsonSerializable(typeof(FrontendConfigEndpoints.FrontendConfig))]
 internal partial class AppJsonContext : JsonSerializerContext;

@@ -39,6 +39,7 @@ app.UseStaticFiles();
 app.MapJson();
 app.MapAuthentication();
 app.MapHealthEndpoints();
+app.MapFrontendConfigEndpoints();
 app.MapPipelineEndpoints();
 app.MapProductionStepEndpoints();
 app.MapProcessingStepEndpoints();

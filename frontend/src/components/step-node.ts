@@ -4,6 +4,7 @@ import type {
   JobProcessingJob,
   JobProductionJob,
 } from '@olve/olve-pipelines-client/src/models/index.js';
+import { navigate } from '../router.js';
 
 type Job = JobProcessingJob | JobProductionJob;
 
@@ -79,6 +80,12 @@ export class StepNode extends LitElement {
       padding: 0.15rem 0.4rem;
       border-radius: 3px;
       white-space: nowrap;
+      text-decoration: none;
+    }
+
+    a.status-badge:hover {
+      filter: brightness(1.2);
+      outline: 1px solid currentColor;
     }
 
     .status-badge.idle {
@@ -155,6 +162,29 @@ export class StepNode extends LitElement {
 
   render() {
     const status = getStatus(this.latestJob);
+    const jobId = this.latestJob?.id;
+    const statusType = (this.latestJob?.status as { type?: string } | undefined)
+      ?.type;
+    const hasLogs =
+      statusType === 'done' ||
+      statusType === 'failed' ||
+      statusType === 'cancelled' ||
+      statusType === 'obsolete';
+    const logsHref = jobId && hasLogs
+      ? `/pipeline/${this.pipelineId}/job/${jobId}/logs`
+      : undefined;
+
+    const badge = logsHref
+      ? html`<a
+          class="status-badge ${status.cssClass}"
+          href=${logsHref}
+          title="View logs"
+          @click=${this._openLogs}
+          >${status.label}</a
+        >`
+      : html`<span class="status-badge ${status.cssClass}"
+          >${status.label}</span
+        >`;
 
     return html`
       <div
@@ -163,7 +193,7 @@ export class StepNode extends LitElement {
       >
         <div class="node-header">
           <span class="step-name">${this.stepName}</span>
-          <span class="status-badge ${status.cssClass}">${status.label}</span>
+          ${badge}
         </div>
         ${this.latestJob?.createdAt
           ? html`<div class="node-detail">
@@ -172,6 +202,14 @@ export class StepNode extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private _openLogs(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    const anchor = e.currentTarget as HTMLAnchorElement;
+    const href = anchor.getAttribute('href');
+    if (href) navigate(href);
   }
 }
 

@@ -491,3 +491,6 @@ frontend/node_modules/
 
 # Claude memory (user-specific)
 memory/
+
+# Claude Code scheduler lock (ephemeral)
+.claude/scheduled_tasks.lock

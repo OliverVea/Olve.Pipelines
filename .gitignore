@@ -494,3 +494,6 @@ memory/
 
 # Claude Code scheduler lock (ephemeral)
 .claude/scheduled_tasks.lock
+
+# Refitter source-generator output (regenerated on build)
+clients/Olve.Pipelines.Client/Generated/

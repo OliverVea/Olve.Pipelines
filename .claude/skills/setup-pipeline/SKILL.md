@@ -60,7 +60,9 @@ echo "Processing step: $PROC_ID"
 
 Key points about this script:
 - Uses BusyBox wget with `--no-check-certificate` (Kaniko debug image limitation)
-- Copies helm/ and version.txt to /output/ BEFORE running Kaniko (Kaniko with --single-snapshot deletes /workspace)
+- Build context lives at `/kaniko/build-context`, NOT `/workspace` — Kaniko wipes `/` (including `/workspace`) between multi-stage builds, which broke stage 2's `COPY clients/...`. The `/kaniko` dir is preserved across stage transitions.
+- Does NOT pass `--single-snapshot` — it's incompatible with the multi-stage Dockerfile (stage 2 needs the context intact).
+- Copies helm/ and version.txt to /output/ before running Kaniko so artifacts survive
 - Builds from `main` branch
 
 ```bash
@@ -68,7 +70,7 @@ curl -sk -X PUT "https://pipelines-private.ovea.pro/api/production-steps/$PROD_I
   -H "$H" -H "Content-Type: application/json" \
   -d '{
   "image": "gcr.io/kaniko-project/executor:debug",
-  "script": "set -e\nREPO=OliverVea/Olve.Pipelines\nBRANCH=main\nVERSION=$(date +%Y%m%d-%H%M%S)\n\nmkdir -p /workspace\ncd /workspace\n\n# Download repo tarball (busybox wget needs --no-check-certificate)\nwget --no-check-certificate -q --header=\"Authorization: token $GITHUB_TOKEN\" -O repo.tar.gz \"https://api.github.com/repos/$REPO/tarball/$BRANCH\"\ntar xzf repo.tar.gz --strip-components=1\nrm repo.tar.gz\n\n# Copy helm chart and version BEFORE Kaniko (--single-snapshot deletes /workspace)\ncp -r /workspace/helm /output/helm\necho $VERSION > /output/version.txt\n\n# Build with Kaniko (Docker tar format, imported via nerdctl on deploy)\n/kaniko/executor --context=/workspace --dockerfile=/workspace/Dockerfile --no-push --tar-path=/output/image.tar --destination=olve-pipelines:$VERSION --single-snapshot\n\necho \"Build complete: olve-pipelines:$VERSION\"",
+  "script": "set -e\nREPO=OliverVea/Olve.Pipelines\nBRANCH=main\nVERSION=$(date +%Y%m%d-%H%M%S)\n\nCTX=/kaniko/build-context\nmkdir -p $CTX\ncd $CTX\n\n# Download repo tarball (busybox wget needs --no-check-certificate)\nwget --no-check-certificate -q --header=\"Authorization: token $GITHUB_TOKEN\" -O repo.tar.gz \"https://api.github.com/repos/$REPO/tarball/$BRANCH\"\ntar xzf repo.tar.gz --strip-components=1\nrm repo.tar.gz\n\n# Copy helm chart and version so they survive as artifacts\ncp -r $CTX/helm /output/helm\necho $VERSION > /output/version.txt\n\n# Build with Kaniko (Docker tar format, imported via nerdctl on deploy)\n/kaniko/executor --context=$CTX --dockerfile=$CTX/Dockerfile --no-push --tar-path=/output/image.tar --destination=olve-pipelines:$VERSION\n\necho \"Build complete: olve-pipelines:$VERSION\"",
   "environmentVariables": {}
 }'
 ```

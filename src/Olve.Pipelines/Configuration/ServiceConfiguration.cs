@@ -67,6 +67,7 @@ public static class ServiceConfiguration
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineDocumentBuilder>();
+        services.AddTransient<PipelineDocumentCreator>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();

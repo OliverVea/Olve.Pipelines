@@ -12,5 +12,12 @@ public static class PipelineDocumentEndpoints
             .WithResultMapping<PipelineDocument>()
             .WithName("GetPipelineDocument")
             .WithTags("beta");
+
+        app.MapPost("/api/pipelines/from-document",
+                Result<PipelineDocument> (PipelineDocumentCreator creator, PipelineDocument document)
+                    => creator.Create(document))
+            .WithResultMapping<PipelineDocument>()
+            .WithName("CreatePipelineFromDocument")
+            .WithTags("beta");
     }
 }

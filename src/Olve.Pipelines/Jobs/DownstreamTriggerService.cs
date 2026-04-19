@@ -81,7 +81,15 @@ public class DownstreamTriggerService(
     private void CreateProcessingJob(Id<Pipelines.Pipeline> pipelineId, Id<Pipelines.Building.ArtifactBundle> artifactBundleId, ProcessingStep step)
     {
         var jobGroup = jobGroupService.CreateProcessingGroup(pipelineId, artifactBundleId, step.Id);
-        jobService.CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, step.Id);
+        var jobResult = jobService.CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, step.Id);
+
+        if (jobResult.TryPickProblems(out var problems))
+        {
+            logger.LogWarning(
+                "Failed to trigger processing step '{StepName}' (order {Order}) for pipeline '{PipelineId}': {Problems}",
+                step.Name, step.Order, pipelineId, problems);
+            return;
+        }
 
         logger.LogInformation(
             "Triggered processing step '{StepName}' (order {Order}) for pipeline '{PipelineId}'",

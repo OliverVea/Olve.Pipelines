@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
@@ -12,8 +13,14 @@ namespace Olve.Pipelines.Jobs;
 
 public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
+    public const string AlreadyInProgressTag = "job.already_in_progress";
+
     private readonly EntityStoreIndex<Job, Id<JobGroup>> _byGroup = store.CreateIndex(j => j.JobGroupId);
     private readonly EntityStoreIndex<Job, Id<Pipeline>> _byPipeline = store.CreateIndex(j => j.PipelineId);
+
+    private readonly ConcurrentDictionary<object, object> _keyLocks = new();
+
+    private object GetKeyLock(object key) => _keyLocks.GetOrAdd(key, static _ => new object());
 
     public IReadOnlyList<Job> ListJobs() => store.List();
 
@@ -55,17 +62,65 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
 
     public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ProductionStep> productionStepId)
     {
-        ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, productionStepId);
-        store.Set(job);
-        return job;
+        var key = new ProductionJob.ProductionJobKey(pipelineId, productionStepId);
+        lock (GetKeyLock(key))
+        {
+            if (TryFindInProgress(pipelineId, j => j is ProductionJob p && p.JobKey == key, out var existingId))
+            {
+                logger.LogInformation(
+                    "Rejected ProductionJob creation for pipeline '{PipelineId}' step '{StepId}': job '{ExistingJobId}' is already InProgress",
+                    pipelineId, productionStepId, existingId);
+                return AlreadyInProgress("production", pipelineId, productionStepId.ToString(), existingId);
+            }
+
+            ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, productionStepId);
+            store.Set(job);
+            return job;
+        }
     }
 
     public Result<Job> CreateProcessingJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
     {
-        ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, artifactBundleId, processingStepId);
-        store.Set(job);
-        return job;
+        var key = new ProcessingJob.ProcessingJobKey(pipelineId, processingStepId);
+        lock (GetKeyLock(key))
+        {
+            if (TryFindInProgress(pipelineId, j => j is ProcessingJob p && p.JobKey == key, out var existingId))
+            {
+                logger.LogInformation(
+                    "Rejected ProcessingJob creation for pipeline '{PipelineId}' step '{StepId}': job '{ExistingJobId}' is already InProgress",
+                    pipelineId, processingStepId, existingId);
+                return AlreadyInProgress("processing", pipelineId, processingStepId.ToString(), existingId);
+            }
+
+            ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, artifactBundleId, processingStepId);
+            store.Set(job);
+            return job;
+        }
     }
+
+    private bool TryFindInProgress(Id<Pipeline> pipelineId, Func<Job, bool> predicate, out Id<Job> existingId)
+    {
+        foreach (var id in _byPipeline.GetForKey(pipelineId))
+        {
+            if (!store.TryGet(id, out var job)) continue;
+            if (job.Status is not InProgress) continue;
+            if (!predicate(job)) continue;
+
+            existingId = id;
+            return true;
+        }
+
+        existingId = default;
+        return false;
+    }
+
+    private static ResultProblem AlreadyInProgress(string kind, Id<Pipeline> pipelineId, string stepId, Id<Job> existingJobId) =>
+        new ResultProblem(
+            "A {0} job is already in progress for pipeline '{1}' step '{2}' (job '{3}').",
+            kind, pipelineId, stepId, existingJobId)
+        {
+            Tags = [AlreadyInProgressTag],
+        };
 
     public IReadOnlyList<Job> GetJobsByGroup(Id<JobGroup> jobGroupId)
     {

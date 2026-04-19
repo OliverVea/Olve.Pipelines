@@ -62,7 +62,9 @@ public class TriggerExecutionService(
 
         foreach (var step in stepArray)
         {
-            jobs.CreateProductionJob(trigger.PipelineId, jobGroup.Id, step.Id);
+            var jobResult = jobs.CreateProductionJob(trigger.PipelineId, jobGroup.Id, step.Id);
+            if (jobResult.TryPickProblems(out var jobProblems))
+                return jobProblems;
         }
 
         return jobGroup;
@@ -91,7 +93,9 @@ public class TriggerExecutionService(
             return problems;
 
         var jobGroup = jobGroups.CreateProcessingGroup(trigger.PipelineId, bundleId, step.Id);
-        jobs.CreateProcessingJob(trigger.PipelineId, jobGroup.Id, bundleId, step.Id);
+        var jobResult = jobs.CreateProcessingJob(trigger.PipelineId, jobGroup.Id, bundleId, step.Id);
+        if (jobResult.TryPickProblems(out var jobProblems))
+            return jobProblems;
 
         return jobGroup;
     }

@@ -60,7 +60,9 @@ public static class PipelineEndpoints
 
                 foreach (var step in stepArray)
                 {
-                    jobs.CreateProductionJob(id, jobGroup.Id, step.Id);
+                    var jobResult = jobs.CreateProductionJob(id, jobGroup.Id, step.Id);
+                    if (jobResult.TryPickProblems(out var jobProblems))
+                        return jobProblems;
                 }
 
                 return jobGroup;
@@ -95,7 +97,9 @@ public static class PipelineEndpoints
                     return problems;
 
                 var jobGroup = jobGroups.CreateProcessingGroup(id, bundle.Id, step.Id);
-                jobs.CreateProcessingJob(id, jobGroup.Id, bundle.Id, step.Id);
+                var jobResult = jobs.CreateProcessingJob(id, jobGroup.Id, bundle.Id, step.Id);
+                if (jobResult.TryPickProblems(out var jobProblems))
+                    return jobProblems;
 
                 return jobGroup;
             })

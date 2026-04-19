@@ -237,4 +237,44 @@ public class JobRunnerTests
         await Assert.That(j1!.Status).IsTypeOf<Done>();
         await Assert.That(j2!.Status).IsTypeOf<Done>();
     }
+
+    [Test]
+    public async Task ScheduledJob_WaitsWhileSameKeyIsInProgress_RunsAfterCompletion()
+    {
+        var h = CreateRunner();
+        var pipelineId = Id.New<Pipeline>();
+        var stepId = Id.New<ProductionStep>();
+
+        var first = h.JobService.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
+        first.TryPickProblems(out _, out var firstJob);
+        var firstId = firstJob!.Id;
+
+        var second = h.JobService.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
+        second.TryPickProblems(out _, out var secondJob);
+        var secondId = secondJob!.Id;
+
+        using var cts = new CancellationTokenSource();
+        _ = h.Runner.StartAsync(cts.Token);
+
+        await WaitForPendingAsync(h.PendingStore, firstId);
+
+        // Second should be held — same (pipeline, step) key, first is InProgress.
+        await Task.Delay(200);
+        await Assert.That(h.PendingStore.HasPendingJob(secondId)).IsFalse();
+        h.Store.TryGet(secondId, out var secondEntity);
+        await Assert.That(secondEntity!.Status).IsTypeOf<Scheduled>();
+
+        // Finish the first; second should now be dispatched.
+        h.PendingStore.Finish(firstId, new NoOpJobResult.Success());
+        await WaitForPendingAsync(h.PendingStore, secondId);
+
+        h.PendingStore.Finish(secondId, new NoOpJobResult.Success());
+        await Task.Delay(100);
+        cts.Cancel();
+
+        h.Store.TryGet(firstId, out var j1);
+        h.Store.TryGet(secondId, out var j2);
+        await Assert.That(j1!.Status).IsTypeOf<Done>();
+        await Assert.That(j2!.Status).IsTypeOf<Done>();
+    }
 }

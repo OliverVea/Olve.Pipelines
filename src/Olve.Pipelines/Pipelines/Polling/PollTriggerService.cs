@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
@@ -119,16 +118,9 @@ public partial class PollTriggerService(
         var result = execution.ExecuteInternal(trigger.Id);
 
         if (result.TryPickProblems(out var problems))
-        {
-            if (problems.Any(p => p.Tags.Contains(JobService.AlreadyInProgressTag)))
-                logger.LogInformation("Poll trigger '{TriggerId}' deferred: previous build still in progress", trigger.Id);
-            else
-                logger.LogWarning("Failed to execute poll trigger '{TriggerId}': {Problems}", trigger.Id, problems);
-        }
+            logger.LogWarning("Failed to execute poll trigger '{TriggerId}': {Problems}", trigger.Id, problems);
         else
-        {
             logger.LogInformation("Poll trigger '{TriggerId}' fired successfully", trigger.Id);
-        }
     }
 
     private async Task<Dictionary<string, string>> ResolveHeadersAsync(

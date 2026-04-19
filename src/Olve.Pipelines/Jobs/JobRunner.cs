@@ -1,3 +1,6 @@
+using static Olve.Pipelines.Jobs.Job;
+using static Olve.Pipelines.Jobs.JobStatus;
+
 namespace Olve.Pipelines.Jobs;
 
 public class JobRunner(
@@ -28,23 +31,75 @@ public class JobRunner(
 
     private void DispatchTick()
     {
-        var jobIds = GetActiveJobIds();
+        var jobs = GetActiveJobs();
+        var busyKeys = CollectInProgressKeys(jobs);
 
-        foreach (var jobId in jobIds)
+        foreach (var job in jobs)
         {
-            if (registry.IsRunning(jobId)) continue;
+            if (registry.IsRunning(job.Id)) continue;
             if (registry.ActiveCount >= MaxConcurrentJobs) return;
+
+            if (IsBusy(job, busyKeys))
+            {
+                if (job.Status is Scheduled)
+                {
+                    logger.LogDebug(
+                        "Holding Scheduled job '{JobId}' — another job is already InProgress for the same (pipeline, step) key",
+                        job.Id);
+                }
+                continue;
+            }
+
+            ReserveKey(job, busyKeys);
 
             using var scope = sp.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
-            executor.EnsureRunning(jobId);
+            executor.EnsureRunning(job.Id);
         }
     }
 
-    private List<Id<Job>> GetActiveJobIds()
+    private List<Job> GetActiveJobs()
     {
         using var scope = sp.CreateScope();
         var queue = scope.ServiceProvider.GetRequiredService<JobQueueService>();
-        return queue.GetActiveJobIds().ToList();
+        return queue.GetActiveJobs().ToList();
     }
+
+    private static BusyKeys CollectInProgressKeys(IEnumerable<Job> jobs)
+    {
+        var production = new HashSet<ProductionJob.ProductionJobKey>();
+        var processing = new HashSet<ProcessingJob.ProcessingJobKey>();
+
+        foreach (var job in jobs)
+        {
+            if (job.Status is not InProgress) continue;
+            switch (job)
+            {
+                case ProductionJob p: production.Add(p.JobKey); break;
+                case ProcessingJob p: processing.Add(p.JobKey); break;
+            }
+        }
+
+        return new BusyKeys(production, processing);
+    }
+
+    private static bool IsBusy(Job job, BusyKeys busyKeys) => job switch
+    {
+        ProductionJob p => busyKeys.Production.Contains(p.JobKey),
+        ProcessingJob p => busyKeys.Processing.Contains(p.JobKey),
+        _ => false,
+    };
+
+    private static void ReserveKey(Job job, BusyKeys busyKeys)
+    {
+        switch (job)
+        {
+            case ProductionJob p: busyKeys.Production.Add(p.JobKey); break;
+            case ProcessingJob p: busyKeys.Processing.Add(p.JobKey); break;
+        }
+    }
+
+    private readonly record struct BusyKeys(
+        HashSet<ProductionJob.ProductionJobKey> Production,
+        HashSet<ProcessingJob.ProcessingJobKey> Processing);
 }

@@ -135,72 +135,19 @@ public class JobObsoletionServiceTests
     }
 
     [Test]
-    public async Task ProductionJob_AfterFirstInProgress_CreationIsRejected()
+    public async Task ProductionJob_AfterFirstInProgress_SecondIsQueuedScheduled()
     {
         var (service, store) = CreateServices();
         var pipelineId = Id.New<Pipeline>();
         var stepId = Id.New<ProductionStep>();
 
         var job1 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId));
+
         service.UpdateJob<ProductionJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
 
-        var result = service.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
+        var job2 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId));
 
-        await Assert.That(result).Failed();
-        await Assert.That(HasAlreadyInProgressTag(result)).IsTrue();
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
-    }
-
-    [Test]
-    public async Task ProcessingJob_AfterFirstInProgress_CreationIsRejected()
-    {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = Id.New<ProcessingStep>();
-
-        var job1 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<JobGroup>(), Id.New<ArtifactBundle>(), stepId));
-        service.UpdateJob<ProcessingJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
-
-        var result = service.CreateProcessingJob(pipelineId, Id.New<JobGroup>(), Id.New<ArtifactBundle>(), stepId);
-
-        await Assert.That(result).Failed();
-        await Assert.That(HasAlreadyInProgressTag(result)).IsTrue();
-        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
-    }
-
-    private static bool HasAlreadyInProgressTag(Olve.Results.Result<Job> result)
-    {
-        if (!result.TryPickProblems(out var problems)) return false;
-        foreach (var problem in problems)
-        {
-            if (problem.Tags.Contains(JobService.AlreadyInProgressTag)) return true;
-        }
-        return false;
-    }
-
-    [Test]
-    public async Task ProductionJob_ConcurrentCreatesForSameKey_OnlyOneSucceedsOnceInProgress()
-    {
-        var (service, _) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = Id.New<ProductionStep>();
-
-        var job1 = CreateAndGet(service, s => s.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId));
-        service.UpdateJob<ProductionJob>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
-
-        const int attempts = 32;
-        var results = new Olve.Results.Result<Job>[attempts];
-        var barrier = new Barrier(attempts);
-
-        var tasks = Enumerable.Range(0, attempts).Select(i => Task.Run(() =>
-        {
-            barrier.SignalAndWait();
-            results[i] = service.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
-        })).ToArray();
-
-        await Task.WhenAll(tasks);
-
-        var successCount = results.Count(r => !r.TryPickProblems(out _));
-        await Assert.That(successCount).IsEqualTo(0);
+        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
     }
 }

@@ -12,6 +12,16 @@ service:
 container:
   port: 5000
 
+ingress:
+  enabled: true
+  host: pipelines-private.ovea.pro
+  externalDnsTarget: "100.100.117.17"
+  clusterIssuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: ""
+  annotations: {}
+
 resources:
   requests:
     cpu: 100m
@@ -49,9 +59,6 @@ secrets:
 
 authentikCa:
   fileName: auth-prod-ca.crt
-
-ingress:
-  host: pipelines-private.ovea.pro
 
 slo:
   enabled: true

@@ -1,10 +1,23 @@
+{{- if .Values.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-private
   annotations:
-    external-dns.alpha.kubernetes.io/target: "100.100.117.17"
+    external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.externalDnsTarget | quote }}
+    {{- if .Values.ingress.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - secretName: {{ .Values.ingress.tls.secretName | default (printf "%s-tls" .Release.Name) }}
+      hosts:
+        - {{ .Values.ingress.host }}
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.host }}
       http:
@@ -16,3 +29,4 @@ spec:
                 name: {{ .Release.Name }}
                 port:
                   number: {{ .Values.service.port }}
+{{- end }}

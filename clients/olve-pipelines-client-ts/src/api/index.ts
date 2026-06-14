@@ -4,6 +4,8 @@
 // @ts-ignore
 import { ArtifactBundlesRequestBuilderNavigationMetadata, type ArtifactBundlesRequestBuilder } from './artifactBundles/index.js';
 // @ts-ignore
+import { ConfigRequestBuilderNavigationMetadata, type ConfigRequestBuilder } from './config/index.js';
+// @ts-ignore
 import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
 // @ts-ignore
 import { JobsRequestBuilderNavigationMetadata, JobsRequestBuilderRequestsMetadata, type JobsRequestBuilder } from './jobs/index.js';
@@ -28,6 +30,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      * The artifactBundles property
      */
     get artifactBundles(): ArtifactBundlesRequestBuilder;
+    /**
+     * The config property
+     */
+    get config(): ConfigRequestBuilder;
     /**
      * The health property
      */
@@ -67,6 +73,9 @@ export const ApiRequestBuilderUriTemplate = "{+baseurl}/api";
 export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     artifactBundles: {
         navigationMetadata: ArtifactBundlesRequestBuilderNavigationMetadata,
+    },
+    config: {
+        navigationMetadata: ConfigRequestBuilderNavigationMetadata,
     },
     health: {
         requestsMetadata: HealthRequestBuilderRequestsMetadata,

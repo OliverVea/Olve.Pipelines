@@ -8,6 +8,7 @@ import type {
   ProcessingStep,
   JobProcessingJob,
   JobProductionJob,
+  PipelineBindingStatus,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './pipeline-flow.js';
 
@@ -85,6 +86,46 @@ export class PipelineDetailView extends LitElement {
       color: var(--color-danger);
       padding: 1rem;
     }
+
+    .binding-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text-muted);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pill .branch {
+      opacity: 0.6;
+    }
+
+    .pill.ok {
+      color: var(--color-success, #2e7d32);
+      border-color: var(--color-success, #2e7d32);
+    }
+
+    .pill.error,
+    .pill.warn {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
+    }
   `;
 
   @property() declare pipelineId: string;
@@ -93,6 +134,7 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _productionSteps: ProductionStep[];
   @state() private declare _processingSteps: ProcessingStep[];
   @state() private declare _jobs: (JobProcessingJob | JobProductionJob)[];
+  @state() private declare _bindingStatus: PipelineBindingStatus | null;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
   @state() private declare _titleHint: string;
@@ -104,6 +146,7 @@ export class PipelineDetailView extends LitElement {
     this._productionSteps = [];
     this._processingSteps = [];
     this._jobs = [];
+    this._bindingStatus = null;
     this._loading = true;
     this._error = null;
     const state = history.state as { pipelineName?: string } | null;
@@ -120,18 +163,22 @@ export class PipelineDetailView extends LitElement {
     this._error = null;
     try {
       const p = client.api.pipelines.byId(this.pipelineId);
-      const [pipeline, production, processing, jobsPage] = await Promise.all([
-        p.get(),
-        p.production.get(),
-        p.processing.get(),
-        client.api.jobs.get({
-          queryParameters: {
-            pipelineId: this.pipelineId,
-            pageSize: '50',
-          },
-        }),
-      ]);
+      const [pipeline, production, processing, jobsPage, bindingStatus] =
+        await Promise.all([
+          p.get(),
+          p.production.get(),
+          p.processing.get(),
+          client.api.jobs.get({
+            queryParameters: {
+              pipelineId: this.pipelineId,
+              pageSize: '50',
+            },
+          }),
+          // Unbound (draft) pipelines have no binding — tolerate the 404.
+          p.binding.status.get().catch(() => null),
+        ]);
       this._pipeline = pipeline ?? null;
+      this._bindingStatus = bindingStatus ?? null;
       this._productionSteps = production ?? [];
       this._processingSteps = (processing ?? []).sort(
         (a: ProcessingStep, b: ProcessingStep) => {
@@ -171,6 +218,7 @@ export class PipelineDetailView extends LitElement {
           </svg>
         </button>
       </div>
+      ${this._renderBindingBadge()}
       ${this._pipeline
         ? html`<pipeline-flow
             .pipelineId=${this.pipelineId}
@@ -182,6 +230,43 @@ export class PipelineDetailView extends LitElement {
         : this._loading
         ? html``
         : html`<p>Pipeline not found.</p>`}
+    `;
+  }
+
+  private _renderBindingBadge() {
+    const b = this._bindingStatus;
+    if (!b) return html``; // unbound (draft) pipeline — no GitOps badge
+
+    const result = b.result ?? 0; // 0 NeverRun, 1 Success, 2 Error
+    const problems = b.problems ?? [];
+    const unset = (b.secrets ?? [])
+      .filter((s) => s.isSet === false)
+      .map((s) => s.name);
+
+    return html`
+      <div class="binding-bar">
+        <span class="pill repo" title="GitOps source — configuration is git-only">
+          ${b.repo}${b.branch
+            ? html`<span class="branch">@${b.branch}</span>`
+            : ''}
+        </span>
+        ${result === 2
+          ? html`<span class="pill error" title=${problems.join('\n')}
+              >⚠ reconcile error${problems.length
+                ? html`: ${problems[0]}`
+                : ''}</span
+            >`
+          : result === 1
+          ? html`<span class="pill ok">✓ config synced</span>`
+          : html`<span class="pill">pending first sync</span>`}
+        ${unset.length
+          ? html`<span
+              class="pill warn"
+              title="Set these via the secrets API or kubectl"
+              >⚠ unset secrets: ${unset.join(', ')}</span
+            >`
+          : ''}
+      </div>
     `;
   }
 

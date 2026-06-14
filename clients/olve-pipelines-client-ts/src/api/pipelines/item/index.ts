@@ -6,6 +6,10 @@ import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscrimina
 // @ts-ignore
 import { ArtifactBundlesRequestBuilderRequestsMetadata, type ArtifactBundlesRequestBuilder } from './artifactBundles/index.js';
 // @ts-ignore
+import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsMetadata, type BindingRequestBuilder } from './binding/index.js';
+// @ts-ignore
+import { DocumentRequestBuilderRequestsMetadata, type DocumentRequestBuilder } from './document/index.js';
+// @ts-ignore
 import { ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
 // @ts-ignore
 import { ProductionRequestBuilderRequestsMetadata, type ProductionRequestBuilder } from './production/index.js';
@@ -26,6 +30,14 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      * The artifactBundles property
      */
     get artifactBundles(): ArtifactBundlesRequestBuilder;
+    /**
+     * The binding property
+     */
+    get binding(): BindingRequestBuilder;
+    /**
+     * The document property
+     */
+    get document(): DocumentRequestBuilder;
     /**
      * The processing property
      */
@@ -79,6 +91,13 @@ export const ItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}";
 export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     artifactBundles: {
         requestsMetadata: ArtifactBundlesRequestBuilderRequestsMetadata,
+    },
+    binding: {
+        requestsMetadata: BindingRequestBuilderRequestsMetadata,
+        navigationMetadata: BindingRequestBuilderNavigationMetadata,
+    },
+    document: {
+        requestsMetadata: DocumentRequestBuilderRequestsMetadata,
     },
     processing: {
         requestsMetadata: ProcessingRequestBuilderRequestsMetadata,

@@ -22,6 +22,24 @@ export interface ArtifactBundle extends AdditionalDataHolder, Parsable {
      */
     status?: number | null;
 }
+export interface BindRepoRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+}
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
@@ -30,6 +48,24 @@ export interface ArtifactBundle extends AdditionalDataHolder, Parsable {
 // @ts-ignore
 export function createArtifactBundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoArtifactBundle;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BindRepoRequest}
+ */
+// @ts-ignore
+export function createBindRepoRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBindRepoRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreatePipelineWithRepoRequest}
+ */
+// @ts-ignore
+export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreatePipelineWithRepoRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -270,11 +306,60 @@ export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | un
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineBindingStatus}
+ */
+// @ts-ignore
+export function createPipelineBindingStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineBindingStatus;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineConfigBinding}
+ */
+// @ts-ignore
+export function createPipelineConfigBindingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineConfigBinding;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineDocument}
+ */
+// @ts-ignore
+export function createPipelineDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {Pipeline}
  */
 // @ts-ignore
 export function createPipelineFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipeline;
+}
+export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -284,6 +369,33 @@ export function createPipelineFromDiscriminatorValue(parseNode: ParseNode | unde
 // @ts-ignore
 export function createProcessingJobKeyFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoProcessingJobKey;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProcessingStepDocument_configurationMember1 | StepConfigurationDocument}
+ */
+// @ts-ignore
+export function createProcessingStepDocument_configurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProcessingStepDocument_configuration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProcessingStepDocument_configurationMember1}
+ */
+// @ts-ignore
+export function createProcessingStepDocument_configurationMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProcessingStepDocument_configurationMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProcessingStepDocument}
+ */
+// @ts-ignore
+export function createProcessingStepDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProcessingStepDocument;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -316,6 +428,33 @@ export function createProductionJobKeyFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProductionStepDocument_configurationMember1 | StepConfigurationDocument}
+ */
+// @ts-ignore
+export function createProductionStepDocument_configurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProductionStepDocument_configuration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProductionStepDocument_configurationMember1}
+ */
+// @ts-ignore
+export function createProductionStepDocument_configurationMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProductionStepDocument_configurationMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ProductionStepDocument}
+ */
+// @ts-ignore
+export function createProductionStepDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoProductionStepDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ProductionStep}
  */
 // @ts-ignore
@@ -327,6 +466,15 @@ export interface CreateProductionStepRequest extends AdditionalDataHolder, Parsa
      * The name property
      */
     name?: string | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ReconcileStatus}
+ */
+// @ts-ignore
+export function createReconcileStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoReconcileStatus;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -345,6 +493,24 @@ export function createResultFromDiscriminatorValue(parseNode: ParseNode | undefi
 // @ts-ignore
 export function createResultProblemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoResultProblem;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SecretDeclaration}
+ */
+// @ts-ignore
+export function createSecretDeclarationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSecretDeclaration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SecretStatus}
+ */
+// @ts-ignore
+export function createSecretStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSecretStatus;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -385,11 +551,38 @@ export function createStepConfiguration_environmentVariablesFromDiscriminatorVal
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepConfigurationDocument_environmentVariables}
+ */
+// @ts-ignore
+export function createStepConfigurationDocument_environmentVariablesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepConfigurationDocument_environmentVariables;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepConfigurationDocument}
+ */
+// @ts-ignore
+export function createStepConfigurationDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepConfigurationDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {StepConfiguration}
  */
 // @ts-ignore
 export function createStepConfigurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoStepConfiguration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerDocument}
+ */
+// @ts-ignore
+export function createTriggerDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerDocument;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -418,6 +611,66 @@ export interface CreateTriggerRequest extends AdditionalDataHolder, Parsable {
      * The target property
      */
     target?: TriggerTarget | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocument}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    if(!parseNode) throw new Error("parseNode cannot be undefined");
+    const mappingValueNode = parseNode?.getChildNode("type");
+    if (mappingValueNode) {
+        const mappingValue = mappingValueNode.getStringValue();
+        if (mappingValue) {
+            switch (mappingValue) {
+                case "poll":
+                    return deserializeIntoTriggerTargetDocumentPollTargetDocument;
+                case "processing":
+                    return deserializeIntoTriggerTargetDocumentProcessingTargetDocument;
+                case "production":
+                    return deserializeIntoTriggerTargetDocumentProductionTargetDocument;
+            }
+        }
+    }
+    return deserializeIntoTriggerTargetDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocumentPollTargetDocument_headers}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentPollTargetDocument_headersFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetDocumentPollTargetDocument_headers;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocumentPollTargetDocument}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentPollTargetDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetDocumentPollTargetDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocumentProcessingTargetDocument}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentProcessingTargetDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetDocumentProcessingTargetDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocumentProductionTargetDocument}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentProductionTargetDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetDocumentProductionTargetDocument;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -527,6 +780,35 @@ export function deserializeIntoArtifactBundle(artifactBundle: Partial<ArtifactBu
         "id": n => { artifactBundle.id = n.getGuidValue(); },
         "pipelineId": n => { artifactBundle.pipelineId = n.getGuidValue(); },
         "status": n => { artifactBundle.status = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BindRepoRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBindRepoRequest(bindRepoRequest: Partial<BindRepoRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { bindRepoRequest.branch = n.getStringValue(); },
+        "credentialsSecret": n => { bindRepoRequest.credentialsSecret = n.getStringValue(); },
+        "path": n => { bindRepoRequest.path = n.getStringValue(); },
+        "repo": n => { bindRepoRequest.repo = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreatePipelineWithRepoRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithRepoRequest: Partial<CreatePipelineWithRepoRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { createPipelineWithRepoRequest.branch = n.getStringValue(); },
+        "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
+        "name": n => { createPipelineWithRepoRequest.name = n.getStringValue(); },
+        "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
+        "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
     }
 }
 /**
@@ -817,6 +1099,61 @@ export function deserializeIntoPipeline(pipeline: Partial<Pipeline> | undefined 
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineBindingStatus The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineBindingStatus(pipelineBindingStatus: Partial<PipelineBindingStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { pipelineBindingStatus.branch = n.getStringValue(); },
+        "lastDeployedSha": n => { pipelineBindingStatus.lastDeployedSha = n.getStringValue(); },
+        "lastSyncedSha": n => { pipelineBindingStatus.lastSyncedSha = n.getStringValue(); },
+        "lastSyncTime": n => { pipelineBindingStatus.lastSyncTime = n.getDateValue(); },
+        "path": n => { pipelineBindingStatus.path = n.getStringValue(); },
+        "pipelineId": n => { pipelineBindingStatus.pipelineId = n.getGuidValue(); },
+        "problems": n => { pipelineBindingStatus.problems = n.getCollectionOfPrimitiveValues<string>(); },
+        "repo": n => { pipelineBindingStatus.repo = n.getStringValue(); },
+        "result": n => { pipelineBindingStatus.result = n.getNumberValue(); },
+        "secrets": n => { pipelineBindingStatus.secrets = n.getCollectionOfObjectValues<SecretStatus>(createSecretStatusFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineConfigBinding The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Partial<PipelineConfigBinding> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { pipelineConfigBinding.branch = n.getStringValue(); },
+        "createdAt": n => { pipelineConfigBinding.createdAt = n.getDateValue(); },
+        "credentialsSecret": n => { pipelineConfigBinding.credentialsSecret = n.getStringValue(); },
+        "id": n => { pipelineConfigBinding.id = n.getGuidValue(); },
+        "lastDeployedSha": n => { pipelineConfigBinding.lastDeployedSha = n.getStringValue(); },
+        "lastSyncedSha": n => { pipelineConfigBinding.lastSyncedSha = n.getStringValue(); },
+        "path": n => { pipelineConfigBinding.path = n.getStringValue(); },
+        "pipelineId": n => { pipelineConfigBinding.pipelineId = n.getGuidValue(); },
+        "repo": n => { pipelineConfigBinding.repo = n.getStringValue(); },
+        "status": n => { pipelineConfigBinding.status = n.getObjectValue<ReconcileStatus>(createReconcileStatusFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineDocument(pipelineDocument: Partial<PipelineDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "apiVersion": n => { pipelineDocument.apiVersion = n.getStringValue(); },
+        "name": n => { pipelineDocument.name = n.getStringValue(); },
+        "processingSteps": n => { pipelineDocument.processingSteps = n.getCollectionOfObjectValues<ProcessingStepDocument>(createProcessingStepDocumentFromDiscriminatorValue); },
+        "productionSteps": n => { pipelineDocument.productionSteps = n.getCollectionOfObjectValues<ProductionStepDocument>(createProductionStepDocumentFromDiscriminatorValue); },
+        "triggers": n => { pipelineDocument.triggers = n.getCollectionOfObjectValues<TriggerDocument>(createTriggerDocumentFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ProcessingJobKey The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -839,6 +1176,40 @@ export function deserializeIntoProcessingStep(processingStep: Partial<Processing
         "name": n => { processingStep.name = n.getStringValue(); },
         "order": n => { processingStep.order = n.getNumberValue(); },
         "pipelineId": n => { processingStep.pipelineId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProcessingStepDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProcessingStepDocument(processingStepDocument: Partial<ProcessingStepDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "configuration": n => { processingStepDocument.configuration = n.getObjectValue<ProcessingStepDocument_configurationMember1>(createProcessingStepDocument_configurationMember1FromDiscriminatorValue) ?? n.getObjectValue<StepConfigurationDocument>(createStepConfigurationDocumentFromDiscriminatorValue); },
+        "name": n => { processingStepDocument.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProcessingStepDocument_configuration The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProcessingStepDocument_configuration(processingStepDocument_configuration: Partial<ProcessingStepDocument_configurationMember1 | StepConfigurationDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoProcessingStepDocument_configurationMember1(processingStepDocument_configuration as ProcessingStepDocument_configurationMember1),
+        ...deserializeIntoStepConfigurationDocument(processingStepDocument_configuration as StepConfigurationDocument),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProcessingStepDocument_configurationMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProcessingStepDocument_configurationMember1(processingStepDocument_configurationMember1: Partial<ProcessingStepDocument_configurationMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -868,6 +1239,54 @@ export function deserializeIntoProductionStep(productionStep: Partial<Production
 }
 /**
  * The deserialization information for the current model
+ * @param ProductionStepDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProductionStepDocument(productionStepDocument: Partial<ProductionStepDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "configuration": n => { productionStepDocument.configuration = n.getObjectValue<ProductionStepDocument_configurationMember1>(createProductionStepDocument_configurationMember1FromDiscriminatorValue) ?? n.getObjectValue<StepConfigurationDocument>(createStepConfigurationDocumentFromDiscriminatorValue); },
+        "name": n => { productionStepDocument.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProductionStepDocument_configuration The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProductionStepDocument_configuration(productionStepDocument_configuration: Partial<ProductionStepDocument_configurationMember1 | StepConfigurationDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoProductionStepDocument_configurationMember1(productionStepDocument_configuration as ProductionStepDocument_configurationMember1),
+        ...deserializeIntoStepConfigurationDocument(productionStepDocument_configuration as StepConfigurationDocument),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ProductionStepDocument_configurationMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoProductionStepDocument_configurationMember1(productionStepDocument_configurationMember1: Partial<ProductionStepDocument_configurationMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ReconcileStatus The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoReconcileStatus(reconcileStatus: Partial<ReconcileStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "declaredSecrets": n => { reconcileStatus.declaredSecrets = n.getCollectionOfObjectValues<SecretDeclaration>(createSecretDeclarationFromDiscriminatorValue); },
+        "lastSyncTime": n => { reconcileStatus.lastSyncTime = n.getDateValue(); },
+        "problems": n => { reconcileStatus.problems = n.getCollectionOfPrimitiveValues<string>(); },
+        "result": n => { reconcileStatus.result = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Result The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -892,6 +1311,31 @@ export function deserializeIntoResultProblem(resultProblem: Partial<ResultProble
         "severity": n => { resultProblem.severity = n.getNumberValue(); },
         "source": n => { resultProblem.source = n.getStringValue(); },
         "tags": n => { resultProblem.tags = n.getCollectionOfPrimitiveValues<string>(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SecretDeclaration The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSecretDeclaration(secretDeclaration: Partial<SecretDeclaration> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { secretDeclaration.description = n.getStringValue(); },
+        "name": n => { secretDeclaration.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SecretStatus The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSecretStatus(secretStatus: Partial<SecretStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { secretStatus.description = n.getStringValue(); },
+        "isSet": n => { secretStatus.isSet = n.getBooleanValue(); },
+        "name": n => { secretStatus.name = n.getStringValue(); },
     }
 }
 /**
@@ -953,6 +1397,29 @@ export function deserializeIntoStepConfiguration_environmentVariables(stepConfig
 }
 /**
  * The deserialization information for the current model
+ * @param StepConfigurationDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepConfigurationDocument(stepConfigurationDocument: Partial<StepConfigurationDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "environmentVariables": n => { stepConfigurationDocument.environmentVariables = n.getObjectValue<StepConfigurationDocument_environmentVariables>(createStepConfigurationDocument_environmentVariablesFromDiscriminatorValue); },
+        "image": n => { stepConfigurationDocument.image = n.getStringValue(); },
+        "script": n => { stepConfigurationDocument.script = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepConfigurationDocument_environmentVariables The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepConfigurationDocument_environmentVariables(stepConfigurationDocument_environmentVariables: Partial<StepConfigurationDocument_environmentVariables> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Trigger The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -965,6 +1432,18 @@ export function deserializeIntoTrigger(trigger: Partial<Trigger> | undefined = {
         "pipelineId": n => { trigger.pipelineId = n.getGuidValue(); },
         "secret": n => { trigger.secret = n.getStringValue(); },
         "target": n => { trigger.target = n.getObjectValue<TriggerTarget>(createTriggerTargetFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerDocument(triggerDocument: Partial<TriggerDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { triggerDocument.name = n.getStringValue(); },
+        "target": n => { triggerDocument.target = n.getObjectValue<TriggerTargetDocument>(createTriggerTargetDocumentFromDiscriminatorValue); },
     }
 }
 /**
@@ -992,6 +1471,65 @@ export function deserializeIntoTriggerTarget(triggerTarget: Partial<TriggerTarge
 }
 /**
  * The deserialization information for the current model
+ * @param TriggerTargetDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocument(triggerTargetDocument: Partial<TriggerTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "type": n => { triggerTargetDocument.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetDocumentPollTargetDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocumentPollTargetDocument(triggerTargetDocumentPollTargetDocument: Partial<TriggerTargetDocumentPollTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentPollTargetDocument),
+        "headers": n => { triggerTargetDocumentPollTargetDocument.headers = n.getObjectValue<TriggerTargetDocumentPollTargetDocument_headers>(createTriggerTargetDocumentPollTargetDocument_headersFromDiscriminatorValue); },
+        "intervalSeconds": n => { triggerTargetDocumentPollTargetDocument.intervalSeconds = n.getNumberValue() ?? 60; },
+        "url": n => { triggerTargetDocumentPollTargetDocument.url = n.getStringValue(); },
+        "valuePath": n => { triggerTargetDocumentPollTargetDocument.valuePath = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetDocumentPollTargetDocument_headers The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocumentPollTargetDocument_headers(triggerTargetDocumentPollTargetDocument_headers: Partial<TriggerTargetDocumentPollTargetDocument_headers> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetDocumentProcessingTargetDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocumentProcessingTargetDocument(triggerTargetDocumentProcessingTargetDocument: Partial<TriggerTargetDocumentProcessingTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentProcessingTargetDocument),
+        "processingStepName": n => { triggerTargetDocumentProcessingTargetDocument.processingStepName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetDocumentProductionTargetDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocumentProductionTargetDocument(triggerTargetDocumentProductionTargetDocument: Partial<TriggerTargetDocumentProductionTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentProductionTargetDocument),
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param TriggerTargetPollTriggerTarget The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1000,7 +1538,7 @@ export function deserializeIntoTriggerTargetPollTriggerTarget(triggerTargetPollT
     return {
         ...deserializeIntoTriggerTarget(triggerTargetPollTriggerTarget),
         "headers": n => { triggerTargetPollTriggerTarget.headers = n.getObjectValue<TriggerTargetPollTriggerTarget_headers>(createTriggerTargetPollTriggerTarget_headersFromDiscriminatorValue); },
-        "intervalSeconds": n => { triggerTargetPollTriggerTarget.intervalSeconds = n.getNumberValue(); },
+        "intervalSeconds": n => { triggerTargetPollTriggerTarget.intervalSeconds = n.getNumberValue() ?? 60; },
         "url": n => { triggerTargetPollTriggerTarget.url = n.getStringValue(); },
         "valuePath": n => { triggerTargetPollTriggerTarget.valuePath = n.getStringValue(); },
     }
@@ -1315,6 +1853,115 @@ export interface Pipeline extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The lastDeployedSha property
+     */
+    lastDeployedSha?: string | null;
+    /**
+     * The lastSyncedSha property
+     */
+    lastSyncedSha?: string | null;
+    /**
+     * The lastSyncTime property
+     */
+    lastSyncTime?: Date | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The problems property
+     */
+    problems?: string[] | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The result property
+     */
+    result?: number | null;
+    /**
+     * The secrets property
+     */
+    secrets?: SecretStatus[] | null;
+}
+export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The lastDeployedSha property
+     */
+    lastDeployedSha?: string | null;
+    /**
+     * The lastSyncedSha property
+     */
+    lastSyncedSha?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The status property
+     */
+    status?: ReconcileStatus | null;
+}
+/**
+ * Beta: shape may change within the 0.x major version.
+ */
+export interface PipelineDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The apiVersion property
+     */
+    apiVersion?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The processingSteps property
+     */
+    processingSteps?: ProcessingStepDocument[] | null;
+    /**
+     * The productionSteps property
+     */
+    productionSteps?: ProductionStepDocument[] | null;
+    /**
+     * The triggers property
+     */
+    triggers?: TriggerDocument[] | null;
+}
 export interface ProcessingJobKey extends AdditionalDataHolder, Parsable {
     /**
      * The pipelineId property
@@ -1343,6 +1990,19 @@ export interface ProcessingStep extends AdditionalDataHolder, Parsable {
      */
     pipelineId?: Guid | null;
 }
+export interface ProcessingStepDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The configuration property
+     */
+    configuration?: ProcessingStepDocument_configurationMember1 | StepConfigurationDocument | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
+export type ProcessingStepDocument_configuration = ProcessingStepDocument_configurationMember1 | StepConfigurationDocument;
+export interface ProcessingStepDocument_configurationMember1 extends AdditionalDataHolder, Parsable {
+}
 export interface ProductionJobKey extends AdditionalDataHolder, Parsable {
     /**
      * The pipelineId property
@@ -1366,6 +2026,37 @@ export interface ProductionStep extends AdditionalDataHolder, Parsable {
      * The pipelineId property
      */
     pipelineId?: Guid | null;
+}
+export interface ProductionStepDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The configuration property
+     */
+    configuration?: ProductionStepDocument_configurationMember1 | StepConfigurationDocument | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
+export type ProductionStepDocument_configuration = ProductionStepDocument_configurationMember1 | StepConfigurationDocument;
+export interface ProductionStepDocument_configurationMember1 extends AdditionalDataHolder, Parsable {
+}
+export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
+    /**
+     * The declaredSecrets property
+     */
+    declaredSecrets?: SecretDeclaration[] | null;
+    /**
+     * The lastSyncTime property
+     */
+    lastSyncTime?: Date | null;
+    /**
+     * The problems property
+     */
+    problems?: string[] | null;
+    /**
+     * The result property
+     */
+    result?: number | null;
 }
 export interface Result extends AdditionalDataHolder, Parsable {
     /**
@@ -1403,6 +2094,30 @@ export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable 
      */
     tags?: string[] | null;
 }
+export interface SecretDeclaration extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
+export interface SecretStatus extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The isSet property
+     */
+    isSet?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+}
 /**
  * Serializes information the current object
  * @param ArtifactBundle The instance to serialize from.
@@ -1417,6 +2132,37 @@ export function serializeArtifactBundle(writer: SerializationWriter, artifactBun
     writer.writeGuidValue("pipelineId", artifactBundle.pipelineId);
     writer.writeNumberValue("status", artifactBundle.status);
     writer.writeAdditionalData(artifactBundle.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BindRepoRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBindRepoRequest(writer: SerializationWriter, bindRepoRequest: Partial<BindRepoRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!bindRepoRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", bindRepoRequest.branch);
+    writer.writeStringValue("credentialsSecret", bindRepoRequest.credentialsSecret);
+    writer.writeStringValue("path", bindRepoRequest.path);
+    writer.writeStringValue("repo", bindRepoRequest.repo);
+    writer.writeAdditionalData(bindRepoRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreatePipelineWithRepoRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreatePipelineWithRepoRequest(writer: SerializationWriter, createPipelineWithRepoRequest: Partial<CreatePipelineWithRepoRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createPipelineWithRepoRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", createPipelineWithRepoRequest.branch);
+    writer.writeStringValue("credentialsSecret", createPipelineWithRepoRequest.credentialsSecret);
+    writer.writeStringValue("name", createPipelineWithRepoRequest.name);
+    writer.writeStringValue("path", createPipelineWithRepoRequest.path);
+    writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
+    writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1753,6 +2499,64 @@ export function serializePipeline(writer: SerializationWriter, pipeline: Partial
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineBindingStatus The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineBindingStatus(writer: SerializationWriter, pipelineBindingStatus: Partial<PipelineBindingStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineBindingStatus || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", pipelineBindingStatus.branch);
+    writer.writeStringValue("lastDeployedSha", pipelineBindingStatus.lastDeployedSha);
+    writer.writeStringValue("lastSyncedSha", pipelineBindingStatus.lastSyncedSha);
+    writer.writeDateValue("lastSyncTime", pipelineBindingStatus.lastSyncTime);
+    writer.writeStringValue("path", pipelineBindingStatus.path);
+    writer.writeGuidValue("pipelineId", pipelineBindingStatus.pipelineId);
+    writer.writeCollectionOfPrimitiveValues<string>("problems", pipelineBindingStatus.problems);
+    writer.writeStringValue("repo", pipelineBindingStatus.repo);
+    writer.writeNumberValue("result", pipelineBindingStatus.result);
+    writer.writeCollectionOfObjectValues<SecretStatus>("secrets", pipelineBindingStatus.secrets, serializeSecretStatus);
+    writer.writeAdditionalData(pipelineBindingStatus.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineConfigBinding The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineConfigBinding(writer: SerializationWriter, pipelineConfigBinding: Partial<PipelineConfigBinding> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineConfigBinding || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", pipelineConfigBinding.branch);
+    writer.writeDateValue("createdAt", pipelineConfigBinding.createdAt);
+    writer.writeStringValue("credentialsSecret", pipelineConfigBinding.credentialsSecret);
+    writer.writeGuidValue("id", pipelineConfigBinding.id);
+    writer.writeStringValue("lastDeployedSha", pipelineConfigBinding.lastDeployedSha);
+    writer.writeStringValue("lastSyncedSha", pipelineConfigBinding.lastSyncedSha);
+    writer.writeStringValue("path", pipelineConfigBinding.path);
+    writer.writeGuidValue("pipelineId", pipelineConfigBinding.pipelineId);
+    writer.writeStringValue("repo", pipelineConfigBinding.repo);
+    writer.writeObjectValue<ReconcileStatus>("status", pipelineConfigBinding.status, serializeReconcileStatus);
+    writer.writeAdditionalData(pipelineConfigBinding.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineDocument(writer: SerializationWriter, pipelineDocument: Partial<PipelineDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineDocument || isSerializingDerivedType) { return; }
+    writer.writeStringValue("apiVersion", pipelineDocument.apiVersion);
+    writer.writeStringValue("name", pipelineDocument.name);
+    writer.writeCollectionOfObjectValues<ProcessingStepDocument>("processingSteps", pipelineDocument.processingSteps, serializeProcessingStepDocument);
+    writer.writeCollectionOfObjectValues<ProductionStepDocument>("productionSteps", pipelineDocument.productionSteps, serializeProductionStepDocument);
+    writer.writeCollectionOfObjectValues<TriggerDocument>("triggers", pipelineDocument.triggers, serializeTriggerDocument);
+    writer.writeAdditionalData(pipelineDocument.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ProcessingJobKey The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1777,6 +2581,41 @@ export function serializeProcessingStep(writer: SerializationWriter, processingS
     writer.writeNumberValue("order", processingStep.order);
     writer.writeGuidValue("pipelineId", processingStep.pipelineId);
     writer.writeAdditionalData(processingStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProcessingStepDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProcessingStepDocument(writer: SerializationWriter, processingStepDocument: Partial<ProcessingStepDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!processingStepDocument || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ProcessingStepDocument_configurationMember1 | StepConfigurationDocument>("configuration", processingStepDocument.configuration, serializeProcessingStepDocument_configuration);
+    writer.writeStringValue("name", processingStepDocument.name);
+    writer.writeAdditionalData(processingStepDocument.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProcessingStepDocument_configuration The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProcessingStepDocument_configuration(writer: SerializationWriter, processingStepDocument_configuration: Partial<ProcessingStepDocument_configurationMember1 | StepConfigurationDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeProcessingStepDocument_configurationMember1(writer, processingStepDocument_configuration as ProcessingStepDocument_configurationMember1);
+    serializeStepConfigurationDocument(writer, processingStepDocument_configuration as StepConfigurationDocument);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProcessingStepDocument_configurationMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProcessingStepDocument_configurationMember1(writer: SerializationWriter, processingStepDocument_configurationMember1: Partial<ProcessingStepDocument_configurationMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!processingStepDocument_configurationMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(processingStepDocument_configurationMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1808,6 +2647,56 @@ export function serializeProductionStep(writer: SerializationWriter, productionS
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProductionStepDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProductionStepDocument(writer: SerializationWriter, productionStepDocument: Partial<ProductionStepDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!productionStepDocument || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ProductionStepDocument_configurationMember1 | StepConfigurationDocument>("configuration", productionStepDocument.configuration, serializeProductionStepDocument_configuration);
+    writer.writeStringValue("name", productionStepDocument.name);
+    writer.writeAdditionalData(productionStepDocument.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProductionStepDocument_configuration The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProductionStepDocument_configuration(writer: SerializationWriter, productionStepDocument_configuration: Partial<ProductionStepDocument_configurationMember1 | StepConfigurationDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeProductionStepDocument_configurationMember1(writer, productionStepDocument_configuration as ProductionStepDocument_configurationMember1);
+    serializeStepConfigurationDocument(writer, productionStepDocument_configuration as StepConfigurationDocument);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ProductionStepDocument_configurationMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeProductionStepDocument_configurationMember1(writer: SerializationWriter, productionStepDocument_configurationMember1: Partial<ProductionStepDocument_configurationMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!productionStepDocument_configurationMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(productionStepDocument_configurationMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ReconcileStatus The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeReconcileStatus(writer: SerializationWriter, reconcileStatus: Partial<ReconcileStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!reconcileStatus || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<SecretDeclaration>("declaredSecrets", reconcileStatus.declaredSecrets, serializeSecretDeclaration);
+    writer.writeDateValue("lastSyncTime", reconcileStatus.lastSyncTime);
+    writer.writeCollectionOfPrimitiveValues<string>("problems", reconcileStatus.problems);
+    writer.writeNumberValue("result", reconcileStatus.result);
+    writer.writeAdditionalData(reconcileStatus.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param Result The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1834,6 +2723,33 @@ export function serializeResultProblem(writer: SerializationWriter, resultProble
     writer.writeStringValue("source", resultProblem.source);
     writer.writeCollectionOfPrimitiveValues<string>("tags", resultProblem.tags);
     writer.writeAdditionalData(resultProblem.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SecretDeclaration The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSecretDeclaration(writer: SerializationWriter, secretDeclaration: Partial<SecretDeclaration> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!secretDeclaration || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", secretDeclaration.description);
+    writer.writeStringValue("name", secretDeclaration.name);
+    writer.writeAdditionalData(secretDeclaration.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SecretStatus The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSecretStatus(writer: SerializationWriter, secretStatus: Partial<SecretStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!secretStatus || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", secretStatus.description);
+    writer.writeBooleanValue("isSet", secretStatus.isSet);
+    writer.writeStringValue("name", secretStatus.name);
+    writer.writeAdditionalData(secretStatus.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1900,6 +2816,31 @@ export function serializeStepConfiguration_environmentVariables(writer: Serializ
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepConfigurationDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepConfigurationDocument(writer: SerializationWriter, stepConfigurationDocument: Partial<StepConfigurationDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepConfigurationDocument || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<StepConfigurationDocument_environmentVariables>("environmentVariables", stepConfigurationDocument.environmentVariables, serializeStepConfigurationDocument_environmentVariables);
+    writer.writeStringValue("image", stepConfigurationDocument.image);
+    writer.writeStringValue("script", stepConfigurationDocument.script);
+    writer.writeAdditionalData(stepConfigurationDocument.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepConfigurationDocument_environmentVariables The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepConfigurationDocument_environmentVariables(writer: SerializationWriter, stepConfigurationDocument_environmentVariables: Partial<StepConfigurationDocument_environmentVariables> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepConfigurationDocument_environmentVariables || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(stepConfigurationDocument_environmentVariables.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param Trigger The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1913,6 +2854,19 @@ export function serializeTrigger(writer: SerializationWriter, trigger: Partial<T
     writer.writeStringValue("secret", trigger.secret);
     writer.writeObjectValue<TriggerTarget>("target", trigger.target, serializeTriggerTarget);
     writer.writeAdditionalData(trigger.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerDocument(writer: SerializationWriter, triggerDocument: Partial<TriggerDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerDocument || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", triggerDocument.name);
+    writer.writeObjectValue<TriggerTargetDocument>("target", triggerDocument.target, serializeTriggerTargetDocument);
+    writer.writeAdditionalData(triggerDocument.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1953,6 +2907,78 @@ export function serializeTriggerTarget(writer: SerializationWriter, triggerTarge
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocument(writer: SerializationWriter, triggerTargetDocument: Partial<TriggerTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocument || isSerializingDerivedType) { return; }
+    writer.writeStringValue("type", triggerTargetDocument.type);
+    writer.writeAdditionalData(triggerTargetDocument.additionalData);
+    switch (triggerTargetDocument.type) {
+        case "poll":
+            serializeTriggerTargetDocumentPollTargetDocument(writer, triggerTargetDocument, true);
+        break;
+        case "processing":
+            serializeTriggerTargetDocumentProcessingTargetDocument(writer, triggerTargetDocument, true);
+        break;
+        case "production":
+            serializeTriggerTargetDocumentProductionTargetDocument(writer, triggerTargetDocument, true);
+        break;
+    }
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocumentPollTargetDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocumentPollTargetDocument(writer: SerializationWriter, triggerTargetDocumentPollTargetDocument: Partial<TriggerTargetDocumentPollTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocumentPollTargetDocument || isSerializingDerivedType) { return; }
+    serializeTriggerTargetDocument(writer, triggerTargetDocumentPollTargetDocument, isSerializingDerivedType)
+    writer.writeObjectValue<TriggerTargetDocumentPollTargetDocument_headers>("headers", triggerTargetDocumentPollTargetDocument.headers, serializeTriggerTargetDocumentPollTargetDocument_headers);
+    writer.writeNumberValue("intervalSeconds", triggerTargetDocumentPollTargetDocument.intervalSeconds ?? 60);
+    writer.writeStringValue("url", triggerTargetDocumentPollTargetDocument.url);
+    writer.writeStringValue("valuePath", triggerTargetDocumentPollTargetDocument.valuePath);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocumentPollTargetDocument_headers The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocumentPollTargetDocument_headers(writer: SerializationWriter, triggerTargetDocumentPollTargetDocument_headers: Partial<TriggerTargetDocumentPollTargetDocument_headers> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocumentPollTargetDocument_headers || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(triggerTargetDocumentPollTargetDocument_headers.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocumentProcessingTargetDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocumentProcessingTargetDocument(writer: SerializationWriter, triggerTargetDocumentProcessingTargetDocument: Partial<TriggerTargetDocumentProcessingTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocumentProcessingTargetDocument || isSerializingDerivedType) { return; }
+    serializeTriggerTargetDocument(writer, triggerTargetDocumentProcessingTargetDocument, isSerializingDerivedType)
+    writer.writeStringValue("processingStepName", triggerTargetDocumentProcessingTargetDocument.processingStepName);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocumentProductionTargetDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocumentProductionTargetDocument(writer: SerializationWriter, triggerTargetDocumentProductionTargetDocument: Partial<TriggerTargetDocumentProductionTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocumentProductionTargetDocument || isSerializingDerivedType) { return; }
+    serializeTriggerTargetDocument(writer, triggerTargetDocumentProductionTargetDocument, isSerializingDerivedType)
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param TriggerTargetPollTriggerTarget The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1961,7 +2987,7 @@ export function serializeTriggerTargetPollTriggerTarget(writer: SerializationWri
     if (!triggerTargetPollTriggerTarget || isSerializingDerivedType) { return; }
     serializeTriggerTarget(writer, triggerTargetPollTriggerTarget, isSerializingDerivedType)
     writer.writeObjectValue<TriggerTargetPollTriggerTarget_headers>("headers", triggerTargetPollTriggerTarget.headers, serializeTriggerTargetPollTriggerTarget_headers);
-    writer.writeNumberValue("intervalSeconds", triggerTargetPollTriggerTarget.intervalSeconds);
+    writer.writeNumberValue("intervalSeconds", triggerTargetPollTriggerTarget.intervalSeconds ?? 60);
     writer.writeStringValue("url", triggerTargetPollTriggerTarget.url);
     writer.writeStringValue("valuePath", triggerTargetPollTriggerTarget.valuePath);
 }
@@ -2083,6 +3109,22 @@ export interface StepConfiguration extends AdditionalDataHolder, Parsable {
 }
 export interface StepConfiguration_environmentVariables extends AdditionalDataHolder, Parsable {
 }
+export interface StepConfigurationDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The environmentVariables property
+     */
+    environmentVariables?: StepConfigurationDocument_environmentVariables | null;
+    /**
+     * The image property
+     */
+    image?: string | null;
+    /**
+     * The script property
+     */
+    script?: string | null;
+}
+export interface StepConfigurationDocument_environmentVariables extends AdditionalDataHolder, Parsable {
+}
 export interface Trigger extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -2109,6 +3151,16 @@ export interface Trigger extends AdditionalDataHolder, Parsable {
      */
     target?: TriggerTarget | null;
 }
+export interface TriggerDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The target property
+     */
+    target?: TriggerTargetDocument | null;
+}
 export interface TriggerProcessingRequest extends AdditionalDataHolder, Parsable {
     /**
      * The artifactBundleId property
@@ -2124,6 +3176,40 @@ export interface TriggerTarget extends AdditionalDataHolder, Parsable {
      * The type property
      */
     type?: string | null;
+}
+export interface TriggerTargetDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface TriggerTargetDocumentPollTargetDocument extends Parsable, TriggerTargetDocument {
+    /**
+     * The headers property
+     */
+    headers?: TriggerTargetDocumentPollTargetDocument_headers | null;
+    /**
+     * The intervalSeconds property
+     */
+    intervalSeconds?: number | null;
+    /**
+     * The url property
+     */
+    url?: string | null;
+    /**
+     * The valuePath property
+     */
+    valuePath?: string | null;
+}
+export interface TriggerTargetDocumentPollTargetDocument_headers extends AdditionalDataHolder, Parsable {
+}
+export interface TriggerTargetDocumentProcessingTargetDocument extends Parsable, TriggerTargetDocument {
+    /**
+     * The processingStepName property
+     */
+    processingStepName?: string | null;
+}
+export interface TriggerTargetDocumentProductionTargetDocument extends Parsable, TriggerTargetDocument {
 }
 export interface TriggerTargetPollTriggerTarget extends Parsable, TriggerTarget {
     /**

@@ -4,7 +4,11 @@
 // @ts-ignore
 import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscriminatorValue, type Pipeline, type ResultProblem } from '../../models/index.js';
 // @ts-ignore
+import { FromDocumentRequestBuilderRequestsMetadata, type FromDocumentRequestBuilder } from './fromDocument/index.js';
+// @ts-ignore
 import { ItemRequestBuilderNavigationMetadata, ItemRequestBuilderRequestsMetadata, type ItemRequestBuilder } from './item/index.js';
+// @ts-ignore
+import { type WithRepoRequestBuilder, WithRepoRequestBuilderRequestsMetadata } from './withRepo/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -12,6 +16,14 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /api/pipelines
  */
 export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesRequestBuilder> {
+    /**
+     * The fromDocument property
+     */
+    get fromDocument(): FromDocumentRequestBuilder;
+    /**
+     * The withRepo property
+     */
+    get withRepo(): WithRepoRequestBuilder;
     /**
      * Gets an item from the OlvePipelinesClient.api.pipelines.item collection
      * @param id Unique identifier of the item
@@ -47,7 +59,7 @@ export interface PipelinesRequestBuilderPostQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines?name={name}";
+export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
@@ -56,6 +68,12 @@ export const PipelinesRequestBuilderNavigationMetadata: Record<Exclude<keyof Pip
         requestsMetadata: ItemRequestBuilderRequestsMetadata,
         navigationMetadata: ItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["%2Did"],
+    },
+    fromDocument: {
+        requestsMetadata: FromDocumentRequestBuilderRequestsMetadata,
+    },
+    withRepo: {
+        requestsMetadata: WithRepoRequestBuilderRequestsMetadata,
     },
 };
 /**
@@ -72,7 +90,7 @@ export const PipelinesRequestBuilderRequestsMetadata: RequestsMetadata = {
         responseBodyFactory:  createPipelineFromDiscriminatorValue,
     },
     post: {
-        uriTemplate: PipelinesRequestBuilderUriTemplate,
+        uriTemplate: "{+baseurl}/api/pipelines?name={name}",
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

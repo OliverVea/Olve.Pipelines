@@ -1,8 +1,8 @@
 {
-  "descriptionHash": "0CD181E91D7D766105C3D1424A82E906BA4D0F74C3DC9169C9B7511291B063E2064007EBFD19026A6DF828820C64F8A08AC994D752FE8FA5DA4BD3E55509BA6B",
+  "descriptionHash": "CC51A9B85AAD03D953A5F5FCD8E1A0A8B97FB1C208D3E408093CFB20A84440BBDEA1F3DF1DEF0B2122993DFE6532C3C312A48D8F93EDF41FAA6EAEB8CD808FCB",
   "descriptionLocation": "../../../api.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.30.0",
+  "kiotaVersion": "1.32.2",
   "clientClassName": "ApiClient",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "OlvePipelinesClient",

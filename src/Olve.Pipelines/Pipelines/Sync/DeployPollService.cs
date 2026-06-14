@@ -15,11 +15,10 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
+    ReconcileOptions options,
     IServiceProvider sp,
     ILogger<DeployPollService> logger) : BackgroundService
 {
-    private static readonly TimeSpan LoopInterval = TimeSpan.FromSeconds(60);
-
     // Per-binding config ETag (in-memory). A pure rate-limit optimization: losing it on restart
     // costs one extra (idempotent) config fetch, never correctness.
     private readonly Dictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
@@ -43,7 +42,7 @@ public class DeployPollService(
                 logger.LogError(ex, "Unhandled exception in deploy poll cycle");
             }
 
-            await Task.Delay(LoopInterval, ct);
+            await Task.Delay(options.PollInterval, ct);
         }
     }
 

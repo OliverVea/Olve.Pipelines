@@ -26,11 +26,14 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// repo needing no auth.</item>
 /// <item><see cref="LastDeployedSha"/> — the deploy cursor; the branch-head SHA the last
 /// production build ran for. <c>null</c> until the first build.</item>
+/// <item><see cref="LastSyncedSha"/> — the config cursor; the <c>.pipelines/</c> commit SHA the
+/// last successful reconcile applied. Advances only on a fully successful apply. <c>null</c> until
+/// the first reconcile.</item>
 /// </list>
 /// </para>
 /// <para>
-/// <c>ReconcileStatus</c> (config cursor, sync result, secret state map) is added in
-/// Phase 5 when it is first written and surfaced — it is intentionally absent here.
+/// The rest of <c>ReconcileStatus</c> (sync result, problems, secret state map) is added in
+/// Phase 5 when it is first surfaced — intentionally absent here.
 /// </para>
 /// </summary>
 public record PipelineConfigBinding(
@@ -41,4 +44,5 @@ public record PipelineConfigBinding(
     string Path,
     string? CredentialsSecret,
     string? LastDeployedSha,
+    string? LastSyncedSha,
     DateTimeOffset CreatedAt) : IHasId<Id<PipelineConfigBinding>>;

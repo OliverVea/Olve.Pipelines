@@ -16,6 +16,7 @@ public class FakeConfigSourceTests
         ".pipelines",
         CredentialsSecret: null,
         LastDeployedSha: null,
+        LastSyncedSha: null,
         DateTimeOffset.UnixEpoch);
 
     private static T Pick<T>(Result<T> result)

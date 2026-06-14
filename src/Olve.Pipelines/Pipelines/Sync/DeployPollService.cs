@@ -20,6 +20,10 @@ public class DeployPollService(
 {
     private static readonly TimeSpan LoopInterval = TimeSpan.FromSeconds(60);
 
+    // Per-binding config ETag (in-memory). A pure rate-limit optimization: losing it on restart
+    // costs one extra (idempotent) config fetch, never correctness.
+    private readonly Dictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         logger.LogInformation("Deploy poll service started");
@@ -63,7 +67,64 @@ public class DeployPollService(
     {
         using var scope = sp.CreateScope();
         var source = scope.ServiceProvider.GetRequiredService<IConfigSource>();
+        var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
 
+        // Config before build: a commit's config changes apply before its build runs. If config
+        // can't be fetched/compiled/applied, the build is held off until it can.
+        if (!await ReconcileConfigAsync(scope, source, bindingService, binding, ct))
+            return;
+
+        await DeployAsync(scope, source, bindingService, binding, ct);
+    }
+
+    /// <summary>Returns true if it is safe to proceed to the build (config is current/applied).</summary>
+    private async Task<bool> ReconcileConfigAsync(
+        IServiceScope scope, IConfigSource source, PipelineConfigBindingService bindingService,
+        PipelineConfigBinding binding, CancellationToken ct)
+    {
+        _configEtags.TryGetValue(binding.Id, out var etag);
+
+        var fetchResult = await source.FetchConfigAsync(binding, etag, ct);
+        if (fetchResult.TryPickProblems(out var fetchProblems, out var fetch))
+        {
+            logger.LogWarning("Config fetch failed for '{Repo}@{Branch}': {Problems}",
+                binding.Repo, binding.Branch, fetchProblems);
+            return false;
+        }
+
+        if (fetch is not ConfigFetch.Changed changed)
+            return true; // NotModified — config subtree unchanged
+
+        _configEtags[binding.Id] = changed.ETag;
+
+        if (changed.Sha == binding.LastSyncedSha)
+            return true; // already applied this config
+
+        var compiler = scope.ServiceProvider.GetRequiredService<ManifestCompiler>();
+        if (compiler.Compile(changed.Files).TryPickProblems(out var compileProblems, out var manifest))
+        {
+            logger.LogWarning("Config compile failed for '{Repo}' (cursor not advanced): {Problems}",
+                binding.Repo, compileProblems);
+            return false;
+        }
+
+        var coordinator = scope.ServiceProvider.GetRequiredService<ReconcileCoordinator>();
+        if ((await coordinator.ReconcileAsync(binding.PipelineId, manifest, ct)).TryPickProblems(out var reconcileProblems))
+        {
+            logger.LogWarning("Reconcile failed for '{Repo}' (cursor not advanced): {Problems}",
+                binding.Repo, reconcileProblems);
+            return false;
+        }
+
+        bindingService.SetLastSyncedSha(binding.Id, changed.Sha);
+        logger.LogInformation("Reconciled '{Repo}@{Branch}' to config {Sha}", binding.Repo, binding.Branch, changed.Sha);
+        return true;
+    }
+
+    private async Task DeployAsync(
+        IServiceScope scope, IConfigSource source, PipelineConfigBindingService bindingService,
+        PipelineConfigBinding binding, CancellationToken ct)
+    {
         var headResult = await source.GetBranchHeadShaAsync(binding, ct);
         if (headResult.TryPickProblems(out var problems, out var head))
         {
@@ -74,8 +135,6 @@ public class DeployPollService(
 
         if (binding.LastDeployedSha == head)
             return;
-
-        var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
 
         // First observation seeds the cursor without building — restarts and freshly-bound
         // pipelines don't trigger a surprise rebuild of already-current code. The initial deploy,

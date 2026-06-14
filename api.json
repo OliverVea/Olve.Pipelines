@@ -2487,6 +2487,7 @@
           "path",
           "credentialsSecret",
           "lastDeployedSha",
+          "lastSyncedSha",
           "createdAt"
         ],
         "type": "object",
@@ -2513,6 +2514,12 @@
             ]
           },
           "lastDeployedSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastSyncedSha": {
             "type": [
               "null",
               "string"

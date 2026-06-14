@@ -17,6 +17,22 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
 
     public IReadOnlyList<Job> ListJobs() => store.List();
 
+    /// <summary>
+    /// True while the pipeline has any non-terminal job (<see cref="Scheduled"/> or
+    /// <see cref="InProgress"/>). The reconcile drain waits for this to go false (quiescence,
+    /// not success — a failed/cancelled job is terminal).
+    /// </summary>
+    public bool HasActiveJobs(Id<Pipeline> pipelineId)
+    {
+        foreach (var id in _byPipeline.GetForKey(pipelineId))
+        {
+            if (store.TryGet(id, out var job) && job.Status is Scheduled or InProgress)
+                return true;
+        }
+
+        return false;
+    }
+
     public Page<Job> ListJobs(ListJobsRequest request)
     {
         IEnumerable<Job> source;

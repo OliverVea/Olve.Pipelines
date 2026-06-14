@@ -76,6 +76,10 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineDocumentBuilder>();
         services.AddTransient<PipelineDocumentCreator>();
         services.AddTransient<ManifestCompiler>();
+        services.AddTransient<PipelineReconciler>();
+        services.AddSingleton<ReconcilePauseState>();
+        services.AddSingleton<ReconcileOptions>();
+        services.AddTransient<ReconcileCoordinator>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();

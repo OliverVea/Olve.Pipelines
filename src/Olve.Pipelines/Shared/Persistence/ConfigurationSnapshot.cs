@@ -31,4 +31,5 @@ public record PipelineConfigBindingData(
     string Path,
     string? CredentialsSecret,
     string? LastDeployedSha,
+    string? LastSyncedSha,
     DateTimeOffset CreatedAt);

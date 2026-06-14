@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines.Building;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
@@ -15,12 +16,18 @@ public static class TriggerEndpoints
 
         pipelineGroup.MapPost("/", Result<Trigger> (
             PipelineService pipelines,
+            PipelineConfigBindingService bindings,
             TriggerService triggers,
             Id<Pipeline> pipelineId,
             CreateTriggerRequest request) =>
-                pipelines.TryGet(pipelineId, out _)
-                    ? triggers.Create(pipelineId, request.Name, request.Target)
-                    : new ResultProblem($"Pipeline '{pipelineId}' not found."))
+            {
+                if (!pipelines.TryGet(pipelineId, out _))
+                    return new ResultProblem($"Pipeline '{pipelineId}' not found.");
+                if (bindings.IsBound(pipelineId))
+                    return PipelineConfigBindingService.GitOnlyProblem(pipelineId);
+
+                return triggers.Create(pipelineId, request.Name, request.Target);
+            })
             .WithResultMapping<Trigger>()
             .WithName("CreateTrigger");
 
@@ -47,8 +54,15 @@ public static class TriggerEndpoints
 
         triggerGroup.MapDelete("/", DeletionResult (
             TriggerService triggers,
+            PipelineConfigBindingService bindings,
             Id<Trigger> triggerId) =>
-                triggers.Delete(triggerId))
+            {
+                if (triggers.TryGet(triggerId).TryPickProblems(out _, out var trigger))
+                    return triggers.Delete(triggerId); // not found — preserve NotFound behavior
+                return bindings.IsBound(trigger.PipelineId)
+                    ? DeletionResult.Error(PipelineConfigBindingService.GitOnlyProblem(trigger.PipelineId))
+                    : triggers.Delete(triggerId);
+            })
             .WithDeletionMapping()
             .WithName("DeleteTrigger");
 

@@ -35,6 +35,7 @@ public class PipelineConfigBindingService(
             path,
             credentialsSecret,
             LastDeployedSha: null,
+            LastSyncedSha: null,
             DateTimeOffset.UtcNow);
 
         store.Set(binding);
@@ -58,6 +59,23 @@ public class PipelineConfigBindingService(
         return updated;
     }
 
+    /// <summary>
+    /// Advances the config cursor after a fully successful reconcile applied <paramref name="sha"/>.
+    /// Idempotent: a no-op if the cursor already matches.
+    /// </summary>
+    public Result<PipelineConfigBinding> SetLastSyncedSha(Id<PipelineConfigBinding> id, string sha)
+    {
+        if (!store.TryGet(id, out var binding))
+            return new ResultProblem($"Binding '{id}' not found.");
+
+        if (binding.LastSyncedSha == sha)
+            return binding;
+
+        var updated = binding with { LastSyncedSha = sha };
+        store.Set(updated);
+        return updated;
+    }
+
     public Result<PipelineConfigBinding> TryGet(Id<PipelineConfigBinding> id)
         => store.TryGet(id, out var binding)
             ? binding
@@ -76,4 +94,14 @@ public class PipelineConfigBindingService(
     }
 
     public DeletionResult Delete(Id<PipelineConfigBinding> id) => store.Delete(id);
+
+    /// <summary>True if the pipeline is bound to a repo — i.e. its config is git-only.</summary>
+    public bool IsBound(Id<Pipeline> pipelineId) => _byPipeline.GetForKey(pipelineId).Count > 0;
+
+    /// <summary>
+    /// The rejection returned by config-mutation endpoints for a bound pipeline. Configuration is
+    /// owned by git; reconcile is the only writer. Operational actions stay available.
+    /// </summary>
+    public static ResultProblem GitOnlyProblem(Id<Pipeline> pipelineId)
+        => new($"Pipeline '{pipelineId}' is bound to a repository; its configuration is git-only and cannot be changed via the API.");
 }

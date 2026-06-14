@@ -165,7 +165,19 @@ leaves another's binding intact.
 
 ---
 
-## Phase 4 — Reconcile diff + concurrency gate + lock
+## Phase 4 — Reconcile diff + concurrency gate + lock  *(core DONE; integration tests pending)*
+
+**Deviations (2026-06-14, flagged for review):**
+- **No `Swap` index primitive added.** The reconciler uses the spec's Approach B (per-entity
+  `Set`/`Delete` by name diff), which works at the `EntityStore` level — the index updates via
+  events. A whole-key index swap is never invoked, so it was dropped (the Phase-1 carry-forward
+  note assumed it would be used). Atomicity comes from the drain (zero non-terminal jobs at mutate)
+  plus the global lock.
+- **`LastSyncedSha` added to the binding** (config cursor, symmetric with `LastDeployedSha`); the
+  config **ETag** is kept in-memory in `DeployPollService` (pure rate-limit optimization). The rest
+  of `ReconcileStatus` (result/problems/secret map) remains Phase 5.
+- **Config-before-build gating:** a failed config fetch/compile/reconcile **holds off the build**
+  for that cycle (returns before deploy), so a broken config never ships code on stale config.
 
 **Changes:**
 

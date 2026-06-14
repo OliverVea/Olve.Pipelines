@@ -1,5 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Production;
@@ -15,9 +16,18 @@ public static class ProductionStepEndpoints
 
         pipelineGroup.MapPost("/", Result<ProductionStep> (
             PipelineService pipelines,
+            PipelineConfigBindingService bindings,
             ProductionStepService steps,
             Id<Pipeline> pipelineId,
-            CreateProductionStepRequest request) => pipelines.TryGet(pipelineId, out _) ? steps.Create(pipelineId, request.Name) : new ResultProblem($"Pipeline '{pipelineId}' not found."))
+            CreateProductionStepRequest request) =>
+            {
+                if (!pipelines.TryGet(pipelineId, out _))
+                    return new ResultProblem($"Pipeline '{pipelineId}' not found.");
+                if (bindings.IsBound(pipelineId))
+                    return PipelineConfigBindingService.GitOnlyProblem(pipelineId);
+
+                return steps.Create(pipelineId, request.Name);
+            })
             .WithResultMapping<ProductionStep>()
             .WithName("CreateProductionStep");
 
@@ -47,16 +57,31 @@ public static class ProductionStepEndpoints
 
         stepGroup.MapDelete("/", DeletionResult (
             ProductionStepService steps,
-            Id<ProductionStep> stepId)
-                => steps.Delete(stepId))
+            PipelineConfigBindingService bindings,
+            Id<ProductionStep> stepId) =>
+            {
+                if (steps.TryGet(stepId).TryPickProblems(out _, out var step))
+                    return steps.Delete(stepId); // not found — preserve NotFound behavior
+                return bindings.IsBound(step.PipelineId)
+                    ? DeletionResult.Error(PipelineConfigBindingService.GitOnlyProblem(step.PipelineId))
+                    : steps.Delete(stepId);
+            })
             .WithDeletionMapping()
             .WithName("DeleteProductionStep");
 
         stepGroup.MapPut("/configuration", Result<StepConfiguration> (
             ProductionStepService steps,
+            PipelineConfigBindingService bindings,
             Id<ProductionStep> stepId,
-            SetStepConfigurationRequest request)
-                => steps.SetConfiguration(stepId, new StepConfiguration(request.Image, request.Script, request.EnvironmentVariables)))
+            SetStepConfigurationRequest request) =>
+            {
+                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
+                    return problems;
+                if (bindings.IsBound(step.PipelineId))
+                    return PipelineConfigBindingService.GitOnlyProblem(step.PipelineId);
+
+                return steps.SetConfiguration(stepId, new StepConfiguration(request.Image, request.Script, request.EnvironmentVariables));
+            })
             .WithResultMapping<StepConfiguration>()
             .WithName("SetProductionStepConfiguration");
 
@@ -70,8 +95,16 @@ public static class ProductionStepEndpoints
 
         stepGroup.MapDelete("/configuration", Result (
             ProductionStepService steps,
-            Id<ProductionStep> stepId)
-                => steps.RemoveConfiguration(stepId))
+            PipelineConfigBindingService bindings,
+            Id<ProductionStep> stepId) =>
+            {
+                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
+                    return problems;
+                if (bindings.IsBound(step.PipelineId))
+                    return PipelineConfigBindingService.GitOnlyProblem(step.PipelineId);
+
+                return steps.RemoveConfiguration(stepId);
+            })
             .WithResultMapping()
             .WithName("RemoveProductionStepConfiguration");
     }

@@ -2,6 +2,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
@@ -13,7 +14,8 @@ public class TriggerExecutionService(
     ProcessingStepService processingSteps,
     ArtifactBundleService bundles,
     JobGroupService jobGroups,
-    JobService jobs)
+    JobService jobs,
+    ReconcilePauseState pauseState)
 {
     public Result<JobGroup> Execute(Id<Trigger> triggerId, string secret, Id<ArtifactBundle>? artifactBundleId)
     {
@@ -59,6 +61,11 @@ public class TriggerExecutionService(
     {
         if (!pipelines.TryGet(pipelineId, out _))
             return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
+
+        // While a reconcile is pending, refuse to START a new production run. In-flight chains keep
+        // promoting to completion; poll-based triggers self-heal by re-detecting on the next interval.
+        if (pauseState.IsPaused(pipelineId))
+            return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{pipelineId}' is reconciling; production run refused."));
 
         if (!productionSteps.HasConfiguredSteps(pipelineId))
             return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{pipelineId}' has no configured production steps."));

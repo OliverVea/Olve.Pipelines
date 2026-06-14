@@ -165,7 +165,16 @@ leaves another's binding intact.
 
 ---
 
-## Phase 4 — Reconcile diff + concurrency gate + lock  *(core DONE; integration tests pending)*
+## Phase 4 — Reconcile diff + concurrency gate + lock  *(DONE)*
+
+**Integration tests (2026-06-14):** `GitOpsBindingTests` (container-backed, `RunIntegrationTests=true`)
+cover the HTTP surface that needs the wired app: create-with-repo composes pipeline+binding,
+**git-only lockdown** rejects config mutation on a bound pipeline but allows an unbound one, the
+binding status endpoint is readable (degrades gracefully when k8s is unconfigured), and pipeline
+delete cascades the binding — 4/4 green. The deeper loop behaviours (drain waits, pause-blocks-runs,
+deploy-survives) stay at the sync unit/coordinator level: the containerized app can't swap
+`IConfigSource` for a fake, and those paths are already covered by the reconciler/coordinator unit
+tests.
 
 **Deviations (2026-06-14, flagged for review):**
 - **No `Swap` index primitive added.** The reconciler uses the spec's Approach B (per-entity
@@ -241,16 +250,16 @@ leaves another's binding intact.
 
 ---
 
-## Phase 5 — `ReconcileStatus` + secret status surfacing + frontend badge  *(backend DONE; frontend blocked on kiota)*
+## Phase 5 — `ReconcileStatus` + secret status surfacing + frontend badge  *(DONE)*
 
 **Status (2026-06-14):**
-- **Backend done:** `ReconcileStatus` (result/lastSyncTime/problems/declaredSecrets) recorded on the
+- **Backend:** `ReconcileStatus` (result/lastSyncTime/problems/declaredSecrets) recorded on the
   binding by `DeployPollService` after every reconcile attempt (success + all error paths);
   `GET /api/pipelines/{id}/binding/status` returns it plus **live** secret set/unset computed
   against the k8s secret (graceful — `IsSet: null` when k8s is unreadable, not a false "unset").
-- **Frontend blocked:** the `frontend/` consumes the Kiota-generated TS client, and the `kiota`
-  CLI is not installed in this environment, so the client can't be regenerated to add the badge.
-  The C# Refitter client regenerates on build automatically. Frontend badge is the remaining item.
+- **Frontend:** regenerated the Kiota TS client (kiota CLI installed); `pipeline-detail-view`
+  shows a GitOps badge — repo@branch, reconcile synced/error+first-problem/pending, and an
+  unset-secrets warning. Unbound pipelines tolerate the missing binding. Builds clean.
 
 **Changes:**
 

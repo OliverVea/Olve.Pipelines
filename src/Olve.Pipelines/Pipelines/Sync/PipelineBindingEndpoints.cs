@@ -70,8 +70,7 @@ public static class PipelineBindingEndpoints
         // Reconcile status + live secret set/unset for the frontend badge.
         app.MapGet("/api/pipelines/{pipelineId}/binding/status", async Task<Result<PipelineBindingStatus>> (
                 PipelineConfigBindingService bindings,
-                KubernetesClient kubernetes,
-                KubernetesOptions kubernetesOptions,
+                IServiceProvider services,
                 ILoggerFactory loggerFactory,
                 Id<Pipeline> pipelineId,
                 CancellationToken ct) =>
@@ -79,12 +78,15 @@ public static class PipelineBindingEndpoints
                 if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
                     return problems;
 
-                // Compute set/unset live so a just-set secret reflects immediately. If k8s is
-                // unreachable, report unknown rather than a misleading "unset".
+                // Compute set/unset live so a just-set secret reflects immediately. Resolve the k8s
+                // client lazily and guard it: when k8s is unconfigured/unreachable, report unknown
+                // (IsSet null) rather than a misleading "unset" — and never 500 the status read.
                 Dictionary<string, string>? secret = null;
                 var secretsKnown = true;
                 try
                 {
+                    var kubernetes = services.GetRequiredService<KubernetesClient>();
+                    var kubernetesOptions = services.GetRequiredService<KubernetesOptions>();
                     secret = await kubernetes.GetSecretAsync(kubernetesOptions.Namespace, SecretName(pipelineId), ct);
                 }
                 catch (Exception ex)

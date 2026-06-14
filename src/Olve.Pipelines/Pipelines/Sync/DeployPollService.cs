@@ -88,6 +88,7 @@ public class DeployPollService(
         {
             logger.LogWarning("Config fetch failed for '{Repo}@{Branch}': {Problems}",
                 binding.Repo, binding.Branch, fetchProblems);
+            RecordError(bindingService, binding, fetchProblems);
             return false;
         }
 
@@ -104,6 +105,7 @@ public class DeployPollService(
         {
             logger.LogWarning("Config compile failed for '{Repo}' (cursor not advanced): {Problems}",
                 binding.Repo, compileProblems);
+            RecordError(bindingService, binding, compileProblems);
             return false;
         }
 
@@ -112,13 +114,25 @@ public class DeployPollService(
         {
             logger.LogWarning("Reconcile failed for '{Repo}' (cursor not advanced): {Problems}",
                 binding.Repo, reconcileProblems);
+            RecordError(bindingService, binding, reconcileProblems);
             return false;
         }
 
         bindingService.SetLastSyncedSha(binding.Id, changed.Sha);
+        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], manifest.Secrets ?? []));
         logger.LogInformation("Reconciled '{Repo}@{Branch}' to config {Sha}", binding.Repo, binding.Branch, changed.Sha);
         return true;
     }
+
+    // Record an error outcome, carrying forward the last-known declared secrets so the badge still
+    // lists them when a fetch/compile fails before a manifest is available.
+    private static void RecordError(
+        PipelineConfigBindingService bindingService, PipelineConfigBinding binding, IEnumerable<ResultProblem> problems)
+        => bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+            ReconcileResult.Error, DateTimeOffset.UtcNow,
+            problems.Select(p => p.ToBriefString()).ToArray(),
+            binding.Status.DeclaredSecrets));
 
     private async Task DeployAsync(
         IServiceScope scope, IConfigSource source, PipelineConfigBindingService bindingService,

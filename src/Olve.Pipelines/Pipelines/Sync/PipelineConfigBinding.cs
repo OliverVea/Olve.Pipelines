@@ -31,9 +31,9 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// the first reconcile.</item>
 /// </list>
 /// </para>
-/// <para>
-/// The rest of <c>ReconcileStatus</c> (sync result, problems, secret state map) is added in
-/// Phase 5 when it is first surfaced — intentionally absent here.
+/// <item><see cref="Status"/> — the outcome of the most recent reconcile attempt (result,
+/// problems, declared secrets), surfaced via the status endpoint and frontend badge.</item>
+/// </list>
 /// </para>
 /// </summary>
 public record PipelineConfigBinding(
@@ -45,4 +45,5 @@ public record PipelineConfigBinding(
     string? CredentialsSecret,
     string? LastDeployedSha,
     string? LastSyncedSha,
+    ReconcileStatus Status,
     DateTimeOffset CreatedAt) : IHasId<Id<PipelineConfigBinding>>;

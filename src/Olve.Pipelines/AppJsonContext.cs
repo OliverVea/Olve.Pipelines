@@ -56,6 +56,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<PipelineConfigBinding>))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(BindRepoRequest))]
+[JsonSerializable(typeof(Result<PipelineBindingStatus>))]
 [JsonSerializable(typeof(ProductionTargetDocument))]
 [JsonSerializable(typeof(ProcessingTargetDocument))]
 [JsonSerializable(typeof(PollTargetDocument))]

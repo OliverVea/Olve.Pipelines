@@ -36,6 +36,7 @@ public class PipelineConfigBindingService(
             credentialsSecret,
             LastDeployedSha: null,
             LastSyncedSha: null,
+            ReconcileStatus.NeverRun,
             DateTimeOffset.UtcNow);
 
         store.Set(binding);
@@ -72,6 +73,17 @@ public class PipelineConfigBindingService(
             return binding;
 
         var updated = binding with { LastSyncedSha = sha };
+        store.Set(updated);
+        return updated;
+    }
+
+    /// <summary>Records the outcome of the most recent reconcile attempt.</summary>
+    public Result<PipelineConfigBinding> SetReconcileStatus(Id<PipelineConfigBinding> id, ReconcileStatus status)
+    {
+        if (!store.TryGet(id, out var binding))
+            return new ResultProblem($"Binding '{id}' not found.");
+
+        var updated = binding with { Status = status };
         store.Set(updated);
         return updated;
     }

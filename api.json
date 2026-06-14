@@ -296,6 +296,49 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/binding/status": {
+      "get": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "GetPipelineBindingStatus",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBindingStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines": {
       "post": {
         "tags": [
@@ -2478,6 +2521,69 @@
           }
         }
       },
+      "PipelineBindingStatus": {
+        "required": [
+          "pipelineId",
+          "repo",
+          "branch",
+          "path",
+          "lastDeployedSha",
+          "lastSyncedSha",
+          "result",
+          "lastSyncTime",
+          "problems",
+          "secrets"
+        ],
+        "type": "object",
+        "properties": {
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "lastDeployedSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastSyncedSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/ReconcileResult"
+          },
+          "lastSyncTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SecretStatus"
+            }
+          }
+        }
+      },
       "PipelineConfigBinding": {
         "required": [
           "id",
@@ -2488,6 +2594,7 @@
           "credentialsSecret",
           "lastDeployedSha",
           "lastSyncedSha",
+          "status",
           "createdAt"
         ],
         "type": "object",
@@ -2524,6 +2631,9 @@
               "null",
               "string"
             ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReconcileStatus"
           },
           "createdAt": {
             "type": "string",
@@ -2678,6 +2788,42 @@
           }
         }
       },
+      "ReconcileResult": {
+        "type": "integer"
+      },
+      "ReconcileStatus": {
+        "required": [
+          "result",
+          "lastSyncTime",
+          "problems",
+          "declaredSecrets"
+        ],
+        "type": "object",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/ReconcileResult"
+          },
+          "lastSyncTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "declaredSecrets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SecretDeclaration"
+            }
+          }
+        }
+      },
       "Result": {
         "type": "object",
         "properties": {
@@ -2735,6 +2881,49 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "SecretDeclaration": {
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SecretStatus": {
+        "required": [
+          "name",
+          "description",
+          "isSet"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isSet": {
+            "type": [
+              "null",
+              "boolean"
             ]
           }
         }

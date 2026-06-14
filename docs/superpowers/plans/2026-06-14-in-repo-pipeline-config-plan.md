@@ -241,7 +241,16 @@ leaves another's binding intact.
 
 ---
 
-## Phase 5 — `ReconcileStatus` + secret status surfacing + frontend badge
+## Phase 5 — `ReconcileStatus` + secret status surfacing + frontend badge  *(backend DONE; frontend blocked on kiota)*
+
+**Status (2026-06-14):**
+- **Backend done:** `ReconcileStatus` (result/lastSyncTime/problems/declaredSecrets) recorded on the
+  binding by `DeployPollService` after every reconcile attempt (success + all error paths);
+  `GET /api/pipelines/{id}/binding/status` returns it plus **live** secret set/unset computed
+  against the k8s secret (graceful — `IsSet: null` when k8s is unreadable, not a false "unset").
+- **Frontend blocked:** the `frontend/` consumes the Kiota-generated TS client, and the `kiota`
+  CLI is not installed in this environment, so the client can't be regenerated to add the badge.
+  The C# Refitter client regenerates on build automatically. Frontend badge is the remaining item.
 
 **Changes:**
 

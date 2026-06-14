@@ -1,4 +1,5 @@
 using Olve.MinimalApi;
+using Olve.Pipelines.Kubernetes;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
@@ -65,7 +66,53 @@ public static class PipelineBindingEndpoints
             .WithName("GetPipelineBinding")
             .WithTags("beta")
             .AllowAnonymous();
+
+        // Reconcile status + live secret set/unset for the frontend badge.
+        app.MapGet("/api/pipelines/{pipelineId}/binding/status", async Task<Result<PipelineBindingStatus>> (
+                PipelineConfigBindingService bindings,
+                KubernetesClient kubernetes,
+                KubernetesOptions kubernetesOptions,
+                ILoggerFactory loggerFactory,
+                Id<Pipeline> pipelineId,
+                CancellationToken ct) =>
+            {
+                if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
+                    return problems;
+
+                // Compute set/unset live so a just-set secret reflects immediately. If k8s is
+                // unreachable, report unknown rather than a misleading "unset".
+                Dictionary<string, string>? secret = null;
+                var secretsKnown = true;
+                try
+                {
+                    secret = await kubernetes.GetSecretAsync(kubernetesOptions.Namespace, SecretName(pipelineId), ct);
+                }
+                catch (Exception ex)
+                {
+                    secretsKnown = false;
+                    loggerFactory.CreateLogger("BindingStatus")
+                        .LogWarning(ex, "Could not read secrets for pipeline '{PipelineId}'", pipelineId);
+                }
+
+                var secretStatuses = binding.Status.DeclaredSecrets
+                    .Select(s => new SecretStatus(
+                        s.Name, s.Description,
+                        IsSet: secretsKnown ? secret is not null && secret.ContainsKey(s.Name) : null))
+                    .ToArray();
+
+                return new PipelineBindingStatus(
+                    binding.PipelineId, binding.Repo, binding.Branch, binding.Path,
+                    binding.LastDeployedSha, binding.LastSyncedSha,
+                    binding.Status.Result, binding.Status.LastSyncTime, binding.Status.Problems,
+                    secretStatuses);
+            })
+            .WithResultMapping<PipelineBindingStatus>()
+            .WithName("GetPipelineBindingStatus")
+            .WithTags("beta")
+            .AllowAnonymous();
     }
+
+    private static string SecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
 
     private static string Branch(string? branch) => string.IsNullOrWhiteSpace(branch) ? DefaultBranch : branch;
     private static string Path(string? path) => string.IsNullOrWhiteSpace(path) ? DefaultPath : path;
@@ -75,3 +122,18 @@ public record CreatePipelineWithRepoRequest(
     string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret);
 
 public record BindRepoRequest(string Repo, string? Branch, string? Path, string? CredentialsSecret);
+
+public record PipelineBindingStatus(
+    Id<Pipeline> PipelineId,
+    string Repo,
+    string Branch,
+    string Path,
+    string? LastDeployedSha,
+    string? LastSyncedSha,
+    ReconcileResult Result,
+    DateTimeOffset? LastSyncTime,
+    IReadOnlyList<string> Problems,
+    IReadOnlyList<SecretStatus> Secrets);
+
+/// <summary><see cref="IsSet"/> is null when k8s could not be read (unknown), not false.</summary>
+public record SecretStatus(string Name, string? Description, bool? IsSet);

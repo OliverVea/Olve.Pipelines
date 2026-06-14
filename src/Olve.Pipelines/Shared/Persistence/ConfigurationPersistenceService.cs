@@ -178,7 +178,7 @@ public class ConfigurationPersistenceService(
             }).ToArray(),
             Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray(),
             Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
-                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.CreatedAt)).ToArray());
+                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.Status, b.CreatedAt)).ToArray());
     }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
@@ -207,7 +207,8 @@ public class ConfigurationPersistenceService(
 
         foreach (var b in snapshot.Bindings ?? [])
             bindings.Set(new PipelineConfigBinding(
-                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.CreatedAt));
+                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha,
+                b.Status ?? ReconcileStatus.NeverRun, b.CreatedAt));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

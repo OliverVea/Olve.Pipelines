@@ -17,6 +17,7 @@ public class FakeConfigSourceTests
         CredentialsSecret: null,
         LastDeployedSha: null,
         LastSyncedSha: null,
+        ReconcileStatus.NeverRun,
         DateTimeOffset.UnixEpoch);
 
     private static T Pick<T>(Result<T> result)

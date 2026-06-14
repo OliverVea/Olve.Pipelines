@@ -16,9 +16,9 @@
     <PackageVersion Include="Olve.Results.TUnit" Version="0.44.0" />
     <PackageVersion Include="Olve.Utilities" Version="0.44.0" />
     <PackageVersion Include="Olve.Validation" Version="0.44.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.1" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
     <PackageVersion Include="Refit" Version="10.1.6" />
     <PackageVersion Include="Refitter.SourceGenerator" Version="1.7.3" />
     <PackageVersion Include="Rocks" Version="10.1.0" />

@@ -37,6 +37,10 @@ public static class ServiceConfiguration
         services.AddTransient<TriggerService>();
         services.AddTransient<TriggerCleanupService>();
         services.AddTransient<TriggerExecutionService>();
+        services.AddSingleton<EntityStore<PipelineConfigBinding>>();
+        services.AddTransient<PipelineConfigBindingService>();
+        services.AddTransient<PipelineConfigBindingCleanupService>();
+        services.AddSingleton<IRunOnStartup, PipelineConfigBindingEventRegistration>();
         services.AddHostedService<PollTriggerService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();

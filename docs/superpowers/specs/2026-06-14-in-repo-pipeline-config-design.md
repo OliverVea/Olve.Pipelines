@@ -59,12 +59,21 @@ Out of v1 (note in spec, keep schema extensible):
 
 3. **Registration: per-pipeline binding — MANDATORY.** Every pipeline is bound to
    exactly one GitHub repo. Binding fields: **repo, branch, path** (to
-   `.pipelines/`), **credentialsSecret**, the deploy trigger, and
-   `ReconcileStatus`. There is no unbound pipeline state. Prefer creating the
-   binding at pipeline creation (pipeline + binding together); if create and bind
-   stay separate API steps, an unbound pipeline is a *draft* that is not
-   reconciled and has no deploy trigger yet. The binding persists in the S3
+   `.pipelines/`), **credentialsSecret**, the **deploy cursor** (`lastDeployedSha`,
+   decision 4), and `ReconcileStatus`. There is no unbound pipeline state. Prefer
+   creating the binding at pipeline creation (pipeline + binding together); if
+   create and bind stay separate API steps, an unbound pipeline is a *draft* that
+   is not reconciled and has no deploy trigger yet. The binding persists in the S3
    snapshot alongside the other stores.
+
+   - **Composition direction: binding depends DOWN on pipeline, never up.** The
+     binding holds a `PipelineId`; `Pipeline`/`PipelineService` know nothing about
+     bindings. "Create pipeline + bind it" is composed at the **endpoint** (the web
+     layer, from a create-with-repo request), not by the base `PipelineService`
+     reaching into the binding service. Cascade-delete is event-driven (the binding
+     layer subscribes to `pipelineEvents.OnDeleted`). Do NOT auto-create the binding
+     from a `pipelines.OnAdded` subscription — snapshot load fires `OnAdded`, which
+     would spawn spurious bindings on every restart.
 
    - **`credentialsSecret` is a reference, never a raw value.** It names a key in
      the pipeline's k8s secret (`olve-pipeline-{id:N}`) holding the GitHub read
@@ -75,12 +84,31 @@ Out of v1 (note in spec, keep schema extensible):
    - **Multiple source types** are supported via the `IConfigSource` seam; v1
      ships the **GitHub** concrete implementation only.
 
-4. **Built-in deploy trigger = a property of the binding**, structurally OUTSIDE
-   the reconciled `Trigger` collection. Because the binding always exists, the
-   deploy trigger always exists. The config file's `triggers:` are purely
-   **additive** (aux repos, scheduled/time deploys, upstream-update polls);
-   reconcile owns that additive list with delete-to-match. This "Phase 1" model
-   refactor MUST land before delete-to-match on triggers is enabled — else the
+4. **Built-in deploy trigger = a poll on the bound repo's branch head, derived
+   from the binding** — NOT an inbound webhook. The system is pull-based (see the
+   live setup: the recommended trigger polls
+   `api.github.com/repos/.../commits/main` every 60s and fires production when the
+   SHA advances). So the deploy trigger needs **no name and no inbound secret** —
+   nothing calls in; we call out. It is fully defined by the binding's `repo` +
+   `branch` (decision 3) plus a **deploy cursor** (`lastDeployedSha`). Because the
+   binding always exists, the deploy trigger always exists — **configured by
+   default** when a pipeline is bound, with no manual poll-trigger authoring (which
+   is what `setup-pipeline` does today).
+
+   This means each binding drives **two independent polls of the same repo**, with
+   two cursors (decision 5):
+   - **config poll** — watches the `.pipelines/` subtree → reconcile live state to YAML.
+   - **deploy poll** — watches the `branch` head → fire production.
+
+   Scoping the config cursor to `.pipelines/` (decision 5) is precisely what keeps
+   *code* pushes out of config reconcile — they go to the *deploy* poll instead.
+
+   The deploy trigger lives on the binding, structurally OUTSIDE the reconciled
+   `Trigger` collection. The config file's `triggers:` are purely **additive**
+   (aux repos, scheduled/time deploys, upstream-update polls; an inbound webhook
+   deploy, if ever wanted, is just an additive production trigger here); reconcile
+   owns that additive list with delete-to-match. Relocating the deploy trigger onto
+   the binding MUST land before delete-to-match on triggers is enabled — else the
    first reconcile deletes the live deploy trigger.
 
 5. **Config-sync cursor = the head commit touching `.pipelines/`**, not branch
@@ -337,10 +365,17 @@ All paths under `src/Olve.Pipelines/`:
 ## Implementation phasing (for `writing-plans`)
 
 1. **`EntityStoreIndex` thread-safety (3a)** — anti-crash, lands first,
-   independently shippable + testable.
-2. **Deploy-trigger → binding refactor (decision 4)** — must precede trigger
-   delete-to-match.
-3. **`IConfigSource` + binding model + YAML compile (Sections 1–2)**.
+   independently shippable + testable. **DONE.**
+2. **Binding skeleton + lifecycle** — entity `(Id, PipelineId, CreatedAt)`, CRUD
+   service, S3 persistence, event-driven cascade-delete. No deploy fields (deploy is
+   a poll, decision 4 — modeled with the repo fields in Phase 3), no auto-creation
+   (composition lands in Phase 3's create-with-repo endpoint). **DONE.**
+3. **`IConfigSource` + binding source fields + YAML compile (Sections 1–2)** —
+   extends the binding with repo/branch/path/credentials + deploy cursor; the
+   create-with-repo endpoint composes pipeline + binding so the deploy poll is
+   configured **by default** (decision 4); relocates the deploy trigger off the
+   reconciled set onto this binding-derived poll (must precede trigger
+   delete-to-match in Phase 4).
 4. **Reconcile diff + concurrency gate + lock (Section 3)**.
 5. **`ReconcileStatus` + secret status surfacing + frontend badge**.
 6. **Cutover** — manual extract-to-markdown + recreate from scratch (no code; no

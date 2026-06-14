@@ -5,6 +5,7 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 
 namespace Olve.Pipelines.Shared.Persistence;
@@ -16,6 +17,7 @@ public class ConfigurationPersistenceService(
     EntityStore<ProcessingStep> processingSteps,
     AttachmentStore<ProcessingStep, StepConfiguration> processingConfigs,
     EntityStore<Trigger> triggers,
+    EntityStore<PipelineConfigBinding> bindings,
     StorageOptions storageOptions,
     ILogger<ConfigurationPersistenceService> logger,
     IAmazonS3? s3 = null) : IHostedLifecycleService, IDisposable
@@ -94,6 +96,10 @@ public class ConfigurationPersistenceService(
         triggers.OnUpdated.Subscribe(_ => RequestSave());
         triggers.OnDeleted.Subscribe(_ => RequestSave());
 
+        bindings.OnAdded.Subscribe(_ => RequestSave());
+        bindings.OnUpdated.Subscribe(_ => RequestSave());
+        bindings.OnDeleted.Subscribe(_ => RequestSave());
+
         _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         return Task.CompletedTask;
@@ -170,7 +176,8 @@ public class ConfigurationPersistenceService(
                     s.Id, s.Name, s.PipelineId, s.Order,
                     config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
             }).ToArray(),
-            Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray());
+            Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray(),
+            Bindings: bindings.List().Select(b => new PipelineConfigBindingData(b.Id, b.PipelineId, b.CreatedAt)).ToArray());
     }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
@@ -196,6 +203,9 @@ public class ConfigurationPersistenceService(
 
         foreach (var t in snapshot.Triggers ?? [])
             triggers.Set(new Trigger(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt));
+
+        foreach (var b in snapshot.Bindings ?? [])
+            bindings.Set(new PipelineConfigBinding(b.Id, b.PipelineId, b.CreatedAt));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -71,31 +71,35 @@ against the pre-fix code and passes after.
 
 ---
 
-## Phase 2 — Deploy-trigger → binding refactor
+## Phase 2 — Binding skeleton + lifecycle  *(DONE)*
 
-**Why before reconcile:** decision 4. The built-in deploy trigger must move OUT of
-the reconciled `Trigger` collection and onto the binding, or the first reconcile's
-delete-to-match wipes it.
+**Scope correction (2026-06-14, user review):** the original "deploy-trigger →
+binding refactor" doesn't hold under the **pull model**. The live deploy mechanism
+is a *poll* on `api.github.com/repos/.../commits/main` (see `setup-pipeline`
+Option A), not an inbound webhook. So the deploy trigger has **no name and no
+secret** — it's a branch-head poll fully defined by the binding's `repo`/`branch`
+(Phase 3) plus a deploy cursor. It therefore can't be modeled without the repo
+fields, and its relocation moves to **Phase 3**. Phase 2 is just the binding
+machinery.
 
-**Changes:**
+**Changes (implemented):**
 
-- Introduce the binding entity (minimal here; full source-fields in Phase 3):
-  `PipelineConfigBinding(Id<Pipeline> PipelineId, <deploy-trigger fields>)`.
-- Relocate the deploy trigger's identity off the reconciled `Trigger` store onto
-  the binding. The deploy path reads it from the binding.
-- Reconcile (Phase 4) will own the `Trigger` store with delete-to-match; the
-  deploy trigger is structurally excluded because it no longer lives there.
+- `PipelineConfigBinding(Id, PipelineId, CreatedAt)` — identity only; source fields
+  + deploy cursor land in Phase 3.
+- `PipelineConfigBindingService` — CRUD (`Create`/`TryGet`/`GetByPipelineId`/`Delete`),
+  indexed by `PipelineId`.
+- S3 persistence: `PipelineConfigBindingData` in the snapshot; save/load + dirty
+  subscriptions in `ConfigurationPersistenceService`.
+- **Event-driven cascade-delete** (`PipelineConfigBindingCleanupService` +
+  `PipelineConfigBindingEventRegistration`, subscribing to
+  `pipelineEvents.OnDeleted`) — the binding layer depends DOWN on pipeline.
+- **No** `PipelineService → PipelineConfigBindingService` dependency, **no**
+  auto-creation on `pipelines.OnAdded` (would spawn spurious bindings on snapshot
+  reload). Creation composition is deferred to Phase 3's create-with-repo endpoint.
 
-**Tests:**
-
-- Deploy still fires from the binding-sourced trigger (existing deploy behavior
-  unchanged).
-- The reconciled trigger set excludes the deploy trigger.
-
-**Note:** This is a model refactor, but **no in-place data migration** — the live
-pipeline is recreated from scratch at cutover (see Cutover runbook), so there is no
-need to migrate an existing deploy trigger onto a binding on a running instance.
-The refactor only has to be correct for *newly created* pipelines.
+**Tests (unit):** binding CRUD + `GetByPipelineId`; unbound pipeline = draft
+(lookup fails); pipeline delete cascades binding deletion; deleting one pipeline
+leaves another's binding intact.
 
 ---
 
@@ -111,11 +115,20 @@ The refactor only has to be correct for *newly created* pipelines.
     from the binding's `credentialsSecret` via `KubernetesClient.GetSecretAsync`
     (mirror `PollTriggerService`'s `$SECRET` pattern).
   - `FakeConfigSource` (test project) — in-memory tree + SHA.
-- **Binding model extended:** `PipelineConfigBinding(PipelineId, Repo, Branch,
-  Path, CredentialsSecret, <deploy-trigger>, ReconcileStatus)`. `CredentialsSecret`
-  is a **reference** (key name in the pipeline k8s secret), never a raw token —
-  raw values must not reach the S3 snapshot. Persisted via its own `EntityStore`
-  so it rides the existing S3 snapshot (`ConfigurationPersistenceService`).
+- **Binding model extended:** `PipelineConfigBinding(Id, PipelineId, Repo, Branch,
+  Path, CredentialsSecret, LastDeployedSha, ReconcileStatus, CreatedAt)`. No
+  deploy-trigger name/secret — the deploy trigger is the **branch-head poll** the
+  binding derives, with `LastDeployedSha` as its cursor (decision 4).
+  `CredentialsSecret` is a **reference** (key name in the pipeline k8s secret),
+  never a raw token — raw values must not reach the S3 snapshot. Already persisted
+  via its own `EntityStore` (Phase 2).
+- **Create-with-repo endpoint** composes pipeline + binding at the web layer (NOT
+  in `PipelineService`), so binding to a repo configures the deploy poll **by
+  default** — no manual poll-trigger authoring. The `from-document` create path
+  binds too.
+- **Deploy poll** (mirror `PollTriggerService`): per-binding poll of `branch` head;
+  fire production when `LastDeployedSha` advances. Relocates the live deploy trigger
+  off the reconciled `Trigger` store (must precede Phase 4 delete-to-match).
 - **YAML compile** (`Pipelines/Sync/`):
   - Add `YamlDotNet` to `Directory.Packages.props`; reference from the project.
   - `PipelineManifest(Description, Version, PipelineDocument)` wrapper type.

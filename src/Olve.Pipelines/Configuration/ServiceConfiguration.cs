@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Pipelines.Polling;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Persistence;
 
@@ -41,6 +42,8 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineConfigBindingService>();
         services.AddTransient<PipelineConfigBindingCleanupService>();
         services.AddSingleton<IRunOnStartup, PipelineConfigBindingEventRegistration>();
+        services.AddSingleton<IConfigSource, GitHubConfigSource>();
+        services.AddHostedService<DeployPollService>();
         services.AddHostedService<PollTriggerService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();
@@ -72,6 +75,7 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineDocumentBuilder>();
         services.AddTransient<PipelineDocumentCreator>();
+        services.AddTransient<ManifestCompiler>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();

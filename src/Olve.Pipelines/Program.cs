@@ -48,6 +48,7 @@ app.MapArtifactBundleEndpoints();
 app.MapJobEndpoints();
 app.MapTriggerEndpoints();
 app.MapPipelineDocumentEndpoints();
+app.MapPipelineBindingEndpoints();
 app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();

@@ -6,15 +6,39 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// Binds a pipeline to its GitOps configuration source (a git repo). One binding per
 /// pipeline; the repo is the sole source of truth for the pipeline's configuration.
 ///
-/// The binding is the pipeline's git connection: from it the service derives two polls
-/// of the bound repo — a <b>config</b> poll (watches <c>.pipelines/</c> → reconcile) and
-/// a <b>deploy</b> poll (watches the branch head → fire production). Both are pull-based;
-/// there is no inbound webhook to authenticate, so the deploy trigger needs no secret.
+/// The binding is the pipeline's git connection. From it the service runs a single
+/// pull-based poll of the bound repo's branch head that is sequenced
+/// <b>config-before-build</b>: on a head advance it first reconciles configuration (only
+/// when the <c>.pipelines/</c> subtree changed) and then enqueues a production build for
+/// the new commit. Config-apply gates the build. Because it is pull-based there is no
+/// inbound webhook to authenticate, so the deploy trigger needs no secret.
 ///
-/// Source fields (repo, branch, path, credentials reference) and the deploy cursor land
-/// in Phase 3 — this skeleton carries only identity + lifecycle.
+/// <para>
+/// Source fields:
+/// <list type="bullet">
+/// <item><see cref="Repo"/> — <c>owner/name</c> of the GitHub repository.</item>
+/// <item><see cref="Branch"/> — branch whose head the deploy poll watches and whose
+/// <see cref="Path"/> subtree the config poll reconciles.</item>
+/// <item><see cref="Path"/> — path to the config directory (e.g. <c>.pipelines</c>).</item>
+/// <item><see cref="CredentialsSecret"/> — a <b>reference</b> (key name) into the
+/// pipeline's own k8s secret <c>olve-pipeline-{id:N}</c> holding the GitHub read token.
+/// Never a raw token — raw values must not reach the S3 snapshot. <c>null</c> for a public
+/// repo needing no auth.</item>
+/// <item><see cref="LastDeployedSha"/> — the deploy cursor; the branch-head SHA the last
+/// production build ran for. <c>null</c> until the first build.</item>
+/// </list>
+/// </para>
+/// <para>
+/// <c>ReconcileStatus</c> (config cursor, sync result, secret state map) is added in
+/// Phase 5 when it is first written and surfaced — it is intentionally absent here.
+/// </para>
 /// </summary>
 public record PipelineConfigBinding(
     Id<PipelineConfigBinding> Id,
     Id<Pipeline> PipelineId,
+    string Repo,
+    string Branch,
+    string Path,
+    string? CredentialsSecret,
+    string? LastDeployedSha,
     DateTimeOffset CreatedAt) : IHasId<Id<PipelineConfigBinding>>;

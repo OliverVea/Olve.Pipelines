@@ -103,7 +103,21 @@ leaves another's binding intact.
 
 ---
 
-## Phase 3 — `IConfigSource` + binding model + YAML compile
+## Phase 3 — `IConfigSource` + binding model + YAML compile  *(DONE)*
+
+**Deviations from the original plan (2026-06-14, flagged for review):**
+- **YAML compile uses a YAML→`JsonNode` DOM bridge + `System.Text.Json` source-gen**, NOT
+  YamlDotNet's `StaticDeserializerBuilder` + the `Vecc` analyzer. YamlDotNet's reflection-free
+  `YamlStream` parser produces the DOM; `$ref`/`scriptFile` are spliced at the node level; the
+  assembled tree deserializes through a source-gen `ManifestJsonContext`, reusing the existing
+  `[JsonPolymorphic]` trigger-target metadata. Fully AOT-safe, no third-party analyzer, simpler.
+- **`ReconcileStatus` deferred to Phase 5** (added Repo/Branch/Path/CredentialsSecret/
+  LastDeployedSha only) — nothing in Phase 3 writes or reads it; pre-cutover so no migration cost.
+- **Deploy poll seeds its cursor without building on first observation** (mirrors
+  `PollTriggerService`) — restarts and freshly-bound pipelines don't trigger a surprise rebuild.
+- **`from-document` binding** realized as a separate `with-repo` + bind-existing endpoint pair
+  rather than folding repo fields into `from-document` (a document+bind combo is redundant once
+  Phase 4 reconcile populates a bound pipeline from `config.yaml`).
 
 **Changes:**
 
@@ -126,9 +140,13 @@ leaves another's binding intact.
   in `PipelineService`), so binding to a repo configures the deploy poll **by
   default** — no manual poll-trigger authoring. The `from-document` create path
   binds too.
-- **Deploy poll** (mirror `PollTriggerService`): per-binding poll of `branch` head;
-  fire production when `LastDeployedSha` advances. Relocates the live deploy trigger
-  off the reconciled `Trigger` store (must precede Phase 4 delete-to-match).
+- **Branch-head poll** (mirror `PollTriggerService`): the **single** per-binding
+  poll of `branch` head; fire production when `LastDeployedSha` advances. In Phase 3
+  this poll only *builds* (no reconcile exists yet) — it replaces `setup-pipeline`
+  Option A as the deploy mechanism and relocates the live deploy trigger off the
+  reconciled `Trigger` store (must precede Phase 4 delete-to-match). **Phase 4
+  prepends the config-reconcile step to this same loop** (config-before-build,
+  decision 4) — it is NOT a second poll.
 - **YAML compile** (`Pipelines/Sync/`):
   - Add `YamlDotNet` to `Directory.Packages.props`; reference from the project.
   - `PipelineManifest(Description, Version, PipelineDocument)` wrapper type.
@@ -173,16 +191,29 @@ leaves another's binding intact.
 - **Trigger-layer pause hook:** `TriggerExecutionService` (and the deploy/poll
   trigger paths) check the pause flag before creating a production run; refused
   fires rely on poll re-detection to self-heal.
-- **`ReconcileLoopService`** (`BackgroundService`, ~60s, per binding, mirrors
-  `PollTriggerService`): fetch subtree SHA → if changed → fetch+compile+validate →
-  pause → drain (timeout) → diff+apply under lock → resume → **advance cursor only
-  on success**.
+- **Config-endpoint lockdown (req 2, git-only config):** the existing
+  config-mutation endpoints (step create/update/delete, config attach, trigger
+  CRUD, `from-document` apply, etc.) are **rejected for a bound pipeline** — reconcile
+  is now the sole config writer. Operational endpoints (manual promotion/override,
+  re-trigger production, cancel job, set secret *value*) stay open. A pipeline-bound
+  guard returns a `Result` problem (e.g. `409`/`Conflict`) on config writes. Lands
+  here (not Phase 3) so reconcile exists as the replacement writer the moment edits
+  are locked.
+- **Extend the Phase 3 branch-head poll into config-before-build** (decision 4 — NOT
+  a new `BackgroundService`): on head advance → conditional subtree-ETag check → if
+  `.pipelines/` changed: fetch+compile+validate → pause → drain (timeout) →
+  diff+apply under lock → resume → **advance `lastSyncedSha` only on success** →
+  then the existing build-enqueue (advance `lastDeployedSha`). 304 / no-config-change
+  skips straight to the build.
 
 **Tests** (integration, `RunIntegrationTests=true`):
 
 - Bind → reconcile → live matches desired.
 - Idempotent: second reconcile = no-ops, cursor stable.
-- Manual API mutation reverted on next reconcile.
+- **Config-mutation endpoints rejected for a bound pipeline; operational endpoints
+  still succeed** (git-only config, req 2).
+- **Config-before-build ordering:** head advance touching both code and
+  `.pipelines/` reconciles first, then the build runs on the reconciled config.
 - **Pause blocks new runs:** a trigger fired while reconcile is pending does not
   start a production run; it proceeds after resume.
 - **Drain waits for in-flight chain** then mutates; in-flight bundle completed on

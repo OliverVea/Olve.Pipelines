@@ -39,17 +39,58 @@ public class PipelineConfigBindingTests
         return value!;
     }
 
+    private static Result<PipelineConfigBinding> Bind(
+        PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
+        => bindings.Create(pipelineId, "OliverVea/Olve.Pipelines", "main", ".pipelines", credentialsSecret: null);
+
     [Test]
     public async Task Create_BindsToPipeline()
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
 
-        var binding = Pick(svc.Bindings.Create(pipeline.Id));
+        var binding = Pick(Bind(svc.Bindings, pipeline.Id));
 
         await Assert.That(binding.PipelineId).IsEqualTo(pipeline.Id);
+        await Assert.That(binding.Repo).IsEqualTo("OliverVea/Olve.Pipelines");
+        await Assert.That(binding.Branch).IsEqualTo("main");
+        await Assert.That(binding.Path).IsEqualTo(".pipelines");
+        await Assert.That(binding.LastDeployedSha).IsNull();
         await Assert.That(Pick(svc.Bindings.GetByPipelineId(pipeline.Id)).Id).IsEqualTo(binding.Id);
         await Assert.That(Pick(svc.Bindings.TryGet(binding.Id)).Id).IsEqualTo(binding.Id);
+    }
+
+    [Test]
+    public async Task Create_WhenAlreadyBound_Fails()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        Bind(svc.Bindings, pipeline.Id);
+
+        // One binding per pipeline — a second bind must be rejected.
+        await Assert.That(Bind(svc.Bindings, pipeline.Id).Failed).IsTrue();
+    }
+
+    [Test]
+    public async Task Create_WithBlankRepo_Fails()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+
+        await Assert.That(svc.Bindings.Create(pipeline.Id, "  ", "main", ".pipelines", null).Failed).IsTrue();
+    }
+
+    [Test]
+    public async Task SetLastDeployedSha_AdvancesCursor()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        var binding = Pick(Bind(svc.Bindings, pipeline.Id));
+
+        var updated = Pick(svc.Bindings.SetLastDeployedSha(binding.Id, "abc123"));
+
+        await Assert.That(updated.LastDeployedSha).IsEqualTo("abc123");
+        await Assert.That(Pick(svc.Bindings.TryGet(binding.Id)).LastDeployedSha).IsEqualTo("abc123");
     }
 
     [Test]
@@ -67,7 +108,7 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        svc.Bindings.Create(pipeline.Id);
+        Bind(svc.Bindings, pipeline.Id);
         await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Succeeded).IsTrue();
 
         svc.Pipelines.Delete(pipeline.Id);
@@ -82,8 +123,8 @@ public class PipelineConfigBindingTests
         var svc = CreateFixture();
         var keep = Pick(svc.Pipelines.Create("keep"));
         var drop = Pick(svc.Pipelines.Create("drop"));
-        var keepBinding = Pick(svc.Bindings.Create(keep.Id));
-        svc.Bindings.Create(drop.Id);
+        var keepBinding = Pick(Bind(svc.Bindings, keep.Id));
+        Bind(svc.Bindings, drop.Id);
 
         svc.Pipelines.Delete(drop.Id);
 

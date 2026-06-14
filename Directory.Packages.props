@@ -26,6 +26,7 @@
     <PackageVersion Include="Testcontainers" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.Minio" Version="4.11.0" />
     <PackageVersion Include="TUnit" Version="1.22.6" />
+    <PackageVersion Include="YamlDotNet" Version="16.2.1" />
   </ItemGroup>
 
 </Project>

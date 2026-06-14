@@ -177,7 +177,8 @@ public class ConfigurationPersistenceService(
                     config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
             }).ToArray(),
             Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray(),
-            Bindings: bindings.List().Select(b => new PipelineConfigBindingData(b.Id, b.PipelineId, b.CreatedAt)).ToArray());
+            Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
+                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.CreatedAt)).ToArray());
     }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
@@ -205,7 +206,8 @@ public class ConfigurationPersistenceService(
             triggers.Set(new Trigger(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt));
 
         foreach (var b in snapshot.Bindings ?? [])
-            bindings.Set(new PipelineConfigBinding(b.Id, b.PipelineId, b.CreatedAt));
+            bindings.Set(new PipelineConfigBinding(
+                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.CreatedAt));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -8,9 +8,14 @@
 
 Every pipeline points at a repo. The service continuously reconciles the live
 pipeline to match a declarative config file in that repo (`<repo>/.pipelines/`).
-The repo config is the **sole source of truth**; manual API mutations are
-reverted on the next sync. In the user's words: "every pipeline just points at a
-repo with the pipeline config — more sense and safer."
+The repo config is the **sole source of truth for pipeline *configuration*, which
+is git-only**: the API exposes **no configuration-mutation endpoints** for a bound
+pipeline. There is nothing to "revert" because the config write never lands —
+config CRUD is rejected, not undone. **Operational** API actions stay available
+(manual promotion/override, re-triggering production, cancelling jobs, setting
+secret *values*); only the *shape* of the pipeline is owned by git. In the user's
+words: "every pipeline just points at a repo with the pipeline config — more sense
+and safer."
 
 This builds on the declarative model that **already exists** in
 `src/Olve.Pipelines/Pipelines/Sync/`: `PipelineDocument`, `Build()` (export),
@@ -49,9 +54,16 @@ Out of v1 (note in spec, keep schema extensible):
 
 ## Section 1 — Architecture & ownership
 
-1. **Ownership: full GitOps.** Repo config file is the sole source of truth.
-   Reconcile continuously matches live state to it. Manual API mutations get
-   reverted on the next sync.
+1. **Ownership: full GitOps, config is git-only.** The repo config file is the
+   sole source of truth for pipeline *configuration*. **Reconcile is the only
+   writer of config entities.** The API exposes **no config-mutation endpoints**
+   for a bound pipeline — config CRUD is *rejected*, not reverted (there is nothing
+   to revert because the write never lands). **Operational** API actions remain
+   fully available: manual promotion/override, re-triggering production, cancelling
+   jobs, and setting secret *values*. The dividing line is **config (git-owned) vs.
+   operations (API-allowed)**. Endpoint lockdown lands in Phase 4, alongside
+   reconcile taking ownership as the config writer (locking config edits earlier
+   would leave a bound pipeline neither editable nor reconciled).
 
 2. **Sync mechanism: poll-based**, reusing the existing `PollTriggerService`
    pattern (`BackgroundService`, ~60s per-binding interval). Fetch → compare
@@ -95,13 +107,25 @@ Out of v1 (note in spec, keep schema extensible):
    default** when a pipeline is bound, with no manual poll-trigger authoring (which
    is what `setup-pipeline` does today).
 
-   This means each binding drives **two independent polls of the same repo**, with
-   two cursors (decision 5):
-   - **config poll** — watches the `.pipelines/` subtree → reconcile live state to YAML.
-   - **deploy poll** — watches the `branch` head → fire production.
+   This is driven by a **single poll on the `branch` head** (one loop, one network
+   cadence). When the head advances, the binding runs a **sequenced flow,
+   config-before-build** — *reconcile the config, then propagate the commit*:
 
-   Scoping the config cursor to `.pipelines/` (decision 5) is precisely what keeps
-   *code* pushes out of config reconcile — they go to the *deploy* poll instead.
+   1. **Reconcile** — if the `.pipelines/` subtree changed since the last successful
+      apply, fetch + compile + apply the config diff (under the drain gate,
+      Section 3). If it didn't change, this step is a no-op. Reconcile is
+      level-triggered and idempotent, so "reconcile every head advance, but skip the
+      fetch+compile when the subtree ETag is unchanged" is both correct and cheap.
+   2. **Propagate** — only *after* reconcile succeeds (or finds nothing to do),
+      enqueue a production build for the new commit.
+
+   **Config-apply gates the build.** A commit that changes both code and config
+   reconciles the new config first, then builds on it — the ordering is structural,
+   not racy, and there is no second cursor racing the first. The two SHAs the
+   binding tracks (`lastSyncedSha` for config, `lastDeployedSha` for the build) are
+   just *state advanced in sequence by the one poll*, not two competing pollers. The
+   `.pipelines/` subtree ETag (decision 5) is the optimization that skips the config
+   fetch+compile on code-only pushes; it is **not** a separate poll.
 
    The deploy trigger lives on the binding, structurally OUTSIDE the reconciled
    `Trigger` collection. The config file's `triggers:` are purely **additive**
@@ -111,19 +135,24 @@ Out of v1 (note in spec, keep schema extensible):
    the binding MUST land before delete-to-match on triggers is enabled — else the
    first reconcile deletes the live deploy trigger.
 
-5. **Config-sync cursor = the head commit touching `.pipelines/`**, not branch
-   head, so ordinary code pushes don't trigger config reconcile. Fetched via
-   `GET /repos/{o}/{r}/commits?path=.pipelines&sha={branch}&per_page=1`. (The
-   `contents` API on a directory returns an array with no single sha; the
+5. **Config-change detection = ETag on the `.pipelines/` subtree** (an optimization
+   *inside* the single branch-head poll of decision 4, not a second poll). Within
+   the poll, decide whether config work is needed by issuing a conditional
+   `GET /repos/{o}/{r}/commits?path=.pipelines&sha={branch}&per_page=1` with
+   **`If-None-Match`**:
+   - **304 Not Modified** (free, no rate-limit cost) ⇒ `.pipelines/` unchanged ⇒
+     skip fetch+compile, go straight to the build.
+   - **200** ⇒ config changed ⇒ fetch + compile + reconcile, *then* build.
+
+   (The `contents` API on a directory returns an array with no single sha; the
    `git/trees` subtree sha is the content-addressed alternative but its ETag burns
-   on any push.) **Poll with ETag / `If-None-Match` conditional requests** — a 304
-   Not Modified doesn't count against the rate limit, and this endpoint's ETag
-   changes only when `.pipelines/` changes, so idle polls and code-only pushes are
-   free; only a real config change costs a counted request. Auth = 5000 req/hr per
-   token (GitHub App installs scale higher) — ample at homelab scale. The
-   commit-based cursor isn't content-addressed (a revert-to-identical re-triggers),
-   but that's a harmless idempotent no-op. **The cursor advances only on a fully
-   successful apply** (see Section 4).
+   on any push.) This endpoint's ETag changes only when `.pipelines/` changes, so
+   idle polls and code-only pushes cost nothing for the config check. Auth = 5000
+   req/hr per token (GitHub App installs scale higher) — ample at homelab scale. The
+   detector isn't content-addressed (a revert-to-identical re-fetches), but
+   reconcile is idempotent so that's a harmless no-op. **`lastSyncedSha` advances
+   only on a fully successful apply** (Section 4); **`lastDeployedSha` advances after
+   the build is enqueued** (decision 4).
 
 ---
 
@@ -151,9 +180,14 @@ only for the **leaf trigger-target** types, not the top level.
   `(description, version, PipelineDocument)`, NOT by polluting `PipelineDocument`.
 
 **Secrets:** declared by NAME ONLY in a `secrets:` block (+ optional description).
-VALUES never in repo — they stay out-of-band in k8s secret
-`olve-pipeline-{pipelineId:N}`, set via the secrets API / kubectl. Referenced via
-`$SECRET:NAME` (headers / env).
+VALUES never in repo — they stay out-of-band, and they are **strictly segmented
+per pipeline**: every pipeline's secrets live in its own dedicated k8s secret
+`olve-pipeline-{pipelineId:N}` and nowhere else. No shared/global secret store, no
+cross-pipeline access — a pipeline can only ever resolve `$SECRET:NAME` against its
+own `olve-pipeline-{pipelineId:N}`. Set via the secrets API / kubectl. Referenced
+via `$SECRET:NAME` (headers / env). The deploy/config-source credential
+(`credentialsSecret`, Section 1.3) is just another key in that same per-pipeline
+secret — no special-casing.
 
 - Validation: a `$SECRET:X` used but NOT declared in `secrets:` = config error
   (reject the reconcile).
@@ -306,10 +340,15 @@ testable without network. `IdProvider`/`TimeProvider` seams already exist.
 
 - Bind → reconcile → live state matches desired.
 - Idempotent: second reconcile is all no-ops, cursor stable.
-- Manual API mutation reverted on next reconcile.
+- **Config-mutation API endpoints are rejected for a bound pipeline** (config is
+  git-only); **operational** endpoints (manual promotion/override, re-trigger,
+  cancel, set secret value) still succeed.
+- **Config-before-build ordering:** a head advance that changes both code and
+  `.pipelines/` reconciles the new config first, then the enqueued production build
+  runs on the reconciled config (single sequenced poll).
 - Gate: reconcile deferred while bundle in-flight, applied after terminal step.
-- Deploy trigger survives reconcile (lives on the binding, outside the reconciled
-  trigger set).
+- Deploy build survives reconcile (it's the binding's branch-head poll, outside the
+  reconciled trigger set).
 
 ---
 
@@ -376,7 +415,9 @@ All paths under `src/Olve.Pipelines/`:
    configured **by default** (decision 4); relocates the deploy trigger off the
    reconciled set onto this binding-derived poll (must precede trigger
    delete-to-match in Phase 4).
-4. **Reconcile diff + concurrency gate + lock (Section 3)**.
+4. **Reconcile diff + concurrency gate + lock (Section 3)** + **config-endpoint
+   lockdown** (git-only config, decision 1) + **prepend reconcile to the Phase 3
+   branch-head poll** (config-before-build, decision 4).
 5. **`ReconcileStatus` + secret status surfacing + frontend badge**.
 6. **Cutover** — manual extract-to-markdown + recreate from scratch (no code; no
    automated on-ramp, no migration).

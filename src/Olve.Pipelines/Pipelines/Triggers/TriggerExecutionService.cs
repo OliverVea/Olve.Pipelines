@@ -49,20 +49,30 @@ public class TriggerExecutionService(
     }
 
     private Result<JobGroup> ExecuteProduction(Trigger trigger)
-    {
-        if (!productionSteps.HasConfiguredSteps(trigger.PipelineId))
-            return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{trigger.PipelineId}' has no configured production steps."));
+        => ExecuteProductionForPipeline(trigger.PipelineId);
 
-        var steps = productionSteps.GetByPipelineId(trigger.PipelineId);
+    /// <summary>
+    /// Starts a production run for a pipeline directly (no <see cref="Trigger"/> entity). Used by
+    /// the binding-derived deploy poll, whose deploy "trigger" is the bound repo's branch head.
+    /// </summary>
+    public Result<JobGroup> ExecuteProductionForPipeline(Id<Pipeline> pipelineId)
+    {
+        if (!pipelines.TryGet(pipelineId, out _))
+            return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
+
+        if (!productionSteps.HasConfiguredSteps(pipelineId))
+            return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{pipelineId}' has no configured production steps."));
+
+        var steps = productionSteps.GetByPipelineId(pipelineId);
         if (steps.TryPickProblems(out var problems, out var stepArray))
             return problems;
 
-        var bundle = bundles.Create(trigger.PipelineId, ArtifactBundleStatus.Pending);
-        var jobGroup = jobGroups.CreateProductionGroup(trigger.PipelineId, bundle.Id);
+        var bundle = bundles.Create(pipelineId, ArtifactBundleStatus.Pending);
+        var jobGroup = jobGroups.CreateProductionGroup(pipelineId, bundle.Id);
 
         foreach (var step in stepArray)
         {
-            jobs.CreateProductionJob(trigger.PipelineId, jobGroup.Id, step.Id);
+            jobs.CreateProductionJob(pipelineId, jobGroup.Id, step.Id);
         }
 
         return jobGroup;

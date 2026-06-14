@@ -159,6 +159,143 @@
         }
       }
     },
+    "/api/pipelines/with-repo": {
+      "post": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "CreatePipelineWithRepo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePipelineWithRepoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding": {
+      "post": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "BindPipelineToRepo",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindRepoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "GetPipelineBinding",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines": {
       "post": {
         "tags": [
@@ -1797,6 +1934,74 @@
       "ArtifactBundleStatus": {
         "type": "integer"
       },
+      "BindRepoRequest": {
+        "required": [
+          "repo",
+          "branch",
+          "path",
+          "credentialsSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "credentialsSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreatePipelineWithRepoRequest": {
+        "required": [
+          "name",
+          "repo",
+          "branch",
+          "path",
+          "credentialsSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "credentialsSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreateProcessingStepRequest": {
         "required": [
           "name",
@@ -1853,6 +2058,10 @@
         "format": "uuid"
       },
       "IdOfPipeline": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "IdOfPipelineConfigBinding": {
         "type": "string",
         "format": "uuid"
       },
@@ -2266,6 +2475,52 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "PipelineConfigBinding": {
+        "required": [
+          "id",
+          "pipelineId",
+          "repo",
+          "branch",
+          "path",
+          "credentialsSecret",
+          "lastDeployedSha",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfPipelineConfigBinding"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "credentialsSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastDeployedSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

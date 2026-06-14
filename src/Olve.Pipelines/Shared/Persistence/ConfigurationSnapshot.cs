@@ -23,4 +23,12 @@ public record ProcessingStepData(Id<ProcessingStep> Id, string Name, Id<Pipeline
 
 public record TriggerData(Id<Trigger> Id, Id<Pipeline> PipelineId, string Name, TriggerTarget Target, string Secret, DateTimeOffset CreatedAt);
 
-public record PipelineConfigBindingData(Id<PipelineConfigBinding> Id, Id<Pipeline> PipelineId, DateTimeOffset CreatedAt);
+public record PipelineConfigBindingData(
+    Id<PipelineConfigBinding> Id,
+    Id<Pipeline> PipelineId,
+    string Repo,
+    string Branch,
+    string Path,
+    string? CredentialsSecret,
+    string? LastDeployedSha,
+    DateTimeOffset CreatedAt);

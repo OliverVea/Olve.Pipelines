@@ -12,6 +12,77 @@ Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──
 - **Processing steps** run sequentially. Each receives the full ArtifactBundle.
 - Every step is configured as `(image, script, env)` and executed as a Kubernetes Job.
 
+## GitOps Configuration
+
+> **Adding CD to your own repo?** This is the section for you. You don't deploy or modify this
+> service — you add one file to *your* repository and bind a pipeline to it.
+
+A pipeline can be **bound to a Git repository**. Once bound, *your* repo is the single source of
+truth for the pipeline's shape: a background reconcile loop polls your branch head (~5 min), and
+whenever `<your-repo>/.pipelines/config.yaml` changes it materializes the production steps,
+processing steps, and triggers to match — then runs the build. Binding also configures the deploy
+poll, so pushing a commit deploys automatically; you never author a trigger by hand.
+
+### Adding CD to your repo
+
+1. Add `.pipelines/config.yaml` (+ optional `.pipelines/scripts/*.sh`) to your repository — see
+   the schema below. [`Olve.Template.Api`](https://github.com/OliverVea/Olve.Template.Api) ships a
+   copy-me [`.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines)
+   starter (Kaniko build + Helm deploy).
+2. Create a pipeline bound to your repo: `POST /api/pipelines/with-repo` with
+   `{ name, repo, branch?, path?, credentialsSecret }` (see [GitOps Binding](#gitops-binding)).
+3. Set the secret *values* your config declares: `PUT /api/pipelines/{id}/secrets/{name}`.
+4. Push. The first reconcile builds your pipeline from the file; check
+   `GET /api/pipelines/{id}/binding/status` for the result.
+
+**Git-only:** a bound pipeline **rejects API config-mutation endpoints** (step/config/trigger
+CRUD) — your repo is the only config writer. Operational endpoints stay open: manual production
+trigger, job cancel, and setting secret *values*.
+
+### `config.yaml` schema
+
+`<path>` defaults to `.pipelines`. Steps may be inlined or extracted: `$ref: steps/<name>.yaml`
+pulls a step from its own file, and `scriptFile: scripts/<name>.sh` keeps a script out-of-line
+(mutually exclusive with `script:`). Secrets are declared by **name only** — values live in the
+pipeline's own k8s secret (`olve-pipeline-{id}`), never in the repo — and are referenced as
+`$SECRET:NAME` (in env values / poll headers) or as ordinary env vars mounted into every job.
+
+```yaml
+apiVersion: "0.0"                 # major must match the server (currently 0.x)
+name: my-app
+description: Build and deploy.    # optional
+version: "1"                      # optional, free-form
+
+secrets:                          # declared by NAME ONLY (values never in repo)
+  - name: GITHUB_TOKEN
+    description: Read token to fetch the repo tarball.
+
+productionSteps:                  # run in parallel → bundle/<step-name>/
+  - name: build
+    configuration:
+      image: gcr.io/kaniko-project/executor:debug
+      scriptFile: scripts/build.sh        # or inline: script: |
+
+processingSteps:                  # run sequentially (order = list position)
+  - name: deploy
+    configuration:
+      image: alpine:latest
+      script: |
+        echo deploying...
+
+triggers:                         # OPTIONAL & additive (the deploy poll is implicit)
+  - name: redeploy
+    target: { type: processing, processingStepName: deploy }
+```
+
+Validation rejects the whole reconcile on: incompatible `apiVersion`, duplicate step names, a
+trigger referencing an unknown processing step, both `script` and `scriptFile` set, or a
+`$SECRET:NAME` that isn't declared in `secrets:`. A broken or unfetchable config **holds off the
+build** for that cycle (config-before-build), so bad config never ships on stale code.
+
+This repo dogfoods the feature: see [`.pipelines/config.yaml`](.pipelines/config.yaml). To
+bootstrap or recreate the bound pipeline, use the `setup-pipeline` skill.
+
 ## Project Structure
 
 ```
@@ -112,6 +183,19 @@ Trigger types:
 | GET | `/api/pipelines/{pipelineId}/secrets` | List secret names |
 | PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set secret |
 | DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete secret |
+
+### GitOps Binding
+
+See [GitOps Configuration](#gitops-configuration). `branch` defaults to `main`, `path` to
+`.pipelines`; `credentialsSecret` names the key in the pipeline's k8s secret holding the repo
+read token.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo |
+| POST | `/api/pipelines/{id}/binding` | Bind an existing pipeline to a repo |
+| GET | `/api/pipelines/{id}/binding` | Get the binding |
+| GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
 
 ### Other
 

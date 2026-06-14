@@ -280,6 +280,18 @@ tests.
 
 ## Phase 6 — Cutover (manual, one-time — no automated on-ramp)
 
+**Status (2026-06-14): authoring DONE; live cutover PENDING (user-driven, beta-first).**
+- Authored `<repo>/.pipelines/config.yaml` + `scripts/{build,deploy-beta,deploy}.sh` for the
+  self-deploy pipeline (one Kaniko production step, `deploy-beta` gating `deploy`, two declared
+  secrets, no triggers — the binding configures the deploy poll). Validated end-to-end through the
+  real `ManifestCompiler` (throwaway test, deleted).
+- Rewrote the `setup-pipeline` skill to the bound model: create-with-repo + set secrets + wait for
+  first reconcile + verify, parameterized by `$API` for beta/prod. No more hand-authored
+  steps/config/triggers.
+- **Remaining (live ops, not code):** discard old S3 snapshot → run the rewritten skill against
+  **beta** first (recreate + bind + secrets) → confirm first reconcile materializes steps & a real
+  build+deploy fires through K8s → repeat on prod. This is the never-run "real K8s end-to-end".
+
 **Decision (user 2026-06-14): no backwards compatibility, recreate from scratch.**
 The automated `BuildYaml()` exporter is **dropped from v1** (moved to future, see
 out-of-scope). The single live pipeline is migrated by hand, not by tooling.

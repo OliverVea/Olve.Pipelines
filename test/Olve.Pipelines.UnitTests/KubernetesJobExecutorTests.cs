@@ -80,12 +80,13 @@ public class KubernetesJobExecutorTests
             => Task.FromResult(new S3Credentials("access", "secret"));
     }
 
-    private sealed class NullApplicationLifetime : IHostApplicationLifetime
+    private sealed class FakeApplicationLifetime : IHostApplicationLifetime
     {
+        private readonly CancellationTokenSource _stopping = new();
         public CancellationToken ApplicationStarted => CancellationToken.None;
-        public CancellationToken ApplicationStopping => CancellationToken.None;
+        public CancellationToken ApplicationStopping => _stopping.Token;
         public CancellationToken ApplicationStopped => CancellationToken.None;
-        public void StopApplication() { }
+        public void StopApplication() => _stopping.Cancel();
     }
 
     private sealed record Harness(
@@ -97,7 +98,8 @@ public class KubernetesJobExecutorTests
         Id<Pipeline> PipelineId,
         Id<JobGroup> JobGroupId,
         Id<ArtifactBundle> BundleId,
-        Id<ProductionStep> StepId);
+        Id<ProductionStep> StepId,
+        FakeApplicationLifetime Lifetime);
 
     private static Harness BuildHarness(IKubernetesClient? k8sOverride = null)
     {
@@ -128,7 +130,7 @@ public class KubernetesJobExecutorTests
         var group = jobGroupSvc.CreateProductionGroup(pipelineId, bundleId);
 
         var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
-        var lifetime = new NullApplicationLifetime();
+        var lifetime = new FakeApplicationLifetime();
         var options = new KubernetesOptions("default", "alpine", "minio/mc", "bucket", "https://s3", false);
         var storage = new StorageOptions("bucket");
 
@@ -167,7 +169,7 @@ public class KubernetesJobExecutorTests
         var sp = services.BuildServiceProvider();
         var executor = (KubernetesJobExecutor)sp.GetRequiredService<IJobExecutor>();
 
-        return new Harness(executor, k8s, jobStore, registry, jobSvc, pipelineId, group.Id, bundleId, stepId);
+        return new Harness(executor, k8s, jobStore, registry, jobSvc, pipelineId, group.Id, bundleId, stepId, lifetime);
     }
 
     private static Id<Job> CreateScheduledProductionJob(Harness h)
@@ -237,6 +239,44 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(0);
         h.JobStore.TryGet(jobId, out var job);
         await Assert.That(job!.Status).IsTypeOf<Done>();
+    }
+
+    [Test]
+    public async Task TerminalCompletion_DeletesPerJobS3Secret()
+    {
+        var h = BuildHarness();
+        h.K8s.InitialStatus = null;
+        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+
+        var jobId = CreateScheduledProductionJob(h);
+
+        h.Executor.EnsureRunning(jobId);
+        await WaitForWatcherComplete(h, jobId);
+
+        await Assert.That(h.K8s.CreateSecretCallCount).IsEqualTo(1);
+        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(1);
+    }
+
+    // Regression: a self-deploy step restarts this controller mid-run, cancelling the watcher while the
+    // K8s Job is still running. The per-job S3 secret must NOT be deleted then — deleting it breaks the
+    // Job's pending s3-upload container and wedges the job. The job stays InProgress so the next startup
+    // reattaches with the secret intact.
+    [Test]
+    public async Task CancellationDuringShutdown_PreservesPerJobS3Secret()
+    {
+        var h = BuildHarness();
+        h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
+
+        var jobId = CreateScheduledProductionJob(h);
+
+        h.Lifetime.StopApplication();
+        h.Executor.EnsureRunning(jobId);
+        await WaitForWatcherComplete(h, jobId);
+
+        await Assert.That(h.K8s.CreateSecretCallCount).IsEqualTo(1);
+        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(0);
+        h.JobStore.TryGet(jobId, out var job);
+        await Assert.That(job!.Status).IsTypeOf<InProgress>();
     }
 
     [Test]

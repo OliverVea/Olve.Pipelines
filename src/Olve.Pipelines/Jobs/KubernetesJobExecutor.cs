@@ -118,6 +118,13 @@ public class KubernetesJobExecutor(
 
     private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
     {
+        // The per-job S3 secret must outlive a cancelled watcher. A self-deploy step helm-upgrades this
+        // very controller mid-run, which restarts the pod and cancels `ct` (ApplicationStopping) while the
+        // K8s Job is still running. Deleting the secret then breaks the Job's still-pending s3-upload
+        // container (CreateContainerConfigError) and the Job can never reach Succeeded — wedging it forever.
+        // So clean up ONLY once the Job reaches a terminal state; on cancellation leave the secret intact so
+        // the reattach on next startup finds working credentials.
+        var reachedTerminal = false;
         try
         {
             var existing = await kubernetesClient.TryGetJobStatusAsync(options.Namespace, spec.Name, ct);
@@ -138,6 +145,7 @@ public class KubernetesJobExecutor(
             {
                 await UploadLogsAsync(spec.Name, logKey, ct);
                 WriteDone(job, startedAt);
+                reachedTerminal = true;
                 return;
             }
 
@@ -145,6 +153,7 @@ public class KubernetesJobExecutor(
             {
                 await UploadLogsAsync(spec.Name, logKey, ct);
                 FailJob(job, startedAt, failed.Message ?? "K8s job failed");
+                reachedTerminal = true;
                 return;
             }
 
@@ -160,11 +169,13 @@ public class KubernetesJobExecutor(
                         logger.LogInformation("K8s Job '{JobName}' succeeded", spec.Name);
                         await UploadLogsAsync(spec.Name, logKey, ct);
                         WriteDone(job, startedAt);
+                        reachedTerminal = true;
                         return;
                     case JobPhase.Failed:
                         logger.LogWarning("K8s Job '{JobName}' failed: {Message}", spec.Name, status.Message);
                         await UploadLogsAsync(spec.Name, logKey, ct);
                         FailJob(job, startedAt, status.Message ?? "K8s job failed");
+                        reachedTerminal = true;
                         return;
                 }
             }
@@ -173,7 +184,8 @@ public class KubernetesJobExecutor(
         }
         finally
         {
-            await CleanupS3SecretAsync(s3SecretName);
+            if (reachedTerminal)
+                await CleanupS3SecretAsync(s3SecretName);
         }
     }
 

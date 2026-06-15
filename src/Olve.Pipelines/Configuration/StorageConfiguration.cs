@@ -1,3 +1,4 @@
+using System.Reflection;
 using Amazon.Runtime;
 using Amazon.S3;
 using Olve.Pipelines.Shared.Persistence;
@@ -12,6 +13,14 @@ public static class StorageConfiguration
         var bucket = builder.Configuration["Storage:Bucket"] ?? "olve-pipelines";
         var skipCertValidation = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
         var mode = builder.Configuration.GetValue<StorageMode?>("Storage:Mode") ?? StorageMode.Persistent;
+
+        // The build-time OpenAPI generator (dotnet-getdocument) boots the app to extract api.json. It
+        // starts hosted services but has no storage config, which would trip the persistent-mode
+        // fail-fast and break the build. Force Ephemeral so doc generation runs inert (no read/save).
+        if (IsOpenApiDocumentGeneration())
+        {
+            mode = StorageMode.Ephemeral;
+        }
 
         builder.Services.AddSingleton(new StorageOptions(bucket, skipCertValidation, mode));
 
@@ -75,6 +84,11 @@ public static class StorageConfiguration
         builder.Services.AddSingleton<IBundleStore, S3BundleStore>();
         builder.Services.AddSingleton<ISnapshotStore, S3SnapshotStore>();
     }
+
+    // dotnet-getdocument launches a nested "GetDocument.Insider" process that reflectively loads this
+    // app and sets it as the entry assembly, so detect the insider host by name.
+    private static bool IsOpenApiDocumentGeneration() =>
+        Assembly.GetEntryAssembly()?.GetName().Name is "GetDocument.Insider";
 
     private class SkipCertValidationFactory : Amazon.Runtime.HttpClientFactory
     {

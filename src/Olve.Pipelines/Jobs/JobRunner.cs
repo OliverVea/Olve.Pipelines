@@ -39,14 +39,15 @@ public class JobRunner(
             if (registry.IsRunning(job.Id)) continue;
             if (registry.ActiveCount >= MaxConcurrentJobs) return;
 
-            if (IsBusy(job, busyKeys))
+            // The busy-key gate holds a Scheduled job behind an in-flight job for the same
+            // (pipeline, step). It must NOT apply to an InProgress job: after a restart its watcher is
+            // gone but it still owns its key (CollectInProgressKeys added it), so gating it here would
+            // make it block itself forever and never reattach to its K8s Job — wedging the pipeline.
+            if (job.Status is Scheduled && IsBusy(job, busyKeys))
             {
-                if (job.Status is Scheduled)
-                {
-                    logger.LogDebug(
-                        "Holding Scheduled job '{JobId}' — another job is already InProgress for the same (pipeline, step) key",
-                        job.Id);
-                }
+                logger.LogDebug(
+                    "Holding Scheduled job '{JobId}' — another job is already InProgress for the same (pipeline, step) key",
+                    job.Id);
                 continue;
             }
 

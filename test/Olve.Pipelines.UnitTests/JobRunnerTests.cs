@@ -238,6 +238,32 @@ public class JobRunnerTests
         await Assert.That(j2!.Status).IsTypeOf<Done>();
     }
 
+    // Regression: after a restart the watcher registry is empty, so an InProgress job has no live
+    // watcher. It still owns its (pipeline, step) key, so the busy-key gate must not block it — the
+    // dispatcher must reattach it. Before the fix it blocked itself forever and the pipeline wedged.
+    [Test]
+    public async Task InProgressJob_WithNoLiveWatcher_IsReattached()
+    {
+        var h = CreateRunner();
+        var jobId = CreateProductionJob(h.JobService);
+
+        // Simulate the post-restart state: the job was persisted InProgress, but no watcher is running.
+        h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
+
+        using var cts = new CancellationTokenSource();
+        _ = h.Runner.StartAsync(cts.Token);
+
+        // Reattaches (becomes pending) rather than blocking itself behind its own key.
+        await WaitForPendingAsync(h.PendingStore, jobId);
+
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
+        await Task.Delay(100);
+        cts.Cancel();
+
+        h.Store.TryGet(jobId, out var job);
+        await Assert.That(job!.Status).IsTypeOf<Done>();
+    }
+
     [Test]
     public async Task ScheduledJob_WaitsWhileSameKeyIsInProgress_RunsAfterCompletion()
     {

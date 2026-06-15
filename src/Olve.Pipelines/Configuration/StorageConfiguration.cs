@@ -11,8 +11,9 @@ public static class StorageConfiguration
         var endpoint = builder.Configuration["Storage:Endpoint"];
         var bucket = builder.Configuration["Storage:Bucket"] ?? "olve-pipelines";
         var skipCertValidation = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
+        var mode = builder.Configuration.GetValue<StorageMode?>("Storage:Mode") ?? StorageMode.Persistent;
 
-        builder.Services.AddSingleton(new StorageOptions(bucket, skipCertValidation));
+        builder.Services.AddSingleton(new StorageOptions(bucket, skipCertValidation, mode));
 
         if (endpoint is null) return;
 
@@ -72,6 +73,7 @@ public static class StorageConfiguration
         });
 
         builder.Services.AddSingleton<IBundleStore, S3BundleStore>();
+        builder.Services.AddSingleton<ISnapshotStore, S3SnapshotStore>();
     }
 
     private class SkipCertValidationFactory : Amazon.Runtime.HttpClientFactory
@@ -87,7 +89,22 @@ public static class StorageConfiguration
     }
 }
 
-public record StorageOptions(string Bucket, bool SkipCertValidation = false);
+public record StorageOptions(string Bucket, bool SkipCertValidation = false, StorageMode Mode = StorageMode.Persistent);
+
+/// <summary>
+/// How the app treats snapshot persistence.
+/// <list type="bullet">
+/// <item><see cref="Persistent"/> — storage is required; the app must load before becoming ready,
+/// crashloops on load failure, and never overwrites good state with empty. The default.</item>
+/// <item><see cref="Ephemeral"/> — in-memory only; no load, no save, ready immediately. An explicit
+/// opt-in for local dev and throwaway runs.</item>
+/// </list>
+/// </summary>
+public enum StorageMode
+{
+    Persistent,
+    Ephemeral,
+}
 
 internal class ProviderBackedAwsCredentials(ICredentialsProvider<S3Credentials> provider) : AWSCredentials
 {

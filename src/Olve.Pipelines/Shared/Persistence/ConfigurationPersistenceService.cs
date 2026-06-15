@@ -1,6 +1,4 @@
 using System.Text.Json;
-using Amazon.S3;
-using Amazon.S3.Model;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
@@ -19,59 +17,99 @@ public class ConfigurationPersistenceService(
     EntityStore<Trigger> triggers,
     EntityStore<PipelineConfigBinding> bindings,
     StorageOptions storageOptions,
+    IPersistenceReadiness readiness,
     ILogger<ConfigurationPersistenceService> logger,
-    IAmazonS3? s3 = null) : IHostedLifecycleService, IDisposable
+    ISnapshotStore? store = null) : IHostedLifecycleService, IDisposable
 {
     private const string Key = "configuration.json";
+    private const string ReadinessKey = "configuration";
 
     private volatile bool _dirty;
     private volatile bool _loading;
+    private volatile bool _loaded;
     private Timer? _timer;
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
-        if (s3 is null)
+        readiness.Register(ReadinessKey);
+
+        if (storageOptions.Mode == StorageMode.Ephemeral)
         {
-            logger.LogWarning("S3 not configured, skipping configuration load");
+            logger.LogInformation("Ephemeral storage mode: configuration will not be persisted");
+            readiness.MarkReady(ReadinessKey);
             return;
         }
 
+        if (store is null)
+        {
+            throw new InvalidOperationException(
+                "Persistent storage mode requires storage configuration (Storage:Endpoint and credentials), " +
+                "but none was provided. Set Storage:Mode=Ephemeral for in-memory-only operation.");
+        }
+
+        byte[]? data;
         try
         {
-            var response = await s3.GetObjectAsync(storageOptions.Bucket, Key, cancellationToken);
-            await using var stream = response.ResponseStream;
-
-            var snapshot = await JsonSerializer.DeserializeAsync(
-                stream,
-                ConfigurationPersistenceJsonContext.Default.ConfigurationSnapshot,
-                cancellationToken);
-
-            if (snapshot is null) return;
-
-            _loading = true;
-            try
-            {
-                LoadSnapshot(snapshot);
-            }
-            finally
-            {
-                _loading = false;
-            }
-
-            logger.LogInformation(
-                "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
-                snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0, snapshot.Triggers?.Length ?? 0);
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            logger.LogInformation("No existing configuration found in S3, starting fresh");
+            data = await store.TryReadAsync(Key, cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to load configuration from S3, starting fresh");
+            // Transient/auth failure. Do NOT save — an unconditional save here would overwrite the
+            // good snapshot with empty state. Fail startup so the pod crashloops and retries.
+            logger.LogError(ex, "Failed to load configuration from storage; failing startup to avoid overwriting good state");
+            throw;
         }
 
-        await SaveAsync(cancellationToken);
+        if (data is null)
+        {
+            // First run: nothing is stored yet, so writing an empty baseline is safe.
+            logger.LogInformation("No existing configuration found in storage, starting fresh");
+            _loaded = true;
+            await SaveAsync(cancellationToken);
+            readiness.MarkReady(ReadinessKey);
+            return;
+        }
+
+        ConfigurationSnapshot? snapshot;
+        try
+        {
+            snapshot = JsonSerializer.Deserialize(
+                data,
+                ConfigurationPersistenceJsonContext.Default.ConfigurationSnapshot);
+        }
+        catch (JsonException ex)
+        {
+            // Corrupt snapshot: terminal. Do NOT save. Fail loudly until a human restores it.
+            logger.LogCritical(ex, "Configuration snapshot in storage is corrupt; failing startup (manual restore required)");
+            throw;
+        }
+
+        if (snapshot is null)
+        {
+            logger.LogInformation("Configuration snapshot was empty, starting fresh");
+            _loaded = true;
+            await SaveAsync(cancellationToken);
+            readiness.MarkReady(ReadinessKey);
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            LoadSnapshot(snapshot);
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        // Successful load: state is already in memory, so there is nothing to write back.
+        _loaded = true;
+        readiness.MarkReady(ReadinessKey);
+
+        logger.LogInformation(
+            "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
+            snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0, snapshot.Triggers?.Length ?? 0);
     }
 
     public Task StartedAsync(CancellationToken cancellationToken)
@@ -109,7 +147,9 @@ public class ConfigurationPersistenceService(
 
     private void RequestSave()
     {
-        if (_loading) return;
+        // Never queue a save before a load has been confirmed — otherwise a save could write empty
+        // state over a good snapshot.
+        if (_loading || !_loaded) return;
         _dirty = true;
     }
 
@@ -123,9 +163,9 @@ public class ConfigurationPersistenceService(
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
-        if (s3 is null)
+        // Write-gate: never persist before a load has been confirmed (or with no store at all).
+        if (store is null || !_loaded)
         {
-            logger.LogWarning("S3 not configured, skipping configuration save");
             return;
         }
 
@@ -137,13 +177,7 @@ public class ConfigurationPersistenceService(
                 snapshot,
                 ConfigurationPersistenceJsonContext.Default.ConfigurationSnapshot);
 
-            await s3.PutObjectAsync(new PutObjectRequest
-            {
-                BucketName = storageOptions.Bucket,
-                Key = Key,
-                InputStream = new MemoryStream(json),
-                ContentType = "application/json",
-            }, cancellationToken);
+            await store.WriteAsync(Key, json, cancellationToken);
 
             logger.LogInformation(
                 "Saved configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
@@ -151,7 +185,7 @@ public class ConfigurationPersistenceService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to save configuration to S3");
+            logger.LogError(ex, "Failed to save configuration to storage");
         }
     }
 

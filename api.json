@@ -17,6 +17,18 @@
         }
       }
     },
+    "/api/ready": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/config/frontend": {
       "get": {
         "tags": [

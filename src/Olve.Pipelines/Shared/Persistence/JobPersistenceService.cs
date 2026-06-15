@@ -1,6 +1,4 @@
 using System.Text.Json;
-using Amazon.S3;
-using Amazon.S3.Model;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Jobs;
 
@@ -10,59 +8,99 @@ public class JobPersistenceService(
     EntityStore<Job> jobs,
     EntityStore<JobGroup> jobGroups,
     StorageOptions storageOptions,
+    IPersistenceReadiness readiness,
     ILogger<JobPersistenceService> logger,
-    IAmazonS3? s3 = null) : IHostedLifecycleService, IDisposable
+    ISnapshotStore? store = null) : IHostedLifecycleService, IDisposable
 {
     private const string Key = "jobs.json";
+    private const string ReadinessKey = "jobs";
 
     private volatile bool _dirty;
     private volatile bool _loading;
+    private volatile bool _loaded;
     private Timer? _timer;
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
-        if (s3 is null)
+        readiness.Register(ReadinessKey);
+
+        if (storageOptions.Mode == StorageMode.Ephemeral)
         {
-            logger.LogWarning("S3 not configured, skipping job load");
+            logger.LogInformation("Ephemeral storage mode: jobs will not be persisted");
+            readiness.MarkReady(ReadinessKey);
             return;
         }
 
+        if (store is null)
+        {
+            throw new InvalidOperationException(
+                "Persistent storage mode requires storage configuration (Storage:Endpoint and credentials), " +
+                "but none was provided. Set Storage:Mode=Ephemeral for in-memory-only operation.");
+        }
+
+        byte[]? data;
         try
         {
-            var response = await s3.GetObjectAsync(storageOptions.Bucket, Key, cancellationToken);
-            await using var stream = response.ResponseStream;
-
-            var snapshot = await JsonSerializer.DeserializeAsync(
-                stream,
-                JobPersistenceJsonContext.Default.JobSnapshot,
-                cancellationToken);
-
-            if (snapshot is null) return;
-
-            _loading = true;
-            try
-            {
-                LoadSnapshot(snapshot);
-            }
-            finally
-            {
-                _loading = false;
-            }
-
-            logger.LogInformation(
-                "Loaded {Jobs} jobs, {JobGroups} job groups",
-                snapshot.Jobs.Length, snapshot.JobGroups.Length);
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            logger.LogInformation("No existing job data found in S3, starting fresh");
+            data = await store.TryReadAsync(Key, cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to load jobs from S3, starting fresh");
+            // Transient/auth failure. Do NOT save — an unconditional save here would overwrite the
+            // good snapshot with empty state. Fail startup so the pod crashloops and retries.
+            logger.LogError(ex, "Failed to load jobs from storage; failing startup to avoid overwriting good state");
+            throw;
         }
 
-        await SaveAsync(cancellationToken);
+        if (data is null)
+        {
+            // First run: nothing is stored yet, so writing an empty baseline is safe.
+            logger.LogInformation("No existing job data found in storage, starting fresh");
+            _loaded = true;
+            await SaveAsync(cancellationToken);
+            readiness.MarkReady(ReadinessKey);
+            return;
+        }
+
+        JobSnapshot? snapshot;
+        try
+        {
+            snapshot = JsonSerializer.Deserialize(
+                data,
+                JobPersistenceJsonContext.Default.JobSnapshot);
+        }
+        catch (JsonException ex)
+        {
+            // Corrupt snapshot: terminal. Do NOT save. Fail loudly until a human restores it.
+            logger.LogCritical(ex, "Job snapshot in storage is corrupt; failing startup (manual restore required)");
+            throw;
+        }
+
+        if (snapshot is null)
+        {
+            logger.LogInformation("Job snapshot was empty, starting fresh");
+            _loaded = true;
+            await SaveAsync(cancellationToken);
+            readiness.MarkReady(ReadinessKey);
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            LoadSnapshot(snapshot);
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        // Successful load: state is already in memory, so there is nothing to write back.
+        _loaded = true;
+        readiness.MarkReady(ReadinessKey);
+
+        logger.LogInformation(
+            "Loaded {Jobs} jobs, {JobGroups} job groups",
+            snapshot.Jobs.Length, snapshot.JobGroups.Length);
     }
 
     public Task StartedAsync(CancellationToken cancellationToken)
@@ -84,7 +122,9 @@ public class JobPersistenceService(
 
     private void RequestSave()
     {
-        if (_loading) return;
+        // Never queue a save before a load has been confirmed — otherwise a save could write empty
+        // state over a good snapshot.
+        if (_loading || !_loaded) return;
         _dirty = true;
     }
 
@@ -98,9 +138,9 @@ public class JobPersistenceService(
 
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
-        if (s3 is null)
+        // Write-gate: never persist before a load has been confirmed (or with no store at all).
+        if (store is null || !_loaded)
         {
-            logger.LogWarning("S3 not configured, skipping job save");
             return;
         }
 
@@ -112,13 +152,7 @@ public class JobPersistenceService(
                 snapshot,
                 JobPersistenceJsonContext.Default.JobSnapshot);
 
-            await s3.PutObjectAsync(new PutObjectRequest
-            {
-                BucketName = storageOptions.Bucket,
-                Key = Key,
-                InputStream = new MemoryStream(json),
-                ContentType = "application/json",
-            }, cancellationToken);
+            await store.WriteAsync(Key, json, cancellationToken);
 
             logger.LogInformation(
                 "Saved {Jobs} jobs, {JobGroups} job groups",
@@ -126,7 +160,7 @@ public class JobPersistenceService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to save jobs to S3");
+            logger.LogError(ex, "Failed to save jobs to storage");
         }
     }
 

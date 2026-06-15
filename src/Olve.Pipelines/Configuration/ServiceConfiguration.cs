@@ -80,6 +80,7 @@ public static class ServiceConfiguration
         services.AddSingleton<ReconcilePauseState>();
         services.AddSingleton<ReconcileOptions>();
         services.AddTransient<ReconcileCoordinator>();
+        services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();

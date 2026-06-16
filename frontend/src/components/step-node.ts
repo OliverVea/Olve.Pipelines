@@ -13,6 +13,44 @@ interface StatusInfo {
   cssClass: string;
 }
 
+/** Human-readable duration, e.g. "2m 13s", "1h 4m", "820ms". */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const totalSec = Math.round(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+/**
+ * The step's processing time for its latest run: total elapsed for a finished
+ * run, or time-so-far for a running one. Null when there's no usable timing
+ * (never started, or a status without timestamps).
+ */
+function processingTime(job: Job | undefined): string | null {
+  const status = job?.status as
+    | {
+        type?: string;
+        startedAt?: Date | null;
+        completedAt?: Date | null;
+        failedAt?: Date | null;
+        cancelledAt?: Date | null;
+      }
+    | undefined;
+  if (!status?.startedAt) return null;
+  const start = status.startedAt.getTime();
+  const end =
+    status.completedAt?.getTime() ??
+    status.failedAt?.getTime() ??
+    status.cancelledAt?.getTime() ??
+    (status.type === 'in-progress' ? Date.now() : null);
+  if (end === null || end < start) return null;
+  return formatDuration(end - start);
+}
+
 function getStatus(job: Job | undefined): StatusInfo {
   if (!job || !job.status) return { label: 'Idle', cssClass: 'idle' };
 
@@ -210,13 +248,27 @@ export class StepNode extends LitElement {
           ${name}
           ${badge}
         </div>
-        ${this.latestJob?.createdAt
-          ? html`<div class="node-detail">
-              ${this.latestJob.createdAt.toLocaleString()}
-            </div>`
-          : nothing}
+        ${this._renderDetail()}
       </div>
     `;
+  }
+
+  private _renderDetail() {
+    const job = this.latestJob;
+    if (!job?.createdAt) return nothing;
+
+    const duration = processingTime(job);
+    const statusType = (job.status as { type?: string } | undefined)?.type;
+    const when = job.createdAt.toLocaleString();
+
+    // Prefer the human-readable processing time; fall back to the start time.
+    const text = duration
+      ? statusType === 'in-progress'
+        ? `running ${duration}`
+        : `ran in ${duration}`
+      : when;
+
+    return html`<div class="node-detail" title=${when}>${text}</div>`;
   }
 
   private _openStep(e: Event) {

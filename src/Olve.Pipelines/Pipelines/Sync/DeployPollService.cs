@@ -93,12 +93,18 @@ public class DeployPollService(
         }
 
         if (fetch is not ConfigFetch.Changed changed)
-            return true; // NotModified — config subtree unchanged
+        {
+            ClearStaleError(bindingService, binding); // NotModified — config subtree unchanged
+            return true;
+        }
 
         _configEtags[binding.Id] = changed.ETag;
 
         if (changed.Sha == binding.LastSyncedSha)
-            return true; // already applied this config
+        {
+            ClearStaleError(bindingService, binding); // already applied this config
+            return true;
+        }
 
         var compiler = scope.ServiceProvider.GetRequiredService<ManifestCompiler>();
         if (compiler.Compile(changed.Files).TryPickProblems(out var compileProblems, out var manifest))
@@ -123,6 +129,19 @@ public class DeployPollService(
             ReconcileResult.Success, DateTimeOffset.UtcNow, [], manifest.Secrets ?? []));
         logger.LogInformation("Reconciled '{Repo}@{Branch}' to config {Sha}", binding.Repo, binding.Branch, changed.Sha);
         return true;
+    }
+
+    // A healthy no-op poll (config unchanged or already applied) clears a stale error left by an
+    // earlier failed poll — without it, a transient fetch failure (e.g. a missing token) sticks in
+    // the badge until the next actual config change. Only writes when not already Success, so steady
+    // state doesn't rewrite the snapshot every interval.
+    private static void ClearStaleError(
+        PipelineConfigBindingService bindingService, PipelineConfigBinding binding)
+    {
+        if (binding.Status.Result == ReconcileResult.Success)
+            return;
+        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], binding.Status.DeclaredSecrets));
     }
 
     // Record an error outcome, carrying forward the last-known declared secrets so the badge still

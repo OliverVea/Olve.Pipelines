@@ -126,7 +126,12 @@
       "Bash(ssh oliver@bulwark-m2 'kubectl get secret olve-pipeline-d8966415f5e64ddf828cb49408069b71 -n olve-runners -o jsonpath='\\\\''{.data.SSH_PRIVATE_KEY}'\\\\''')",
       "Bash(base64 -d /tmp/gh_b64.txt)",
       "Bash(base64 -d /tmp/ssh_b64.txt)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('core remaining:', d['resources']['core']['remaining'], '/', d['resources']['core']['limit']\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('core remaining:', d['resources']['core']['remaining'], '/', d['resources']['core']['limit']\\)\")",
+      "Bash(python3 -c \"import sys,json; b=json.load\\(sys.stdin\\); print\\('result:', b.get\\('result'\\), '| lastSyncTime:', b.get\\('lastSyncTime'\\)\\); print\\('lastDeployedSha:', b.get\\('lastDeployedSha'\\), '| lastSyncedSha:', b.get\\('lastSyncedSha'\\)\\); print\\('problems:', b.get\\('problems'\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; b=json.load\\(sys.stdin\\); print\\('result:', b.get\\('result'\\), '| lastSyncTime:', b.get\\('lastSyncTime'\\)\\); print\\('lastDeployedSha:', b.get\\('lastDeployedSha'\\)\\); print\\('lastSyncedSha:', b.get\\('lastSyncedSha'\\)\\); print\\('problems:', b.get\\('problems'\\)\\)\")",
+      "Bash(echo \"server time: $\\(ssh oliver@bulwark-m2 date -u +%H:%M:%S\\)\")",
+      "Bash(GITHUB_TOKEN=$\\(gh auth token \\) dotnet test test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj --treenode-filter \"/*/*/*DeployPoll*/*\")",
+      "Bash(GITHUB_TOKEN=$\\(gh auth token \\) dotnet test --project test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj)"
     ]
   }
 }

@@ -25,6 +25,7 @@ public class JobObsoletionServiceTests
         var jobService = new JobService(
             NullLogger<JobService>.Instance,
             store,
+            new JobGroupService(new EntityStore<JobGroup>([]), new IdProvider(), timeProvider),
             new IdProvider(),
             timeProvider);
 

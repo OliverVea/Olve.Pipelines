@@ -41,8 +41,8 @@ public class DownstreamTriggerServiceTests
         jobStore.OnAdded.Subscribe(events.OnAdded.Invoke);
         jobStore.OnUpdated.Subscribe(events.OnUpdated.Invoke);
 
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, timeProvider);
         var jobGroupService = new JobGroupService(jobGroupStore, idProvider, timeProvider);
+        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, jobGroupService, idProvider, timeProvider);
         var bundleService = new ArtifactBundleService(bundleStore);
         var processingStepService = new ProcessingStepService(processingStepStore, processingStepConfig, idProvider);
         var promotionStore = new AttachmentStore<ProcessingStep, ProcessingStepPromotion>(processingStepStore);

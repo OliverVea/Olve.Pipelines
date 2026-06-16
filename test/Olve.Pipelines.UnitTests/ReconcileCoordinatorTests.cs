@@ -37,7 +37,9 @@ public class ReconcileCoordinatorTests
             processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
         var triggers = new TriggerService(triggerStore, idProvider);
         var reconciler = new PipelineReconciler(pipelines, production, processing, triggers);
-        var jobs = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, TimeProvider.System);
+        var jobs = new JobService(NullLogger<JobService>.Instance, jobStore,
+            new JobGroupService(new EntityStore<JobGroup>([]), idProvider, TimeProvider.System),
+            idProvider, TimeProvider.System);
 
         return new Fixture(pipelines, production, jobStore, new ReconcilePauseState(), idProvider, jobs, reconciler);
     }

@@ -40,7 +40,9 @@ public class PipelineSummaryServiceTests
         var processing = new ProcessingStepService(
             processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
         var bindingService = new PipelineConfigBindingService(bindings, idProvider);
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, new TimeProviderMake().Instance());
+        var jobTime = new TimeProviderMake().Instance();
+        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore,
+            new JobGroupService(new EntityStore<JobGroup>([]), idProvider, jobTime), idProvider, jobTime);
 
         var service = new PipelineSummaryService(pipelineService, production, processing, bindingService, jobService);
         return new Fixture(pipelines, productionStore, processingStore, jobStore, bindings, production, processing, service);

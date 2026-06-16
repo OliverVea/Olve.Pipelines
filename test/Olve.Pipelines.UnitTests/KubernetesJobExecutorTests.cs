@@ -124,8 +124,8 @@ public class KubernetesJobExecutorTests
         var jobGroupStore = new EntityStore<JobGroup>([]);
         var idProvider = new IdProvider();
         var time = TimeProvider.System;
-        var jobSvc = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, time);
         var jobGroupSvc = new JobGroupService(jobGroupStore, idProvider, time);
+        var jobSvc = new JobService(NullLogger<JobService>.Instance, jobStore, jobGroupSvc, idProvider, time);
 
         var group = jobGroupSvc.CreateProductionGroup(pipelineId, bundleId);
 

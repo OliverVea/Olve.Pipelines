@@ -10,7 +10,7 @@ using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
+public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobGroupService jobGroups, IdProvider idProvider, TimeProvider timeProvider)
 {
     private readonly EntityStoreIndex<Job, Id<JobGroup>> _byGroup = store.CreateIndex(j => j.JobGroupId);
     private readonly EntityStoreIndex<Job, Id<Pipeline>> _byPipeline = store.CreateIndex(j => j.PipelineId);
@@ -81,6 +81,19 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, artifactBundleId, processingStepId);
         store.Set(job);
         return job;
+    }
+
+    /// <summary>
+    /// Creates a processing run for a (step, bundle): a <see cref="ProcessingJobGroup"/> and its
+    /// scheduled <see cref="ProcessingJob"/>. The single entry point every promotion path funnels
+    /// through — the automatic cascade, the manual trigger, the trigger-entity path, and re-promote —
+    /// so the group+job pair is created identically everywhere.
+    /// </summary>
+    public ProcessingJobGroup CreateProcessingRun(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
+    {
+        var jobGroup = jobGroups.CreateProcessingGroup(pipelineId, artifactBundleId, processingStepId);
+        CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, processingStepId);
+        return jobGroup;
     }
 
     /// <summary>

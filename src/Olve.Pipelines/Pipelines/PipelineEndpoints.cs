@@ -79,7 +79,6 @@ public static class PipelineEndpoints
             ProcessingStepService processingSteps,
             PromotionGateService promotionGate,
             ArtifactBundleService bundles,
-            JobGroupService jobGroups,
             JobService jobs,
             Id<Pipeline> id,
             TriggerProcessingRequest request) =>
@@ -104,10 +103,7 @@ public static class PipelineEndpoints
                 if (configResult.TryPickProblems(out problems))
                     return problems;
 
-                var jobGroup = jobGroups.CreateProcessingGroup(id, bundle.Id, step.Id);
-                jobs.CreateProcessingJob(id, jobGroup.Id, bundle.Id, step.Id);
-
-                return jobGroup;
+                return jobs.CreateProcessingRun(id, bundle.Id, step.Id);
             })
             .WithResultMapping<JobGroup>()
             .WithName("TriggerProcessing");

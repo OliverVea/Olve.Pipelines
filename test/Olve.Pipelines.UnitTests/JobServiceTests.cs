@@ -27,11 +27,14 @@ public class JobServiceTests
     {
         store ??= new EntityStore<Job>([]);
         var timeProvider = new TimeProviderMake().Instance();
+        var idp = idProvider ?? new IdProvider();
+        var jobGroups = new JobGroupService(new EntityStore<JobGroup>([]), idp, timeProvider);
 
         return new JobService(
             NullLogger<JobService>.Instance,
             store,
-            idProvider ?? new IdProvider(),
+            jobGroups,
+            idp,
             timeProvider);
     }
 

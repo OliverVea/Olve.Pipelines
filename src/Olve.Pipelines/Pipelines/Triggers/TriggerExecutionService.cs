@@ -111,9 +111,6 @@ public class TriggerExecutionService(
         if (configResult.TryPickProblems(out problems))
             return problems;
 
-        var jobGroup = jobGroups.CreateProcessingGroup(trigger.PipelineId, bundleId, step.Id);
-        jobs.CreateProcessingJob(trigger.PipelineId, jobGroup.Id, bundleId, step.Id);
-
-        return jobGroup;
+        return jobs.CreateProcessingRun(trigger.PipelineId, bundleId, step.Id);
     }
 }

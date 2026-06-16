@@ -185,7 +185,6 @@ public static class ProcessingStepEndpoints
             PromotionGateService promotionGate,
             ArtifactBundleService bundles,
             JobService jobs,
-            JobGroupService jobGroups,
             Id<ProcessingStep> stepId) =>
             {
                 if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
@@ -203,10 +202,7 @@ public static class ProcessingStepEndpoints
                 if (steps.TryGetConfiguration(stepId).TryPickProblems(out problems))
                     return problems;
 
-                var jobGroup = jobGroups.CreateProcessingGroup(step.PipelineId, bundleId, stepId);
-                jobs.CreateProcessingJob(step.PipelineId, jobGroup.Id, bundleId, stepId);
-
-                return jobGroup;
+                return jobs.CreateProcessingRun(step.PipelineId, bundleId, stepId);
             })
             .WithResultMapping<JobGroup>()
             .WithName("RePromoteProcessingStep");

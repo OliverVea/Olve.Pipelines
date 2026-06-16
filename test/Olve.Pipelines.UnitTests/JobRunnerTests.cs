@@ -51,7 +51,9 @@ public class JobRunnerTests
         services.AddSingleton(registry);
         services.AddSingleton<IHostApplicationLifetime>(lifetime);
         services.AddTransient(_ => new JobService(
-            NullLogger<JobService>.Instance, jobStore, new IdProvider(), TimeProvider.System));
+            NullLogger<JobService>.Instance, jobStore,
+            new JobGroupService(new EntityStore<JobGroup>([]), new IdProvider(), TimeProvider.System),
+            new IdProvider(), TimeProvider.System));
         services.AddTransient<JobQueueService>(_ => new JobQueueService(jobStore));
         services.AddTransient<IJobExecutor>(sp => new NoOpJobExecutor(
             sp.GetRequiredService<IServiceScopeFactory>(),
@@ -68,7 +70,9 @@ public class JobRunnerTests
             MaxConcurrentJobs = maxConcurrentJobs,
         };
 
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, new IdProvider(), TimeProvider.System);
+        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore,
+            new JobGroupService(new EntityStore<JobGroup>([]), new IdProvider(), TimeProvider.System),
+            new IdProvider(), TimeProvider.System);
 
         return new TestHarness(runner, jobService, pendingStore, registry, jobStore);
     }

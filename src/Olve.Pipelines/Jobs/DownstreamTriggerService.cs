@@ -97,8 +97,7 @@ public class DownstreamTriggerService(
 
     private void CreateProcessingJob(Id<Pipelines.Pipeline> pipelineId, Id<Pipelines.Building.ArtifactBundle> artifactBundleId, ProcessingStep step)
     {
-        var jobGroup = jobGroupService.CreateProcessingGroup(pipelineId, artifactBundleId, step.Id);
-        jobService.CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, step.Id);
+        jobService.CreateProcessingRun(pipelineId, artifactBundleId, step.Id);
 
         logger.LogInformation(
             "Triggered processing step '{StepName}' (order {Order}) for pipeline '{PipelineId}'",

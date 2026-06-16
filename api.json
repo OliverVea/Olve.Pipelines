@@ -508,6 +508,42 @@
         }
       }
     },
+    "/api/pipelines/summary": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListPipelineSummaries",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{id}/trigger/production": {
       "post": {
         "tags": [
@@ -2873,6 +2909,35 @@
         },
         "description": "Beta: shape may change within the 0.x major version."
       },
+      "PipelineSummary": {
+        "required": [
+          "id",
+          "name",
+          "repo",
+          "steps"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "name": {
+            "type": "string"
+          },
+          "repo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepHealth"
+            }
+          }
+        }
+      },
       "ProcessingJobKey": {
         "type": "object",
         "properties": {
@@ -3227,6 +3292,25 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "StepHealth": {
+        "required": [
+          "name",
+          "kind",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
           }
         }
       },

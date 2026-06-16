@@ -19,6 +19,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(ResultProblem[]))]
 [JsonSerializable(typeof(Result<Pipeline>))]
 [JsonSerializable(typeof(Result<Pipeline[]>))]
+[JsonSerializable(typeof(Result<PipelineSummary[]>))]
 [JsonSerializable(typeof(Result<ProductionStep>))]
 [JsonSerializable(typeof(Result<ProductionStep[]>))]
 [JsonSerializable(typeof(ProductionStepEndpoints.CreateProductionStepRequest))]

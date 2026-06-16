@@ -75,6 +75,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
+        services.AddTransient<PipelineSummaryService>();
         services.AddTransient<PipelineDocumentBuilder>();
         services.AddTransient<PipelineDocumentCreator>();
         services.AddTransient<ManifestCompiler>();

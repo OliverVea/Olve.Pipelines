@@ -339,6 +339,15 @@ export function createPipelineDocumentFromDiscriminatorValue(parseNode: ParseNod
 export function createPipelineFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipeline;
 }
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineSummary}
+ */
+// @ts-ignore
+export function createPipelineSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineSummary;
+}
 export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Parsable {
     /**
      * The branch property
@@ -592,6 +601,15 @@ export function createStepConfigurationDocumentFromDiscriminatorValue(parseNode:
 // @ts-ignore
 export function createStepConfigurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoStepConfiguration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepHealth}
+ */
+// @ts-ignore
+export function createStepHealthFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepHealth;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1181,6 +1199,20 @@ export function deserializeIntoPipelineDocument(pipelineDocument: Partial<Pipeli
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineSummary The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineSummary(pipelineSummary: Partial<PipelineSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "id": n => { pipelineSummary.id = n.getGuidValue(); },
+        "name": n => { pipelineSummary.name = n.getStringValue(); },
+        "repo": n => { pipelineSummary.repo = n.getStringValue(); },
+        "steps": n => { pipelineSummary.steps = n.getCollectionOfObjectValues<StepHealth>(createStepHealthFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ProcessingJobKey The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1465,6 +1497,19 @@ export function deserializeIntoStepConfigurationDocument(stepConfigurationDocume
 // @ts-ignore
 export function deserializeIntoStepConfigurationDocument_environmentVariables(stepConfigurationDocument_environmentVariables: Partial<StepConfigurationDocument_environmentVariables> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepHealth The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepHealth(stepHealth: Partial<StepHealth> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "kind": n => { stepHealth.kind = n.getStringValue(); },
+        "name": n => { stepHealth.name = n.getStringValue(); },
+        "status": n => { stepHealth.status = n.getStringValue(); },
     }
 }
 /**
@@ -2022,6 +2067,24 @@ export interface PipelineDocument extends AdditionalDataHolder, Parsable {
      * The triggers property
      */
     triggers?: TriggerDocument[] | null;
+}
+export interface PipelineSummary extends AdditionalDataHolder, Parsable {
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The steps property
+     */
+    steps?: StepHealth[] | null;
 }
 export interface ProcessingJobKey extends AdditionalDataHolder, Parsable {
     /**
@@ -2624,6 +2687,21 @@ export function serializePipelineDocument(writer: SerializationWriter, pipelineD
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineSummary The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineSummary(writer: SerializationWriter, pipelineSummary: Partial<PipelineSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineSummary || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("id", pipelineSummary.id);
+    writer.writeStringValue("name", pipelineSummary.name);
+    writer.writeStringValue("repo", pipelineSummary.repo);
+    writer.writeCollectionOfObjectValues<StepHealth>("steps", pipelineSummary.steps, serializeStepHealth);
+    writer.writeAdditionalData(pipelineSummary.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ProcessingJobKey The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2932,6 +3010,20 @@ export function serializeStepConfigurationDocument_environmentVariables(writer: 
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepHealth The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepHealth(writer: SerializationWriter, stepHealth: Partial<StepHealth> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepHealth || isSerializingDerivedType) { return; }
+    writer.writeStringValue("kind", stepHealth.kind);
+    writer.writeStringValue("name", stepHealth.name);
+    writer.writeStringValue("status", stepHealth.status);
+    writer.writeAdditionalData(stepHealth.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param StepPromotionState The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3234,6 +3326,20 @@ export interface StepConfigurationDocument extends AdditionalDataHolder, Parsabl
     script?: string | null;
 }
 export interface StepConfigurationDocument_environmentVariables extends AdditionalDataHolder, Parsable {
+}
+export interface StepHealth extends AdditionalDataHolder, Parsable {
+    /**
+     * The kind property
+     */
+    kind?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
 }
 export interface StepPromotionState extends AdditionalDataHolder, Parsable {
     /**

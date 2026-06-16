@@ -8,6 +8,8 @@ import { FromDocumentRequestBuilderRequestsMetadata, type FromDocumentRequestBui
 // @ts-ignore
 import { ItemRequestBuilderNavigationMetadata, ItemRequestBuilderRequestsMetadata, type ItemRequestBuilder } from './item/index.js';
 // @ts-ignore
+import { SummaryRequestBuilderRequestsMetadata, type SummaryRequestBuilder } from './summary/index.js';
+// @ts-ignore
 import { type WithRepoRequestBuilder, WithRepoRequestBuilderRequestsMetadata } from './withRepo/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -20,6 +22,10 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      * The fromDocument property
      */
     get fromDocument(): FromDocumentRequestBuilder;
+    /**
+     * The summary property
+     */
+    get summary(): SummaryRequestBuilder;
     /**
      * The withRepo property
      */
@@ -71,6 +77,9 @@ export const PipelinesRequestBuilderNavigationMetadata: Record<Exclude<keyof Pip
     },
     fromDocument: {
         requestsMetadata: FromDocumentRequestBuilderRequestsMetadata,
+    },
+    summary: {
+        requestsMetadata: SummaryRequestBuilderRequestsMetadata,
     },
     withRepo: {
         requestsMetadata: WithRepoRequestBuilderRequestsMetadata,

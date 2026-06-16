@@ -105,6 +105,38 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         return latest?.ArtifactBundleId;
     }
 
+    /// <summary>
+    /// The most recent job for each (production/processing) step in a pipeline, keyed by step Id.
+    /// One pass over the pipeline's jobs; used by the list summary to colour the step-health strip
+    /// without an N+1 of per-step queries.
+    /// </summary>
+    public (Dictionary<Id<ProductionStep>, Job> Production, Dictionary<Id<ProcessingStep>, Job> Processing)
+        GetLatestJobsByStep(Id<Pipeline> pipelineId)
+    {
+        var production = new Dictionary<Id<ProductionStep>, Job>();
+        var processing = new Dictionary<Id<ProcessingStep>, Job>();
+
+        foreach (var id in _byPipeline.GetForKey(pipelineId))
+        {
+            if (!store.TryGet(id, out var job))
+                continue;
+
+            switch (job)
+            {
+                case ProductionJob p
+                    when !production.TryGetValue(p.ProductionStepId, out var cur) || p.CreatedAt > cur.CreatedAt:
+                    production[p.ProductionStepId] = p;
+                    break;
+                case ProcessingJob p
+                    when !processing.TryGetValue(p.ProcessingStepId, out var cur) || p.CreatedAt > cur.CreatedAt:
+                    processing[p.ProcessingStepId] = p;
+                    break;
+            }
+        }
+
+        return (production, processing);
+    }
+
     public IReadOnlyList<Job> GetJobsByGroup(Id<JobGroup> jobGroupId)
     {
         var ids = _byGroup.GetForKey(jobGroupId);

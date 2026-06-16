@@ -32,6 +32,12 @@ public static class PipelineEndpoints
             .WithName("ListPipelines")
             .AllowAnonymous();
 
+        group.MapGet("/summary", Result<PipelineSummary[]> (PipelineSummaryService service)
+                => service.List().ToArray())
+            .WithResultMapping<PipelineSummary[]>()
+            .WithName("ListPipelineSummaries")
+            .AllowAnonymous();
+
         group.MapDelete("/{id}", DeletionResult (PipelineService service, Id<Pipeline> id)
                 => service.Delete(id))
             .WithDeletionMapping()

@@ -36,7 +36,7 @@ public sealed class InstallCommand(IProcessRunner processRunner)
         var gitRef = cli.Option("ref", DefaultRef);
         var localChart = cli.Option("chart");
 
-        if ((await Preflight(ct)).TryPickProblems(out var pfProblems))
+        if ((await ClusterPreflight.RunAsync(processRunner, ct)).TryPickProblems(out var pfProblems))
             return pfProblems;
 
         if ((await EnsureNamespace(ns, ct)).TryPickProblems(out var nsProblems))
@@ -72,25 +72,6 @@ public sealed class InstallCommand(IProcessRunner processRunner)
         }
 
         Step($"Done. Controller '{release}' is ready in namespace '{ns}'.");
-        return Result.Success();
-    }
-
-    private async Task<Result> Preflight(CancellationToken ct)
-    {
-        Step("Preflight: checking kubectl, helm, and cluster access");
-
-        if ((await processRunner.RunCheckedAsync("kubectl", ["version", "--client"], ct: ct)).TryPickProblems(out var kp))
-            return kp;
-        if ((await processRunner.RunCheckedAsync("helm", ["version", "--short"], ct: ct)).TryPickProblems(out var hp))
-            return hp;
-
-        var context = await processRunner.RunAsync("kubectl", ["config", "current-context"], ct: ct);
-        if (!context.TryPickProblems(out _, out var ctx) && ctx.Succeeded)
-            Console.WriteLine($"  context: {ctx.StandardOutput.Trim()}");
-
-        if ((await processRunner.RunCheckedAsync("kubectl", ["cluster-info"], ct: ct)).TryPickProblems(out var cip))
-            return new ResultProblem("Cluster is not reachable: {0}", string.Join("; ", cip.Select(p => p.ToString())));
-
         return Result.Success();
     }
 

@@ -28,10 +28,12 @@ public static class ServiceConfiguration
         services.AddTransient<ProductionStepCleanupService>();
         services.AddSingleton<EntityStore<ProcessingStep>>();
         services.AddSingleton<AttachmentStore<ProcessingStep, StepConfiguration>>();
+        services.AddSingleton<AttachmentStore<ProcessingStep, ProcessingStepPromotion>>();
         services.AddSingleton<ProcessingStepEvents>();
         services.AddSingleton<IRunOnStartup, ProcessingStepEventRegistration>();
         services.AddTransient<ProcessingStepService>();
         services.AddTransient<ProcessingStepCleanupService>();
+        services.AddTransient<PromotionGateService>();
         services.AddSingleton<EntityStore<Trigger>>();
         services.AddSingleton<TriggerEvents>();
         services.AddSingleton<IRunOnStartup, TriggerEventRegistration>();
@@ -82,6 +84,7 @@ public static class ServiceConfiguration
         services.AddTransient<ReconcileCoordinator>();
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
+        services.AddHostedService<PromotionPersistenceService>();
         services.AddHostedService<BundlePersistenceService>();
         services.AddHostedService<JobPersistenceService>();
     }

@@ -5,6 +5,7 @@ namespace Olve.Pipelines.Jobs;
 public class DownstreamTriggerService(
     JobGroupService jobGroupService,
     ProcessingStepService processingStepService,
+    PromotionGateService promotionGate,
     JobService jobService,
     ILogger<DownstreamTriggerService> logger)
 {
@@ -46,6 +47,14 @@ public class DownstreamTriggerService(
             return;
         }
 
+        if (promotionGate.IsBlocked(firstStep.Id))
+        {
+            logger.LogInformation(
+                "First processing step '{StepId}' has promotion blocked — halting downstream trigger",
+                firstStep.Id);
+            return;
+        }
+
         CreateProcessingJob(group.PipelineId, group.ArtifactBundleId, firstStep);
     }
 
@@ -71,6 +80,14 @@ public class DownstreamTriggerService(
         {
             logger.LogWarning(
                 "Next processing step '{StepId}' has no configuration — skipping downstream trigger",
+                nextStep.Id);
+            return;
+        }
+
+        if (promotionGate.IsBlocked(nextStep.Id))
+        {
+            logger.LogInformation(
+                "Next processing step '{StepId}' has promotion blocked — halting downstream trigger",
                 nextStep.Id);
             return;
         }

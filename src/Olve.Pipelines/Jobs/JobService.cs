@@ -83,6 +83,28 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdPr
         return job;
     }
 
+    /// <summary>
+    /// The artifact bundle most recently promoted into <paramref name="processingStepId"/>, i.e. the
+    /// bundle of the newest <see cref="ProcessingJob"/> created for that step. Used by re-promote to
+    /// redrive the same bundle. Null when the step has never run.
+    /// </summary>
+    public Id<ArtifactBundle>? GetLastPromotedBundle(Id<Pipeline> pipelineId, Id<ProcessingStep> processingStepId)
+    {
+        ProcessingJob? latest = null;
+        foreach (var id in _byPipeline.GetForKey(pipelineId))
+        {
+            if (store.TryGet(id, out var job)
+                && job is ProcessingJob processing
+                && processing.ProcessingStepId == processingStepId
+                && (latest is null || processing.CreatedAt > latest.CreatedAt))
+            {
+                latest = processing;
+            }
+        }
+
+        return latest?.ArtifactBundleId;
+    }
+
     public IReadOnlyList<Job> GetJobsByGroup(Id<JobGroup> jobGroupId)
     {
         var ids = _byGroup.GetForKey(jobGroupId);

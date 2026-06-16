@@ -1006,6 +1006,52 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/processing/promotions": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListProcessingStepPromotions",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StepPromotionState"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/processing-steps/{stepId}": {
       "get": {
         "tags": [
@@ -1250,6 +1296,143 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processing-steps/{stepId}/promotion": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetProcessingStepPromotion",
+        "parameters": [
+          {
+            "name": "stepId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "SetProcessingStepPromotion",
+        "parameters": [
+          {
+            "name": "stepId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPromotionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processing-steps/{stepId}/re-promote": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "RePromoteProcessingStep",
+        "parameters": [
+          {
+            "name": "stepId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobGroup"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -2800,6 +2983,17 @@
           }
         }
       },
+      "PromotionState": {
+        "required": [
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          }
+        }
+      },
       "ReconcileResult": {
         "type": "integer"
       },
@@ -2940,6 +3134,17 @@
           }
         }
       },
+      "SetPromotionRequest": {
+        "required": [
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          }
+        }
+      },
       "SetSecretRequest": {
         "required": [
           "value"
@@ -3022,6 +3227,21 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "StepPromotionState": {
+        "required": [
+          "processingStepId",
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          },
+          "blocked": {
+            "type": "boolean"
           }
         }
       },

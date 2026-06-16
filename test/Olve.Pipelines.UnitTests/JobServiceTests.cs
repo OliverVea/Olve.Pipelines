@@ -106,4 +106,58 @@ public class JobServiceTests
         await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
         await Assert.That(store.List()).Count().IsEqualTo(2);
     }
+
+    private static ProcessingJob MakeProcessingJob(
+        Id<Pipeline> pipelineId, Id<ProcessingStep> stepId, Id<ArtifactBundle> bundleId, DateTimeOffset createdAt)
+        => new(Id.New<Job>(), pipelineId, createdAt, new Scheduled(), Id.New<JobGroup>(), bundleId, stepId);
+
+    [Test]
+    public async Task GetLastPromotedBundle_NoRuns_ReturnsNull()
+    {
+        var service = CreateService();
+        var result = service.GetLastPromotedBundle(Id.New<Pipeline>(), Id.New<ProcessingStep>());
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task GetLastPromotedBundle_ReturnsBundleOfNewestJobForStep()
+    {
+        var pipelineId = Id.New<Pipeline>();
+        var stepId = Id.New<ProcessingStep>();
+        var oldBundle = Id.New<ArtifactBundle>();
+        var newBundle = Id.New<ArtifactBundle>();
+        var baseTime = DateTimeOffset.UtcNow;
+
+        var store = new EntityStore<Job>([
+            MakeProcessingJob(pipelineId, stepId, oldBundle, baseTime),
+            MakeProcessingJob(pipelineId, stepId, newBundle, baseTime.AddMinutes(5)),
+        ]);
+        var service = CreateService(store: store);
+
+        var result = service.GetLastPromotedBundle(pipelineId, stepId);
+
+        await Assert.That(result).IsEqualTo(newBundle);
+    }
+
+    [Test]
+    public async Task GetLastPromotedBundle_IgnoresOtherStepsAndPipelines()
+    {
+        var pipelineId = Id.New<Pipeline>();
+        var stepId = Id.New<ProcessingStep>();
+        var wantedBundle = Id.New<ArtifactBundle>();
+        var baseTime = DateTimeOffset.UtcNow;
+
+        var store = new EntityStore<Job>([
+            MakeProcessingJob(pipelineId, stepId, wantedBundle, baseTime),
+            // Newer job but for a different step — must be ignored.
+            MakeProcessingJob(pipelineId, Id.New<ProcessingStep>(), Id.New<ArtifactBundle>(), baseTime.AddMinutes(10)),
+            // Newer job for the same step Id but a different pipeline — must be ignored.
+            MakeProcessingJob(Id.New<Pipeline>(), stepId, Id.New<ArtifactBundle>(), baseTime.AddMinutes(10)),
+        ]);
+        var service = CreateService(store: store);
+
+        var result = service.GetLastPromotedBundle(pipelineId, stepId);
+
+        await Assert.That(result).IsEqualTo(wantedBundle);
+    }
 }

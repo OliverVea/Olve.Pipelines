@@ -15,6 +15,7 @@ public class TriggerExecutionService(
     ArtifactBundleService bundles,
     JobGroupService jobGroups,
     JobService jobs,
+    PromotionGateService promotionGate,
     ReconcilePauseState pauseState)
 {
     public Result<JobGroup> Execute(Id<Trigger> triggerId, string secret, Id<ArtifactBundle>? artifactBundleId)
@@ -102,6 +103,9 @@ public class TriggerExecutionService(
 
         if (step.PipelineId != trigger.PipelineId)
             return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{target.ProcessingStepId}' does not belong to pipeline '{trigger.PipelineId}'."));
+
+        if (promotionGate.IsBlocked(step.Id))
+            return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{step.Id}' has promotion blocked; trigger refused."));
 
         var configResult = processingSteps.TryGetConfiguration(step.Id);
         if (configResult.TryPickProblems(out problems))

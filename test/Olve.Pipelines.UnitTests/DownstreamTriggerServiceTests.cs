@@ -19,6 +19,7 @@ public class DownstreamTriggerServiceTests
         EntityStore<JobGroup> JobGroupStore,
         EntityStore<ProcessingStep> ProcessingStepStore,
         AttachmentStore<ProcessingStep, StepConfiguration> ProcessingStepConfig,
+        PromotionGateService PromotionGate,
         JobService JobService,
         JobGroupService JobGroupService,
         ProcessingStepService ProcessingStepService,
@@ -44,20 +45,22 @@ public class DownstreamTriggerServiceTests
         var jobGroupService = new JobGroupService(jobGroupStore, idProvider, timeProvider);
         var bundleService = new ArtifactBundleService(bundleStore);
         var processingStepService = new ProcessingStepService(processingStepStore, processingStepConfig, idProvider);
+        var promotionStore = new AttachmentStore<ProcessingStep, ProcessingStepPromotion>(processingStepStore);
+        var promotionGate = new PromotionGateService(promotionStore);
 
         var completionService = new JobGroupCompletionService(
             jobService, jobGroupService, bundleService, events,
             NullLogger<JobGroupCompletionService>.Instance);
 
         var downstreamTriggerService = new DownstreamTriggerService(
-            jobGroupService, processingStepService, jobService,
+            jobGroupService, processingStepService, promotionGate, jobService,
             NullLogger<DownstreamTriggerService>.Instance);
 
         events.OnUpdated.Subscribe(completionService.HandleJobUpdated);
         events.OnGroupCompleted.Subscribe(downstreamTriggerService.HandleGroupCompleted);
 
         return new Services(
-            jobStore, jobGroupStore, processingStepStore, processingStepConfig,
+            jobStore, jobGroupStore, processingStepStore, processingStepConfig, promotionGate,
             jobService, jobGroupService, processingStepService,
             completionService, downstreamTriggerService, events);
     }
@@ -237,6 +240,77 @@ public class DownstreamTriggerServiceTests
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task PromotionBlocked_FirstStep_NotTriggered()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 1));
+        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo deploy", []));
+        svc.PromotionGate.Block(step1.Id);
+
+        var bundleId = Id.New<ArtifactBundle>();
+        var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
+        var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
+
+        CompleteJob(svc, prodJob.Id);
+
+        var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
+        await Assert.That(processingJobs).Count().IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task PromotionBlocked_NextStep_HaltsChainWithoutSkipping()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+        var bundleId = Id.New<ArtifactBundle>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
+        var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
+        var step3 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-3", 3));
+        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []));
+        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []));
+        svc.ProcessingStepService.SetConfiguration(step3.Id, new StepConfiguration("img", "s3", []));
+
+        // Block the middle step: completing step1 must NOT trigger step2, and must NOT skip to step3.
+        svc.PromotionGate.Block(step2.Id);
+
+        var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
+        var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
+
+        CompleteJob(svc, job1.Id);
+
+        var laterJobs = svc.JobService.ListJobs().OfType<ProcessingJob>()
+            .Where(j => j.ProcessingStepId == step2.Id || j.ProcessingStepId == step3.Id).ToArray();
+        await Assert.That(laterJobs).Count().IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task PromotionUnblocked_ResumesCascade()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+        var bundleId = Id.New<ArtifactBundle>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
+        var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
+        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []));
+        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []));
+
+        svc.PromotionGate.Block(step2.Id);
+        svc.PromotionGate.Unblock(step2.Id);
+
+        var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
+        var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
+
+        CompleteJob(svc, job1.Id);
+
+        var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
+        await Assert.That(step2Jobs).Count().IsEqualTo(1);
     }
 
     [Test]

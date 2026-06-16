@@ -71,6 +71,7 @@ public static class PipelineEndpoints
         group.MapPost("/{id}/trigger/processing", Result<JobGroup> (
             PipelineService pipelines,
             ProcessingStepService processingSteps,
+            PromotionGateService promotionGate,
             ArtifactBundleService bundles,
             JobGroupService jobGroups,
             JobService jobs,
@@ -89,6 +90,9 @@ public static class PipelineEndpoints
 
                 if (step.PipelineId != id)
                     return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{request.ProcessingStepId}' does not belong to pipeline '{id}'."));
+
+                if (promotionGate.IsBlocked(step.Id))
+                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{step.Id}' has promotion blocked; trigger refused."));
 
                 var configResult = processingSteps.TryGetConfiguration(step.Id);
                 if (configResult.TryPickProblems(out problems))

@@ -1,0 +1,16 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-minio-data
+  labels:
+    app: {{ .Release.Name }}-minio
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.minio.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.minio.storage }}
+{{- end }}

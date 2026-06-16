@@ -30,6 +30,26 @@ resources:
     cpu: 500m
     memory: 256Mi
 
+# Dedicated in-cluster MinIO for this instance's storage (snapshots + bundles).
+# Disabled by default; enabled per-environment (beta first). When enabled, point the
+# controller at it via Storage__Endpoint + static creds (see values-beta.yaml). The
+# credentials Secret (keys: root-user, root-password) is created out-of-band —
+# see docs/operations/environment-setup.md.
+minio:
+  enabled: true
+  image: "minio/minio:RELEASE.2025-09-07T16-13-09Z"
+  credentialsSecret: olve-pipelines-minio
+  bucket: olve-pipelines
+  storage: 10Gi
+  storageClass: local-path
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 config:
   Host: "0.0.0.0"
   Port: "5000"
@@ -41,8 +61,12 @@ config:
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"
   OpenTelemetry__OAuth2__ClientId: "otel"
-  Storage__Endpoint: "https://minio.ovea.pro"
+  # Dedicated in-cluster MinIO (this instance's own), reached cross-namespace by the
+  # runner Jobs in olve-runners. Static creds (below) take precedence over STS.
+  Storage__Endpoint: "http://olve-pipelines-minio.apps:9000"
   Storage__Bucket: "olve-pipelines"
+  # AuthUrl/ClientId/ClientSecret are still required: KubernetesConfiguration reuses
+  # them for OpenBao auth to reach the cluster. They are now inert for storage.
   Storage__AuthUrl: "https://auth.ovea.pro/application/o/token/"
   Kubernetes__OpenBaoUrl: "https://openbao.ovea.pro"
   Kubernetes__Namespace: "olve-runners"
@@ -56,6 +80,12 @@ secrets:
       Storage__ClientId: client-id
       Storage__ClientSecret: client-secret
       Storage__RoleArn: role-arn
+  # Static MinIO creds (root = app creds for now). Created out-of-band; see
+  # docs/operations/environment-setup.md.
+  - name: olve-pipelines-minio
+    envMap:
+      Storage__AccessKey: root-user
+      Storage__SecretKey: root-password
 
 authentikCa:
   fileName: auth-prod-ca.crt

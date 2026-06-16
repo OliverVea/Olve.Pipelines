@@ -12,6 +12,16 @@ Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──
 - **Processing steps** run sequentially. Each receives the full ArtifactBundle.
 - Every step is configured as `(image, script, env)` and executed as a Kubernetes Job.
 
+### Promotion gate (state, not config)
+
+A **promotion** is the ArtifactBundle advancing *into* a processing step. Each processing step
+has a gate that can **block** promotion (the bundle stops at that step instead of cascading on) and
+a **re-promote** action that redrives the step's last-used bundle. This is operational **state, not
+GitOps config**: it is API-mutable and stays available even on a git-bound pipeline (configuration
+is git-only, but operations like blocking/unblocking and re-promoting are allowed). The blocked set
+is persisted separately (`promotion-state.json`) so a braked step stays braked across a restart.
+`blocked` is orthogonal to job status — a step can be `Done` *and* have its promotion blocked.
+
 ## GitOps Configuration
 
 > **Adding CD to your own repo?** This is the section for you. You don't deploy or modify this
@@ -115,9 +125,11 @@ tools/version.cs                                 # CalVer versioning script
 |--------|------|-------------|
 | POST | `/api/pipelines?name=<name>` | Create pipeline |
 | GET | `/api/pipelines` | List pipelines |
+| GET | `/api/pipelines/summary` | List pipelines with per-step health (for the list page; one round-trip) |
 | GET | `/api/pipelines/{id}` | Get pipeline |
 | DELETE | `/api/pipelines/{id}` | Delete pipeline (cascades) |
 | POST | `/api/pipelines/{id}/trigger/production` | Trigger production jobs |
+| GET | `/api/pipelines/{id}/processing/promotions` | List per-step promotion (blocked) state |
 
 ### Production Steps
 
@@ -143,6 +155,9 @@ tools/version.cs                                 # CalVer versioning script
 | PUT | `/api/processing-steps/{stepId}/configuration` | Set step configuration |
 | GET | `/api/processing-steps/{stepId}/configuration` | Get step configuration |
 | DELETE | `/api/processing-steps/{stepId}/configuration` | Remove step configuration |
+| GET | `/api/processing-steps/{stepId}/promotion` | Get promotion gate (`{ blocked }`) |
+| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational; open when bound) |
+| POST | `/api/processing-steps/{stepId}/re-promote` | Redrive the step's last bundle (refused if blocked or never run) |
 
 ### Artifact Bundles
 

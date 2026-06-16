@@ -36,6 +36,12 @@ Every step (production or processing) shares the same configuration shape: `Step
 
 Configuration defines *what* each step does. Execution is triggered via `POST /api/pipelines/{id}/trigger/production`. Processing step triggering will propagate the artifact bundle through the pipeline automatically.
 
+### Promotion Gate (operational state, not config)
+
+Each processing step has a **promotion gate**: a `blocked` flag (the brake) plus a **re-promote** action that redrives the step's last bundle. This is operational **state, not GitOps config** — it lives in an `AttachmentStore<ProcessingStep, ProcessingStepPromotion>` keyed on the step Id (absence = enabled), **not** on the `ProcessingStep` record, so reconcile never erases an operator's gate. It is API-mutable even on a git-bound pipeline (the config-vs-operations dividing line) and persisted separately to `promotion-state.json` so a braked step survives a restart.
+
+`PromotionGateService.IsBlocked` is the short-circuit every path that creates a `ProcessingJob` consults — the automatic cascade (`DownstreamTriggerService`, which halts the chain without skipping ahead), the manual `trigger/processing` endpoint, the trigger-entity path (`TriggerExecutionService`), and `re-promote`. All four funnel through `JobService.CreateProcessingRun` (group + job), the single creation point. When adding a new way to start a processing job, route it through `CreateProcessingRun` and gate it on `IsBlocked`.
+
 ### Execution
 
 All pipeline steps execute as **Kubernetes Jobs**. Each Job gets:

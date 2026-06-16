@@ -33,8 +33,7 @@ public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset C
         JobStatus Status,
         Id<JobGroup> JobGroupId,
         Id<ArtifactBundle> ArtifactBundleId,
-        Id<ProcessingStep> ProcessingStepId,
-        Result? ProcessingResult = null) : Job(Id, PipelineId, CreatedAt, Status, JobGroupId)
+        Id<ProcessingStep> ProcessingStepId) : Job(Id, PipelineId, CreatedAt, Status, JobGroupId)
     {
         public ProcessingJobKey JobKey => new(PipelineId, ProcessingStepId);
     }

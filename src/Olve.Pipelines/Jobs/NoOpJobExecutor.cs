@@ -54,21 +54,9 @@ public class NoOpJobExecutor(
 
     private void WriteDone(Job job, DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
-        switch (job)
+        jobService.UpdateJob<Job>(job.Id, j => j with
         {
-            case ProductionJob:
-                jobService.UpdateJob<ProductionJob>(job.Id, j => j with
-                {
-                    Status = new Done(startedAt, completedAt),
-                });
-                break;
-            case ProcessingJob:
-                jobService.UpdateJob<ProcessingJob>(job.Id, j => j with
-                {
-                    Status = new Done(startedAt, completedAt),
-                    ProcessingResult = Result.Success(),
-                });
-                break;
-        }
+            Status = new Done(startedAt, completedAt),
+        });
     }
 }

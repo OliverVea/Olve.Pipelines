@@ -168,24 +168,6 @@ export function createJobGroupProductionJobGroupFromDiscriminatorValue(parseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobProcessingJob_processingResultMember1 | Result}
- */
-// @ts-ignore
-export function createJobProcessingJob_processingResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobProcessingJob_processingResult;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobProcessingJob_processingResultMember1}
- */
-// @ts-ignore
-export function createJobProcessingJob_processingResultMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobProcessingJob_processingResultMember1;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {JobProcessingJob}
  */
 // @ts-ignore
@@ -493,15 +475,6 @@ export function createPromotionStateFromDiscriminatorValue(parseNode: ParseNode 
 // @ts-ignore
 export function createReconcileStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoReconcileStatus;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {Result}
- */
-// @ts-ignore
-export function createResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoResult;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -969,31 +942,8 @@ export function deserializeIntoJobProcessingJob(jobProcessingJob: Partial<JobPro
         "jobGroupId": n => { jobProcessingJob.jobGroupId = n.getGuidValue(); },
         "jobKey": n => { jobProcessingJob.jobKey = n.getObjectValue<ProcessingJobKey>(createProcessingJobKeyFromDiscriminatorValue); },
         "pipelineId": n => { jobProcessingJob.pipelineId = n.getGuidValue(); },
-        "processingResult": n => { jobProcessingJob.processingResult = n.getObjectValue<JobProcessingJob_processingResultMember1>(createJobProcessingJob_processingResultMember1FromDiscriminatorValue) ?? n.getObjectValue<Result>(createResultFromDiscriminatorValue); },
         "processingStepId": n => { jobProcessingJob.processingStepId = n.getGuidValue(); },
         "status": n => { jobProcessingJob.status = n.getObjectValue<JobStatus>(createJobStatusFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobProcessingJob_processingResult The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobProcessingJob_processingResult(jobProcessingJob_processingResult: Partial<JobProcessingJob_processingResultMember1 | Result> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobProcessingJob_processingResultMember1(jobProcessingJob_processingResult as JobProcessingJob_processingResultMember1),
-        ...deserializeIntoResult(jobProcessingJob_processingResult as Result),
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobProcessingJob_processingResultMember1 The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobProcessingJob_processingResultMember1(jobProcessingJob_processingResultMember1: Partial<JobProcessingJob_processingResultMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
     }
 }
 /**
@@ -1353,19 +1303,6 @@ export function deserializeIntoReconcileStatus(reconcileStatus: Partial<Reconcil
         "lastSyncTime": n => { reconcileStatus.lastSyncTime = n.getDateValue(); },
         "problems": n => { reconcileStatus.problems = n.getCollectionOfPrimitiveValues<string>(); },
         "result": n => { reconcileStatus.result = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param Result The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoResult(result: Partial<Result> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "failed": n => { result.failed = n.getBooleanValue(); },
-        "problems": n => { result.problems = n.getCollectionOfObjectValues<ResultProblem>(createResultProblemFromDiscriminatorValue); },
-        "succeeded": n => { result.succeeded = n.getBooleanValue(); },
     }
 }
 /**
@@ -1806,10 +1743,6 @@ export interface JobProcessingJob extends Job, Parsable {
      */
     pipelineId?: Guid | null;
     /**
-     * The processingResult property
-     */
-    processingResult?: JobProcessingJob_processingResultMember1 | Result | null;
-    /**
      * The processingStepId property
      */
     processingStepId?: Guid | null;
@@ -1817,9 +1750,6 @@ export interface JobProcessingJob extends Job, Parsable {
      * The status property
      */
     status?: JobStatus | null;
-}
-export type JobProcessingJob_processingResult = JobProcessingJob_processingResultMember1 | Result;
-export interface JobProcessingJob_processingResultMember1 extends AdditionalDataHolder, Parsable {
 }
 export interface JobProductionJob extends Job, Parsable {
     /**
@@ -2188,20 +2118,6 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
      */
     result?: number | null;
 }
-export interface Result extends AdditionalDataHolder, Parsable {
-    /**
-     * The failed property
-     */
-    failed?: boolean | null;
-    /**
-     * The problems property
-     */
-    problems?: ResultProblem[] | null;
-    /**
-     * The succeeded property
-     */
-    succeeded?: boolean | null;
-}
 export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable {
     /**
      * The exceptionSummary property
@@ -2430,31 +2346,8 @@ export function serializeJobProcessingJob(writer: SerializationWriter, jobProces
     writer.writeGuidValue("jobGroupId", jobProcessingJob.jobGroupId);
     writer.writeObjectValue<ProcessingJobKey>("jobKey", jobProcessingJob.jobKey, serializeProcessingJobKey);
     writer.writeGuidValue("pipelineId", jobProcessingJob.pipelineId);
-    writer.writeObjectValue<JobProcessingJob_processingResultMember1 | Result>("processingResult", jobProcessingJob.processingResult, serializeJobProcessingJob_processingResult);
     writer.writeGuidValue("processingStepId", jobProcessingJob.processingStepId);
     writer.writeObjectValue<JobStatus>("status", jobProcessingJob.status, serializeJobStatus);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobProcessingJob_processingResult The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobProcessingJob_processingResult(writer: SerializationWriter, jobProcessingJob_processingResult: Partial<JobProcessingJob_processingResultMember1 | Result> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    serializeJobProcessingJob_processingResultMember1(writer, jobProcessingJob_processingResult as JobProcessingJob_processingResultMember1);
-    serializeResult(writer, jobProcessingJob_processingResult as Result);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobProcessingJob_processingResultMember1 The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobProcessingJob_processingResultMember1(writer: SerializationWriter, jobProcessingJob_processingResultMember1: Partial<JobProcessingJob_processingResultMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobProcessingJob_processingResultMember1 || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(jobProcessingJob_processingResultMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2850,20 +2743,6 @@ export function serializeReconcileStatus(writer: SerializationWriter, reconcileS
     writer.writeCollectionOfPrimitiveValues<string>("problems", reconcileStatus.problems);
     writer.writeNumberValue("result", reconcileStatus.result);
     writer.writeAdditionalData(reconcileStatus.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param Result The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeResult(writer: SerializationWriter, result: Partial<Result> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!result || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("failed", result.failed);
-    writer.writeCollectionOfObjectValues<ResultProblem>("problems", result.problems, serializeResultProblem);
-    writer.writeBooleanValue("succeeded", result.succeeded);
-    writer.writeAdditionalData(result.additionalData);
 }
 /**
  * Serializes information the current object

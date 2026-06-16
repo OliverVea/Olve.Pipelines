@@ -2469,16 +2469,6 @@
           "processingStepId": {
             "$ref": "#/components/schemas/IdOfProcessingStep"
           },
-          "processingResult": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Result"
-              }
-            ]
-          },
           "jobKey": {
             "$ref": "#/components/schemas/ProcessingJobKey"
           },
@@ -3091,26 +3081,6 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SecretDeclaration"
-            }
-          }
-        }
-      },
-      "Result": {
-        "type": "object",
-        "properties": {
-          "succeeded": {
-            "type": "boolean"
-          },
-          "failed": {
-            "type": "boolean"
-          },
-          "problems": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/ResultProblem"
             }
           }
         }

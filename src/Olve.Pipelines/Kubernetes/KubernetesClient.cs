@@ -9,20 +9,26 @@ public class KubernetesClient : IKubernetesClient, IDisposable
     private readonly HttpClient _httpClient;
     private readonly ILogger<KubernetesClient>? _logger;
 
+    /// <param name="tokenProvider">
+    /// When supplied, the bearer token is re-read from here on every request (used for
+    /// rotating in-cluster ServiceAccount tokens). When null, the static
+    /// <see cref="KubernetesCredentials.Token"/> is used for the client's lifetime.
+    /// </param>
     public KubernetesClient(
         KubernetesCredentials credentials,
-        ILogger<KubernetesClient>? logger = null)
+        ILogger<KubernetesClient>? logger = null,
+        Func<CancellationToken, ValueTask<string>>? tokenProvider = null)
     {
         _logger = logger;
 
-        var handler = new HttpClientHandler();
+        var baseHandler = new HttpClientHandler();
 
         if (!string.IsNullOrEmpty(credentials.CaCertificate))
         {
             var caCert = credentials.CaCertificate.Contains("BEGIN CERTIFICATE")
                 ? X509Certificate2.CreateFromPem(credentials.CaCertificate)
                 : X509CertificateLoader.LoadCertificate(Convert.FromBase64String(credentials.CaCertificate));
-            handler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
+            baseHandler.ServerCertificateCustomValidationCallback = (_, cert, chain, errors) =>
             {
                 if (errors == System.Net.Security.SslPolicyErrors.None) return true;
 
@@ -35,12 +41,33 @@ public class KubernetesClient : IKubernetesClient, IDisposable
             };
         }
 
+        HttpMessageHandler handler = tokenProvider is not null
+            ? new BearerTokenHandler(tokenProvider) { InnerHandler = baseHandler }
+            : baseHandler;
+
         _httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(credentials.Server.TrimEnd('/') + "/"),
         };
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", credentials.Token);
+
+        if (tokenProvider is null)
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", credentials.Token);
+        }
+    }
+
+    /// <summary>Sets a fresh bearer token from the provider on each outgoing request.</summary>
+    private sealed class BearerTokenHandler(Func<CancellationToken, ValueTask<string>> tokenProvider)
+        : DelegatingHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", await tokenProvider(cancellationToken));
+            return await base.SendAsync(request, cancellationToken);
+        }
     }
 
     public async Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default)

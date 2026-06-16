@@ -3,6 +3,9 @@
   <PropertyGroup>
     <IsTestProject Condition="'$(RunUnitTests)' == 'false'">false</IsTestProject>
     <IsTestingPlatformApplication Condition="'$(RunUnitTests)' == 'false'">false</IsTestingPlatformApplication>
+    <!-- The CLI apphost is named 'pl'; without this, the testing platform's Polish ('pl')
+         satellite-resource folder collides with it on copy. Keep English resources only. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Olve.Pipelines/Olve.Pipelines.csproj" />
+    <ProjectReference Include="../../src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
   </ItemGroup>
 
 </Project>

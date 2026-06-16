@@ -14,6 +14,9 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      {{- if .Values.serviceAccount.enabled }}
+      serviceAccountName: {{ .Release.Name }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -49,14 +52,18 @@ spec:
               port: {{ .Values.container.port }}
             initialDelaySeconds: 3
             periodSeconds: 5
+          {{- if .Values.authentikCa.enabled }}
           volumeMounts:
             - name: authentik-ca
               mountPath: /etc/ssl/certs/{{ .Values.authentikCa.fileName }}
               subPath: {{ .Values.authentikCa.fileName }}
               readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.authentikCa.enabled }}
       volumes:
         - name: authentik-ca
           configMap:
             name: authentik-ca
+      {{- end }}

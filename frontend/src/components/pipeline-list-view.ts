@@ -359,10 +359,18 @@ export class PipelineListView extends LitElement {
 
   private _ciBox(step: { name?: string | null; status?: string | null }) {
     const status = step.status ?? 'idle';
-    return html`<span
-      class="ci-box ${status}"
-      title="${step.name ?? ''} — ${status}"
-    ></span>`;
+    const name = step.name ?? '';
+    // The mock numbered each box by run; we have no per-run numbering yet, so the
+    // box carries the step's initials instead, with the full name + status on hover.
+    const label = name
+      .split(/[-_\s]+/)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+    return html`<span class="ci-box ${status}" title="${name} — ${status}"
+      >${label}</span
+    >`;
   }
 
   private _repoUrl(repo: string): string {

@@ -7,6 +7,7 @@ import type {
   JobProductionJob,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './step-node.js';
+import './promotion-gate.js';
 
 type Job = JobProcessingJob | JobProductionJob;
 
@@ -45,8 +46,10 @@ export class PipelineFlow extends LitElement {
 
     .connector {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 0.25rem;
       width: 48px;
       flex-shrink: 0;
     }
@@ -63,6 +66,16 @@ export class PipelineFlow extends LitElement {
 
     .connector polygon {
       fill: var(--color-border);
+    }
+
+    /* Promotion arrow (into a processing step): dashed + gold when blocked. */
+    .connector.promotion.gated line {
+      stroke: var(--color-warning);
+      stroke-dasharray: 4 3;
+    }
+
+    .connector.promotion.gated polygon {
+      fill: var(--color-warning);
     }
 
     .bundle-node {
@@ -96,6 +109,8 @@ export class PipelineFlow extends LitElement {
   @property({ attribute: false }) declare productionSteps: ProductionStep[];
   @property({ attribute: false }) declare processingSteps: ProcessingStep[];
   @property({ attribute: false }) declare jobs: Job[];
+  // stepId -> promotion-blocked. Absent/false means promotion is enabled.
+  @property({ attribute: false }) declare promotions: Record<string, boolean>;
 
   constructor() {
     super();
@@ -103,6 +118,7 @@ export class PipelineFlow extends LitElement {
     this.productionSteps = [];
     this.processingSteps = [];
     this.jobs = [];
+    this.promotions = {};
   }
 
   render() {
@@ -136,11 +152,12 @@ export class PipelineFlow extends LitElement {
           <div class="bundle-dot"></div>
         </div>
 
-        <!-- Processing columns (sequential, one per column) -->
+        <!-- Processing columns (sequential, one per column). The connector INTO
+             each processing step is the promotion arrow, carrying the gate. -->
         ${hasProcessing
           ? this.processingSteps.map(
               (step, i) => html`
-                ${i > 0 ? this._renderConnector() : this._renderConnector()}
+                ${this._renderPromotionConnector(step)}
                 <div class="column">
                   ${i === 0
                     ? html`<div class="column-label">Processing</div>`
@@ -170,6 +187,26 @@ export class PipelineFlow extends LitElement {
           <line x1="0" y1="12" x2="38" y2="12" />
           <polygon points="38,6 48,12 38,18" />
         </svg>
+      </div>
+    `;
+  }
+
+  private _renderPromotionConnector(step: ProcessingStep) {
+    const stepId = step.id ?? '';
+    const blocked = this.promotions[stepId] === true;
+    const hasBundle = this._latestProcessingJob(stepId) !== undefined;
+    return html`
+      <div class="connector promotion ${blocked ? 'gated' : ''}">
+        <svg viewBox="0 0 48 24">
+          <line x1="0" y1="12" x2="38" y2="12" />
+          <polygon points="38,6 48,12 38,18" />
+        </svg>
+        <promotion-gate
+          .stepId=${stepId}
+          .stepName=${step.name ?? ''}
+          .blocked=${blocked}
+          .hasBundle=${hasBundle}
+        ></promotion-gate>
       </div>
     `;
   }

@@ -8,6 +8,7 @@ const routes: Route[] = [
   { pattern: /^\/$/, params: [], view: 'pipeline-list-view' },
   { pattern: /^\/callback/, params: [], view: 'callback' },
   { pattern: /^\/pipeline\/([^/]+)\/job\/([^/]+)\/logs$/, params: ['pipelineId', 'jobId'], view: 'job-logs-view' },
+  { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'stepId'], view: 'step-detail-view' },
   { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },
 ];
 

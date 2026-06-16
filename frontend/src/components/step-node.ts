@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import type {
   JobProcessingJob,
   JobProductionJob,
@@ -70,6 +70,13 @@ export class StepNode extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: var(--color-text);
+      text-decoration: none;
+    }
+
+    a.step-name:hover {
+      color: var(--color-primary);
+      text-decoration: underline;
     }
 
     .status-badge {
@@ -149,15 +156,12 @@ export class StepNode extends LitElement {
   @property() declare pipelineId: string;
   @property({ attribute: false }) declare latestJob: Job | undefined;
 
-  @state() private declare _expanded: boolean;
-
   constructor() {
     super();
     this.stepId = '';
     this.stepName = '';
     this.stepType = 'production';
     this.pipelineId = '';
-    this._expanded = false;
   }
 
   render() {
@@ -186,13 +190,24 @@ export class StepNode extends LitElement {
           >${status.label}</span
         >`;
 
+    const stepHref =
+      this.stepType === 'processing' && this.stepId
+        ? `/pipeline/${this.pipelineId}/step/${this.stepId}`
+        : undefined;
+    const name = stepHref
+      ? html`<a
+          class="step-name"
+          href=${stepHref}
+          title="Step detail"
+          @click=${this._openStep}
+          >${this.stepName}</a
+        >`
+      : html`<span class="step-name">${this.stepName}</span>`;
+
     return html`
-      <div
-        class="node"
-        @click=${() => (this._expanded = !this._expanded)}
-      >
+      <div class="node">
         <div class="node-header">
-          <span class="step-name">${this.stepName}</span>
+          ${name}
           ${badge}
         </div>
         ${this.latestJob?.createdAt
@@ -202,6 +217,13 @@ export class StepNode extends LitElement {
           : nothing}
       </div>
     `;
+  }
+
+  private _openStep(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+    const href = (e.currentTarget as HTMLAnchorElement).getAttribute('href');
+    if (href) navigate(href);
   }
 
   private _openLogs(e: Event) {

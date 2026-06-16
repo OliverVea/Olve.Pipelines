@@ -10,7 +10,7 @@ import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsM
 // @ts-ignore
 import { DocumentRequestBuilderRequestsMetadata, type DocumentRequestBuilder } from './document/index.js';
 // @ts-ignore
-import { ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
+import { ProcessingRequestBuilderNavigationMetadata, ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
 // @ts-ignore
 import { ProductionRequestBuilderRequestsMetadata, type ProductionRequestBuilder } from './production/index.js';
 // @ts-ignore
@@ -101,6 +101,7 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
     },
     processing: {
         requestsMetadata: ProcessingRequestBuilderRequestsMetadata,
+        navigationMetadata: ProcessingRequestBuilderNavigationMetadata,
     },
     production: {
         requestsMetadata: ProductionRequestBuilderRequestsMetadata,

@@ -135,6 +135,7 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _processingSteps: ProcessingStep[];
   @state() private declare _jobs: (JobProcessingJob | JobProductionJob)[];
   @state() private declare _bindingStatus: PipelineBindingStatus | null;
+  @state() private declare _promotions: Record<string, boolean>;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
   @state() private declare _titleHint: string;
@@ -147,6 +148,7 @@ export class PipelineDetailView extends LitElement {
     this._processingSteps = [];
     this._jobs = [];
     this._bindingStatus = null;
+    this._promotions = {};
     this._loading = true;
     this._error = null;
     const state = history.state as { pipelineName?: string } | null;
@@ -163,7 +165,7 @@ export class PipelineDetailView extends LitElement {
     this._error = null;
     try {
       const p = client.api.pipelines.byId(this.pipelineId);
-      const [pipeline, production, processing, jobsPage, bindingStatus] =
+      const [pipeline, production, processing, jobsPage, bindingStatus, promotions] =
         await Promise.all([
           p.get(),
           p.production.get(),
@@ -176,9 +178,15 @@ export class PipelineDetailView extends LitElement {
           }),
           // Unbound (draft) pipelines have no binding — tolerate the 404.
           p.binding.status.get().catch(() => null),
+          p.processing.promotions.get().catch(() => null),
         ]);
       this._pipeline = pipeline ?? null;
       this._bindingStatus = bindingStatus ?? null;
+      this._promotions = Object.fromEntries(
+        (promotions ?? [])
+          .filter((s) => s.processingStepId)
+          .map((s) => [s.processingStepId as string, s.blocked === true]),
+      );
       this._productionSteps = production ?? [];
       this._processingSteps = (processing ?? []).sort(
         (a: ProcessingStep, b: ProcessingStep) => {
@@ -225,7 +233,11 @@ export class PipelineDetailView extends LitElement {
             .productionSteps=${this._productionSteps}
             .processingSteps=${this._processingSteps}
             .jobs=${this._jobs}
+            .promotions=${this._promotions}
             @reload=${() => this._load()}
+            @changed=${() => this._load()}
+            @gate-error=${(e: CustomEvent<{ message: string }>) =>
+              (this._error = e.detail.message)}
           ></pipeline-flow>`
         : this._loading
         ? html``

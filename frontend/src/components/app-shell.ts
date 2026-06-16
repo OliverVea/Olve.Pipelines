@@ -169,6 +169,11 @@ export class AppShell extends LitElement {
           .pipelineId=${this._route.params.pipelineId}
           .jobId=${this._route.params.jobId}
         ></job-logs-view>`;
+      case 'step-detail-view':
+        return html`<step-detail-view
+          .pipelineId=${this._route.params.pipelineId}
+          .stepId=${this._route.params.stepId}
+        ></step-detail-view>`;
       default:
         return html`<pipeline-list-view></pipeline-list-view>`;
     }

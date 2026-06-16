@@ -16,6 +16,8 @@ import { ProcessingStepsRequestBuilderNavigationMetadata, type ProcessingStepsRe
 // @ts-ignore
 import { ProductionStepsRequestBuilderNavigationMetadata, type ProductionStepsRequestBuilder } from './productionSteps/index.js';
 // @ts-ignore
+import { ReadyRequestBuilderRequestsMetadata, type ReadyRequestBuilder } from './ready/index.js';
+// @ts-ignore
 import { TriggersRequestBuilderNavigationMetadata, type TriggersRequestBuilder } from './triggers/index.js';
 // @ts-ignore
 import { type WebhooksRequestBuilder, WebhooksRequestBuilderNavigationMetadata } from './webhooks/index.js';
@@ -55,6 +57,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      */
     get productionSteps(): ProductionStepsRequestBuilder;
     /**
+     * The ready property
+     */
+    get ready(): ReadyRequestBuilder;
+    /**
      * The triggers property
      */
     get triggers(): TriggersRequestBuilder;
@@ -93,6 +99,9 @@ export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiReques
     },
     productionSteps: {
         navigationMetadata: ProductionStepsRequestBuilderNavigationMetadata,
+    },
+    ready: {
+        requestsMetadata: ReadyRequestBuilderRequestsMetadata,
     },
     triggers: {
         navigationMetadata: TriggersRequestBuilderNavigationMetadata,

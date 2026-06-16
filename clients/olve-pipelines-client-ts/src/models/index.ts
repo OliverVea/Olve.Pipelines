@@ -470,6 +470,15 @@ export interface CreateProductionStepRequest extends AdditionalDataHolder, Parsa
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionState}
+ */
+// @ts-ignore
+export function createPromotionStateFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionState;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ReconcileStatus}
  */
 // @ts-ignore
@@ -511,6 +520,15 @@ export function createSecretDeclarationFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createSecretStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoSecretStatus;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetPromotionRequest}
+ */
+// @ts-ignore
+export function createSetPromotionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetPromotionRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -574,6 +592,15 @@ export function createStepConfigurationDocumentFromDiscriminatorValue(parseNode:
 // @ts-ignore
 export function createStepConfigurationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoStepConfiguration;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepPromotionState}
+ */
+// @ts-ignore
+export function createStepPromotionStateFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1273,6 +1300,17 @@ export function deserializeIntoProductionStepDocument_configurationMember1(produ
 }
 /**
  * The deserialization information for the current model
+ * @param PromotionState The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionState(promotionState: Partial<PromotionState> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "blocked": n => { promotionState.blocked = n.getBooleanValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ReconcileStatus The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1336,6 +1374,17 @@ export function deserializeIntoSecretStatus(secretStatus: Partial<SecretStatus> 
         "description": n => { secretStatus.description = n.getStringValue(); },
         "isSet": n => { secretStatus.isSet = n.getBooleanValue(); },
         "name": n => { secretStatus.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SetPromotionRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetPromotionRequest(setPromotionRequest: Partial<SetPromotionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "blocked": n => { setPromotionRequest.blocked = n.getBooleanValue(); },
     }
 }
 /**
@@ -1420,6 +1469,18 @@ export function deserializeIntoStepConfigurationDocument_environmentVariables(st
 }
 /**
  * The deserialization information for the current model
+ * @param StepPromotionState The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState(stepPromotionState: Partial<StepPromotionState> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "blocked": n => { stepPromotionState.blocked = n.getBooleanValue(); },
+        "processingStepId": n => { stepPromotionState.processingStepId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Trigger The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1490,7 +1551,7 @@ export function deserializeIntoTriggerTargetDocumentPollTargetDocument(triggerTa
     return {
         ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentPollTargetDocument),
         "headers": n => { triggerTargetDocumentPollTargetDocument.headers = n.getObjectValue<TriggerTargetDocumentPollTargetDocument_headers>(createTriggerTargetDocumentPollTargetDocument_headersFromDiscriminatorValue); },
-        "intervalSeconds": n => { triggerTargetDocumentPollTargetDocument.intervalSeconds = n.getNumberValue() ?? 60; },
+        "intervalSeconds": n => { triggerTargetDocumentPollTargetDocument.intervalSeconds = n.getNumberValue(); },
         "url": n => { triggerTargetDocumentPollTargetDocument.url = n.getStringValue(); },
         "valuePath": n => { triggerTargetDocumentPollTargetDocument.valuePath = n.getStringValue(); },
     }
@@ -1538,7 +1599,7 @@ export function deserializeIntoTriggerTargetPollTriggerTarget(triggerTargetPollT
     return {
         ...deserializeIntoTriggerTarget(triggerTargetPollTriggerTarget),
         "headers": n => { triggerTargetPollTriggerTarget.headers = n.getObjectValue<TriggerTargetPollTriggerTarget_headers>(createTriggerTargetPollTriggerTarget_headersFromDiscriminatorValue); },
-        "intervalSeconds": n => { triggerTargetPollTriggerTarget.intervalSeconds = n.getNumberValue() ?? 60; },
+        "intervalSeconds": n => { triggerTargetPollTriggerTarget.intervalSeconds = n.getNumberValue(); },
         "url": n => { triggerTargetPollTriggerTarget.url = n.getStringValue(); },
         "valuePath": n => { triggerTargetPollTriggerTarget.valuePath = n.getStringValue(); },
     }
@@ -2039,6 +2100,12 @@ export interface ProductionStepDocument extends AdditionalDataHolder, Parsable {
 }
 export type ProductionStepDocument_configuration = ProductionStepDocument_configurationMember1 | StepConfigurationDocument;
 export interface ProductionStepDocument_configurationMember1 extends AdditionalDataHolder, Parsable {
+}
+export interface PromotionState extends AdditionalDataHolder, Parsable {
+    /**
+     * The blocked property
+     */
+    blocked?: boolean | null;
 }
 export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
@@ -2682,6 +2749,18 @@ export function serializeProductionStepDocument_configurationMember1(writer: Ser
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionState The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionState(writer: SerializationWriter, promotionState: Partial<PromotionState> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionState || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("blocked", promotionState.blocked);
+    writer.writeAdditionalData(promotionState.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param ReconcileStatus The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2750,6 +2829,18 @@ export function serializeSecretStatus(writer: SerializationWriter, secretStatus:
     writer.writeBooleanValue("isSet", secretStatus.isSet);
     writer.writeStringValue("name", secretStatus.name);
     writer.writeAdditionalData(secretStatus.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetPromotionRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetPromotionRequest(writer: SerializationWriter, setPromotionRequest: Partial<SetPromotionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setPromotionRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("blocked", setPromotionRequest.blocked);
+    writer.writeAdditionalData(setPromotionRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2837,6 +2928,19 @@ export function serializeStepConfigurationDocument(writer: SerializationWriter, 
 export function serializeStepConfigurationDocument_environmentVariables(writer: SerializationWriter, stepConfigurationDocument_environmentVariables: Partial<StepConfigurationDocument_environmentVariables> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!stepConfigurationDocument_environmentVariables || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(stepConfigurationDocument_environmentVariables.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState(writer: SerializationWriter, stepPromotionState: Partial<StepPromotionState> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepPromotionState || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("blocked", stepPromotionState.blocked);
+    writer.writeGuidValue("processingStepId", stepPromotionState.processingStepId);
+    writer.writeAdditionalData(stepPromotionState.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2938,7 +3042,7 @@ export function serializeTriggerTargetDocumentPollTargetDocument(writer: Seriali
     if (!triggerTargetDocumentPollTargetDocument || isSerializingDerivedType) { return; }
     serializeTriggerTargetDocument(writer, triggerTargetDocumentPollTargetDocument, isSerializingDerivedType)
     writer.writeObjectValue<TriggerTargetDocumentPollTargetDocument_headers>("headers", triggerTargetDocumentPollTargetDocument.headers, serializeTriggerTargetDocumentPollTargetDocument_headers);
-    writer.writeNumberValue("intervalSeconds", triggerTargetDocumentPollTargetDocument.intervalSeconds ?? 60);
+    writer.writeNumberValue("intervalSeconds", triggerTargetDocumentPollTargetDocument.intervalSeconds);
     writer.writeStringValue("url", triggerTargetDocumentPollTargetDocument.url);
     writer.writeStringValue("valuePath", triggerTargetDocumentPollTargetDocument.valuePath);
 }
@@ -2987,7 +3091,7 @@ export function serializeTriggerTargetPollTriggerTarget(writer: SerializationWri
     if (!triggerTargetPollTriggerTarget || isSerializingDerivedType) { return; }
     serializeTriggerTarget(writer, triggerTargetPollTriggerTarget, isSerializingDerivedType)
     writer.writeObjectValue<TriggerTargetPollTriggerTarget_headers>("headers", triggerTargetPollTriggerTarget.headers, serializeTriggerTargetPollTriggerTarget_headers);
-    writer.writeNumberValue("intervalSeconds", triggerTargetPollTriggerTarget.intervalSeconds ?? 60);
+    writer.writeNumberValue("intervalSeconds", triggerTargetPollTriggerTarget.intervalSeconds);
     writer.writeStringValue("url", triggerTargetPollTriggerTarget.url);
     writer.writeStringValue("valuePath", triggerTargetPollTriggerTarget.valuePath);
 }
@@ -3071,6 +3175,12 @@ export function serializeWebhookRequest_artifactBundleIdMember1(writer: Serializ
     if (!webhookRequest_artifactBundleIdMember1 || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(webhookRequest_artifactBundleIdMember1.additionalData);
 }
+export interface SetPromotionRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The blocked property
+     */
+    blocked?: boolean | null;
+}
 export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**
      * The value property
@@ -3124,6 +3234,16 @@ export interface StepConfigurationDocument extends AdditionalDataHolder, Parsabl
     script?: string | null;
 }
 export interface StepConfigurationDocument_environmentVariables extends AdditionalDataHolder, Parsable {
+}
+export interface StepPromotionState extends AdditionalDataHolder, Parsable {
+    /**
+     * The blocked property
+     */
+    blocked?: boolean | null;
+    /**
+     * The processingStepId property
+     */
+    processingStepId?: Guid | null;
 }
 export interface Trigger extends AdditionalDataHolder, Parsable {
     /**

@@ -8,6 +8,10 @@ import { ConfigurationRequestBuilderRequestsMetadata, type ConfigurationRequestB
 // @ts-ignore
 import { OrderRequestBuilderRequestsMetadata, type OrderRequestBuilder } from './order/index.js';
 // @ts-ignore
+import { PromotionRequestBuilderRequestsMetadata, type PromotionRequestBuilder } from './promotion/index.js';
+// @ts-ignore
+import { RePromoteRequestBuilderRequestsMetadata, type RePromoteRequestBuilder } from './rePromote/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -22,6 +26,14 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
      * The order property
      */
     get order(): OrderRequestBuilder;
+    /**
+     * The promotion property
+     */
+    get promotion(): PromotionRequestBuilder;
+    /**
+     * The rePromote property
+     */
+    get rePromote(): RePromoteRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
@@ -58,6 +70,12 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     },
     order: {
         requestsMetadata: OrderRequestBuilderRequestsMetadata,
+    },
+    promotion: {
+        requestsMetadata: PromotionRequestBuilderRequestsMetadata,
+    },
+    rePromote: {
+        requestsMetadata: RePromoteRequestBuilderRequestsMetadata,
     },
 };
 /**

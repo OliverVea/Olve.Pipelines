@@ -59,7 +59,7 @@ export interface PipelinesRequestBuilderPostQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines";
+export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines?name={name}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
@@ -90,7 +90,7 @@ export const PipelinesRequestBuilderRequestsMetadata: RequestsMetadata = {
         responseBodyFactory:  createPipelineFromDiscriminatorValue,
     },
     post: {
-        uriTemplate: "{+baseurl}/api/pipelines?name={name}",
+        uriTemplate: PipelinesRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

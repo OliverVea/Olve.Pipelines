@@ -35,7 +35,14 @@ app.Use(async (context, next) =>
 });
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+
+// Serve raw Markdown (the /docs setup guide) with the right content-type. .md is an unknown
+// extension to the static-file middleware, so without this it would 404 here and fall through
+// to the SPA fallback below — handing back index.html instead of the doc. Agents fetch these
+// at /docs/<page>.md and parse the raw text.
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".md"] = "text/markdown; charset=utf-8";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypeProvider });
 app.MapJson();
 app.MapAuthentication();
 app.MapHealthEndpoints();

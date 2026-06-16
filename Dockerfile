@@ -11,6 +11,8 @@ RUN dotnet restore src/Olve.Pipelines -r linux-x64 && dotnet restore test/Olve.P
 COPY src/Olve.Pipelines/ src/Olve.Pipelines/
 COPY src/Olve.Pipelines.Cli/ src/Olve.Pipelines.Cli/
 COPY test/Olve.Pipelines.UnitTests/ test/Olve.Pipelines.UnitTests/
+# The setup guide is served at /docs; the csproj globs docs/setup/*.md into wwwroot on publish.
+COPY docs/setup/ docs/setup/
 RUN dotnet run --project test/Olve.Pipelines.UnitTests -c Release --no-restore
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app
 

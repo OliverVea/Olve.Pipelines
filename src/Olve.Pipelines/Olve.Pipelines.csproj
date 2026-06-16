@@ -10,6 +10,15 @@
     <InternalsVisibleTo Include="Olve.Pipelines.UnitTests" />
   </ItemGroup>
 
+  <!-- Serve the setup guide (docs/setup/*.md) at /docs. Copied into wwwroot so a local
+       `dotnet run` serves them too; the Dockerfile copies the same files for the container. -->
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)..\..\docs\setup\**\*.md"
+             Link="wwwroot\docs\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Duende.IdentityModel" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />

@@ -26,6 +26,10 @@ is persisted separately (`promotion-state.json`) so a braked step stays braked a
 
 > **Adding CD to your own repo?** This is the section for you. You don't deploy or modify this
 > service — you add one file to *your* repository and bind a pipeline to it.
+>
+> A fuller, agent-friendly **setup guide is served by the running instance at
+> [`/docs`](docs/setup/index.md)** (raw Markdown, with a [subject index](docs/setup/subjects.md)).
+> This README is the in-code reference; `/docs` is the operator/setup view.
 
 A pipeline can be **bound to a Git repository**. Once bound, *your* repo is the single source of
 truth for the pipeline's shape: a background reconcile loop polls your branch head (~5 min), and

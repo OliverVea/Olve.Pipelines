@@ -8,15 +8,26 @@ public static class KubernetesConfiguration
 {
     public static void ConfigureKubernetes(this WebApplicationBuilder builder)
     {
-        var openBaoUrl = builder.Configuration["Kubernetes:OpenBaoUrl"];
-        var authUrl = builder.Configuration["Storage:AuthUrl"];
-        var clientId = builder.Configuration["Storage:ClientId"];
-        var clientSecret = builder.Configuration["Storage:ClientSecret"];
-
         var s3HelperImage = builder.Configuration["Kubernetes:S3HelperImage"] ?? "minio/mc";
         var s3Bucket = builder.Configuration["Storage:Bucket"] ?? "olve-pipelines";
         var s3Endpoint = builder.Configuration["Storage:Endpoint"] ?? "";
         var s3SkipCert = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
+        var defaultImage = builder.Configuration["Kubernetes:DefaultImage"] ?? "alpine:latest";
+        var configNs = builder.Configuration["Kubernetes:Namespace"];
+
+        // InCluster (Tier-A): reach the cluster API via the pod's own ServiceAccount — no
+        // OpenBao/Authentik. Opt-in via config so the legacy path below stays the default
+        // for local dev / tests / prod (which sets AuthMode=OpenBao explicitly).
+        if (string.Equals(builder.Configuration["Kubernetes:AuthMode"], "InCluster", StringComparison.OrdinalIgnoreCase))
+        {
+            ConfigureInCluster(builder, configNs, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
+            return;
+        }
+
+        var openBaoUrl = builder.Configuration["Kubernetes:OpenBaoUrl"];
+        var authUrl = builder.Configuration["Storage:AuthUrl"];
+        var clientId = builder.Configuration["Storage:ClientId"];
+        var clientSecret = builder.Configuration["Storage:ClientSecret"];
 
         if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
         {
@@ -27,7 +38,6 @@ public static class KubernetesConfiguration
             return;
         }
 
-        var defaultImage = builder.Configuration["Kubernetes:DefaultImage"] ?? "alpine:latest";
         var skipCertValidation = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
 
         var tokenProvider = new OAuth2TokenProvider(
@@ -50,7 +60,6 @@ public static class KubernetesConfiguration
         {
             var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
                 .GetCredentialsAsync().GetAwaiter().GetResult();
-            var configNs = builder.Configuration["Kubernetes:Namespace"];
 
             sp.GetRequiredService<ILogger<KubernetesClient>>()
                 .LogInformation("Kubernetes configured: server={Server}, namespace={Namespace}",
@@ -66,6 +75,44 @@ public static class KubernetesConfiguration
             return new KubernetesClient(
                 credentials,
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
+        });
+        builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
+
+        builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
+        builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
+    }
+
+    private static void ConfigureInCluster(
+        WebApplicationBuilder builder,
+        string? configNs,
+        string defaultImage,
+        string s3HelperImage,
+        string s3Bucket,
+        string s3Endpoint,
+        bool s3SkipCert)
+    {
+        builder.Services.AddSingleton<ICredentialsProvider<KubernetesCredentials>>(new InClusterCredentialsProvider());
+
+        builder.Services.AddSingleton(sp =>
+        {
+            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
+                .GetCredentialsAsync().GetAwaiter().GetResult();
+
+            sp.GetRequiredService<ILogger<KubernetesClient>>()
+                .LogInformation("Kubernetes configured (InCluster): server={Server}, namespace={Namespace}",
+                    credentials.Server, configNs ?? credentials.Namespace);
+
+            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
+        });
+
+        builder.Services.AddSingleton(sp =>
+        {
+            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
+                .GetCredentialsAsync().GetAwaiter().GetResult();
+            return new KubernetesClient(
+                credentials,
+                sp.GetRequiredService<ILogger<KubernetesClient>>(),
+                InClusterCredentialsProvider.ReadTokenAsync);
         });
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
 

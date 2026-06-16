@@ -7,8 +7,12 @@ config:
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: ""
   OpenTelemetry__OAuth2__ClientId: ""
-  Storage__Endpoint: "https://minio-beta.ovea.pro"
+  # Dedicated in-cluster MinIO (this instance's own), reached cross-namespace by the
+  # runner Jobs in olve-runners-beta. Static creds (below) take precedence over STS.
+  Storage__Endpoint: "http://olve-pipelines-minio.apps-beta:9000"
   Storage__Bucket: "olve-pipelines-beta"
+  # AuthUrl/ClientId/ClientSecret are still required: KubernetesConfiguration reuses
+  # them for OpenBao auth to reach the cluster. They are now inert for storage.
   Storage__AuthUrl: "https://auth-beta.ovea.pro/application/o/token/"
   Kubernetes__OpenBaoUrl: "https://openbao-beta.ovea.pro"
   Kubernetes__Namespace: "olve-runners-beta"
@@ -19,6 +23,16 @@ secrets:
       Storage__ClientId: client-id
       Storage__ClientSecret: client-secret
       Storage__RoleArn: role-arn
+  # Static MinIO creds (root = app creds for now). Created out-of-band; see
+  # docs/operations/environment-setup.md.
+  - name: olve-pipelines-minio
+    envMap:
+      Storage__AccessKey: root-user
+      Storage__SecretKey: root-password
+
+minio:
+  enabled: true
+  bucket: olve-pipelines-beta
 
 authentikCa:
   fileName: auth-beta-ca.crt

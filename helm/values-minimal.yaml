@@ -1,0 +1,43 @@
+# Minimal Tier-A profile used by `pl install`. The controller + its own deps only, with
+# zero personal-infra coupling: no Ingress, auth disabled, in-cluster ServiceAccount auth
+# (no OpenBao/Authentik), no OTel. Layered over the chart's values.yaml (deep merge), so
+# this only overrides what differs.
+#
+# pl install adds the namespace-derived values on top via --set:
+#   config.Storage__Endpoint, config.Storage__Bucket, config.Kubernetes__Namespace,
+#   minio.bucket, image.tag  (and slo.enabled=false if the sloth CRD is absent).
+
+ingress:
+  enabled: false
+
+# Controller uses its own ServiceAccount token for cluster access (no OpenBao/Authentik).
+serviceAccount:
+  enabled: true
+
+# No Authentik CA mount — nothing ovea.pro is contacted.
+authentikCa:
+  enabled: false
+
+# Sloth PrometheusServiceLevel CRD is not assumed present on a bare cluster.
+slo:
+  enabled: false
+
+# Lists are replaced (not merged) by -f: only the static MinIO creds Secret remains —
+# none of the homelab OIDC/Authentik secrets the bare cluster doesn't have.
+secrets:
+  - name: olve-pipelines-minio
+    envMap:
+      Storage__AccessKey: root-user
+      Storage__SecretKey: root-password
+
+# config is a map (deep-merged from values.yaml). Auth off + InCluster auth; the prod-only
+# keys are blanked — the deployment template skips empty-valued env, so "" removes them.
+config:
+  Auth__Disable: "true"
+  Kubernetes__AuthMode: "InCluster"
+  OpenTelemetry__Endpoint: ""
+  OpenTelemetry__Protocol: ""
+  OpenTelemetry__OAuth2__TokenUrl: ""
+  OpenTelemetry__OAuth2__ClientId: ""
+  Storage__AuthUrl: ""
+  Kubernetes__OpenBaoUrl: ""

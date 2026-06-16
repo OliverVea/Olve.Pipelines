@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olve Pipelines — Step</title>
+  <meta name="theme-color" content="#f5f8fb" />
+  <link rel="stylesheet" href="mocks.css" />
+  <link rel="stylesheet" href="step.css" />
+</head>
+<body class="anim-cascade">
+  <div class="app">
+    <!-- ===== App header ===== -->
+    <header class="app-header animate-in" style="--i: 0">
+      <h1><a href="index.html">Olve Pipelines</a></h1>
+      <span class="spacer"></span>
+      <div class="user-info">
+        <span class="user-name">oliver</span>
+        <button class="btn">Log out</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="step-head animate-in" style="--i: 1">
+        <a class="back" id="back" href="index.html">&larr; Back</a>
+        <h2 id="title">Step</h2>
+        <span class="status-badge done" id="status">Done</span>
+      </div>
+
+      <!-- Sub-line: which pipeline + kind, run it last ran, promotion gate. -->
+      <div class="step-sub animate-in" style="--i: 2">
+        <span id="kind" class="step-kind">processing step</span>
+        <span class="logs-sep">·</span>
+        <a id="pipeline-link" href="#">pipeline</a>
+        <span class="logs-sep" id="run-sep" hidden>·</span>
+        <span id="last-run" hidden></span>
+        <!-- Promotion controls (processing steps only) live here: this is the
+             gate's home now. Operational STATE, not GitOps config. -->
+        <span class="logs-sep" id="gate-sep" hidden>·</span>
+        <span class="arrow-badges" id="gate" hidden></span>
+      </div>
+
+      <div class="step-grid">
+        <!-- Configuration: the StepConfiguration (image, script, env). -->
+        <section class="panel animate-in" style="--i: 3">
+          <h3>Configuration</h3>
+          <dl class="config" id="config"></dl>
+        </section>
+
+        <!-- Run history: the runs this step executed in, newest-first. -->
+        <section class="panel animate-in" style="--i: 4">
+          <h3>Run history</h3>
+          <ul class="runs" id="runs"></ul>
+        </section>
+      </div>
+
+      <!-- Log tail: a lazy-loaded preview of the most recent run's log. -->
+      <section class="panel log-panel animate-in" style="--i: 5">
+        <div class="log-panel-head">
+          <h3>Recent log</h3>
+          <a class="btn" id="full-logs" href="#">View full logs</a>
+        </div>
+        <pre class="log log-tail" id="tail"><span class="log-skeleton">loading recent output…</span></pre>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ====================================================================
+    // Demo data — keyed by ?id=&step=. This is the per-step view, a SUPERSET
+    // of what pipeline.html shows: the run model (runs[], per-step lastRun /
+    // result / enabled) PLUS the StepConfiguration (image, script, env) and a
+    // log sample. Keep result / lastRun / enabled aligned BY HAND with
+    // pipeline.html for the same id+step — they are separate inline copies and
+    // desync easily.
+    //
+    // `enabled` (processing only) is the promotion gate — operational STATE,
+    // not GitOps config; ORTHOGONAL to the step's job result.
+    // ====================================================================
+    const PIPELINES = {
+      'p-self': {
+        name: 'olve-pipelines (self-deploy)',
+        runs: [
+          { n: 1, sha: '19b1b3f0', outcome: 'in-progress' },
+          { n: 2, sha: '1cd6a652', outcome: 'succeeded' },
+          { n: 3, sha: '6a2ea6cd', outcome: 'failed' },
+        ],
+        production: {
+          build: {
+            lastRun: 1, result: 'done',
+            image: 'mcr.microsoft.com/dotnet/sdk:10.0',
+            script: 'dotnet restore && dotnet build -c Release --no-restore',
+            env: { CONFIGURATION: 'Release' },
+          },
+          test: {
+            lastRun: 1, result: 'done',
+            image: 'mcr.microsoft.com/dotnet/sdk:10.0',
+            script: 'dotnet test --no-build',
+            env: { RunIntegrationTests: 'false' },
+          },
+          docker: {
+            lastRun: 1, result: 'running',
+            image: 'gcr.io/kaniko-project/executor:latest',
+            script: '/kaniko/executor --destination $REGISTRY/olve-pipelines:$SHA',
+            env: { REGISTRY: 'registry.ovea.pro' },
+          },
+        },
+        processing: {
+          'push-image': {
+            lastRun: 2, result: 'done', enabled: true,
+            image: 'gcr.io/go-containerregistry/crane:latest',
+            script: 'crane push bundle/docker/image.tar $REGISTRY/olve-pipelines:latest',
+            env: { REGISTRY: 'registry.ovea.pro' },
+          },
+          'helm-deploy': {
+            lastRun: 2, result: 'done', enabled: false,
+            image: 'alpine/helm:3.14',
+            script: 'helm upgrade --install olve-pipelines ./chart --namespace apps',
+            env: { KUBE_NAMESPACE: 'apps' },
+          },
+        },
+      },
+      'p-site': {
+        name: 'ovea.pro static site',
+        runs: [{ n: 1, sha: 'aa12cd34', outcome: 'succeeded' }],
+        production: {
+          'hugo-build': {
+            lastRun: 1, result: 'done',
+            image: 'klakegg/hugo:ext-alpine',
+            script: 'hugo --minify -d bundle/hugo-build',
+            env: { HUGO_ENV: 'production' },
+          },
+        },
+        processing: {
+          'sync-s3': {
+            lastRun: 1, result: 'done', enabled: false,
+            image: 'amazon/aws-cli:2',
+            script: 'aws s3 sync bundle/hugo-build s3://ovea-pro --delete',
+            env: { AWS_ENDPOINT_URL: 'https://minio.ovea.pro' },
+          },
+        },
+      },
+      'p-api': {
+        name: 'inventory-api',
+        runs: [
+          { n: 1, sha: 'c0ffee11', outcome: 'failed' },
+          { n: 2, sha: 'deadbe22', outcome: 'succeeded' },
+        ],
+        production: {
+          'dotnet-build': {
+            lastRun: 1, result: 'done',
+            image: 'mcr.microsoft.com/dotnet/sdk:10.0',
+            script: 'dotnet publish -c Release -o bundle/dotnet-build',
+            env: { CONFIGURATION: 'Release' },
+          },
+          'unit-tests': {
+            lastRun: 1, result: 'failed',
+            image: 'mcr.microsoft.com/dotnet/sdk:10.0',
+            script: 'dotnet test --no-build',
+            env: {},
+          },
+        },
+        processing: {
+          'deploy-staging': {
+            lastRun: 2, result: 'done', enabled: true,
+            image: 'alpine/helm:3.14',
+            script: 'helm upgrade --install inventory-api ./chart -n staging',
+            env: { KUBE_NAMESPACE: 'staging' },
+          },
+        },
+      },
+    };
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id') || 'p-self';
+    const stepName = params.get('step') || '';
+    const p = PIPELINES[id] || PIPELINES['p-self'];
+
+    // Resolve the step in either group; remember which.
+    let kind = 'production';
+    let step = (p.production || {})[stepName];
+    if (!step && p.processing && p.processing[stepName]) {
+      kind = 'processing';
+      step = p.processing[stepName];
+    }
+    if (!step) step = { lastRun: null, result: null, image: '—', script: '—', env: {} };
+
+    const runByNumber = (n) => p.runs.find((r) => r.n === n) || null;
+    const status = step.lastRun == null ? 'idle' : step.result;
+    const lastRun = step.lastRun != null ? runByNumber(step.lastRun) : null;
+
+    // ---- Header ----
+    document.getElementById('title').textContent = stepName || 'Step';
+    document.title = 'Olve Pipelines — ' + (stepName || 'Step');
+    document.getElementById('back').href = 'pipeline.html?id=' + encodeURIComponent(id);
+    document.getElementById('back').textContent = '← Back to pipeline';
+
+    const STATUS_LABEL = {
+      idle: 'Idle', scheduled: 'Scheduled', running: 'Running', done: 'Done',
+      failed: 'Failed', cancelled: 'Cancelled', obsolete: 'Obsolete',
+    };
+    const statusEl = document.getElementById('status');
+    statusEl.className = 'status-badge ' + status;
+    statusEl.textContent = STATUS_LABEL[status] || status;
+
+    // ---- Sub-line ----
+    document.getElementById('kind').textContent = kind + ' step';
+    const pl = document.getElementById('pipeline-link');
+    pl.href = 'pipeline.html?id=' + encodeURIComponent(id);
+    pl.textContent = p.name;
+    if (lastRun) {
+      const lr = document.getElementById('last-run');
+      lr.textContent = 'last ran in run #' + lastRun.n + ' · ' + lastRun.sha.slice(0, 7);
+      lr.hidden = false;
+      document.getElementById('run-sep').hidden = false;
+    }
+
+    // ---- Promotion gate (processing steps only) ----
+    // The brake (block/unblock) + re-promote badges — the gate's home. Brake
+    // ACTIVE (.on) = promotion blocked. Re-promote needs a bundle → only shown
+    // once the step has run.
+    if (kind === 'processing') {
+      const icon = (paths) =>
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+        'aria-hidden="true">' + paths + '</svg>';
+      const ICON_BRAKE = icon('<circle cx="12" cy="12" r="9" /><line x1="8" y1="8" x2="16" y2="16" />');
+      const ICON_RESTART = icon('<path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" />');
+
+      const enabled = step.enabled !== false;
+      const gate = document.getElementById('gate');
+
+      const brake = document.createElement('button');
+      brake.type = 'button';
+      brake.className = 'arrow-badge brake' + (enabled ? '' : ' on');
+      brake.setAttribute('aria-pressed', String(!enabled));
+      brake.title = enabled
+        ? 'Block promotion into ' + stepName
+        : 'Promotion blocked — click to allow promotion into ' + stepName;
+      brake.innerHTML = ICON_BRAKE;
+      brake.addEventListener('click', () =>
+        alert('→ ' + (enabled ? 'block' : 'allow') + ' promotion: ' + stepName));
+      gate.appendChild(brake);
+
+      if (step.lastRun != null) {
+        const repromote = document.createElement('button');
+        repromote.type = 'button';
+        repromote.className = 'arrow-badge repromote';
+        repromote.disabled = !enabled;
+        repromote.title = enabled
+          ? 'Re-promote ' + stepName + ' with its last bundle (run #' + step.lastRun + ')'
+          : 'Unblock promotion to re-promote';
+        repromote.innerHTML = ICON_RESTART;
+        repromote.addEventListener('click', () =>
+          alert('→ re-promote ' + stepName + ' with bundle from run #' + step.lastRun));
+        gate.appendChild(repromote);
+      }
+
+      document.getElementById('gate-sep').hidden = false;
+      gate.hidden = false;
+    }
+
+    // ---- Configuration (image, script, env) ----
+    (function renderConfig() {
+      const dl = document.getElementById('config');
+      const row = (term, valueNode) => {
+        const dt = document.createElement('dt');
+        dt.textContent = term;
+        const dd = document.createElement('dd');
+        dd.appendChild(valueNode);
+        dl.append(dt, dd);
+      };
+      const code = (text) => { const c = document.createElement('code'); c.textContent = text; return c; };
+
+      row('Image', code(step.image || '—'));
+      row('Script', code(step.script || '—'));
+
+      const envKeys = Object.keys(step.env || {});
+      if (envKeys.length) {
+        const list = document.createElement('div');
+        list.className = 'env-list';
+        envKeys.forEach((k) => {
+          const item = document.createElement('code');
+          item.textContent = k + '=' + step.env[k];
+          list.appendChild(item);
+        });
+        row('Env', list);
+      } else {
+        const none = document.createElement('span');
+        none.className = 'muted';
+        none.textContent = 'none';
+        row('Env', none);
+      }
+    })();
+
+    // ---- Run history (newest-first; each links to that run's full log) ----
+    (function renderRuns() {
+      const ul = document.getElementById('runs');
+      if (!lastRun) {
+        const li = document.createElement('li');
+        li.className = 'muted';
+        li.textContent = 'Never run';
+        ul.appendChild(li);
+        return;
+      }
+      // The runs this step participated in: its last run (`lastRun`) and any
+      // OLDER ones. Numbering is newest-first (#1 = latest), so older = HIGHER
+      // number. Show lastRun and up, sorted newest-first (lowest number first).
+      const shown = p.runs.filter((r) => r.n >= step.lastRun).sort((a, b) => a.n - b.n);
+      shown.forEach((r) => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.className = 'run-row';
+        // No per-run-per-step result in the mock — let the run's `outcome`
+        // drive the logs badge (don't pin it to this step's last `status`).
+        const q = new URLSearchParams({ id, step: stepName,
+          run: r.sha, outcome: r.outcome });
+        a.href = 'logs.html?' + q.toString();
+        a.innerHTML =
+          '<span class="run-n">#' + r.n + '</span>' +
+          '<code class="run-sha"></code>' +
+          '<span class="commit-badge ' + r.outcome + '"><span class="run-outcome"></span></span>';
+        a.querySelector('.run-sha').textContent = r.sha.slice(0, 7);
+        a.querySelector('.run-outcome').textContent = r.outcome;
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    })();
+
+    // ---- Full-logs link (the step's last run) ----
+    (function wireFullLogs() {
+      const link = document.getElementById('full-logs');
+      if (!lastRun) { link.classList.add('disabled'); link.removeAttribute('href'); return; }
+      const q = new URLSearchParams({ id, step: stepName, status,
+        run: lastRun.sha, outcome: lastRun.outcome });
+      link.href = 'logs.html?' + q.toString();
+    })();
+
+    // ---- Lazy-loaded log tail ----
+    // Mock "lazy load": a brief skeleton, then swap in a short tail SYNTHESIZED
+    // from this step's own script + result, so the preview agrees with the
+    // Configuration panel above it (a helm step shows helm output, not dotnet).
+    // Kept well under the screenshot virtual-time budget so it settles.
+    (function lazyTail() {
+      const tail = document.getElementById('tail');
+      if (!lastRun) {
+        tail.innerHTML = '<span class="muted">No output yet — this step has never run.</span>';
+        return;
+      }
+      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const ts = '<span class="dim">2026-06-16T14:0' + (step.lastRun) + ':03Z</span> ';
+      const lines = [
+        ts + '<span class="info">▶ starting step</span> ' + esc(stepName),
+        ts + '+ ' + esc(step.script || stepName),
+      ];
+      if (status === 'failed') {
+        lines.push('<span class="err">✗ step failed: command exited with code 1</span>');
+      } else if (status === 'running') {
+        lines.push('<span class="info">… running</span>');
+      } else if (status === 'cancelled') {
+        lines.push('<span class="warn">⚠ step cancelled before completion</span>');
+      } else {
+        lines.push(ts + '+ writing artifacts to bundle/' + esc(stepName) + '/');
+        lines.push('<span class="ok">✓ step completed</span>');
+      }
+      setTimeout(() => { tail.innerHTML = lines.join('\n'); }, 350);
+    })();
+  </script>
+  <script src="footer.js" defer></script>
+</body>
+</html>

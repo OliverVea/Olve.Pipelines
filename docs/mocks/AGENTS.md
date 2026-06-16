@@ -73,21 +73,41 @@ way; otherwise leave it inline.
 
 ## Screens & navigation
 
-The mocks mirror the three real screens and form a navigable flow with plain
-`window.location.href` / `<a href>` links:
+The mocks form a navigable flow with plain `window.location.href` /
+`<a href>` links:
 
 - **`index.html`** — the pipeline list. A responsive card grid (2 columns
   desktop, 1 on narrow). Each card: name + GitHub repo link, a CI-strip of
   step-health boxes, and a short commit-history of hash badges. An
   `+ Add pipeline` dashed card sits in the grid. A card's name links to →
-- **`detail.html?id=…`** — one pipeline: the GitOps binding bar + the
+- **`pipeline.html?id=…`** — one pipeline: the GitOps binding bar + the
   horizontal flow diagram (production parallel → artifact bundle → processing
-  sequential), each step showing its latest job status. A finished step's
-  status badge links to →
-- **`logs.html?id=…&step=…&status=…`** — a job's logs (hardcoded sample block;
-  the real view streams + ANSI-renders). Back returns to the pipeline.
+  sequential), each step showing the run it last ran (numbered, newest-first).
+  The connector INTO a processing step is the **promotion arrow**, carrying the
+  brake + re-promote badges. A finished step's status badge links to →
+- **`step.html?id=…&step=…`** — one step: status/timing, the promotion gate
+  (brake + re-promote, processing only), the StepConfiguration (image, script,
+  env), run history (newest-first), and a lazy-loaded tail of the most recent
+  log. "View full logs" and each run-history row link to →
+- **`logs.html?id=…&step=…&status=…&run=…&outcome=…`** — a job's full logs
+  (hardcoded sample block; the real view streams + ANSI-renders). Back returns
+  to the step when reached from `step.html`, else to the pipeline (the commit
+  badges on `index.html` link here directly as `?id&run&outcome&repo`).
 
 Wire new screens into this flow the same way.
+
+### Promotion model (state, not config)
+
+A **promotion** is the artifact bundle advancing INTO a processing step. Each
+processing step has an `enabled` flag — the promotion gate. This is operational
+**STATE**, not GitOps config: it is UI/API-mutable and present even on a bound
+pipeline (config is git-owned; operations like enable/disable + re-promote are
+API-allowed). `enabled` is **orthogonal** to the step's job result — a step can
+be `done` AND have its promotion blocked. Two controls, shown as the
+`.arrow-badge` pair (in `mocks.css`): a **brake** (block/unblock; `.on` = blocked)
+and a **re-promote** (redrive the same bundle; hidden/disabled where there is no
+bundle to redrive, i.e. `lastRun == null` or promotion blocked). Production steps
+have no gate.
 
 ## Served by a tiny static server
 

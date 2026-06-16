@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="mocks.css" />
   <link rel="stylesheet" href="logs.css" />
 </head>
-<body class="anim-cascade">
+<body class="anim-cascade logs-page">
   <div class="app">
     <!-- ===== App header ===== -->
     <header class="app-header animate-in" style="--i: 0">
@@ -78,7 +78,15 @@
     const outcome = params.get('outcome'); // succeeded | failed | in-progress
     const repo = params.get('repo');
 
-    if (id) document.getElementById('back').href = 'detail.html?id=' + encodeURIComponent(id);
+    // Back goes to the step-detail page when we came from a step, else to the
+    // pipeline (e.g. reached from a commit badge on the list).
+    const backEl = document.getElementById('back');
+    if (step && id) {
+      backEl.href = 'step.html?id=' + encodeURIComponent(id) + '&step=' + encodeURIComponent(step);
+      backEl.textContent = '← Back to step';
+    } else if (id) {
+      backEl.href = 'pipeline.html?id=' + encodeURIComponent(id);
+    }
 
     // ---- Step name: the step (flow) or the run's commit (list) ----
     if (step) {

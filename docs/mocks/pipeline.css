@@ -1,4 +1,4 @@
-/* Screen-specific layout for the pipeline detail (detail.html):
+/* Screen-specific layout for the single-pipeline view (pipeline.html):
    header, GitOps binding bar, and the horizontal flow diagram. */
 
 .detail-head {
@@ -148,3 +148,38 @@
   color: var(--color-text-muted);
   margin-top: 0.25rem;
 }
+
+/* ---- Promotion arrow (the connector INTO a processing step) ----
+   The arrow IS the promotion. It carries two icon badges, stacked above it:
+   a BRAKE (block/unblock the bundle promoting into the step) and a RESTART
+   (re-promote — redrive the same bundle). This is operational STATE, not
+   GitOps config: the badges are API actions, present even on a bound pipeline,
+   and ORTHOGONAL to the step's job status. When promotion is blocked the
+   arrow goes dashed/dimmed warning-gold and the brake badge lights up. */
+/* The arrow itself drives the layout — it stays a normal centered connector
+   (the .connector base centers the svg vertically and horizontally). The
+   badges are an absolute OVERLAY positioned relative to the arrow's center,
+   floating just above the line; they never push the arrow around. */
+.connector.promotion-arrow {
+  position: relative;
+  width: 56px;
+}
+
+.connector.promotion-arrow .arrow-badges {
+  position: absolute;
+  /* Centered on the arrow, lifted just above the line. */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 1.15rem));
+}
+
+.connector.promotion-arrow.gated line,
+.connector.promotion-arrow.gated polygon {
+  stroke: var(--color-warning);
+  fill: var(--color-warning);
+  opacity: 0.55;
+  stroke-dasharray: 4 3;
+}
+
+/* The .arrow-badges / .arrow-badge promotion controls (brake + re-promote)
+   are shared with the logs view — they live in mocks.css. */

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olve Pipelines — Job Logs</title>
+  <meta name="theme-color" content="#f5f8fb" />
+  <link rel="stylesheet" href="mocks.css" />
+  <link rel="stylesheet" href="logs.css" />
+</head>
+<body class="anim-cascade">
+  <div class="app">
+    <!-- ===== App header ===== -->
+    <header class="app-header animate-in" style="--i: 0">
+      <h1><a href="index.html">Olve Pipelines</a></h1>
+      <span class="spacer"></span>
+      <div class="user-info">
+        <span class="user-name">oliver</span>
+        <button class="btn">Log out</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="logs-head animate-in" style="--i: 1">
+        <a class="back" id="back" href="detail.html">&larr; Back</a>
+        <h2>Job Logs</h2>
+      </div>
+
+      <!-- Which step/job these logs belong to, plus the run's commit. -->
+      <div class="logs-sub animate-in" style="--i: 2">
+        <span id="step-name">step</span>
+        <span class="status-badge done" id="status">Done</span>
+        <span class="logs-sep" id="commit-sep" hidden>·</span>
+        <!-- Commit chip for the run; links out to the GitHub commit. -->
+        <a class="commit-badge" id="commit" hidden target="_blank" rel="noopener"></a>
+      </div>
+
+      <div class="toolbar animate-in" style="--i: 3">
+        <button class="icon-btn" id="reload" title="Reload" aria-label="Reload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Hardcoded sample log block (the real view streams + ANSI-renders). -->
+      <pre class="log animate-in" style="--i: 4"><span class="dim">2026-06-16T14:02:01Z</span> <span class="info">▶ starting step</span> build
+<span class="dim">2026-06-16T14:02:01Z</span> + dotnet restore
+  Determining projects to restore...
+  Restored /src/Olve.Pipelines.csproj (in 3.21 sec).
+<span class="dim">2026-06-16T14:02:06Z</span> + dotnet build -c Release --no-restore
+  Olve.Pipelines -&gt; /src/bin/Release/net10.0/Olve.Pipelines.dll
+<span class="ok">  Build succeeded.</span>
+<span class="ok">      0 Warning(s)</span>
+<span class="ok">      0 Error(s)</span>
+<span class="dim">2026-06-16T14:02:42Z</span> + dotnet test --no-build
+  Passed!  - Failed: 0, Passed: 214, Skipped: 0, Duration: 4 s
+<span class="dim">2026-06-16T14:02:51Z</span> <span class="warn">⚠ no integration tests selected (RunIntegrationTests not set)</span>
+<span class="dim">2026-06-16T14:02:51Z</span> + writing artifacts to bundle/build/
+  bundle/build/Olve.Pipelines.dll
+  bundle/build/api.json
+<span class="dim">2026-06-16T14:02:52Z</span> <span class="ok">✓ step completed in 51s</span>
+</pre>
+    </main>
+  </div>
+
+  <script>
+    // This view is reached two ways:
+    //   • from the flow diagram — ?id&step&status (a specific step's job)
+    //   • from a commit badge on the list — ?id&run&outcome&repo (a run)
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id') || '';
+    const step = params.get('step');
+    const status = params.get('status');
+    const run = params.get('run');         // commit sha of the run
+    const outcome = params.get('outcome'); // succeeded | failed | in-progress
+    const repo = params.get('repo');
+
+    if (id) document.getElementById('back').href = 'detail.html?id=' + encodeURIComponent(id);
+
+    // ---- Step name: the step (flow) or the run's commit (list) ----
+    if (step) {
+      document.getElementById('step-name').textContent = step;
+    } else if (run) {
+      document.getElementById('step-name').textContent = 'Run ' + run.slice(0, 7);
+    }
+
+    // ---- Status badge ----
+    // Map a run outcome to a job status when arriving from a commit badge.
+    const OUTCOME_TO_STATUS = { succeeded: 'done', failed: 'failed', 'in-progress': 'running' };
+    const effective = status || OUTCOME_TO_STATUS[outcome] || '';
+    if (effective) {
+      const label = {
+        done: 'Done', failed: 'Failed', running: 'Running',
+        cancelled: 'Cancelled', obsolete: 'Obsolete',
+      }[effective] || effective;
+      const badge = document.getElementById('status');
+      badge.className = 'status-badge ' + effective;
+      badge.textContent = label;
+    }
+
+    // ---- Commit chip → GitHub (only when arriving from a commit badge) ----
+    if (run) {
+      const sep = document.getElementById('commit-sep');
+      const chip = document.getElementById('commit');
+      chip.className = 'commit-badge ' + (outcome || '');
+      chip.href = 'https://' + (repo || 'github.com') + '/commit/' + run;
+      chip.title = 'View commit ' + run + ' on GitHub';
+      // hash + external-link glyph so it reads as "leaves the app".
+      chip.innerHTML = '<span></span><svg viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+        'stroke-linejoin="round" style="width:.7rem;height:.7rem;flex:none">' +
+        '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>' +
+        '<polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      chip.querySelector('span').textContent = run.slice(0, 7);
+      sep.hidden = false;
+      chip.hidden = false;
+    }
+
+    document.getElementById('reload').addEventListener('click', (e) => {
+      const svg = e.currentTarget.querySelector('svg');
+      svg.classList.add('spin');
+      setTimeout(() => svg.classList.remove('spin'), 800);
+    });
+  </script>
+  <script src="footer.js" defer></script>
+</body>
+</html>

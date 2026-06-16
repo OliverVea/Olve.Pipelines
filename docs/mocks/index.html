@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olve Pipelines — Pipelines</title>
+  <meta name="theme-color" content="#f5f8fb" />
+  <link rel="stylesheet" href="mocks.css" />
+  <link rel="stylesheet" href="list.css" />
+</head>
+<body class="anim-cascade">
+  <div class="app">
+    <!-- ===== App header (shared chrome, mirrors <app-shell>) ===== -->
+    <header class="app-header animate-in" style="--i: 0">
+      <h1><a href="index.html">Olve Pipelines</a></h1>
+      <span class="spacer"></span>
+      <div class="user-info">
+        <span class="user-name">oliver</span>
+        <button class="btn">Log out</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="list-head animate-in" style="--i: 1">
+        <h2>Pipelines</h2>
+        <button class="icon-btn" id="reload" title="Refresh" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="card-grid" id="pipelines"></div>
+    </main>
+  </div>
+
+  <script>
+    // GitHub mark used on the repo link.
+    const GITHUB_MARK =
+      `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+           0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
+           1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
+           0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18
+           1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08
+           2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+           0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+       </svg>`;
+
+    // ====================================================================
+    // Demo data.
+    //
+    // A *run* is a numbered build of the whole pipeline tied to a commit.
+    // Numbering is NEWEST-FIRST: #1 is the latest run, higher numbers are
+    // older. `runs` lists them with sha + outcome.
+    //
+    // Each step records the run it LAST executed (`lastRun`, a run number) and
+    // its `result` in that run. A step that has never run has `lastRun: null`
+    // (a brand-new step) — that's the only "idle" case.
+    //
+    // The CI strip shows one numbered box per step (the run number it last
+    // ran, colored by result). The commit badges below are derived: exactly
+    // the runs some box points at — a commit no box references is not shown.
+    // ====================================================================
+    const pipelines = [
+      {
+        id: 'p-self', name: 'olve-pipelines (self-deploy)',
+        repo: 'github.com/OliverVea/Olve.Pipelines',
+        runs: [
+          { n: 1, sha: '19b1b3f0', outcome: 'in-progress' },
+          { n: 2, sha: '1cd6a652', outcome: 'succeeded' },
+          { n: 3, sha: '6a2ea6cd', outcome: 'failed' },
+        ],
+        // Production is mid-run #1; processing last completed in run #2.
+        production: [
+          { name: 'build', lastRun: 1, result: 'done' },
+          { name: 'test', lastRun: 1, result: 'done' },
+          { name: 'docker', lastRun: 1, result: 'running' },
+        ],
+        processing: [
+          { name: 'push-image', lastRun: 2, result: 'done' },
+          { name: 'helm-deploy', lastRun: 2, result: 'done' },
+        ],
+      },
+      {
+        id: 'p-site', name: 'ovea.pro static site',
+        repo: 'github.com/OliverVea/ovea.pro',
+        runs: [{ n: 1, sha: 'aa12cd34', outcome: 'succeeded' }],
+        production: [{ name: 'hugo-build', lastRun: 1, result: 'done' }],
+        processing: [{ name: 'sync-s3', lastRun: 1, result: 'done' }],
+      },
+      {
+        id: 'p-api', name: 'inventory-api',
+        repo: 'github.com/OliverVea/inventory-api',
+        runs: [
+          { n: 1, sha: 'c0ffee11', outcome: 'failed' },
+          { n: 2, sha: 'deadbe22', outcome: 'succeeded' },
+        ],
+        // Run #1 broke at tests, so deploy never ran in #1 — it still shows
+        // its last good run, #2. A box references #2 → that commit is surfaced.
+        production: [
+          { name: 'dotnet-build', lastRun: 1, result: 'done' },
+          { name: 'unit-tests', lastRun: 1, result: 'failed' },
+        ],
+        processing: [{ name: 'deploy-staging', lastRun: 2, result: 'done' }],
+      },
+      {
+        id: 'p-draft', name: 'experiment-sandbox',
+        repo: null, // unbound draft
+        runs: [],
+        // A brand-new step that has never run — the one legitimate "idle".
+        production: [{ name: 'build', lastRun: null, result: null }],
+        processing: [],
+      },
+    ];
+
+    /** Look up a run by its number. */
+    function runByNumber(p, n) {
+      return p.runs.find((r) => r.n === n) || null;
+    }
+
+    /**
+     * Commits to badge = the distinct runs that some step box points at,
+     * newest-first (lowest run number first). A run no box references is
+     * dropped, so the summary always matches the boxes.
+     */
+    function pickCommits(p) {
+      const referenced = new Set();
+      [...p.production, ...p.processing].forEach((s) => {
+        if (s.lastRun != null) referenced.add(s.lastRun);
+      });
+      return [...referenced]
+        .sort((a, b) => a - b)            // #1 (newest) first
+        .map((n) => runByNumber(p, n))
+        .filter(Boolean);
+    }
+
+    const host = document.getElementById('pipelines');
+    const ROW_OFFSET = 2; // header (0) + list-head (1)
+
+    pipelines.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'pipeline-card animate-in';
+      card.style.setProperty('--i', ROW_OFFSET + i);
+
+      // ---- Top: name (+ repo) and delete ----
+      const top = document.createElement('div');
+      top.className = 'pc-top';
+
+      const titleWrap = document.createElement('div');
+      const title = document.createElement('a');
+      title.className = 'pc-title';
+      title.href = 'detail.html?id=' + encodeURIComponent(p.id);
+      title.textContent = p.name;
+      titleWrap.appendChild(title);
+      if (p.repo) {
+        const repo = document.createElement('a');
+        repo.className = 'pc-repo';
+        repo.href = 'https://' + p.repo;
+        repo.target = '_blank';
+        repo.rel = 'noopener';
+        repo.title = 'Open repository on GitHub';
+        // GitHub mark + the repo path.
+        repo.innerHTML = GITHUB_MARK + '<span></span>';
+        repo.querySelector('span').textContent = p.repo;
+        titleWrap.appendChild(repo);
+      }
+
+      const del = document.createElement('button');
+      del.className = 'btn-delete';
+      del.textContent = 'Delete';
+      del.addEventListener('click', () => alert('→ delete ' + p.name));
+
+      top.append(titleWrap, del);
+      card.appendChild(top);
+
+      // ---- Step health strip (production → processing) ----
+      const steps = document.createElement('div');
+      steps.className = 'pc-steps';
+      const strip = document.createElement('div');
+      strip.className = 'ci-strip';
+      if (p.production.length || p.processing.length) {
+        p.production.forEach((s) => strip.appendChild(ciBox(p, s)));
+        if (p.processing.length) {
+          const divider = document.createElement('span');
+          divider.className = 'ci-divider';
+          strip.appendChild(divider);
+          p.processing.forEach((s) => strip.appendChild(ciBox(p, s)));
+        }
+      } else {
+        const empty = document.createElement('span');
+        empty.className = 'pc-commits-empty';
+        empty.textContent = 'No steps yet';
+        strip.appendChild(empty);
+      }
+      steps.appendChild(strip);
+      card.appendChild(steps);
+
+      // ---- Commit history badges (derived from the boxes' runs) ----
+      const commitsRow = document.createElement('div');
+      commitsRow.className = 'pc-commits';
+      const picked = pickCommits(p);
+      if (picked.length) {
+        picked.forEach((run) => {
+          const badge = document.createElement('a');
+          badge.className = 'commit-badge ' + run.outcome;
+          // Click → that run's logs, which links on to the GitHub commit.
+          const q = new URLSearchParams({
+            id: p.id, run: run.sha, outcome: run.outcome,
+          });
+          if (p.repo) q.set('repo', p.repo);
+          badge.href = 'logs.html?' + q.toString();
+          badge.title = '#' + run.n + ' ' + run.sha + ' — ' + run.outcome + ' (view run)';
+          // "#n  shorthash" so the badge ties back to the numbered boxes.
+          badge.innerHTML = '<span class="cb-num">#' + run.n + '</span>' +
+            '<span class="cb-sha"></span>';
+          badge.querySelector('.cb-sha').textContent = run.sha.slice(0, 7);
+          commitsRow.appendChild(badge);
+        });
+      } else {
+        const empty = document.createElement('span');
+        empty.className = 'pc-commits-empty';
+        empty.textContent = 'No runs yet';
+        commitsRow.appendChild(empty);
+      }
+      card.appendChild(commitsRow);
+
+      host.appendChild(card);
+    });
+
+    /** One numbered step box: the run it last ran, colored by its result.
+     *  A never-run step (lastRun null) is an empty idle box with no number. */
+    function ciBox(p, step) {
+      const box = document.createElement('span');
+      if (step.lastRun == null) {
+        box.className = 'ci-box idle';
+        box.title = step.name + ' — never run';
+        return box;
+      }
+      box.className = 'ci-box ' + step.result;
+      box.textContent = step.lastRun;
+      const run = runByNumber(p, step.lastRun);
+      box.title = step.name + ' — run #' + step.lastRun +
+        (run ? ' (' + run.sha.slice(0, 7) + ')' : '') + ' — ' + step.result;
+      return box;
+    }
+
+    // ---- Add-pipeline card (last in the grid) ----
+    const addCard = document.createElement('button');
+    addCard.className = 'add-card animate-in';
+    addCard.type = 'button';
+    addCard.style.setProperty('--i', ROW_OFFSET + pipelines.length);
+    addCard.innerHTML =
+      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+         <path d="M12 5v14" /><path d="M5 12h14" />
+       </svg><span>Add pipeline</span>`;
+    addCard.addEventListener('click', () => alert('→ create pipeline'));
+    host.appendChild(addCard);
+
+    document.getElementById('reload').addEventListener('click', (e) => {
+      const svg = e.currentTarget.querySelector('svg');
+      svg.classList.add('spin');
+      setTimeout(() => svg.classList.remove('spin'), 800);
+    });
+  </script>
+  <script src="footer.js" defer></script>
+</body>
+</html>

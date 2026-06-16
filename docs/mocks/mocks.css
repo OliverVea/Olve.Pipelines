@@ -1,0 +1,508 @@
+/* Shared across all Olve.Pipelines mocks: design tokens + base reset +
+   genuinely reusable components. Screen-specific layout lives in its own
+   stylesheet (e.g. list.css).
+
+   The mocks have THEIR OWN palette — a LIGHT theme built on a navy-blue
+   primary ramp with warm gold and coral secondaries — distinct from the real
+   frontend's dark `theme.css`. The SEMANTIC token names (--color-bg,
+   --color-surface, --color-primary, …) are kept identical to the real app's so
+   a mock → Lit-component port stays mechanical: only the raw hex behind the
+   tokens differs. Reach for the semantic tokens in screen CSS, not the raw
+   ramps. */
+:root {
+  /* ---- Raw ramps (light → dark) ----
+     Don't use these directly in screen CSS; map through the semantic tokens
+     below so a re-tint is a one-line change here. */
+
+  /* Primary — navy blue */
+  --blue-100: #718da5;
+  --blue-200: #496c89;
+  --blue-300: #2a4f6e;
+  --blue-400: #123552;
+  --blue-500: #042037;
+
+  /* Secondary #1 — warm gold (warnings, scheduled) */
+  --gold-100: #ffebaa;
+  --gold-200: #d4bc6a;
+  --gold-300: #aa8f39;
+  --gold-400: #806715;
+  --gold-500: #554100;
+
+  /* Secondary #2 — coral / terracotta (danger, failures) */
+  --coral-100: #ffc0aa;
+  --coral-200: #d4856a;
+  --coral-300: #aa5639;
+  --coral-400: #803015;
+  --coral-500: #551600;
+
+  /* ---- Semantic tokens (use THESE in screen CSS) ----
+     Light theme: paper-white page, faintly blue-tinted surfaces, deep-navy
+     text and accents. */
+  --color-bg: #f5f8fb;                 /* paper, a hair cooler than white */
+  --color-surface: #ffffff;            /* cards sit above the page */
+  --color-surface-hover: #eef3f8;      /* subtle blue-grey hover */
+  --color-border: #d3dde6;             /* light blue-grey hairline */
+  --color-text: var(--blue-500);       /* deep navy ink */
+  --color-text-muted: var(--blue-200); /* mid navy for secondary text */
+  --color-primary: var(--blue-300);    /* navy primary, readable on white */
+  --color-primary-hover: var(--blue-400);
+  --color-danger: var(--coral-300);
+  --color-danger-hover: var(--coral-400);
+  --color-success: #178351;            /* green keeps its own meaning (done/ok) */
+  --color-warning: var(--gold-400);    /* darker gold reads on white */
+  --color-pending: var(--blue-200);
+
+  --radius: 6px;
+  --radius-lg: 10px;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --transition: 150ms ease;
+
+  /* Soft elevation for raised surfaces on the light page. */
+  --shadow: 0 1px 3px rgba(4, 32, 55, 0.08), 0 1px 2px rgba(4, 32, 55, 0.04);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* ---- App shell ----
+   The centered, padded page container with the top header bar. Mirrors the
+   real <app-shell>. Every screen wraps its content in `.app`. */
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.app-header h1 a {
+  color: var(--color-text);
+}
+
+.app-header h1 a:hover {
+  color: var(--color-primary);
+}
+
+.app-header .spacer {
+  flex: 1;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.user-name {
+  color: var(--color-text);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background var(--transition);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-delete {
+  background: none;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  transition: background var(--transition), color var(--transition);
+}
+
+.btn-delete:hover {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* ---- Icon / reload button ----
+   The square-ish ghost button used for the refresh control on every screen. */
+.icon-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.icon-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.icon-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---- Pill ----
+   A quiet rounded capsule for metadata: the GitOps binding state (repo, sync
+   status, unset secrets). Mirrors the .pill family on pipeline-detail-view. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill .branch {
+  opacity: 0.6;
+}
+
+.pill.ok {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.pill.error,
+.pill.warn {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* ---- CI strip ----
+   A row of little boxes summarizing a pipeline's steps at a glance: one box
+   per production step, an arrow, then one per processing step. Each box is
+   colored by that step's latest job status (same status classes as the flow
+   diagram's badges). Used on the pipeline list card. */
+.ci-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+/* Each box holds the run NUMBER the step last ran (1 = newest), colored by
+   that step's result in that run. A never-run step is an empty idle box. */
+.ci-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+}
+
+.ci-box.scheduled { background: var(--color-warning); border-color: var(--color-warning); }
+.ci-box.running   { background: var(--color-primary); border-color: var(--color-primary); animation: status-pulse 1.5s ease-in-out infinite; }
+.ci-box.done      { background: var(--color-success); border-color: var(--color-success); }
+.ci-box.failed    { background: var(--color-danger);  border-color: var(--color-danger); }
+.ci-box.cancelled { background: var(--color-text-muted); border-color: var(--color-text-muted); }
+.ci-box.obsolete  { background: transparent; border-style: dashed; color: var(--color-text-muted); }
+/* idle = never run: empty, muted, dashed outline */
+.ci-box.idle { background: transparent; border-style: dashed; color: var(--color-text-muted); }
+
+/* Divider between the production boxes and the processing boxes. A thin
+   vertical rule (the "|") rather than an arrow. */
+.ci-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 0.85rem;
+  background: var(--color-border);
+  margin: 0 0.3rem;
+}
+
+/* ---- Commit badge ----
+   A monospace short-hash chip colored by the run's outcome, linking to the
+   GitHub commit. succeeded = green, failed = coral, in-progress = primary
+   (pulsing), other = neutral. Shown as a short chronological history on the
+   pipeline card. */
+.commit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.commit-badge:hover {
+  text-decoration: none;
+  filter: brightness(0.97);
+  border-color: var(--color-primary);
+}
+
+.commit-badge::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex: none;
+  background: var(--color-text-muted);
+}
+
+.commit-badge.succeeded { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border)); }
+.commit-badge.succeeded::before { background: var(--color-success); }
+
+.commit-badge.failed { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border)); }
+.commit-badge.failed::before { background: var(--color-danger); }
+
+.commit-badge.in-progress { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); }
+.commit-badge.in-progress::before { background: var(--color-primary); animation: status-pulse 1.5s ease-in-out infinite; }
+
+/* The run number that ties a badge back to its numbered step boxes. */
+.commit-badge .cb-num {
+  font-weight: 700;
+  opacity: 0.7;
+}
+.commit-badge .cb-sha {
+  color: var(--color-text-muted);
+}
+
+/* ---- Status badge ----
+   One pill summarizing a step's latest job. Born on the flow diagram; shared
+   here because the list and detail screens both show job statuses. The class
+   names mirror step-node.ts's status types so the mock → component port is
+   mechanical: idle / scheduled / running / done / failed / cancelled /
+   obsolete. */
+.status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+a.status-badge:hover {
+  filter: brightness(1.2);
+  outline: 1px solid currentColor;
+}
+
+.status-badge.idle {
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+}
+
+.status-badge.scheduled {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.status-badge.running {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+.status-badge.done {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.status-badge.failed {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+}
+
+.status-badge.cancelled {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+}
+
+.status-badge.obsolete {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  text-decoration: line-through;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ---- Spin (reload icon while loading) ---- */
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Misc shared states ---- */
+.empty {
+  color: var(--color-text-muted);
+  padding: 2rem;
+  text-align: center;
+}
+
+.error {
+  color: var(--color-danger);
+  padding: 1rem;
+}
+
+/* ---- Load-in animation ----
+   Mark an element `.animate-in` to have it enter on page load; stagger with
+   style="--i: N" (0-based). Switched on via a class on <body> set by footer.js
+   from ?anim=fade|cascade|pop. Gated behind prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .anim-fade .animate-in,
+  .anim-cascade .animate-in,
+  .anim-pop .animate-in {
+    opacity: 0;
+  }
+
+  .anim-fade .animate-in {
+    animation: anim-fade-rise 0.35s ease both;
+    animation-delay: calc(var(--i, 0) * 0.04s);
+  }
+  .anim-cascade .animate-in {
+    animation: anim-fade-rise 0.32s ease both;
+    animation-delay: calc(var(--i, 0) * 0.05s);
+  }
+  .anim-pop .animate-in {
+    animation: anim-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation-delay: calc(var(--i, 0) * 0.04s);
+  }
+
+  @keyframes anim-fade-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes anim-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}

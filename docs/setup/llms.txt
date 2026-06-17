@@ -17,6 +17,7 @@ directly (no auth, no repo clone needed) and parse the raw text.
 - [Binding & Reconcile](/docs/binding-and-reconcile.md): The binding API, the reconcile loop, the status endpoint, and the config-before-build guarantee.
 - [Bundles & Execution](/docs/bundles-and-execution.md): How steps run as K8s Jobs, what an ArtifactBundle is, and how output flows from production to processing.
 - [Promotion Gate](/docs/promotion-gate.md): Operational control (brake + re-promote) over processing steps — state, not config.
+- [Shared Script Library](/docs/script-library.md): `olve-lib.sh` — sourced shell helpers that capture the Kaniko-build and SSH/Helm-deploy footguns so step scripts stop re-vendoring them.
 - [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.
 
 ## Reference

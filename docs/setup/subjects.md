@@ -16,6 +16,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding API, the reconcile loop, status, git-only restriction |
 | [bundles-and-execution.md](bundles-and-execution.md) | K8s Jobs, ArtifactBundle, scheduling, the production→processing flow |
 | [promotion-gate.md](promotion-gate.md) | Brake + re-promote; operational state vs config |
+| [script-library.md](script-library.md) | `olve-lib.sh` shared shell helpers; how a step sources it; function reference |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
 
 ## Subjects A–Z
@@ -43,6 +44,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | GitOps model (overview) | [index.md#how-you-configure-it-gitops-only](index.md#how-you-configure-it-gitops-only) |
 | `image` (step config) | [config-reference.md#step-object](config-reference.md#step-object) |
 | Job statuses | [bundles-and-execution.md#jobs-and-scheduling](bundles-and-execution.md#jobs-and-scheduling) |
+| Kaniko build helper (`olve_kaniko_build`) | [script-library.md#functions](script-library.md#functions) |
 | Job endpoints (cancel, queue, get) | [bundles-and-execution.md#job-endpoints](bundles-and-execution.md#job-endpoints) |
 | Kubernetes Jobs (how steps run) | [bundles-and-execution.md#every-step-is-a-kubernetes-job](bundles-and-execution.md#every-step-is-a-kubernetes-job) |
 | Latest-wins scheduling | [bundles-and-execution.md#jobs-and-scheduling](bundles-and-execution.md#jobs-and-scheduling) · [troubleshooting.md](troubleshooting.md#a-new-job-seems-to-have-replaced-my-queued-one) |
@@ -58,6 +60,8 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Reconcile result (NeverRun/Success/Error) | [binding-and-reconcile.md#result-values](binding-and-reconcile.md#result-values) |
 | Re-promote (redrive last bundle) | [promotion-gate.md](promotion-gate.md) |
 | `script` vs `scriptFile` | [config-reference.md#scriptfile--keep-a-script-out-of-line](config-reference.md#scriptfile--keep-a-script-out-of-line) |
+| Script library (`olve-lib.sh`, sourcing it) | [script-library.md](script-library.md) |
+| Shared shell functions (deploy/build) | [script-library.md#functions](script-library.md#functions) |
 | Secrets (declare by name) | [config-reference.md#secrets](config-reference.md#secrets) |
 | Secrets (set values via API) | [getting-started.md#step-3--set-the-secret-values](getting-started.md#step-3--set-the-secret-values) |
 | `$SECRET:NAME` reference | [config-reference.md#secrets](config-reference.md#secrets) |

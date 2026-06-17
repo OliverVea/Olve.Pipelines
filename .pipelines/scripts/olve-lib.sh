@@ -118,15 +118,19 @@ olve_image_import() {
 
 # olve_helm_deploy <ssh-target> <release> <namespace> <local-chart-dir> <version> [extra helm args...]
 # Copy the helm chart to the host and run helm upgrade --install against the imported
-# image, then clean up the copied chart. Extra args (e.g. -f values-beta.yaml) are
-# passed through verbatim.
+# image, then clean up the copied chart. Extra args (e.g. -f values-beta.yaml or
+# chart-specific --set flags) are passed through verbatim.
 #
 # The upgrade runs from inside the copied chart dir (`helm ... .`), so a chart-relative
 # values path like `-f values-beta.yaml` resolves without the caller knowing the remote
-# /tmp path. Extra args land before --set, so the --set image.tag override still wins.
+# /tmp path. Extra args land before the baked image --set flags, so the --set image.tag
+# override still wins.
 #
-# image.pullPolicy=Never — the image is local to the node (imported above, not pulled).
-# slo.enabled=false — the sloth CRD is not installed cluster-wide.
+# This helper bakes in ONLY the image overrides that are universal to the import-then-deploy
+# flow (image.repository / image.tag / image.pullPolicy=Never — the image is local to the
+# node, imported above, not pulled). Chart-specific flags (e.g. --set slo.enabled=false for
+# a chart that defines an slo block) are the caller's to pass through, so the lib stays
+# repo-agnostic.
 olve_helm_deploy() {
   target=$1
   release=$2
@@ -141,6 +145,6 @@ olve_helm_deploy() {
   ssh -o StrictHostKeyChecking=no "$target" \
     "cd $remote_chart && helm upgrade --install $release . -n $namespace $* \
        --set image.repository=docker.io/library/$release \
-       --set image.tag=$version --set image.pullPolicy=Never --set slo.enabled=false \
+       --set image.tag=$version --set image.pullPolicy=Never \
      && cd / && rm -rf $remote_chart"
 }

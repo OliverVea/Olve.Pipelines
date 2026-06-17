@@ -52,6 +52,9 @@ Read in this order:
    processing steps, which is *state, not config*.
 6. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
+See **[Shared Script Library](script-library.md)** to stop re-vendoring the Kaniko-build and
+SSH/Helm-deploy shell in every step — `olve-lib.sh` captures those footguns once.
+
 See **[Examples](examples.md)** for four real projects (this repo, QuestionBank, a homelab, a
 game) mapped to the capability each exercises.
 

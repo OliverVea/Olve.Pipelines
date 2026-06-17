@@ -68,8 +68,8 @@ Content-Type: application/json
 
 The response is the binding. Note the pipeline `id` — you need it for the next steps.
 
-> Already have a draft pipeline? Bind it instead with `POST /api/pipelines/{id}/binding`
-> (same body minus `name`). See [Binding & Reconcile](binding-and-reconcile.md).
+> `with-repo` is the only way to create a pipeline: every pipeline is bound to a repo from
+> birth, so its shape always comes from git. See [Binding & Reconcile](binding-and-reconcile.md).
 
 ## Step 3 — Set the secret values
 

@@ -13,10 +13,9 @@ public static class PipelineEndpoints
     {
         var group = app.MapGroup("/api/pipelines");
 
-        group.MapPost("/", Result<Pipeline> (PipelineService service, string name)
-                => service.Create(name))
-            .WithResultMapping<Pipeline>()
-            .WithName("CreatePipeline");
+        // Pipelines are created already bound to a repo via POST /api/pipelines/with-repo
+        // (PipelineBindingEndpoints). GitOps is the only writer of pipeline shape, so there is no
+        // bare, unbound create — a pipeline without a binding would be a permanently empty shell.
 
         group.MapGet("/{id}", Result<Pipeline> (PipelineService service, Id<Pipeline> id)
                 => service.TryGet(id, out var pipeline)

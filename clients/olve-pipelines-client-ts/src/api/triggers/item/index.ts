@@ -12,21 +12,10 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
 export interface WithTriggerItemRequestBuilder extends BaseRequestBuilder<WithTriggerItemRequestBuilder> {
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {Promise<ArrayBuffer>}
-     * @throws {ResultProblem} error when the service returns a 400 status code
-     */
-     delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Trigger>}
      * @throws {ResultProblem} error when the service returns a 400 status code
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Trigger | undefined>;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {RequestInformation}
-     */
-     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
@@ -41,15 +30,6 @@ export const WithTriggerItemRequestBuilderUriTemplate = "{+baseurl}/api/triggers
  * Metadata for all the requests in the request builder.
  */
 export const WithTriggerItemRequestBuilderRequestsMetadata: RequestsMetadata = {
-    delete: {
-        uriTemplate: WithTriggerItemRequestBuilderUriTemplate,
-        responseBodyContentType: "application/json",
-        errorMappings: {
-            400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-        },
-        adapterMethodName: "sendPrimitive",
-        responseBodyFactory:  "ArrayBuffer",
-    },
     get: {
         uriTemplate: WithTriggerItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",

@@ -2,16 +2,12 @@ using Olve.MinimalApi;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Processing;
 
 public static class ProcessingStepEndpoints
 {
-    public record CreateProcessingStepRequest(string Name, int Order);
-    public record SetStepConfigurationRequest(string Image, string Script, Dictionary<string, string>? EnvironmentVariables);
-    public record UpdateOrderRequest(int Order);
     public record PromotionState(bool Blocked);
     public record SetPromotionRequest(bool Blocked);
     public record StepPromotionState(Id<ProcessingStep> ProcessingStepId, bool Blocked);
@@ -19,23 +15,6 @@ public static class ProcessingStepEndpoints
     public static void MapProcessingStepEndpoints(this WebApplication app)
     {
         var pipelineGroup = app.MapGroup("/api/pipelines/{pipelineId}/processing");
-
-        pipelineGroup.MapPost("/", Result<ProcessingStep> (
-            PipelineService pipelines,
-            PipelineConfigBindingService bindings,
-            ProcessingStepService steps,
-            Id<Pipeline> pipelineId,
-            CreateProcessingStepRequest request) =>
-            {
-                if (!pipelines.TryGet(pipelineId, out _))
-                    return new ResultProblem($"Pipeline '{pipelineId}' not found.");
-                if (bindings.IsBound(pipelineId))
-                    return PipelineConfigBindingService.GitOnlyProblem(pipelineId);
-
-                return steps.Create(pipelineId, request.Name, request.Order);
-            })
-            .WithResultMapping<ProcessingStep>()
-            .WithName("CreateProcessingStep");
 
         pipelineGroup.MapGet("/", Result<ProcessingStep[]> (
             PipelineService pipelines,
@@ -77,52 +56,6 @@ public static class ProcessingStepEndpoints
             .WithName("GetProcessingStep")
             .AllowAnonymous();
 
-        stepGroup.MapDelete("/", DeletionResult (
-            ProcessingStepService steps,
-            PipelineConfigBindingService bindings,
-            Id<ProcessingStep> stepId) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out _, out var step))
-                    return steps.Delete(stepId); // not found — preserve NotFound behavior
-                return bindings.IsBound(step.PipelineId)
-                    ? DeletionResult.Error(PipelineConfigBindingService.GitOnlyProblem(step.PipelineId))
-                    : steps.Delete(stepId);
-            })
-            .WithDeletionMapping()
-            .WithName("DeleteProcessingStep");
-
-        stepGroup.MapPut("/order", Result<ProcessingStep> (
-            ProcessingStepService steps,
-            PipelineConfigBindingService bindings,
-            Id<ProcessingStep> stepId,
-            UpdateOrderRequest request) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
-                    return problems;
-                if (bindings.IsBound(step.PipelineId))
-                    return PipelineConfigBindingService.GitOnlyProblem(step.PipelineId);
-
-                return steps.UpdateOrder(stepId, request.Order);
-            })
-            .WithResultMapping<ProcessingStep>()
-            .WithName("UpdateProcessingStepOrder");
-
-        stepGroup.MapPut("/configuration", Result<StepConfiguration> (
-            ProcessingStepService steps,
-            PipelineConfigBindingService bindings,
-            Id<ProcessingStep> stepId,
-            SetStepConfigurationRequest request) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
-                    return problems;
-                if (bindings.IsBound(step.PipelineId))
-                    return PipelineConfigBindingService.GitOnlyProblem(step.PipelineId);
-
-                return steps.SetConfiguration(stepId, new StepConfiguration(request.Image, request.Script, request.EnvironmentVariables));
-            })
-            .WithResultMapping<StepConfiguration>()
-            .WithName("SetProcessingStepConfiguration");
-
         stepGroup.MapGet("/configuration", Result<StepConfiguration> (
             ProcessingStepService steps,
             Id<ProcessingStep> stepId)
@@ -131,24 +64,8 @@ public static class ProcessingStepEndpoints
             .WithName("GetProcessingStepConfiguration")
             .AllowAnonymous();
 
-        stepGroup.MapDelete("/configuration", Result (
-            ProcessingStepService steps,
-            PipelineConfigBindingService bindings,
-            Id<ProcessingStep> stepId) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
-                    return problems;
-                if (bindings.IsBound(step.PipelineId))
-                    return PipelineConfigBindingService.GitOnlyProblem(step.PipelineId);
-
-                return steps.RemoveConfiguration(stepId);
-            })
-            .WithResultMapping()
-            .WithName("RemoveProcessingStepConfiguration");
-
-        // Promotion gate (operational state, not config). Deliberately NOT gated by IsBound:
-        // configuration is git-owned, but blocking/unblocking promotion is an operator action that
-        // stays available even on a bound pipeline.
+        // Promotion gate (operational state, not config). Available even on a bound pipeline:
+        // configuration is git-owned, but blocking/unblocking promotion is an operator action.
         stepGroup.MapGet("/promotion", Result<PromotionState> (
             ProcessingStepService steps,
             PromotionGateService promotionGate,

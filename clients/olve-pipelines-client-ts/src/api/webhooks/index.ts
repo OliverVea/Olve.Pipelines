@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface WebhooksRequestBuilder extends BaseRequestBuilder<WebhooksRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelinesClient.api.webhooks.item collection
+     * Gets an item from the OlvePipelinesApi.api.webhooks.item collection
      * @param triggerId Unique identifier of the item
      * @returns {WithTriggerItemRequestBuilder}
      */

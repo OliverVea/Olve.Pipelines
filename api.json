@@ -128,49 +128,6 @@
         }
       }
     },
-    "/api/pipelines/from-document": {
-      "post": {
-        "tags": [
-          "beta"
-        ],
-        "operationId": "CreatePipelineFromDocument",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PipelineDocument"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineDocument"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/pipelines/with-repo": {
       "post": {
         "tags": [
@@ -215,57 +172,6 @@
       }
     },
     "/api/pipelines/{pipelineId}/binding": {
-      "post": {
-        "tags": [
-          "beta"
-        ],
-        "operationId": "BindPipelineToRepo",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BindRepoRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "beta"
@@ -351,83 +257,6 @@
         }
       }
     },
-    "/api/pipelines": {
-      "post": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "CreatePipeline",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Pipeline"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "ListPipelines",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Pipeline"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/pipelines/{id}": {
       "get": {
         "tags": [
@@ -491,6 +320,42 @@
           },
           "404": {
             "description": "Not Found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListPipelines",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pipeline"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -641,57 +506,6 @@
       }
     },
     "/api/pipelines/{pipelineId}/production": {
-      "post": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "CreateProductionStep",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductionStepRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductionStep"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -778,97 +592,9 @@
             }
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "DeleteProductionStep",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/production-steps/{stepId}/configuration": {
-      "put": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "SetProductionStepConfiguration",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetStepConfigurationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepConfiguration"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -909,94 +635,9 @@
             }
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "RemoveProductionStepConfiguration",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/pipelines/{pipelineId}/processing": {
-      "post": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "CreateProcessingStep",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProcessingStepRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProcessingStep"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -1129,150 +770,9 @@
             }
           }
         }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "DeleteProcessingStep",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/processing-steps/{stepId}/order": {
-      "put": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "UpdateProcessingStepOrder",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateOrderRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProcessingStep"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/processing-steps/{stepId}/configuration": {
-      "put": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "SetProcessingStepConfiguration",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetStepConfigurationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StepConfiguration"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -1298,40 +798,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "RemoveProcessingStepConfiguration",
-        "parameters": [
-          {
-            "name": "stepId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           },
           "400": {
             "description": "Bad Request",
@@ -1943,57 +1409,6 @@
       }
     },
     "/api/pipelines/{pipelineId}/triggers": {
-      "post": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "CreateTrigger",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTriggerRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Trigger"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
       "get": {
         "tags": [
           "Olve.Pipelines"
@@ -2065,43 +1480,6 @@
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "DeleteTrigger",
-        "parameters": [
-          {
-            "name": "triggerId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
           },
           "400": {
             "description": "Bad Request",
@@ -2208,38 +1586,6 @@
       "ArtifactBundleStatus": {
         "type": "integer"
       },
-      "BindRepoRequest": {
-        "required": [
-          "repo",
-          "branch",
-          "path",
-          "credentialsSecret"
-        ],
-        "type": "object",
-        "properties": {
-          "repo": {
-            "type": "string"
-          },
-          "branch": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "path": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "credentialsSecret": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "CreatePipelineWithRepoRequest": {
         "required": [
           "name",
@@ -2273,49 +1619,6 @@
               "null",
               "string"
             ]
-          }
-        }
-      },
-      "CreateProcessingStepRequest": {
-        "required": [
-          "name",
-          "order"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "order": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "CreateProductionStepRequest": {
-        "required": [
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "CreateTriggerRequest": {
-        "required": [
-          "name",
-          "target"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "target": {
-            "$ref": "#/components/schemas/TriggerTarget"
           }
         }
       },
@@ -3191,31 +2494,6 @@
           }
         }
       },
-      "SetStepConfigurationRequest": {
-        "required": [
-          "image",
-          "script",
-          "environmentVariables"
-        ],
-        "type": "object",
-        "properties": {
-          "image": {
-            "type": "string"
-          },
-          "script": {
-            "type": "string"
-          },
-          "environmentVariables": {
-            "type": [
-              "null",
-              "object"
-            ],
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "StepConfiguration": {
         "required": [
           "image",
@@ -3512,19 +2790,6 @@
             "$ref": "#/components/schemas/TriggerTarget"
           }
         ]
-      },
-      "UpdateOrderRequest": {
-        "required": [
-          "order"
-        ],
-        "type": "object",
-        "properties": {
-          "order": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          }
-        }
       },
       "WebhookRequest": {
         "required": [

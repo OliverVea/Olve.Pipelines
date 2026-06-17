@@ -6,8 +6,6 @@ import { createProcessingStepFromDiscriminatorValue, createResultProblemFromDisc
 // @ts-ignore
 import { ConfigurationRequestBuilderRequestsMetadata, type ConfigurationRequestBuilder } from './configuration/index.js';
 // @ts-ignore
-import { OrderRequestBuilderRequestsMetadata, type OrderRequestBuilder } from './order/index.js';
-// @ts-ignore
 import { PromotionRequestBuilderRequestsMetadata, type PromotionRequestBuilder } from './promotion/index.js';
 // @ts-ignore
 import { RePromoteRequestBuilderRequestsMetadata, type RePromoteRequestBuilder } from './rePromote/index.js';
@@ -23,10 +21,6 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
      */
     get configuration(): ConfigurationRequestBuilder;
     /**
-     * The order property
-     */
-    get order(): OrderRequestBuilder;
-    /**
      * The promotion property
      */
     get promotion(): PromotionRequestBuilder;
@@ -36,21 +30,10 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
     get rePromote(): RePromoteRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {Promise<ArrayBuffer>}
-     * @throws {ResultProblem} error when the service returns a 400 status code
-     */
-     delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ProcessingStep>}
      * @throws {ResultProblem} error when the service returns a 400 status code
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ProcessingStep | undefined>;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {RequestInformation}
-     */
-     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
@@ -68,9 +51,6 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     configuration: {
         requestsMetadata: ConfigurationRequestBuilderRequestsMetadata,
     },
-    order: {
-        requestsMetadata: OrderRequestBuilderRequestsMetadata,
-    },
     promotion: {
         requestsMetadata: PromotionRequestBuilderRequestsMetadata,
     },
@@ -82,15 +62,6 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
  * Metadata for all the requests in the request builder.
  */
 export const WithStepItemRequestBuilderRequestsMetadata: RequestsMetadata = {
-    delete: {
-        uriTemplate: WithStepItemRequestBuilderUriTemplate,
-        responseBodyContentType: "application/json",
-        errorMappings: {
-            400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-        },
-        adapterMethodName: "sendPrimitive",
-        responseBodyFactory:  "ArrayBuffer",
-    },
     get: {
         uriTemplate: WithStepItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",

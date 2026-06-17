@@ -31,11 +31,12 @@ is persisted separately (`promotion-state.json`) so a braked step stays braked a
 > [`/docs`](docs/setup/index.md)** (raw Markdown, with a [subject index](docs/setup/subjects.md)).
 > This README is the in-code reference; `/docs` is the operator/setup view.
 
-A pipeline can be **bound to a Git repository**. Once bound, *your* repo is the single source of
-truth for the pipeline's shape: a background reconcile loop polls your branch head (~5 min), and
-whenever `<your-repo>/.pipelines/config.yaml` changes it materializes the production steps,
-processing steps, and triggers to match — then runs the build. Binding also configures the deploy
-poll, so pushing a commit deploys automatically; you never author a trigger by hand.
+A pipeline is **always bound to a Git repository** — that binding is the only way to create one.
+*Your* repo is the single source of truth for the pipeline's shape: a background reconcile loop
+polls your branch head (~5 min), and whenever `<your-repo>/.pipelines/config.yaml` changes it
+materializes the production steps, processing steps, and triggers to match — then runs the build.
+Binding also configures the deploy poll, so pushing a commit deploys automatically; you never
+author a trigger by hand.
 
 ### Adding CD to your repo
 
@@ -45,13 +46,16 @@ poll, so pushing a commit deploys automatically; you never author a trigger by h
    starter (Kaniko build + Helm deploy).
 2. Create a pipeline bound to your repo: `POST /api/pipelines/with-repo` with
    `{ name, repo, branch?, path?, credentialsSecret }` (see [GitOps Binding](#gitops-binding)).
+   This is the **only** way to create a pipeline — there is no unbound/draft create.
 3. Set the secret *values* your config declares: `PUT /api/pipelines/{id}/secrets/{name}`.
 4. Push. The first reconcile builds your pipeline from the file; check
    `GET /api/pipelines/{id}/binding/status` for the result.
 
-**Git-only:** a bound pipeline **rejects API config-mutation endpoints** (step/config/trigger
-CRUD) — your repo is the only config writer. Operational endpoints stay open: manual production
-trigger, job cancel, and setting secret *values*.
+**Git-only:** the API has **no config-mutation endpoints** — there is no way to create, delete,
+reconfigure, or reorder steps or to create/delete triggers over HTTP. Pipeline shape comes solely
+from your repo via reconcile. Operational endpoints stay open: manual production trigger, job
+cancel, setting secret *values*, and the promotion gate. The dividing line: **shape is
+git-owned; operations are API-allowed.**
 
 ### `config.yaml` schema
 
@@ -125,9 +129,10 @@ tools/version.cs                                 # CalVer versioning script
 
 ### Pipelines
 
+Pipelines are created only via `POST /api/pipelines/with-repo` (see [GitOps Binding](#gitops-binding)) — there is no unbound create.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines?name=<name>` | Create pipeline |
 | GET | `/api/pipelines` | List pipelines |
 | GET | `/api/pipelines/summary` | List pipelines with per-step health (for the list page; one round-trip) |
 | GET | `/api/pipelines/{id}` | Get pipeline |
@@ -137,30 +142,25 @@ tools/version.cs                                 # CalVer versioning script
 
 ### Production Steps
 
+Steps are defined in `.pipelines/config.yaml` and materialized by reconcile — they are not API-writable (read-only over HTTP).
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines/{pipelineId}/production` | Create production step |
 | GET | `/api/pipelines/{pipelineId}/production` | List production steps |
 | GET | `/api/production-steps/{stepId}` | Get production step |
-| DELETE | `/api/production-steps/{stepId}` | Delete production step |
-| PUT | `/api/production-steps/{stepId}/configuration` | Set step configuration |
 | GET | `/api/production-steps/{stepId}/configuration` | Get step configuration |
-| DELETE | `/api/production-steps/{stepId}/configuration` | Remove step configuration |
 
 ### Processing Steps
 
+Steps and their order are defined in `.pipelines/config.yaml` and materialized by reconcile — not API-writable. The promotion gate is operational state and stays API-mutable.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines/{pipelineId}/processing` | Create processing step |
 | GET | `/api/pipelines/{pipelineId}/processing` | List processing steps (ordered) |
 | GET | `/api/processing-steps/{stepId}` | Get processing step |
-| DELETE | `/api/processing-steps/{stepId}` | Delete processing step |
-| PUT | `/api/processing-steps/{stepId}/order` | Update step order |
-| PUT | `/api/processing-steps/{stepId}/configuration` | Set step configuration |
 | GET | `/api/processing-steps/{stepId}/configuration` | Get step configuration |
-| DELETE | `/api/processing-steps/{stepId}/configuration` | Remove step configuration |
 | GET | `/api/processing-steps/{stepId}/promotion` | Get promotion gate (`{ blocked }`) |
-| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational; open when bound) |
+| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational) |
 | POST | `/api/processing-steps/{stepId}/re-promote` | Redrive the step's last bundle (refused if blocked or never run) |
 
 ### Artifact Bundles
@@ -182,12 +182,12 @@ tools/version.cs                                 # CalVer versioning script
 
 ### Triggers
 
+Triggers are defined in `.pipelines/config.yaml` and materialized by reconcile — not API-writable. Firing a webhook is operational and stays open.
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines/{pipelineId}/triggers` | Create trigger |
 | GET | `/api/pipelines/{pipelineId}/triggers` | List triggers |
 | GET | `/api/triggers/{triggerId}` | Get trigger |
-| DELETE | `/api/triggers/{triggerId}` | Delete trigger |
 | POST | `/api/webhooks/{triggerId}` | Fire webhook trigger |
 
 Trigger types:
@@ -211,8 +211,7 @@ read token.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo |
-| POST | `/api/pipelines/{id}/binding` | Bind an existing pipeline to a repo |
+| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (the only way to create a pipeline) |
 | GET | `/api/pipelines/{id}/binding` | Get the binding |
 | GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
 

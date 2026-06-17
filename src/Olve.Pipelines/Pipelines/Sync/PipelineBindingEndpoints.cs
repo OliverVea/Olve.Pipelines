@@ -42,23 +42,6 @@ public static class PipelineBindingEndpoints
             .WithName("CreatePipelineWithRepo")
             .WithTags("beta");
 
-        // Bind an existing draft pipeline to a repo.
-        app.MapPost("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
-                PipelineService pipelines,
-                PipelineConfigBindingService bindings,
-                Id<Pipeline> pipelineId,
-                BindRepoRequest request) =>
-            {
-                if (!pipelines.TryGet(pipelineId, out _))
-                    return Result.Failure<PipelineConfigBinding>(new ResultProblem($"Pipeline '{pipelineId}' not found."));
-
-                return bindings.Create(
-                    pipelineId, request.Repo, Branch(request.Branch), Path(request.Path), request.CredentialsSecret);
-            })
-            .WithResultMapping<PipelineConfigBinding>()
-            .WithName("BindPipelineToRepo")
-            .WithTags("beta");
-
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
                 => bindings.GetByPipelineId(pipelineId))
@@ -122,8 +105,6 @@ public static class PipelineBindingEndpoints
 
 public record CreatePipelineWithRepoRequest(
     string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret);
-
-public record BindRepoRequest(string Repo, string? Branch, string? Path, string? CredentialsSecret);
 
 public record PipelineBindingStatus(
     Id<Pipeline> PipelineId,

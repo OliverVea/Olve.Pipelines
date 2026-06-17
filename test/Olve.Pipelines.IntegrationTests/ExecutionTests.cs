@@ -6,6 +6,14 @@ using TUnit.Core.Exceptions;
 
 namespace Olve.Pipelines.IntegrationTests;
 
+/// <summary>
+/// End-to-end execution against a real K8s cluster (beta-gated). Shape is seeded by binding to the
+/// committed <c>.pipelines-test</c> config (one production step that writes an artifact, one
+/// processing step that consumes it) and letting reconcile materialize it — the API no longer
+/// writes shape. The committed fixture is a single happy-path cascade, so the bespoke-script
+/// variations (failing step, etc.) that the old API-built tests covered now live as unit tests
+/// over the cascade rules (see DownstreamTriggerServiceTests).
+/// </summary>
 public class ExecutionTests
 {
     [ClassDataSource<AppFixture>(Shared = SharedType.PerAssembly)]
@@ -15,55 +23,36 @@ public class ExecutionTests
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
 
     [Test]
-    public async Task TriggerProduction_CascadesThroughAllProcessingSteps()
+    public async Task TriggerProduction_CascadesThroughProcessingStep()
     {
         SkipIfNoBetaK8s();
 
         var client = Fixture.CreateApiClient();
         var http = Fixture.CreateAuthenticatedHttpClient();
-        var pipelineId = await CreatePipelineWithSteps(client,
-            productionScript: "echo hello > /output/hello.txt",
-            processingScripts: ["cat /input/*/hello.txt", "echo done"]);
+        string? pipelineId = null;
+        try
+        {
+            pipelineId = await GitOpsFixtureSeeding.CreateFixturePipelineAsync(Fixture);
 
-        var triggerResponse = await client.TriggerProduction(pipelineId);
-        await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
+            var triggerResponse = await client.TriggerProduction(pipelineId);
+            await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        var jobs = await WaitForAllJobsTerminal(http, pipelineId);
+            var jobs = await WaitForAllJobsTerminal(http, pipelineId);
 
-        var productionJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "production").ToList();
-        var processingJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "processing").ToList();
+            var productionJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "production").ToList();
+            var processingJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "processing").ToList();
 
-        await Assert.That(productionJobs).Count().IsEqualTo(1);
-        await Assert.That(GetJobStatusType(productionJobs[0])).IsEqualTo("done");
+            await Assert.That(productionJobs).Count().IsEqualTo(1);
+            await Assert.That(GetJobStatusType(productionJobs[0])).IsEqualTo("done");
 
-        await Assert.That(processingJobs).Count().IsEqualTo(2);
-        await Assert.That(GetJobStatusType(processingJobs[0])).IsEqualTo("done");
-        await Assert.That(GetJobStatusType(processingJobs[1])).IsEqualTo("done");
-    }
-
-    [Test]
-    public async Task TriggerProduction_WithFailingStep_DoesNotCascade()
-    {
-        SkipIfNoBetaK8s();
-
-        var client = Fixture.CreateApiClient();
-        var http = Fixture.CreateAuthenticatedHttpClient();
-        var pipelineId = await CreatePipelineWithSteps(client,
-            productionScript: "exit 1",
-            processingScripts: ["echo should-not-run"]);
-
-        var triggerResponse = await client.TriggerProduction(pipelineId);
-        await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
-
-        var jobs = await WaitForAllJobsTerminal(http, pipelineId);
-
-        var productionJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "production").ToList();
-        var processingJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "processing").ToList();
-
-        await Assert.That(productionJobs).Count().IsEqualTo(1);
-        await Assert.That(GetJobStatusType(productionJobs[0])).IsEqualTo("failed");
-
-        await Assert.That(processingJobs).Count().IsEqualTo(0);
+            await Assert.That(processingJobs).Count().IsEqualTo(1);
+            await Assert.That(GetJobStatusType(processingJobs[0])).IsEqualTo("done");
+        }
+        finally
+        {
+            if (pipelineId is not null)
+                await GitOpsFixtureSeeding.DeleteAsync(Fixture, pipelineId);
+        }
     }
 
     [Test]
@@ -71,75 +60,28 @@ public class ExecutionTests
     {
         SkipIfNoBetaK8s();
 
-        var client = Fixture.CreateApiClient();
         var http = Fixture.CreateAuthenticatedHttpClient();
-        var pipelineId = await CreatePipelineWithSteps(client,
-            productionScript: "echo artifact-content > /output/data.txt",
-            processingScripts: ["cat /input/*/data.txt"]);
-
-        var triggerResponse = await http.PostAsync($"/api/pipelines/{pipelineId}/trigger/production", null);
-        await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
-
-        var jobGroup = await triggerResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var bundleId = jobGroup.GetProperty("artifactBundleId").GetGuid();
-
-        await WaitForAllJobsTerminal(http, pipelineId);
-
-        var bundleResponse = await http.GetFromJsonAsync<JsonElement>($"/api/artifact-bundles/{bundleId}");
-        await Assert.That(bundleResponse.GetProperty("status").GetInt32()).IsEqualTo(1);
-    }
-
-    [Test]
-    public async Task TriggerProduction_LogsAvailableAfterCompletion()
-    {
-        SkipIfNoBetaK8s();
-
-        var client = Fixture.CreateApiClient();
-        var http = Fixture.CreateAuthenticatedHttpClient();
-        var pipelineId = await CreatePipelineWithSteps(client,
-            productionScript: "echo expected-log-output",
-            processingScripts: []);
-
-        var triggerResponse = await client.TriggerProduction(pipelineId);
-        await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
-
-        var jobs = await WaitForAllJobsTerminal(http, pipelineId);
-        var productionJob = jobs.Single(j => j.GetProperty("$type").GetString() == "production");
-        var jobId = productionJob.GetProperty("id").GetGuid();
-
-        var logsResponse = await http.GetAsync($"/api/jobs/{jobId}/logs");
-        await Assert.That(logsResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
-        var logs = await logsResponse.Content.ReadAsStringAsync();
-        await Assert.That(logs).Contains("expected-log-output");
-    }
-
-    private async Task<string> CreatePipelineWithSteps(
-        IOlvePipelinesv1 client,
-        string productionScript,
-        string[] processingScripts)
-    {
-        var pipeline = await client.CreatePipeline($"exec-test-{Guid.NewGuid():N}");
-        var pipelineId = pipeline.Content!.Id.ToString();
-
-        var prodStep = await client.CreateProductionStep(pipelineId, new CreateProductionStepRequest { Name = "build" });
-        await client.SetProductionStepConfiguration(prodStep.Content!.Id.ToString(), new SetStepConfigurationRequest
+        string? pipelineId = null;
+        try
         {
-            Image = "alpine:latest",
-            Script = productionScript,
-        });
+            pipelineId = await GitOpsFixtureSeeding.CreateFixturePipelineAsync(Fixture);
 
-        for (var i = 0; i < processingScripts.Length; i++)
-        {
-            var procStep = await client.CreateProcessingStep(pipelineId, new CreateProcessingStepRequest { Name = $"process-{i}" });
-            await client.SetProcessingStepConfiguration(procStep.Content!.Id.ToString(), new SetStepConfigurationRequest
-            {
-                Image = "alpine:latest",
-                Script = processingScripts[i],
-            });
-            await client.UpdateProcessingStepOrder(procStep.Content!.Id.ToString(), new UpdateOrderRequest { Order = i });
+            var triggerResponse = await http.PostAsync($"/api/pipelines/{pipelineId}/trigger/production", null);
+            await Assert.That(triggerResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+            var jobGroup = await triggerResponse.Content.ReadFromJsonAsync<JsonElement>();
+            var bundleId = jobGroup.GetProperty("artifactBundleId").GetGuid();
+
+            await WaitForAllJobsTerminal(http, pipelineId);
+
+            var bundleResponse = await http.GetFromJsonAsync<JsonElement>($"/api/artifact-bundles/{bundleId}");
+            await Assert.That(bundleResponse.GetProperty("status").GetInt32()).IsEqualTo(1);
         }
-
-        return pipelineId;
+        finally
+        {
+            if (pipelineId is not null)
+                await GitOpsFixtureSeeding.DeleteAsync(Fixture, pipelineId);
+        }
     }
 
     private static void SkipIfNoBetaK8s()

@@ -35,25 +35,6 @@ public class GitOpsBindingTests
     }
 
     [Test]
-    public async Task BoundPipeline_RejectsConfigMutation_ButUnboundAllowsIt()
-    {
-        var client = Fixture.CreateApiClient();
-
-        // Bound pipeline: configuration is git-only, so creating a step is rejected.
-        var bound = await client.CreatePipelineWithRepo(WithRepo($"git-only-{Guid.NewGuid():N}"));
-        var boundId = bound.Content!.PipelineId.ToString();
-
-        var rejectedStep = await client.CreateProductionStep(boundId, new CreateProductionStepRequest { Name = "nope" });
-        await Assert.That(rejectedStep.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
-
-        // Unbound (draft) pipeline: the same mutation is allowed — lockdown is binding-specific.
-        var unbound = await client.CreatePipeline($"draft-{Guid.NewGuid():N}");
-        var allowedStep = await client.CreateProductionStep(
-            unbound.Content!.Id.ToString(), new CreateProductionStepRequest { Name = "ok" });
-        await Assert.That(allowedStep.StatusCode).IsEqualTo(HttpStatusCode.OK);
-    }
-
-    [Test]
     public async Task BindingStatus_IsReadable_ForBoundPipeline()
     {
         var client = Fixture.CreateApiClient();

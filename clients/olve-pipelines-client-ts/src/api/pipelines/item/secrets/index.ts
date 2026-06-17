@@ -13,7 +13,7 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelinesClient.api.pipelines.item.secrets.item collection
+     * Gets an item from the OlvePipelinesApi.api.pipelines.item.secrets.item collection
      * @param name Unique identifier of the item
      * @returns {WithNameItemRequestBuilder}
      */

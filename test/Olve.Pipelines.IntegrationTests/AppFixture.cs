@@ -61,6 +61,11 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("Auth__Authority", Issuer)
             .WithEnvironment("Auth__Audience", Audience)
             .WithEnvironment("Host", "0.0.0.0")
+            // Drive the GitOps reconcile/deploy poll fast so tests that bind to a repo and wait for
+            // shape to materialize don't sit on the 5-minute production default. Kept modest (not
+            // sub-second) because the branch-head check is one unauthenticated GitHub call per
+            // binding per cycle — tests delete their pipelines promptly to stop the polling.
+            .WithEnvironment("Reconcile__PollIntervalSeconds", "5")
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(
                 r => r.ForPort(ContainerPort).ForPath("/api/health")));
 

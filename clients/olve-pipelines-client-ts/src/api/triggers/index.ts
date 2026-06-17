@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface TriggersRequestBuilder extends BaseRequestBuilder<TriggersRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelinesClient.api.triggers.item collection
+     * Gets an item from the OlvePipelinesApi.api.triggers.item collection
      * @param triggerId Unique identifier of the item
      * @returns {WithTriggerItemRequestBuilder}
      */

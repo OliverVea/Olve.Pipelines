@@ -4,8 +4,6 @@
 // @ts-ignore
 import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscriminatorValue, type Pipeline, type ResultProblem } from '../../models/index.js';
 // @ts-ignore
-import { FromDocumentRequestBuilderRequestsMetadata, type FromDocumentRequestBuilder } from './fromDocument/index.js';
-// @ts-ignore
 import { ItemRequestBuilderNavigationMetadata, ItemRequestBuilderRequestsMetadata, type ItemRequestBuilder } from './item/index.js';
 // @ts-ignore
 import { SummaryRequestBuilderRequestsMetadata, type SummaryRequestBuilder } from './summary/index.js';
@@ -19,10 +17,6 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesRequestBuilder> {
     /**
-     * The fromDocument property
-     */
-    get fromDocument(): FromDocumentRequestBuilder;
-    /**
      * The summary property
      */
     get summary(): SummaryRequestBuilder;
@@ -31,7 +25,7 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      */
     get withRepo(): WithRepoRequestBuilder;
     /**
-     * Gets an item from the OlvePipelinesClient.api.pipelines.item collection
+     * Gets an item from the OlvePipelinesApi.api.pipelines.item collection
      * @param id Unique identifier of the item
      * @returns {ItemRequestBuilder}
      */
@@ -44,28 +38,14 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Pipeline[] | undefined>;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {Promise<Pipeline>}
-     * @throws {ResultProblem} error when the service returns a 400 status code
-     */
-     post(requestConfiguration?: RequestConfiguration<PipelinesRequestBuilderPostQueryParameters> | undefined) : Promise<Pipeline | undefined>;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
-    /**
-     * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
-     * @returns {RequestInformation}
-     */
-     toPostRequestInformation(requestConfiguration?: RequestConfiguration<PipelinesRequestBuilderPostQueryParameters> | undefined) : RequestInformation;
-}
-export interface PipelinesRequestBuilderPostQueryParameters {
-    name?: string;
 }
 /**
  * Uri template for the request builder.
  */
-export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines?name={name}";
+export const PipelinesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
@@ -74,9 +54,6 @@ export const PipelinesRequestBuilderNavigationMetadata: Record<Exclude<keyof Pip
         requestsMetadata: ItemRequestBuilderRequestsMetadata,
         navigationMetadata: ItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["%2Did"],
-    },
-    fromDocument: {
-        requestsMetadata: FromDocumentRequestBuilderRequestsMetadata,
     },
     summary: {
         requestsMetadata: SummaryRequestBuilderRequestsMetadata,
@@ -96,15 +73,6 @@ export const PipelinesRequestBuilderRequestsMetadata: RequestsMetadata = {
             400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendCollection",
-        responseBodyFactory:  createPipelineFromDiscriminatorValue,
-    },
-    post: {
-        uriTemplate: PipelinesRequestBuilderUriTemplate,
-        responseBodyContentType: "application/json",
-        errorMappings: {
-            400: createResultProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-        },
-        adapterMethodName: "send",
         responseBodyFactory:  createPipelineFromDiscriminatorValue,
     },
 };

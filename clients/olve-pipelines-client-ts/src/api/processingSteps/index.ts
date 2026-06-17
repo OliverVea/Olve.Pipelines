@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface ProcessingStepsRequestBuilder extends BaseRequestBuilder<ProcessingStepsRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelinesClient.api.processingSteps.item collection
+     * Gets an item from the OlvePipelinesApi.api.processingSteps.item collection
      * @param stepId Unique identifier of the item
      * @returns {WithStepItemRequestBuilder}
      */

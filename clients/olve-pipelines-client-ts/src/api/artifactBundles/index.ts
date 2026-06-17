@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface ArtifactBundlesRequestBuilder extends BaseRequestBuilder<ArtifactBundlesRequestBuilder> {
     /**
-     * Gets an item from the OlvePipelinesClient.api.artifactBundles.item collection
+     * Gets an item from the OlvePipelinesApi.api.artifactBundles.item collection
      * @param bundleId Unique identifier of the item
      * @returns {WithBundleItemRequestBuilder}
      */

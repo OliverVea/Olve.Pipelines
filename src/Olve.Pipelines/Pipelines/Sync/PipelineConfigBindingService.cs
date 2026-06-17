@@ -106,14 +106,4 @@ public class PipelineConfigBindingService(
     }
 
     public DeletionResult Delete(Id<PipelineConfigBinding> id) => store.Delete(id);
-
-    /// <summary>True if the pipeline is bound to a repo — i.e. its config is git-only.</summary>
-    public bool IsBound(Id<Pipeline> pipelineId) => _byPipeline.GetForKey(pipelineId).Count > 0;
-
-    /// <summary>
-    /// The rejection returned by config-mutation endpoints for a bound pipeline. Configuration is
-    /// owned by git; reconcile is the only writer. Operational actions stay available.
-    /// </summary>
-    public static ResultProblem GitOnlyProblem(Id<Pipeline> pipelineId)
-        => new($"Pipeline '{pipelineId}' is bound to a repository; its configuration is git-only and cannot be changed via the API.");
 }

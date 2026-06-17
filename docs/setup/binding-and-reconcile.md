@@ -23,10 +23,12 @@ deploy trigger by hand.
 
 ### Binding endpoints
 
+`with-repo` is the **only** way to create a pipeline — there is no unbound/draft create. Every
+pipeline is bound to a repo from birth, so its shape always comes from git.
+
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (rolls back the pipeline if the bind fails). Body: `{ name, repo, branch?, path?, credentialsSecret? }` |
-| POST | `/api/pipelines/{id}/binding` | Bind an existing draft pipeline. Body: `{ repo, branch?, path?, credentialsSecret? }` |
 | GET | `/api/pipelines/{id}/binding` | Get the binding |
 | GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
 
@@ -60,12 +62,13 @@ The reconcile is **config-before-build**: the config for a commit is compiled an
 config never ships on stale code — you can't half-apply a broken change. Fix the config, push
 again, and the next cycle proceeds.
 
-## Git-only: what a bound pipeline rejects
+## Git-only: there are no config-mutation endpoints
 
-Once bound, your repo is the **only** writer of config. The pipeline **rejects API endpoints
-that mutate config** — creating/deleting/reordering steps, setting step configuration, and
-creating/deleting triggers all fail on a bound pipeline. This prevents drift between the live
-pipeline and the file.
+Your repo is the **only** writer of config. The API has **no endpoints that mutate shape** —
+there is no way to create, delete, reorder, or reconfigure steps, and no way to create or delete
+triggers over HTTP. Pipeline shape comes solely from the file via reconcile, so the live pipeline
+can never drift from your repo. (Earlier versions exposed these endpoints and rejected them once a
+pipeline was bound; now that every pipeline is bound at creation, the endpoints don't exist.)
 
 **Operational endpoints stay open** (they're not config):
 

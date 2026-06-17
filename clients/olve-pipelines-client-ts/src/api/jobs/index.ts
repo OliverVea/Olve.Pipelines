@@ -19,7 +19,7 @@ export interface JobsRequestBuilder extends BaseRequestBuilder<JobsRequestBuilde
      */
     get queue(): QueueRequestBuilder;
     /**
-     * Gets an item from the OlvePipelinesClient.api.jobs.item collection
+     * Gets an item from the OlvePipelinesApi.api.jobs.item collection
      * @param id Unique identifier of the item
      * @returns {JobsItemRequestBuilder}
      */

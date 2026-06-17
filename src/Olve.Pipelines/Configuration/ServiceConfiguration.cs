@@ -77,11 +77,19 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineSummaryService>();
         services.AddTransient<PipelineDocumentBuilder>();
-        services.AddTransient<PipelineDocumentCreator>();
         services.AddTransient<ManifestCompiler>();
         services.AddTransient<PipelineReconciler>();
         services.AddSingleton<ReconcilePauseState>();
-        services.AddSingleton<ReconcileOptions>();
+        // PollInterval is config-bindable (Reconcile:PollIntervalSeconds) so integration tests can
+        // drive reconcile fast; defaults stay generous for production (see ReconcileOptions).
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var seconds = config.GetValue<int?>("Reconcile:PollIntervalSeconds");
+            return seconds is { } s
+                ? new ReconcileOptions { PollInterval = TimeSpan.FromSeconds(s) }
+                : new ReconcileOptions();
+        });
         services.AddTransient<ReconcileCoordinator>();
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();

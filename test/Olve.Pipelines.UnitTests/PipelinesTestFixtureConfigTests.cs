@@ -27,8 +27,13 @@ public class PipelinesTestFixtureConfigTests
 
     private static string ReadFixtureConfig()
     {
+        // Locate the repo root by a file that ships in every checkout AND in the GitHub
+        // tarball — Directory.Packages.props. The previous .git marker worked locally but
+        // not when this test runs inside the .pipelines code-test step, whose code comes
+        // from `git archive` (the tarball has no .git dir), nor inside the Docker build
+        // context (which doesn't COPY .git).
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Directory.Packages.props")))
             dir = dir.Parent;
 
         if (dir is null)

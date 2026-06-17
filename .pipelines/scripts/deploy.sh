@@ -1,39 +1,30 @@
 #!/bin/sh
 # Deploy to prod (apps). Runs only after deploy-beta succeeds: import the built
-# image into the homelab k3s containerd and helm-upgrade the prod release.
+# image into the homelab k3s containerd and helm-upgrade the prod release. The
+# ssh/import/helm footguns live in olve-lib.sh (see issue #17).
 set -e
-apk add --no-cache openssh-client
 
-mkdir -p ~/.ssh
-echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-chmod 600 ~/.ssh/id_ed25519
-ssh-keyscan -H bulwark-m2 >> ~/.ssh/known_hosts 2>/dev/null || true
+# Fetch the shared helper library. alpine ships wget but no busybox TLS quirk here;
+# --no-check-certificate kept for parity with the build images. Swap `main` to pin.
+wget --no-check-certificate -qO /tmp/olve-lib.sh \
+  https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
+. /tmp/olve-lib.sh
 
-# The bundle path uses step GUIDs, so glob for the single production output dir.
-INPUT_DIR=$(ls -d /input/*/)
-VERSION=$(cat "${INPUT_DIR}version.txt")
 HOST=oliver@bulwark-m2
 RELEASE=olve-pipelines
 
+olve_ssh_host bulwark-m2
+
+INPUT_DIR=$(olve_bundle_input)
+VERSION=$(cat "$INPUT_DIR/version.txt")
+
 echo "Deploying $RELEASE:$VERSION"
 
-# Import the image into k3s containerd (the k3s socket, not the default one).
-cat "${INPUT_DIR}image.tar" | ssh -o StrictHostKeyChecking=no "$HOST" \
-  "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load"
+olve_image_import "$INPUT_DIR/image.tar" "$HOST"
 
 # Verify the image is visible to CRI.
 ssh -o StrictHostKeyChecking=no "$HOST" "sudo crictl images | grep olve-pipelines"
 
-# Copy the helm chart (clean destination first to avoid scp nesting).
-ssh -o StrictHostKeyChecking=no "$HOST" "rm -rf /tmp/$RELEASE-helm"
-scp -o StrictHostKeyChecking=no -r "${INPUT_DIR}helm" "$HOST:/tmp/$RELEASE-helm"
-
-# Helm upgrade against the imported image. slo.enabled=false: the sloth CRD is not
-# installed cluster-wide. pullPolicy=Never — the image is local to the node.
-ssh -o StrictHostKeyChecking=no "$HOST" \
-  "helm upgrade --install $RELEASE /tmp/$RELEASE-helm -n apps \
-     --set image.repository=docker.io/library/$RELEASE \
-     --set image.tag=$VERSION --set image.pullPolicy=Never --set slo.enabled=false \
-   && rm -rf /tmp/$RELEASE-helm"
+olve_helm_deploy "$HOST" "$RELEASE" apps "$INPUT_DIR/helm" "$VERSION"
 
 echo "Deploy complete: $RELEASE:$VERSION"

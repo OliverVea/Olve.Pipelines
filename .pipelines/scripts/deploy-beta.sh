@@ -2,38 +2,32 @@
 # Deploy to apps-beta and gate prod: import the built image into the homelab k3s
 # containerd, helm-upgrade the beta release with beta overrides, then verify the
 # beta rollout is healthy. A failure here stops the chain so prod never deploys.
+# The ssh/import/helm footguns live in olve-lib.sh (see issue #17).
 set -e
-apk add --no-cache openssh-client curl
 
-mkdir -p ~/.ssh
-echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-chmod 600 ~/.ssh/id_ed25519
-ssh-keyscan -H bulwark-m2 >> ~/.ssh/known_hosts 2>/dev/null || true
+# Fetch the shared helper library (see build.sh for the fetch rationale). Swap `main` to pin.
+wget --no-check-certificate -qO /tmp/olve-lib.sh \
+  https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
+. /tmp/olve-lib.sh
 
-# The bundle path uses step GUIDs, so glob for the single production output dir.
-INPUT_DIR=$(ls -d /input/*/)
-VERSION=$(cat "${INPUT_DIR}version.txt")
+# curl is needed by the post-deploy health loop below; olve_ssh_host installs only the
+# ssh client, so add curl here (prod's deploy.sh does not need it).
+apk add --no-cache curl
+
 HOST=oliver@bulwark-m2
 RELEASE=olve-pipelines
 
+olve_ssh_host bulwark-m2
+
+INPUT_DIR=$(olve_bundle_input)
+VERSION=$(cat "$INPUT_DIR/version.txt")
+
 echo "Deploying $RELEASE:$VERSION to apps-beta"
 
-# Import the image into k3s containerd (the k3s socket, not the default one).
-cat "${INPUT_DIR}image.tar" | ssh -o StrictHostKeyChecking=no "$HOST" \
-  "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load"
+olve_image_import "$INPUT_DIR/image.tar" "$HOST"
 
-# Copy the helm chart (clean destination first to avoid scp nesting).
-ssh -o StrictHostKeyChecking=no "$HOST" "rm -rf /tmp/$RELEASE-helm-beta"
-scp -o StrictHostKeyChecking=no -r "${INPUT_DIR}helm" "$HOST:/tmp/$RELEASE-helm-beta"
-
-# Helm upgrade with beta values. slo.enabled=false: the sloth CRD is not installed
-# cluster-wide. pullPolicy=Never — the image is local to the node.
-ssh -o StrictHostKeyChecking=no "$HOST" \
-  "helm upgrade --install $RELEASE /tmp/$RELEASE-helm-beta -n apps-beta \
-     -f /tmp/$RELEASE-helm-beta/values-beta.yaml \
-     --set image.repository=docker.io/library/$RELEASE \
-     --set image.tag=$VERSION --set image.pullPolicy=Never --set slo.enabled=false \
-   && rm -rf /tmp/$RELEASE-helm-beta"
+# Beta values are chart-relative (resolved from inside the copied chart dir by the helper).
+olve_helm_deploy "$HOST" "$RELEASE" apps-beta "$INPUT_DIR/helm" "$VERSION" -f values-beta.yaml
 
 # Wait for the rollout, then verify reachability — if beta is unhealthy, fail so
 # prod does not deploy.

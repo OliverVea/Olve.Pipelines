@@ -5,15 +5,14 @@ WORKDIR /src
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/Olve.Pipelines/Olve.Pipelines.csproj src/Olve.Pipelines/
 COPY src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj src/Olve.Pipelines.Cli/
-COPY test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj test/Olve.Pipelines.UnitTests/
-RUN dotnet restore src/Olve.Pipelines -r linux-x64 && dotnet restore test/Olve.Pipelines.UnitTests
+RUN dotnet restore src/Olve.Pipelines -r linux-x64
 
 COPY src/Olve.Pipelines/ src/Olve.Pipelines/
 COPY src/Olve.Pipelines.Cli/ src/Olve.Pipelines.Cli/
-COPY test/Olve.Pipelines.UnitTests/ test/Olve.Pipelines.UnitTests/
 # The setup guide is served at /docs; the csproj globs docs/setup/*.md into wwwroot on publish.
 COPY docs/setup/ docs/setup/
-RUN dotnet run --project test/Olve.Pipelines.UnitTests -c Release --no-restore
+# Tests are NOT run in the image build — they run in the `code-test` production step in
+# .pipelines/config.yaml, in parallel with this build rather than serialized inside it.
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app
 
 FROM node:22-slim AS frontend

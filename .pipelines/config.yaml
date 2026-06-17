@@ -29,6 +29,14 @@ productionSteps:
     configuration:
       image: gcr.io/kaniko-project/executor:debug
       scriptFile: scripts/build.sh
+  # Runs the code-only test suite in parallel with the build (not inside it). If tests
+  # fail, the production job group fails and the deploy cascade never starts. This step
+  # produces no deploy artifacts (no version.txt), so the deploy scripts ignore its
+  # bundle dir by selecting the one that contains version.txt.
+  - name: code-test
+    configuration:
+      image: mcr.microsoft.com/dotnet/sdk:10.0-noble
+      scriptFile: scripts/test.sh
 
 # Processing steps run sequentially (order = list position), each receiving the
 # bundle. deploy-beta runs first and gates deploy (prod).

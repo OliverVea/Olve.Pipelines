@@ -52,6 +52,9 @@ Read in this order:
    processing steps, which is *state, not config*.
 6. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
+See **[Examples](examples.md)** for four real projects (this repo, QuestionBank, a homelab, a
+game) mapped to the capability each exercises.
+
 **Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics
 (secrets, poll trigger, ETag, reconcile failure, …) to the exact page and anchor.
 

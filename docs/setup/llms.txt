@@ -1,0 +1,24 @@
+# Olve.Pipelines
+
+> A lightweight, GitOps-only CD orchestration service for a homelab. You bind a pipeline to
+> your Git repository; the server polls your branch, reconciles the live pipeline to match a
+> committed `.pipelines/config.yaml`, and runs each step as a Kubernetes Job. Configuration is
+> driven entirely by your repo — there is no imperative "create steps via the API" path.
+
+All documentation pages below are served as raw Markdown at the listed URLs. Fetch them
+directly (no auth, no repo clone needed) and parse the raw text.
+
+## Docs
+
+- [Setup Guide index](/docs/index.md): Overview of the service, the two-phase pipeline model (parallel production → sequential processing), and how GitOps configuration works.
+- [Getting Started](/docs/getting-started.md): The four steps to put a repository under CD.
+- [config.yaml Reference](/docs/config-reference.md): Every field, `$ref`/`scriptFile` extraction, secret declarations, triggers, and validation rules.
+- [Examples](/docs/examples.md): Four real projects (this repo, QuestionBank, a homelab, a game) mapped to the capability each exercises and the shared block it implies.
+- [Binding & Reconcile](/docs/binding-and-reconcile.md): The binding API, the reconcile loop, the status endpoint, and the config-before-build guarantee.
+- [Bundles & Execution](/docs/bundles-and-execution.md): How steps run as K8s Jobs, what an ArtifactBundle is, and how output flows from production to processing.
+- [Promotion Gate](/docs/promotion-gate.md): Operational control (brake + re-promote) over processing steps — state, not config.
+- [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.
+
+## Reference
+
+- [Subject Index](/docs/subjects.md): Maps topics (secrets, poll trigger, ETag, reconcile failure, …) to the exact page and anchor.

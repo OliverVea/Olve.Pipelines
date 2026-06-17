@@ -26,6 +26,31 @@ export class PipelineListView extends LitElement {
       flex: 1;
     }
 
+    .docs-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .docs-link:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-primary);
+      text-decoration: none;
+    }
+
+    .docs-link svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
     .reload-btn {
       width: 2rem;
       height: 2rem;
@@ -286,6 +311,13 @@ export class PipelineListView extends LitElement {
     return html`
       <div class="header">
         <h2>Pipelines</h2>
+        <a class="docs-link" href="/docs/index" @click=${this._navToDocs} title="Setup &amp; usage guide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          <span>Docs</span>
+        </a>
         <button
           class="reload-btn ${this._loading ? 'loading' : ''}"
           @click=${this._load}
@@ -378,6 +410,11 @@ export class PipelineListView extends LitElement {
     // ever stored, pass it through.
     if (repo.startsWith('http://') || repo.startsWith('https://')) return repo;
     return `https://github.com/${repo}`;
+  }
+
+  private _navToDocs(e: Event) {
+    e.preventDefault();
+    navigate('/docs/index');
   }
 
   private _navToPipeline(e: Event, name: string) {

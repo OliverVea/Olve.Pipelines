@@ -6,3 +6,4 @@ import './components/promotion-gate.js';
 import './components/step-node.js';
 import './components/step-detail-view.js';
 import './components/job-logs-view.js';
+import './components/docs-view.js';

@@ -17,6 +17,12 @@
              Link="wwwroot\docs\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <!-- llms.txt is the agent-discovery entry point: served at the site root (/llms.txt),
+         it points crawlers/agents at the raw /docs/*.md pages without a repo clone. -->
+    <Content Include="$(MSBuildThisFileDirectory)..\..\docs\setup\llms.txt"
+             Link="wwwroot\llms.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

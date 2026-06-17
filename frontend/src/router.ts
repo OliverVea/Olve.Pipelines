@@ -7,6 +7,8 @@ export interface Route {
 const routes: Route[] = [
   { pattern: /^\/$/, params: [], view: 'pipeline-list-view' },
   { pattern: /^\/callback/, params: [], view: 'callback' },
+  { pattern: /^\/docs\/([\w-]+)$/, params: ['page'], view: 'docs-view' },
+  { pattern: /^\/docs\/?$/, params: [], view: 'docs-view' },
   { pattern: /^\/pipeline\/([^/]+)\/job\/([^/]+)\/logs$/, params: ['pipelineId', 'jobId'], view: 'job-logs-view' },
   { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'stepId'], view: 'step-detail-view' },
   { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },

@@ -12,6 +12,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [index.md](index.md) | Overview, the GitOps mental model, minimal example, where to start |
 | [getting-started.md](getting-started.md) | The 4-step setup walkthrough |
 | [config-reference.md](config-reference.md) | Full `config.yaml` schema, extraction, secrets, triggers, validation |
+| [examples.md](examples.md) | Four real projects mapped to capabilities; what composability the model needs next |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding API, the reconcile loop, status, git-only restriction |
 | [bundles-and-execution.md](bundles-and-execution.md) | K8s Jobs, ArtifactBundle, scheduling, the production→processing flow |
 | [promotion-gate.md](promotion-gate.md) | Brake + re-promote; operational state vs config |

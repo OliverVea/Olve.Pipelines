@@ -1,0 +1,26 @@
+# Fixture pipeline config for the integration test suite — NOT a real deploy.
+#
+# The integration tests bind a pipeline to THIS repo with path=.pipelines-test and
+# let the normal GitHubConfigSource + reconcile loop materialize the shape below.
+# This is real GitOps (config from a committed path), not a test backdoor: the API
+# can no longer write pipeline shape, so tests seed shape the only supported way.
+#
+# Keep this minimal and self-contained (inline scripts, no secrets/scriptFile) so
+# the suite needs exactly one committed shape. Steps run alpine and echo — they only
+# exercise reconcile + the trigger path, not a real build/deploy.
+apiVersion: "0.0"
+name: integration-test-fixture
+description: Minimal committed shape the integration suite reconciles to.
+version: "1"
+
+productionSteps:
+  - name: build
+    configuration:
+      image: alpine:latest
+      script: echo build > /output/hello.txt
+
+processingSteps:
+  - name: deploy
+    configuration:
+      image: alpine:latest
+      script: cat /input/*/hello.txt

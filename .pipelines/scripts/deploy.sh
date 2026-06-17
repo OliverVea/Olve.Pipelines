@@ -6,6 +6,7 @@ set -e
 
 # Fetch the shared helper library. alpine ships wget but no busybox TLS quirk here;
 # --no-check-certificate kept for parity with the build images. Swap `main` to pin.
+mkdir -p /tmp
 wget --no-check-certificate -qO /tmp/olve-lib.sh \
   https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
 . /tmp/olve-lib.sh
@@ -25,6 +26,9 @@ olve_image_import "$INPUT_DIR/image.tar" "$HOST"
 # Verify the image is visible to CRI.
 ssh -o StrictHostKeyChecking=no "$HOST" "sudo crictl images | grep olve-pipelines"
 
-olve_helm_deploy "$HOST" "$RELEASE" apps "$INPUT_DIR/helm" "$VERSION"
+# slo.enabled=false: this chart defines an slo block defaulting to true, but the sloth
+# CRD is not installed cluster-wide — passed through here, not baked into the shared lib.
+olve_helm_deploy "$HOST" "$RELEASE" apps "$INPUT_DIR/helm" "$VERSION" \
+  --set slo.enabled=false
 
 echo "Deploy complete: $RELEASE:$VERSION"

@@ -6,6 +6,7 @@
 set -e
 
 # Fetch the shared helper library (see build.sh for the fetch rationale). Swap `main` to pin.
+mkdir -p /tmp
 wget --no-check-certificate -qO /tmp/olve-lib.sh \
   https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
 . /tmp/olve-lib.sh
@@ -27,7 +28,10 @@ echo "Deploying $RELEASE:$VERSION to apps-beta"
 olve_image_import "$INPUT_DIR/image.tar" "$HOST"
 
 # Beta values are chart-relative (resolved from inside the copied chart dir by the helper).
-olve_helm_deploy "$HOST" "$RELEASE" apps-beta "$INPUT_DIR/helm" "$VERSION" -f values-beta.yaml
+# slo.enabled=false: this chart defines an slo block defaulting to true, but the sloth
+# CRD is not installed cluster-wide — passed through here, not baked into the shared lib.
+olve_helm_deploy "$HOST" "$RELEASE" apps-beta "$INPUT_DIR/helm" "$VERSION" \
+  -f values-beta.yaml --set slo.enabled=false
 
 # Wait for the rollout, then verify reachability — if beta is unhealthy, fail so
 # prod does not deploy.

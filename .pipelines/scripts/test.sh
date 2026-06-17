@@ -9,7 +9,9 @@
 # tests must not depend on .git to locate the repo root (see PipelinesTestFixtureConfigTests).
 set -e
 
-# Fetch the shared helper library (see build.sh for why fetch-to-file + --no-check-certificate).
+# Fetch the shared helper library (see build.sh for why fetch-to-file + --no-check-certificate
+# and why /tmp must be created first).
+mkdir -p /tmp
 wget --no-check-certificate -qO /tmp/olve-lib.sh \
   https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
 . /tmp/olve-lib.sh

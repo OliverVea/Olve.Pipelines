@@ -7,6 +7,8 @@ set -e
 # Fetch the shared helper library. Fetch-to-file, not `. <(...)`: busybox has no
 # process substitution. --no-check-certificate: same busybox-wget TLS footgun as the
 # repo fetch. Swap `main` for a tag/SHA to pin.
+# mkdir -p /tmp: the kaniko:debug rootfs has no /tmp, so wget -O /tmp/... fails ENOENT.
+mkdir -p /tmp
 wget --no-check-certificate -qO /tmp/olve-lib.sh \
   https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/.pipelines/scripts/olve-lib.sh
 . /tmp/olve-lib.sh

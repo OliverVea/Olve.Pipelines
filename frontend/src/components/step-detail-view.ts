@@ -6,6 +6,7 @@ import { client } from '../api.js';
 import { getAccessToken } from '../auth.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
+import './refresh-control.js';
 import type {
   ProcessingStep,
   StepConfiguration,
@@ -347,11 +348,17 @@ export class StepDetailView extends LitElement {
     this._load();
   }
 
-  private async _load() {
-    this._loading = true;
-    this._error = null;
-    this._logTail = null;
-    this._logUnavailable = false;
+  private _onRefresh(e: CustomEvent<{ silent: boolean }>) {
+    this._load(e.detail.silent);
+  }
+
+  private async _load(silent = false) {
+    if (!silent) {
+      this._loading = true;
+      this._error = null;
+      this._logTail = null;
+      this._logUnavailable = false;
+    }
     try {
       const step = client.api.processingSteps.byStepId(this.stepId);
       const [stepRecord, config, jobsPage, promotion] = await Promise.all([
@@ -378,9 +385,9 @@ export class StepDetailView extends LitElement {
         void this._loadLogTail(latest.id);
       }
     } catch (e) {
-      this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = e instanceof Error ? e.message : String(e);
     } finally {
-      this._loading = false;
+      if (!silent) this._loading = false;
     }
   }
 
@@ -420,6 +427,10 @@ export class StepDetailView extends LitElement {
         >
         <h2>${this._step.name}</h2>
         <span class="status-badge ${status.cssClass}">${status.label}</span>
+        <refresh-control
+          .loading=${this._loading}
+          @refresh=${this._onRefresh}
+        ></refresh-control>
       </div>
 
       <div class="step-sub">

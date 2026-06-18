@@ -11,6 +11,7 @@ import type {
   PipelineBindingStatus,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './pipeline-flow.js';
+import './refresh-control.js';
 
 @customElement('pipeline-detail-view')
 export class PipelineDetailView extends LitElement {
@@ -40,46 +41,6 @@ export class PipelineDetailView extends LitElement {
 
     .back:hover {
       color: var(--color-primary);
-    }
-
-    .reload-btn {
-      width: 2rem;
-      height: 2rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border-radius: var(--radius);
-      border: 1px solid var(--color-border);
-      background: var(--color-surface);
-      color: var(--color-text);
-      cursor: pointer;
-      transition: background var(--transition), border-color var(--transition);
-    }
-
-    .reload-btn:hover:not(:disabled) {
-      background: var(--color-surface-hover);
-      border-color: var(--color-primary);
-    }
-
-    .reload-btn:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-
-    .reload-btn svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    .reload-btn.loading svg {
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
     }
 
     .error {
@@ -160,9 +121,15 @@ export class PipelineDetailView extends LitElement {
     this._load();
   }
 
-  private async _load() {
-    this._loading = true;
-    this._error = null;
+  private _onRefresh(e: CustomEvent<{ silent: boolean }>) {
+    this._load(e.detail.silent);
+  }
+
+  private async _load(silent = false) {
+    if (!silent) {
+      this._loading = true;
+      this._error = null;
+    }
     try {
       const p = client.api.pipelines.byId(this.pipelineId);
       const [pipeline, production, processing, jobsPage, bindingStatus, promotions] =
@@ -200,9 +167,9 @@ export class PipelineDetailView extends LitElement {
         | JobProductionJob
       )[];
     } catch (e) {
-      this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = e instanceof Error ? e.message : String(e);
     } finally {
-      this._loading = false;
+      if (!silent) this._loading = false;
     }
   }
 
@@ -213,18 +180,10 @@ export class PipelineDetailView extends LitElement {
       <div class="header">
         <a class="back" href="/" @click=${this._back}>&larr; Back</a>
         <h2>${this._pipeline?.name ?? this._titleHint}</h2>
-        <button
-          class="reload-btn ${this._loading ? 'loading' : ''}"
-          @click=${this._load}
-          ?disabled=${this._loading}
-          title="Refresh"
-          aria-label="Refresh"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-3-6.7" />
-            <polyline points="21 3 21 9 15 9" />
-          </svg>
-        </button>
+        <refresh-control
+          .loading=${this._loading}
+          @refresh=${this._onRefresh}
+        ></refresh-control>
       </div>
       ${this._renderBindingBadge()}
       ${this._pipeline

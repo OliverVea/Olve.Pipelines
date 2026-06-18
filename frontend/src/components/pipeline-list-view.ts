@@ -3,6 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { client } from '../api.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
+import './refresh-control.js';
 import type {
   PipelineSummary,
   StepHealth,
@@ -53,48 +54,6 @@ export class PipelineListView extends LitElement {
     .docs-link svg {
       width: 1rem;
       height: 1rem;
-    }
-
-    .reload-btn {
-      width: 2rem;
-      height: 2rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border-radius: var(--radius);
-      border: 1px solid var(--color-border);
-      background: var(--color-surface);
-      color: var(--color-text);
-      cursor: pointer;
-      transition:
-        background var(--transition),
-        border-color var(--transition);
-    }
-
-    .reload-btn:hover:not(:disabled) {
-      background: var(--color-surface-hover);
-      border-color: var(--color-primary);
-    }
-
-    .reload-btn:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-
-    .reload-btn svg {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    .reload-btn.loading svg {
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
     }
 
     .card-grid {
@@ -323,17 +282,23 @@ export class PipelineListView extends LitElement {
     this._load();
   }
 
-  private async _load() {
-    this._loading = true;
-    this._error = null;
+  private async _load(silent = false) {
+    if (!silent) {
+      this._loading = true;
+      this._error = null;
+    }
     try {
       this._pipelines = (await client.api.pipelines.summary.get()) ?? [];
       this._loaded = true;
     } catch (e) {
-      this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = e instanceof Error ? e.message : String(e);
     } finally {
-      this._loading = false;
+      if (!silent) this._loading = false;
     }
+  }
+
+  private _onRefresh(e: CustomEvent<{ silent: boolean }>) {
+    this._load(e.detail.silent);
   }
 
   render() {
@@ -347,25 +312,10 @@ export class PipelineListView extends LitElement {
           </svg>
           <span>Docs</span>
         </a>
-        <button
-          class="reload-btn ${this._loading ? 'loading' : ''}"
-          @click=${this._load}
-          ?disabled=${this._loading}
-          title="Refresh"
-          aria-label="Refresh"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 12a9 9 0 1 1-3-6.7" />
-            <polyline points="21 3 21 9 15 9" />
-          </svg>
-        </button>
+        <refresh-control
+          .loading=${this._loading}
+          @refresh=${this._onRefresh}
+        ></refresh-control>
       </div>
       ${this._error ? html`<p class="error">${this._error}</p>` : ''}
       ${!this._loaded

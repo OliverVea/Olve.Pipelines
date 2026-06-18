@@ -32,6 +32,7 @@ public record TriggerDocument(
 [JsonDerivedType(typeof(ProductionTargetDocument), "production")]
 [JsonDerivedType(typeof(ProcessingTargetDocument), "processing")]
 [JsonDerivedType(typeof(PollTargetDocument), "poll")]
+[JsonDerivedType(typeof(GitHubTargetDocument), "github")]
 public abstract record TriggerTargetDocument;
 
 public record ProductionTargetDocument : TriggerTargetDocument;
@@ -43,3 +44,9 @@ public record PollTargetDocument(
     IReadOnlyDictionary<string, string>? Headers,
     string ValuePath,
     int IntervalSeconds = 60) : TriggerTargetDocument;
+
+public record GitHubTargetDocument(
+    string Owner,
+    string Repo,
+    string Branch,
+    string TokenSecret) : TriggerTargetDocument;

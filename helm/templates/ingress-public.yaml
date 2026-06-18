@@ -1,0 +1,41 @@
+{{- if .Values.ingress.public.enabled -}}
+# Internet-facing ingress exposing ONLY the GitHub webhook receiver. The private ingress
+# targets a Tailscale IP that GitHub cannot reach, so inbound webhooks need this separate,
+# narrowly-scoped public entrypoint (fronted by Cloudflare Tunnel or a public ingress
+# controller). Everything else stays behind the private ingress + Authentik OIDC.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-public
+  annotations:
+    {{- if .Values.ingress.public.externalDnsTarget }}
+    external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.public.externalDnsTarget | quote }}
+    {{- end }}
+    {{- if .Values.ingress.public.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.public.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.public.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.public.ingressClassName }}
+  ingressClassName: {{ .Values.ingress.public.ingressClassName | quote }}
+  {{- end }}
+  {{- if .Values.ingress.public.tls.enabled }}
+  tls:
+    - secretName: {{ .Values.ingress.public.tls.secretName | default (printf "%s-public-tls" .Release.Name) }}
+      hosts:
+        - {{ .Values.ingress.public.host }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.public.host }}
+      http:
+        paths:
+          - path: /api/webhooks/github
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

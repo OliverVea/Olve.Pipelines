@@ -1642,6 +1642,29 @@
           }
         }
       }
+    },
+    "/api/webhooks/github/{triggerId}": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ExecuteGitHubWebhook",
+        "parameters": [
+          {
+            "name": "triggerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2757,7 +2780,8 @@
           "mapping": {
             "production": "#/components/schemas/TriggerTargetProductionTriggerTarget",
             "processing": "#/components/schemas/TriggerTargetProcessingTriggerTarget",
-            "poll": "#/components/schemas/TriggerTargetPollTriggerTarget"
+            "poll": "#/components/schemas/TriggerTargetPollTriggerTarget",
+            "github": "#/components/schemas/TriggerTargetGitHubWebhookTarget"
           }
         }
       },
@@ -2776,7 +2800,35 @@
           "mapping": {
             "production": "#/components/schemas/TriggerTargetDocumentProductionTargetDocument",
             "processing": "#/components/schemas/TriggerTargetDocumentProcessingTargetDocument",
-            "poll": "#/components/schemas/TriggerTargetDocumentPollTargetDocument"
+            "poll": "#/components/schemas/TriggerTargetDocumentPollTargetDocument",
+            "github": "#/components/schemas/TriggerTargetDocumentGitHubTargetDocument"
+          }
+        }
+      },
+      "TriggerTargetDocumentGitHubTargetDocument": {
+        "required": [
+          "owner",
+          "repo",
+          "branch",
+          "tokenSecret"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTargetDocument"
+          }
+        ],
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "tokenSecret": {
+            "type": "string"
           }
         }
       },
@@ -2836,6 +2888,33 @@
             "$ref": "#/components/schemas/TriggerTargetDocument"
           }
         ]
+      },
+      "TriggerTargetGitHubWebhookTarget": {
+        "required": [
+          "owner",
+          "repo",
+          "branch",
+          "tokenSecretName"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TriggerTarget"
+          }
+        ],
+        "properties": {
+          "owner": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "tokenSecretName": {
+            "type": "string"
+          }
+        }
       },
       "TriggerTargetPollTriggerTarget": {
         "required": [

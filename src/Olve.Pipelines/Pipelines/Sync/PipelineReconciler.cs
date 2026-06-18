@@ -216,6 +216,7 @@ public class PipelineReconciler(
             poll.Headers?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             poll.ValuePath,
             poll.IntervalSeconds),
+        GitHubTargetDocument gh => new GitHubWebhookTarget(gh.Owner, gh.Repo, gh.Branch, gh.TokenSecret),
         _ => new ResultProblem($"Unknown trigger target type '{target.GetType().Name}'."),
     };
 
@@ -229,6 +230,9 @@ public class PipelineReconciler(
         (PollTriggerTarget x, PollTriggerTarget y) =>
             x.Url == y.Url && x.ValuePath == y.ValuePath && x.IntervalSeconds == y.IntervalSeconds
             && DictionaryEquals(x.Headers, y.Headers),
+        (GitHubWebhookTarget x, GitHubWebhookTarget y) =>
+            x.Owner == y.Owner && x.Repo == y.Repo && x.Branch == y.Branch
+            && x.TokenSecretName == y.TokenSecretName,
         _ => false,
     };
 

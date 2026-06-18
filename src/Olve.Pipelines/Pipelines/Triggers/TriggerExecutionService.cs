@@ -47,6 +47,7 @@ public class TriggerExecutionService(
             ProductionTriggerTarget => ExecuteProduction(trigger),
             ProcessingTriggerTarget processing => ExecuteProcessing(trigger, processing, artifactBundleId),
             PollTriggerTarget => ExecuteProduction(trigger),
+            GitHubWebhookTarget => ExecuteProduction(trigger),
             _ => Result.Failure<JobGroup>(new ResultProblem($"Unknown trigger target type."))
         };
     }

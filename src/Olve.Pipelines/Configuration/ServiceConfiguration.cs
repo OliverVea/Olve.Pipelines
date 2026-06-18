@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Olve.Pipelines.GitHub;
+using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
@@ -40,6 +42,22 @@ public static class ServiceConfiguration
         services.AddTransient<TriggerService>();
         services.AddTransient<TriggerCleanupService>();
         services.AddTransient<TriggerExecutionService>();
+        services.AddTransient<GitHubWebhookReceiver>();
+
+        // GitHub webhook auto-registration. PublicBaseUrl is config-bound (Webhooks:PublicBaseUrl);
+        // null/empty disables auto-registration but leaves the inbound receiver working.
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            return new WebhookOptions(config["Webhooks:PublicBaseUrl"]);
+        });
+        services.AddSingleton<IPipelineSecretReader, KubernetesPipelineSecretReader>();
+        services.AddSingleton<IGitHubClient, GitHubClient>();
+        services.AddSingleton<GitHubHookStateStore>();
+        services.AddSingleton<GitHubHookWorkQueue>();
+        services.AddSingleton<IRunOnStartup, GitHubWebhookEventRegistration>();
+        services.AddHostedService<GitHubHookRegistrationService>();
+        services.AddHostedService<GitHubHookPersistenceService>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
         services.AddTransient<PipelineConfigBindingService>();
         services.AddTransient<PipelineConfigBindingCleanupService>();

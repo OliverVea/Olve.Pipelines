@@ -545,6 +545,8 @@ export function createTriggerTargetDocumentFromDiscriminatorValue(parseNode: Par
         const mappingValue = mappingValueNode.getStringValue();
         if (mappingValue) {
             switch (mappingValue) {
+                case "github":
+                    return deserializeIntoTriggerTargetDocumentGitHubTargetDocument;
                 case "poll":
                     return deserializeIntoTriggerTargetDocumentPollTargetDocument;
                 case "processing":
@@ -555,6 +557,15 @@ export function createTriggerTargetDocumentFromDiscriminatorValue(parseNode: Par
         }
     }
     return deserializeIntoTriggerTargetDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetDocumentGitHubTargetDocument}
+ */
+// @ts-ignore
+export function createTriggerTargetDocumentGitHubTargetDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetDocumentGitHubTargetDocument;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -605,6 +616,8 @@ export function createTriggerTargetFromDiscriminatorValue(parseNode: ParseNode |
         const mappingValue = mappingValueNode.getStringValue();
         if (mappingValue) {
             switch (mappingValue) {
+                case "github":
+                    return deserializeIntoTriggerTargetGitHubWebhookTarget;
                 case "poll":
                     return deserializeIntoTriggerTargetPollTriggerTarget;
                 case "processing":
@@ -615,6 +628,15 @@ export function createTriggerTargetFromDiscriminatorValue(parseNode: ParseNode |
         }
     }
     return deserializeIntoTriggerTarget;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerTargetGitHubWebhookTarget}
+ */
+// @ts-ignore
+export function createTriggerTargetGitHubWebhookTargetFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerTargetGitHubWebhookTarget;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1357,6 +1379,21 @@ export function deserializeIntoTriggerTargetDocument(triggerTargetDocument: Part
 }
 /**
  * The deserialization information for the current model
+ * @param TriggerTargetDocumentGitHubTargetDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetDocumentGitHubTargetDocument(triggerTargetDocumentGitHubTargetDocument: Partial<TriggerTargetDocumentGitHubTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentGitHubTargetDocument),
+        "branch": n => { triggerTargetDocumentGitHubTargetDocument.branch = n.getStringValue(); },
+        "owner": n => { triggerTargetDocumentGitHubTargetDocument.owner = n.getStringValue(); },
+        "repo": n => { triggerTargetDocumentGitHubTargetDocument.repo = n.getStringValue(); },
+        "tokenSecret": n => { triggerTargetDocumentGitHubTargetDocument.tokenSecret = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param TriggerTargetDocumentPollTargetDocument The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1401,6 +1438,21 @@ export function deserializeIntoTriggerTargetDocumentProcessingTargetDocument(tri
 export function deserializeIntoTriggerTargetDocumentProductionTargetDocument(triggerTargetDocumentProductionTargetDocument: Partial<TriggerTargetDocumentProductionTargetDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         ...deserializeIntoTriggerTargetDocument(triggerTargetDocumentProductionTargetDocument),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerTargetGitHubWebhookTarget The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerTargetGitHubWebhookTarget(triggerTargetGitHubWebhookTarget: Partial<TriggerTargetGitHubWebhookTarget> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoTriggerTarget(triggerTargetGitHubWebhookTarget),
+        "branch": n => { triggerTargetGitHubWebhookTarget.branch = n.getStringValue(); },
+        "owner": n => { triggerTargetGitHubWebhookTarget.owner = n.getStringValue(); },
+        "repo": n => { triggerTargetGitHubWebhookTarget.repo = n.getStringValue(); },
+        "tokenSecretName": n => { triggerTargetGitHubWebhookTarget.tokenSecretName = n.getStringValue(); },
     }
 }
 /**
@@ -2728,6 +2780,9 @@ export function serializeTriggerTarget(writer: SerializationWriter, triggerTarge
     writer.writeStringValue("type", triggerTarget.type);
     writer.writeAdditionalData(triggerTarget.additionalData);
     switch (triggerTarget.type) {
+        case "github":
+            serializeTriggerTargetGitHubWebhookTarget(writer, triggerTarget, true);
+        break;
         case "poll":
             serializeTriggerTargetPollTriggerTarget(writer, triggerTarget, true);
         break;
@@ -2751,6 +2806,9 @@ export function serializeTriggerTargetDocument(writer: SerializationWriter, trig
     writer.writeStringValue("type", triggerTargetDocument.type);
     writer.writeAdditionalData(triggerTargetDocument.additionalData);
     switch (triggerTargetDocument.type) {
+        case "github":
+            serializeTriggerTargetDocumentGitHubTargetDocument(writer, triggerTargetDocument, true);
+        break;
         case "poll":
             serializeTriggerTargetDocumentPollTargetDocument(writer, triggerTargetDocument, true);
         break;
@@ -2761,6 +2819,21 @@ export function serializeTriggerTargetDocument(writer: SerializationWriter, trig
             serializeTriggerTargetDocumentProductionTargetDocument(writer, triggerTargetDocument, true);
         break;
     }
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetDocumentGitHubTargetDocument The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetDocumentGitHubTargetDocument(writer: SerializationWriter, triggerTargetDocumentGitHubTargetDocument: Partial<TriggerTargetDocumentGitHubTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetDocumentGitHubTargetDocument || isSerializingDerivedType) { return; }
+    serializeTriggerTargetDocument(writer, triggerTargetDocumentGitHubTargetDocument, isSerializingDerivedType)
+    writer.writeStringValue("branch", triggerTargetDocumentGitHubTargetDocument.branch);
+    writer.writeStringValue("owner", triggerTargetDocumentGitHubTargetDocument.owner);
+    writer.writeStringValue("repo", triggerTargetDocumentGitHubTargetDocument.repo);
+    writer.writeStringValue("tokenSecret", triggerTargetDocumentGitHubTargetDocument.tokenSecret);
 }
 /**
  * Serializes information the current object
@@ -2810,6 +2883,21 @@ export function serializeTriggerTargetDocumentProcessingTargetDocument(writer: S
 export function serializeTriggerTargetDocumentProductionTargetDocument(writer: SerializationWriter, triggerTargetDocumentProductionTargetDocument: Partial<TriggerTargetDocumentProductionTargetDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!triggerTargetDocumentProductionTargetDocument || isSerializingDerivedType) { return; }
     serializeTriggerTargetDocument(writer, triggerTargetDocumentProductionTargetDocument, isSerializingDerivedType)
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerTargetGitHubWebhookTarget The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerTargetGitHubWebhookTarget(writer: SerializationWriter, triggerTargetGitHubWebhookTarget: Partial<TriggerTargetGitHubWebhookTarget> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerTargetGitHubWebhookTarget || isSerializingDerivedType) { return; }
+    serializeTriggerTarget(writer, triggerTargetGitHubWebhookTarget, isSerializingDerivedType)
+    writer.writeStringValue("branch", triggerTargetGitHubWebhookTarget.branch);
+    writer.writeStringValue("owner", triggerTargetGitHubWebhookTarget.owner);
+    writer.writeStringValue("repo", triggerTargetGitHubWebhookTarget.repo);
+    writer.writeStringValue("tokenSecretName", triggerTargetGitHubWebhookTarget.tokenSecretName);
 }
 /**
  * Serializes information the current object
@@ -3036,6 +3124,24 @@ export interface TriggerTargetDocument extends AdditionalDataHolder, Parsable {
      */
     type?: string | null;
 }
+export interface TriggerTargetDocumentGitHubTargetDocument extends Parsable, TriggerTargetDocument {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The owner property
+     */
+    owner?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The tokenSecret property
+     */
+    tokenSecret?: string | null;
+}
 export interface TriggerTargetDocumentPollTargetDocument extends Parsable, TriggerTargetDocument {
     /**
      * The headers property
@@ -3063,6 +3169,24 @@ export interface TriggerTargetDocumentProcessingTargetDocument extends Parsable,
     processingStepName?: string | null;
 }
 export interface TriggerTargetDocumentProductionTargetDocument extends Parsable, TriggerTargetDocument {
+}
+export interface TriggerTargetGitHubWebhookTarget extends Parsable, TriggerTarget {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The owner property
+     */
+    owner?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The tokenSecretName property
+     */
+    tokenSecretName?: string | null;
 }
 export interface TriggerTargetPollTriggerTarget extends Parsable, TriggerTarget {
     /**

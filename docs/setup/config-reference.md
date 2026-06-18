@@ -141,7 +141,7 @@ PUT /api/pipelines/{id}/secrets/{name}
 ## Triggers
 
 **Optional and additive.** Binding already configures the deploy poll, so you do **not** declare
-a deploy trigger. Use `triggers:` only for *extra* automation. There are three target types:
+a deploy trigger. Use `triggers:` only for *extra* automation. There are four target types:
 
 ```yaml
 triggers:
@@ -162,6 +162,15 @@ triggers:
       intervalSeconds: 60              # optional, default 60
       headers:                         # optional; values may use $SECRET:NAME
         Authorization: "Bearer $SECRET:UPSTREAM_TOKEN"
+
+  # Fire production from a GitHub push webhook (auto-registered on the repo).
+  - name: on-push
+    target:
+      type: github
+      owner: acme
+      repo: widgets
+      branch: main                     # only pushes to refs/heads/<branch> fire
+      tokenSecret: GITHUB_TOKEN        # pipeline secret holding a fine-grained PAT
 ```
 
 | `type` | Fields | Behavior |
@@ -169,6 +178,22 @@ triggers:
 | `production` | — | Triggers all production steps. |
 | `processing` | `processingStepName` | Triggers that processing step with an artifact bundle. The step name **must** exist in `processingSteps`, or reconcile is rejected. |
 | `poll` | `url`, `valuePath`, `intervalSeconds?`, `headers?` | Background poller GETs `url`, extracts the value at `valuePath` (dot-path), and triggers production when it changes. Header values support `$SECRET:NAME`. |
+| `github` | `owner`, `repo`, `branch`, `tokenSecret` | Registers a `push` webhook on the GitHub repo and fires production when a push lands on `refs/heads/<branch>`. `tokenSecret` names a pipeline secret holding a fine-grained PAT (scopes: **repo** + **admin:repo_hook**) used to manage the hook. Requires the server's `Webhooks:PublicBaseUrl` to be set, or the hook cannot be auto-registered. |
+
+### GitHub webhook triggers
+
+For a `github` target the server **auto-registers** the `push` hook on the repo (and removes it
+when the trigger is deleted or its config changes — reconcile recreates triggers, so a changed
+target deletes the old hook and creates a new one). Deliveries are authenticated by HMAC-SHA256
+over the raw body, keyed by a server-generated per-trigger secret — no inbound secret to manage.
+
+Prerequisites:
+
+- **`tokenSecret` PAT** — declare the secret in `secrets:` and set its value via the API (it is a
+  pipeline K8s secret). The PAT must be a fine-grained token with **repo** + **admin:repo_hook**.
+- **`Webhooks:PublicBaseUrl`** — the server must be reachable by GitHub at a public origin (e.g.
+  `https://pipelines-hooks.ovea.pro`); the receiver lives at `/api/webhooks/github/{triggerId}`.
+  Enable the chart's `ingress.public` and set `config.Webhooks__PublicBaseUrl` to that host.
 
 ## Validation rules (reconcile rejects on any of these)
 

@@ -16,6 +16,8 @@ config:
   Storage__AuthUrl: "https://auth-beta.ovea.pro/application/o/token/"
   Kubernetes__OpenBaoUrl: "https://openbao-beta.ovea.pro"
   Kubernetes__Namespace: "olve-runners-beta"
+  # GitHub webhook auto-registration target (beta-first rollout). Must match ingress.public.host.
+  Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
 
 secrets:
   - name: olve-pipelines-oidc
@@ -39,3 +41,6 @@ authentikCa:
 
 ingress:
   host: pipelines-beta.ovea.pro
+  public:
+    enabled: true
+    host: pipelines-hooks-beta.ovea.pro

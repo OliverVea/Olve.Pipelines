@@ -27,6 +27,21 @@ ingress:
     enabled: true
     secretName: ""
   annotations: {}
+  # Internet-facing ingress exposing ONLY /api/webhooks/github (the inbound GitHub webhook
+  # receiver). Disabled by default: the private ingress above targets a Tailscale IP that
+  # GitHub cannot reach. When enabled, also set config.Webhooks__PublicBaseUrl below so
+  # auto-registered hooks point at this host. Must be fronted by a real public entrypoint
+  # (Cloudflare Tunnel or a public ingress controller).
+  public:
+    enabled: false
+    host: pipelines-hooks.ovea.pro
+    externalDnsTarget: ""
+    clusterIssuer: letsencrypt-prod
+    ingressClassName: ""
+    tls:
+      enabled: true
+      secretName: ""
+    annotations: {}
 
 resources:
   requests:
@@ -80,6 +95,10 @@ config:
   Kubernetes__AuthMode: "OpenBao"
   Kubernetes__OpenBaoUrl: "https://openbao.ovea.pro"
   Kubernetes__Namespace: "olve-runners"
+  # Externally-reachable origin GitHub posts webhook deliveries to. Empty = GitHub webhook
+  # auto-registration disabled (the receiver still serves manually-created hooks). Set this
+  # together with ingress.public.enabled=true to enable auto-registration.
+  Webhooks__PublicBaseUrl: ""
 
 secrets:
   - name: authentik-oidc-secrets

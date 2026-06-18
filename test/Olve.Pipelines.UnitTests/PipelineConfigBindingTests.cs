@@ -61,6 +61,40 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
+    public async Task SetCredentialsSecret_UpdatesExistingBinding()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        Bind(svc.Bindings, pipeline.Id); // binds with credentialsSecret: null
+
+        var updated = Pick(svc.Bindings.SetCredentialsSecret(pipeline.Id, "GITHUB_TOKEN"));
+
+        await Assert.That(updated.CredentialsSecret).IsEqualTo("GITHUB_TOKEN");
+        await Assert.That(Pick(svc.Bindings.GetByPipelineId(pipeline.Id)).CredentialsSecret).IsEqualTo("GITHUB_TOKEN");
+    }
+
+    [Test]
+    public async Task SetCredentialsSecret_BlankClearsIt()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        svc.Bindings.Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", "GITHUB_TOKEN");
+
+        var cleared = Pick(svc.Bindings.SetCredentialsSecret(pipeline.Id, "   "));
+
+        await Assert.That(cleared.CredentialsSecret).IsNull();
+    }
+
+    [Test]
+    public async Task SetCredentialsSecret_WhenUnbound_Fails()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+
+        await Assert.That(svc.Bindings.SetCredentialsSecret(pipeline.Id, "GITHUB_TOKEN").Failed).IsTrue();
+    }
+
+    [Test]
     public async Task Create_WhenAlreadyBound_Fails()
     {
         var svc = CreateFixture();

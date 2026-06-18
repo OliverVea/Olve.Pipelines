@@ -53,6 +53,16 @@ public static class PipelineBindingEndpoints
             .WithName("ReconcilePipelineBinding")
             .WithTags("beta");
 
+        // Update an existing binding's credentials secret without re-binding. Setting it moves the
+        // config fetch onto the authenticated GitHub bucket (5000/hr vs the unauthenticated 60/hr);
+        // an empty value clears it. The named key must exist in the pipeline's k8s secret.
+        app.MapPatch("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
+                PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, UpdateBindingRequest request)
+                => bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret))
+            .WithResultMapping<PipelineConfigBinding>()
+            .WithName("UpdatePipelineBinding")
+            .WithTags("beta");
+
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
                 => bindings.GetByPipelineId(pipelineId))
@@ -116,6 +126,8 @@ public static class PipelineBindingEndpoints
 
 public record CreatePipelineWithRepoRequest(
     string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret);
+
+public record UpdateBindingRequest(string? CredentialsSecret);
 
 public record PipelineBindingStatus(
     Id<Pipeline> PipelineId,

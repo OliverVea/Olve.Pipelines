@@ -208,6 +208,57 @@
       }
     },
     "/api/pipelines/{pipelineId}/binding": {
+      "patch": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "UpdatePipelineBinding",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "beta"
@@ -2826,6 +2877,20 @@
             "$ref": "#/components/schemas/TriggerTarget"
           }
         ]
+      },
+      "UpdateBindingRequest": {
+        "required": [
+          "credentialsSecret"
+        ],
+        "type": "object",
+        "properties": {
+          "credentialsSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "WebhookRequest": {
         "required": [

@@ -77,6 +77,22 @@ public class PipelineConfigBindingService(
         return updated;
     }
 
+    /// <summary>
+    /// Sets (or clears, with null/empty) the k8s secret key the config fetch authenticates with.
+    /// Lets an operator authenticate an existing binding without re-binding — e.g. to move its
+    /// GitHub fetches off the unauthenticated 60/hr rate limit onto the 5000/hr token bucket.
+    /// </summary>
+    public Result<PipelineConfigBinding> SetCredentialsSecret(Id<Pipeline> pipelineId, string? credentialsSecret)
+    {
+        if (GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
+            return problems;
+
+        var normalized = string.IsNullOrWhiteSpace(credentialsSecret) ? null : credentialsSecret;
+        var updated = binding with { CredentialsSecret = normalized };
+        store.Set(updated);
+        return updated;
+    }
+
     /// <summary>Records the outcome of the most recent reconcile attempt.</summary>
     public Result<PipelineConfigBinding> SetReconcileStatus(Id<PipelineConfigBinding> id, ReconcileStatus status)
     {

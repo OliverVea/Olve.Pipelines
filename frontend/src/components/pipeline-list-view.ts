@@ -182,16 +182,9 @@ export class PipelineListView extends LitElement {
     /* ---- CI strip (per-step health boxes) ---- */
     .ci-strip {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       flex-wrap: wrap;
       gap: 0.3rem 0.4rem;
-    }
-
-    .ci-cell {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.2rem;
     }
 
     .ci-time {
@@ -460,15 +453,9 @@ export class PipelineListView extends LitElement {
       .join('')
       .slice(0, 2)
       .toUpperCase();
-    return html`<span class="ci-cell">
-      <span class="ci-box ${status}" title="${name} — ${status}">${label}</span>
-      ${step.lastChangedAt
-        ? html`<relative-time
-            class="ci-time"
-            .value=${step.lastChangedAt}
-          ></relative-time>`
-        : nothing}
-    </span>`;
+    return html`<span class="ci-box ${status}" title="${name} — ${status}"
+      >${label}</span
+    >`;
   }
 
   private _repoUrl(repo: string): string {
@@ -492,7 +479,9 @@ export class PipelineListView extends LitElement {
   private async _create() {
     const name = window.prompt('New pipeline name');
     if (!name) return;
-    await client.api.pipelines.post({ queryParameters: { name } });
+    const repo = window.prompt('Repository (owner/name)');
+    if (!repo) return;
+    await client.api.pipelines.withRepo.post({ name, repo });
     await this._load();
   }
 

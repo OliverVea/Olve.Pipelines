@@ -38,8 +38,8 @@ public class ExecutionTests
 
             var jobs = await WaitForAllJobsTerminal(http, pipelineId);
 
-            var productionJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "production").ToList();
-            var processingJobs = jobs.Where(j => j.GetProperty("$type").GetString() == "processing").ToList();
+            var productionJobs = jobs.Where(j => j.GetProperty("type").GetString() == "production").ToList();
+            var processingJobs = jobs.Where(j => j.GetProperty("type").GetString() == "processing").ToList();
 
             await Assert.That(productionJobs).Count().IsEqualTo(1);
             await Assert.That(GetJobStatusType(productionJobs[0])).IsEqualTo("done");
@@ -84,7 +84,7 @@ public class ExecutionTests
     }
 
     private static string GetJobStatusType(JsonElement job) =>
-        job.GetProperty("status").GetProperty("$type").GetString()!;
+        job.GetProperty("status").GetProperty("type").GetString()!;
 
     private static readonly string[] TerminalStatuses = ["done", "failed", "cancelled", "obsolete"];
 
@@ -99,19 +99,13 @@ public class ExecutionTests
 
         while (DateTime.UtcNow < deadline)
         {
-            var allJobs = await http.GetFromJsonAsync<JsonElement>("/api/jobs");
-            var pipelineJobs = allJobs.EnumerateArray()
-                .Where(j => j.GetProperty("pipelineId").GetGuid().ToString() == pipelineId)
-                .ToList();
+            var pipelineJobs = await FetchPipelineJobs(http, pipelineId);
 
             if (pipelineJobs.Count > 0 && pipelineJobs.All(IsTerminal))
             {
                 // Wait and recheck to allow cascading to create new jobs
                 await Task.Delay(PollInterval);
-                var recheck = await http.GetFromJsonAsync<JsonElement>("/api/jobs");
-                var recheckJobs = recheck.EnumerateArray()
-                    .Where(j => j.GetProperty("pipelineId").GetGuid().ToString() == pipelineId)
-                    .ToList();
+                var recheckJobs = await FetchPipelineJobs(http, pipelineId);
 
                 if (recheckJobs.All(IsTerminal) && recheckJobs.Count == pipelineJobs.Count)
                     return recheckJobs;
@@ -123,5 +117,16 @@ public class ExecutionTests
         }
 
         throw new System.TimeoutException($"Jobs for pipeline {pipelineId} did not reach terminal state within {JobTimeout}");
+    }
+
+    // /api/jobs is paginated: { items: [...], pageNumber, ... }. Pull the items array and filter to
+    // this pipeline. A test pipeline's job count is tiny, so the default first page holds them all.
+    private static async Task<List<JsonElement>> FetchPipelineJobs(HttpClient http, string pipelineId)
+    {
+        var page = await http.GetFromJsonAsync<JsonElement>("/api/jobs");
+        var items = page.ValueKind == JsonValueKind.Array ? page : page.GetProperty("items");
+        return items.EnumerateArray()
+            .Where(j => j.GetProperty("pipelineId").GetGuid().ToString() == pipelineId)
+            .ToList();
     }
 }

@@ -26,14 +26,25 @@ public class GitOpsBindingTests
         var client = Fixture.CreateApiClient();
 
         var created = await client.CreatePipelineWithRepo(WithRepo($"with-repo-{Guid.NewGuid():N}"));
-        await Assert.That(created.StatusCode).IsEqualTo(HttpStatusCode.OK);
-        await Assert.That(created.Content!.Branch).IsEqualTo("main");
-        await Assert.That(created.Content!.Path).IsEqualTo(".pipelines");
+        string? pipelineId = null;
+        try
+        {
+            await Assert.That(created.StatusCode).IsEqualTo(HttpStatusCode.OK);
+            await Assert.That(created.Content!.Branch).IsEqualTo("main");
+            await Assert.That(created.Content!.Path).IsEqualTo(".pipelines");
 
-        var pipelineId = created.Content!.PipelineId.ToString();
-        var binding = await client.GetPipelineBinding(pipelineId);
-        await Assert.That(binding.StatusCode).IsEqualTo(HttpStatusCode.OK);
-        await Assert.That(binding.Content!.Id).IsEqualTo(created.Content!.Id);
+            pipelineId = created.Content!.PipelineId.ToString();
+            var binding = await client.GetPipelineBinding(pipelineId);
+            await Assert.That(binding.StatusCode).IsEqualTo(HttpStatusCode.OK);
+            await Assert.That(binding.Content!.Id).IsEqualTo(created.Content!.Id);
+        }
+        finally
+        {
+            // MUST delete: on the shared beta instance a leaked binding to a nonexistent repo gets
+            // polled every cycle forever, draining the unauthenticated GitHub rate limit.
+            if (pipelineId is not null)
+                await client.DeletePipeline(pipelineId);
+        }
     }
 
     [Test]
@@ -45,12 +56,19 @@ public class GitOpsBindingTests
 
         var bound = await client.CreatePipelineWithRepo(WithRepo($"status-{Guid.NewGuid():N}"));
         var pipelineId = bound.Content!.PipelineId.ToString();
-
-        var status = await client.GetPipelineBindingStatus(pipelineId);
-        await Assert.That(status.StatusCode).IsEqualTo(HttpStatusCode.OK);
-        await Assert.That(status.Content!.PipelineId).IsEqualTo(bound.Content!.PipelineId);
-        // A repo with no config declares no secrets.
-        await Assert.That(status.Content!.Secrets).IsEmpty();
+        try
+        {
+            var status = await client.GetPipelineBindingStatus(pipelineId);
+            await Assert.That(status.StatusCode).IsEqualTo(HttpStatusCode.OK);
+            await Assert.That(status.Content!.PipelineId).IsEqualTo(bound.Content!.PipelineId);
+            // A repo with no config declares no secrets.
+            await Assert.That(status.Content!.Secrets).IsEmpty();
+        }
+        finally
+        {
+            // See above — leaked bindings poll GitHub forever and exhaust the rate limit.
+            await client.DeletePipeline(pipelineId);
+        }
     }
 
     [Test]

@@ -99,7 +99,11 @@
       "Bash(git -C C:/Users/olive/RiderProjects/Olve.Pipelines diff clients/Olve.Pipelines.Client/Generated/Refitter.g.cs)",
       "Bash(git *)",
       "WebFetch(domain:refitter.github.io)",
-      "PowerShell(dotnet build *)"
+      "PowerShell(dotnet build *)",
+      "Bash(gh issue *)",
+      "Bash(gh repo *)",
+      "PowerShell(dotnet test *)",
+      "Read(//c/Users/olive/RiderProjects/**)"
     ]
   }
 }

@@ -1,11 +1,11 @@
 {
-  "descriptionHash": "CF083AE8246A00D6D4B85E3AF204BE8FBD5132D81F425FFD65A62665339387497384F3DFC09F8C324D720ACBDBB47E1B9DE0F853044D228F127F6D566EE853BE",
+  "descriptionHash": "C32D8A8BC0CEB46FE9C9BECA1C4FFE7EBF23051EFC9D5A90F9DADCBBFACD87CDFD0E59B0F2FE378A59C5679CA524C7DEE24F6E0F7C9E8FCE3EF9755CEB21FC54",
   "descriptionLocation": "../../../api.json",
   "lockFileVersion": "1.0.0",
   "kiotaVersion": "1.30.0",
   "clientClassName": "ApiClient",
   "typeAccessModifier": "Public",
-  "clientNamespaceName": "OlvePipelinesApi",
+  "clientNamespaceName": "OlvePipelinesClient",
   "language": "TypeScript",
   "usesBackingStore": false,
   "excludeBackwardCompatible": false,

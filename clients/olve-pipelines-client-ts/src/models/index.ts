@@ -655,6 +655,15 @@ export function createTriggerTargetProductionTriggerTargetFromDiscriminatorValue
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UpdateBindingRequest}
+ */
+// @ts-ignore
+export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateBindingRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {IdOfArtifactBundle | WebhookRequest_artifactBundleIdMember1}
  */
 // @ts-ignore
@@ -1000,6 +1009,7 @@ export function deserializeIntoPipelineDocument(pipelineDocument: Partial<Pipeli
 export function deserializeIntoPipelineSummary(pipelineSummary: Partial<PipelineSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "id": n => { pipelineSummary.id = n.getGuidValue(); },
+        "lastChangedAt": n => { pipelineSummary.lastChangedAt = n.getDateValue(); },
         "name": n => { pipelineSummary.name = n.getStringValue(); },
         "repo": n => { pipelineSummary.repo = n.getStringValue(); },
         "steps": n => { pipelineSummary.steps = n.getCollectionOfObjectValues<StepHealth>(createStepHealthFromDiscriminatorValue); },
@@ -1266,6 +1276,7 @@ export function deserializeIntoStepConfigurationDocument_environmentVariables(st
 export function deserializeIntoStepHealth(stepHealth: Partial<StepHealth> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "kind": n => { stepHealth.kind = n.getStringValue(); },
+        "lastChangedAt": n => { stepHealth.lastChangedAt = n.getDateValue(); },
         "name": n => { stepHealth.name = n.getStringValue(); },
         "status": n => { stepHealth.status = n.getStringValue(); },
     }
@@ -1438,6 +1449,17 @@ export function deserializeIntoTriggerTargetProcessingTriggerTarget(triggerTarge
 export function deserializeIntoTriggerTargetProductionTriggerTarget(triggerTargetProductionTriggerTarget: Partial<TriggerTargetProductionTriggerTarget> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         ...deserializeIntoTriggerTarget(triggerTargetProductionTriggerTarget),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UpdateBindingRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partial<UpdateBindingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
     }
 }
 /**
@@ -1813,6 +1835,10 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      * The id property
      */
     id?: Guid | null;
+    /**
+     * The lastChangedAt property
+     */
+    lastChangedAt?: Date | null;
     /**
      * The name property
      */
@@ -2344,6 +2370,7 @@ export function serializePipelineDocument(writer: SerializationWriter, pipelineD
 export function serializePipelineSummary(writer: SerializationWriter, pipelineSummary: Partial<PipelineSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipelineSummary || isSerializingDerivedType) { return; }
     writer.writeGuidValue("id", pipelineSummary.id);
+    writer.writeDateValue("lastChangedAt", pipelineSummary.lastChangedAt);
     writer.writeStringValue("name", pipelineSummary.name);
     writer.writeStringValue("repo", pipelineSummary.repo);
     writer.writeCollectionOfObjectValues<StepHealth>("steps", pipelineSummary.steps, serializeStepHealth);
@@ -2628,6 +2655,7 @@ export function serializeStepConfigurationDocument_environmentVariables(writer: 
 export function serializeStepHealth(writer: SerializationWriter, stepHealth: Partial<StepHealth> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!stepHealth || isSerializingDerivedType) { return; }
     writer.writeStringValue("kind", stepHealth.kind);
+    writer.writeDateValue("lastChangedAt", stepHealth.lastChangedAt);
     writer.writeStringValue("name", stepHealth.name);
     writer.writeStringValue("status", stepHealth.status);
     writer.writeAdditionalData(stepHealth.additionalData);
@@ -2835,6 +2863,18 @@ export function serializeTriggerTargetProductionTriggerTarget(writer: Serializat
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UpdateBindingRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUpdateBindingRequest(writer: SerializationWriter, updateBindingRequest: Partial<UpdateBindingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateBindingRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("credentialsSecret", updateBindingRequest.credentialsSecret);
+    writer.writeAdditionalData(updateBindingRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param WebhookRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2915,6 +2955,10 @@ export interface StepHealth extends AdditionalDataHolder, Parsable {
      * The kind property
      */
     kind?: string | null;
+    /**
+     * The lastChangedAt property
+     */
+    lastChangedAt?: Date | null;
     /**
      * The name property
      */
@@ -3047,6 +3091,12 @@ export interface TriggerTargetProcessingTriggerTarget extends Parsable, TriggerT
     processingStepId?: Guid | null;
 }
 export interface TriggerTargetProductionTriggerTarget extends Parsable, TriggerTarget {
+}
+export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
 }
 export interface WebhookRequest extends AdditionalDataHolder, Parsable {
     /**

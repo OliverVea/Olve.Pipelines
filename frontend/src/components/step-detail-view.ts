@@ -5,6 +5,7 @@ import { AnsiUp } from 'ansi_up';
 import { client } from '../api.js';
 import { getAccessToken } from '../auth.js';
 import { navigate } from '../router.js';
+import './relative-time.js';
 import type {
   ProcessingStep,
   StepConfiguration,
@@ -46,10 +47,7 @@ function statusOf(job: Job | undefined): StatusInfo {
 function hasLogs(job: Job | undefined): boolean {
   const type = (job?.status as { type?: string } | undefined)?.type ?? '';
   return (
-    type === 'done' ||
-    type === 'failed' ||
-    type === 'cancelled' ||
-    type === 'obsolete'
+    type === 'done' || type === 'failed' || type === 'cancelled' || type === 'obsolete'
   );
 }
 
@@ -233,7 +231,9 @@ export class StepDetailView extends LitElement {
       border-radius: var(--radius);
       text-decoration: none;
       color: var(--color-text);
-      transition: border-color var(--transition), background var(--transition);
+      transition:
+        border-color var(--transition),
+        background var(--transition);
     }
 
     .run-row:hover {
@@ -275,7 +275,9 @@ export class StepDetailView extends LitElement {
       color: var(--color-text);
       font-size: 0.8rem;
       text-decoration: none;
-      transition: background var(--transition), border-color var(--transition);
+      transition:
+        background var(--transition),
+        border-color var(--transition);
     }
 
     .btn:hover {
@@ -317,14 +319,14 @@ export class StepDetailView extends LitElement {
   @property() declare pipelineId: string;
   @property() declare stepId: string;
 
-  @state() private declare _step: ProcessingStep | null;
-  @state() private declare _config: StepConfiguration | null;
-  @state() private declare _stepJobs: JobProcessingJob[];
-  @state() private declare _blocked: boolean;
-  @state() private declare _loading: boolean;
-  @state() private declare _error: string | null;
-  @state() private declare _logTail: string | null;
-  @state() private declare _logUnavailable: boolean;
+  @state() declare private _step: ProcessingStep | null;
+  @state() declare private _config: StepConfiguration | null;
+  @state() declare private _stepJobs: JobProcessingJob[];
+  @state() declare private _blocked: boolean;
+  @state() declare private _loading: boolean;
+  @state() declare private _error: string | null;
+  @state() declare private _logTail: string | null;
+  @state() declare private _logUnavailable: boolean;
 
   constructor() {
     super();
@@ -369,10 +371,7 @@ export class StepDetailView extends LitElement {
           (j): j is JobProcessingJob =>
             'processingStepId' in j && j.processingStepId === this.stepId,
         )
-        .sort(
-          (a, b) =>
-            (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
-        );
+        .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
 
       const latest = this._stepJobs[0];
       if (latest?.id && hasLogs(latest)) {
@@ -397,9 +396,7 @@ export class StepDetailView extends LitElement {
       }
       if (!res.ok) return;
       const ct = res.headers.get('content-type') ?? '';
-      const body = ct.includes('application/json')
-        ? await res.json()
-        : await res.text();
+      const body = ct.includes('application/json') ? await res.json() : await res.text();
       const text = typeof body === 'string' ? body : JSON.stringify(body);
       // Show the tail (last ~40 lines) — this is a preview, not the full log.
       this._logTail = text.split('\n').slice(-40).join('\n');
@@ -418,10 +415,7 @@ export class StepDetailView extends LitElement {
 
     return html`
       <div class="step-head">
-        <a
-          class="back"
-          href="/pipeline/${this.pipelineId}"
-          @click=${this._backToPipeline}
+        <a class="back" href="/pipeline/${this.pipelineId}" @click=${this._backToPipeline}
           >&larr; Back to pipeline</a
         >
         <h2>${this._step.name}</h2>
@@ -431,14 +425,12 @@ export class StepDetailView extends LitElement {
       <div class="step-sub">
         <span class="step-kind">processing step</span>
         <span class="sep">·</span>
-        <a
-          href="/pipeline/${this.pipelineId}"
-          @click=${this._backToPipeline}
-          >pipeline</a
-        >
+        <a href="/pipeline/${this.pipelineId}" @click=${this._backToPipeline}>pipeline</a>
         ${latest?.createdAt
           ? html`<span class="sep">·</span>
-              <span>last ran ${latest.createdAt.toLocaleString()}</span>`
+              <span
+                >last ran <relative-time .value=${latest.createdAt}></relative-time
+              ></span>`
           : nothing}
         <span class="sep">·</span>
         <promotion-gate
@@ -496,9 +488,7 @@ export class StepDetailView extends LitElement {
         <dd>
           ${envKeys.length
             ? html`<div class="env-list">
-                ${envKeys.map(
-                  (k) => html`<code>${k}=${env[k]}</code>`,
-                )}
+                ${envKeys.map((k) => html`<code>${k}=${env[k]}</code>`)}
               </div>`
             : html`<span class="muted">none</span>`}
         </dd>
@@ -517,8 +507,8 @@ export class StepDetailView extends LitElement {
           const linkable = job.id && hasLogs(job);
           const inner = html`
             <span class="run-when"
-              >${job.createdAt?.toLocaleString() ?? '—'}</span
-            >
+              ><relative-time .value=${job.createdAt}></relative-time
+            ></span>
             <span class="status-badge ${s.cssClass}">${s.label}</span>
           `;
           return html`<li>
@@ -552,9 +542,7 @@ export class StepDetailView extends LitElement {
           >loading recent output…</span
         ></pre>`;
     }
-    return html`<pre class="log">${unsafeHTML(
-      ansi.ansi_to_html(this._logTail),
-    )}</pre>`;
+    return html`<pre class="log">${unsafeHTML(ansi.ansi_to_html(this._logTail))}</pre>`;
   }
 
   private _backToPipeline(e: Event) {

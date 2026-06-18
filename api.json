@@ -2294,7 +2294,8 @@
           "id",
           "name",
           "repo",
-          "steps"
+          "steps",
+          "lastChangedAt"
         ],
         "type": "object",
         "properties": {
@@ -2315,6 +2316,13 @@
             "items": {
               "$ref": "#/components/schemas/StepHealth"
             }
+          },
+          "lastChangedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -2634,7 +2642,8 @@
         "required": [
           "name",
           "kind",
-          "status"
+          "status",
+          "lastChangedAt"
         ],
         "type": "object",
         "properties": {
@@ -2646,6 +2655,13 @@
           },
           "status": {
             "type": "string"
+          },
+          "lastChangedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

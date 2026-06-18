@@ -5,6 +5,7 @@ import type {
   JobProductionJob,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import { navigate } from '../router.js';
+import './relative-time.js';
 
 type Job = JobProcessingJob | JobProductionJob;
 
@@ -172,9 +173,17 @@ export class StepNode extends LitElement {
     }
 
     .node-detail {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.3rem;
       font-size: 0.75rem;
       color: var(--color-text-muted);
       margin-top: 0.25rem;
+    }
+
+    .detail-sep {
+      opacity: 0.5;
     }
 
     @keyframes pulse {
@@ -205,16 +214,14 @@ export class StepNode extends LitElement {
   render() {
     const status = getStatus(this.latestJob);
     const jobId = this.latestJob?.id;
-    const statusType = (this.latestJob?.status as { type?: string } | undefined)
-      ?.type;
+    const statusType = (this.latestJob?.status as { type?: string } | undefined)?.type;
     const hasLogs =
       statusType === 'done' ||
       statusType === 'failed' ||
       statusType === 'cancelled' ||
       statusType === 'obsolete';
-    const logsHref = jobId && hasLogs
-      ? `/pipeline/${this.pipelineId}/job/${jobId}/logs`
-      : undefined;
+    const logsHref =
+      jobId && hasLogs ? `/pipeline/${this.pipelineId}/job/${jobId}/logs` : undefined;
 
     const badge = logsHref
       ? html`<a
@@ -224,9 +231,7 @@ export class StepNode extends LitElement {
           @click=${this._openLogs}
           >${status.label}</a
         >`
-      : html`<span class="status-badge ${status.cssClass}"
-          >${status.label}</span
-        >`;
+      : html`<span class="status-badge ${status.cssClass}">${status.label}</span>`;
 
     const stepHref =
       this.stepType === 'processing' && this.stepId
@@ -244,10 +249,7 @@ export class StepNode extends LitElement {
 
     return html`
       <div class="node">
-        <div class="node-header">
-          ${name}
-          ${badge}
-        </div>
+        <div class="node-header">${name} ${badge}</div>
         ${this._renderDetail()}
       </div>
     `;
@@ -259,16 +261,18 @@ export class StepNode extends LitElement {
 
     const duration = processingTime(job);
     const statusType = (job.status as { type?: string } | undefined)?.type;
-    const when = job.createdAt.toLocaleString();
-
-    // Prefer the human-readable processing time; fall back to the start time.
-    const text = duration
+    const durationText = duration
       ? statusType === 'in-progress'
         ? `running ${duration}`
         : `ran in ${duration}`
-      : when;
+      : null;
 
-    return html`<div class="node-detail" title=${when}>${text}</div>`;
+    return html`<div class="node-detail">
+      <relative-time .value=${job.createdAt}></relative-time>
+      ${durationText
+        ? html`<span class="detail-sep">·</span><span>${durationText}</span>`
+        : nothing}
+    </div>`;
   }
 
   private _openStep(e: Event) {

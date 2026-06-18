@@ -25,7 +25,7 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      */
     get withRepo(): WithRepoRequestBuilder;
     /**
-     * Gets an item from the OlvePipelinesApi.api.pipelines.item collection
+     * Gets an item from the OlvePipelinesClient.api.pipelines.item collection
      * @param id Unique identifier of the item
      * @returns {ItemRequestBuilder}
      */

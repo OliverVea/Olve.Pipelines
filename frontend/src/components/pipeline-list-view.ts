@@ -2,7 +2,11 @@ import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { client } from '../api.js';
 import { navigate } from '../router.js';
-import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/index.js';
+import './relative-time.js';
+import type {
+  PipelineSummary,
+  StepHealth,
+} from '@olve/olve-pipelines-client/src/models/index.js';
 
 const GITHUB_MARK = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>`;
 
@@ -63,7 +67,9 @@ export class PipelineListView extends LitElement {
       background: var(--color-surface);
       color: var(--color-text);
       cursor: pointer;
-      transition: background var(--transition), border-color var(--transition);
+      transition:
+        background var(--transition),
+        border-color var(--transition);
     }
 
     .reload-btn:hover:not(:disabled) {
@@ -176,9 +182,23 @@ export class PipelineListView extends LitElement {
     /* ---- CI strip (per-step health boxes) ---- */
     .ci-strip {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       flex-wrap: wrap;
-      gap: 0.3rem;
+      gap: 0.3rem 0.4rem;
+    }
+
+    .ci-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .ci-time {
+      font-size: 0.6rem;
+      line-height: 1;
+      color: var(--color-text-muted);
+      white-space: nowrap;
     }
 
     .ci-divider {
@@ -187,6 +207,20 @@ export class PipelineListView extends LitElement {
       min-height: 1.4rem;
       background: var(--color-border);
       margin: 0 0.2rem;
+    }
+
+    /* ---- Card footer (pipeline last-run time) ---- */
+    .pc-foot {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      color: var(--color-text-muted);
+      margin-top: auto;
+    }
+
+    .pc-foot .ci-time {
+      font-size: 0.72rem;
     }
 
     .ci-box {
@@ -251,7 +285,9 @@ export class PipelineListView extends LitElement {
       color: var(--color-text-muted);
       font-size: 0.9rem;
       cursor: pointer;
-      transition: border-color var(--transition), color var(--transition);
+      transition:
+        border-color var(--transition),
+        color var(--transition);
     }
 
     .add-card:hover {
@@ -276,10 +312,10 @@ export class PipelineListView extends LitElement {
     }
   `;
 
-  @state() private declare _pipelines: PipelineSummary[];
-  @state() private declare _loading: boolean;
-  @state() private declare _error: string | null;
-  @state() private declare _loaded: boolean;
+  @state() declare private _pipelines: PipelineSummary[];
+  @state() declare private _loading: boolean;
+  @state() declare private _error: string | null;
+  @state() declare private _loaded: boolean;
 
   constructor() {
     super();
@@ -325,7 +361,14 @@ export class PipelineListView extends LitElement {
           title="Refresh"
           aria-label="Refresh"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M21 12a9 9 0 1 1-3-6.7" />
             <polyline points="21 3 21 9 15 9" />
           </svg>
@@ -337,7 +380,14 @@ export class PipelineListView extends LitElement {
         : html`<div class="card-grid">
             ${this._pipelines.map((p) => this._renderCard(p))}
             <button class="add-card" type="button" @click=${this._create}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M12 5v14" />
                 <path d="M5 12h14" />
               </svg>
@@ -380,16 +430,26 @@ export class PipelineListView extends LitElement {
           ? html`<div class="ci-strip">
               ${production.map((s) => this._ciBox(s))}
               ${processing.length
-                ? html`<span class="ci-divider"></span>
-                    ${processing.map((s) => this._ciBox(s))}`
+                ? html`<span class="ci-divider"></span> ${processing.map((s) =>
+                      this._ciBox(s),
+                    )}`
                 : nothing}
             </div>`
           : html`<span class="pc-empty">No steps yet</span>`}
+        <div class="pc-foot">
+          ${p.lastChangedAt
+            ? html`<span>Last run</span
+                ><relative-time
+                  class="ci-time"
+                  .value=${p.lastChangedAt}
+                ></relative-time>`
+            : html`<span>Never run</span>`}
+        </div>
       </div>
     `;
   }
 
-  private _ciBox(step: { name?: string | null; status?: string | null }) {
+  private _ciBox(step: StepHealth) {
     const status = step.status ?? 'idle';
     const name = step.name ?? '';
     // The mock numbered each box by run; we have no per-run numbering yet, so the
@@ -400,9 +460,15 @@ export class PipelineListView extends LitElement {
       .join('')
       .slice(0, 2)
       .toUpperCase();
-    return html`<span class="ci-box ${status}" title="${name} — ${status}"
-      >${label}</span
-    >`;
+    return html`<span class="ci-cell">
+      <span class="ci-box ${status}" title="${name} — ${status}">${label}</span>
+      ${step.lastChangedAt
+        ? html`<relative-time
+            class="ci-time"
+            .value=${step.lastChangedAt}
+          ></relative-time>`
+        : nothing}
+    </span>`;
   }
 
   private _repoUrl(repo: string): string {

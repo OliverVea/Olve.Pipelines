@@ -35,10 +35,9 @@ public class PipelineSummaryService(
             {
                 foreach (var step in prod)
                 {
-                    var status = latestProduction.TryGetValue(step.Id, out var job)
-                        ? job.Status.Discriminator()
-                        : "idle";
-                    steps.Add(new StepHealth(step.Name, "production", status));
+                    steps.Add(latestProduction.TryGetValue(step.Id, out var job)
+                        ? new StepHealth(step.Name, "production", job.Status.Discriminator(), job.LastChangedAt())
+                        : new StepHealth(step.Name, "production", "idle", null));
                 }
             }
 
@@ -46,14 +45,19 @@ public class PipelineSummaryService(
             {
                 foreach (var step in proc)
                 {
-                    var status = latestProcessing.TryGetValue(step.Id, out var job)
-                        ? job.Status.Discriminator()
-                        : "idle";
-                    steps.Add(new StepHealth(step.Name, "processing", status));
+                    steps.Add(latestProcessing.TryGetValue(step.Id, out var job)
+                        ? new StepHealth(step.Name, "processing", job.Status.Discriminator(), job.LastChangedAt())
+                        : new StepHealth(step.Name, "processing", "idle", null));
                 }
             }
 
-            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, steps.ToArray()));
+            var stepTimes = steps
+                .Where(s => s.LastChangedAt is not null)
+                .Select(s => s.LastChangedAt!.Value)
+                .ToList();
+            var lastChangedAt = stepTimes.Count > 0 ? stepTimes.Max() : (DateTimeOffset?)null;
+
+            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, steps.ToArray(), lastChangedAt));
         }
 
         return result;

@@ -130,6 +130,7 @@ cd frontend && npm run build                                # Production build
 - Storage via S3-compatible MinIO (minio.ovea.pro) — JSON files for persistence, zipped directories for bundles
 - TypeScript client generated from OpenAPI via Kiota
 - C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes)
+- Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 
 ## References
 

@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Olve.Pipelines.Client;
-using TUnit.Core.Exceptions;
 
 namespace Olve.Pipelines.IntegrationTests;
 
@@ -25,7 +24,7 @@ public class ExecutionTests
     [Test]
     public async Task TriggerProduction_CascadesThroughProcessingStep()
     {
-        SkipIfNoBetaK8s();
+        BetaGuard.SkipIfNoBeta();
 
         var client = Fixture.CreateApiClient();
         var http = Fixture.CreateAuthenticatedHttpClient();
@@ -58,7 +57,7 @@ public class ExecutionTests
     [Test]
     public async Task TriggerProduction_ArtifactBundleCompletesOnSuccess()
     {
-        SkipIfNoBetaK8s();
+        BetaGuard.SkipIfNoBeta();
 
         var http = Fixture.CreateAuthenticatedHttpClient();
         string? pipelineId = null;
@@ -82,12 +81,6 @@ public class ExecutionTests
             if (pipelineId is not null)
                 await GitOpsFixtureSeeding.DeleteAsync(Fixture, pipelineId);
         }
-    }
-
-    private static void SkipIfNoBetaK8s()
-    {
-        if (!AppFixture.UseBetaK8s)
-            throw new SkipTestException("Requires beta K8s environment");
     }
 
     private static string GetJobStatusType(JsonElement job) =>

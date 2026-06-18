@@ -42,6 +42,17 @@ public static class PipelineBindingEndpoints
             .WithName("CreatePipelineWithRepo")
             .WithTags("beta");
 
+        // Reconcile the bound config immediately, off the poll schedule. The deploy poll only runs
+        // every ReconcileOptions.PollInterval (5 min in prod), so a just-bound pipeline would
+        // otherwise wait up to a full interval for its shape to materialize. This applies the
+        // current branch config now; the response returns after the reconcile completes.
+        app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", async Task<Result> (
+                DeployPollService deployPoll, Id<Pipeline> pipelineId, CancellationToken ct)
+                => await deployPoll.ReconcileNowAsync(pipelineId, ct))
+            .WithResultMapping()
+            .WithName("ReconcilePipelineBinding")
+            .WithTags("beta");
+
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
                 => bindings.GetByPipelineId(pipelineId))

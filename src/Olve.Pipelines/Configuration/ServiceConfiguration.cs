@@ -45,7 +45,11 @@ public static class ServiceConfiguration
         services.AddTransient<PipelineConfigBindingCleanupService>();
         services.AddSingleton<IRunOnStartup, PipelineConfigBindingEventRegistration>();
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
-        services.AddHostedService<DeployPollService>();
+        // Register as a singleton AND as the hosted service so the reconcile-now endpoint can
+        // resolve the same instance (which owns the per-binding config ETag cache) to run an
+        // off-schedule reconcile.
+        services.AddSingleton<DeployPollService>();
+        services.AddHostedService(sp => sp.GetRequiredService<DeployPollService>());
         services.AddHostedService<PollTriggerService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();

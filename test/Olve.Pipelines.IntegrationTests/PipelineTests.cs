@@ -10,6 +10,8 @@ public class PipelineTests
     [Test]
     public async Task HealthEndpoint_ReturnsOk()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateUnauthenticatedHttpClient();
 
         var response = await client.GetAsync("/api/health");

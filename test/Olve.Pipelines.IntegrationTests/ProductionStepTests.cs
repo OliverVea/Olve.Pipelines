@@ -16,6 +16,8 @@ public class ProductionStepTests
     [Test]
     public async Task TriggerProduction_ForNonExistentPipeline_Returns422()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.TriggerProduction(Guid.NewGuid().ToString());

@@ -171,6 +171,42 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/binding/reconcile": {
+      "post": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "ReconcilePipelineBinding",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/binding": {
       "get": {
         "tags": [

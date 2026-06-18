@@ -20,8 +20,9 @@ public class DeployPollService(
     ILogger<DeployPollService> logger) : BackgroundService
 {
     // Per-binding config ETag (in-memory). A pure rate-limit optimization: losing it on restart
-    // costs one extra (idempotent) config fetch, never correctness.
-    private readonly Dictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
+    // costs one extra (idempotent) config fetch, never correctness. Concurrent because the
+    // background poll loop and the reconcile-now endpoint can both touch it at once.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
@@ -60,6 +61,22 @@ public class DeployPollService(
                     binding.Id, binding.Repo, binding.Branch);
             }
         }
+    }
+
+    /// <summary>
+    /// Runs one reconcile+deploy cycle for a single pipeline's binding immediately, off the poll
+    /// schedule. Used by the reconcile-now endpoint so an operator (or a test) can apply a just-bound
+    /// config without waiting up to <see cref="ReconcileOptions.PollInterval"/> for the next tick.
+    /// Same code path as the background loop — no behavioural drift.
+    /// </summary>
+    public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct)
+    {
+        var binding = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId);
+        if (binding is null)
+            return new ResultProblem($"Pipeline '{pipelineId}' has no config binding.");
+
+        await PollBindingAsync(binding, ct);
+        return Result.Success();
     }
 
     private async Task PollBindingAsync(PipelineConfigBinding binding, CancellationToken ct)

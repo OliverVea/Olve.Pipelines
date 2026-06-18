@@ -16,6 +16,8 @@ public class PipelineDocumentTests
     [Test]
     public async Task GetPipelineDocument_UnknownPipeline_Returns4xx()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateAuthenticatedHttpClient();
 
         var response = await client.GetAsync($"/api/pipelines/{Guid.NewGuid()}/document");

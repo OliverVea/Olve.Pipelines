@@ -159,4 +159,48 @@ public class ConfigurationPersistenceServiceTests
 
         await Assert.That(store.WriteCount).IsEqualTo(0);
     }
+
+    // Reframed from the old AppFixture integration test NullArraysInSnapshot_ToleratedOnStartup:
+    // a snapshot whose collections serialized as JSON null must load cleanly (LoadSnapshot uses
+    // `?? []`), not crash startup. In-process so it runs in the code-test pipeline step.
+    [Test]
+    public async Task NullArraysInSnapshot_ToleratedOnStartup()
+    {
+        var store = new FakeSnapshotStore
+        {
+            Data = """{"Pipelines": null, "ProductionSteps": null, "ProcessingSteps": null}"""u8.ToArray(),
+        };
+        var (service, pipelines, readiness) = CreateService(store);
+
+        await service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(readiness.IsReady).IsTrue();
+        await Assert.That(pipelines.List()).IsEmpty();
+    }
+
+    // Reframed from the old AppFixture integration test CreatedPipeline_SurvivesRestart: state
+    // written by one instance is reloaded by a fresh instance over the same store — the "survives
+    // restart" guarantee, expressed in-process (a new service == a restarted process).
+    [Test]
+    public async Task WrittenState_SurvivesAcrossServiceInstances()
+    {
+        var store = new FakeSnapshotStore();
+        var pipelineId = Id.New<Pipeline>();
+
+        // First instance: seed a pipeline and flush on stop.
+        var (writer, writerPipelines, _) = CreateService(store);
+        await writer.StartingAsync(CancellationToken.None);
+        writerPipelines.Set(new Pipeline(pipelineId, "survivor"));
+        await writer.StoppingAsync(CancellationToken.None);
+
+        await Assert.That(store.WriteCount).IsGreaterThan(0);
+
+        // Second instance ("after restart"): same store, must reload the seeded pipeline.
+        var (reader, readerPipelines, readiness) = CreateService(store);
+        await reader.StartingAsync(CancellationToken.None);
+
+        await Assert.That(readiness.IsReady).IsTrue();
+        await Assert.That(readerPipelines.TryGet(pipelineId, out var reloaded)).IsTrue();
+        await Assert.That(reloaded!.Name).IsEqualTo("survivor");
+    }
 }

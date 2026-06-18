@@ -44,6 +44,14 @@ public static class GitOpsFixtureSeeding
 
         var pipelineId = created.Content.PipelineId.ToString();
 
+        // Reconcile immediately instead of waiting up to a full poll interval (5 min in prod) for the
+        // background deploy poll to materialize the shape. Assert it succeeded so an auth/route
+        // failure names itself here rather than degrading into an opaque "shape didn't materialize".
+        var reconciled = await client.ReconcilePipelineBinding(pipelineId);
+        if (!reconciled.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Reconcile-now failed for pipeline {pipelineId}: {(int)reconciled.StatusCode} {reconciled.Error?.Content}");
+
         await WaitForProductionStepAsync(client, pipelineId);
         return pipelineId;
     }

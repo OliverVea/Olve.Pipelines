@@ -21,6 +21,8 @@ public class GitOpsBindingTests
     [Test]
     public async Task CreatePipelineWithRepo_CreatesPipelineAndBinding()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var created = await client.CreatePipelineWithRepo(WithRepo($"with-repo-{Guid.NewGuid():N}"));
@@ -37,6 +39,8 @@ public class GitOpsBindingTests
     [Test]
     public async Task BindingStatus_IsReadable_ForBoundPipeline()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var bound = await client.CreatePipelineWithRepo(WithRepo($"status-{Guid.NewGuid():N}"));
@@ -52,6 +56,8 @@ public class GitOpsBindingTests
     [Test]
     public async Task DeletePipeline_CascadesBindingDeletion()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var bound = await client.CreatePipelineWithRepo(WithRepo($"cascade-{Guid.NewGuid():N}"));

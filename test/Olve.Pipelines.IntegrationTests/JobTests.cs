@@ -10,6 +10,8 @@ public class JobTests
     [Test]
     public async Task ListJobs_ReturnsOk()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.ListJobs();
@@ -21,6 +23,8 @@ public class JobTests
     [Test]
     public async Task GetJob_NotFound_ReturnsUnprocessableEntity()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.GetJob(Guid.NewGuid().ToString());
@@ -31,6 +35,8 @@ public class JobTests
     [Test]
     public async Task GetQueue_ReturnsOk()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.GetJobQueue();
@@ -42,6 +48,8 @@ public class JobTests
     [Test]
     public async Task DeleteJob_NotFound_ReturnsNotFound()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.DeleteJob(Guid.NewGuid().ToString());
@@ -52,6 +60,8 @@ public class JobTests
     [Test]
     public async Task CancelJob_NotFound_ReturnsUnprocessableEntity()
     {
+        BetaGuard.SkipIfNoBeta();
+
         var client = Fixture.CreateApiClient();
 
         var response = await client.CancelJob(Guid.NewGuid().ToString());

@@ -1,3 +1,4 @@
+using Olve.Pipelines.FailureHandlers;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
@@ -84,7 +85,8 @@ public class PipelinesTestFixtureConfigTests
         var processing = new ProcessingStepService(
             processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
         var triggers = new TriggerService(triggerStore, idProvider);
-        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers);
+        var failureHandlers = new FailureHandlerBindingService(new AttachmentStore<Pipeline, FailureHandlerBindings>(pipelineStore));
+        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers, failureHandlers);
 
         var pipeline = Pick(pipelines.Create("fixture"));
 

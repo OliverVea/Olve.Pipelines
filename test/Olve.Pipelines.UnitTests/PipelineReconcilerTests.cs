@@ -1,3 +1,4 @@
+using Olve.Pipelines.FailureHandlers;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
@@ -16,6 +17,7 @@ public class PipelineReconcilerTests
         ProductionStepService Production,
         ProcessingStepService Processing,
         TriggerService Triggers,
+        FailureHandlerBindingService FailureHandlers,
         PipelineReconciler Reconciler);
 
     private static Fixture CreateFixture()
@@ -32,9 +34,10 @@ public class PipelineReconcilerTests
         var processing = new ProcessingStepService(
             processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
         var triggers = new TriggerService(triggerStore, idProvider);
-        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers);
+        var failureHandlers = new FailureHandlerBindingService(new AttachmentStore<Pipeline, FailureHandlerBindings>(pipelineStore));
+        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers, failureHandlers);
 
-        return new Fixture(pipelines, production, processing, triggers, reconciler);
+        return new Fixture(pipelines, production, processing, triggers, failureHandlers, reconciler);
     }
 
     private static T Pick<T>(Result<T> result)
@@ -46,8 +49,9 @@ public class PipelineReconcilerTests
     private static PipelineManifest Manifest(
         ProductionStepDocument[]? production = null,
         ProcessingStepDocument[]? processing = null,
-        TriggerDocument[]? triggers = null)
-        => new("0.0", "p", null, null, null, production ?? [], processing ?? [], triggers ?? []);
+        TriggerDocument[]? triggers = null,
+        FailureHandlerDocument[]? failureHandlers = null)
+        => new("0.0", "p", null, null, null, production ?? [], processing ?? [], triggers ?? [], failureHandlers ?? []);
 
     private static ProductionStepDocument Prod(string name, string script = "echo")
         => new(name, new StepConfigurationDocument("alpine", script, null));
@@ -73,6 +77,47 @@ public class PipelineReconcilerTests
         var triggers = Pick(f.Triggers.GetByPipelineId(pipeline.Id));
         await Assert.That(triggers.Length).IsEqualTo(1);
         await Assert.That(triggers[0].Target).IsTypeOf<ProcessingTriggerTarget>();
+    }
+
+    [Test]
+    public async Task Reconcile_MaterializesFailureHandlerBindings()
+    {
+        var f = CreateFixture();
+        var pipeline = Pick(f.Pipelines.Create("p"));
+
+        var result = f.Reconciler.Reconcile(pipeline.Id, Manifest(
+            production: [Prod("build")],
+            failureHandlers:
+            [
+                new FailureHandlerDocument(
+                    FailureHandlerLibrary.AoeTriage,
+                    Steps: ["build"],
+                    Env: new Dictionary<string, string> { ["AOE_BASE_URL"] = "http://aoe" }),
+            ]));
+
+        await Assert.That(result.Succeeded).IsTrue();
+
+        var bindings = f.FailureHandlers.Get(pipeline.Id);
+        await Assert.That(bindings.Count).IsEqualTo(1);
+        await Assert.That(bindings[0].HandlerName).IsEqualTo(FailureHandlerLibrary.AoeTriage);
+        await Assert.That(bindings[0].Steps).Contains("build");
+        await Assert.That(bindings[0].Env["AOE_BASE_URL"]).IsEqualTo("http://aoe");
+    }
+
+    [Test]
+    public async Task Reconcile_RemovesFailureHandlersNotInManifest()
+    {
+        var f = CreateFixture();
+        var pipeline = Pick(f.Pipelines.Create("p"));
+
+        f.Reconciler.Reconcile(pipeline.Id, Manifest(
+            production: [Prod("build")],
+            failureHandlers: [new FailureHandlerDocument(FailureHandlerLibrary.AoeTriage, null, null)]));
+        await Assert.That(f.FailureHandlers.Get(pipeline.Id).Count).IsEqualTo(1);
+
+        // Manifest no longer declares any handler — reconcile must clear the binding.
+        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]));
+        await Assert.That(f.FailureHandlers.Get(pipeline.Id).Count).IsEqualTo(0);
     }
 
     [Test]

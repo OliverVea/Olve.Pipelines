@@ -236,5 +236,73 @@ public class ManifestCompilerTests
         await Assert.That(Compiler.Compile(files).Failed).IsTrue();
     }
 
+    [Test]
+    public async Task Compile_FailureHandler_Valid_Succeeds()
+    {
+        var files = Single("""
+            apiVersion: "0.0"
+            name: x
+            productionSteps:
+              - name: build
+                configuration:
+                  image: alpine
+                  script: echo build
+            failureHandlers:
+              - handler: aoe-triage
+                steps: [build]
+                env:
+                  AOE_BASE_URL: http://aoe.aoe.svc.cluster.local
+            """);
+
+        var manifest = Pick(Compiler.Compile(files));
+
+        await Assert.That(manifest.FailureHandlers!.Count).IsEqualTo(1);
+        await Assert.That(manifest.FailureHandlers![0].Handler).IsEqualTo("aoe-triage");
+        await Assert.That(manifest.FailureHandlers![0].Steps!).Contains("build");
+        await Assert.That(manifest.FailureHandlers![0].Env!["AOE_BASE_URL"]).IsEqualTo("http://aoe.aoe.svc.cluster.local");
+    }
+
+    [Test]
+    public async Task Compile_FailureHandler_UnknownHandlerName_Fails()
+    {
+        var files = Single("""
+            apiVersion: "0.0"
+            name: x
+            failureHandlers:
+              - handler: not-a-real-handler
+            """);
+
+        await Assert.That(Compiler.Compile(files).Failed).IsTrue();
+    }
+
+    [Test]
+    public async Task Compile_FailureHandler_UnknownStep_Fails()
+    {
+        var files = Single("""
+            apiVersion: "0.0"
+            name: x
+            failureHandlers:
+              - handler: aoe-triage
+                steps: [ghost]
+            """);
+
+        await Assert.That(Compiler.Compile(files).Failed).IsTrue();
+    }
+
+    [Test]
+    public async Task Compile_FailureHandler_UndeclaredSecretInEnv_Fails()
+    {
+        var files = Single("""
+            apiVersion: "0.0"
+            name: x
+            failureHandlers:
+              - handler: aoe-triage
+                env:
+                  AOE_TOKEN: $SECRET:MISSING
+            """);
+
+        await Assert.That(Compiler.Compile(files).Failed).IsTrue();
+    }
+
     private static Dictionary<string, string> Single(string configYaml) => new() { ["config.yaml"] = configYaml };
 }

@@ -93,6 +93,12 @@ public static class ServiceConfiguration
         services.AddTransient<JobCancellationService>();
         services.AddTransient<JobGroupCompletionService>();
         services.AddTransient<DownstreamTriggerService>();
+
+        // Failure handlers: best-effort scripts run as untracked K8s Jobs when a job group fails.
+        services.AddSingleton<AttachmentStore<Pipeline, FailureHandlers.FailureHandlerBindings>>();
+        services.AddSingleton<FailureHandlers.FailureHandlerLibrary>();
+        services.AddTransient<FailureHandlers.FailureHandlerBindingService>();
+        services.AddTransient<FailureHandlers.FailureHandlerService>();
         services.AddSingleton<NoOpJobExecutorPendingStore>();
         services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
 

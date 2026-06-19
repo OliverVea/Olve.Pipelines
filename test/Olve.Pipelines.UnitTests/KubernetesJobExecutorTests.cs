@@ -31,6 +31,9 @@ public class KubernetesJobExecutorTests
             return Task.CompletedTask;
         }
 
+        public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, CancellationToken ct = default)
+            => Task.CompletedTask;
+
         public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
             => Task.FromResult(InitialStatus);
 

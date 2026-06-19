@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Olve.Pipelines.FailureHandlers;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Processing;
@@ -36,7 +37,8 @@ public class ReconcileCoordinatorTests
         var processing = new ProcessingStepService(
             processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
         var triggers = new TriggerService(triggerStore, idProvider);
-        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers);
+        var failureHandlers = new FailureHandlerBindingService(new AttachmentStore<Pipeline, FailureHandlerBindings>(pipelineStore));
+        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers, failureHandlers);
         var jobs = new JobService(NullLogger<JobService>.Instance, jobStore,
             new JobGroupService(new EntityStore<JobGroup>([]), idProvider, TimeProvider.System),
             idProvider, TimeProvider.System);

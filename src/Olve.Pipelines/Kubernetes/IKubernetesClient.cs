@@ -3,6 +3,13 @@ namespace Olve.Pipelines.Kubernetes;
 public interface IKubernetesClient
 {
     Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default);
+
+    /// <summary>
+    /// Submits a minimal single-container Job — image + script + env, no S3 bundle plumbing. Used for
+    /// best-effort failure-handler runs, which produce no artifact bundle and are not tracked as
+    /// first-class <c>Job</c> entities.
+    /// </summary>
+    Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, CancellationToken ct = default);
     Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default);
     Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default);
     Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default);

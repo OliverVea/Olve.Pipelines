@@ -1,3 +1,4 @@
+using Olve.Pipelines.FailureHandlers;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Triggers;
@@ -19,7 +20,8 @@ public class PipelineReconciler(
     PipelineService pipelines,
     ProductionStepService productionSteps,
     ProcessingStepService processingSteps,
-    TriggerService triggers)
+    TriggerService triggers,
+    FailureHandlerBindingService failureHandlers)
 {
     public Result Reconcile(Id<Pipeline> pipelineId, PipelineManifest desired)
     {
@@ -35,7 +37,23 @@ public class PipelineReconciler(
         if (ReconcileTriggers(pipelineId, desired).TryPickProblems(out var triggerProblems))
             return triggerProblems;
 
+        ReconcileFailureHandlers(pipelineId, desired);
+
         return Result.Success();
+    }
+
+    private void ReconcileFailureHandlers(Id<Pipeline> pipelineId, PipelineManifest desired)
+    {
+        // Bindings reference steps by name (like the config itself), so no resolution against live
+        // step Ids is needed — the set is rewritten wholesale, and an empty list clears it.
+        var bindings = (desired.FailureHandlers ?? [])
+            .Select(h => new FailureHandlerBinding(
+                h.Handler,
+                h.Steps ?? [],
+                h.Env ?? new Dictionary<string, string>()))
+            .ToList();
+
+        failureHandlers.Set(pipelineId, bindings);
     }
 
     private Result ReconcileProductionSteps(Id<Pipeline> pipelineId, PipelineManifest desired)

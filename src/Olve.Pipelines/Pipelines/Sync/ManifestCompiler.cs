@@ -13,9 +13,11 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// a step's script may be kept out-of-line with <c>scriptFile: scripts/&lt;name&gt;.sh</c>.
 /// References are resolved on the JSON DOM before deserialization, then the result is validated.
 /// </summary>
-public partial class ManifestCompiler
+public partial class ManifestCompiler(FailureHandlers.FailureHandlerLibrary? library = null)
 {
     public const string ConfigFileName = "config.yaml";
+
+    private readonly FailureHandlers.FailureHandlerLibrary _library = library ?? new FailureHandlers.FailureHandlerLibrary();
 
     public Result<PipelineManifest> Compile(IReadOnlyDictionary<string, string> files)
     {
@@ -55,7 +57,7 @@ public partial class ManifestCompiler
         if (string.IsNullOrWhiteSpace(manifest.Name))
             return new ResultProblem("Config 'name' is required.");
 
-        if (Validate(manifest).TryPickProblems(out var validationProblems))
+        if (Validate(manifest, _library.Names).TryPickProblems(out var validationProblems))
             return validationProblems;
 
         return manifest;
@@ -137,7 +139,7 @@ public partial class ManifestCompiler
         return Result.Success();
     }
 
-    private static Result Validate(PipelineManifest manifest)
+    private static Result Validate(PipelineManifest manifest, IReadOnlyCollection<string> validHandlerNames)
     {
         var problems = new List<ResultProblem>();
 
@@ -147,6 +149,7 @@ public partial class ManifestCompiler
         var production = manifest.ProductionSteps ?? [];
         var processing = manifest.ProcessingSteps ?? [];
         var triggers = manifest.Triggers ?? [];
+        var failureHandlers = manifest.FailureHandlers ?? [];
 
         AddDuplicateNameProblems(problems, "production step", production.Select(s => s.Name));
         AddDuplicateNameProblems(problems, "processing step", processing.Select(s => s.Name));
@@ -159,9 +162,27 @@ public partial class ManifestCompiler
                     $"Trigger '{trigger.Name}' references unknown processing step '{target.ProcessingStepName}'."));
         }
 
+        var stepNames = new HashSet<string>(StringComparer.Ordinal);
+        stepNames.UnionWith(production.Select(s => s.Name));
+        stepNames.UnionWith(processing.Select(s => s.Name));
+        var handlerNames = new HashSet<string>(validHandlerNames, StringComparer.Ordinal);
+        foreach (var handler in failureHandlers)
+        {
+            if (!handlerNames.Contains(handler.Handler))
+                problems.Add(new ResultProblem(
+                    $"Failure handler '{handler.Handler}' is not a known handler."));
+
+            foreach (var step in handler.Steps ?? [])
+            {
+                if (!stepNames.Contains(step))
+                    problems.Add(new ResultProblem(
+                        $"Failure handler '{handler.Handler}' references unknown step '{step}'."));
+            }
+        }
+
         var declared = new HashSet<string>(
             (manifest.Secrets ?? []).Select(s => s.Name), StringComparer.Ordinal);
-        foreach (var name in ReferencedSecretNames(production, processing, triggers))
+        foreach (var name in ReferencedSecretNames(production, processing, triggers, failureHandlers))
         {
             if (!declared.Contains(name))
                 problems.Add(new ResultProblem(
@@ -184,7 +205,8 @@ public partial class ManifestCompiler
     private static IEnumerable<string> ReferencedSecretNames(
         IReadOnlyList<ProductionStepDocument> production,
         IReadOnlyList<ProcessingStepDocument> processing,
-        IReadOnlyList<TriggerDocument> triggers)
+        IReadOnlyList<TriggerDocument> triggers,
+        IReadOnlyList<FailureHandlerDocument> failureHandlers)
     {
         var values = new List<string>();
 
@@ -196,6 +218,11 @@ public partial class ManifestCompiler
         {
             if (trigger.Target is PollTargetDocument { Headers: { } headers })
                 values.AddRange(headers.Values);
+        }
+        foreach (var handler in failureHandlers)
+        {
+            if (handler.Env is { } env)
+                values.AddRange(env.Values);
         }
 
         var names = new HashSet<string>(StringComparer.Ordinal);

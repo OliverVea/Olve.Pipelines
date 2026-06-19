@@ -92,6 +92,28 @@ public class KubernetesClient : IKubernetesClient, IDisposable
         _logger?.LogInformation("K8s Job {JobName} created", spec.Name);
     }
 
+    public async Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, CancellationToken ct = default)
+    {
+        var manifest = BuildBareJobManifest(name, image, script, env);
+
+        _logger?.LogInformation("Creating bare K8s Job {JobName} in namespace {Namespace}", name, ns);
+
+        var response = await _httpClient.PostAsJsonAsync(
+            $"apis/batch/v1/namespaces/{ns}/jobs",
+            manifest,
+            KubernetesJsonContext.Default.K8sJobManifest,
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger?.LogError("Failed to create bare Job {JobName}: {StatusCode} {Body}", name, response.StatusCode, body);
+            throw new InvalidOperationException($"Failed to create K8s Job '{name}': {response.StatusCode}");
+        }
+
+        _logger?.LogInformation("Bare K8s Job {JobName} created", name);
+    }
+
     public async Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
     {
         var response = await _httpClient.GetAsync(
@@ -342,6 +364,36 @@ public class KubernetesClient : IKubernetesClient, IDisposable
                         Containers: [s3Upload],
                         InitContainers: initContainers.ToArray(),
                         Volumes: volumes))));
+    }
+
+    private static K8sJobManifest BuildBareJobManifest(string name, string image, string script, IReadOnlyDictionary<string, string>? env)
+    {
+        var labels = new Dictionary<string, string>
+        {
+            ["app"] = "olve-pipelines",
+            ["job-name"] = name,
+            ["olve-role"] = "failure-handler",
+        };
+
+        var envVars = env is { Count: > 0 }
+            ? env.Select(kvp => new K8sEnvVar(kvp.Key, kvp.Value)).ToArray()
+            : null;
+
+        var handler = new K8sContainer(
+            "handler",
+            image,
+            Command: ["/bin/sh", "-c"],
+            Args: [script],
+            Env: envVars);
+
+        return new K8sJobManifest(
+            "batch/v1",
+            "Job",
+            new K8sMetadata(name, labels),
+            new K8sJobSpecBody(
+                new K8sPodTemplateSpec(
+                    new K8sMetadata(name, labels),
+                    new K8sPodSpec(Containers: [handler]))));
     }
 
     private static Dictionary<string, string> EncodeSecretData(Dictionary<string, string> data)

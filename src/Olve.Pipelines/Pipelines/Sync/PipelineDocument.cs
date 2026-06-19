@@ -24,6 +24,16 @@ public record StepConfigurationDocument(
     string Script,
     IReadOnlyDictionary<string, string>? EnvironmentVariables);
 
+/// <summary>
+/// A failure-handler binding in <c>.pipelines/config.yaml</c>: a library handler by name, the steps it
+/// reacts to (empty/omitted = whole pipeline), and the handler-config env. Lives on
+/// <see cref="PipelineManifest"/> (like <c>secrets:</c>) rather than <see cref="PipelineDocument"/>.
+/// </summary>
+public record FailureHandlerDocument(
+    string Handler,
+    IReadOnlyList<string>? Steps,
+    IReadOnlyDictionary<string, string>? Env);
+
 public record TriggerDocument(
     string Name,
     TriggerTargetDocument Target);

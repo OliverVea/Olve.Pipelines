@@ -18,7 +18,8 @@ public record PipelineManifest(
     IReadOnlyList<SecretDeclaration>? Secrets,
     IReadOnlyList<ProductionStepDocument>? ProductionSteps,
     IReadOnlyList<ProcessingStepDocument>? ProcessingSteps,
-    IReadOnlyList<TriggerDocument>? Triggers)
+    IReadOnlyList<TriggerDocument>? Triggers,
+    IReadOnlyList<FailureHandlerDocument>? FailureHandlers = null)
 {
     /// <summary>The reconciled pipeline shape, with empty lists normalized.</summary>
     public PipelineDocument ToDocument() => new(

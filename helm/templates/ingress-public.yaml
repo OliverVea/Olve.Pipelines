@@ -31,7 +31,16 @@ spec:
     - host: {{ .Values.ingress.public.host }}
       http:
         paths:
+          # Per-pipeline GitHub trigger receiver and per-binding webhook-mode deploy receiver.
+          # Only these two webhook paths are exposed publicly — the rest of the API stays private.
           - path: /api/webhooks/github
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /api/webhooks/binding
             pathType: Prefix
             backend:
               service:

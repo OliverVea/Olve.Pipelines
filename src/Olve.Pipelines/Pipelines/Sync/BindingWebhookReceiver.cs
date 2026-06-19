@@ -31,7 +31,11 @@ public class BindingWebhookReceiver(PipelineConfigBindingService bindings, ILogg
     public (BindingWebhookAction Action, Id<Pipeline> PipelineId) Evaluate(
         Id<PipelineConfigBinding> bindingId, ReadOnlySpan<byte> body, string? signature, string? eventType)
     {
-        if (bindings.TryGet(bindingId).TryPickProblems(out _, out var binding) || string.IsNullOrEmpty(binding.WebhookSecret))
+        // Poll mode never accepts webhooks — even if a secret lingers from a prior webhook mode
+        // (the secret is retained across a switch to Poll to avoid hook-secret churn on toggling).
+        if (bindings.TryGet(bindingId).TryPickProblems(out _, out var binding)
+            || binding.DeployTrigger == BindingDeployTrigger.Poll
+            || string.IsNullOrEmpty(binding.WebhookSecret))
             return (BindingWebhookAction.NotFound, default);
 
         if (!GitHubWebhookSignature.Verify(binding.WebhookSecret, body, signature))

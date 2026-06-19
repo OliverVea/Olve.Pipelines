@@ -98,4 +98,21 @@ public class BindingWebhookReceiverTests
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.NotFound);
     }
+
+    [Test]
+    public async Task Evaluate_SwitchedBackToPoll_NotFound_EvenWithLingeringSecret()
+    {
+        // Webhook then back to Poll: the secret lingers, but Poll mode must still reject webhooks.
+        var (receiver, svc) = Create();
+        var pid = Id.New<Pipeline>();
+        Pick(svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        var binding = Pick(svc.SetDeployTrigger(pid, BindingDeployTrigger.Poll));
+        await Assert.That(string.IsNullOrEmpty(binding.WebhookSecret)).IsFalse(); // secret retained
+        var body = PushBody("main");
+        var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
+
+        var (action, _) = receiver.Evaluate(binding.Id, body, sig, "push");
+
+        await Assert.That(action).IsEqualTo(BindingWebhookAction.NotFound);
+    }
 }

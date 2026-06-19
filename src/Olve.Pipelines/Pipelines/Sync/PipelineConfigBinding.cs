@@ -3,15 +3,38 @@ using Olve.Utilities.Lookup;
 namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>
+/// How a bound pipeline learns it should deploy.
+/// <list type="bullet">
+/// <item><see cref="Webhook"/> — a GitHub push hook is auto-registered and drives reconcile+deploy;
+/// the deploy poll still runs as a slow safety net (catches a missed/failed delivery). The default.</item>
+/// <item><see cref="WebhookOnly"/> — webhook only; the deploy poll is suppressed once the hook is
+/// live. The explicit "opt out of polling" mode.</item>
+/// <item><see cref="Poll"/> — no webhook; the deploy poll is the sole trigger.</item>
+/// </list>
+/// When a webhook cannot be registered (no public base URL, a non-GitHub host, or a failed
+/// registration) polling continues regardless of mode, so deploys never silently stop.
+///
+/// Serialized as an integer (0=Webhook, 1=WebhookOnly, 2=Poll), matching the other API enums; do
+/// not reorder the members.
+/// </summary>
+public enum BindingDeployTrigger
+{
+    Webhook,
+    WebhookOnly,
+    Poll,
+}
+
+/// <summary>
 /// Binds a pipeline to its GitOps configuration source (a git repo). One binding per
 /// pipeline; the repo is the sole source of truth for the pipeline's configuration.
 ///
 /// The binding is the pipeline's git connection. From it the service runs a single
-/// pull-based poll of the bound repo's branch head that is sequenced
+/// poll of the bound repo's branch head that is sequenced
 /// <b>config-before-build</b>: on a head advance it first reconciles configuration (only
 /// when the <c>.pipelines/</c> subtree changed) and then enqueues a production build for
-/// the new commit. Config-apply gates the build. Because it is pull-based there is no
-/// inbound webhook to authenticate, so the deploy trigger needs no secret.
+/// the new commit. Config-apply gates the build. <see cref="DeployTrigger"/> selects whether
+/// that cycle is driven by an auto-registered push webhook, polling, or both; the webhook path
+/// runs the same reconcile-before-build cycle, authenticated by <see cref="WebhookSecret"/>.
 ///
 /// <para>
 /// Source fields:
@@ -29,6 +52,10 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// <item><see cref="LastSyncedSha"/> — the config cursor; the <c>.pipelines/</c> commit SHA the
 /// last successful reconcile applied. Advances only on a fully successful apply. <c>null</c> until
 /// the first reconcile.</item>
+/// <item><see cref="DeployTrigger"/> — webhook (default), webhook-only, or poll. Mutable after
+/// binding. See <see cref="BindingDeployTrigger"/>.</item>
+/// <item><see cref="WebhookSecret"/> — the HMAC key for the inbound binding webhook (generated,
+/// not git-owned). <c>null</c> until a webhook mode is selected.</item>
 /// </list>
 /// </para>
 /// <item><see cref="Status"/> — the outcome of the most recent reconcile attempt (result,
@@ -46,4 +73,6 @@ public record PipelineConfigBinding(
     string? LastDeployedSha,
     string? LastSyncedSha,
     ReconcileStatus Status,
-    DateTimeOffset CreatedAt) : IHasId<Id<PipelineConfigBinding>>;
+    DateTimeOffset CreatedAt,
+    BindingDeployTrigger DeployTrigger = BindingDeployTrigger.Webhook,
+    string? WebhookSecret = null) : IHasId<Id<PipelineConfigBinding>>;

@@ -22,6 +22,8 @@ export interface ArtifactBundle extends AdditionalDataHolder, Parsable {
      */
     status?: number | null;
 }
+export interface BindingDeployTrigger extends AdditionalDataHolder, Parsable {
+}
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
@@ -30,6 +32,33 @@ export interface ArtifactBundle extends AdditionalDataHolder, Parsable {
 // @ts-ignore
 export function createArtifactBundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoArtifactBundle;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BindingDeployTrigger}
+ */
+// @ts-ignore
+export function createBindingDeployTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBindingDeployTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1}
+ */
+// @ts-ignore
+export function createCreatePipelineWithRepoRequest_deployTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreatePipelineWithRepoRequest_deployTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreatePipelineWithRepoRequest_deployTriggerMember1}
+ */
+// @ts-ignore
+export function createCreatePipelineWithRepoRequest_deployTriggerMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember1;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -286,6 +315,10 @@ export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Par
      */
     credentialsSecret?: string | null;
     /**
+     * The deployTrigger property
+     */
+    deployTrigger?: BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1 | null;
+    /**
      * The name property
      */
     name?: string | null;
@@ -297,6 +330,9 @@ export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Par
      * The repo property
      */
     repo?: string | null;
+}
+export type CreatePipelineWithRepoRequest_deployTrigger = BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1;
+export interface CreatePipelineWithRepoRequest_deployTriggerMember1 extends AdditionalDataHolder, Parsable {
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -432,6 +468,15 @@ export function createSecretDeclarationFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createSecretStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoSecretStatus;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetDeployTriggerRequest}
+ */
+// @ts-ignore
+export function createSetDeployTriggerRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetDeployTriggerRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -726,6 +771,16 @@ export function deserializeIntoArtifactBundle(artifactBundle: Partial<ArtifactBu
 }
 /**
  * The deserialization information for the current model
+ * @param BindingDeployTrigger The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBindingDeployTrigger(bindingDeployTrigger: Partial<BindingDeployTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param CreatePipelineWithRepoRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -734,9 +789,32 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
     return {
         "branch": n => { createPipelineWithRepoRequest.branch = n.getStringValue(); },
         "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
+        "deployTrigger": n => { createPipelineWithRepoRequest.deployTrigger = n.getObjectValue<BindingDeployTrigger>(createBindingDeployTriggerFromDiscriminatorValue) ?? n.getObjectValue<CreatePipelineWithRepoRequest_deployTriggerMember1>(createCreatePipelineWithRepoRequest_deployTriggerMember1FromDiscriminatorValue); },
         "name": n => { createPipelineWithRepoRequest.name = n.getStringValue(); },
         "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
         "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreatePipelineWithRepoRequest_deployTrigger The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreatePipelineWithRepoRequest_deployTrigger(createPipelineWithRepoRequest_deployTrigger: Partial<BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoBindingDeployTrigger(createPipelineWithRepoRequest_deployTrigger as BindingDeployTrigger),
+        ...deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember1(createPipelineWithRepoRequest_deployTrigger as CreatePipelineWithRepoRequest_deployTriggerMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreatePipelineWithRepoRequest_deployTriggerMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember1(createPipelineWithRepoRequest_deployTriggerMember1: Partial<CreatePipelineWithRepoRequest_deployTriggerMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -998,6 +1076,7 @@ export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Part
         "branch": n => { pipelineConfigBinding.branch = n.getStringValue(); },
         "createdAt": n => { pipelineConfigBinding.createdAt = n.getDateValue(); },
         "credentialsSecret": n => { pipelineConfigBinding.credentialsSecret = n.getStringValue(); },
+        "deployTrigger": n => { pipelineConfigBinding.deployTrigger = n.getNumberValue(); },
         "id": n => { pipelineConfigBinding.id = n.getGuidValue(); },
         "lastDeployedSha": n => { pipelineConfigBinding.lastDeployedSha = n.getStringValue(); },
         "lastSyncedSha": n => { pipelineConfigBinding.lastSyncedSha = n.getStringValue(); },
@@ -1005,6 +1084,7 @@ export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Part
         "pipelineId": n => { pipelineConfigBinding.pipelineId = n.getGuidValue(); },
         "repo": n => { pipelineConfigBinding.repo = n.getStringValue(); },
         "status": n => { pipelineConfigBinding.status = n.getObjectValue<ReconcileStatus>(createReconcileStatusFromDiscriminatorValue); },
+        "webhookSecret": n => { pipelineConfigBinding.webhookSecret = n.getStringValue(); },
     }
 }
 /**
@@ -1219,6 +1299,17 @@ export function deserializeIntoSecretStatus(secretStatus: Partial<SecretStatus> 
         "description": n => { secretStatus.description = n.getStringValue(); },
         "isSet": n => { secretStatus.isSet = n.getBooleanValue(); },
         "name": n => { secretStatus.name = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SetDeployTriggerRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetDeployTriggerRequest(setDeployTriggerRequest: Partial<SetDeployTriggerRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "deployTrigger": n => { setDeployTriggerRequest.deployTrigger = n.getNumberValue(); },
     }
 }
 /**
@@ -1829,6 +1920,10 @@ export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
      */
     credentialsSecret?: string | null;
     /**
+     * The deployTrigger property
+     */
+    deployTrigger?: number | null;
+    /**
      * The id property
      */
     id?: Guid | null;
@@ -1856,6 +1951,10 @@ export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: ReconcileStatus | null;
+    /**
+     * The webhookSecret property
+     */
+    webhookSecret?: string | null;
 }
 /**
  * Beta: shape may change within the 0.x major version.
@@ -2069,6 +2168,17 @@ export function serializeArtifactBundle(writer: SerializationWriter, artifactBun
 }
 /**
  * Serializes information the current object
+ * @param BindingDeployTrigger The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBindingDeployTrigger(writer: SerializationWriter, bindingDeployTrigger: Partial<BindingDeployTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!bindingDeployTrigger || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(bindingDeployTrigger.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param CreatePipelineWithRepoRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -2078,10 +2188,33 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
     if (!createPipelineWithRepoRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branch", createPipelineWithRepoRequest.branch);
     writer.writeStringValue("credentialsSecret", createPipelineWithRepoRequest.credentialsSecret);
+    writer.writeObjectValue<BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1>("deployTrigger", createPipelineWithRepoRequest.deployTrigger, serializeCreatePipelineWithRepoRequest_deployTrigger);
     writer.writeStringValue("name", createPipelineWithRepoRequest.name);
     writer.writeStringValue("path", createPipelineWithRepoRequest.path);
     writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
     writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreatePipelineWithRepoRequest_deployTrigger The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreatePipelineWithRepoRequest_deployTrigger(writer: SerializationWriter, createPipelineWithRepoRequest_deployTrigger: Partial<BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeBindingDeployTrigger(writer, createPipelineWithRepoRequest_deployTrigger as BindingDeployTrigger);
+    serializeCreatePipelineWithRepoRequest_deployTriggerMember1(writer, createPipelineWithRepoRequest_deployTrigger as CreatePipelineWithRepoRequest_deployTriggerMember1);
+}
+/**
+ * Serializes information the current object
+ * @param CreatePipelineWithRepoRequest_deployTriggerMember1 The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreatePipelineWithRepoRequest_deployTriggerMember1(writer: SerializationWriter, createPipelineWithRepoRequest_deployTriggerMember1: Partial<CreatePipelineWithRepoRequest_deployTriggerMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createPipelineWithRepoRequest_deployTriggerMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(createPipelineWithRepoRequest_deployTriggerMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2387,6 +2520,7 @@ export function serializePipelineConfigBinding(writer: SerializationWriter, pipe
     writer.writeStringValue("branch", pipelineConfigBinding.branch);
     writer.writeDateValue("createdAt", pipelineConfigBinding.createdAt);
     writer.writeStringValue("credentialsSecret", pipelineConfigBinding.credentialsSecret);
+    writer.writeNumberValue("deployTrigger", pipelineConfigBinding.deployTrigger);
     writer.writeGuidValue("id", pipelineConfigBinding.id);
     writer.writeStringValue("lastDeployedSha", pipelineConfigBinding.lastDeployedSha);
     writer.writeStringValue("lastSyncedSha", pipelineConfigBinding.lastSyncedSha);
@@ -2394,6 +2528,7 @@ export function serializePipelineConfigBinding(writer: SerializationWriter, pipe
     writer.writeGuidValue("pipelineId", pipelineConfigBinding.pipelineId);
     writer.writeStringValue("repo", pipelineConfigBinding.repo);
     writer.writeObjectValue<ReconcileStatus>("status", pipelineConfigBinding.status, serializeReconcileStatus);
+    writer.writeStringValue("webhookSecret", pipelineConfigBinding.webhookSecret);
     writer.writeAdditionalData(pipelineConfigBinding.additionalData);
 }
 /**
@@ -2622,6 +2757,18 @@ export function serializeSecretStatus(writer: SerializationWriter, secretStatus:
     writer.writeBooleanValue("isSet", secretStatus.isSet);
     writer.writeStringValue("name", secretStatus.name);
     writer.writeAdditionalData(secretStatus.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetDeployTriggerRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetDeployTriggerRequest(writer: SerializationWriter, setDeployTriggerRequest: Partial<SetDeployTriggerRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setDeployTriggerRequest || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("deployTrigger", setDeployTriggerRequest.deployTrigger);
+    writer.writeAdditionalData(setDeployTriggerRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2993,6 +3140,12 @@ export function serializeWebhookRequest_artifactBundleId(writer: SerializationWr
 export function serializeWebhookRequest_artifactBundleIdMember1(writer: SerializationWriter, webhookRequest_artifactBundleIdMember1: Partial<WebhookRequest_artifactBundleIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!webhookRequest_artifactBundleIdMember1 || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(webhookRequest_artifactBundleIdMember1.additionalData);
+}
+export interface SetDeployTriggerRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The deployTrigger property
+     */
+    deployTrigger?: number | null;
 }
 export interface SetPromotionRequest extends AdditionalDataHolder, Parsable {
     /**

@@ -212,7 +212,8 @@ public class ConfigurationPersistenceService(
             }).ToArray(),
             Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray(),
             Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
-                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.Status, b.CreatedAt)).ToArray());
+                b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.Status, b.CreatedAt,
+                b.DeployTrigger, b.WebhookSecret)).ToArray());
     }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
@@ -242,7 +243,9 @@ public class ConfigurationPersistenceService(
         foreach (var b in snapshot.Bindings ?? [])
             bindings.Set(new PipelineConfigBinding(
                 b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha,
-                b.Status ?? ReconcileStatus.NeverRun, b.CreatedAt));
+                b.Status ?? ReconcileStatus.NeverRun, b.CreatedAt,
+                // Pre-mode snapshots default to Poll — preserve their existing behavior, don't auto-adopt webhooks.
+                b.DeployTrigger ?? BindingDeployTrigger.Poll, b.WebhookSecret));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

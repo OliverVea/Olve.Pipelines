@@ -301,6 +301,82 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/binding/deploy-trigger": {
+      "patch": {
+        "tags": [
+          "beta"
+        ],
+        "operationId": "UpdatePipelineBindingDeployTrigger",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDeployTriggerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/binding/{bindingId}/github": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ExecuteBindingGitHubWebhook",
+        "parameters": [
+          {
+            "name": "bindingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/binding/status": {
       "get": {
         "tags": [
@@ -1696,6 +1772,10 @@
       "ArtifactBundleStatus": {
         "type": "integer"
       },
+      "BindingDeployTrigger": {
+        "type": "integer",
+        "default": 0
+      },
       "CreatePipelineWithRepoRequest": {
         "required": [
           "name",
@@ -1728,6 +1808,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "deployTrigger": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BindingDeployTrigger"
+              }
             ]
           }
         }
@@ -2272,6 +2362,15 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "deployTrigger": {
+            "$ref": "#/components/schemas/BindingDeployTrigger"
+          },
+          "webhookSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2587,6 +2686,17 @@
               "null",
               "boolean"
             ]
+          }
+        }
+      },
+      "SetDeployTriggerRequest": {
+        "required": [
+          "deployTrigger"
+        ],
+        "type": "object",
+        "properties": {
+          "deployTrigger": {
+            "$ref": "#/components/schemas/BindingDeployTrigger"
           }
         }
       },

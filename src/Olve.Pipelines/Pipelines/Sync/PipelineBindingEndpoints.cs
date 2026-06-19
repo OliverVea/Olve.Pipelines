@@ -1,5 +1,7 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Pipelines.Triggers;
+using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
@@ -28,7 +30,8 @@ public static class PipelineBindingEndpoints
                     return pipelineProblems;
 
                 var bindingResult = bindings.Create(
-                    pipeline.Id, request.Repo, Branch(request.Branch), Path(request.Path), request.CredentialsSecret);
+                    pipeline.Id, request.Repo, Branch(request.Branch), Path(request.Path), request.CredentialsSecret,
+                    request.DeployTrigger ?? BindingDeployTrigger.Webhook);
 
                 if (bindingResult.TryPickProblems(out var bindingProblems))
                 {
@@ -43,7 +46,7 @@ public static class PipelineBindingEndpoints
             .WithTags("beta");
 
         // Reconcile the bound config immediately, off the poll schedule. The deploy poll only runs
-        // every ReconcileOptions.PollInterval (5 min in prod), so a just-bound pipeline would
+        // every ReconcileOptions.PollInterval (15 min in prod), so a just-bound pipeline would
         // otherwise wait up to a full interval for its shape to materialize. This applies the
         // current branch config now; the response returns after the reconcile completes.
         app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", async Task<Result> (
@@ -62,6 +65,61 @@ public static class PipelineBindingEndpoints
             .WithResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
             .WithTags("beta");
+
+        // Change how the bound pipeline is triggered (webhook / webhook-only / poll) without
+        // re-binding. A dedicated route (not the credentials PATCH) so neither field clobbers the
+        // other. Switching into a webhook mode generates the HMAC secret if absent; the binding
+        // event then drives hook (de)registration.
+        app.MapPatch("/api/pipelines/{pipelineId}/binding/deploy-trigger", Result<PipelineConfigBinding> (
+                PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetDeployTriggerRequest request)
+                => bindings.SetDeployTrigger(pipelineId, request.DeployTrigger))
+            .WithResultMapping<PipelineConfigBinding>()
+            .WithName("UpdatePipelineBindingDeployTrigger")
+            .WithTags("beta");
+
+        // Inbound GitHub push webhook for a binding (webhook-mode deploy). Authenticated by HMAC over
+        // the raw body (not Bearer), so it binds HttpRequest and returns raw status codes. A matching
+        // push runs the binding's reconcile-then-deploy cycle. Exposed on the public ingress like the
+        // per-pipeline GitHub receiver.
+        app.MapPost("/api/webhooks/binding/{bindingId}/github", async Task<IResult> (
+                BindingWebhookReceiver receiver,
+                DeployPollService deployPoll,
+                ILoggerFactory loggerFactory,
+                Id<PipelineConfigBinding> bindingId,
+                HttpRequest httpRequest,
+                CancellationToken ct) =>
+            {
+                using var buffer = new MemoryStream();
+                await httpRequest.Body.CopyToAsync(buffer, ct);
+                var body = buffer.ToArray();
+
+                var signature = httpRequest.Headers[GitHubWebhookSignature.HeaderName].ToString();
+                var eventType = httpRequest.Headers["X-GitHub-Event"].ToString();
+
+                var (action, pipelineId) = receiver.Evaluate(bindingId, body, signature, eventType);
+                switch (action)
+                {
+                    case BindingWebhookAction.NotFound:
+                        return HttpResults.NotFound();
+                    case BindingWebhookAction.InvalidSignature:
+                        return HttpResults.Unauthorized();
+                    case BindingWebhookAction.Ignore:
+                        return HttpResults.NoContent();
+                }
+
+                var logger = loggerFactory.CreateLogger("BindingWebhook");
+                var result = await deployPoll.ReconcileNowAsync(pipelineId, ct);
+                if (result.TryPickProblems(out var problems))
+                {
+                    logger.LogWarning("Binding webhook for '{BindingId}' did not deploy: {Problems}", bindingId, problems);
+                    return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                }
+
+                logger.LogInformation("Binding webhook for '{BindingId}' ran reconcile+deploy", bindingId);
+                return HttpResults.Accepted();
+            })
+            .WithName("ExecuteBindingGitHubWebhook")
+            .AllowAnonymous();
 
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
@@ -125,9 +183,12 @@ public static class PipelineBindingEndpoints
 }
 
 public record CreatePipelineWithRepoRequest(
-    string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret);
+    string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret,
+    BindingDeployTrigger? DeployTrigger = null);
 
 public record UpdateBindingRequest(string? CredentialsSecret);
+
+public record SetDeployTriggerRequest(BindingDeployTrigger DeployTrigger);
 
 public record PipelineBindingStatus(
     Id<Pipeline> PipelineId,

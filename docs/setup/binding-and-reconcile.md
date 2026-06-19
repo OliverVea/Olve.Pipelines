@@ -18,8 +18,9 @@ A **binding** ties one pipeline to one repo + branch + config path. It records:
 | `lastSyncedSha` / `lastDeployedSha` | the commit last reconciled / last deployed |
 | `status` | last reconcile `result`, `lastSyncTime`, and `problems` |
 
-Binding also **configures the deploy poll** automatically — that's why you never author a
-deploy trigger by hand.
+Binding also **configures the deploy trigger** automatically — that's why you never author one
+by hand. How that trigger fires (webhook, webhook-only, or poll) is the binding's
+[deploy-trigger mode](#deploy-trigger-mode).
 
 ### Binding endpoints
 
@@ -28,15 +29,38 @@ pipeline is bound to a repo from birth, so its shape always comes from git.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (rolls back the pipeline if the bind fails). Body: `{ name, repo, branch?, path?, credentialsSecret? }` |
+| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (rolls back the pipeline if the bind fails). Body: `{ name, repo, branch?, path?, credentialsSecret?, deployTrigger? }` |
 | GET | `/api/pipelines/{id}/binding` | Get the binding |
 | GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
+| PATCH | `/api/pipelines/{id}/binding/deploy-trigger` | Change the [deploy-trigger mode](#deploy-trigger-mode). Body: `{ deployTrigger }` |
 
-`branch` defaults to `main`, `path` to `.pipelines`.
+`branch` defaults to `main`, `path` to `.pipelines`. `deployTrigger` defaults to `webhook`.
+
+### Deploy-trigger mode
+
+How a bound pipeline learns it should deploy. Mutable at any time via the PATCH endpoint above.
+The enum serializes as an integer: `0` Webhook, `1` WebhookOnly, `2` Poll.
+
+| Mode | Value | Behavior |
+|---|---|---|
+| Webhook | `0` (default) | Auto-registers a GitHub `push` hook that runs reconcile+deploy on each push; the poll still runs as a **15-min safety net** (catches a missed/failed delivery). |
+| WebhookOnly | `1` | Webhook only — polling is suppressed once the hook is confirmed live. The explicit "opt out of polling" mode. |
+| Poll | `2` | No webhook; the 15-min poll is the sole trigger. |
+
+Webhook modes need **`Webhooks:PublicBaseUrl`** configured server-side (so GitHub can reach the
+receiver) and the binding's **`credentialsSecret`** token to carry **`admin:repo_hook`** (it both
+fetches the repo and manages the hook). The inbound delivery is authenticated by an HMAC secret the
+binding generates — there's no inbound secret to manage. If a hook can't be registered (no public
+URL, no credentials, registration failure), **polling continues regardless of mode** so deploys
+never silently stop. The webhook path runs the same config-before-build cycle as the poll.
+
+> Pre-existing bindings (created before deploy-trigger modes) load as **Poll** — they keep their
+> current behavior and don't silently adopt webhooks. Switch them with the PATCH endpoint.
 
 ## The reconcile loop
 
-A background poll (~5 min) asks GitHub for the branch head. The fetch is **pull-based,
+A background poll (~15 min) asks GitHub for the branch head — and/or a push webhook drives the
+same cycle on demand (see [deploy-trigger mode](#deploy-trigger-mode)). The fetch is **pull-based,
 read-only, and cheap**:
 
 1. **Branch-head check** — get the latest commit SHA for the branch.
@@ -75,6 +99,7 @@ pipeline was bound; now that every pipeline is bound at creation, the endpoints 
 - Manual production trigger — `POST /api/pipelines/{id}/trigger/production`
 - Job cancel — `POST /api/jobs/{id}/cancel`
 - Setting secret **values** — `PUT /api/pipelines/{id}/secrets/{name}`
+- The [deploy-trigger mode](#deploy-trigger-mode) — `PATCH /api/pipelines/{id}/binding/deploy-trigger` (how it deploys, not what it deploys)
 - The [promotion gate](promotion-gate.md) — brake / unblock / re-promote on a processing step
 
 The dividing line: **shape** is git-owned; **operations** are API-allowed.

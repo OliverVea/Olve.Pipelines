@@ -61,7 +61,15 @@ public static class ServiceConfiguration
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
         services.AddTransient<PipelineConfigBindingService>();
         services.AddTransient<PipelineConfigBindingCleanupService>();
+        services.AddTransient<BindingWebhookReceiver>();
         services.AddSingleton<IRunOnStartup, PipelineConfigBindingEventRegistration>();
+        // Binding webhook-mode deploy: auto-register/deregister the push hook (reuses the GitHub
+        // client + secret reader from the trigger webhook subsystem).
+        services.AddSingleton<BindingHookStateStore>();
+        services.AddSingleton<BindingHookWorkQueue>();
+        services.AddSingleton<IRunOnStartup, BindingWebhookEventRegistration>();
+        services.AddHostedService<BindingHookRegistrationService>();
+        services.AddHostedService<BindingHookPersistenceService>();
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
         // Register as a singleton AND as the hosted service so the reconcile-now endpoint can
         // resolve the same instance (which owns the per-binding config ETag cache) to run an

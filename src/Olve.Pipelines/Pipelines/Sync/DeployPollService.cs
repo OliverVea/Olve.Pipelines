@@ -16,6 +16,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
+    BindingHookStateStore bindingHookState,
     IServiceProvider sp,
     ILogger<DeployPollService> logger) : BackgroundService
 {
@@ -51,6 +52,9 @@ public class DeployPollService(
     {
         foreach (var binding in bindings.List())
         {
+            if (!ShouldPoll(binding))
+                continue;
+
             try
             {
                 await PollBindingAsync(binding, ct);
@@ -62,6 +66,16 @@ public class DeployPollService(
             }
         }
     }
+
+    /// <summary>
+    /// Whether the background poll should run for this binding. Only the background loop honors the
+    /// deploy-trigger mode; <see cref="ReconcileNowAsync"/> (explicit / just-bound) always runs.
+    /// WebhookOnly suppresses polling only once a hook is confirmed registered — until then (or if it
+    /// can't be registered at all) polling continues, so deploys never silently stop.
+    /// </summary>
+    private bool ShouldPoll(PipelineConfigBinding binding)
+        => binding.DeployTrigger != BindingDeployTrigger.WebhookOnly
+           || !bindingHookState.TryGet(binding.Id, out _);
 
     /// <summary>
     /// Runs one reconcile+deploy cycle for a single pipeline's binding immediately, off the poll

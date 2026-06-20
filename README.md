@@ -220,6 +220,28 @@ read token.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Health check |
+| GET | `/download/{asset}` | Anonymous download of a `pl` CLI binary (`pl-linux-x64`, `pl-win-x64.exe`) — served from the instance's MinIO, published by the `publish-cli` pipeline step |
+
+## Installing the `pl` CLI
+
+The `pl` operator CLI is built and published by this repo's own pipeline (the `publish-cli`
+step) to the instance's MinIO, and served back from `GET /download/<asset>`. Because the CLI
+already defaults its API URL to the same (Tailscale-reachable) host, anyone who can use `pl`
+can install it from there — no GitHub release or public CDN involved.
+
+```bash
+# Linux
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh
+```
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex
+```
+
+Override the source instance with `PL_API_URL` (e.g. `https://pipelines-beta.ovea.pro`) and the
+install dir with `PL_INSTALL_DIR`. linux-x64 is a Native-AOT binary; win-x64 is a self-contained
+single-file `.exe` (Native AOT cannot cross-compile to Windows from the Linux build runner).
 
 ## Build & Test
 

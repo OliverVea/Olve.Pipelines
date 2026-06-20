@@ -42,6 +42,29 @@
         }
       }
     },
+    "/download/{asset}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "DownloadCli",
+        "parameters": [
+          {
+            "name": "asset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/artifact-bundles/{bundleId}": {
       "get": {
         "tags": [

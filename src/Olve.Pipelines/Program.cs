@@ -1,5 +1,6 @@
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Distribution;
 using Olve.Pipelines.Health;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
@@ -47,6 +48,7 @@ app.MapJson();
 app.MapAuthentication();
 app.MapHealthEndpoints();
 app.MapFrontendConfigEndpoints();
+app.MapCliDownloadEndpoints();
 app.MapPipelineEndpoints();
 app.MapProductionStepEndpoints();
 app.MapProcessingStepEndpoints();

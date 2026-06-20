@@ -22,6 +22,13 @@ secrets:
     description: GitHub read token used to fetch the repo tarball during build.
   - name: SSH_PRIVATE_KEY
     description: SSH key for importing the image and running helm on the homelab host.
+  # MinIO creds used by publish-cli to upload the pl binaries into the app's bucket. Set
+  # them in the pipeline secret (olve-pipeline-{id}) to the same values as the app's MinIO
+  # root creds (k8s secret olve-pipelines-minio: root-user / root-password).
+  - name: MINIO_ACCESS_KEY
+    description: MinIO access key for publishing pl CLI binaries to the app bucket.
+  - name: MINIO_SECRET_KEY
+    description: MinIO secret key for publishing pl CLI binaries to the app bucket.
 
 # Production steps run in parallel and write to bundle/<step-name>/.
 productionSteps:
@@ -49,6 +56,13 @@ processingSteps:
     configuration:
       image: alpine:latest
       scriptFile: scripts/deploy.sh
+  # Build the pl operator CLI (linux-x64 AOT + win-x64 self-contained) and upload it to the
+  # app's MinIO, where GET /download/<asset> serves it. Runs last so a CLI build failure
+  # can't block the deploy, and so it stamps the binaries with the just-deployed version.
+  - name: publish-cli
+    configuration:
+      image: mcr.microsoft.com/dotnet/sdk:10.0-noble
+      scriptFile: scripts/publish-cli.sh
 
 # Failure handlers run as best-effort K8s Jobs when a job group fails. `aoe-triage` is a
 # built-in library handler that opens an Agent of Empires session to investigate the failure.

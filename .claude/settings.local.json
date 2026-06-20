@@ -103,7 +103,16 @@
       "Bash(gh issue *)",
       "Bash(gh repo *)",
       "PowerShell(dotnet test *)",
-      "Read(//c/Users/olive/RiderProjects/**)"
+      "Read(//c/Users/olive/RiderProjects/**)",
+      "WebFetch(domain:www.agent-of-empires.com)",
+      "Read(//home/oliver/projects/**)",
+      "Bash(chmod 600 ~/gh_pat.txt)",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/tmp/repo.json'\\)\\);print\\('full_name=',d.get\\('full_name'\\),'private=',d.get\\('private'\\),'perms=',d.get\\('permissions'\\)\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('/tmp/hooks.json'\\)\\);print\\('existing hooks:',[\\(h['id'],h['config'].get\\('url'\\)\\) for h in d]\\)\")",
+      "Bash(echo \"patch applies cleanly? $\\(git apply --check enable-prod-webhooks.patch && echo YES || echo NO\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(getent hosts *)",
+      "Bash(python3 -c \"import socket;print\\(socket.gethostbyname\\('pipelines-hooks.ovea.pro'\\)\\)\")"
     ]
   }
 }

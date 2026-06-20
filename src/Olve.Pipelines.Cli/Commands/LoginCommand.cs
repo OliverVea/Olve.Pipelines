@@ -31,7 +31,7 @@ public sealed class LoginCommand : ICliCommand
         browser to authenticate, and stores the resulting access/refresh tokens (0600).
 
         Use --api-url (or PIPELINES_API_URL) to log in to a specific environment, e.g.
-          pl --api-url https://pipelines-beta.ovea.pro login
+          pl login --api-url https://pipelines-beta.ovea.pro
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

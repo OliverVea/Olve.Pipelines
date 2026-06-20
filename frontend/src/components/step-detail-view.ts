@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { AnsiUp } from 'ansi_up';
-import { client } from '../api.js';
+import { client, extractErrorMessage } from '../api.js';
 import { getAccessToken } from '../auth.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
@@ -385,7 +385,7 @@ export class StepDetailView extends LitElement {
         void this._loadLogTail(latest.id);
       }
     } catch (e) {
-      if (!silent) this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = extractErrorMessage(e);
     } finally {
       if (!silent) this._loading = false;
     }

@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client } from '../api.js';
+import { client, extractErrorMessage } from '../api.js';
 
 const ICON_BRAKE = svg`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="8" y1="8" x2="16" y2="16" /></svg>`;
 const ICON_RESTART = svg`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><polyline points="21 3 21 9 15 9" /></svg>`;
@@ -175,7 +175,7 @@ export class PromotionGate extends LitElement {
   }
 
   private _emitError(err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = extractErrorMessage(err);
     this.dispatchEvent(
       new CustomEvent('gate-error', {
         detail: { message },

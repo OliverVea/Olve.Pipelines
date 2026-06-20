@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { client } from '../api.js';
+import { client, extractErrorMessage } from '../api.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
 import './refresh-control.js';
@@ -291,7 +291,7 @@ export class PipelineListView extends LitElement {
       this._pipelines = (await client.api.pipelines.summary.get()) ?? [];
       this._loaded = true;
     } catch (e) {
-      if (!silent) this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = extractErrorMessage(e);
     } finally {
       if (!silent) this._loading = false;
     }

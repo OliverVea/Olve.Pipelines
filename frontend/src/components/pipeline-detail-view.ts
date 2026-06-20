@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client } from '../api.js';
+import { client, extractErrorMessage } from '../api.js';
 import { navigate } from '../router.js';
 import type {
   Pipeline,
@@ -167,7 +167,7 @@ export class PipelineDetailView extends LitElement {
         | JobProductionJob
       )[];
     } catch (e) {
-      if (!silent) this._error = e instanceof Error ? e.message : String(e);
+      if (!silent) this._error = extractErrorMessage(e);
     } finally {
       if (!silent) this._loading = false;
     }

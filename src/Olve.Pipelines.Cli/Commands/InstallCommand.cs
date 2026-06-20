@@ -9,7 +9,7 @@ namespace Olve.Pipelines.Cli.Commands;
 /// ensure namespace → generate-if-absent MinIO creds → helm upgrade (minimal profile) →
 /// create bucket → wait for readiness. Re-running converges.
 /// </summary>
-public sealed class InstallCommand(IProcessRunner processRunner)
+public sealed class InstallCommand(IProcessRunner processRunner) : ICliCommand
 {
     public const string ProdNamespace = "apps";
     public const string DefaultRelease = "olve-pipelines";
@@ -18,6 +18,29 @@ public sealed class InstallCommand(IProcessRunner processRunner)
     public const string DefaultImageTag = "latest";
     public const string MinioCredentialsSecret = "olve-pipelines-minio";
     public const string MinioRootUser = "olve-pipelines";
+
+    public string Noun => "install";
+    public string Verb => "";
+    public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "allow-prod" };
+    public IReadOnlyDictionary<string, string> Aliases { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["n"] = "namespace" };
+    public string HelpLine => "Install the controller + private MinIO (cold install, idempotent)";
+    public string? HelpDetail =>
+        """
+        pl install -n <namespace> [options]   Install the controller + private MinIO
+
+          -n, --namespace <ns>     Target namespace (required)
+          --release <name>         Helm release name (default: olve-pipelines)
+          --bucket <name>          MinIO bucket name (default: olve-pipelines)
+          --image-tag <tag>        Controller image tag (default: latest)
+          --image-repository <r>   Controller image repository (default: chart value)
+          --image-pull-policy <p>  Controller image pull policy, e.g. Never (default: chart value)
+          --ref <git-ref>          Chart git ref to pull from GitHub (default: main)
+          --chart <path>           Use a local chart directory instead of pulling from GitHub
+          --allow-prod             Permit installing into the prod namespace 'apps'
+        """;
+
+    public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct) => RunAsync(cli, ct);
 
     public async Task<Result> RunAsync(CliArgs cli, CancellationToken ct = default)
     {

@@ -68,9 +68,30 @@ public class CliArgsTests
     }
 
     [Test]
-    public async Task Parse_UnexpectedSecondPositional_Fails()
+    public async Task Parse_MultiplePositionals_AreCollectedInOrder()
     {
-        var result = CliArgs.Parse(["install", "extra"], Booleans, Aliases);
-        await Assert.That(result.Failed).IsTrue();
+        var cli = Parse("pipeline", "get", "abc123");
+        await Assert.That(cli.Positionals.Count).IsEqualTo(3);
+        await Assert.That(cli.Command).IsEqualTo("pipeline");
+        await Assert.That(cli.Positional(1)).IsEqualTo("get");
+        await Assert.That(cli.Positional(2)).IsEqualTo("abc123");
+    }
+
+    [Test]
+    public async Task Operand_RespectsOperandOffset()
+    {
+        var cli = Parse("pipeline", "get", "abc123");
+        cli.OperandOffset = 2; // noun + verb consumed
+        await Assert.That(cli.OperandCount).IsEqualTo(1);
+        await Assert.That(cli.Operand(0)).IsEqualTo("abc123");
+        await Assert.That(cli.Operand(1)).IsNull();
+    }
+
+    [Test]
+    public async Task Parse_PositionalsAndFlagsInterleaved()
+    {
+        var cli = Parse("secret", "set", "p1", "name", "--value=v");
+        await Assert.That(cli.Positionals.Count).IsEqualTo(4);
+        await Assert.That(cli.Option("value")).IsEqualTo("v");
     }
 }

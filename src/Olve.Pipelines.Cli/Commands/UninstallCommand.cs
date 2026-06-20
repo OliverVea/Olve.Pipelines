@@ -6,8 +6,26 @@ namespace Olve.Pipelines.Cli.Commands;
 /// <c>helm.sh/resource-policy: keep</c>, so it survives a normal uninstall and is only deleted
 /// with <c>--purge-data</c>. Re-running on a partial/already-gone install converges.
 /// </summary>
-public sealed class UninstallCommand(IProcessRunner processRunner)
+public sealed class UninstallCommand(IProcessRunner processRunner) : ICliCommand
 {
+    public string Noun => "uninstall";
+    public string Verb => "";
+    public IReadOnlySet<string> BooleanFlags { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { "allow-prod", "purge-data" };
+    public IReadOnlyDictionary<string, string> Aliases { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["n"] = "namespace" };
+    public string HelpLine => "Remove an installation (release + MinIO creds; data PVC retained)";
+    public string? HelpDetail =>
+        """
+        pl uninstall -n <namespace> [options]   Remove an installation
+
+          -n, --namespace <ns>   Target namespace (required)
+          --release <name>       Helm release name (default: olve-pipelines)
+          --purge-data           Also delete the MinIO data PVC (full wipe)
+        """;
+
+    public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct) => RunAsync(cli, ct);
+
     public async Task<Result> RunAsync(CliArgs cli, CancellationToken ct = default)
     {
         var ns = cli.Option("namespace");

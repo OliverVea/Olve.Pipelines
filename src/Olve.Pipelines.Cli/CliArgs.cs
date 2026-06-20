@@ -2,20 +2,33 @@ namespace Olve.Pipelines.Cli;
 
 /// <summary>
 /// Minimal, AOT-safe argument parser (no reflection-based command frameworks).
-/// First token is the command; the rest are <c>--key value</c> / <c>--key=value</c>
-/// options or boolean <c>--flag</c> switches (declared in <paramref name="booleanFlags"/>).
-/// Short aliases are mapped by the caller before parsing.
+/// Tokens are either positionals (e.g. <c>pipeline get &lt;id&gt;</c>) or <c>--key value</c> /
+/// <c>--key=value</c> options or boolean <c>--flag</c> switches (declared in
+/// <c>booleanFlags</c>). Short aliases are mapped by the caller before parsing.
 /// </summary>
+/// <remarks>
+/// The dispatcher routes on the leading positionals (noun + optional verb), then sets
+/// <see cref="OperandOffset"/> so commands read their own arguments via <see cref="Operand"/>
+/// without caring how many leading tokens named the command.
+/// </remarks>
 public sealed class CliArgs
 {
     private readonly Dictionary<string, string> _options;
     private readonly HashSet<string> _flags;
+    private readonly List<string> _positionals;
 
-    public string? Command { get; }
+    /// <summary>All positional tokens in order, including the command's noun/verb.</summary>
+    public IReadOnlyList<string> Positionals => _positionals;
 
-    private CliArgs(string? command, Dictionary<string, string> options, HashSet<string> flags)
+    /// <summary>Back-compat: the first positional (the noun for noun-verb commands).</summary>
+    public string? Command => _positionals.Count > 0 ? _positionals[0] : null;
+
+    /// <summary>Number of leading positionals that named the command (1 for verbless, 2 for noun-verb). Set by the dispatcher after routing.</summary>
+    public int OperandOffset { get; set; }
+
+    private CliArgs(List<string> positionals, Dictionary<string, string> options, HashSet<string> flags)
     {
-        Command = command;
+        _positionals = positionals;
         _options = options;
         _flags = flags;
     }
@@ -25,6 +38,16 @@ public sealed class CliArgs
     public string Option(string name, string fallback) => _options.GetValueOrDefault(name) ?? fallback;
 
     public bool HasFlag(string name) => _flags.Contains(name);
+
+    /// <summary>The positional at <paramref name="index"/> (absolute, including command tokens), or null.</summary>
+    public string? Positional(int index) =>
+        index >= 0 && index < _positionals.Count ? _positionals[index] : null;
+
+    /// <summary>The command operand at <paramref name="index"/> (after the noun/verb tokens), or null.</summary>
+    public string? Operand(int index) => Positional(OperandOffset + index);
+
+    /// <summary>Count of operands after the command tokens.</summary>
+    public int OperandCount => Math.Max(0, _positionals.Count - OperandOffset);
 
     /// <summary>
     /// Parses <paramref name="args"/>. <paramref name="booleanFlags"/> are the long names
@@ -36,7 +59,7 @@ public sealed class CliArgs
         IReadOnlySet<string> booleanFlags,
         IReadOnlyDictionary<string, string> aliases)
     {
-        string? command = null;
+        var positionals = new List<string>();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         var flags = new HashSet<string>(StringComparer.Ordinal);
 
@@ -46,13 +69,8 @@ public sealed class CliArgs
 
             if (!token.StartsWith('-'))
             {
-                if (command is null)
-                {
-                    command = token;
-                    continue;
-                }
-
-                return new ResultProblem("Unexpected argument '{0}'.", token);
+                positionals.Add(token);
+                continue;
             }
 
             var name = token.TrimStart('-');
@@ -89,6 +107,6 @@ public sealed class CliArgs
             options[name] = args[++i];
         }
 
-        return Result.Success(new CliArgs(command, options, flags));
+        return Result.Success(new CliArgs(positionals, options, flags));
     }
 }

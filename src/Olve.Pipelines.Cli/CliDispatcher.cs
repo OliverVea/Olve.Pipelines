@@ -1,42 +1,176 @@
+using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
+using Olve.Pipelines.Cli.Commands.Bundles;
+using Olve.Pipelines.Cli.Commands.Jobs;
+using Olve.Pipelines.Cli.Commands.Pipelines;
+using Olve.Pipelines.Cli.Commands.Processing;
+using Olve.Pipelines.Cli.Commands.Production;
+using Olve.Pipelines.Cli.Commands.Triggers;
+using Olve.Pipelines.Cli.Diagnostics;
+using Olve.Pipelines.Cli.Output;
 
 namespace Olve.Pipelines.Cli;
 
-/// <summary>Parses argv, routes to a command, renders problems, and returns an exit code.</summary>
-public sealed class CliDispatcher(IProcessRunner processRunner)
+/// <summary>
+/// Parses argv, routes to a noun-verb command, renders problems, and returns an exit code.
+/// The command registry is built explicitly (one <c>Register</c> per command) — no reflection.
+/// </summary>
+public sealed class CliDispatcher
 {
-    private static readonly HashSet<string> BooleanFlags =
-        new(StringComparer.Ordinal) { "allow-prod", "purge-data", "help" };
+    // Global flags accepted by every command. --help is handled by the router itself.
+    private static readonly HashSet<string> GlobalFlags =
+        new(StringComparer.Ordinal) { "json", "verbose", "help" };
 
-    private static readonly Dictionary<string, string> Aliases =
-        new(StringComparer.Ordinal) { ["n"] = "namespace", ["h"] = "help" };
+    private static readonly Dictionary<string, string> GlobalAliases =
+        new(StringComparer.Ordinal) { ["h"] = "help", ["v"] = "verbose" };
+
+    private readonly List<ICliCommand> _commands = [];
+    private readonly Dictionary<string, ICliCommand> _byKey = new(StringComparer.Ordinal);
+
+    public CliDispatcher(IProcessRunner processRunner)
+    {
+        Register(new InstallCommand(processRunner));
+        Register(new UninstallCommand(processRunner));
+
+        // pipeline
+        Register(new PipelineListCommand());
+        Register(new PipelineGetCommand());
+        Register(new PipelineDocumentCommand());
+
+        // production
+        Register(new ProductionListCommand());
+        Register(new ProductionGetCommand());
+        Register(new ProductionConfigCommand());
+
+        // processing
+        Register(new ProcessingListCommand());
+        Register(new ProcessingGetCommand());
+        Register(new ProcessingConfigCommand());
+        Register(new ProcessingPromotionsCommand());
+        Register(new ProcessingPromotionCommand());
+
+        // job
+        Register(new JobListCommand());
+        Register(new JobGetCommand());
+        Register(new JobLogsCommand());
+        Register(new JobQueueCommand());
+
+        // bundle
+        Register(new BundleListCommand());
+        Register(new BundleGetCommand());
+
+        // trigger
+        Register(new TriggerListCommand());
+        Register(new TriggerGetCommand());
+    }
+
+    private void Register(ICliCommand command)
+    {
+        _commands.Add(command);
+        _byKey.Add(CliCommand.Key(command.Noun, command.Verb), command);
+    }
 
     public async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
     {
-        if (CliArgs.Parse(args, BooleanFlags, Aliases).TryPickProblems(out var parseProblems, out var cli))
-            return Fail(parseProblems);
-
-        if (cli.Command is null)
+        if (args.Count == 0)
         {
             PrintUsage();
             return 2; // no command supplied — usage error
         }
 
-        if (cli.Command is "help" or "--help" || cli.HasFlag("help"))
+        var helpRequested = args.Any(a => a is "--help" or "-h");
+        var peek0 = args[0].StartsWith('-') ? null : args[0];
+        var peek1 = args.Count > 1 && !args[1].StartsWith('-') ? args[1] : null;
+
+        // `pl --help` / leading flag with no command.
+        if (peek0 is null)
         {
             PrintUsage();
+            return helpRequested ? 0 : 2;
+        }
+
+        // `pl help` / `pl help <noun>`.
+        if (peek0 is "help")
+        {
+            if (peek1 is not null && HasNoun(peek1))
+                PrintNounHelp(peek1);
+            else
+                PrintUsage();
             return 0;
         }
 
-        var result = cli.Command switch
+        // Resolve the command: prefer a noun-verb match, then a verbless one.
+        ICliCommand? command = null;
+        var offset = 0;
+        if (peek1 is not null && _byKey.TryGetValue(CliCommand.Key(peek0, peek1), out command))
+            offset = 2;
+        else if (_byKey.TryGetValue(peek0, out command))
+            offset = 1;
+
+        if (command is null)
         {
-            "install" => await new InstallCommand(processRunner).RunAsync(cli, ct),
-            "uninstall" => await new UninstallCommand(processRunner).RunAsync(cli, ct),
-            _ => (Result)new ResultProblem("Unknown command '{0}'. Run `pl help`.", cli.Command),
+            if (HasNoun(peek0))
+            {
+                if (helpRequested || peek1 is null)
+                {
+                    PrintNounHelp(peek0);
+                    return helpRequested ? 0 : 2; // noun given without a verb is a usage error
+                }
+
+                return Fail([new ResultProblem("Unknown command '{0} {1}'. Run `pl {0} --help`.", peek0, peek1)]);
+            }
+
+            return Fail([new ResultProblem("Unknown command '{0}'. Run `pl help`.", peek0)]);
+        }
+
+        if (helpRequested)
+        {
+            PrintCommandHelp(command);
+            return 0;
+        }
+
+        var booleanFlags = new HashSet<string>(GlobalFlags, StringComparer.Ordinal);
+        booleanFlags.UnionWith(command.BooleanFlags);
+        var aliases = new Dictionary<string, string>(GlobalAliases, StringComparer.Ordinal);
+        foreach (var (k, v) in command.Aliases)
+            aliases[k] = v;
+
+        if (CliArgs.Parse(args, booleanFlags, aliases).TryPickProblems(out var parseProblems, out var cli))
+            return Fail(parseProblems);
+
+        cli.OperandOffset = offset;
+
+        if (cli.OperandCount < command.RequiredOperands)
+        {
+            return Fail([new ResultProblem(
+                "`pl {0}` expects {1} argument(s). Run `pl {0} --help`.",
+                CliCommand.Key(command.Noun, command.Verb), command.RequiredOperands)]);
+        }
+
+        var verbose = cli.HasFlag("verbose");
+        var log = new StderrLog(verbose);
+
+        if (CliConfigStore.Load().TryPickProblems(out var configProblems, out var config))
+            return Fail(configProblems);
+
+        if (ApiClientFactory.Create(cli, config, log).TryPickProblems(out var clientProblems, out var api))
+            return Fail(clientProblems);
+
+        var ctx = new CommandContext
+        {
+            Json = cli.HasFlag("json"),
+            Verbose = verbose,
+            Api = api,
+            Output = new ConsoleOutputWriter(cli.HasFlag("json")),
+            Log = log,
+            Config = config,
         };
 
+        var result = await command.Execute(cli, ctx, ct);
         return result.TryPickProblems(out var problems) ? Fail(problems) : 0;
     }
+
+    private bool HasNoun(string noun) => _commands.Any(c => c.Noun == noun);
 
     private static int Fail(IEnumerable<ResultProblem> problems)
     {
@@ -45,29 +179,40 @@ public sealed class CliDispatcher(IProcessRunner processRunner)
         return 1;
     }
 
-    private static void PrintUsage() => Console.WriteLine(
-        """
-        pl — Olve.Pipelines operator CLI
+    private void PrintUsage()
+    {
+        Console.WriteLine("pl — Olve.Pipelines operator + API CLI");
+        Console.WriteLine();
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  pl <command> [args] [options]");
+        Console.WriteLine();
+        Console.WriteLine("Commands:");
+        foreach (var command in _commands)
+            Console.WriteLine($"  {Signature(command),-28} {command.HelpLine}");
+        Console.WriteLine();
+        Console.WriteLine("Global options (any command):");
+        Console.WriteLine("  --json        Machine-readable JSON output on stdout");
+        Console.WriteLine("  --verbose,-v  Diagnostic logging to stderr");
+        Console.WriteLine("  --help,-h     Show help for the command");
+        Console.WriteLine();
+        Console.WriteLine("Run `pl <command> --help` for command-specific options.");
+    }
 
-        Usage:
-          pl install   -n <namespace> [options]   Install the controller + private MinIO
-          pl uninstall -n <namespace> [options]   Remove an installation
-          pl help                                  Show this help
+    private void PrintNounHelp(string noun)
+    {
+        Console.WriteLine($"pl {noun} — commands:");
+        Console.WriteLine();
+        foreach (var command in _commands.Where(c => c.Noun == noun))
+            Console.WriteLine($"  {Signature(command),-28} {command.HelpLine}");
+    }
 
-        install options:
-          -n, --namespace <ns>   Target namespace (required)
-          --release <name>       Helm release name (default: olve-pipelines)
-          --bucket <name>        MinIO bucket name (default: olve-pipelines)
-          --image-tag <tag>      Controller image tag (default: latest)
-          --image-repository <r> Controller image repository (default: chart value)
-          --image-pull-policy <p> Controller image pull policy, e.g. Never (default: chart value)
-          --ref <git-ref>        Chart git ref to pull from GitHub (default: main)
-          --chart <path>         Use a local chart directory instead of pulling from GitHub
-          --allow-prod           Permit installing into the prod namespace 'apps'
+    private static void PrintCommandHelp(ICliCommand command)
+    {
+        if (command.HelpDetail is { } detail)
+            Console.WriteLine(detail);
+        else
+            Console.WriteLine($"{Signature(command)}   {command.HelpLine}");
+    }
 
-        uninstall options:
-          -n, --namespace <ns>   Target namespace (required)
-          --release <name>       Helm release name (default: olve-pipelines)
-          --purge-data           Also delete the MinIO data PVC (full wipe)
-        """);
+    private static string Signature(ICliCommand command) => CliCommand.Key(command.Noun, command.Verb);
 }

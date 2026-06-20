@@ -41,14 +41,17 @@ chmod +x /usr/local/bin/mc
 
 olve_fetch_repo "$REPO" "$BRANCH" "$SRC"
 
+# VERSION is a timestamp (YYYYMMDD-HHMMSS), so stamp it as InformationalVersion (free-form)
+# rather than -p:Version, which sets AssemblyVersion/FileVersion and rejects the hyphen.
+
 # linux-x64: Native AOT (PublishAot=true lives in the csproj) -> /out/linux/pl
 dotnet publish "$CLI" -c Release -r linux-x64 \
-  -p:Version="$VERSION" -o /out/linux
+  -p:InformationalVersion="$VERSION" -o /out/linux
 
 # win-x64: AOT off + self-contained single-file (cross-compiles cleanly from Linux) -> /out/win/pl.exe
 dotnet publish "$CLI" -c Release -r win-x64 \
   -p:PublishAot=false -p:PublishSingleFile=true -p:SelfContained=true \
-  -p:Version="$VERSION" -o /out/win
+  -p:InformationalVersion="$VERSION" -o /out/win
 
 mc alias set store "$MINIO_ENDPOINT" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
 

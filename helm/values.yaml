@@ -35,13 +35,18 @@ ingress:
   public:
     enabled: true
     host: pipelines-hooks.ovea.pro
-    externalDnsTarget: ""
+    # Publish a Cloudflare-proxied CNAME to the tunnel (same as the questionbank prod
+    # ingress) so GitHub reaches the receiver via Cloudflare→tunnel→Traefik. An empty
+    # target makes ExternalDNS publish the Traefik LB's private IP, which GitHub can't
+    # reach (502). The tunnel UUID matches infra/cloudflared in the homelab repo.
+    externalDnsTarget: "44a106ce-fecc-4ff0-abed-ea64dfbb8703.cfargotunnel.com"
     clusterIssuer: letsencrypt-prod
     ingressClassName: ""
     tls:
       enabled: true
       secretName: ""
-    annotations: {}
+    annotations:
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
 
 resources:
   requests:

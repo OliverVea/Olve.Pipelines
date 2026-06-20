@@ -41,6 +41,7 @@ public sealed class CliDispatcher
         Register(new ProductionListCommand());
         Register(new ProductionGetCommand());
         Register(new ProductionConfigCommand());
+        Register(new ProductionTriggerCommand());
 
         // processing
         Register(new ProcessingListCommand());
@@ -48,12 +49,16 @@ public sealed class CliDispatcher
         Register(new ProcessingConfigCommand());
         Register(new ProcessingPromotionsCommand());
         Register(new ProcessingPromotionCommand());
+        Register(new ProcessingBlockCommand());
+        Register(new ProcessingUnblockCommand());
+        Register(new ProcessingRePromoteCommand());
 
         // job
         Register(new JobListCommand());
         Register(new JobGetCommand());
         Register(new JobLogsCommand());
         Register(new JobQueueCommand());
+        Register(new JobCancelCommand());
 
         // bundle
         Register(new BundleListCommand());

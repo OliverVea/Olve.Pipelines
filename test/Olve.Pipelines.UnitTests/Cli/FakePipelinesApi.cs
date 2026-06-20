@@ -55,6 +55,12 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<string>? GetHealthRawResult { get; set; }
     public Result<string>? GetReadyRawResult { get; set; }
 
+    // Mutations
+    public Result<JobGroup>? TriggerProductionResult { get; set; }
+    public Result<PromotionState>? SetProcessingStepPromotionResult { get; set; }
+    public Result<JobGroup>? RePromoteProcessingStepResult { get; set; }
+    public Result? CancelJobResult { get; set; }
+
     // Pipelines
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
         Record(ListPipelinesResult, nameof(ListPipelines));
@@ -134,6 +140,28 @@ public sealed class FakePipelinesApi : IPipelinesApi
 
     public Task<Result<string>> GetReadyRaw(CancellationToken ct) =>
         Record(GetReadyRawResult, nameof(GetReadyRaw));
+
+    // Mutations
+    public Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct) =>
+        Record(TriggerProductionResult, nameof(TriggerProduction));
+
+    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct)
+    {
+        Calls.Add($"{nameof(SetProcessingStepPromotion)}({blocked})");
+        return Task.FromResult(
+            SetProcessingStepPromotionResult
+            ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(SetProcessingStepPromotion)}' called but not configured."));
+    }
+
+    public Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct) =>
+        Record(RePromoteProcessingStepResult, nameof(RePromoteProcessingStep));
+
+    public Task<Result> CancelJob(string id, CancellationToken ct)
+    {
+        Calls.Add(nameof(CancelJob));
+        return Task.FromResult(
+            CancelJobResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(CancelJob)}' called but not configured."));
+    }
 
     private Task<Result<T>> Record<T>(Result<T>? configured, string method)
     {

@@ -118,3 +118,63 @@ public sealed class ProcessingPromotionCommand : ICliCommand
         return Result.Success();
     }
 }
+
+/// <summary><c>pl processing block &lt;stepId&gt;</c> — engage the promotion gate (the brake).</summary>
+public sealed class ProcessingBlockCommand : ICliCommand
+{
+    public string Noun => "processing";
+    public string Verb => "block";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Block promotion for a processing step (engage the gate)";
+    public string? HelpDetail => "pl processing block <stepId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: true, ct)).TryPickProblems(out var problems, out var state))
+            return problems;
+
+        ctx.Output.Emit(state, CliJsonContext.Default.PromotionState,
+            () => ctx.Output.Line(state.Blocked ? "blocked" : "enabled"));
+        return Result.Success();
+    }
+}
+
+/// <summary><c>pl processing unblock &lt;stepId&gt;</c> — release the promotion gate.</summary>
+public sealed class ProcessingUnblockCommand : ICliCommand
+{
+    public string Noun => "processing";
+    public string Verb => "unblock";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Unblock promotion for a processing step (release the gate)";
+    public string? HelpDetail => "pl processing unblock <stepId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: false, ct)).TryPickProblems(out var problems, out var state))
+            return problems;
+
+        ctx.Output.Emit(state, CliJsonContext.Default.PromotionState,
+            () => ctx.Output.Line(state.Blocked ? "blocked" : "enabled"));
+        return Result.Success();
+    }
+}
+
+/// <summary><c>pl processing re-promote &lt;stepId&gt;</c> — redrive the step's last bundle.</summary>
+public sealed class ProcessingRePromoteCommand : ICliCommand
+{
+    public string Noun => "processing";
+    public string Verb => "re-promote";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Re-run a processing step with its last artifact bundle";
+    public string? HelpDetail => "pl processing re-promote <stepId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ctx.Api.RePromoteProcessingStep(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var group))
+            return problems;
+
+        ctx.Output.Emit(group, CliJsonContext.Default.JobGroup,
+            () => ctx.Output.Line($"Re-promoted. Job group: {group.Id}"));
+        return Result.Success();
+    }
+}

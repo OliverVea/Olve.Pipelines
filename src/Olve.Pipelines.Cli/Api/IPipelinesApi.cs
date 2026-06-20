@@ -48,4 +48,10 @@ public interface IPipelinesApi
     Task<Result<string>> GetFrontendConfigRaw(CancellationToken ct);
     Task<Result<string>> GetHealthRaw(CancellationToken ct);
     Task<Result<string>> GetReadyRaw(CancellationToken ct);
+
+    // Mutations
+    Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct);
+    Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct);
+    Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct);
+    Task<Result> CancelJob(string id, CancellationToken ct);
 }

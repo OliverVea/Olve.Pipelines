@@ -91,4 +91,21 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result<string>> GetReadyRaw(CancellationToken ct) =>
         transport.GetStringAsync("/api/ready", ct);
+
+    // Mutations
+    public Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/trigger/production",
+            body: null, CliJsonContext.Default.JobGroup, ct);
+
+    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Put, $"/api/processing-steps/{Enc(stepId)}/promotion",
+            ApiTransport.JsonBody(new SetPromotionRequest { Blocked = blocked }, CliJsonContext.Default.SetPromotionRequest),
+            CliJsonContext.Default.PromotionState, ct);
+
+    public Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/processing-steps/{Enc(stepId)}/re-promote",
+            body: null, CliJsonContext.Default.JobGroup, ct);
+
+    public Task<Result> CancelJob(string id, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/jobs/{Enc(id)}/cancel", body: null, ct);
 }

@@ -130,6 +130,27 @@ public sealed class JobQueueCommand : ICliCommand
     }
 }
 
+/// <summary><c>pl job cancel &lt;id&gt;</c> — cancel a scheduled or in-progress job.</summary>
+public sealed class JobCancelCommand : ICliCommand
+{
+    public string Noun => "job";
+    public string Verb => "cancel";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Cancel a scheduled or in-progress job";
+    public string? HelpDetail => "pl job cancel <jobId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        var id = cli.Operand(0)!;
+        if ((await ctx.Api.CancelJob(id, ct)).TryPickProblems(out var problems))
+            return problems;
+
+        if (!ctx.Output.IsJson)
+            ctx.Output.Line($"Cancelled job {id}.");
+        return Result.Success();
+    }
+}
+
 internal static class JobCommandHelpers
 {
     public static string Format(DateTimeOffset value) => value.ToString("u");

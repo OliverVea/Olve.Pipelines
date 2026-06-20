@@ -70,3 +70,23 @@ public sealed class ProductionConfigCommand : ICliCommand
         return Result.Success();
     }
 }
+
+/// <summary><c>pl production trigger &lt;pipelineId&gt;</c> — fire all production steps.</summary>
+public sealed class ProductionTriggerCommand : ICliCommand
+{
+    public string Noun => "production";
+    public string Verb => "trigger";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Trigger all production steps for a pipeline";
+    public string? HelpDetail => "pl production trigger <pipelineId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ctx.Api.TriggerProduction(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var group))
+            return problems;
+
+        ctx.Output.Emit(group, CliJsonContext.Default.JobGroup,
+            () => ctx.Output.Line($"Triggered production. Job group: {group.Id}"));
+        return Result.Success();
+    }
+}

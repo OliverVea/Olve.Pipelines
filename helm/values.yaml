@@ -83,6 +83,8 @@ config:
   Logging__LogLevel__Microsoft.AspNetCore: "Warning"
   Auth__Authority: "https://auth.ovea.pro/application/o/olve-pipelines/"
   Auth__Audience: "olve-pipelines"
+  Auth__FrontendAuthority: "https://auth.ovea.pro/application/o/olve-pipelines-frontend/"
+  Auth__FrontendAudience: "olve-pipelines-frontend"
   OpenTelemetry__Endpoint: "https://otel.ovea.pro"
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"

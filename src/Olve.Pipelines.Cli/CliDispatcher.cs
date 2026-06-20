@@ -31,6 +31,7 @@ public sealed class CliDispatcher
     {
         Register(new InstallCommand(processRunner));
         Register(new UninstallCommand(processRunner));
+        Register(new LoginCommand());
 
         // pipeline
         Register(new PipelineListCommand());
@@ -157,6 +158,9 @@ public sealed class CliDispatcher
 
         if (CliConfigStore.Load().TryPickProblems(out var configProblems, out var config))
             return Fail(configProblems);
+
+        // Pre-flight refresh of the cached token so commands go out with a fresh bearer (best-effort).
+        await TokenRefresh.EnsureFreshAsync(cli, config, log, ct);
 
         if (ApiClientFactory.Create(cli, config, log).TryPickProblems(out var clientProblems, out var api))
             return Fail(clientProblems);

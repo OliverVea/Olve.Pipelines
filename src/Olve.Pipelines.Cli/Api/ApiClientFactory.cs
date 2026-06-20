@@ -51,6 +51,9 @@ public sealed class ApiClientFactory
         return (DefaultApiUrl, "default");
     }
 
+    /// <summary>The resolved base URL the next request would use — for <c>pl login</c> to persist alongside the token.</summary>
+    public static string ResolveApiUrl(CliArgs cli, CliConfig config) => ResolveUrl(cli, config).Url;
+
     private static (string? Token, string Source) ResolveToken(CliArgs cli, CliConfig config)
     {
         if (cli.Option("token") is { Length: > 0 } flag)

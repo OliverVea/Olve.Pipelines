@@ -15,6 +15,11 @@ namespace Olve.Pipelines.Cli.Api;
 // Local CLI config (~/.pl)
 [JsonSerializable(typeof(CliConfig))]
 [JsonSerializable(typeof(AuthConfig))]
+// OIDC login flow (pl login)
+[JsonSerializable(typeof(FrontendOidcConfig))]
+[JsonSerializable(typeof(OidcDiscovery))]
+[JsonSerializable(typeof(TokenResponse))]
+[JsonSerializable(typeof(LoginResult))]
 // Pipelines
 [JsonSerializable(typeof(Pipeline))]
 [JsonSerializable(typeof(Pipeline[]))]

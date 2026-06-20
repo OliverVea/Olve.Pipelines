@@ -33,7 +33,7 @@ ingress:
   # auto-registered hooks point at this host. Must be fronted by a real public entrypoint
   # (Cloudflare Tunnel or a public ingress controller).
   public:
-    enabled: false
+    enabled: true
     host: pipelines-hooks.ovea.pro
     externalDnsTarget: ""
     clusterIssuer: letsencrypt-prod
@@ -98,7 +98,7 @@ config:
   # Externally-reachable origin GitHub posts webhook deliveries to. Empty = GitHub webhook
   # auto-registration disabled (the receiver still serves manually-created hooks). Set this
   # together with ingress.public.enabled=true to enable auto-registration.
-  Webhooks__PublicBaseUrl: ""
+  Webhooks__PublicBaseUrl: "https://pipelines-hooks.ovea.pro"
 
 secrets:
   - name: authentik-oidc-secrets

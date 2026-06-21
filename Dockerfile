@@ -19,6 +19,9 @@ FROM node:22-slim AS frontend
 WORKDIR /build
 COPY clients/olve-pipelines-client-ts/ ./clients/olve-pipelines-client-ts/
 RUN cd clients/olve-pipelines-client-ts && npm install
+# The build's `prebuild` hook (scripts/build-docs-index.mjs) reads ../docs/setup to emit
+# the client-side search index, so the docs must be present in this stage too.
+COPY docs/setup/ ./docs/setup/
 COPY frontend/ ./frontend/
 RUN cd frontend && npm install && npm run build
 

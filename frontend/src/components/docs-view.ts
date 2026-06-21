@@ -3,7 +3,22 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import MiniSearch from 'minisearch';
 import { navigate } from '../router.js';
+
+interface DocRecord {
+  slug: string;
+  title: string;
+  headings: string;
+  text: string;
+  excerpt: string;
+}
+
+interface DocHit {
+  slug: string;
+  title: string;
+  excerpt: string;
+}
 
 // The setup guide lives as raw Markdown served by the backend at /docs/<page>.md (the
 // LLM/agent surface — see Program.cs). This component is the *human* surface: it fetches
@@ -46,6 +61,93 @@ export class DocsView extends LitElement {
     }
 
     .doc-nav a {
+      color: var(--color-text-muted);
+    }
+
+    .doc-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .doc-top .doc-nav {
+      margin-bottom: 0;
+    }
+
+    .doc-search {
+      position: relative;
+      width: min(22rem, 50%);
+    }
+
+    .doc-search input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.45rem 0.7rem;
+      font: inherit;
+      font-size: 0.85rem;
+      color: var(--color-text);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+    }
+
+    .doc-search input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    .doc-results {
+      position: absolute;
+      top: calc(100% + 0.3rem);
+      left: 0;
+      right: 0;
+      z-index: 10;
+      max-height: 22rem;
+      overflow-y: auto;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 0.3rem;
+    }
+
+    .doc-results button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.45rem 0.6rem;
+      border: none;
+      border-radius: var(--radius);
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .doc-results button:hover,
+    .doc-results button.active {
+      background: var(--color-surface-hover);
+    }
+
+    .doc-results .hit-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .doc-results .hit-excerpt {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      margin-top: 0.1rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .doc-results .empty {
+      padding: 0.5rem 0.6rem;
+      font-size: 0.8rem;
       color: var(--color-text-muted);
     }
 
@@ -215,6 +317,13 @@ export class DocsView extends LitElement {
   @state() private declare _html: string;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
+  @state() private declare _query: string;
+  @state() private declare _hits: DocHit[];
+  @state() private declare _activeHit: number;
+
+  /** Lazily built on first search (and cached) from /docs-index.json. */
+  private _search: MiniSearch<DocRecord> | null = null;
+  private _searchLoading = false;
 
   constructor() {
     super();
@@ -222,6 +331,9 @@ export class DocsView extends LitElement {
     this._html = '';
     this._loading = true;
     this._error = null;
+    this._query = '';
+    this._hits = [];
+    this._activeHit = -1;
   }
 
   connectedCallback(): void {
@@ -252,8 +364,11 @@ export class DocsView extends LitElement {
 
   render() {
     return html`
-      <div class="doc-nav">
-        <a href="/" @click=${this._navHome}>&larr; Back to pipelines</a>
+      <div class="doc-top">
+        <div class="doc-nav">
+          <a href="/" @click=${this._navHome}>&larr; Back to pipelines</a>
+        </div>
+        ${this._renderSearch()}
       </div>
       ${this._loading
         ? html`<p class="loading">Loading docs…</p>`
@@ -261,6 +376,118 @@ export class DocsView extends LitElement {
           ? html`<p class="error">${this._error}</p>`
           : html`<article class="doc" @click=${this._onLinkClick}>${unsafeHTML(this._html)}</article>`}
     `;
+  }
+
+  private _renderSearch() {
+    const showResults = this._query.trim().length > 0;
+    return html`
+      <div class="doc-search">
+        <input
+          type="search"
+          placeholder="Search docs…"
+          .value=${this._query}
+          @focus=${this._ensureIndex}
+          @input=${this._onSearchInput}
+          @keydown=${this._onSearchKeydown}
+          @blur=${this._onSearchBlur}
+          aria-label="Search docs"
+        />
+        ${showResults
+          ? html`<div class="doc-results">
+              ${this._hits.length === 0
+                ? html`<div class="empty">No matches</div>`
+                : this._hits.map(
+                    (hit, i) => html`
+                      <button
+                        class=${i === this._activeHit ? 'active' : ''}
+                        @mousedown=${(e: Event) => this._openHit(e, hit.slug)}
+                      >
+                        <div class="hit-title">${hit.title}</div>
+                        <div class="hit-excerpt">${hit.excerpt}</div>
+                      </button>
+                    `
+                  )}
+            </div>`
+          : null}
+      </div>
+    `;
+  }
+
+  // MiniSearch index is loaded once, on first focus, so the index payload isn't fetched
+  // until the user actually intends to search.
+  private async _ensureIndex(): Promise<void> {
+    if (this._search || this._searchLoading) return;
+    this._searchLoading = true;
+    try {
+      const res = await fetch('/docs-index.json');
+      if (!res.ok) return;
+      const docs = (await res.json()) as DocRecord[];
+      const search = new MiniSearch<DocRecord>({
+        idField: 'slug',
+        fields: ['title', 'headings', 'text'],
+        storeFields: ['slug', 'title', 'excerpt'],
+        searchOptions: { boost: { title: 3, headings: 2 }, prefix: true, fuzzy: 0.2 },
+      });
+      search.addAll(docs);
+      this._search = search;
+      if (this._query.trim()) this._runQuery();
+    } finally {
+      this._searchLoading = false;
+    }
+  }
+
+  private _onSearchInput(e: Event): void {
+    this._query = (e.target as HTMLInputElement).value;
+    this._activeHit = -1;
+    this._runQuery();
+  }
+
+  private _runQuery(): void {
+    const q = this._query.trim();
+    if (!q || !this._search) {
+      this._hits = [];
+      return;
+    }
+    this._hits = this._search.search(q).slice(0, 8) as unknown as DocHit[];
+  }
+
+  private _onSearchKeydown(e: KeyboardEvent): void {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this._activeHit = Math.min(this._activeHit + 1, this._hits.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._activeHit = Math.max(this._activeHit - 1, 0);
+    } else if (e.key === 'Enter') {
+      const hit = this._hits[this._activeHit] ?? this._hits[0];
+      if (hit) {
+        e.preventDefault();
+        this._goto(hit.slug);
+      }
+    } else if (e.key === 'Escape') {
+      this._clearSearch();
+    }
+  }
+
+  // Delay so a result click (mousedown) registers before the dropdown unmounts.
+  private _onSearchBlur(): void {
+    setTimeout(() => this._clearSearch(), 120);
+  }
+
+  private _openHit(e: Event, slug: string): void {
+    e.preventDefault();
+    this._goto(slug);
+  }
+
+  private _goto(slug: string): void {
+    this._clearSearch();
+    navigate(`/docs/${slug}`);
+  }
+
+  private _clearSearch(): void {
+    this._query = '';
+    this._hits = [];
+    this._activeHit = -1;
   }
 
   private _navHome(e: Event): void {

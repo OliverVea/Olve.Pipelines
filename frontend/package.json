@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:docs-index": "node scripts/build-docs-index.mjs",
+    "predev": "node scripts/build-docs-index.mjs",
     "dev": "vite",
     "dev:prod": "vite --mode prod-api",
+    "prebuild": "node scripts/build-docs-index.mjs",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.app.json",
     "preview": "vite preview",
@@ -23,6 +26,7 @@
     "dompurify": "^3.4.11",
     "lit": "^3.2.0",
     "marked": "^18.0.5",
+    "minisearch": "^7.2.0",
     "oidc-client-ts": "^3.5.0"
   },
   "devDependencies": {

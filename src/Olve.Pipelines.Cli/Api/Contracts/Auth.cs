@@ -17,6 +17,25 @@ public sealed class OidcDiscovery
 {
     [JsonPropertyName("authorization_endpoint")] public string? AuthorizationEndpoint { get; set; }
     [JsonPropertyName("token_endpoint")] public string? TokenEndpoint { get; set; }
+    [JsonPropertyName("device_authorization_endpoint")] public string? DeviceAuthorizationEndpoint { get; set; }
+}
+
+/// <summary>
+/// The device-authorization response (RFC 8628) — returned by the device endpoint to start the
+/// headless/SSH login flow. The user opens <see cref="VerificationUriComplete"/> (or
+/// <see cref="VerificationUri"/> and enters <see cref="UserCode"/>) while the CLI polls the token
+/// endpoint with <see cref="DeviceCode"/>. Snake-case wire names.
+/// </summary>
+public sealed class DeviceAuthResponse
+{
+    [JsonPropertyName("device_code")] public string? DeviceCode { get; set; }
+    [JsonPropertyName("user_code")] public string? UserCode { get; set; }
+    [JsonPropertyName("verification_uri")] public string? VerificationUri { get; set; }
+    [JsonPropertyName("verification_uri_complete")] public string? VerificationUriComplete { get; set; }
+    [JsonPropertyName("expires_in")] public int? ExpiresIn { get; set; }
+    [JsonPropertyName("interval")] public int? Interval { get; set; }
+    [JsonPropertyName("error")] public string? Error { get; set; }
+    [JsonPropertyName("error_description")] public string? ErrorDescription { get; set; }
 }
 
 /// <summary>The OAuth2 token endpoint response (auth-code exchange and refresh). Snake-case wire names.</summary>

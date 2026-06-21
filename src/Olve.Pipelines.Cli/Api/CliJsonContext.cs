@@ -18,6 +18,7 @@ namespace Olve.Pipelines.Cli.Api;
 // OIDC login flow (pl login)
 [JsonSerializable(typeof(FrontendOidcConfig))]
 [JsonSerializable(typeof(OidcDiscovery))]
+[JsonSerializable(typeof(DeviceAuthResponse))]
 [JsonSerializable(typeof(TokenResponse))]
 [JsonSerializable(typeof(LoginResult))]
 // Pipelines

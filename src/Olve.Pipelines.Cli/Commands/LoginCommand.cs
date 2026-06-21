@@ -23,15 +23,25 @@ public sealed class LoginCommand : ICliCommand
     public string Noun => "login";
     public string Verb => "";
     public string HelpLine => "Log in via the browser (OIDC auth-code + PKCE) and cache the token";
+
+    public IReadOnlySet<string> BooleanFlags { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { "device", "browser" };
+
     public string? HelpDetail =>
         """
-        pl login   Log in via the browser and cache the token in ~/.pl
+        pl login   Log in and cache the token in ~/.pl
 
-        Discovers the OIDC client from the target server's /api/config/frontend, opens your
-        browser to authenticate, and stores the resulting access/refresh tokens (0600).
+        Discovers the OIDC client from the target server's /api/config/frontend and stores the
+        resulting access/refresh tokens (0600).
+
+        By default it runs the browser flow (OIDC auth-code + PKCE) on a loopback redirect. Over
+        SSH / on a headless box that can't work, so it auto-switches to the device flow (RFC 8628):
+        scan the printed QR code (or open the URL on your phone) and approve — no local browser or
+        port-forward needed. Force either flow with --device or --browser.
 
         Use --api-url (or PIPELINES_API_URL) to log in to a specific environment, e.g.
           pl login --api-url https://pipelines-beta.ovea.pro
+          pl login --device --api-url https://pipelines-beta.ovea.pro
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -50,11 +60,32 @@ public sealed class LoginCommand : ICliCommand
 
         using var http = new HttpClient();
 
-        // 2. OIDC discovery → authorization + token endpoints.
+        // 2. OIDC discovery → authorization + token (+ device) endpoints.
         if ((await OidcClient.DiscoverAsync(http, authority, ct)).TryPickProblems(out var discoProblems, out var disco))
             return discoProblems;
 
-        // 3. PKCE pair + anti-forgery state.
+        // 3. Pick the flow. Device flow is the right choice when there's no local browser the
+        //    loopback redirect can reach (SSH/headless); honour explicit --device/--browser.
+        var hasDevice = disco.DeviceAuthorizationEndpoint is { Length: > 0 };
+        if (cli.HasFlag("device") && !hasDevice)
+            return new ResultProblem("This server's OIDC provider does not advertise a device-authorization endpoint.");
+        var useDevice = hasDevice && !cli.HasFlag("browser") && (cli.HasFlag("device") || IsHeadless());
+
+        var tokenResult = useDevice
+            ? await DeviceFlowAsync(http, disco, clientId, ctx, ct)
+            : await BrowserFlowAsync(http, disco, clientId, ctx, ct);
+        if (tokenResult.TryPickProblems(out var flowProblems, out var token))
+            return flowProblems;
+
+        return Persist(cli, ctx, authority, clientId, disco, token);
+    }
+
+    // ---- Browser flow (OIDC auth-code + PKCE on a loopback redirect) ----
+
+    private static async Task<Result<TokenResponse>> BrowserFlowAsync(
+        HttpClient http, OidcDiscovery disco, string clientId, CommandContext ctx, CancellationToken ct)
+    {
+        // PKCE pair + anti-forgery state.
         var verifier = OidcClient.CreateCodeVerifier();
         var challenge = OidcClient.CodeChallenge(verifier);
         var state = OidcClient.Base64Url(RandomNumberGenerator.GetBytes(16));
@@ -76,16 +107,46 @@ public sealed class LoginCommand : ICliCommand
         TryOpenBrowser(authorizeUrl, ctx.Log);
         Console.Error.WriteLine("Waiting for the authentication redirect…");
 
-        // 6. Capture ?code&state on the loopback.
+        // Capture ?code&state on the loopback.
         if ((await WaitForCodeAsync(listener, state, ct)).TryPickProblems(out var codeProblems, out var code))
             return codeProblems;
 
-        // 7. Exchange the code (+ verifier) for tokens.
-        if ((await OidcClient.ExchangeCodeAsync(http, disco.TokenEndpoint!, clientId, code, redirectUri, verifier, ct))
-            .TryPickProblems(out var tokenProblems, out var token))
-            return tokenProblems;
+        // Exchange the code (+ verifier) for tokens.
+        return await OidcClient.ExchangeCodeAsync(http, disco.TokenEndpoint!, clientId, code, redirectUri, verifier, ct);
+    }
 
-        // 8. Persist token set + the api-url it belongs to (tokens are environment-scoped).
+    // ---- Device flow (RFC 8628 — for SSH/headless: scan a QR / open a URL, then poll) ----
+
+    private static async Task<Result<TokenResponse>> DeviceFlowAsync(
+        HttpClient http, OidcDiscovery disco, string clientId, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await OidcClient.StartDeviceAuthAsync(http, disco.DeviceAuthorizationEndpoint!, clientId, Scope, ct))
+            .TryPickProblems(out var startProblems, out var device))
+            return startProblems;
+
+        var verifyComplete = device.VerificationUriComplete ?? device.VerificationUri!;
+
+        Console.Error.WriteLine("To log in, scan this QR code or open the URL below, then approve the request:");
+        Console.Error.WriteLine();
+        if (!Console.IsErrorRedirected && TerminalQr.TryRender(verifyComplete, out var qr))
+            Console.Error.WriteLine(qr);
+        Console.Error.WriteLine($"  URL:  {device.VerificationUri}");
+        if (device.VerificationUriComplete is { Length: > 0 } complete)
+            Console.Error.WriteLine($"  Link: {complete}");
+        Console.Error.WriteLine($"  Code: {device.UserCode}");
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("Waiting for approval…");
+
+        return await OidcClient.PollDeviceTokenAsync(
+            http, disco.TokenEndpoint!, clientId, device.DeviceCode!, device.Interval ?? 5, ct);
+    }
+
+    // ---- Shared: persist the token set and report ----
+
+    private static Result Persist(
+        CliArgs cli, CommandContext ctx, string authority, string clientId, OidcDiscovery disco, TokenResponse token)
+    {
+        // Token set is environment-scoped, so it's stored alongside the api-url it belongs to.
         var apiUrl = ApiClientFactory.ResolveApiUrl(cli, ctx.Config);
         ctx.Config.ApiUrl = apiUrl;
         ctx.Config.Auth = new AuthConfig
@@ -116,6 +177,21 @@ public sealed class LoginCommand : ICliCommand
                 ctx.Output.Line("Warning: no refresh token issued (offline_access not granted) — re-run `pl login` when it expires.");
         });
         return Result.Success();
+    }
+
+    // No local graphical browser the loopback redirect could reach — typical over SSH.
+    private static bool IsHeadless()
+    {
+        if (Environment.GetEnvironmentVariable("SSH_CONNECTION") is { Length: > 0 }
+            || Environment.GetEnvironmentVariable("SSH_TTY") is { Length: > 0 })
+            return true;
+
+        // On Linux/BSD a GUI needs a display server; without one there's no browser to open.
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsFreeBSD())
+            return Environment.GetEnvironmentVariable("DISPLAY") is not { Length: > 0 }
+                && Environment.GetEnvironmentVariable("WAYLAND_DISPLAY") is not { Length: > 0 };
+
+        return false;
     }
 
     private static string BuildAuthorizeUrl(string authorizationEndpoint, string clientId, string redirectUri, string challenge, string state)

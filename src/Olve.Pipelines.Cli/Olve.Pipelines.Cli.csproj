@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Olve.Results" />
+    <PackageReference Include="Net.Codecrete.QrCodeGenerator" />
   </ItemGroup>
 
 </Project>

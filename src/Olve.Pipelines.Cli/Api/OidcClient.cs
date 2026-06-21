@@ -59,23 +59,92 @@ public static class OidcClient
             ["client_id"] = clientId,
         }, ct);
 
+    /// <summary>Starts a device-authorization grant (RFC 8628): returns the user code + verification URI.</summary>
+    public static async Task<Result<DeviceAuthResponse>> StartDeviceAuthAsync(
+        HttpClient http, string deviceEndpoint, string clientId, string scope, CancellationToken ct)
+    {
+        try
+        {
+            using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["client_id"] = clientId,
+                ["scope"] = scope,
+            });
+            using var response = await http.PostAsync(deviceEndpoint, content, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+
+            DeviceAuthResponse? device = null;
+            try { device = JsonSerializer.Deserialize(body, CliJsonContext.Default.DeviceAuthResponse); }
+            catch (JsonException) { /* fall through */ }
+
+            if (!response.IsSuccessStatusCode || device?.Error is { Length: > 0 })
+            {
+                var detail = device?.ErrorDescription ?? device?.Error ?? Snippet(body);
+                return new ResultProblem("Device authorization request failed ({0}): {1}", (int)response.StatusCode, detail);
+            }
+
+            if (device?.DeviceCode is not { Length: > 0 } || device.UserCode is not { Length: > 0 })
+                return new ResultProblem("Device authorization response from {0} was missing device_code/user_code.", deviceEndpoint);
+
+            return Result.Success(device);
+        }
+        catch (HttpRequestException ex)
+        {
+            return new ResultProblem("Device authorization request to {0} failed: {1}", deviceEndpoint, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Polls the token endpoint for a device grant until the user approves, the code expires, or it's
+    /// denied. Honours <c>authorization_pending</c> (keep waiting) and <c>slow_down</c> (back off).
+    /// </summary>
+    public static async Task<Result<TokenResponse>> PollDeviceTokenAsync(
+        HttpClient http, string tokenEndpoint, string clientId, string deviceCode, int intervalSeconds, CancellationToken ct)
+    {
+        var interval = Math.Max(1, intervalSeconds);
+        while (true)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(interval), ct);
+
+            var (status, token, body) = await PostFormAsync(http, tokenEndpoint, new Dictionary<string, string>
+            {
+                ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
+                ["device_code"] = deviceCode,
+                ["client_id"] = clientId,
+            }, ct);
+
+            if (token?.AccessToken is { Length: > 0 })
+                return Result.Success(token);
+
+            switch (token?.Error)
+            {
+                case "authorization_pending":
+                    continue;
+                case "slow_down":
+                    interval += 5;
+                    continue;
+                case "expired_token":
+                    return new ResultProblem("The device code expired before you approved the login. Run `pl login --device` again.");
+                case "access_denied":
+                    return new ResultProblem("Login was denied in the browser.");
+                default:
+                    var detail = token?.ErrorDescription ?? token?.Error ?? Snippet(body);
+                    return new ResultProblem("Device token poll failed ({0}): {1}", (int)status, detail);
+            }
+        }
+    }
+
     private static async Task<Result<TokenResponse>> PostTokenAsync(
         HttpClient http, string tokenEndpoint, Dictionary<string, string> form, CancellationToken ct)
     {
         try
         {
-            using var content = new FormUrlEncodedContent(form);
-            using var response = await http.PostAsync(tokenEndpoint, content, ct);
-            var body = await response.Content.ReadAsStringAsync(ct);
+            var (status, token, body) = await PostFormAsync(http, tokenEndpoint, form, ct);
 
-            TokenResponse? token = null;
-            try { token = JsonSerializer.Deserialize(body, CliJsonContext.Default.TokenResponse); }
-            catch (JsonException) { /* fall through to error handling below */ }
-
-            if (!response.IsSuccessStatusCode || token?.Error is { Length: > 0 })
+            if (!IsSuccess(status) || token?.Error is { Length: > 0 })
             {
                 var detail = token?.ErrorDescription ?? token?.Error ?? Snippet(body);
-                return new ResultProblem("Token request failed ({0}): {1}", (int)response.StatusCode, detail);
+                return new ResultProblem("Token request failed ({0}): {1}", (int)status, detail);
             }
 
             if (token?.AccessToken is not { Length: > 0 })
@@ -88,6 +157,24 @@ public static class OidcClient
             return new ResultProblem("Token request to {0} failed: {1}", tokenEndpoint, ex.Message);
         }
     }
+
+    /// <summary>Low-level token-endpoint POST. Returns the status + parsed body without judging success,
+    /// so callers (e.g. the device poll) can inspect <c>authorization_pending</c>/<c>slow_down</c>.</summary>
+    private static async Task<(System.Net.HttpStatusCode Status, TokenResponse? Token, string Body)> PostFormAsync(
+        HttpClient http, string tokenEndpoint, Dictionary<string, string> form, CancellationToken ct)
+    {
+        using var content = new FormUrlEncodedContent(form);
+        using var response = await http.PostAsync(tokenEndpoint, content, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+
+        TokenResponse? token = null;
+        try { token = JsonSerializer.Deserialize(body, CliJsonContext.Default.TokenResponse); }
+        catch (JsonException) { /* caller handles the missing/garbled body */ }
+
+        return (response.StatusCode, token, body);
+    }
+
+    private static bool IsSuccess(System.Net.HttpStatusCode status) => (int)status is >= 200 and < 300;
 
     /// <summary>A high-entropy PKCE code verifier (43 base64url chars from 32 random bytes).</summary>
     public static string CreateCodeVerifier() => Base64Url(RandomNumberGenerator.GetBytes(32));

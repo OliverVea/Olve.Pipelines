@@ -1,14 +1,37 @@
-import { LitElement, html, css, type TemplateResult } from 'lit';
+import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { navigate } from '../router.js';
 
 // The setup guide lives as raw Markdown served by the backend at /docs/<page>.md (the
 // LLM/agent surface — see Program.cs). This component is the *human* surface: it fetches
-// the same raw file and renders it. We deliberately do NOT add a markdown-library
-// dependency — the docs use a small, known subset (headings, lists, fenced code,
-// blockquotes, inline code/bold/links), so a focused renderer keeps the bundle lean.
+// the same raw file and renders it. We parse the full GitHub-flavoured Markdown grammar
+// (tables, task lists, strikethrough, nested lists, autolinks, …) with `marked`, then run
+// the output through DOMPurify so the rendered HTML is XSS-safe before it hits the DOM.
 
 const DEFAULT_PAGE = 'index';
+
+// GitHub-flavoured Markdown: tables, strikethrough, task lists, autolinks.
+marked.setOptions({ gfm: true, breaks: false });
+
+// Single global hook (DOMPurify hooks are process-wide): rewrite inter-doc links and
+// harden external links. Inter-doc links in the source are relative (e.g.
+// "getting-started.md", "config-reference.md#anchor") — rewrite them to client routes
+// (/docs/<slug>) so the in-app viewer chains naturally instead of downloading the raw
+// .md. External links open in a new tab with noopener.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName !== 'A') return;
+  const el = node as HTMLAnchorElement;
+  const href = el.getAttribute('href') ?? '';
+  const resolved = resolveDocHref(href);
+  if (resolved !== href) el.setAttribute('href', resolved);
+  if (/^https?:\/\//.test(resolved)) {
+    el.setAttribute('target', '_blank');
+    el.setAttribute('rel', 'noopener noreferrer');
+  }
+});
 
 @customElement('docs-view')
 export class DocsView extends LitElement {
@@ -33,6 +56,7 @@ export class DocsView extends LitElement {
       box-shadow: var(--shadow);
       padding: 1.5rem 2rem;
       line-height: 1.6;
+      overflow-wrap: break-word;
     }
 
     .doc h1 {
@@ -52,8 +76,24 @@ export class DocsView extends LitElement {
       margin: 1.25rem 0 0.5rem;
     }
 
+    .doc h4 {
+      font-size: 0.95rem;
+      margin: 1rem 0 0.5rem;
+    }
+
+    .doc h5,
+    .doc h6 {
+      font-size: 0.9rem;
+      margin: 1rem 0 0.5rem;
+      color: var(--color-text-muted);
+    }
+
     .doc p {
       margin: 0.75rem 0;
+    }
+
+    .doc a {
+      color: var(--color-primary);
     }
 
     .doc ul,
@@ -66,19 +106,41 @@ export class DocsView extends LitElement {
       margin: 0.3rem 0;
     }
 
+    .doc li > ul,
+    .doc li > ol {
+      margin: 0.3rem 0;
+    }
+
+    /* GFM task lists */
+    .doc li.task-list-item {
+      list-style: none;
+      margin-left: -1.2rem;
+    }
+
+    .doc li.task-list-item input {
+      margin-right: 0.4rem;
+    }
+
     .doc code {
       background: var(--color-surface-hover);
       border-radius: var(--radius);
       padding: 0.1rem 0.3rem;
+      font-size: 0.9em;
     }
 
     .doc pre {
       margin: 1rem 0;
+      padding: 0.85rem 1rem;
+      background: var(--color-surface-hover);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      overflow-x: auto;
     }
 
     .doc pre code {
       background: none;
       padding: 0;
+      font-size: 0.85rem;
     }
 
     .doc blockquote {
@@ -100,6 +162,42 @@ export class DocsView extends LitElement {
       margin: 1.5rem 0;
     }
 
+    .doc img {
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--radius);
+    }
+
+    .doc del {
+      color: var(--color-text-muted);
+    }
+
+    /* GFM tables */
+    .doc table {
+      width: 100%;
+      margin: 1rem 0;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      display: block;
+      overflow-x: auto;
+    }
+
+    .doc th,
+    .doc td {
+      border: 1px solid var(--color-border);
+      padding: 0.4rem 0.7rem;
+      text-align: left;
+    }
+
+    .doc th {
+      background: var(--color-surface-hover);
+      font-weight: 600;
+    }
+
+    .doc tbody tr:nth-child(even) {
+      background: var(--color-surface-hover);
+    }
+
     .loading,
     .error {
       padding: 2rem;
@@ -114,14 +212,14 @@ export class DocsView extends LitElement {
   /** The doc page slug, e.g. "index", "getting-started". */
   @property() declare page: string;
 
-  @state() private declare _blocks: TemplateResult[];
+  @state() private declare _html: string;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
 
   constructor() {
     super();
     this.page = DEFAULT_PAGE;
-    this._blocks = [];
+    this._html = '';
     this._loading = true;
     this._error = null;
   }
@@ -143,7 +241,8 @@ export class DocsView extends LitElement {
       const res = await fetch(`/docs/${slug}.md`);
       if (!res.ok) throw new Error(`Failed to load docs page "${slug}" (${res.status})`);
       const text = await res.text();
-      this._blocks = renderMarkdown(text);
+      const parsed = marked.parse(text, { async: false });
+      this._html = DOMPurify.sanitize(parsed, { ADD_ATTR: ['target'] });
     } catch (e) {
       this._error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -160,7 +259,7 @@ export class DocsView extends LitElement {
         ? html`<p class="loading">Loading docs…</p>`
         : this._error
           ? html`<p class="error">${this._error}</p>`
-          : html`<article class="doc" @click=${this._onLinkClick}>${this._blocks}</article>`}
+          : html`<article class="doc" @click=${this._onLinkClick}>${unsafeHTML(this._html)}</article>`}
     `;
   }
 
@@ -182,155 +281,8 @@ export class DocsView extends LitElement {
   }
 }
 
-// ---- Minimal Markdown renderer (block-level) ----
-
-function renderMarkdown(src: string): TemplateResult[] {
-  const lines = src.replace(/\r\n/g, '\n').split('\n');
-  const blocks: TemplateResult[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Fenced code block
-    const fence = line.match(/^```(.*)$/);
-    if (fence) {
-      const code: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        code.push(lines[i]);
-        i++;
-      }
-      i++; // closing fence
-      blocks.push(html`<pre><code>${code.join('\n')}</code></pre>`);
-      continue;
-    }
-
-    // Heading
-    const heading = line.match(/^(#{1,3})\s+(.*)$/);
-    if (heading) {
-      const text = inline(heading[2]);
-      blocks.push(
-        heading[1].length === 1
-          ? html`<h1>${text}</h1>`
-          : heading[1].length === 2
-            ? html`<h2>${text}</h2>`
-            : html`<h3>${text}</h3>`
-      );
-      i++;
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^---+$/.test(line.trim())) {
-      blocks.push(html`<hr />`);
-      i++;
-      continue;
-    }
-
-    // Blockquote
-    if (line.startsWith('>')) {
-      const quote: string[] = [];
-      while (i < lines.length && lines[i].startsWith('>')) {
-        quote.push(lines[i].replace(/^>\s?/, ''));
-        i++;
-      }
-      blocks.push(html`<blockquote>${paragraphs(quote)}</blockquote>`);
-      continue;
-    }
-
-    // Lists (unordered or ordered)
-    const listMatch = line.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
-    if (listMatch) {
-      const ordered = /\d+\./.test(listMatch[2]);
-      const items: TemplateResult[] = [];
-      while (i < lines.length) {
-        const m = lines[i].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);
-        if (!m) break;
-        items.push(html`<li>${inline(m[3])}</li>`);
-        i++;
-      }
-      blocks.push(ordered ? html`<ol>${items}</ol>` : html`<ul>${items}</ul>`);
-      continue;
-    }
-
-    // Blank line
-    if (line.trim() === '') {
-      i++;
-      continue;
-    }
-
-    // Paragraph — gather until blank line or block boundary
-    const para: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() !== '' &&
-      !lines[i].startsWith('```') &&
-      !lines[i].startsWith('>') &&
-      !/^#{1,3}\s/.test(lines[i]) &&
-      !/^(\s*)([-*]|\d+\.)\s+/.test(lines[i])
-    ) {
-      para.push(lines[i]);
-      i++;
-    }
-    blocks.push(html`<p>${inline(para.join(' '))}</p>`);
-  }
-
-  return blocks;
-}
-
-function paragraphs(lines: string[]): TemplateResult[] {
-  const out: TemplateResult[] = [];
-  let buf: string[] = [];
-  const flush = () => {
-    if (buf.length) {
-      out.push(html`<p>${inline(buf.join(' '))}</p>`);
-      buf = [];
-    }
-  };
-  for (const l of lines) {
-    if (l.trim() === '') flush();
-    else buf.push(l);
-  }
-  flush();
-  return out;
-}
-
-// Inline tokens: `code`, **bold**, [text](href). Tokenized so we never inject raw HTML —
-// each piece becomes a Lit value, keeping it XSS-safe.
-function inline(text: string): (TemplateResult | string)[] {
-  const out: (TemplateResult | string)[] = [];
-  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\([^)]+\))/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    const token = m[0];
-    if (token.startsWith('`')) {
-      out.push(html`<code>${token.slice(1, -1)}</code>`);
-    } else if (token.startsWith('**')) {
-      out.push(html`<strong>${token.slice(2, -2)}</strong>`);
-    } else {
-      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/)!;
-      out.push(renderLink(linkMatch[1], linkMatch[2]));
-    }
-    last = re.lastIndex;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
-}
-
-function renderLink(label: string, href: string): TemplateResult {
-  const resolved = resolveDocHref(href);
-  const external = resolved.startsWith('http://') || resolved.startsWith('https://');
-  return external
-    ? html`<a href=${resolved} target="_blank" rel="noopener">${label}</a>`
-    : html`<a href=${resolved}>${label}</a>`;
-}
-
-// Inter-doc links in the source are relative (e.g. "getting-started.md",
-// "config-reference.md#anchor"). Rewrite them to client routes (/docs/<slug>) so the
-// in-app viewer chains naturally instead of downloading the raw .md.
+// Rewrite a relative "<slug>.md(#anchor)?" reference to the client route /docs/<slug>.
+// Leaves absolute URLs, anchors, and anything else untouched.
 function resolveDocHref(href: string): string {
   if (/^https?:\/\//.test(href) || href.startsWith('#')) return href;
   const localMd = href.match(/^([\w-]+)\.md(#.*)?$/);

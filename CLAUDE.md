@@ -130,6 +130,7 @@ cd frontend && npm run build                                # Production build
 - Storage via S3-compatible MinIO (minio.ovea.pro) — JSON files for persistence, zipped directories for bundles
 - TypeScript client generated from OpenAPI via Kiota
 - C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes)
+- **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 
 ## References

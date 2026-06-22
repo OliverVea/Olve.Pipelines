@@ -117,8 +117,8 @@ public class DeployPollService(
         var fetchResult = await source.FetchConfigAsync(binding, etag, ct);
         if (fetchResult.TryPickProblems(out var fetchProblems, out var fetch))
         {
-            logger.LogWarning("Config fetch failed for '{Repo}@{Branch}': {Problems}",
-                binding.Repo, binding.Branch, fetchProblems);
+            logger.LogProblems(LogLevel.Warning, fetchProblems, "Config fetch failed for '{Repo}@{Branch}'",
+                binding.Repo, binding.Branch);
             RecordError(bindingService, binding, fetchProblems);
             return false;
         }
@@ -140,8 +140,8 @@ public class DeployPollService(
         var compiler = scope.ServiceProvider.GetRequiredService<ManifestCompiler>();
         if (compiler.Compile(changed.Files).TryPickProblems(out var compileProblems, out var manifest))
         {
-            logger.LogWarning("Config compile failed for '{Repo}' (cursor not advanced): {Problems}",
-                binding.Repo, compileProblems);
+            logger.LogProblems(LogLevel.Warning, compileProblems, "Config compile failed for '{Repo}' (cursor not advanced)",
+                binding.Repo);
             RecordError(bindingService, binding, compileProblems);
             return false;
         }
@@ -149,8 +149,8 @@ public class DeployPollService(
         var coordinator = scope.ServiceProvider.GetRequiredService<ReconcileCoordinator>();
         if ((await coordinator.ReconcileAsync(binding.PipelineId, manifest, ct)).TryPickProblems(out var reconcileProblems))
         {
-            logger.LogWarning("Reconcile failed for '{Repo}' (cursor not advanced): {Problems}",
-                binding.Repo, reconcileProblems);
+            logger.LogProblems(LogLevel.Warning, reconcileProblems, "Reconcile failed for '{Repo}' (cursor not advanced)",
+                binding.Repo);
             RecordError(bindingService, binding, reconcileProblems);
             return false;
         }
@@ -191,8 +191,8 @@ public class DeployPollService(
         var headResult = await source.GetBranchHeadShaAsync(binding, ct);
         if (headResult.TryPickProblems(out var problems, out var head))
         {
-            logger.LogWarning("Deploy poll: could not read branch head for '{Repo}@{Branch}': {Problems}",
-                binding.Repo, binding.Branch, problems);
+            logger.LogProblems(LogLevel.Warning, problems, "Deploy poll: could not read branch head for '{Repo}@{Branch}'",
+                binding.Repo, binding.Branch);
             return;
         }
 
@@ -217,8 +217,8 @@ public class DeployPollService(
         if (execution.ExecuteProductionForPipeline(binding.PipelineId).TryPickProblems(out var execProblems))
         {
             // Leave the cursor unadvanced so the next interval retries this commit.
-            logger.LogWarning("Deploy poll: production failed for pipeline '{PipelineId}': {Problems}",
-                binding.PipelineId, execProblems);
+            logger.LogProblems(LogLevel.Warning, execProblems, "Deploy poll: production failed for pipeline '{PipelineId}'",
+                binding.PipelineId);
             return;
         }
 

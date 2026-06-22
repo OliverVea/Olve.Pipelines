@@ -19,9 +19,9 @@ public class JobObsoletionService(JobService jobService, ILogger<JobObsoletionSe
         var result = jobService.UpdateJob<Job>(existingJob.Id, j => j with { Status = new Obsolete(newJob.Id) });
         if (result.TryPickProblems(out var problems))
         {
-            logger.LogWarning(
-                "Failed to obsolete job '{ExistingJobId}' when superseded by '{NewJobId}': {Problems}",
-                existingJob.Id, newJob.Id, problems);
+            logger.LogProblems(LogLevel.Warning, problems,
+                "Failed to obsolete job '{ExistingJobId}' when superseded by '{NewJobId}'",
+                existingJob.Id, newJob.Id);
         }
     }
 

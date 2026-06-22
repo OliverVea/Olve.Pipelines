@@ -81,8 +81,11 @@ public class KubernetesJobExecutor(
             EnvironmentVariables: config.EnvironmentVariables,
             SecretName: secretName);
 
+        var stepName = productionStepService.TryGet(job.ProductionStepId).TryPickProblems(out _, out var step)
+            ? "(unknown)"
+            : step.Name;
         var logKey = LogS3Key(job.PipelineId, productionGroup.ArtifactBundleId, job.Id);
-        await SubmitOrReattachAsync(job, spec, s3SecretName, logKey, ct);
+        await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, ct);
     }
 
     private async Task ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
@@ -112,11 +115,14 @@ public class KubernetesJobExecutor(
             SecretName: secretName,
             InputBundleS3Prefix: $"{prefix}/production");
 
+        var stepName = processingStepService.TryGet(job.ProcessingStepId).TryPickProblems(out _, out var step)
+            ? "(unknown)"
+            : step.Name;
         var logKey = LogS3Key(job.PipelineId, job.ArtifactBundleId, job.Id);
-        await SubmitOrReattachAsync(job, spec, s3SecretName, logKey, ct);
+        await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, ct);
     }
 
-    private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
+    private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string stepName, string s3SecretName, string logKey, CancellationToken ct)
     {
         // The per-job S3 secret must outlive a cancelled watcher. A self-deploy step helm-upgrades this
         // very controller mid-run, which restarts the pod and cancels `ct` (ApplicationStopping) while the
@@ -131,12 +137,14 @@ public class KubernetesJobExecutor(
 
             if (existing is null)
             {
-                logger.LogInformation("Creating K8s Job '{JobName}'", spec.Name);
+                logger.LogInformation("Creating K8s Job '{JobName}' for step '{StepName}' (pipeline '{PipelineId}')",
+                    spec.Name, stepName, job.PipelineId);
                 await kubernetesClient.CreateJobAsync(options.Namespace, spec, ct);
             }
             else
             {
-                logger.LogInformation("Reattaching to existing K8s Job '{JobName}' (phase={Phase})", spec.Name, existing.Phase);
+                logger.LogInformation("Reattaching to existing K8s Job '{JobName}' for step '{StepName}' (pipeline '{PipelineId}', phase={Phase})",
+                    spec.Name, stepName, job.PipelineId, existing.Phase);
             }
 
             var startedAt = EnsureInProgress(job);
@@ -166,13 +174,13 @@ public class KubernetesJobExecutor(
                 switch (status.Phase)
                 {
                     case JobPhase.Succeeded:
-                        logger.LogInformation("K8s Job '{JobName}' succeeded", spec.Name);
+                        logger.LogInformation("K8s Job '{JobName}' for step '{StepName}' succeeded", spec.Name, stepName);
                         await UploadLogsAsync(spec.Name, logKey, ct);
                         WriteDone(job, startedAt);
                         reachedTerminal = true;
                         return;
                     case JobPhase.Failed:
-                        logger.LogWarning("K8s Job '{JobName}' failed: {Message}", spec.Name, status.Message);
+                        logger.LogWarning("K8s Job '{JobName}' for step '{StepName}' failed: {Message}", spec.Name, stepName, status.Message);
                         await UploadLogsAsync(spec.Name, logKey, ct);
                         FailJob(job, startedAt, status.Message ?? "K8s job failed");
                         reachedTerminal = true;
@@ -206,7 +214,8 @@ public class KubernetesJobExecutor(
             Status = new Done(startedAt, completedAt),
         });
 
-        logger.LogInformation("Job '{JobId}' completed", job.Id);
+        logger.LogInformation("Job '{JobId}' for pipeline '{PipelineId}' completed in {ElapsedMs}ms",
+            job.Id, job.PipelineId, (long)(completedAt - startedAt).TotalMilliseconds);
     }
 
     private void FailJob(Job job, InProgress? currentInProgress, string reason)
@@ -223,7 +232,8 @@ public class KubernetesJobExecutor(
             Status = new Failed(startedAt, failedAt, reason),
         });
 
-        logger.LogWarning("Job '{JobId}' failed: {Reason}", job.Id, reason);
+        logger.LogWarning("Job '{JobId}' for pipeline '{PipelineId}' failed after {ElapsedMs}ms: {Reason}",
+            job.Id, job.PipelineId, (long)(failedAt - startedAt).TotalMilliseconds, reason);
     }
 
     private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)

@@ -115,12 +115,14 @@ public partial class PollTriggerService(
 
         using var scope = sp.CreateScope();
         var execution = scope.ServiceProvider.GetRequiredService<TriggerExecutionService>();
+        var fireStart = System.Diagnostics.Stopwatch.GetTimestamp();
         var result = execution.ExecuteInternal(trigger.Id);
+        var elapsedMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(fireStart).TotalMilliseconds;
 
         if (result.TryPickProblems(out var problems))
-            logger.LogWarning("Failed to execute poll trigger '{TriggerId}': {Problems}", trigger.Id, problems);
+            logger.LogProblems(LogLevel.Warning, problems, "Failed to execute poll trigger '{TriggerId}' after {ElapsedMs}ms", trigger.Id, elapsedMs);
         else
-            logger.LogInformation("Poll trigger '{TriggerId}' fired successfully", trigger.Id);
+            logger.LogInformation("Poll trigger '{TriggerId}' fired successfully in {ElapsedMs}ms", trigger.Id, elapsedMs);
     }
 
     private async Task<Dictionary<string, string>> ResolveHeadersAsync(

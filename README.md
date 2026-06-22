@@ -277,6 +277,28 @@ Sources in priority order (highest wins):
 | `Storage:Bucket` | — | S3 bucket name |
 | `Kubernetes:Namespace` | — | K8s namespace for jobs and secrets |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
+| `Logging:Console:FormatterName` | `simple` | Console formatter. Set to `json` in deployed envs for structured logs (see below) |
+| `Logging:Console:Json:UseUtcTimestamp` | `false` | Emit log timestamps in UTC when using the `json` formatter |
+
+### Logging
+
+Logging is **backend-agnostic**: the app only writes to **stdout**. Shipping is the cluster's
+job — the node's OTel Collector DaemonSet scrapes container stdout into the homelab OpenObserve
+stack. The app names no log endpoint, token, or stream. (The separate OTLP *push* exporter under
+`OpenTelemetry:*` is a legacy traces/metrics path and unrelated to log shipping.)
+
+- **Format.** Deployed environments set `Logging__Console__FormatterName=json` (in `helm/values.yaml`,
+  inherited by beta) so every line is structured JSON and message args (`{JobId}`, `{ElapsedMs}`, …)
+  become individually queryable fields. Local `dotnet run` omits it and gets the pretty `simple`
+  formatter. No application code selects the formatter — it is pure configuration.
+- **Levels.** `Information` = operator-facing audit milestones (job created/completed, trigger fired,
+  reconcile done); `Warning` = recoverable/degraded + **always-logged security events** (webhook
+  signature mismatch, auth rejection); `Error` = an operation failed / unhandled background exception;
+  `Debug`/`Trace` = loop iterations and wire detail, off in prod.
+- **Result problems.** Failures are logged with `ILogger.LogProblems(...)` (in
+  `src/Olve.Pipelines/Shared/ResultProblemLogExtensions.cs`), which flattens a `ResultProblem` set into
+  the scalar fields `ProblemCount` / `ProblemMessages` / `MaxSeverity` instead of one opaque blob.
+  Route new failure logs through it rather than a `{Problems}` placeholder.
 
 ## Client Generation
 

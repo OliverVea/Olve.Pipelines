@@ -111,7 +111,7 @@ public static class PipelineBindingEndpoints
                 var result = await deployPoll.ReconcileNowAsync(pipelineId, ct);
                 if (result.TryPickProblems(out var problems))
                 {
-                    logger.LogWarning("Binding webhook for '{BindingId}' did not deploy: {Problems}", bindingId, problems);
+                    logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' did not deploy", bindingId);
                     return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
                 }
 

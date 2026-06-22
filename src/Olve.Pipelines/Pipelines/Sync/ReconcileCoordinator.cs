@@ -26,14 +26,15 @@ public class ReconcileCoordinator(
 {
     public async Task<Result> ReconcileAsync(Id<Pipeline> pipelineId, PipelineManifest desired, CancellationToken ct = default)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         pauseState.Pause(pipelineId);
         try
         {
             if (!await DrainAsync(pipelineId, ct))
             {
                 logger.LogWarning(
-                    "Reconcile aborted: pipeline '{PipelineId}' did not drain within {Timeout}; will retry next poll",
-                    pipelineId, options.DrainTimeout);
+                    "Reconcile aborted: pipeline '{PipelineId}' did not drain within {Timeout} ({ElapsedMs}ms); will retry next poll",
+                    pipelineId, options.DrainTimeout, sw.ElapsedMilliseconds);
                 return new ResultProblem($"Pipeline '{pipelineId}' did not drain within {options.DrainTimeout}.");
             }
 
@@ -42,6 +43,13 @@ public class ReconcileCoordinator(
             {
                 result = reconciler.Reconcile(pipelineId, desired);
             }
+
+            if (result.TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems,
+                    "Reconcile for pipeline '{PipelineId}' failed after {ElapsedMs}ms", pipelineId, sw.ElapsedMilliseconds);
+            else
+                logger.LogInformation("Reconcile for pipeline '{PipelineId}' completed in {ElapsedMs}ms",
+                    pipelineId, sw.ElapsedMilliseconds);
 
             return result;
         }

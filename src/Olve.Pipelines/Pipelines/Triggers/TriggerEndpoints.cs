@@ -89,8 +89,8 @@ public static class TriggerEndpoints
             {
                 // A reconcile pause (or other transient refusal) lands here. Return 503 so GitHub
                 // retries the delivery rather than silently dropping the push.
-                logger.LogWarning("GitHub webhook for trigger '{TriggerId}' did not fire production: {Problems}",
-                    triggerId, problems);
+                logger.LogProblems(LogLevel.Warning, problems,
+                    "GitHub webhook for trigger '{TriggerId}' did not fire production", triggerId);
                 return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
             }
 

@@ -60,7 +60,7 @@ public class BindingHookRegistrationService(
         var patResult = await secretReader.TryGetSecretAsync(work.PipelineId, work.CredentialsSecret, ct);
         if (patResult.TryPickProblems(out var patProblems, out var pat))
         {
-            logger.LogWarning("Skipping binding hook create for '{BindingId}': {Problems}", work.BindingId, patProblems);
+            logger.LogProblems(LogLevel.Warning, patProblems, "Skipping binding hook create for '{BindingId}'", work.BindingId);
             return;
         }
 
@@ -70,7 +70,7 @@ public class BindingHookRegistrationService(
 
         if (createResult.TryPickProblems(out var createProblems, out var hookId))
         {
-            logger.LogWarning("Binding hook create failed for '{BindingId}': {Problems}", work.BindingId, createProblems);
+            logger.LogProblems(LogLevel.Warning, createProblems, "Binding hook create failed for '{BindingId}'", work.BindingId);
             return;
         }
 
@@ -83,14 +83,14 @@ public class BindingHookRegistrationService(
         var patResult = await secretReader.TryGetSecretAsync(work.PipelineId, work.CredentialsSecret, ct);
         if (patResult.TryPickProblems(out var patProblems, out var pat))
         {
-            logger.LogWarning("Cannot delete binding hook for '{BindingId}' (PAT unavailable): {Problems}", work.BindingId, patProblems);
+            logger.LogProblems(LogLevel.Warning, patProblems, "Cannot delete binding hook for '{BindingId}' (PAT unavailable)", work.BindingId);
             return;
         }
 
         var deleteResult = await gitHub.DeleteHookAsync(work.Owner, work.Repo, pat, work.HookId, ct);
         if (deleteResult.TryPickProblems(out var deleteProblems))
         {
-            logger.LogWarning("Binding hook delete failed for '{BindingId}': {Problems}", work.BindingId, deleteProblems);
+            logger.LogProblems(LogLevel.Warning, deleteProblems, "Binding hook delete failed for '{BindingId}'", work.BindingId);
             return;
         }
 

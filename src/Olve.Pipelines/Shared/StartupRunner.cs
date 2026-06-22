@@ -9,7 +9,7 @@ public class StartupRunner(IEnumerable<IRunOnStartup> startupServices, ILogger<S
             var result = service.Run();
             if (result.TryPickProblems(out var problems))
             {
-                logger.LogError("Startup service {Service} failed: {Problems}", service.GetType().Name, problems);
+                logger.LogProblems(LogLevel.Error, problems, "Startup service {Service} failed", service.GetType().Name);
             }
         }
 

@@ -81,6 +81,12 @@ config:
   Port: "5000"
   Logging__LogLevel__Default: "Information"
   Logging__LogLevel__Microsoft.AspNetCore: "Warning"
+  # Emit structured JSON log lines to stdout via the framework's native console formatter (zero
+  # app code) so the node's OTel Collector can scrape them into queryable fields. Local dev omits
+  # this and falls back to the pretty 'simple' formatter. Beta inherits both keys from this base
+  # values file (its values-beta.yaml overlay only overrides env-specific config).
+  Logging__Console__FormatterName: "json"
+  Logging__Console__Json__UseUtcTimestamp: "true"
   Auth__Authority: "https://auth.ovea.pro/application/o/olve-pipelines/"
   Auth__Audience: "olve-pipelines"
   Auth__FrontendAuthority: "https://auth.ovea.pro/application/o/olve-pipelines-frontend/"

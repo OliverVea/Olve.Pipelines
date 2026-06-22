@@ -16,9 +16,9 @@ public class JobCancellationService(JobService jobService, ILogger<JobCancellati
             var result = jobService.CancelJob(job.Id);
             if (result.TryPickProblems(out var problems))
             {
-                logger.LogWarning(
-                    "Failed to cancel job '{JobId}' when pipeline '{PipelineId}' was deleted: {Problems}",
-                    job.Id, pipelineId, problems);
+                logger.LogProblems(LogLevel.Warning, problems,
+                    "Failed to cancel job '{JobId}' when pipeline '{PipelineId}' was deleted",
+                    job.Id, pipelineId);
             }
         }
     }

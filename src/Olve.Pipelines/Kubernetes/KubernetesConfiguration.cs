@@ -49,7 +49,12 @@ public static class KubernetesConfiguration
             tokenProvider,
             openBaoUrl,
             skipCertValidation: skipCertValidation,
-            logger: LoggerFactory.Create(b => b.AddConsole()).CreateLogger<OpenBaoClient>());
+            // Bind to the app's Logging config (not a bare AddConsole) so this SDK client honors the
+            // configured console formatter — emitting JSON in deployed envs instead of polluting the
+            // structured stdout stream with plain-text lines.
+            logger: LoggerFactory.Create(b => b
+                .AddConfiguration(builder.Configuration.GetSection("Logging"))
+                .AddConsole()).CreateLogger<OpenBaoClient>());
 
         var credentialsProvider = new OpenBaoCredentialsProvider(openBaoClient);
 

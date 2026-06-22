@@ -60,7 +60,7 @@ public class GitHubHookRegistrationService(
         var patResult = await secretReader.TryGetSecretAsync(work.PipelineId, work.TokenSecretName, ct);
         if (patResult.TryPickProblems(out var patProblems, out var pat))
         {
-            logger.LogWarning("Skipping GitHub hook create for trigger '{TriggerId}': {Problems}", work.TriggerId, patProblems);
+            logger.LogProblems(LogLevel.Warning, patProblems, "Skipping GitHub hook create for trigger '{TriggerId}'", work.TriggerId);
             return;
         }
 
@@ -70,7 +70,7 @@ public class GitHubHookRegistrationService(
 
         if (createResult.TryPickProblems(out var createProblems, out var hookId))
         {
-            logger.LogWarning("GitHub hook create failed for trigger '{TriggerId}': {Problems}", work.TriggerId, createProblems);
+            logger.LogProblems(LogLevel.Warning, createProblems, "GitHub hook create failed for trigger '{TriggerId}'", work.TriggerId);
             return;
         }
 
@@ -84,14 +84,14 @@ public class GitHubHookRegistrationService(
         if (patResult.TryPickProblems(out var patProblems, out var pat))
         {
             // Keep the state entry so the hook id is not lost; a future delete attempt can retry.
-            logger.LogWarning("Cannot delete GitHub hook for trigger '{TriggerId}' (PAT unavailable): {Problems}", work.TriggerId, patProblems);
+            logger.LogProblems(LogLevel.Warning, patProblems, "Cannot delete GitHub hook for trigger '{TriggerId}' (PAT unavailable)", work.TriggerId);
             return;
         }
 
         var deleteResult = await gitHub.DeleteHookAsync(work.Owner, work.Repo, pat, work.HookId, ct);
         if (deleteResult.TryPickProblems(out var deleteProblems))
         {
-            logger.LogWarning("GitHub hook delete failed for trigger '{TriggerId}': {Problems}", work.TriggerId, deleteProblems);
+            logger.LogProblems(LogLevel.Warning, deleteProblems, "GitHub hook delete failed for trigger '{TriggerId}'", work.TriggerId);
             return;
         }
 

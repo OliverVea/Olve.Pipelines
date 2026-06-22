@@ -39,8 +39,13 @@ minio:
 authentikCa:
   fileName: auth-beta-ca.crt
 
+# Beta ingress (private pipelines-beta.ovea.pro + public pipelines-hooks-beta.ovea.pro) is
+# owned by the Olve.Homelab edge chart (its values-beta.yaml). Explicitly disabled here —
+# base values.yaml already defaults both off, but this overlay must not re-enable public —
+# so the app's beta Helm release and the edge release don't fight over the objects.
+# Webhooks__PublicBaseUrl above stays: it only configures GitHub webhook auto-registration,
+# independent of who owns the ingress.
 ingress:
-  host: pipelines-beta.ovea.pro
+  enabled: false
   public:
-    enabled: true
-    host: pipelines-hooks-beta.ovea.pro
+    enabled: false

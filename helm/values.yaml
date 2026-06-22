@@ -18,8 +18,15 @@ service:
 container:
   port: 5000
 
+# Ingress (private + public) is OWNED BY THE Olve.Homelab EDGE CHART, not this chart —
+# both the prod and beta homelab deploys route to this Service from there (its
+# values-{prod,beta}.yaml). Both flags default off so this app's own Helm release never
+# renders an Ingress and the two releases can't fight over the same object. The templates
+# (ingress-{private,public}.yaml) and all the fields below are kept so a standalone
+# install that is NOT behind the edge chart can opt back in with ingress.enabled=true /
+# ingress.public.enabled=true. (pl install's minimal profile keeps both off.)
 ingress:
-  enabled: true
+  enabled: false
   host: pipelines-private.ovea.pro
   externalDnsTarget: "100.100.117.17"
   clusterIssuer: letsencrypt-prod
@@ -33,7 +40,7 @@ ingress:
   # auto-registered hooks point at this host. Must be fronted by a real public entrypoint
   # (Cloudflare Tunnel or a public ingress controller).
   public:
-    enabled: true
+    enabled: false
     host: pipelines-hooks.ovea.pro
     # Publish a Cloudflare-proxied CNAME to the tunnel (same as the questionbank prod
     # ingress) so GitHub reaches the receiver via Cloudflare→tunnel→Traefik. An empty

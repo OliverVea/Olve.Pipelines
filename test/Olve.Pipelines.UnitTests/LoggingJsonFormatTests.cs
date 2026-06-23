@@ -1,85 +1,116 @@
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Olve.Pipelines.Configuration;
 using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests;
 
 /// <summary>
-/// Guards the load-bearing logging contract: structured message args (and the flattened
-/// <see cref="ResultProblemLogExtensions.LogProblems"/> fields) reach the logger as discrete
-/// key/value state — which the deployed <c>Logging:Console:FormatterName=json</c> formatter turns
-/// into queryable JSON fields rather than an opaque string blob. We capture the log state directly
-/// (TUnit forbids redirecting <c>Console.Out</c>) and confirm it serializes to JSON with each field
-/// surfaced.
+/// Real end-to-end guard for the logging contract: under a console setup that reproduces
+/// <c>CreateSlimBuilder</c> (which pins <c>FormatterName="simple"</c>), the
+/// <see cref="LoggingConfiguration.AddConfiguredConsoleFormatter"/> fix makes
+/// <c>Logging:Console:FormatterName=json</c> take effect — so log lines are emitted as JSON and
+/// structured args (incl. the flattened <see cref="ResultProblemLogExtensions.LogProblems"/> fields)
+/// surface as queryable fields rather than a plain-text blob.
+///
+/// These capture the real console output (the only way to verify the actual formatter), so they
+/// redirect the process-global <c>Console.Out</c>: <c>[NotInParallel]</c> serializes them, output is
+/// restored in <c>finally</c>, and lines are matched by category to ignore any stray output.
+/// TUnit0055 (warns that overriding Console can disrupt TUnit logging) is suppressed deliberately.
 /// </summary>
+[NotInParallel("console-capture")]
 public class LoggingJsonFormatTests
 {
-    /// <summary>Records the structured state of each log call so tests can inspect the emitted fields.</summary>
-    private sealed class RecordingLogger : ILogger
+#pragma warning disable TUnit0055 // Overwriting the Console writer — intentional and restored in finally.
+    private static string CaptureConsole(string category, Action<ILogger> log)
     {
-        public List<(LogLevel Level, IReadOnlyList<KeyValuePair<string, object?>> State)> Entries { get; } = [];
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Logging:LogLevel:Default"] = "Trace",
+                ["Logging:Console:FormatterName"] = "json",
+                ["Logging:Console:Json:UseUtcTimestamp"] = "true",
+            })
+            .Build();
 
-        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
+        var original = Console.Out;
+        var buffer = new StringWriter();
+        // The console provider captures Console.Out at construction, so redirect before building it.
+        Console.SetOut(buffer);
+        try
         {
-            if (state is IReadOnlyList<KeyValuePair<string, object?>> kvps)
-                Entries.Add((logLevel, kvps));
+            using (var factory = LoggerFactory.Create(b =>
+            {
+                b.AddConfiguration(config.GetSection("Logging"));
+                b.AddSimpleConsole();                      // reproduce the slim-builder default that hid the bug
+                b.AddConfiguredConsoleFormatter(config);   // the actual fix under test
+            }))
+            {
+                log(factory.CreateLogger(category));
+            } // dispose joins the async console processor thread, flushing all queued lines
+        }
+        finally
+        {
+            Console.SetOut(original);
         }
 
-        private sealed class NullScope : IDisposable
-        {
-            public static readonly NullScope Instance = new();
-            public void Dispose() { }
-        }
+        return buffer.ToString();
     }
+#pragma warning restore TUnit0055
 
-    // Mirror what the JSON console formatter does: drop the raw template, keep the named fields.
-    private static JsonElement ToJsonFields(IReadOnlyList<KeyValuePair<string, object?>> state)
+    private static JsonElement FindLine(string output, string category)
     {
-        var fields = state
-            .Where(kvp => kvp.Key != "{OriginalFormat}")
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-        return JsonDocument.Parse(JsonSerializer.Serialize(fields)).RootElement.Clone();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!line.StartsWith('{')) continue;
+            var element = JsonDocument.Parse(line).RootElement; // throws if a line isn't valid JSON
+            if (element.TryGetProperty("Category", out var cat) && cat.GetString() == category)
+                return element.Clone();
+        }
+
+        throw new InvalidOperationException($"No JSON log line for category '{category}' in console output:\n{output}");
     }
 
     [Test]
-    public async Task StructuredArgs_SurfaceAsDiscreteJsonFields()
+    public async Task JsonFormatterName_EmitsValidJsonWithStructuredArgsAsFields()
     {
-        var logger = new RecordingLogger();
+        const string category = "JsonShapeTest";
+        var output = CaptureConsole(category, logger =>
+            logger.LogInformation("Job '{JobId}' completed in {ElapsedMs}ms", "abc123", 42));
 
-        logger.LogInformation("Job '{JobId}' completed in {ElapsedMs}ms", "abc123", 42);
+        var root = FindLine(output, category);
 
-        var (level, state) = logger.Entries.Single();
-        var json = ToJsonFields(state);
+        await Assert.That(root.GetProperty("LogLevel").GetString()).IsEqualTo("Information");
+        await Assert.That(root.GetProperty("Message").GetString()).IsEqualTo("Job 'abc123' completed in 42ms");
 
-        await Assert.That(level).IsEqualTo(LogLevel.Information);
-        await Assert.That(json.GetProperty("JobId").GetString()).IsEqualTo("abc123");
-        await Assert.That(json.GetProperty("ElapsedMs").GetInt32()).IsEqualTo(42);
+        // The args must be individually queryable JSON fields, not folded into the message string.
+        var state = root.GetProperty("State");
+        await Assert.That(state.GetProperty("JobId").GetString()).IsEqualTo("abc123");
+        await Assert.That(state.GetProperty("ElapsedMs").GetInt32()).IsEqualTo(42);
     }
 
     [Test]
-    public async Task LogProblems_FlattensProblemSetIntoScalarJsonFields()
+    public async Task LogProblems_EmitsFlattenedScalarFieldsAsJson()
     {
-        var logger = new RecordingLogger();
+        const string category = "LogProblemsTest";
         var problems = new List<ResultProblem>
         {
             new("first problem") { Severity = 1 },
             new("second problem") { Severity = 5 },
         };
 
-        logger.LogProblems(LogLevel.Warning, problems, "Operation '{Op}' failed", "deploy");
+        var output = CaptureConsole(category, logger =>
+            logger.LogProblems(LogLevel.Warning, problems, "Operation '{Op}' failed", "deploy"));
 
-        var (level, state) = logger.Entries.Single();
-        var json = ToJsonFields(state);
+        var root = FindLine(output, category);
+        var state = root.GetProperty("State");
 
-        await Assert.That(level).IsEqualTo(LogLevel.Warning);
-        await Assert.That(json.GetProperty("Op").GetString()).IsEqualTo("deploy");
-        await Assert.That(json.GetProperty("ProblemCount").GetInt32()).IsEqualTo(2);
-        await Assert.That(json.GetProperty("MaxSeverity").GetInt32()).IsEqualTo(5);
-        await Assert.That(json.GetProperty("ProblemMessages").GetString()!).Contains("first problem");
-        await Assert.That(json.GetProperty("ProblemMessages").GetString()!).Contains("second problem");
+        await Assert.That(root.GetProperty("LogLevel").GetString()).IsEqualTo("Warning");
+        await Assert.That(state.GetProperty("Op").GetString()).IsEqualTo("deploy");
+        await Assert.That(state.GetProperty("ProblemCount").GetInt32()).IsEqualTo(2);
+        await Assert.That(state.GetProperty("MaxSeverity").GetInt32()).IsEqualTo(5);
+        await Assert.That(state.GetProperty("ProblemMessages").GetString()!).Contains("first problem");
+        await Assert.That(state.GetProperty("ProblemMessages").GetString()!).Contains("second problem");
     }
 }

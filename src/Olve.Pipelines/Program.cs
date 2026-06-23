@@ -14,6 +14,7 @@ using Olve.Pipelines.Pipelines.Triggers;
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.ConfigureHost(args);
+builder.ConfigureLogging();
 builder.ConfigureJson();
 builder.ConfigureAuthentication();
 builder.ConfigureTelemetry();

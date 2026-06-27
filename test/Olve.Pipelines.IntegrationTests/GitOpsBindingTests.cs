@@ -10,9 +10,8 @@ public class GitOpsBindingTests
 
     // A repo that cannot reconcile, so the background deploy poll never materializes steps or
     // advances status — keeping these HTTP-surface assertions free of background races.
-    private static CreatePipelineWithRepoRequest WithRepo(string name) => new()
+    private static CreatePipelineWithRepoRequest WithRepo() => new()
     {
-        Name = name,
         Repo = $"olve-test/nonexistent-{Guid.NewGuid():N}",
         Branch = "main",
         Path = ".pipelines",
@@ -25,7 +24,7 @@ public class GitOpsBindingTests
 
         var client = Fixture.CreateApiClient();
 
-        var created = await client.CreatePipelineWithRepo(WithRepo($"with-repo-{Guid.NewGuid():N}"));
+        var created = await client.CreatePipelineWithRepo(WithRepo());
         string? pipelineId = null;
         try
         {
@@ -54,7 +53,7 @@ public class GitOpsBindingTests
 
         var client = Fixture.CreateApiClient();
 
-        var bound = await client.CreatePipelineWithRepo(WithRepo($"status-{Guid.NewGuid():N}"));
+        var bound = await client.CreatePipelineWithRepo(WithRepo());
         var pipelineId = bound.Content!.PipelineId.ToString();
         try
         {
@@ -78,7 +77,7 @@ public class GitOpsBindingTests
 
         var client = Fixture.CreateApiClient();
 
-        var bound = await client.CreatePipelineWithRepo(WithRepo($"cascade-{Guid.NewGuid():N}"));
+        var bound = await client.CreatePipelineWithRepo(WithRepo());
         var pipelineId = bound.Content!.PipelineId.ToString();
         await Assert.That((await client.GetPipelineBinding(pipelineId)).StatusCode).IsEqualTo(HttpStatusCode.OK);
 

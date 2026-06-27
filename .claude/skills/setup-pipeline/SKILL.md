@@ -71,7 +71,6 @@ Step 5). `branch` defaults to `main`, `path` to `.pipelines`.
 BINDING=$(curl -sk -X POST "$API/api/pipelines/with-repo" \
   -H "$H" -H "Content-Type: application/json" \
   -d '{
-    "name":"olve-pipelines",
     "repo":"OliverVea/Olve.Pipelines",
     "branch":"main",
     "path":".pipelines",

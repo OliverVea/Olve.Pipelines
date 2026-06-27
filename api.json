@@ -1801,7 +1801,6 @@
       },
       "CreatePipelineWithRepoRequest": {
         "required": [
-          "name",
           "repo",
           "branch",
           "path",
@@ -1809,9 +1808,6 @@
         ],
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
-          },
           "repo": {
             "type": "string"
           },

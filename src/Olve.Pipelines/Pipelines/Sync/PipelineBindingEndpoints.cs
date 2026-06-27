@@ -25,7 +25,7 @@ public static class PipelineBindingEndpoints
                 PipelineConfigBindingService bindings,
                 CreatePipelineWithRepoRequest request) =>
             {
-                var pipelineResult = pipelines.Create(request.Name);
+                var pipelineResult = pipelines.Create(ProvisionalName(request.Repo));
                 if (pipelineResult.TryPickProblems(out var pipelineProblems, out var pipeline))
                     return pipelineProblems;
 
@@ -178,12 +178,23 @@ public static class PipelineBindingEndpoints
 
     private static string SecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
 
+    // The pipeline name is GitOps config, not binding identity: the first reconcile reads it from
+    // .pipelines/config.yaml. Until then, seed a human-readable provisional from the repo's last
+    // path segment (e.g. "OliverVea/Olve.Pipelines" -> "Olve.Pipelines").
+    private static string ProvisionalName(string repo)
+    {
+        var trimmed = repo.TrimEnd('/');
+        var slash = trimmed.LastIndexOf('/');
+        var segment = slash >= 0 ? trimmed[(slash + 1)..] : trimmed;
+        return string.IsNullOrWhiteSpace(segment) ? repo : segment;
+    }
+
     private static string Branch(string? branch) => string.IsNullOrWhiteSpace(branch) ? DefaultBranch : branch;
     private static string Path(string? path) => string.IsNullOrWhiteSpace(path) ? DefaultPath : path;
 }
 
 public record CreatePipelineWithRepoRequest(
-    string Name, string Repo, string? Branch, string? Path, string? CredentialsSecret,
+    string Repo, string? Branch, string? Path, string? CredentialsSecret,
     BindingDeployTrigger? DeployTrigger = null);
 
 public record UpdateBindingRequest(string? CredentialsSecret);

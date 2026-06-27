@@ -319,10 +319,6 @@ export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Par
      */
     deployTrigger?: BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1 | null;
     /**
-     * The name property
-     */
-    name?: string | null;
-    /**
      * The path property
      */
     path?: string | null;
@@ -790,7 +786,6 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
         "branch": n => { createPipelineWithRepoRequest.branch = n.getStringValue(); },
         "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
         "deployTrigger": n => { createPipelineWithRepoRequest.deployTrigger = n.getObjectValue<BindingDeployTrigger>(createBindingDeployTriggerFromDiscriminatorValue) ?? n.getObjectValue<CreatePipelineWithRepoRequest_deployTriggerMember1>(createCreatePipelineWithRepoRequest_deployTriggerMember1FromDiscriminatorValue); },
-        "name": n => { createPipelineWithRepoRequest.name = n.getStringValue(); },
         "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
         "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
     }
@@ -1114,6 +1109,7 @@ export function deserializeIntoPipelineSummary(pipelineSummary: Partial<Pipeline
         "lastChangedAt": n => { pipelineSummary.lastChangedAt = n.getDateValue(); },
         "name": n => { pipelineSummary.name = n.getStringValue(); },
         "repo": n => { pipelineSummary.repo = n.getStringValue(); },
+        "status": n => { pipelineSummary.status = n.getStringValue(); },
         "steps": n => { pipelineSummary.steps = n.getCollectionOfObjectValues<StepHealth>(createStepHealthFromDiscriminatorValue); },
     }
 }
@@ -1999,6 +1995,10 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      */
     repo?: string | null;
     /**
+     * The status property
+     */
+    status?: string | null;
+    /**
      * The steps property
      */
     steps?: StepHealth[] | null;
@@ -2189,7 +2189,6 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
     writer.writeStringValue("branch", createPipelineWithRepoRequest.branch);
     writer.writeStringValue("credentialsSecret", createPipelineWithRepoRequest.credentialsSecret);
     writer.writeObjectValue<BindingDeployTrigger | CreatePipelineWithRepoRequest_deployTriggerMember1>("deployTrigger", createPipelineWithRepoRequest.deployTrigger, serializeCreatePipelineWithRepoRequest_deployTrigger);
-    writer.writeStringValue("name", createPipelineWithRepoRequest.name);
     writer.writeStringValue("path", createPipelineWithRepoRequest.path);
     writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
     writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
@@ -2560,6 +2559,7 @@ export function serializePipelineSummary(writer: SerializationWriter, pipelineSu
     writer.writeDateValue("lastChangedAt", pipelineSummary.lastChangedAt);
     writer.writeStringValue("name", pipelineSummary.name);
     writer.writeStringValue("repo", pipelineSummary.repo);
+    writer.writeStringValue("status", pipelineSummary.status);
     writer.writeCollectionOfObjectValues<StepHealth>("steps", pipelineSummary.steps, serializeStepHealth);
     writer.writeAdditionalData(pipelineSummary.additionalData);
 }

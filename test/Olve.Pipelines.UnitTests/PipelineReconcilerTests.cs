@@ -80,6 +80,20 @@ public class PipelineReconcilerTests
     }
 
     [Test]
+    public async Task Reconcile_AppliesPipelineNameFromManifest()
+    {
+        var f = CreateFixture();
+        // Bind seeds a provisional name; the manifest (name "p") is the source of truth.
+        var pipeline = Pick(f.Pipelines.Create("provisional-from-repo"));
+
+        var result = f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]));
+
+        await Assert.That(result.Succeeded).IsTrue();
+        f.Pipelines.TryGet(pipeline.Id, out var updated);
+        await Assert.That(updated!.Name).IsEqualTo("p");
+    }
+
+    [Test]
     public async Task Reconcile_MaterializesFailureHandlerBindings()
     {
         var f = CreateFixture();

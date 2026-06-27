@@ -93,7 +93,7 @@ Then bind it:
 POST /api/pipelines/with-repo
 Content-Type: application/json
 
-{ "name": "my-app", "repo": "you/my-app", "branch": "main",
+{ "repo": "you/my-app", "branch": "main",
   "path": ".pipelines", "credentialsSecret": "GITHUB_TOKEN" }
 ```
 

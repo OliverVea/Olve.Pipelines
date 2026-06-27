@@ -58,7 +58,6 @@ POST /api/pipelines/with-repo
 Content-Type: application/json
 
 {
-  "name": "my-app",
   "repo": "you/my-app",
   "branch": "main",            // optional, defaults to "main"
   "path": ".pipelines",        // optional, defaults to ".pipelines"
@@ -69,7 +68,9 @@ Content-Type: application/json
 The response is the binding. Note the pipeline `id` — you need it for the next steps.
 
 > `with-repo` is the only way to create a pipeline: every pipeline is bound to a repo from
-> birth, so its shape always comes from git. See [Binding & Reconcile](binding-and-reconcile.md).
+> birth, so its shape — including its **name** — always comes from git. The bind seeds a
+> provisional name from the repo; the first reconcile sets it from `config.yaml`'s `name`.
+> See [Binding & Reconcile](binding-and-reconcile.md).
 
 ## Step 3 — Set the secret values
 

@@ -28,6 +28,11 @@ public class PipelineReconciler(
         if (!pipelines.TryGet(pipelineId, out _))
             return new ResultProblem($"Pipeline '{pipelineId}' not found.");
 
+        // The name is GitOps config too: the bind seeds a provisional name from the repo, and the
+        // manifest's name takes over from the first reconcile on. (No-op when already matching.)
+        if (pipelines.SetName(pipelineId, desired.Name).TryPickProblems(out var nameProblems))
+            return nameProblems;
+
         if (ReconcileProductionSteps(pipelineId, desired).TryPickProblems(out var prodProblems))
             return prodProblems;
 

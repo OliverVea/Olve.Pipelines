@@ -4,6 +4,8 @@
 // @ts-ignore
 import { ApiRequestBuilderNavigationMetadata, type ApiRequestBuilder } from './api/index.js';
 // @ts-ignore
+import { DownloadRequestBuilderNavigationMetadata, type DownloadRequestBuilder } from './download/index.js';
+// @ts-ignore
 import { apiClientProxifier, ParseNodeFactoryRegistry, SerializationWriterFactoryRegistry, type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type RequestAdapter } from '@microsoft/kiota-abstractions';
 // @ts-ignore
 import { FormParseNodeFactory, FormSerializationWriterFactory } from '@microsoft/kiota-serialization-form';
@@ -22,6 +24,10 @@ export interface ApiClient extends BaseRequestBuilder<ApiClient> {
      * The api property
      */
     get api(): ApiRequestBuilder;
+    /**
+     * The download property
+     */
+    get download(): DownloadRequestBuilder;
 }
 /**
  * Instantiates a new {@link ApiClient} and sets the default values.
@@ -64,6 +70,9 @@ export const ApiClientUriTemplate = "{+baseurl}";
 export const ApiClientNavigationMetadata: Record<Exclude<keyof ApiClient, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     api: {
         navigationMetadata: ApiRequestBuilderNavigationMetadata,
+    },
+    download: {
+        navigationMetadata: DownloadRequestBuilderNavigationMetadata,
     },
 };
 /* tslint:enable */

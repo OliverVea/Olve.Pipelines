@@ -32,7 +32,6 @@ public static class GitOpsFixtureSeeding
 
         var created = await client.CreatePipelineWithRepo(new CreatePipelineWithRepoRequest
         {
-            Name = $"it-fixture-{Guid.NewGuid():N}",
             Repo = Repo,
             Branch = "main",
             Path = FixturePath,

@@ -45,8 +45,10 @@ author a trigger by hand.
    copy-me [`.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines)
    starter (Kaniko build + Helm deploy).
 2. Create a pipeline bound to your repo: `POST /api/pipelines/with-repo` with
-   `{ name, repo, branch?, path?, credentialsSecret }` (see [GitOps Binding](#gitops-binding)).
-   This is the **only** way to create a pipeline — there is no unbound/draft create.
+   `{ repo, branch?, path?, credentialsSecret }` (see [GitOps Binding](#gitops-binding)).
+   This is the **only** way to create a pipeline — there is no unbound/draft create. The
+   pipeline's name comes from `config.yaml`'s `name` (the bind seeds a provisional name from
+   the repo until the first reconcile).
 3. Set the secret *values* your config declares: `PUT /api/pipelines/{id}/secrets/{name}`.
 4. Push. The first reconcile builds your pipeline from the file; check
    `GET /api/pipelines/{id}/binding/status` for the result.

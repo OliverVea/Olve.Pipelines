@@ -29,7 +29,7 @@ pipeline is bound to a repo from birth, so its shape always comes from git.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (rolls back the pipeline if the bind fails). Body: `{ name, repo, branch?, path?, credentialsSecret?, deployTrigger? }` |
+| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (rolls back the pipeline if the bind fails). Body: `{ repo, branch?, path?, credentialsSecret?, deployTrigger? }`. The name is **not** in the body — it comes from `config.yaml`'s `name` on the first reconcile; the bind seeds a provisional name from the repo. |
 | GET | `/api/pipelines/{id}/binding` | Get the binding |
 | GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
 | PATCH | `/api/pipelines/{id}/binding/deploy-trigger` | Change the [deploy-trigger mode](#deploy-trigger-mode). Body: `{ deployTrigger }` |

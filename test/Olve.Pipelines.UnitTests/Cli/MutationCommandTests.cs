@@ -4,6 +4,7 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Jobs;
+using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Processing;
 using Olve.Pipelines.Cli.Commands.Production;
 using Olve.Pipelines.Cli.Diagnostics;
@@ -109,6 +110,19 @@ public class MutationCommandTests
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("CancelJob")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("jid");
+    }
+
+    [Test]
+    public async Task PipelineDelete_CallsApi_AndConfirms()
+    {
+        var api = new FakePipelinesApi { DeletePipelineResult = Result.Success() };
+        var (ctx, stdout, cli) = Build(new PipelineDeleteCommand(), api, json: false, "pipeline", "delete", "pid");
+
+        var result = await new PipelineDeleteCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.Invoked("DeletePipeline")).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("pid");
     }
 
     [Test]

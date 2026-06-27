@@ -25,6 +25,27 @@ public sealed class PipelineGetCommand : ICliCommand
     }
 }
 
+/// <summary><c>pl pipeline delete &lt;id&gt;</c> — delete a pipeline and cascade-cancel its jobs.</summary>
+public sealed class PipelineDeleteCommand : ICliCommand
+{
+    public string Noun => "pipeline";
+    public string Verb => "delete";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Delete a pipeline by id";
+    public string? HelpDetail => "pl pipeline delete <pipelineId>";
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        var id = cli.Operand(0)!;
+        if ((await ctx.Api.DeletePipeline(id, ct)).TryPickProblems(out var problems))
+            return problems;
+
+        if (!ctx.Output.IsJson)
+            ctx.Output.Line($"Deleted pipeline {id}.");
+        return Result.Success();
+    }
+}
+
 /// <summary><c>pl pipeline document &lt;id&gt;</c> — export the pipeline's config document as JSON.</summary>
 public sealed class PipelineDocumentCommand : ICliCommand
 {

@@ -112,7 +112,13 @@
       "Bash(echo \"patch applies cleanly? $\\(git apply --check enable-prod-webhooks.patch && echo YES || echo NO\\)\")",
       "Bash(python3 -c ' *)",
       "Bash(getent hosts *)",
-      "Bash(python3 -c \"import socket;print\\(socket.gethostbyname\\('pipelines-hooks.ovea.pro'\\)\\)\")"
+      "Bash(python3 -c \"import socket;print\\(socket.gethostbyname\\('pipelines-hooks.ovea.pro'\\)\\)\")",
+      "Bash(pl processing *)",
+      "Bash(cat)",
+      "Bash(bash /tmp/watch_deploy.sh)",
+      "Bash(dig +short pipelines-private.ovea.pro)",
+      "Bash(helm template *)",
+      "Bash(sed -n '/operators:/,/processors:/p')"
     ]
   }
 }

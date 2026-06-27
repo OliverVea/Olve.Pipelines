@@ -37,6 +37,7 @@ public sealed class CliDispatcher
         Register(new PipelineListCommand());
         Register(new PipelineGetCommand());
         Register(new PipelineDocumentCommand());
+        Register(new PipelineDeleteCommand());
 
         // production
         Register(new ProductionListCommand());

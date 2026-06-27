@@ -57,7 +57,9 @@ public class PipelineSummaryService(
                 .ToList();
             var lastChangedAt = stepTimes.Count > 0 ? stepTimes.Max() : (DateTimeOffset?)null;
 
-            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, steps.ToArray(), lastChangedAt));
+            var status = PipelineStatus.Compute(steps);
+
+            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, status, steps.ToArray(), lastChangedAt));
         }
 
         return result;

@@ -54,4 +54,5 @@ public interface IPipelinesApi
     Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct);
     Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct);
     Task<Result> CancelJob(string id, CancellationToken ct);
+    Task<Result> DeletePipeline(string id, CancellationToken ct);
 }

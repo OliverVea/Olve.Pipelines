@@ -60,6 +60,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<PromotionState>? SetProcessingStepPromotionResult { get; set; }
     public Result<JobGroup>? RePromoteProcessingStepResult { get; set; }
     public Result? CancelJobResult { get; set; }
+    public Result? DeletePipelineResult { get; set; }
 
     // Pipelines
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
@@ -161,6 +162,13 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Calls.Add(nameof(CancelJob));
         return Task.FromResult(
             CancelJobResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(CancelJob)}' called but not configured."));
+    }
+
+    public Task<Result> DeletePipeline(string id, CancellationToken ct)
+    {
+        Calls.Add(nameof(DeletePipeline));
+        return Task.FromResult(
+            DeletePipelineResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(DeletePipeline)}' called but not configured."));
     }
 
     private Task<Result<T>> Record<T>(Result<T>? configured, string method)

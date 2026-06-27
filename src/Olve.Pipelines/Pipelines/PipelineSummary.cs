@@ -7,12 +7,14 @@ namespace Olve.Pipelines.Pipelines;
 /// (name, optional bound repo, and the per-step health strip) in one round-trip,
 /// avoiding an N+1 fan-out of steps+jobs per pipeline from the client.
 /// <see cref="LastChangedAt"/> is the most recent status change across all of the pipeline's
-/// steps (null if no step has ever run).
+/// steps (null if no step has ever run). <see cref="Status"/> is the aggregate pipeline health
+/// derived from the step strip (see <see cref="PipelineStatus"/>).
 /// </summary>
 public record PipelineSummary(
     Id<Pipeline> Id,
     string Name,
     string? Repo,
+    string Status,
     StepHealth[] Steps,
     DateTimeOffset? LastChangedAt);
 

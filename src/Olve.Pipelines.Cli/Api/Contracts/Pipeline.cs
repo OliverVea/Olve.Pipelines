@@ -17,6 +17,7 @@ public sealed class PipelineSummary
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
     public string? Repo { get; set; }
+    public string Status { get; set; } = "";
     public StepHealth[] Steps { get; set; } = [];
     public DateTimeOffset? LastChangedAt { get; set; }
 }

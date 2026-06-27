@@ -35,20 +35,22 @@ public class PipelineListCommandTests
     }
 
     [Test]
-    public async Task List_Human_RendersIdAndName()
+    public async Task List_Human_RendersIdNameAndStatus()
     {
         var api = new FakePipelinesApi
         {
-            ListPipelinesResult = Result.Success<Pipeline[]>([new Pipeline { Id = Id1, Name = "alpha" }]),
+            ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
+                [new PipelineSummary { Id = Id1, Name = "alpha", Status = "Healthy" }]),
         };
         var (ctx, stdout, cli) = Build(api, json: false, "pipeline", "list");
 
         var result = await new PipelineListCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(api.Invoked("ListPipelines")).IsTrue();
+        await Assert.That(api.Invoked("ListPipelineSummaries")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("alpha");
         await Assert.That(stdout.ToString()).Contains(Id1.ToString());
+        await Assert.That(stdout.ToString()).Contains("Healthy");
     }
 
     [Test]
@@ -56,7 +58,8 @@ public class PipelineListCommandTests
     {
         var api = new FakePipelinesApi
         {
-            ListPipelinesResult = Result.Success<Pipeline[]>([new Pipeline { Id = Id1, Name = "alpha" }]),
+            ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
+                [new PipelineSummary { Id = Id1, Name = "alpha", Status = "Healthy" }]),
         };
         var (ctx, stdout, cli) = Build(api, json: true, "pipeline", "list", "--json");
 
@@ -69,19 +72,20 @@ public class PipelineListCommandTests
     }
 
     [Test]
-    public async Task Summaries_CallsListPipelineSummaries()
+    public async Task Summaries_CallsListPipelineSummaries_AndRendersStatus()
     {
         var api = new FakePipelinesApi
         {
             ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
-                [new PipelineSummary { Id = Id1, Name = "alpha", Repo = "r" }]),
+                [new PipelineSummary { Id = Id1, Name = "alpha", Repo = "r", Status = "Unhealthy" }]),
         };
-        var (ctx, _, cli) = Build(api, json: false, "pipeline", "list", "--summaries");
+        var (ctx, stdout, cli) = Build(api, json: false, "pipeline", "list", "--summaries");
 
         var result = await new PipelineListCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("ListPipelineSummaries")).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("Unhealthy");
     }
 
     [Test]
@@ -89,7 +93,8 @@ public class PipelineListCommandTests
     {
         var api = new FakePipelinesApi
         {
-            ListPipelinesResult = (Result<Pipeline[]>)new ResultProblem("Not authenticated (401). Run `pl login`."),
+            ListPipelineSummariesResult =
+                (Result<PipelineSummary[]>)new ResultProblem("Not authenticated (401). Run `pl login`."),
         };
         var (ctx, _, cli) = Build(api, json: false, "pipeline", "list");
 

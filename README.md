@@ -243,6 +243,40 @@ Override the source instance with `PL_API_URL` (e.g. `https://pipelines-beta.ove
 install dir with `PL_INSTALL_DIR`. linux-x64 is a Native-AOT binary; win-x64 is a self-contained
 single-file `.exe` (Native AOT cannot cross-compile to Windows from the Linux build runner).
 
+### `pl` commands
+
+Every command accepts the global flags `--json` (machine-readable output on stdout),
+`--verbose`/`-v` (diagnostics to stderr), and `--help`/`-h`. Run `pl help` for the full list or
+`pl <command> --help` for one command. A few of note:
+
+```bash
+pl pipeline list                 # ID, NAME, and aggregate STATUS for every pipeline
+pl pipeline list --summaries     # adds bound repo + per-step health strip
+pl pipeline get <id>             # show one pipeline
+pl pipeline document <id>        # export the pipeline's config document (JSON)
+pl pipeline delete <id>          # delete a pipeline (cascade-cancels its scheduled/in-progress jobs)
+
+pl job list [--pipeline <id>]    # paginated jobs; the STEP column names the step each job ran for
+pl job get <id>                  # show one job
+pl job logs <id>                 # fetch a job's logs
+pl job cancel <id>               # cancel a scheduled or in-progress job
+```
+
+`pl pipeline list` reports a derived **status** per pipeline, aggregated from its step-health strip
+(a step is _running_ while `scheduled`/`in-progress`, _failed_ when `failed`, _green_ when `done`):
+
+| Status | Meaning |
+|--------|---------|
+| `Healthy` | every step is green |
+| `Running (Healthy)` | a step is running and none have failed |
+| `Running (Unhealthy)` | a step is running and at least one has failed |
+| `Unhealthy` | nothing running but at least one step has failed |
+| `Idle` | no steps, or not yet fully run |
+
+A **Job** runs a single step (`ProductionJob` → one production step; `ProcessingJob` → one
+processing step), so `pl job list` resolves and shows that step's name in the `STEP` column,
+falling back to the step id when the name can't be resolved.
+
 ## Build & Test
 
 ```bash

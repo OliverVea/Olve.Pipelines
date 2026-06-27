@@ -41,13 +41,29 @@ public sealed class JobListCommand : ICliCommand
         if ((await ctx.Api.ListJobs(pipelineId, page, pageSize, sort, ct)).TryPickProblems(out var problems, out var jobsPage))
             return problems;
 
+        // A job carries only its step id, so resolve ids to names for the human table by fetching each
+        // pipeline's step list once (the JSON output keeps the raw step ids on the job objects).
+        var stepNames = new Dictionary<Guid, string>();
+        if (!ctx.Output.IsJson)
+        {
+            foreach (var pid in jobsPage.Items.Select(j => j.PipelineId).Distinct())
+            {
+                if (!(await ctx.Api.ListProductionSteps(pid.ToString(), ct)).TryPickProblems(out _, out var prod))
+                    foreach (var s in prod)
+                        stepNames[s.Id] = s.Name;
+                if (!(await ctx.Api.ListProcessingSteps(pid.ToString(), ct)).TryPickProblems(out _, out var proc))
+                    foreach (var s in proc)
+                        stepNames[s.Id] = s.Name;
+            }
+        }
+
         ctx.Output.Emit(jobsPage, CliJsonContext.Default.PageOfJob, () =>
         {
             var rows = jobsPage.Items
                 .Select(j => (IReadOnlyList<string>)
-                    [j.Id.ToString(), j.Kind, j.Status.Kind, JobCommandHelpers.Format(j.CreatedAt)])
+                    [j.Id.ToString(), j.Kind, JobCommandHelpers.StepLabel(j, stepNames), j.Status.Kind, JobCommandHelpers.Format(j.CreatedAt)])
                 .ToList();
-            foreach (var line in Table.Render(["ID", "TYPE", "STATUS", "CREATED"], rows))
+            foreach (var line in Table.Render(["ID", "TYPE", "STEP", "STATUS", "CREATED"], rows))
                 ctx.Output.Line(line);
             ctx.Output.Line();
             ctx.Output.Line($"page {jobsPage.PageNumber} · {jobsPage.Items.Length} of {jobsPage.TotalCount} job(s)");
@@ -154,4 +170,18 @@ public sealed class JobCancelCommand : ICliCommand
 internal static class JobCommandHelpers
 {
     public static string Format(DateTimeOffset value) => value.ToString("u");
+
+    /// <summary>The step a job ran for: its name when resolvable, else the bare step id, else "-".</summary>
+    public static string StepLabel(Job job, IReadOnlyDictionary<Guid, string> stepNames)
+    {
+        var stepId = job switch
+        {
+            ProductionJob p => p.ProductionStepId,
+            ProcessingJob pr => pr.ProcessingStepId,
+            _ => (Guid?)null,
+        };
+        if (stepId is not { } id)
+            return "-";
+        return stepNames.TryGetValue(id, out var name) ? name : id.ToString();
+    }
 }

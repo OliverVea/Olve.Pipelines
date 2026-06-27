@@ -108,4 +108,7 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result> CancelJob(string id, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/jobs/{Enc(id)}/cancel", body: null, ct);
+
+    public Task<Result> DeletePipeline(string id, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(id)}", body: null, ct);
 }

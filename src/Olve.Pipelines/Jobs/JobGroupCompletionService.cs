@@ -7,6 +7,7 @@ public class JobGroupCompletionService(
     JobService jobService,
     JobGroupService jobGroupService,
     ArtifactBundleService artifactBundleService,
+    JobGroupCompletionTracker completionTracker,
     JobEvents jobEvents,
     ILogger<JobGroupCompletionService> logger)
 {
@@ -21,6 +22,13 @@ public class JobGroupCompletionService(
         var groupJobs = jobService.GetJobsByGroup(job.JobGroupId);
 
         if (groupJobs.Any(j => !j.Status.IsTerminal()))
+            return;
+
+        // Fire-once: when the last few jobs of a group reach a terminal state concurrently, each of
+        // their watcher threads observes the whole group terminal here. Exactly one wins the claim
+        // and raises completion — so a multi-step production group promotes its bundle into the first
+        // processing step once, not once per parallel job (which deadlocks on mutual supersession).
+        if (!completionTracker.TryClaimCompletion(job.JobGroupId))
             return;
 
         var allSucceeded = groupJobs.All(j => j.Status is Done);

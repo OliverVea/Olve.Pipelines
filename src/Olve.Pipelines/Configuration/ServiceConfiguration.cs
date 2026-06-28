@@ -86,6 +86,7 @@ public static class ServiceConfiguration
         services.AddSingleton<EntityStore<JobGroup>>();
         services.AddSingleton<IdProvider>();
         services.AddSingleton<JobEvents>();
+        services.AddSingleton<JobGroupCompletionTracker>();
         services.AddTransient<JobService>();
         services.AddTransient<JobGroupService>();
         services.AddTransient<JobLogService>();

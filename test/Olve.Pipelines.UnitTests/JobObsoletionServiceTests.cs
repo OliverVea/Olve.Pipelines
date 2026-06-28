@@ -17,7 +17,9 @@ public class JobObsoletionServiceTests
     private static (JobService Service, EntityStore<Job> Store) CreateServices()
     {
         var store = new EntityStore<Job>([]);
-        var timeProvider = new TimeProviderMake().Instance();
+        // Advancing clock so each job's CreatedAt is distinct and increasing — makes latest-wins
+        // supersession deterministic (the Make mock returns a constant timestamp).
+        var timeProvider = new MonotonicTimeProvider();
         var events = new JobEvents();
 
         store.OnAdded.Subscribe(events.OnAdded.Invoke);
@@ -150,5 +152,77 @@ public class JobObsoletionServiceTests
 
         await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
         await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
+    }
+
+    [Test]
+    public async Task ThreeScheduled_SameKey_OnlyNewestSurvives_SupersessionChainTerminates()
+    {
+        var (service, store) = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+        var stepId = Id.New<ProcessingStep>();
+        var bundleId = Id.New<ArtifactBundle>();
+
+        var job1 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<JobGroup>(), bundleId, stepId));
+        var job2 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<JobGroup>(), bundleId, stepId));
+        var job3 = CreateAndGet(service, s => s.CreateProcessingJob(pipelineId, Id.New<JobGroup>(), bundleId, stepId));
+
+        // Newest (job3) is the single survivor; the two older jobs are obsolete and following their
+        // SupersedingJobId always converges on job3 with no cycle (strict total order).
+        await Assert.That(GetJob(store, job3.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Obsolete>();
+        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Obsolete>();
+        await Assert.That(ResolveSurvivor(store, job1.Id)).IsEqualTo(job3.Id);
+        await Assert.That(ResolveSurvivor(store, job2.Id)).IsEqualTo(job3.Id);
+    }
+
+    // Walk the SupersedingJobId chain to the single non-obsolete job; throws if it loops, so a
+    // mutual-supersession cycle fails the test rather than hanging.
+    private static Id<Job> ResolveSurvivor(EntityStore<Job> store, Id<Job> start)
+    {
+        var seen = new HashSet<Id<Job>>();
+        var current = start;
+        while (GetJob(store, current).Status is Obsolete obsolete)
+        {
+            if (!seen.Add(current))
+                throw new InvalidOperationException($"Supersession cycle detected at job '{current}'.");
+            current = obsolete.SupersedingJobId;
+        }
+        return current;
+    }
+
+    // Requirement #3: under concurrent scheduling for one (pipeline, step) key, supersession is a
+    // strict total order — exactly one runnable job survives and no two jobs name each other.
+    // Reproduces the mutual-supersession deadlock pre-fix (each handler obsoleted "the other").
+    [Test]
+    public async Task ConcurrentCreations_SameKey_NoMutualSupersession()
+    {
+        for (var iteration = 0; iteration < 200; iteration++)
+        {
+            var (service, store) = CreateServices();
+            var pipelineId = Id.New<Pipeline>();
+            var stepId = Id.New<ProductionStep>();
+
+            using var barrier = new Barrier(2);
+            var created = new Id<Job>[2];
+
+            void Create(int index)
+            {
+                barrier.SignalAndWait();
+                created[index] = CreateAndGet(service, s => s.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId)).Id;
+            }
+
+            var t1 = Task.Run(() => Create(0));
+            var t2 = Task.Run(() => Create(1));
+            await Task.WhenAll(t1, t2);
+
+            var jobs = created.Select(id => GetJob(store, id)).ToArray();
+            var scheduled = jobs.Where(j => j.Status is Scheduled).ToArray();
+            var obsolete = jobs.Where(j => j.Status is Obsolete).ToArray();
+
+            // Exactly one survives; the loser points at the survivor — never each other (a cycle).
+            await Assert.That(scheduled).Count().IsEqualTo(1);
+            await Assert.That(obsolete).Count().IsEqualTo(1);
+            await Assert.That(((Obsolete)obsolete[0].Status).SupersedingJobId).IsEqualTo(scheduled[0].Id);
+        }
     }
 }

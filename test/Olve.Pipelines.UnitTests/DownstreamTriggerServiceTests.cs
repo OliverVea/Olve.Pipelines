@@ -49,7 +49,7 @@ public class DownstreamTriggerServiceTests
         var promotionGate = new PromotionGateService(promotionStore);
 
         var completionService = new JobGroupCompletionService(
-            jobService, jobGroupService, bundleService, events,
+            jobService, jobGroupService, bundleService, new JobGroupCompletionTracker(), events,
             NullLogger<JobGroupCompletionService>.Instance);
 
         var downstreamTriggerService = new DownstreamTriggerService(
@@ -129,6 +129,36 @@ public class DownstreamTriggerServiceTests
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
         CompleteJob(svc, prodJob.Id);
+
+        var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
+
+        await Assert.That(processingJobs).Count().IsEqualTo(1);
+        await Assert.That(processingJobs[0].ProcessingStepId).IsEqualTo(step1.Id);
+        await Assert.That(processingJobs[0].ArtifactBundleId).IsEqualTo(bundleId);
+        await Assert.That(processingJobs[0].Status).IsTypeOf<Scheduled>();
+    }
+
+    // Requirement #5/#2: a production group with multiple parallel steps builds all of them, then
+    // promotes the bundle into the first processing step exactly once — the docs' multi-platform
+    // shape that previously deadlocked on mutual supersession.
+    [Test]
+    public async Task MultiStepProductionGroupCompleted_TriggersFirstProcessingStepExactlyOnce()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "test", 1));
+        var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 2));
+        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo test", []));
+        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo deploy", []));
+
+        var bundleId = Id.New<ArtifactBundle>();
+        var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
+        var buildLinux = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
+        var buildWindows = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
+
+        CompleteJob(svc, buildLinux.Id);
+        CompleteJob(svc, buildWindows.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
 

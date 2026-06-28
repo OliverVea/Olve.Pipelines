@@ -27,11 +27,8 @@ public class ArtifactBundleService
         return bundle;
     }
 
-    public void UpdateStatus(Id<ArtifactBundle> id, ArtifactBundleStatus status)
-    {
-        if (_store.TryGet(id, out var bundle))
-            _store.Set(bundle with { Status = status });
-    }
+    public Result UpdateStatus(Id<ArtifactBundle> id, ArtifactBundleStatus status)
+        => _store.Mutate(id, b => b with { Status = status });
 
     public bool TryGet(Id<ArtifactBundle> id, [NotNullWhen(true)] out ArtifactBundle? bundle)
         => _store.TryGet(id, out bundle);

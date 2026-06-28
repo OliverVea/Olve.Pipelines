@@ -188,19 +188,14 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
 
     public Result UpdateJob<T>(Id<Job> jobId, Func<T, T> update) where T : Job
     {
-        if (!TryGetJob<T>(jobId, out var currentJob))
+        // Advisory type/existence check for the typed contract; the atomic write is the Mutate below.
+        if (!TryGetJob<T>(jobId, out _))
         {
             return new ResultProblem("Job with id '{0}' not found.", jobId);
         }
 
-        var updatedJob = update(currentJob);
-        if (updatedJob == currentJob)
-        {
-            return Result.Success();
-        }
-
-        store.Set(updatedJob);
-        return Result.Success();
+        // Mutate runs under a CAS retry loop, so the guard keeps it pure for non-T values.
+        return store.Mutate(jobId, j => j is T typed ? update(typed) : j);
     }
 
     public Result CancelJob(Id<Job> jobId)
@@ -210,20 +205,19 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
             return new ResultProblem("Job with id '{0}' not found.", jobId);
         }
 
-        var cancelled = job.Status switch
-        {
-            Scheduled => job with { Status = new Cancelled(null, timeProvider.GetUtcNow()) },
-            InProgress inProgress => job with { Status = new Cancelled(inProgress.StartedAt, timeProvider.GetUtcNow()) },
-            _ => (Job?)null,
-        };
-
-        if (cancelled is null)
+        // Advisory pre-check for the can't-cancel message; the write happens atomically in Mutate,
+        // whose lambda re-derives the cancelled state (pure function of the current job).
+        if (job.Status is not (Scheduled or InProgress))
         {
             return new ResultProblem("Job with id '{0}' cannot be cancelled because it is {1}.", jobId, job.Status.GetType().Name);
         }
 
-        store.Set(cancelled);
-        return Result.Success();
+        return store.Mutate(jobId, j => j.Status switch
+        {
+            Scheduled => j with { Status = new Cancelled(null, timeProvider.GetUtcNow()) },
+            InProgress inProgress => j with { Status = new Cancelled(inProgress.StartedAt, timeProvider.GetUtcNow()) },
+            _ => j,
+        });
     }
 
     public DeletionResult DeleteJob(Id<Job> jobId) => store.Delete(jobId);

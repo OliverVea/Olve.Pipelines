@@ -41,16 +41,22 @@ public class JobGroupCompletionService(
 
         if (allSucceeded)
         {
-            if (group is ProductionJobGroup production)
-                artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Completed);
+            if (group is ProductionJobGroup production
+                && artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Completed).TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems,
+                    "Failed to mark artifact bundle '{BundleId}' completed for group '{GroupId}'",
+                    production.ArtifactBundleId, group.Id);
 
             logger.LogInformation("JobGroup '{GroupId}' completed successfully", group.Id);
             jobEvents.OnGroupCompleted.Invoke(group.Id);
         }
         else
         {
-            if (group is ProductionJobGroup production)
-                artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Failed);
+            if (group is ProductionJobGroup production
+                && artifactBundleService.UpdateStatus(production.ArtifactBundleId, ArtifactBundleStatus.Failed).TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems,
+                    "Failed to mark artifact bundle '{BundleId}' failed for group '{GroupId}'",
+                    production.ArtifactBundleId, group.Id);
 
             logger.LogWarning("JobGroup '{GroupId}' failed", group.Id);
             jobEvents.OnGroupFailed.Invoke(group.Id);

@@ -13,6 +13,7 @@
 # Beta deploys first and gates prod: if deploy-beta fails (build, rollout, or the
 # post-deploy health check), the deploy (prod) step never runs.
 apiVersion: "0.0"
+# `name` is GitOps config: reconcile applies it to the live pipeline.
 name: Olve.Pipelines
 description: Build with Kaniko, deploy to the homelab (beta then prod) with Helm.
 version: "1"

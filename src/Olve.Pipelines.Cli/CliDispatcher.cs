@@ -5,6 +5,7 @@ using Olve.Pipelines.Cli.Commands.Jobs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Processing;
 using Olve.Pipelines.Cli.Commands.Production;
+using Olve.Pipelines.Cli.Commands.Secrets;
 using Olve.Pipelines.Cli.Commands.Triggers;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
@@ -69,6 +70,11 @@ public sealed class CliDispatcher
         // trigger
         Register(new TriggerListCommand());
         Register(new TriggerGetCommand());
+
+        // secret
+        Register(new SecretListCommand());
+        Register(new SecretSetCommand());
+        Register(new SecretDeleteCommand());
     }
 
     private void Register(ICliCommand command)

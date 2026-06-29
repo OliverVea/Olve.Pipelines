@@ -111,4 +111,11 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result> DeletePipeline(string id, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(id)}", body: null, ct);
+
+    public Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Put, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}",
+            ApiTransport.JsonBody(new SetSecretRequest { Value = value }, CliJsonContext.Default.SetSecretRequest), ct);
+
+    public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}", body: null, ct);
 }

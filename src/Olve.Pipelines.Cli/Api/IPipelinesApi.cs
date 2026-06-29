@@ -55,4 +55,6 @@ public interface IPipelinesApi
     Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct);
     Task<Result> CancelJob(string id, CancellationToken ct);
     Task<Result> DeletePipeline(string id, CancellationToken ct);
+    Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);
+    Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
 }

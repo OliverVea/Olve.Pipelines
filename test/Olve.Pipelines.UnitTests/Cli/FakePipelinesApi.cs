@@ -61,6 +61,11 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<JobGroup>? RePromoteProcessingStepResult { get; set; }
     public Result? CancelJobResult { get; set; }
     public Result? DeletePipelineResult { get; set; }
+    public Result? SetSecretResult { get; set; }
+    public Result? DeleteSecretResult { get; set; }
+
+    /// <summary>The value passed to the most recent <see cref="SetSecret"/> call (for assertions).</summary>
+    public string? LastSecretValue { get; private set; }
 
     // Pipelines
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
@@ -169,6 +174,21 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Calls.Add(nameof(DeletePipeline));
         return Task.FromResult(
             DeletePipelineResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(DeletePipeline)}' called but not configured."));
+    }
+
+    public Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct)
+    {
+        LastSecretValue = value;
+        Calls.Add($"{nameof(SetSecret)}({name})");
+        return Task.FromResult(
+            SetSecretResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(SetSecret)}' called but not configured."));
+    }
+
+    public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct)
+    {
+        Calls.Add($"{nameof(DeleteSecret)}({name})");
+        return Task.FromResult(
+            DeleteSecretResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(DeleteSecret)}' called but not configured."));
     }
 
     private Task<Result<T>> Record<T>(Result<T>? configured, string method)

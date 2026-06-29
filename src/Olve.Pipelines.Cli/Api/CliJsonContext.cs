@@ -43,6 +43,7 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(JobGroup))]
 // Mutation request bodies
 [JsonSerializable(typeof(SetPromotionRequest))]
+[JsonSerializable(typeof(SetSecretRequest))]
 // Triggers (polymorphic)
 [JsonSerializable(typeof(Trigger))]
 [JsonSerializable(typeof(Trigger[]))]

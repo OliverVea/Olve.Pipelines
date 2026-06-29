@@ -61,6 +61,6 @@ The `pl` binaries are built and served by this repo's own pipeline — no GitHub
 (Native AOT) + `win-x64` (self-contained single-file — AOT can't cross-compile to Windows from a
 Linux runner) and `mc cp`s both to the instance's MinIO under `cli/{latest,<version>}/`. The app
 serves them anonymously from `GET /download/{asset}` (`Distribution/CliDownloadEndpoints.cs`,
-allow-listed asset names, streamed from S3, never buffered). `install.sh` / `install.ps1` fetch
-from there. **Operator prereq:** set `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` on the pipeline secret
+allow-listed asset names, streamed from S3, never buffered). `bootstrap.sh` / `bootstrap.ps1` fetch
+from there (named to avoid colliding with the controller-installing `pl install` subcommand). **Operator prereq:** set `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` on the pipeline secret
 to the app's MinIO root creds (k8s secret `olve-pipelines-minio`, keys `root-user`/`root-password`).

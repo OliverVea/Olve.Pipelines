@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install the `pl` operator CLI on Linux.
 #
-#   curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/bootstrap.sh | sh
 #
 # Downloads the latest pl binary from the Olve.Pipelines instance (served at
 # /download/pl-linux-x64) and drops it on your PATH. The instance is reachable over

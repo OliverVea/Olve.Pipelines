@@ -55,7 +55,7 @@ dotnet publish "$CLI" -c Release -r win-x64 \
 
 mc alias set store "$MINIO_ENDPOINT" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
 
-# Publish to a stable `latest/` (what bootstrap.sh/.ps1 fetch) and an immutable `<version>/` archive.
+# Publish to a stable `latest/` (what install.sh/.ps1 fetch) and an immutable `<version>/` archive.
 for channel in latest "$VERSION"; do
   mc cp /out/linux/pl     "store/$MINIO_BUCKET/cli/$channel/pl-linux-x64"
   mc cp /out/win/pl.exe   "store/$MINIO_BUCKET/cli/$channel/pl-win-x64.exe"

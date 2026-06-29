@@ -1,6 +1,6 @@
 # Install the `pl` operator CLI on Windows.
 #
-#   irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/bootstrap.ps1 | iex
+#   irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex
 #
 # Downloads the latest pl.exe from the Olve.Pipelines instance (served at
 # /download/pl-win-x64.exe) and drops it on your PATH. The instance is reachable over

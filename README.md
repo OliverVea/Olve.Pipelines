@@ -233,12 +233,12 @@ can install it from there — no GitHub release or public CDN involved.
 
 ```bash
 # Linux
-curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh
 ```
 
 ```powershell
 # Windows
-irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex
 ```
 
 Override the source instance with `PL_API_URL` (e.g. `https://pipelines-beta.ovea.pro`) and the

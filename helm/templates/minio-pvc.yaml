@@ -7,7 +7,7 @@ metadata:
     app: {{ .Release.Name }}-minio
   annotations:
     # Precious data volume: survive `helm uninstall` (and never get adopted/deleted on upgrade).
-    # `pl uninstall` deletes it explicitly only on --purge-data.
+    # `pl teardown` deletes it explicitly only on --purge-data.
     "helm.sh/resource-policy": keep
 spec:
   accessModes: ["ReadWriteOnce"]

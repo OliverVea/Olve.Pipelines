@@ -5,7 +5,7 @@ using Olve.Pipelines.Cli.Commands;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
-public class InstallCommandTests
+public class BootstrapCommandTests
 {
     private static readonly HashSet<string> Booleans = new(StringComparer.Ordinal) { "allow-prod", "purge-data", "help" };
     private static readonly Dictionary<string, string> Aliases = new(StringComparer.Ordinal) { ["n"] = "namespace" };
@@ -63,7 +63,7 @@ public class InstallCommandTests
     public async Task MissingNamespace_Fails_WithoutRunningAnything()
     {
         var runner = new FakeProcessRunner((_, _) => Ok());
-        var result = await new InstallCommand(runner).RunAsync(Args("install"));
+        var result = await new BootstrapCommand(runner).RunAsync(Args("bootstrap"));
 
         await Assert.That(result.Failed).IsTrue();
         await Assert.That(runner.Calls).IsEmpty();
@@ -73,7 +73,7 @@ public class InstallCommandTests
     public async Task ProdNamespace_WithoutAllowProd_Fails_WithoutRunningAnything()
     {
         var runner = new FakeProcessRunner((_, _) => Ok());
-        var result = await new InstallCommand(runner).RunAsync(Args("install", "-n", InstallCommand.ProdNamespace));
+        var result = await new BootstrapCommand(runner).RunAsync(Args("bootstrap", "-n", BootstrapCommand.ProdNamespace));
 
         await Assert.That(result.Failed).IsTrue();
         await Assert.That(runner.Calls).IsEmpty();
@@ -86,8 +86,8 @@ public class InstallCommandTests
         try
         {
             var runner = HappyRunner(secretExists: false);
-            var result = await new InstallCommand(runner)
-                .RunAsync(Args("install", "-n", "pl-test", "--chart", chart));
+            var result = await new BootstrapCommand(runner)
+                .RunAsync(Args("bootstrap", "-n", "pl-test", "--chart", chart));
 
             await Assert.That(result.Succeeded).IsTrue();
             await Assert.That(runner.Invoked("kubectl", "create", "secret")).IsTrue();
@@ -105,8 +105,8 @@ public class InstallCommandTests
         try
         {
             var runner = HappyRunner(secretExists: true);
-            var result = await new InstallCommand(runner)
-                .RunAsync(Args("install", "-n", "pl-test", "--chart", chart));
+            var result = await new BootstrapCommand(runner)
+                .RunAsync(Args("bootstrap", "-n", "pl-test", "--chart", chart));
 
             await Assert.That(result.Succeeded).IsTrue();
             // Idempotency-critical: never recreate the creds Secret on a re-run.

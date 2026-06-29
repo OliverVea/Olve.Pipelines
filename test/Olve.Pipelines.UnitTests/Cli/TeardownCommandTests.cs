@@ -4,7 +4,7 @@ using Olve.Pipelines.Cli.Commands;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
-public class UninstallCommandTests
+public class TeardownCommandTests
 {
     private static readonly HashSet<string> Booleans =
         new(StringComparer.Ordinal) { "allow-prod", "purge-data", "help" };
@@ -48,7 +48,7 @@ public class UninstallCommandTests
     public async Task MissingNamespace_Fails_WithoutRunningAnything()
     {
         var runner = new FakeProcessRunner((_, _) => Ok());
-        var result = await new UninstallCommand(runner).RunAsync(Args("uninstall"));
+        var result = await new TeardownCommand(runner).RunAsync(Args("teardown"));
 
         await Assert.That(result.Failed).IsTrue();
         await Assert.That(runner.Calls).IsEmpty();
@@ -58,8 +58,8 @@ public class UninstallCommandTests
     public async Task ProdNamespace_WithoutAllowProd_Fails_WithoutRunningAnything()
     {
         var runner = new FakeProcessRunner((_, _) => Ok());
-        var result = await new UninstallCommand(runner)
-            .RunAsync(Args("uninstall", "-n", InstallCommand.ProdNamespace));
+        var result = await new TeardownCommand(runner)
+            .RunAsync(Args("teardown", "-n", BootstrapCommand.ProdNamespace));
 
         await Assert.That(result.Failed).IsTrue();
         await Assert.That(runner.Calls).IsEmpty();
@@ -69,7 +69,7 @@ public class UninstallCommandTests
     public async Task Default_UninstallsRelease_DeletesSecret_RetainsPvc()
     {
         var runner = HappyRunner(releaseExists: true);
-        var result = await new UninstallCommand(runner).RunAsync(Args("uninstall", "-n", "pl-test"));
+        var result = await new TeardownCommand(runner).RunAsync(Args("teardown", "-n", "pl-test"));
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(runner.Invoked("helm", "uninstall")).IsTrue();
@@ -82,8 +82,8 @@ public class UninstallCommandTests
     public async Task PurgeData_DeletesPvc()
     {
         var runner = HappyRunner(releaseExists: true);
-        var result = await new UninstallCommand(runner)
-            .RunAsync(Args("uninstall", "-n", "pl-test", "--purge-data"));
+        var result = await new TeardownCommand(runner)
+            .RunAsync(Args("teardown", "-n", "pl-test", "--purge-data"));
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(runner.Invoked("kubectl", "delete", "pvc")).IsTrue();
@@ -93,7 +93,7 @@ public class UninstallCommandTests
     public async Task MissingRelease_StillSucceeds_AndSkipsHelmUninstall()
     {
         var runner = HappyRunner(releaseExists: false);
-        var result = await new UninstallCommand(runner).RunAsync(Args("uninstall", "-n", "pl-test"));
+        var result = await new TeardownCommand(runner).RunAsync(Args("teardown", "-n", "pl-test"));
 
         // Idempotency: a non-existent release is "already gone", not an error.
         await Assert.That(result.Succeeded).IsTrue();

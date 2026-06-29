@@ -1,9 +1,9 @@
-# Minimal Tier-A profile used by `pl install`. The controller + its own deps only, with
+# Minimal Tier-A profile used by `pl bootstrap`. The controller + its own deps only, with
 # zero personal-infra coupling: no Ingress, auth disabled, in-cluster ServiceAccount auth
 # (no OpenBao/Authentik), no OTel. Layered over the chart's values.yaml (deep merge), so
 # this only overrides what differs.
 #
-# pl install adds the namespace-derived values on top via --set:
+# pl bootstrap adds the namespace-derived values on top via --set:
 #   config.Storage__Endpoint, config.Storage__Bucket, config.Kubernetes__Namespace,
 #   minio.bucket, image.tag  (and slo.enabled=false if the sloth CRD is absent).
 

@@ -1,14 +1,14 @@
 namespace Olve.Pipelines.Cli.Commands;
 
 /// <summary>
-/// <c>pl uninstall</c> — reverse of install, idempotent. Removes the helm release (controller,
-/// MinIO, RBAC, ingress) and the MinIO creds Secret. The MinIO data PVC carries
-/// <c>helm.sh/resource-policy: keep</c>, so it survives a normal uninstall and is only deleted
+/// <c>pl teardown</c> — reverse of <c>pl bootstrap</c>, idempotent. Removes the helm release
+/// (controller, MinIO, RBAC, ingress) and the MinIO creds Secret. The MinIO data PVC carries
+/// <c>helm.sh/resource-policy: keep</c>, so it survives a normal teardown and is only deleted
 /// with <c>--purge-data</c>. Re-running on a partial/already-gone install converges.
 /// </summary>
-public sealed class UninstallCommand(IProcessRunner processRunner) : ICliCommand
+public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
 {
-    public string Noun => "uninstall";
+    public string Noun => "teardown";
     public string Verb => "";
     public IReadOnlySet<string> BooleanFlags { get; } =
         new HashSet<string>(StringComparer.Ordinal) { "allow-prod", "purge-data" };
@@ -17,7 +17,7 @@ public sealed class UninstallCommand(IProcessRunner processRunner) : ICliCommand
     public string HelpLine => "Remove an installation (release + MinIO creds; data PVC retained)";
     public string? HelpDetail =>
         """
-        pl uninstall -n <namespace> [options]   Remove an installation
+        pl teardown -n <namespace> [options]   Remove an installation
 
           -n, --namespace <ns>   Target namespace (required)
           --release <name>       Helm release name (default: olve-pipelines)
@@ -32,10 +32,10 @@ public sealed class UninstallCommand(IProcessRunner processRunner) : ICliCommand
         if (string.IsNullOrWhiteSpace(ns))
             return new ResultProblem("'--namespace' (-n) is required.");
 
-        if (ns == InstallCommand.ProdNamespace && !cli.HasFlag("allow-prod"))
-            return new ResultProblem("Refusing to uninstall from the prod namespace '{0}' without --allow-prod.", ns);
+        if (ns == BootstrapCommand.ProdNamespace && !cli.HasFlag("allow-prod"))
+            return new ResultProblem("Refusing to tear down the prod namespace '{0}' without --allow-prod.", ns);
 
-        var release = cli.Option("release", InstallCommand.DefaultRelease);
+        var release = cli.Option("release", BootstrapCommand.DefaultRelease);
         var purgeData = cli.HasFlag("purge-data");
 
         if ((await ClusterPreflight.RunAsync(processRunner, ct)).TryPickProblems(out var pfProblems))
@@ -75,11 +75,11 @@ public sealed class UninstallCommand(IProcessRunner processRunner) : ICliCommand
 
     private async Task<Result> DeleteMinioSecret(string ns, CancellationToken ct)
     {
-        // The creds Secret is created by `pl install` via kubectl (not helm), so helm uninstall
+        // The creds Secret is created by `pl bootstrap` via kubectl (not helm), so helm uninstall
         // leaves it behind. --ignore-not-found keeps this idempotent.
-        Step($"Deleting MinIO credentials secret '{InstallCommand.MinioCredentialsSecret}'");
+        Step($"Deleting MinIO credentials secret '{BootstrapCommand.MinioCredentialsSecret}'");
         return Forget(await processRunner.RunCheckedAsync("kubectl",
-            ["delete", "secret", InstallCommand.MinioCredentialsSecret, "-n", ns, "--ignore-not-found"], ct: ct));
+            ["delete", "secret", BootstrapCommand.MinioCredentialsSecret, "-n", ns, "--ignore-not-found"], ct: ct));
     }
 
     private async Task<Result> DeleteMinioPvc(string ns, string release, CancellationToken ct)

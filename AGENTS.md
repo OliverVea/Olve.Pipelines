@@ -33,22 +33,22 @@ GitOps-reconciled; only `.pipelines/config.yaml` is.** Pushing `main` self-deplo
 
 ### Two-tier model
 
-`pl install` lays down only a single minimal **root (prod)** controller; everything else is a
+`pl bootstrap` lays down only a single minimal **root (prod)** controller; everything else is a
 Layer-1 pipeline the root self-deploys — a **beta** instance, and a separate **Olve.Homelab**
 pipeline that owns shared infra (Ingress/DNS/cloudflared + Authentik). The controller reaches the
 cluster API via its own ServiceAccount token (`Kubernetes:AuthMode=InCluster`); prod keeps
 `AuthMode=OpenBao` (explicit in `helm/values.yaml`).
 
-## Cold-boot install (`pl install`)
+## Cold-boot install (`pl bootstrap`)
 
-`pl install` is an idempotent cold install of the controller + its private MinIO via kubectl/helm
+`pl bootstrap` is an idempotent cold install of the controller + its private MinIO via kubectl/helm
 shell-out (operator's kubeconfig, not OpenBao): preflight + prod guard, namespace,
 generate-if-absent MinIO creds Secret (the cluster Secret is the source of truth, never rotated on
 re-run), chart from a GitHub tarball (`--ref`) or `--chart`, `helm upgrade` of the **minimal
 profile** (`helm/values-minimal.yaml`: Ingress off, `Auth__Disable=true`, no OIDC/OTel secrets,
 ServiceAccount/RBAC on), in-cluster `mc` bucket create, readiness waits.
 
-`pl uninstall` reverses it (helm uninstall + delete the creds Secret; the MinIO data PVC is retained
+`pl teardown` reverses it (helm uninstall + delete the creds Secret; the MinIO data PVC is retained
 unless `--purge-data`; the namespace is never deleted).
 
 See [docs/operations/environment-setup.md](docs/operations/environment-setup.md) and the design

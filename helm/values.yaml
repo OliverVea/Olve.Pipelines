@@ -7,7 +7,7 @@ image:
 
 # ServiceAccount + RBAC for in-cluster controller→K8s access (Tier-A / InCluster auth
 # mode). Off here: the full/prod profile reaches the cluster via OpenBao (see
-# Kubernetes__AuthMode below). pl install's minimal profile flips this on.
+# Kubernetes__AuthMode below). pl bootstrap's minimal profile flips this on.
 serviceAccount:
   enabled: false
 
@@ -24,7 +24,7 @@ container:
 # renders an Ingress and the two releases can't fight over the same object. The templates
 # (ingress-{private,public}.yaml) and all the fields below are kept so a standalone
 # install that is NOT behind the edge chart can opt back in with ingress.enabled=true /
-# ingress.public.enabled=true. (pl install's minimal profile keeps both off.)
+# ingress.public.enabled=true. (pl bootstrap's minimal profile keeps both off.)
 ingress:
   enabled: false
   host: pipelines-private.ovea.pro
@@ -110,7 +110,7 @@ config:
   # them for OpenBao auth to reach the cluster. They are now inert for storage.
   Storage__AuthUrl: "https://auth.ovea.pro/application/o/token/"
   # Cluster access for the controller: OpenBao (legacy, this profile) vs InCluster
-  # (ServiceAccount token, used by pl install's minimal profile). Explicit here so a
+  # (ServiceAccount token, used by pl bootstrap's minimal profile). Explicit here so a
   # future code-side default change can't silently switch prod.
   Kubernetes__AuthMode: "OpenBao"
   Kubernetes__OpenBaoUrl: "https://openbao.ovea.pro"
@@ -138,7 +138,7 @@ secrets:
 
 authentikCa:
   # Mounts the Authentik CA so the controller trusts ovea.pro TLS (OpenBao/OTel/auth).
-  # pl install's minimal profile turns this off (no Authentik dependency).
+  # pl bootstrap's minimal profile turns this off (no Authentik dependency).
   enabled: true
   fileName: auth-prod-ca.crt
 

@@ -4,7 +4,7 @@ using System.IO.Compression;
 namespace Olve.Pipelines.Cli;
 
 /// <summary>
-/// Resolves the helm chart for <c>pl install</c> — either a local directory (<c>--chart</c>)
+/// Resolves the helm chart for <c>pl bootstrap</c> — either a local directory (<c>--chart</c>)
 /// or, by default, the chart pulled from the GitHub repo tarball at a pinned ref. Pulling
 /// keeps <c>pl</c> self-contained (no repo checkout needed) for disaster recovery.
 /// </summary>

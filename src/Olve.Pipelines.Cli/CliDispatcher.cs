@@ -31,8 +31,8 @@ public sealed class CliDispatcher
 
     public CliDispatcher(IProcessRunner processRunner)
     {
-        Register(new InstallCommand(processRunner));
-        Register(new UninstallCommand(processRunner));
+        Register(new BootstrapCommand(processRunner));
+        Register(new TeardownCommand(processRunner));
         Register(new LoginCommand());
 
         // pipeline

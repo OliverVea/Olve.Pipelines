@@ -4,12 +4,13 @@ using System.Text;
 namespace Olve.Pipelines.Cli.Commands;
 
 /// <summary>
-/// <c>pl install</c> — idempotent cold install of the controller + its private MinIO
+/// <c>pl bootstrap</c> — idempotent cold install of the controller + its private MinIO
 /// (Tier-A minimal profile). Mirrors docs/operations/environment-setup.md, automated:
 /// ensure namespace → generate-if-absent MinIO creds → helm upgrade (minimal profile) →
-/// create bucket → wait for readiness. Re-running converges.
+/// create bucket → wait for readiness. Re-running converges. Named <c>bootstrap</c> (not
+/// <c>install</c>) to stay distinct from the <c>install.sh</c> CLI-fetch script.
 /// </summary>
-public sealed class InstallCommand(IProcessRunner processRunner) : ICliCommand
+public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
 {
     public const string ProdNamespace = "apps";
     public const string DefaultRelease = "olve-pipelines";
@@ -19,15 +20,15 @@ public sealed class InstallCommand(IProcessRunner processRunner) : ICliCommand
     public const string MinioCredentialsSecret = "olve-pipelines-minio";
     public const string MinioRootUser = "olve-pipelines";
 
-    public string Noun => "install";
+    public string Noun => "bootstrap";
     public string Verb => "";
     public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "allow-prod" };
     public IReadOnlyDictionary<string, string> Aliases { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal) { ["n"] = "namespace" };
-    public string HelpLine => "Install the controller + private MinIO (cold install, idempotent)";
+    public string HelpLine => "Cold-install the controller + private MinIO (idempotent)";
     public string? HelpDetail =>
         """
-        pl install -n <namespace> [options]   Install the controller + private MinIO
+        pl bootstrap -n <namespace> [options]   Cold-install the controller + private MinIO
 
           -n, --namespace <ns>     Target namespace (required)
           --release <name>         Helm release name (default: olve-pipelines)
@@ -49,7 +50,7 @@ public sealed class InstallCommand(IProcessRunner processRunner) : ICliCommand
             return new ResultProblem("'--namespace' (-n) is required.");
 
         if (ns == ProdNamespace && !cli.HasFlag("allow-prod"))
-            return new ResultProblem("Refusing to install into the prod namespace '{0}' without --allow-prod.", ns);
+            return new ResultProblem("Refusing to bootstrap into the prod namespace '{0}' without --allow-prod.", ns);
 
         var release = cli.Option("release", DefaultRelease);
         var bucket = cli.Option("bucket", DefaultBucket);

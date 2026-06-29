@@ -81,7 +81,7 @@ public class TriggerExecutionService(
 
         foreach (var step in stepArray)
         {
-            _ = jobs.CreateProductionJob(pipelineId, jobGroup.Id, step.Id); // store-only create, cannot fail
+            jobs.CreateProductionJob(pipelineId, jobGroup.Id, step.Id).DiscardResult(); // store-only create, cannot fail
         }
 
         return jobGroup;

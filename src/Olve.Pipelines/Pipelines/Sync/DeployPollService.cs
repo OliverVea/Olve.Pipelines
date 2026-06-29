@@ -157,9 +157,9 @@ public class DeployPollService(
 
         // Operational status/cursor writes on a binding just confirmed present; the only failure is a
         // concurrent unbind, which makes this poll moot — discard.
-        _ = bindingService.SetLastSyncedSha(binding.Id, changed.Sha);
-        _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
-            ReconcileResult.Success, DateTimeOffset.UtcNow, [], manifest.Secrets ?? []));
+        bindingService.SetLastSyncedSha(binding.Id, changed.Sha).DiscardResult();
+        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], manifest.Secrets ?? [])).DiscardResult();
         logger.LogInformation("Reconciled '{Repo}@{Branch}' to config {Sha}", binding.Repo, binding.Branch, changed.Sha);
         return true;
     }
@@ -173,18 +173,18 @@ public class DeployPollService(
     {
         if (binding.Status.Result == ReconcileResult.Success)
             return;
-        _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
-            ReconcileResult.Success, DateTimeOffset.UtcNow, [], binding.Status.DeclaredSecrets));
+        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], binding.Status.DeclaredSecrets)).DiscardResult();
     }
 
     // Record an error outcome, carrying forward the last-known declared secrets so the badge still
     // lists them when a fetch/compile fails before a manifest is available.
     private static void RecordError(
         PipelineConfigBindingService bindingService, PipelineConfigBinding binding, IEnumerable<ResultProblem> problems)
-        => _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+        => bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
             ReconcileResult.Error, DateTimeOffset.UtcNow,
             problems.Select(p => p.ToBriefString()).ToArray(),
-            binding.Status.DeclaredSecrets));
+            binding.Status.DeclaredSecrets)).DiscardResult();
 
     private async Task DeployAsync(
         IServiceScope scope, IConfigSource source, PipelineConfigBindingService bindingService,
@@ -208,7 +208,7 @@ public class DeployPollService(
         {
             logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha} (no initial build)",
                 binding.Repo, binding.Branch, head);
-            _ = bindingService.SetLastDeployedSha(binding.Id, head); // concurrent unbind is the only failure; moot
+            bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult(); // concurrent unbind is the only failure; moot
             return;
         }
 
@@ -224,6 +224,6 @@ public class DeployPollService(
             return;
         }
 
-        _ = bindingService.SetLastDeployedSha(binding.Id, head); // concurrent unbind is the only failure; moot
+        bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult(); // concurrent unbind is the only failure; moot
     }
 }

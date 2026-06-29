@@ -65,7 +65,7 @@ public static class PipelineEndpoints
 
                 foreach (var step in stepArray)
                 {
-                    _ = jobs.CreateProductionJob(id, jobGroup.Id, step.Id); // store-only create, cannot fail
+                    jobs.CreateProductionJob(id, jobGroup.Id, step.Id).DiscardResult(); // store-only create, cannot fail
                 }
 
                 return jobGroup;

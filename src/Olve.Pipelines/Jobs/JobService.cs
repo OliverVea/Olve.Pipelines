@@ -92,7 +92,7 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
     public ProcessingJobGroup CreateProcessingRun(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
     {
         var jobGroup = jobGroups.CreateProcessingGroup(pipelineId, artifactBundleId, processingStepId);
-        _ = CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, processingStepId); // store-only create, cannot fail
+        CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, processingStepId).DiscardResult(); // store-only create, cannot fail
         return jobGroup;
     }
 

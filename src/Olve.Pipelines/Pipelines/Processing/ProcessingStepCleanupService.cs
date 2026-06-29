@@ -11,6 +11,6 @@ public class ProcessingStepCleanupService(EntityStore<ProcessingStep> store)
     {
         var ids = _byPipeline.GetForKey(pipelineId);
         foreach (var id in ids)
-            _ = store.Delete(id); // cascade delete; NotFound (already gone) is benign
+            store.Delete(id).DiscardResult(); // cascade delete; NotFound (already gone) is benign
     }
 }

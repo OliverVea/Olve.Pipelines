@@ -23,16 +23,17 @@ config-mutation endpoints (a bound pipeline rejects them).
 | prod | `https://pipelines-private.ovea.pro`  | `apps`         |
 | beta | `https://pipelines-beta.ovea.pro`     | `apps-beta`    |
 
-Cut over **beta-first**. Set `API` once and the rest follows:
+Cut over **beta-first**. Export `PIPELINES_API_URL` once — every `pl` command below
+(including `pl login`) reads it, so it targets this environment automatically:
 
 ```bash
-API=https://pipelines-private.ovea.pro   # or https://pipelines-beta.ovea.pro
+export PIPELINES_API_URL=https://pipelines-private.ovea.pro   # or https://pipelines-beta.ovea.pro
 ```
 
 ## Step 1: Verify the app is running
 
 ```bash
-curl -sk "$API/api/health"
+curl -sk "$PIPELINES_API_URL/api/health"
 ```
 
 If not reachable, restart it (prod shown; beta uses `-n apps-beta`):
@@ -43,41 +44,35 @@ ssh oliver@bulwark-m2 "kubectl rollout restart deploy/olve-pipelines -n apps && 
 ## Step 2: Confirm no pipeline exists
 
 ```bash
-curl -sk "$API/api/pipelines"
+pl pipeline list
 ```
 
 This skill recreates from scratch. If a pipeline named `olve-pipelines` still exists, the
 state you meant to delete is still there — do **not** proceed or you will create a
-duplicate with a new ID, orphaning the old one.
+duplicate with a new ID, orphaning the old one (`pl binding create` mints a fresh id each run).
 
-## Step 3: Get an auth token
+## Step 3: Log in
+
+`pl` mutations read a cached token from `~/.pl`, so authenticate once. `pl login` runs the
+browser OIDC flow; over SSH / on a headless box it auto-switches to the device flow (RFC 8628
+— scan the QR or open the URL on your phone), or force it with `--device`:
 
 ```bash
-TOKEN=$(curl -sk -X POST "https://auth.ovea.pro/application/o/token/" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=olve-pipelines" \
-  -d "client_secret=d178464f2442ec91434117c488e1f70706ed03458634c4cace376d998bc59020" \
-  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')")
-H="Authorization: Bearer $TOKEN"
+pl login           # add --device over SSH
 ```
+
+This caches the token **and** the resolved `PIPELINES_API_URL` to `~/.pl`, so the commands
+below need no token flag. (Device flow depends on the Authentik worker being healthy.)
 
 ## Step 4: Create the pipeline bound to the repo
 
-One call composes pipeline + binding + deploy poll. `credentialsSecret` names the key in
+One call composes pipeline + binding + deploy poll. `--credentials-secret` names the key in
 the pipeline's k8s secret that holds the GitHub token used to fetch `.pipelines/` (set in
-Step 5). `branch` defaults to `main`, `path` to `.pipelines`.
+Step 5). `--branch` defaults to `main`, `--path` to `.pipelines`.
 
 ```bash
-BINDING=$(curl -sk -X POST "$API/api/pipelines/with-repo" \
-  -H "$H" -H "Content-Type: application/json" \
-  -d '{
-    "repo":"OliverVea/Olve.Pipelines",
-    "branch":"main",
-    "path":".pipelines",
-    "credentialsSecret":"GITHUB_TOKEN"
-  }') && \
-echo "$BINDING" && \
-PID=$(echo "$BINDING" | uv run python -c "import sys,json; print(json.load(sys.stdin)['pipelineId'], end='')") && \
+PID=$(pl binding create OliverVea/Olve.Pipelines \
+  --credentials-secret GITHUB_TOKEN --json | jq -r .pipelineId)
 echo "Pipeline: $PID"
 ```
 
@@ -94,20 +89,14 @@ from the most recent previous pipeline's secret:
 # Find the old secret (lists all pipeline secrets in olve-runners namespace)
 ssh oliver@bulwark-m2 "kubectl get secrets -n olve-runners | grep olve-pipeline-"
 
-# Extract values from the old secret
+# Copy each value straight from the old k8s secret into the new pipeline. base64 -d emits the
+# exact bytes (no command substitution, so trailing newlines in PEM keys survive); pl secret
+# set reads stdin verbatim.
 OLD_SECRET_NAME="<name from above>"
-SECRETS_JSON=$(ssh oliver@bulwark-m2 "kubectl get secret $OLD_SECRET_NAME -n olve-runners -o json | python3 -c \"import sys,json,base64; d=json.load(sys.stdin)['data']; print(json.dumps({k:base64.b64decode(v).decode() for k,v in d.items()}))\"")
-
-GITHUB_TOKEN=$(echo "$SECRETS_JSON" | uv run python -c "import sys,json; print(json.load(sys.stdin)['GITHUB_TOKEN'], end='')")
-SSH_KEY=$(echo "$SECRETS_JSON" | uv run python -c "import sys,json; print(json.load(sys.stdin)['SSH_PRIVATE_KEY'], end='')")
-
-curl -sk -X PUT "$API/api/pipelines/$PID/secrets/GITHUB_TOKEN" \
-  -H "$H" -H "Content-Type: application/json" \
-  -d "{\"value\":\"$GITHUB_TOKEN\"}"
-
-curl -sk -X PUT "$API/api/pipelines/$PID/secrets/SSH_PRIVATE_KEY" \
-  -H "$H" -H "Content-Type: application/json" \
-  -d "{\"value\":$(echo "$SSH_KEY" | uv run python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))")}"
+for KEY in GITHUB_TOKEN SSH_PRIVATE_KEY; do
+  ssh oliver@bulwark-m2 "kubectl get secret $OLD_SECRET_NAME -n olve-runners -o jsonpath=\"{.data.$KEY}\"" \
+    | base64 -d | pl secret set "$PID" "$KEY"
+done
 ```
 
 If there is no previous secret to copy from, set `GITHUB_TOKEN` to a GitHub read token and
@@ -120,24 +109,25 @@ cycle it fetches `.pipelines/config.yaml`, materializes the steps, and seeds the
 cursor (it does **not** build on first observation). Check the binding status:
 
 ```bash
-curl -sk "$API/api/pipelines/$PID/binding/status" | uv run python -m json.tool
+pl binding status "$PID"
 ```
 
-Expect `result: "Success"`, both declared secrets `isSet: true`, and no `problems`. If
-`result` is `Error`, the first `problems` entry says why (bad token, fetch/compile failure).
-A broken config holds off the build — fix the repo and push; the next poll retries.
+Expect `Reconcile: Success`, both declared secrets `set` in the secrets table, and no
+problems. If reconcile is `Error`, the first problem says why (bad token, fetch/compile
+failure). A broken config holds off the build — fix the repo and push; the next poll retries.
+(To apply immediately instead of waiting for the poll: `pl binding reconcile "$PID"`.)
 
 Confirm the steps materialized:
 
 ```bash
-curl -sk "$API/api/pipelines/$PID/document" -H "$H" | uv run python -m json.tool
+pl pipeline document "$PID"
 ```
 
 ## Step 7: Verify a deploy
 
 Push a commit to `main` (or run `/deploy` for a manual trigger). The pipeline builds, runs
-`deploy-beta` (which health-gates), then `deploy`. Watch jobs via `/deploy` or the frontend
-badge (repo@branch + reconcile/secret state).
+`deploy-beta` (which health-gates), then `deploy`. Watch jobs via `pl job list --pipeline "$PID"`,
+`/deploy`, or the frontend badge (repo@branch + reconcile/secret state).
 
 ## After setup
 

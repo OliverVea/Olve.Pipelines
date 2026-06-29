@@ -35,7 +35,7 @@ public static class PipelineBindingEndpoints
 
                 if (bindingResult.TryPickProblems(out var bindingProblems))
                 {
-                    pipelines.Delete(pipeline.Id);
+                    _ = pipelines.Delete(pipeline.Id); // roll back the just-created pipeline; NotFound is benign
                     return bindingProblems;
                 }
 

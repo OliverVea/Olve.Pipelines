@@ -22,7 +22,7 @@ public class NoOpJobExecutor(
         var startedAt = time.GetUtcNow();
         if (job.Status is Scheduled)
         {
-            jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) });
+            LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) }), job.Id);
         }
         else if (job.Status is InProgress ip)
         {
@@ -44,19 +44,25 @@ public class NoOpJobExecutor(
                 WriteDone(job, startedAt, completedAt);
                 break;
             case NoOpJobResult.Failure failure:
-                jobService.UpdateJob<Job>(job.Id, j => j with
+                LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
                 {
                     Status = new Failed(startedAt, completedAt, failure.Reason),
-                });
+                }), job.Id);
                 break;
         }
     }
 
     private void WriteDone(Job job, DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
-        jobService.UpdateJob<Job>(job.Id, j => j with
+        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
         {
             Status = new Done(startedAt, completedAt),
-        });
+        }), job.Id);
+    }
+
+    private void LogIfFailed(Result result, Id<Job> jobId)
+    {
+        if (result.TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of job '{JobId}' (it may have been deleted)", jobId);
     }
 }

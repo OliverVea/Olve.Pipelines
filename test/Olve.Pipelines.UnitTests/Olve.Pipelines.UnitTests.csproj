@@ -6,6 +6,11 @@
     <!-- The CLI apphost is named 'pl'; without this, the testing platform's Polish ('pl')
          satellite-resource folder collides with it on copy. Keep English resources only. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- ORES001 (Olve.Results "observe the result") fires on every `Assert.That(result).Succeeded()`
+         because the analyzer wants an observing member called directly on the Result, not on the
+         TUnit assertion builder; it also flags deliberate arrange/act calls that ignore results.
+         Keep it a visible warning but not a build error in tests; production src still enforces it. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);ORES001</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

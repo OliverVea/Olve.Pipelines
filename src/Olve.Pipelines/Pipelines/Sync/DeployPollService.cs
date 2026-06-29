@@ -155,8 +155,10 @@ public class DeployPollService(
             return false;
         }
 
-        bindingService.SetLastSyncedSha(binding.Id, changed.Sha);
-        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+        // Operational status/cursor writes on a binding just confirmed present; the only failure is a
+        // concurrent unbind, which makes this poll moot — discard.
+        _ = bindingService.SetLastSyncedSha(binding.Id, changed.Sha);
+        _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
             ReconcileResult.Success, DateTimeOffset.UtcNow, [], manifest.Secrets ?? []));
         logger.LogInformation("Reconciled '{Repo}@{Branch}' to config {Sha}", binding.Repo, binding.Branch, changed.Sha);
         return true;
@@ -171,7 +173,7 @@ public class DeployPollService(
     {
         if (binding.Status.Result == ReconcileResult.Success)
             return;
-        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+        _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
             ReconcileResult.Success, DateTimeOffset.UtcNow, [], binding.Status.DeclaredSecrets));
     }
 
@@ -179,7 +181,7 @@ public class DeployPollService(
     // lists them when a fetch/compile fails before a manifest is available.
     private static void RecordError(
         PipelineConfigBindingService bindingService, PipelineConfigBinding binding, IEnumerable<ResultProblem> problems)
-        => bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
+        => _ = bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
             ReconcileResult.Error, DateTimeOffset.UtcNow,
             problems.Select(p => p.ToBriefString()).ToArray(),
             binding.Status.DeclaredSecrets));
@@ -206,7 +208,7 @@ public class DeployPollService(
         {
             logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha} (no initial build)",
                 binding.Repo, binding.Branch, head);
-            bindingService.SetLastDeployedSha(binding.Id, head);
+            _ = bindingService.SetLastDeployedSha(binding.Id, head); // concurrent unbind is the only failure; moot
             return;
         }
 
@@ -222,6 +224,6 @@ public class DeployPollService(
             return;
         }
 
-        bindingService.SetLastDeployedSha(binding.Id, head);
+        _ = bindingService.SetLastDeployedSha(binding.Id, head); // concurrent unbind is the only failure; moot
     }
 }

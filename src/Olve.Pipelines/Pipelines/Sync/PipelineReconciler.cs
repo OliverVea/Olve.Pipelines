@@ -100,7 +100,7 @@ public class PipelineReconciler(
         foreach (var step in live)
         {
             if (!desiredNames.Contains(step.Name))
-                productionSteps.Delete(step.Id);
+                _ = productionSteps.Delete(step.Id); // pruning a step no longer desired; NotFound is benign
         }
 
         return Result.Success();
@@ -151,7 +151,7 @@ public class PipelineReconciler(
         foreach (var step in live)
         {
             if (!desiredNames.Contains(step.Name))
-                processingSteps.Delete(step.Id);
+                _ = processingSteps.Delete(step.Id); // pruning a step no longer desired; NotFound is benign
         }
 
         return Result.Success();
@@ -185,7 +185,7 @@ public class PipelineReconciler(
                 if (TargetEquals(existing.Target, target))
                     continue;
 
-                triggers.Delete(existing.Id); // target changed — recreate (Id is not history-bearing)
+                _ = triggers.Delete(existing.Id); // target changed — recreate (Id is not history-bearing); NotFound is benign
             }
 
             if (triggers.Create(pipelineId, trigger.Name, target).TryPickProblems(out var createProblems))
@@ -195,7 +195,7 @@ public class PipelineReconciler(
         foreach (var trigger in live)
         {
             if (!desiredNames.Contains(trigger.Name))
-                triggers.Delete(trigger.Id);
+                _ = triggers.Delete(trigger.Id); // pruning a trigger no longer desired; NotFound is benign
         }
 
         return Result.Success();

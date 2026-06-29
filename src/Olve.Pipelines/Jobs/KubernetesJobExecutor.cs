@@ -202,17 +202,17 @@ public class KubernetesJobExecutor(
         if (job.Status is InProgress inProgress) return inProgress.StartedAt;
 
         var startedAt = time.GetUtcNow();
-        jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) });
+        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) }), job.Id);
         return startedAt;
     }
 
     private void WriteDone(Job job, DateTimeOffset startedAt)
     {
         var completedAt = time.GetUtcNow();
-        jobService.UpdateJob<Job>(job.Id, j => j with
+        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
         {
             Status = new Done(startedAt, completedAt),
-        });
+        }), job.Id);
 
         logger.LogInformation("Job '{JobId}' for pipeline '{PipelineId}' completed in {ElapsedMs}ms",
             job.Id, job.PipelineId, (long)(completedAt - startedAt).TotalMilliseconds);
@@ -227,13 +227,19 @@ public class KubernetesJobExecutor(
     private void FailJob(Job job, DateTimeOffset startedAt, string reason)
     {
         var failedAt = time.GetUtcNow();
-        jobService.UpdateJob<Job>(job.Id, j => j with
+        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
         {
             Status = new Failed(startedAt, failedAt, reason),
-        });
+        }), job.Id);
 
         logger.LogWarning("Job '{JobId}' for pipeline '{PipelineId}' failed after {ElapsedMs}ms: {Reason}",
             job.Id, job.PipelineId, (long)(failedAt - startedAt).TotalMilliseconds, reason);
+    }
+
+    private void LogIfFailed(Result result, Id<Job> jobId)
+    {
+        if (result.TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of job '{JobId}' (it may have been deleted)", jobId);
     }
 
     private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)

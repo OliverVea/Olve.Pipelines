@@ -41,9 +41,15 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(JobStatus))]
 // Job groups (polymorphic) — returned by trigger/re-promote mutations
 [JsonSerializable(typeof(JobGroup))]
+// Bindings (GitOps)
+[JsonSerializable(typeof(PipelineConfigBinding))]
+[JsonSerializable(typeof(PipelineBindingStatus))]
 // Mutation request bodies
 [JsonSerializable(typeof(SetPromotionRequest))]
 [JsonSerializable(typeof(SetSecretRequest))]
+[JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
+[JsonSerializable(typeof(UpdateBindingRequest))]
+[JsonSerializable(typeof(SetDeployTriggerRequest))]
 // Triggers (polymorphic)
 [JsonSerializable(typeof(Trigger))]
 [JsonSerializable(typeof(Trigger[]))]

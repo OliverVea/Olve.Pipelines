@@ -82,6 +82,13 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/secrets", CliJsonContext.Default.StringArray, ct);
 
+    // Bindings (GitOps)
+    public Task<Result<PipelineConfigBinding>> GetPipelineBinding(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/binding", CliJsonContext.Default.PipelineConfigBinding, ct);
+
+    public Task<Result<PipelineBindingStatus>> GetPipelineBindingStatus(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/binding/status", CliJsonContext.Default.PipelineBindingStatus, ct);
+
     // Info
     public Task<Result<string>> GetFrontendConfigRaw(CancellationToken ct) =>
         transport.GetStringAsync("/api/config/frontend", ct);
@@ -118,4 +125,36 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}", body: null, ct);
+
+    public Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
+        string repo, string? branch, string? path, string? credentialsSecret,
+        BindingDeployTrigger? deployTrigger, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, "/api/pipelines/with-repo",
+            ApiTransport.JsonBody(
+                new CreatePipelineWithRepoRequest
+                {
+                    Repo = repo, Branch = branch, Path = path,
+                    CredentialsSecret = credentialsSecret, DeployTrigger = deployTrigger,
+                },
+                CliJsonContext.Default.CreatePipelineWithRepoRequest),
+            CliJsonContext.Default.PipelineConfigBinding, ct);
+
+    public Task<Result<PipelineConfigBinding>> UpdatePipelineBindingCredentials(
+        string pipelineId, string? credentialsSecret, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Patch, $"/api/pipelines/{Enc(pipelineId)}/binding",
+            ApiTransport.JsonBody(
+                new UpdateBindingRequest { CredentialsSecret = credentialsSecret },
+                CliJsonContext.Default.UpdateBindingRequest),
+            CliJsonContext.Default.PipelineConfigBinding, ct);
+
+    public Task<Result<PipelineConfigBinding>> UpdatePipelineBindingDeployTrigger(
+        string pipelineId, BindingDeployTrigger deployTrigger, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Patch, $"/api/pipelines/{Enc(pipelineId)}/binding/deploy-trigger",
+            ApiTransport.JsonBody(
+                new SetDeployTriggerRequest { DeployTrigger = deployTrigger },
+                CliJsonContext.Default.SetDeployTriggerRequest),
+            CliJsonContext.Default.PipelineConfigBinding, ct);
+
+    public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/binding/reconcile", body: null, ct);
 }

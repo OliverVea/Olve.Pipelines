@@ -44,6 +44,10 @@ public interface IPipelinesApi
     // Secrets
     Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct);
 
+    // Bindings (GitOps)
+    Task<Result<PipelineConfigBinding>> GetPipelineBinding(string pipelineId, CancellationToken ct);
+    Task<Result<PipelineBindingStatus>> GetPipelineBindingStatus(string pipelineId, CancellationToken ct);
+
     // Info
     Task<Result<string>> GetFrontendConfigRaw(CancellationToken ct);
     Task<Result<string>> GetHealthRaw(CancellationToken ct);
@@ -57,4 +61,12 @@ public interface IPipelinesApi
     Task<Result> DeletePipeline(string id, CancellationToken ct);
     Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);
     Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
+    Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
+        string repo, string? branch, string? path, string? credentialsSecret,
+        BindingDeployTrigger? deployTrigger, CancellationToken ct);
+    Task<Result<PipelineConfigBinding>> UpdatePipelineBindingCredentials(
+        string pipelineId, string? credentialsSecret, CancellationToken ct);
+    Task<Result<PipelineConfigBinding>> UpdatePipelineBindingDeployTrigger(
+        string pipelineId, BindingDeployTrigger deployTrigger, CancellationToken ct);
+    Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct);
 }

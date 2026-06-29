@@ -262,6 +262,13 @@ pl job list [--pipeline <id>]    # paginated jobs; the STEP column names the ste
 pl job get <id>                  # show one job
 pl job logs <id>                 # fetch a job's logs
 pl job cancel <id>               # cancel a scheduled or in-progress job
+
+pl binding create <repo>         # create a pipeline bound to a repo (GitOps); --credentials-secret, --branch, --path, --trigger
+pl binding get <pipelineId>      # show a pipeline's binding (repo@branch, trigger, deploy/sync cursors)
+pl binding status <pipelineId>   # reconcile result + declared-secret set/unset state
+pl binding set-credentials <pipelineId> [key]   # set (or, with no key, clear) the GitHub-token secret key
+pl binding set-trigger <pipelineId> <mode>      # webhook | webhook-only | poll
+pl binding reconcile <pipelineId>               # apply the bound config now, off the poll schedule
 ```
 
 `pl pipeline list` reports a derived **status** per pipeline, aggregated from its step-health strip

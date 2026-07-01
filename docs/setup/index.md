@@ -24,18 +24,19 @@ Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──
 
 ## How you configure it: GitOps only
 
-**There is no imperative "create steps via the API" path.** You do not build a pipeline by
-POSTing steps one at a time. Instead:
+**There is no imperative "create steps" path.** You do not build a pipeline by adding steps
+one at a time. Instead:
 
 1. You add a single file — `.pipelines/config.yaml` — to **your** repository.
-2. You bind a pipeline to your repo (one API call).
+2. You bind a pipeline to your repo — one `pl binding create` (the `pl` CLI is how you drive
+   every create/bind, secret, and operational action; you never call the HTTP API directly).
 3. The server polls your branch (~5 min) and, on every change to the config, **reconciles**
    the live pipeline to match the file, then runs the build.
 
-Your repo is the **single source of truth** for the pipeline's shape. A bound pipeline
-*rejects* API calls that would mutate its config — only your committed file writes config.
-(Operational actions — manual trigger, job cancel, setting secret *values*, the promotion
-gate — stay open.)
+Your repo is the **single source of truth** for the pipeline's shape. A bound pipeline has no
+out-of-band way to mutate its config — only your committed file writes config. (Operational
+actions — `pl production trigger`, `pl job cancel`, setting secret *values* with
+`pl secret set`, the promotion gate — work on a bound pipeline.)
 
 ## Start here
 
@@ -44,8 +45,8 @@ Read in this order:
 1. **[Getting Started](getting-started.md)** — the four steps to put a repo under CD. Start here.
 2. **[`config.yaml` Reference](config-reference.md)** — every field, `$ref`/`scriptFile`
    extraction, secret declarations, triggers, and the exact validation rules.
-3. **[Binding & Reconcile](binding-and-reconcile.md)** — the binding API, the reconcile loop,
-   the status endpoint, and the config-before-build guarantee.
+3. **[Binding & Reconcile](binding-and-reconcile.md)** — the `pl binding` commands, the
+   reconcile loop, the status output, and the config-before-build guarantee.
 4. **[Bundles & Execution](bundles-and-execution.md)** — how steps run as K8s Jobs, what an
    ArtifactBundle is, and how output flows from production to processing.
 5. **[Promotion Gate](promotion-gate.md)** — operational control (brake + re-promote) over
@@ -87,18 +88,15 @@ processingSteps:
         echo deploying...
 ```
 
-Then bind it:
+Then bind it with the **`pl` CLI** (used for every create/bind, secret, and status
+operation — you never call the HTTP API directly):
 
-```http
-POST /api/pipelines/with-repo
-Content-Type: application/json
-
-{ "repo": "you/my-app", "branch": "main",
-  "path": ".pipelines", "credentialsSecret": "GITHUB_TOKEN" }
+```sh
+pl binding create you/my-app --credentials-secret GITHUB_TOKEN
 ```
 
-Set the secret value, push, and watch `GET /api/pipelines/{id}/binding/status`.
-Full walkthrough: **[Getting Started](getting-started.md)**.
+Set the secret value (`pl secret set <pipelineId> GITHUB_TOKEN`), push, and watch
+`pl binding status <pipelineId>`. Full walkthrough: **[Getting Started](getting-started.md)**.
 
 ---
 

@@ -54,12 +54,12 @@ This ordering is the mechanism behind the common "beta gates prod" pattern — s
 
 The ArtifactBundle is the collected outputs as a **zipped directory in S3**:
 `bundle/<step-name>/<files>`. It is *produced by* production and *consumed by* every processing
-step. You can list and fetch bundles via the API:
+step. You can list and fetch bundles with the `pl` CLI:
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/pipelines/{pipelineId}/artifact-bundles` | List the pipeline's bundles |
-| GET | `/api/artifact-bundles/{bundleId}` | Get one bundle |
+| `pl` command | Description |
+|---|---|
+| `pl bundle list <pipelineId>` | List the pipeline's bundles |
+| `pl bundle get <bundleId>` | Get one bundle |
 
 ## Jobs and scheduling
 
@@ -79,15 +79,15 @@ submitted to Kubernetes. There are two job types:
 - **Cascade on pipeline delete** — deleting a pipeline cancels all its scheduled/in-progress
   jobs.
 
-### Job endpoints
+### Job commands
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/jobs` | List all jobs |
-| GET | `/api/jobs/{id}` | Get a job |
-| GET | `/api/jobs/queue` | Get the scheduled job queue |
-| POST | `/api/jobs/{id}/cancel` | Cancel a job (operational — works on a bound pipeline) |
-| DELETE | `/api/jobs/{id}` | Delete a job |
+| `pl` command | Description |
+|---|---|
+| `pl job list [--pipeline <id>]` | List jobs (latest first; filter by pipeline) |
+| `pl job get <jobId>` | Get a job |
+| `pl job logs <jobId>` | Print a job's logs |
+| `pl job queue` | Show the scheduled job queue |
+| `pl job cancel <jobId>` | Cancel a job (operational — works on a bound pipeline) |
 
 ## How a build flows end to end
 

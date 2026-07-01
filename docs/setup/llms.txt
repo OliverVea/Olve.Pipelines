@@ -3,7 +3,8 @@
 > A lightweight, GitOps-only CD orchestration service for a homelab. You bind a pipeline to
 > your Git repository; the server polls your branch, reconciles the live pipeline to match a
 > committed `.pipelines/config.yaml`, and runs each step as a Kubernetes Job. Configuration is
-> driven entirely by your repo — there is no imperative "create steps via the API" path.
+> driven entirely by your repo — there is no imperative "create steps" path. You drive
+> create/bind, secrets, and operational actions with the `pl` CLI, never the raw HTTP API.
 
 All documentation pages below are served as raw Markdown at the listed URLs. Fetch them
 directly (no auth, no repo clone needed) and parse the raw text.
@@ -14,7 +15,7 @@ directly (no auth, no repo clone needed) and parse the raw text.
 - [Getting Started](/docs/getting-started.md): The four steps to put a repository under CD.
 - [config.yaml Reference](/docs/config-reference.md): Every field, `$ref`/`scriptFile` extraction, secret declarations, triggers, and validation rules.
 - [Examples](/docs/examples.md): Four real projects (this repo, QuestionBank, a homelab, a game) mapped to the capability each exercises and the shared block it implies.
-- [Binding & Reconcile](/docs/binding-and-reconcile.md): The binding API, the reconcile loop, the status endpoint, and the config-before-build guarantee.
+- [Binding & Reconcile](/docs/binding-and-reconcile.md): The `pl binding` commands, the reconcile loop, the status output, and the config-before-build guarantee.
 - [Bundles & Execution](/docs/bundles-and-execution.md): How steps run as K8s Jobs, what an ArtifactBundle is, and how output flows from production to processing.
 - [Promotion Gate](/docs/promotion-gate.md): Operational control (brake + re-promote) over processing steps — state, not config.
 - [Shared Script Library](/docs/script-library.md): `olve-lib.sh` — sourced shell helpers that capture the Kaniko-build and SSH/Helm-deploy footguns so step scripts stop re-vendoring them.

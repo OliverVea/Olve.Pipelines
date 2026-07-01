@@ -3,12 +3,12 @@
 [← Index](index.md) · [Subject Index](subjects.md)
 
 Symptoms → likely cause → fix. Most setup problems surface in
-`GET /api/pipelines/{id}/binding/status` as `result: Error` with a `problems` list — start there.
+`pl binding status <pipelineId>` as reconcile `Error` with a list of problems — start there.
 
-## The reconcile shows `result: Error`
+## The reconcile shows `Error`
 
 Live state is **unchanged** (the [config-before-build](binding-and-reconcile.md#config-before-build)
-guarantee). Read `problems` and match the message:
+guarantee). Read the listed problems and match the message:
 
 | Problem message contains | Cause | Fix |
 |---|---|---|
@@ -28,43 +28,47 @@ guarantee). Read `problems` and match the message:
 
 After fixing, push again — the next poll cycle re-reconciles.
 
-## A secret shows `isSet: false`
+## A secret shows `unset`
 
-The secret is declared in `config.yaml` but its value isn't set in k8s. Set it:
+The secret is declared in `config.yaml` but its value isn't set in k8s. Set it (the value is
+read from stdin, so it stays out of your shell history):
 
-```http
-PUT /api/pipelines/{id}/secrets/{name}
+```sh
+echo -n "<value>" | pl secret set <pipelineId> <name>
 ```
 
 This is operational, so it works on a bound pipeline.
 
-## A secret shows `isSet: null`
+## A secret shows `unknown`
 
-`null` ≠ `false`. It means the server **couldn't read** the k8s secret (k8s unconfigured or
-unreachable at read time) — the set/unset state is *unknown*. Check k8s connectivity; the
-status endpoint deliberately won't 500 or report a misleading "unset" in this case.
+`unknown` ≠ `unset`. It means the server **couldn't read** the k8s secret (k8s unconfigured or
+unreachable at read time) — the set/unset state is genuinely unknown. Check k8s connectivity;
+`pl binding status` deliberately won't fail or report a misleading "unset" in this case.
 
-## My config-mutation API call returns an error
+## I want to change steps or triggers without pushing
 
-If the pipeline is **bound**, this is expected:
-config-mutation endpoints (create/delete/reorder steps, set step configuration, create/delete
-triggers) are **rejected** — your repo is the only config writer. Change the file and push
-instead. Operational endpoints (manual trigger, job cancel, secret values, promotion gate) stay
-open. See [git-only](binding-and-reconcile.md#git-only-what-a-bound-pipeline-rejects).
+You can't, by design — there is no `pl` command (and no API) that mutates pipeline shape.
+Creating/deleting/reordering steps, setting step configuration, and creating/deleting triggers
+all come **only** from `config.yaml` via reconcile — your repo is the only config writer. Change
+the file and push instead. Operational commands (`pl production trigger`, `pl job cancel`,
+`pl secret set`, the promotion gate) work on a bound pipeline. See
+[git-only](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints).
 
 ## I pushed but nothing happened
 
 - The poll runs about every **5 minutes** — give it a cycle.
 - A **code-only** push (nothing under `.pipelines/` changed) still builds but skips the
   reconcile; if you expected a *shape* change, confirm you actually edited `.pipelines/`.
-- Check `result` / `lastSyncTime` in the status endpoint to see whether a reconcile ran.
+- Check the reconcile result / last-sync time via `pl binding status <pipelineId>` to see
+  whether a reconcile ran. Force one now with `pl binding reconcile <pipelineId>`.
 
 ## The build runs but the deploy never starts
 
 - A processing step's **promotion gate** may be braked. Check/unblock it — see
   [Promotion Gate](promotion-gate.md). A braked gate halts the chain *without* skipping ahead.
 - An earlier processing step may have **failed**: processing is sequential, so a failure stops
-  the chain. Inspect the failing job (`GET /api/jobs/{id}`).
+  the chain. Inspect the failing job: `pl job list --pipeline <pipelineId>` to find it, then
+  `pl job logs <jobId>` for the error.
 
 ## A new job seems to have replaced my queued one
 
@@ -78,7 +82,8 @@ The repo read token is resolved at fetch time from the pipeline's k8s secret usi
 `credentialsSecret` **key name** you bound. Confirm:
 
 - `credentialsSecret` names a key that actually exists in the secret (e.g. `GITHUB_TOKEN`).
-- That key's **value** is set (`PUT …/secrets/{name}`) and is a valid read token for the repo.
+- That key's **value** is set (`pl secret set <pipelineId> <name>`) and is a valid read token
+  for the repo. Confirm with `pl secret list <pipelineId>` or `pl binding status <pipelineId>`.
 
 A public repo needs no token — omit `credentialsSecret`.
 

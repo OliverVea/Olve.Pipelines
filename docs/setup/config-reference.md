@@ -129,10 +129,11 @@ Reference a secret in two ways:
 - **As a plain env var** (`$GITHUB_TOKEN`) inside a script — every declared secret is mounted
   into every job.
 
-You set values via the operational endpoint (works even on a bound pipeline):
+You set values with `pl secret set` (works even on a bound pipeline; the value is read from
+stdin so it stays out of your shell history):
 
-```http
-PUT /api/pipelines/{id}/secrets/{name}
+```sh
+echo -n "<value>" | pl secret set <pipelineId> <name>
 ```
 
 > **Validation:** every `$SECRET:NAME` referenced in env values or poll headers **must** be
@@ -189,8 +190,9 @@ over the raw body, keyed by a server-generated per-trigger secret — no inbound
 
 Prerequisites:
 
-- **`tokenSecret` PAT** — declare the secret in `secrets:` and set its value via the API (it is a
-  pipeline K8s secret). The PAT must be a fine-grained token with **repo** + **admin:repo_hook**.
+- **`tokenSecret` PAT** — declare the secret in `secrets:` and set its value with
+  `pl secret set <pipelineId> <name>` (it is a pipeline K8s secret). The PAT must be a
+  fine-grained token with **repo** + **admin:repo_hook**.
 - **`Webhooks:PublicBaseUrl`** — the server must be reachable by GitHub at a public origin (e.g.
   `https://pipelines-hooks.ovea.pro`); the receiver lives at `/api/webhooks/github/{triggerId}`.
   Enable the chart's `ingress.public` and set `config.Webhooks__PublicBaseUrl` to that host.
@@ -218,7 +220,7 @@ The **whole reconcile is rejected** (live state unchanged) if any of these fail:
 
 A rejected reconcile **holds off the build** for that cycle — see
 [config-before-build](binding-and-reconcile.md#config-before-build). The problems are surfaced
-in `GET /api/pipelines/{id}/binding/status`.
+by `pl binding status <pipelineId>`.
 
 ## Worked example — this repo's own config
 

@@ -13,7 +13,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [getting-started.md](getting-started.md) | The 4-step setup walkthrough |
 | [config-reference.md](config-reference.md) | Full `config.yaml` schema, extraction, secrets, triggers, validation |
 | [examples.md](examples.md) | Four real projects mapped to capabilities; what composability the model needs next |
-| [binding-and-reconcile.md](binding-and-reconcile.md) | Binding API, the reconcile loop, status, git-only restriction |
+| [binding-and-reconcile.md](binding-and-reconcile.md) | Binding commands (`pl binding …`), the reconcile loop, status, git-only restriction |
 | [bundles-and-execution.md](bundles-and-execution.md) | K8s Jobs, ArtifactBundle, scheduling, the production→processing flow |
 | [promotion-gate.md](promotion-gate.md) | Brake + re-promote; operational state vs config |
 | [script-library.md](script-library.md) | `olve-lib.sh` shared shell helpers; how a step sources it; function reference |
@@ -26,8 +26,8 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | `apiVersion` (compatibility, format) | [config-reference.md#apiversion](config-reference.md#apiversion) |
 | ArtifactBundle (what it is, layout) | [bundles-and-execution.md#artifactbundle](bundles-and-execution.md#artifactbundle) |
 | Beta-gates-prod pattern | [bundles-and-execution.md#processing--sequential-consumes-the-bundle](bundles-and-execution.md#processing--sequential-consumes-the-bundle) |
-| Binding a pipeline to a repo | [binding-and-reconcile.md#binding-endpoints](binding-and-reconcile.md#binding-endpoints) |
-| Binding endpoints (table) | [binding-and-reconcile.md#binding-endpoints](binding-and-reconcile.md#binding-endpoints) |
+| Binding a pipeline to a repo | [binding-and-reconcile.md#binding-commands](binding-and-reconcile.md#binding-commands) |
+| Binding commands (table) | [binding-and-reconcile.md#binding-commands](binding-and-reconcile.md#binding-commands) |
 | Branch (default, watching) | [binding-and-reconcile.md#the-binding](binding-and-reconcile.md#the-binding) |
 | Brake (block/unblock promotion) | [promotion-gate.md](promotion-gate.md) |
 | Build → deploy flow (end to end) | [bundles-and-execution.md#how-a-build-flows-end-to-end](bundles-and-execution.md#how-a-build-flows-end-to-end) |
@@ -40,12 +40,12 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Environment variables (step config) | [config-reference.md#step-object](config-reference.md#step-object) |
 | ETag / conditional fetch / 304 | [binding-and-reconcile.md#the-reconcile-loop](binding-and-reconcile.md#the-reconcile-loop) |
 | Getting started (4 steps) | [getting-started.md](getting-started.md) |
-| Git-only (rejected config endpoints) | [binding-and-reconcile.md#git-only-what-a-bound-pipeline-rejects](binding-and-reconcile.md#git-only-what-a-bound-pipeline-rejects) |
+| Git-only (rejected config endpoints) | [binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints) |
 | GitOps model (overview) | [index.md#how-you-configure-it-gitops-only](index.md#how-you-configure-it-gitops-only) |
 | `image` (step config) | [config-reference.md#step-object](config-reference.md#step-object) |
 | Job statuses | [bundles-and-execution.md#jobs-and-scheduling](bundles-and-execution.md#jobs-and-scheduling) |
 | Kaniko build helper (`olve_kaniko_build`) | [script-library.md#functions](script-library.md#functions) |
-| Job endpoints (cancel, queue, get) | [bundles-and-execution.md#job-endpoints](bundles-and-execution.md#job-endpoints) |
+| Job commands (cancel, queue, get, logs) | [bundles-and-execution.md#job-commands](bundles-and-execution.md#job-commands) |
 | Kubernetes Jobs (how steps run) | [bundles-and-execution.md#every-step-is-a-kubernetes-job](bundles-and-execution.md#every-step-is-a-kubernetes-job) |
 | Latest-wins scheduling | [bundles-and-execution.md#jobs-and-scheduling](bundles-and-execution.md#jobs-and-scheduling) · [troubleshooting.md](troubleshooting.md#a-new-job-seems-to-have-replaced-my-queued-one) |
 | Minimal config example | [index.md#minimal-example](index.md#minimal-example) |
@@ -57,16 +57,16 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Promotion gate (state, not config) | [promotion-gate.md](promotion-gate.md) |
 | `$ref` (extract a step to a file) | [config-reference.md#ref--pull-a-step-from-its-own-file](config-reference.md#ref--pull-a-step-from-its-own-file) |
 | Reconcile loop (steps 1–6) | [binding-and-reconcile.md#the-reconcile-loop](binding-and-reconcile.md#the-reconcile-loop) |
-| Reconcile result (NeverRun/Success/Error) | [binding-and-reconcile.md#result-values](binding-and-reconcile.md#result-values) |
+| Reconcile result (NeverRun/Success/Error) | [binding-and-reconcile.md#reconcile-result](binding-and-reconcile.md#reconcile-result) |
 | Re-promote (redrive last bundle) | [promotion-gate.md](promotion-gate.md) |
 | `script` vs `scriptFile` | [config-reference.md#scriptfile--keep-a-script-out-of-line](config-reference.md#scriptfile--keep-a-script-out-of-line) |
 | Script library (`olve-lib.sh`, sourcing it) | [script-library.md](script-library.md) |
 | Shared shell functions (deploy/build) | [script-library.md#functions](script-library.md#functions) |
 | Secrets (declare by name) | [config-reference.md#secrets](config-reference.md#secrets) |
-| Secrets (set values via API) | [getting-started.md#step-3--set-the-secret-values](getting-started.md#step-3--set-the-secret-values) |
+| Secrets (set values with `pl secret set`) | [getting-started.md#step-3--set-the-secret-values](getting-started.md#step-3--set-the-secret-values) |
 | `$SECRET:NAME` reference | [config-reference.md#secrets](config-reference.md#secrets) |
-| Secret status (`isSet` true/false/null) | [binding-and-reconcile.md#secretsisset](binding-and-reconcile.md#secretsisset) · [troubleshooting.md](troubleshooting.md#a-secret-shows-isset-null) |
-| Status endpoint (binding) | [binding-and-reconcile.md#reading-the-status](binding-and-reconcile.md#reading-the-status) |
+| Secret status (set/unset/unknown) | [binding-and-reconcile.md#secret-state](binding-and-reconcile.md#secret-state) · [troubleshooting.md](troubleshooting.md#a-secret-shows-unknown) |
+| Binding status (`pl binding status`) | [binding-and-reconcile.md#reading-the-status](binding-and-reconcile.md#reading-the-status) |
 | Step configuration (image/script/env) | [config-reference.md#step-object](config-reference.md#step-object) |
 | Triggers (production/processing/poll) | [config-reference.md#triggers](config-reference.md#triggers) |
 | Troubleshooting (symptom → fix) | [troubleshooting.md](troubleshooting.md) |

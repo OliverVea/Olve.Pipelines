@@ -3,14 +3,24 @@
 [← Index](index.md) · [Subject Index](subjects.md)
 
 This is the end-to-end path: from a repo with no CD to a pipeline that builds and deploys on
-every push. It is entirely **GitOps** — you author one file in your repo and make one binding
-call; you never author steps or triggers through the API.
+every push. It is entirely **GitOps** — you author one file in your repo and run one `pl binding
+create`; you never author steps or triggers by hand.
+
+Everything here is driven by the **`pl` CLI** — the Olve.Pipelines operator tool. Use it for all
+create/bind, secret, status, and trigger operations; you never call the HTTP API directly.
 
 ## Prerequisites
 
 - A Git repository on GitHub the server can read (public, or private with a read token).
 - The container images your steps need (e.g. a Kaniko build image, an `alpine` deploy image).
-- Access to the Olve.Pipelines API.
+- The **`pl` CLI**, logged in. Download it from the instance (`GET /download/{asset}`) and
+  authenticate once:
+  ```sh
+  pl login                                           # prod (pipelines-private.ovea.pro)
+  pl login --api-url https://pipelines-beta.ovea.pro # a specific environment
+  ```
+  `pl login` runs a browser OIDC flow (auth-code + PKCE) and caches the token in `~/.pl`. Add
+  `--device` to log in by QR code without a local browser.
 
 ## Step 1 — Add `.pipelines/config.yaml` to your repo
 
@@ -50,25 +60,24 @@ reference it with `scriptFile:` (the two are mutually exclusive). See the
 
 ## Step 2 — Create a pipeline bound to your repo
 
-One call creates the pipeline and binds it. If the bind fails, the draft pipeline is rolled
+One command creates the pipeline and binds it. If the bind fails, the draft pipeline is rolled
 back, so you never get an orphan.
 
-```http
-POST /api/pipelines/with-repo
-Content-Type: application/json
-
-{
-  "repo": "you/my-app",
-  "branch": "main",            // optional, defaults to "main"
-  "path": ".pipelines",        // optional, defaults to ".pipelines"
-  "credentialsSecret": "GITHUB_TOKEN"   // key in the pipeline's k8s secret holding the repo read token; omit for a public repo
-}
+```sh
+pl binding create you/my-app --credentials-secret GITHUB_TOKEN
 ```
 
-The response is the binding. Note the pipeline `id` — you need it for the next steps.
+- `--branch <name>` — branch to track (default `main`)
+- `--path <dir>` — config directory in the repo (default `.pipelines`)
+- `--credentials-secret <key>` — key in the pipeline's k8s secret holding the repo read token
+  (omit for a public repo)
+- `--trigger <mode>` — deploy trigger: `webhook` (default), `webhook-only`, or `poll`
 
-> `with-repo` is the only way to create a pipeline: every pipeline is bound to a repo from
-> birth, so its shape — including its **name** — always comes from git. The bind seeds a
+The command prints the binding, including the pipeline **id** — you need it for the next steps.
+(Or look it up any time with `pl pipeline list`.)
+
+> `pl binding create` is the only way to create a pipeline: every pipeline is bound to a repo
+> from birth, so its shape — including its **name** — always comes from git. The bind seeds a
 > provisional name from the repo; the first reconcile sets it from `config.yaml`'s `name`.
 > See [Binding & Reconcile](binding-and-reconcile.md).
 
@@ -76,17 +85,22 @@ The response is the binding. Note the pipeline `id` — you need it for the next
 
 Your config declares secrets **by name only**. Their *values* live in the pipeline's own
 Kubernetes secret (`olve-pipeline-{id}`) and are mounted into every job — they never pass
-through the repo or the app at runtime. Set each declared secret's value:
+through the repo or the app at runtime. Set each declared secret's value with `pl secret set`,
+which reads the value from **stdin** by default so it stays out of your shell history and the
+process list:
 
-```http
-PUT /api/pipelines/{id}/secrets/GITHUB_TOKEN
-Content-Type: application/json
-
-"ghp_xxxxxxxxxxxxxxxxxxxx"
+```sh
+# from stdin (piped)
+echo -n "ghp_xxxxxxxxxxxxxxxxxxxx" | pl secret set <pipelineId> GITHUB_TOKEN
+# from an env var
+pl secret set <pipelineId> GITHUB_TOKEN --from-env GITHUB_TOKEN
+# from a file, verbatim (multi-line PEM keys round-trip intact)
+pl secret set <pipelineId> SSH_PRIVATE_KEY --from-file ./id_ed25519
 ```
 
-This is an **operational** endpoint, so it works even though the pipeline is git-bound.
-Setting values is the one piece of config that *can't* live in the repo, by design.
+This is an **operational** command, so it works even though the pipeline is git-bound. Setting
+values is the one piece of config that *can't* live in the repo, by design. (List which secrets
+are set with `pl secret list <pipelineId>`.)
 
 ## Step 4 — Push, and watch the reconcile
 
@@ -94,28 +108,29 @@ Push a commit. Within ~5 minutes the server notices the branch moved, fetches yo
 `.pipelines/` subtree, compiles + validates the config, reconciles the live pipeline to match,
 and runs the build. Check the result:
 
-```http
-GET /api/pipelines/{id}/binding/status
+```sh
+pl binding status <pipelineId>
 ```
 
-```jsonc
-{
-  "result": "Success",            // NeverRun | Success | Error
-  "lastSyncTime": "2026-06-16T…",
-  "problems": [],                 // validation/fetch problems if result == Error
-  "secrets": [                    // each declared secret + whether it's set in k8s right now
-    { "name": "GITHUB_TOKEN", "isSet": true }
-  ],
-  "lastSyncedSha": "abc123…",
-  "lastDeployedSha": "abc123…"
-}
+```text
+Pipeline:  <id>
+Repo:      you/my-app@main (.pipelines)
+Reconcile: Success (last sync 2026-06-16 12:00:00Z)
+Deployed:  abc123…
+Synced:    abc123…
+Secrets:
+  NAME          SET  DESCRIPTION
+  GITHUB_TOKEN  set  Read token to fetch the repo tarball during build.
 ```
 
-- `result: Success` and `problems: []` → your config applied and the build ran.
-- `result: Error` → live state is **unchanged**; read `problems` and fix the config. See
-  [Troubleshooting](troubleshooting.md).
-- An `isSet: false` secret → set its value (Step 3). `isSet: null` means k8s couldn't be read,
-  not that the secret is missing.
+- **Reconcile `Success`** with no problems → your config applied and the build ran.
+- **Reconcile `Error`** → live state is **unchanged**; read the listed problems and fix the
+  config. See [Troubleshooting](troubleshooting.md).
+- A secret shown as **`unset`** → set its value (Step 3). **`unknown`** means k8s couldn't be
+  read, not that the secret is missing.
+
+Don't want to wait for the poll? Apply the bound config immediately with
+`pl binding reconcile <pipelineId>`.
 
 ## What happens on every subsequent push
 

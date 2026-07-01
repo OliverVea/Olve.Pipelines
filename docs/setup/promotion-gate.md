@@ -25,7 +25,7 @@ Production steps have **no** gate — only processing steps do.
 The gate is **operational state**, deliberately kept *out* of GitOps config:
 
 - It is **API/UI-mutable even on a git-bound pipeline.** Blocking a deploy is an operation, not
-  a shape change, so the [git-only restriction](binding-and-reconcile.md#git-only-what-a-bound-pipeline-rejects)
+  a shape change, so the [git-only restriction](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints)
   does not apply to it.
 - It is stored **separately from the step** (keyed on the step id; absence = enabled), so a
   **reconcile never erases an operator's brake.** You can pause a deploy and keep pushing code;
@@ -56,7 +56,7 @@ skipping ahead. See [Bundles & Execution](bundles-and-execution.md) for the job 
 
 ## See also
 
-- [Binding & Reconcile](binding-and-reconcile.md#git-only-what-a-bound-pipeline-rejects) — why
+- [Binding & Reconcile](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints) — why
   the gate is exempt from the git-only restriction
 - [Bundles & Execution](bundles-and-execution.md) — the sequential processing chain the gate
   controls

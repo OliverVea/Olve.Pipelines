@@ -30,6 +30,7 @@ through it. Lets the scattered defensive `TryGet`-after-index-lookup pattern sta
 surfaces as a failure to the mutation caller, even though the `Set`/`Delete` write already
 succeeded. Synchronous two-tier event model makes this a latent footgun.
 → **Fix:** wrap each handler dispatch in try/catch-log (per-handler isolation). Cheap.
+→ **Handoff written:** [2026-06-28-event-exception-shielding-design.md](2026-06-28-event-exception-shielding-design.md)
 
 ### 3. K8s-unavailable job stall — infinite retry, no backoff, invisible  **[MEDIUM]**
 `src/Olve.Pipelines/Jobs/KubernetesJobExecutor.cs` (~`SubmitOrReattachAsync`, line ~142): if

@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,23 +11,27 @@
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.5" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <!-- Transitive pin: Microsoft.AspNetCore.OpenApi 10.0.9 pulls in Microsoft.OpenApi 2.0.0,
+         which has GHSA-v5pm-xwqc-g5wc (stack-overflow DoS). Fixed in 2.7.5+. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
     <PackageVersion Include="Net.Codecrete.QrCodeGenerator" Version="3.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.9" />
-    <PackageVersion Include="Olve.MinimalApi" Version="0.46.0" />
-    <PackageVersion Include="Olve.Results" Version="0.46.0" />
-    <PackageVersion Include="Olve.Results.TUnit" Version="0.46.0" />
-    <PackageVersion Include="Olve.Utilities" Version="0.46.0" />
-    <PackageVersion Include="Olve.Validation" Version="0.46.0" />
+    <PackageVersion Include="Olve.MinimalApi" Version="0.48.0" />
+    <PackageVersion Include="Olve.Results" Version="0.48.0" />
+    <PackageVersion Include="Olve.Results.TUnit" Version="0.48.0" />
+    <PackageVersion Include="Olve.Utilities" Version="0.48.0" />
+    <PackageVersion Include="Olve.Validation" Version="0.48.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
+    <!-- Pinned: Refit 11+/Refitter 2+ break the generated client (AOT + duplicate-member codegen). Do not bump. -->
     <PackageVersion Include="Refit" Version="10.1.6" />
     <PackageVersion Include="Refitter.SourceGenerator" Version="1.7.3" />
     <PackageVersion Include="Rocks" Version="10.3.0" />
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.25.3" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.100.1" />
     <PackageVersion Include="Testcontainers" Version="4.11.0" />
     <PackageVersion Include="Testcontainers.Minio" Version="4.11.0" />
-    <PackageVersion Include="TUnit" Version="1.57.0" />
+    <PackageVersion Include="TUnit" Version="1.58.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 

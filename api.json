@@ -2184,7 +2184,15 @@
           {
             "$ref": "#/components/schemas/JobStatus"
           }
-        ]
+        ],
+        "properties": {
+          "attempts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
       },
       "PageOfJob": {
         "required": [

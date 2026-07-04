@@ -11,7 +11,7 @@ namespace Olve.Pipelines.Jobs;
 [JsonDerivedType(typeof(Failed), "failed")]
 public abstract record JobStatus
 {
-    public record Scheduled : JobStatus;
+    public record Scheduled(int Attempts = 0) : JobStatus;
     public record InProgress(DateTimeOffset StartedAt) : JobStatus;
     public record Done(DateTimeOffset StartedAt, DateTimeOffset CompletedAt) : JobStatus;
     public record Obsolete(Id<Job> SupersedingJobId) : JobStatus;

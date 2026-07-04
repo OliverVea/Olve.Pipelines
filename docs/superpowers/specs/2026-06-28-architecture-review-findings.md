@@ -32,12 +32,21 @@ succeeded. Synchronous two-tier event model makes this a latent footgun.
 → **Fix:** wrap each handler dispatch in try/catch-log (per-handler isolation). Cheap.
 → **Handoff written:** [2026-06-28-event-exception-shielding-design.md](2026-06-28-event-exception-shielding-design.md)
 
-### 3. K8s-unavailable job stall — infinite retry, no backoff, invisible  **[MEDIUM]**
+### 3. K8s-unavailable job stall — infinite retry, no backoff, invisible  **[MEDIUM]** — ✅ DONE
 `src/Olve.Pipelines/Jobs/KubernetesJobExecutor.cs` (~`SubmitOrReattachAsync`, line ~142): if
 submission throws, the job stays `Scheduled` and `JobRunner` retries every 1s forever with no
 backoff and nothing surfaced — presents as an idle pipeline. Same "silent wedge" family as the
 deadlock spec's requirement #4 (surface a stuck/zero-runnable state instead of green-and-idle).
-→ **Fix:** backoff + surface the stuck state (problem on status / job reason).
+→ **Fixed:** the submission phase (per-job S3 secret + submit/reattach) is now wrapped in
+`SubmitGuardedAsync`. A pre-`InProgress` failure is a submission stall: the attempt is counted on
+`Scheduled(int Attempts)` (persisted, survives restart), a `controller: failed to submit…` line is
+appended to the job's S3 run log, and the watcher holds its slot for a short `SubmissionRetryDelay`
+before exiting (so `JobRunner`'s respawn rides out a transient outage instead of hammering K8s at
+tick rate). After `MaxSubmissionAttempts` (3 = initial + 2 retries) the job is marked `Failed` with
+a reason and the per-job S3 secret is cleaned up. A post-`InProgress` failure still rethrows →
+reattach (unchanged). Tests: `SubmissionKeepsFailing_MarksFailedAfterMaxAttempts`,
+`SubmissionFails_LeavesJobScheduledWithBumpedAttempts`,
+`SubmissionFailsThenRecovers_CompletesWithoutFailing`.
 
 ### 4. `async void` timer ticks in persistence services  **[LOW–MEDIUM — fragility]**
 `JobPersistenceService.cs:131`, `ConfigurationPersistenceService.cs:156`,

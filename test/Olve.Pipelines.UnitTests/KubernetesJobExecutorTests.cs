@@ -25,9 +25,17 @@ public class KubernetesJobExecutorTests
         public int CreateSecretCallCount { get; private set; }
         public int DeleteSecretCallCount { get; private set; }
 
+        // When > 0, the next CreateJobAsync throws (and decrements) to simulate a K8s-API outage.
+        public int FailCreateJobTimes { get; set; }
+
         public Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default)
         {
             CreateJobCallCount++;
+            if (FailCreateJobTimes > 0)
+            {
+                FailCreateJobTimes--;
+                throw new InvalidOperationException("simulated K8s API unavailable");
+            }
             return Task.CompletedTask;
         }
 
@@ -167,7 +175,11 @@ public class KubernetesJobExecutorTests
             storage,
             jobSvc,
             time,
-            NullLogger<KubernetesJobExecutor>.Instance));
+            NullLogger<KubernetesJobExecutor>.Instance)
+        {
+            // Don't wait real seconds between submission retries in tests.
+            SubmissionRetryDelay = TimeSpan.Zero,
+        });
 
         var sp = services.BuildServiceProvider();
         var executor = (KubernetesJobExecutor)sp.GetRequiredService<IJobExecutor>();
@@ -300,5 +312,74 @@ public class KubernetesJobExecutorTests
         h.JobStore.TryGet(jobId, out var job);
         var done = (Done)job!.Status;
         await Assert.That(done.StartedAt).IsEqualTo(originalStart);
+    }
+
+    // A K8s-API outage makes submission throw before the job reaches InProgress. The job must not be
+    // retried forever (silent idle) — after MaxSubmissionAttempts it fails loudly. Each EnsureRunning
+    // call here stands in for one JobRunner respawn.
+    [Test]
+    public async Task SubmissionKeepsFailing_MarksFailedAfterMaxAttempts()
+    {
+        var h = BuildHarness();
+        h.K8s.InitialStatus = null;
+        h.K8s.FailCreateJobTimes = 99; // always fail
+
+        var jobId = CreateScheduledProductionJob(h);
+
+        for (var i = 0; i < KubernetesJobExecutor.MaxSubmissionAttempts; i++)
+        {
+            h.Executor.EnsureRunning(jobId);
+            await WaitForWatcherComplete(h, jobId);
+        }
+
+        h.JobStore.TryGet(jobId, out var job);
+        await Assert.That(job!.Status).IsTypeOf<Failed>();
+        await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(KubernetesJobExecutor.MaxSubmissionAttempts);
+        // The per-job S3 secret is cleaned up when the job reaches its terminal failure.
+        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(1);
+    }
+
+    // Intermediate attempts leave the job Scheduled with a bumped Attempts count so the stuck-and-
+    // retrying state survives a watcher respawn / restart.
+    [Test]
+    public async Task SubmissionFails_LeavesJobScheduledWithBumpedAttempts()
+    {
+        var h = BuildHarness();
+        h.K8s.InitialStatus = null;
+        h.K8s.FailCreateJobTimes = 99;
+
+        var jobId = CreateScheduledProductionJob(h);
+
+        h.Executor.EnsureRunning(jobId);
+        await WaitForWatcherComplete(h, jobId);
+
+        h.JobStore.TryGet(jobId, out var job);
+        await Assert.That(job!.Status).IsTypeOf<Scheduled>();
+        await Assert.That(((Scheduled)job.Status).Attempts).IsEqualTo(1);
+    }
+
+    // A transient outage that clears before the attempt budget is exhausted must recover and complete,
+    // not fail the job.
+    [Test]
+    public async Task SubmissionFailsThenRecovers_CompletesWithoutFailing()
+    {
+        var h = BuildHarness();
+        h.K8s.InitialStatus = null;
+        h.K8s.FailCreateJobTimes = 1; // first attempt throws, second succeeds
+        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+
+        var jobId = CreateScheduledProductionJob(h);
+
+        // Attempt 1 fails → still Scheduled.
+        h.Executor.EnsureRunning(jobId);
+        await WaitForWatcherComplete(h, jobId);
+        h.JobStore.TryGet(jobId, out var afterFirst);
+        await Assert.That(afterFirst!.Status).IsTypeOf<Scheduled>();
+
+        // Attempt 2 succeeds → Done.
+        h.Executor.EnsureRunning(jobId);
+        await WaitForWatcherComplete(h, jobId);
+        h.JobStore.TryGet(jobId, out var afterSecond);
+        await Assert.That(afterSecond!.Status).IsTypeOf<Done>();
     }
 }

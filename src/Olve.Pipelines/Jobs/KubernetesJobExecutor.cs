@@ -33,6 +33,14 @@ public class KubernetesJobExecutor(
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
+    // A K8s-submission failure keeps the job Scheduled and is retried by JobRunner respawning the
+    // watcher. Cap the attempts so a genuine outage fails the job loudly instead of looping forever.
+    internal const int MaxSubmissionAttempts = 3; // initial attempt + 2 retries
+
+    // Held between retries so they ride out a transient outage rather than hammering K8s at the
+    // JobRunner tick rate. Overridable so tests don't wait real seconds.
+    internal TimeSpan SubmissionRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
+
     protected internal override async Task RunToCompletionAsync(Job job, CancellationToken ct)
     {
         switch (job)
@@ -64,28 +72,32 @@ public class KubernetesJobExecutor(
             return;
         }
 
-        var secretName = await GetSecretNameIfExists(job.PipelineId, ct);
-        var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, ct);
-        var prefix = S3Prefix(job.PipelineId, productionGroup.ArtifactBundleId);
-
-        var spec = new KubernetesJobSpec(
-            Name: JobName(job.Id),
-            Image: config.Image,
-            Script: config.Script,
-            OutputBundleS3Prefix: $"{prefix}/production/{job.ProductionStepId.Value.Value:N}",
-            S3HelperImage: options.S3HelperImage,
-            S3Bucket: options.S3Bucket,
-            S3Endpoint: options.S3Endpoint,
-            S3CredentialsSecretName: s3SecretName,
-            S3SkipCertValidation: options.S3SkipCertValidation,
-            EnvironmentVariables: config.EnvironmentVariables,
-            SecretName: secretName);
-
         var stepName = productionStepService.TryGet(job.ProductionStepId).TryPickProblems(out _, out var step)
             ? "(unknown)"
             : step.Name;
         var logKey = LogS3Key(job.PipelineId, productionGroup.ArtifactBundleId, job.Id);
-        await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, ct);
+
+        await SubmitGuardedAsync(job, logKey, async token =>
+        {
+            var secretName = await GetSecretNameIfExists(job.PipelineId, token);
+            var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, token);
+            var prefix = S3Prefix(job.PipelineId, productionGroup.ArtifactBundleId);
+
+            var spec = new KubernetesJobSpec(
+                Name: JobName(job.Id),
+                Image: config.Image,
+                Script: config.Script,
+                OutputBundleS3Prefix: $"{prefix}/production/{job.ProductionStepId.Value.Value:N}",
+                S3HelperImage: options.S3HelperImage,
+                S3Bucket: options.S3Bucket,
+                S3Endpoint: options.S3Endpoint,
+                S3CredentialsSecretName: s3SecretName,
+                S3SkipCertValidation: options.S3SkipCertValidation,
+                EnvironmentVariables: config.EnvironmentVariables,
+                SecretName: secretName);
+
+            await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
+        }, ct);
     }
 
     private async Task ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
@@ -97,29 +109,33 @@ public class KubernetesJobExecutor(
             return;
         }
 
-        var secretName = await GetSecretNameIfExists(job.PipelineId, ct);
-        var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, ct);
-        var prefix = S3Prefix(job.PipelineId, job.ArtifactBundleId);
-
-        var spec = new KubernetesJobSpec(
-            Name: JobName(job.Id),
-            Image: config.Image,
-            Script: config.Script,
-            OutputBundleS3Prefix: $"{prefix}/processing/{job.ProcessingStepId.Value.Value:N}",
-            S3HelperImage: options.S3HelperImage,
-            S3Bucket: options.S3Bucket,
-            S3Endpoint: options.S3Endpoint,
-            S3CredentialsSecretName: s3SecretName,
-            S3SkipCertValidation: options.S3SkipCertValidation,
-            EnvironmentVariables: config.EnvironmentVariables,
-            SecretName: secretName,
-            InputBundleS3Prefix: $"{prefix}/production");
-
         var stepName = processingStepService.TryGet(job.ProcessingStepId).TryPickProblems(out _, out var step)
             ? "(unknown)"
             : step.Name;
         var logKey = LogS3Key(job.PipelineId, job.ArtifactBundleId, job.Id);
-        await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, ct);
+
+        await SubmitGuardedAsync(job, logKey, async token =>
+        {
+            var secretName = await GetSecretNameIfExists(job.PipelineId, token);
+            var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, token);
+            var prefix = S3Prefix(job.PipelineId, job.ArtifactBundleId);
+
+            var spec = new KubernetesJobSpec(
+                Name: JobName(job.Id),
+                Image: config.Image,
+                Script: config.Script,
+                OutputBundleS3Prefix: $"{prefix}/processing/{job.ProcessingStepId.Value.Value:N}",
+                S3HelperImage: options.S3HelperImage,
+                S3Bucket: options.S3Bucket,
+                S3Endpoint: options.S3Endpoint,
+                S3CredentialsSecretName: s3SecretName,
+                S3SkipCertValidation: options.S3SkipCertValidation,
+                EnvironmentVariables: config.EnvironmentVariables,
+                SecretName: secretName,
+                InputBundleS3Prefix: $"{prefix}/production");
+
+            await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
+        }, ct);
     }
 
     private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string stepName, string s3SecretName, string logKey, CancellationToken ct)
@@ -197,6 +213,107 @@ public class KubernetesJobExecutor(
         }
     }
 
+    // Wraps the submission phase (per-job S3 secret creation + submit/reattach). Any failure here
+    // happens while the job is still Scheduled — i.e. a K8s-API-unavailable stall. Rather than let it
+    // bubble up as a silently-retried-forever idle (JobRunner would respawn the watcher every tick),
+    // count the attempt, surface it to the job's run log, and after MaxSubmissionAttempts fail the job.
+    private async Task SubmitGuardedAsync(Job job, string logKey, Func<CancellationToken, Task> submit, CancellationToken ct)
+    {
+        try
+        {
+            await submit(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutdown (e.g. a self-deploy helm-upgrade restarting this controller): leave the job
+            // untouched so the next start reattaches or re-submits.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // A failure once the job has reached InProgress is an in-flight/poll error, not a
+            // submission stall — rethrow so the watcher respawns and reattaches to the running K8s
+            // Job (idempotent). Only pre-InProgress failures are retried with the attempt budget.
+            if (jobService.TryGetJob<Job>(job.Id, out var current) && current.Status is InProgress)
+                throw;
+
+            await HandleSubmissionFailureAsync(job, logKey, ex, ct);
+        }
+    }
+
+    private async Task HandleSubmissionFailureAsync(Job job, string logKey, Exception ex, CancellationToken ct)
+    {
+        var attempt = ((job.Status as Scheduled)?.Attempts ?? 0) + 1;
+
+        if (attempt >= MaxSubmissionAttempts)
+        {
+            var reason = $"K8s submission failed after {attempt} attempts: {ex.Message}";
+            await AppendControllerLogAsync(logKey, $"controller: {reason} — giving up", ct);
+            // Best-effort cleanup of the per-job S3 secret in case an earlier attempt created it
+            // before the K8s Job submission failed. Deterministic name; safe if it never existed.
+            await CleanupS3SecretAsync(S3SecretName(job.Id));
+            FailJob(job, job.Status as InProgress, reason);
+            logger.LogError(ex, "Giving up on job '{JobId}' (pipeline '{PipelineId}') after {Attempts} failed submission attempts",
+                job.Id, job.PipelineId, attempt);
+            return;
+        }
+
+        await AppendControllerLogAsync(logKey,
+            $"controller: failed to submit K8s Job — {ex.Message}; retry {attempt}/{MaxSubmissionAttempts - 1}", ct);
+        logger.LogWarning(ex, "Submission attempt {Attempt} of {Max} failed for job '{JobId}' (pipeline '{PipelineId}'); retrying",
+            attempt, MaxSubmissionAttempts, job.Id, job.PipelineId);
+
+        // Persist the incremented attempt so the next watcher (after respawn) resumes the count and
+        // the stuck-and-retrying state survives a restart.
+        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j =>
+            j.Status is Scheduled s ? j with { Status = s with { Attempts = attempt } } : j), job.Id);
+
+        // Hold the watcher slot briefly so retries ride out a transient outage instead of hammering
+        // K8s at the JobRunner tick rate. The watcher then exits and JobRunner respawns it.
+        try
+        {
+            await Task.Delay(SubmissionRetryDelay, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutting down — the persisted attempt count is enough; retry on next start.
+        }
+    }
+
+    // Appends a single controller-side line to the job's S3 run log (read-modify-write). Used to
+    // explain a submission stall in the same place the operator reads pod logs — no K8s Job/pod
+    // exists yet, so there is nothing else to show there. Safe: one watcher per job, attempts serial.
+    private async Task AppendControllerLogAsync(string logKey, string line, CancellationToken ct)
+    {
+        try
+        {
+            var existing = string.Empty;
+            try
+            {
+                using var response = await s3.GetObjectAsync(storageOptions.Bucket, logKey, ct);
+                using var reader = new StreamReader(response.ResponseStream);
+                existing = await reader.ReadToEndAsync(ct);
+            }
+            catch (AmazonS3Exception e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // First controller line for this job — no log object exists yet.
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(existing + line + "\n");
+            await s3.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = storageOptions.Bucket,
+                Key = logKey,
+                InputStream = new MemoryStream(bytes),
+                ContentType = "text/plain; charset=utf-8",
+            }, ct);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "Failed to append controller log line to '{LogKey}'", logKey);
+        }
+    }
+
     private DateTimeOffset EnsureInProgress(Job job)
     {
         if (job.Status is InProgress inProgress) return inProgress.StartedAt;
@@ -245,7 +362,7 @@ public class KubernetesJobExecutor(
     private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)
     {
         var creds = await s3CredentialsProvider.GetCredentialsAsync(ct);
-        var secretName = $"olve-s3-{jobId.Value.Value:N}";
+        var secretName = S3SecretName(jobId);
 
         // Build MC_HOST_s3 value: https://ACCESS:SECRET[:TOKEN]@host
         var endpoint = new Uri(options.S3Endpoint);
@@ -311,6 +428,10 @@ public class KubernetesJobExecutor(
         var hasSecrets = await secretStore.HasSecretsAsync(pipelineId, ct);
         return hasSecrets ? $"olve-pipeline-{pipelineId.Value.Value:N}" : null;
     }
+
+    // Deterministic per-job S3 credentials secret name — reconstructable for cleanup without threading
+    // it through the failure path. Matches the name used at creation.
+    private static string S3SecretName(Id<Job> jobId) => $"olve-s3-{jobId.Value.Value:N}";
 
     internal static string S3Prefix(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId)
         => $"bundles/{pipelineId.Value.Value:N}/{artifactBundleId.Value.Value:N}";

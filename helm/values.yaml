@@ -115,6 +115,9 @@ config:
   Kubernetes__AuthMode: "OpenBao"
   Kubernetes__OpenBaoUrl: "https://openbao.ovea.pro"
   Kubernetes__Namespace: "olve-runners"
+  # Run step/failure-handler pods under gVisor (RuntimeClass owned by the Olve.Homelab
+  # chart; runsc installed on the node). Clear to fall back to plain runc.
+  Kubernetes__RuntimeClassName: "gvisor"
   # Externally-reachable origin GitHub posts webhook deliveries to. Empty = GitHub webhook
   # auto-registration disabled (the receiver still serves manually-created hooks). Set this
   # together with ingress.public.enabled=true to enable auto-registration.

@@ -56,11 +56,9 @@ TOKEN=$(curl -sk -X POST "https://auth.ovea.pro/application/o/token/" \
 All mutating endpoints require `Authorization: Bearer $TOKEN`. GET list/get endpoints are anonymous.
 
 ### Create pipeline
-```bash
-curl -s -X POST "$BASE/api/pipelines?name=my-pipeline" \
-  -H "Authorization: Bearer $TOKEN"
-# Returns: {"id":"...","name":"my-pipeline"}
-```
+Bare pipeline creation was removed (returns 405) — pipelines are created bound to a repo
+(GitOps) via `POST /api/pipelines/with-repo`, and reconcile materializes the steps from the
+repo's `.pipelines/config.yaml`. Easiest path: `pl binding create` (see `pl binding --help`).
 
 ### Create production step
 ```bash

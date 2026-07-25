@@ -16,6 +16,9 @@ config:
   Storage__AuthUrl: "https://auth-beta.ovea.pro/application/o/token/"
   Kubernetes__OpenBaoUrl: "https://openbao-beta.ovea.pro"
   Kubernetes__Namespace: "olve-runners-beta"
+  # Run step/failure-handler pods under gVisor (RuntimeClass on the node). Clear to fall
+  # back to plain runc.
+  Kubernetes__RuntimeClassName: "gvisor"
   # GitHub webhook auto-registration target (beta-first rollout). Must match ingress.public.host.
   Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
 

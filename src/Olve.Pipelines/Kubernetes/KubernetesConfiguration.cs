@@ -14,13 +14,16 @@ public static class KubernetesConfiguration
         var s3SkipCert = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
         var defaultImage = builder.Configuration["Kubernetes:DefaultImage"] ?? "alpine:latest";
         var configNs = builder.Configuration["Kubernetes:Namespace"];
+        // Empty/absent = no runtimeClassName on job pods (plain runc) — the rollback path.
+        var runtimeClassName = builder.Configuration["Kubernetes:RuntimeClassName"];
+        if (string.IsNullOrWhiteSpace(runtimeClassName)) runtimeClassName = null;
 
         // InCluster (Tier-A): reach the cluster API via the pod's own ServiceAccount — no
         // OpenBao/Authentik. Opt-in via config so the legacy path below stays the default
         // for local dev / tests / prod (which sets AuthMode=OpenBao explicitly).
         if (string.Equals(builder.Configuration["Kubernetes:AuthMode"], "InCluster", StringComparison.OrdinalIgnoreCase))
         {
-            ConfigureInCluster(builder, configNs, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
+            ConfigureInCluster(builder, configNs, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert, runtimeClassName);
             return;
         }
 
@@ -70,7 +73,7 @@ public static class KubernetesConfiguration
                 .LogInformation("Kubernetes configured: server={Server}, namespace={Namespace}",
                     credentials.Server, configNs ?? credentials.Namespace);
 
-            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
+            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert, runtimeClassName);
         });
 
         builder.Services.AddSingleton(sp =>
@@ -94,7 +97,8 @@ public static class KubernetesConfiguration
         string s3HelperImage,
         string s3Bucket,
         string s3Endpoint,
-        bool s3SkipCert)
+        bool s3SkipCert,
+        string? runtimeClassName)
     {
         builder.Services.AddSingleton<ICredentialsProvider<KubernetesCredentials>>(new InClusterCredentialsProvider());
 
@@ -107,7 +111,7 @@ public static class KubernetesConfiguration
                 .LogInformation("Kubernetes configured (InCluster): server={Server}, namespace={Namespace}",
                     credentials.Server, configNs ?? credentials.Namespace);
 
-            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert);
+            return new KubernetesOptions(configNs ?? credentials.Namespace, defaultImage, s3HelperImage, s3Bucket, s3Endpoint, s3SkipCert, runtimeClassName);
         });
 
         builder.Services.AddSingleton(sp =>
@@ -132,4 +136,5 @@ public record KubernetesOptions(
     string S3HelperImage,
     string S3Bucket,
     string S3Endpoint,
-    bool S3SkipCertValidation);
+    bool S3SkipCertValidation,
+    string? RuntimeClassName = null);

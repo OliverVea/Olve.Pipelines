@@ -25,7 +25,18 @@ public record K8sPodSpec(
     [property: JsonPropertyName("containers")] K8sContainer[] Containers,
     [property: JsonPropertyName("initContainers")] K8sContainer[]? InitContainers = null,
     [property: JsonPropertyName("volumes")] K8sVolume[]? Volumes = null,
-    [property: JsonPropertyName("restartPolicy")] string RestartPolicy = "Never");
+    [property: JsonPropertyName("restartPolicy")] string RestartPolicy = "Never",
+    [property: JsonPropertyName("runtimeClassName")] string? RuntimeClassName = null,
+    [property: JsonPropertyName("securityContext")] K8sPodSecurityContext? SecurityContext = null);
+
+public record K8sPodSecurityContext(
+    [property: JsonPropertyName("seccompProfile")] K8sSeccompProfile? SeccompProfile = null);
+
+public record K8sSeccompProfile(
+    [property: JsonPropertyName("type")] string Type);
+
+public record K8sContainerSecurityContext(
+    [property: JsonPropertyName("allowPrivilegeEscalation")] bool? AllowPrivilegeEscalation = null);
 
 public record K8sContainer(
     [property: JsonPropertyName("name")] string Name,
@@ -34,7 +45,8 @@ public record K8sContainer(
     [property: JsonPropertyName("args")] string[]? Args = null,
     [property: JsonPropertyName("env")] K8sEnvVar[]? Env = null,
     [property: JsonPropertyName("envFrom")] K8sEnvFromSource[]? EnvFrom = null,
-    [property: JsonPropertyName("volumeMounts")] K8sVolumeMount[]? VolumeMounts = null);
+    [property: JsonPropertyName("volumeMounts")] K8sVolumeMount[]? VolumeMounts = null,
+    [property: JsonPropertyName("securityContext")] K8sContainerSecurityContext? SecurityContext = null);
 
 public record K8sEnvVar(
     [property: JsonPropertyName("name")] string Name,

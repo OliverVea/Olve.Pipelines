@@ -92,9 +92,9 @@ public class KubernetesClient : IKubernetesClient, IDisposable
         _logger?.LogInformation("K8s Job {JobName} created", spec.Name);
     }
 
-    public async Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, CancellationToken ct = default)
+    public async Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default)
     {
-        var manifest = BuildBareJobManifest(name, image, script, env);
+        var manifest = BuildBareJobManifest(name, image, script, env, runtimeClassName);
 
         _logger?.LogInformation("Creating bare K8s Job {JobName} in namespace {Namespace}", name, ns);
 
@@ -276,7 +276,7 @@ public class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
-    private static K8sJobManifest BuildJobManifest(KubernetesJobSpec spec)
+    internal static K8sJobManifest BuildJobManifest(KubernetesJobSpec spec)
     {
         var labels = new Dictionary<string, string>
         {
@@ -315,7 +315,8 @@ public class KubernetesClient : IKubernetesClient, IDisposable
             Args: [spec.Script],
             Env: runnerEnv.Count > 0 ? runnerEnv.ToArray() : null,
             EnvFrom: runnerEnvFrom,
-            VolumeMounts: runnerVolumeMounts);
+            VolumeMounts: runnerVolumeMounts,
+            SecurityContext: HardenedContainerContext);
 
         // S3 helper env/credentials
         var s3HelperEnvFrom = new[] { new K8sEnvFromSource(new K8sSecretRef(spec.S3CredentialsSecretName)) };
@@ -336,7 +337,8 @@ public class KubernetesClient : IKubernetesClient, IDisposable
                 Command: ["/bin/sh", "-c"],
                 Args: [downloadScript],
                 EnvFrom: s3HelperEnvFrom,
-                VolumeMounts: [new K8sVolumeMount("input", "/input")]));
+                VolumeMounts: [new K8sVolumeMount("input", "/input")],
+                SecurityContext: HardenedContainerContext));
         }
 
         // Runner runs as init container (so upload only happens on success)
@@ -351,7 +353,8 @@ public class KubernetesClient : IKubernetesClient, IDisposable
             Command: ["/bin/sh", "-c"],
             Args: [uploadScript],
             EnvFrom: s3HelperEnvFrom,
-            VolumeMounts: [new K8sVolumeMount("output", "/output", ReadOnly: true)]);
+            VolumeMounts: [new K8sVolumeMount("output", "/output", ReadOnly: true)],
+            SecurityContext: HardenedContainerContext);
 
         return new K8sJobManifest(
             "batch/v1",
@@ -363,10 +366,21 @@ public class KubernetesClient : IKubernetesClient, IDisposable
                     new K8sPodSpec(
                         Containers: [s3Upload],
                         InitContainers: initContainers.ToArray(),
-                        Volumes: volumes))));
+                        Volumes: volumes,
+                        RuntimeClassName: spec.RuntimeClassName,
+                        SecurityContext: HardenedPodContext))));
     }
 
-    private static K8sJobManifest BuildBareJobManifest(string name, string image, string script, IReadOnlyDictionary<string, string>? env)
+    // Steps run as root (kaniko, apt, npm need it) so no runAsNonRoot / capability drops here —
+    // isolation comes from the gVisor runtime class. Escalation *beyond* the granted set is
+    // still blocked, and seccomp applies when a job runs on plain runc.
+    private static readonly K8sContainerSecurityContext HardenedContainerContext =
+        new(AllowPrivilegeEscalation: false);
+
+    private static readonly K8sPodSecurityContext HardenedPodContext =
+        new(new K8sSeccompProfile("RuntimeDefault"));
+
+    internal static K8sJobManifest BuildBareJobManifest(string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName)
     {
         var labels = new Dictionary<string, string>
         {
@@ -384,7 +398,8 @@ public class KubernetesClient : IKubernetesClient, IDisposable
             image,
             Command: ["/bin/sh", "-c"],
             Args: [script],
-            Env: envVars);
+            Env: envVars,
+            SecurityContext: HardenedContainerContext);
 
         return new K8sJobManifest(
             "batch/v1",
@@ -393,7 +408,10 @@ public class KubernetesClient : IKubernetesClient, IDisposable
             new K8sJobSpecBody(
                 new K8sPodTemplateSpec(
                     new K8sMetadata(name, labels),
-                    new K8sPodSpec(Containers: [handler]))));
+                    new K8sPodSpec(
+                        Containers: [handler],
+                        RuntimeClassName: runtimeClassName,
+                        SecurityContext: HardenedPodContext))));
     }
 
     private static Dictionary<string, string> EncodeSecretData(Dictionary<string, string> data)

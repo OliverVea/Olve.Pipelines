@@ -24,7 +24,7 @@ public class FailureHandlerServiceTests
     {
         public ConcurrentQueue<BareJob> Jobs { get; } = new();
 
-        public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, CancellationToken ct = default)
+        public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default)
         {
             Jobs.Enqueue(new BareJob(name, image, script, env));
             return Task.CompletedTask;

@@ -12,4 +12,5 @@ public record KubernetesJobSpec(
     bool S3SkipCertValidation = false,
     Dictionary<string, string>? EnvironmentVariables = null,
     string? SecretName = null,
-    string? InputBundleS3Prefix = null);
+    string? InputBundleS3Prefix = null,
+    string? RuntimeClassName = null);

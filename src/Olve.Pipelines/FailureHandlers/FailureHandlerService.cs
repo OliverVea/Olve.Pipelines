@@ -143,7 +143,7 @@ public class FailureHandlerService(
         {
             try
             {
-                await kubernetesClient.CreateBareJobAsync(options.Namespace, jobName, image, script, env);
+                await kubernetesClient.CreateBareJobAsync(options.Namespace, jobName, image, script, env, options.RuntimeClassName);
                 logger.LogInformation("Started failure handler '{HandlerName}' as Job '{JobName}'", handlerName, jobName);
             }
             catch (Exception ex)

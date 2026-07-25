@@ -94,7 +94,8 @@ public class KubernetesJobExecutor(
                 S3CredentialsSecretName: s3SecretName,
                 S3SkipCertValidation: options.S3SkipCertValidation,
                 EnvironmentVariables: config.EnvironmentVariables,
-                SecretName: secretName);
+                SecretName: secretName,
+                RuntimeClassName: options.RuntimeClassName);
 
             await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
         }, ct);
@@ -132,7 +133,8 @@ public class KubernetesJobExecutor(
                 S3SkipCertValidation: options.S3SkipCertValidation,
                 EnvironmentVariables: config.EnvironmentVariables,
                 SecretName: secretName,
-                InputBundleS3Prefix: $"{prefix}/production");
+                InputBundleS3Prefix: $"{prefix}/production",
+                RuntimeClassName: options.RuntimeClassName);
 
             await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
         }, ct);

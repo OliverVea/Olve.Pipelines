@@ -23,6 +23,13 @@ olve_fetch_repo "$REPO" "$BRANCH" /src
 
 # Unit suite only: RunUnitTests is on by default; server-dependent integration tests run
 # against beta as a processing step (see project_pipeline_self_testing), not here.
-dotnet test test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj -c Release
+#
+# Build single-node with no node reuse / shared compiler server: the pod has no memory
+# limit and runs alongside the Kaniko build, and under gVisor MSBuild sees the host's
+# full core count and fans out one worker per core. A worker died that way (MSB4166
+# "Child node exited prematurely", most likely OOM), failing the run with no test failure.
+export MSBUILDDISABLENODEREUSE=1
+dotnet test test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj -c Release \
+  -m:1 -p:UseSharedCompilation=false
 
 echo "Tests passed"

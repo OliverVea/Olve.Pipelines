@@ -8,7 +8,7 @@ public static class KubernetesConfiguration
 {
     public static void ConfigureKubernetes(this WebApplicationBuilder builder)
     {
-        var s3HelperImage = builder.Configuration["Kubernetes:S3HelperImage"] ?? "minio/mc";
+        var s3HelperImage = builder.Configuration["Kubernetes:S3HelperImage"] ?? "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z";
         var s3Bucket = builder.Configuration["Storage:Bucket"] ?? "olve-pipelines";
         var s3Endpoint = builder.Configuration["Storage:Endpoint"] ?? "";
         var s3SkipCert = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");

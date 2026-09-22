@@ -180,7 +180,7 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         return Forget(await processRunner.RunCheckedAsync("kubectl",
         [
             "run", podName, "-n", ns, "--rm", "-i", "--restart=Never",
-            "--image=minio/mc:latest",
+            "--image=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z",
             $"--env=MC_HOST_local={mcHost}",
             "--command", "--", "mc", "mb", "--ignore-existing", $"local/{bucket}",
         ], ct: ct));

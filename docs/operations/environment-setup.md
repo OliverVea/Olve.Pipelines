@@ -55,7 +55,7 @@ is running (the controller's `/api/ready` stays 503 until this is done):
 NS=apps-beta
 BUCKET=olve-pipelines-beta
 ssh oliver@bulwark-m2 "kubectl run minio-mb -n $NS --rm -i --restart=Never \
-  --image=minio/mc:latest --env=MC_HOST_local=http://\$(kubectl get secret olve-pipelines-minio -n $NS -o jsonpath='{.data.root-user}' | base64 -d):\$(kubectl get secret olve-pipelines-minio -n $NS -o jsonpath='{.data.root-password}' | base64 -d)@olve-pipelines-minio.$NS:9000 \
+  --image=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z --env=MC_HOST_local=http://\$(kubectl get secret olve-pipelines-minio -n $NS -o jsonpath='{.data.root-user}' | base64 -d):\$(kubectl get secret olve-pipelines-minio -n $NS -o jsonpath='{.data.root-password}' | base64 -d)@olve-pipelines-minio.$NS:9000 \
   -- mc mb --ignore-existing local/$BUCKET"
 ```
 

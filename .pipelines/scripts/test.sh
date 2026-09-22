@@ -28,8 +28,11 @@ olve_fetch_repo "$REPO" "$BRANCH" /src
 # limit and runs alongside the Kaniko build, and under gVisor MSBuild sees the host's
 # full core count and fans out one worker per core. A worker died that way (MSB4166
 # "Child node exited prematurely", most likely OOM), failing the run with no test failure.
+# Build separately: under Microsoft.Testing.Platform (global.json), `dotnet test` forwards
+# unrecognized args like -m:1 to the TUnit app, which rejects them.
 export MSBUILDDISABLENODEREUSE=1
-dotnet test test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj -c Release \
-  -m:1 -p:UseSharedCompilation=false
+TESTS=test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj
+dotnet build "$TESTS" -c Release -m:1 -p:UseSharedCompilation=false
+dotnet test --project "$TESTS" -c Release --no-build
 
 echo "Tests passed"

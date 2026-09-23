@@ -58,10 +58,13 @@ ingress:
 resources:
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 256Mi
   limits:
     cpu: 500m
-    memory: 256Mi
+    # 256Mi ran out (OutOfMemoryException, 502s, failed saves) when every binding resumed at
+    # once after an expired GitHub token was replaced. Headroom, not a fix: memory grows with
+    # job events until restart (#26).
+    memory: 512Mi
 
 # Dedicated in-cluster MinIO for this instance's storage (snapshots + bundles).
 # Disabled by default; enabled per-environment (beta first). When enabled, point the

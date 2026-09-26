@@ -92,7 +92,7 @@ minio:
 # (keys: root-user, root-password, rpc-secret). Metadata on SSD, object data on the bulk HDD.
 # See docs/superpowers/specs/2026-09-26-garage-storage-design.md.
 garage:
-  enabled: false
+  enabled: true
   image: "dxflrs/garage:v2.4.1"
   credentialsSecret: olve-pipelines-minio
   bucket: olve-pipelines

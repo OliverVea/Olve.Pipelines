@@ -42,7 +42,7 @@ public class EntityStoreIndexTests
         store.Set(step);
         await Assert.That(index.ContainsKey(pipelineId)).IsTrue();
 
-        store.Delete(step.Id);
+        await Assert.That(store.Delete(step.Id).Succeeded).IsTrue();
 
         // Regression: the previous implementation never pruned on delete because the entity is
         // already gone from the store when OnDeleted fires.
@@ -85,7 +85,7 @@ public class EntityStoreIndexTests
         var snapshot = index.GetForKey(pipelineId);
         await Assert.That(snapshot.Count).IsEqualTo(2);
 
-        store.Delete(a.Id);
+        await Assert.That(store.Delete(a.Id).Succeeded).IsTrue();
 
         await Assert.That(snapshot.Count).IsEqualTo(2);           // captured reference unchanged
         await Assert.That(index.GetForKey(pipelineId).Count).IsEqualTo(1); // fresh read sees it
@@ -116,13 +116,14 @@ public class EntityStoreIndexTests
             }
         });
 
+        var failedDeletes = 0;
         var writer = Task.Run(() =>
         {
             for (var i = 0; i < 2000; i++)
             {
                 var s = Step(pipelineId);
                 store.Set(s);
-                store.Delete(s.Id);
+                if (!store.Delete(s.Id).Succeeded) failedDeletes++;
             }
         });
 
@@ -131,6 +132,7 @@ public class EntityStoreIndexTests
         await reader;
 
         // No exception means the test passed; assert the index is back to the seeded state.
+        await Assert.That(failedDeletes).IsEqualTo(0);
         await Assert.That(index.GetForKey(pipelineId).Count).IsEqualTo(seed.Length);
     }
 }

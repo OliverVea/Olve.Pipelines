@@ -9,6 +9,7 @@ using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.JobStatus;
 
@@ -102,13 +103,13 @@ public class FailureHandlerServiceTests
     }
 
     /// <summary>Creates a production group with one failed production step and returns (group, stepName).</summary>
-    private static (Id<JobGroup> GroupId, string StepName) FailedProductionGroup(Harness h, Id<Pipeline> pipelineId, string stepName, string reason)
+    private static async Task<(Id<JobGroup> GroupId, string StepName)> FailedProductionGroup(Harness h, Id<Pipeline> pipelineId, string stepName, string reason)
     {
         var step = Pick(h.ProductionSteps.Create(pipelineId, stepName));
         var group = h.JobGroups.CreateProductionGroup(pipelineId, Id.New<ArtifactBundle>());
         var job = Pick(h.Jobs.CreateProductionJob(pipelineId, group.Id, step.Id));
         var now = DateTimeOffset.UtcNow;
-        h.Jobs.UpdateJob<Job>(job.Id, j => j with { Status = new Failed(now, now, reason) });
+        await Assert.That(h.Jobs.UpdateJob<Job>(job.Id, j => j with { Status = new Failed(now, now, reason) })).Succeeded();
         return (group.Id, step.Name);
     }
 
@@ -117,7 +118,7 @@ public class FailureHandlerServiceTests
     {
         var h = CreateHarness();
         var pipeline = Pick(h.Pipelines.Create("my-pipeline"));
-        var (groupId, stepName) = FailedProductionGroup(h, pipeline.Id, "build", "exit code 1");
+        var (groupId, stepName) = await FailedProductionGroup(h, pipeline.Id, "build", "exit code 1");
 
         h.Bindings.Set(pipeline.Id, [
             new FailureHandlerBinding(
@@ -143,7 +144,7 @@ public class FailureHandlerServiceTests
     {
         var h = CreateHarness();
         var pipeline = Pick(h.Pipelines.Create("p"));
-        var (groupId, _) = FailedProductionGroup(h, pipeline.Id, "build", "boom");
+        var (groupId, _) = await FailedProductionGroup(h, pipeline.Id, "build", "boom");
 
         h.Bindings.Set(pipeline.Id, [
             new FailureHandlerBinding(FailureHandlerLibrary.AoeTriage, Steps: ["build"], Env: new Dictionary<string, string>()),
@@ -160,7 +161,7 @@ public class FailureHandlerServiceTests
     {
         var h = CreateHarness();
         var pipeline = Pick(h.Pipelines.Create("p"));
-        var (groupId, _) = FailedProductionGroup(h, pipeline.Id, "build", "boom");
+        var (groupId, _) = await FailedProductionGroup(h, pipeline.Id, "build", "boom");
 
         h.Bindings.Set(pipeline.Id, [
             new FailureHandlerBinding(FailureHandlerLibrary.AoeTriage, Steps: ["some-other-step"], Env: new Dictionary<string, string>()),
@@ -177,7 +178,7 @@ public class FailureHandlerServiceTests
     {
         var h = CreateHarness();
         var pipeline = Pick(h.Pipelines.Create("p"));
-        var (groupId, _) = FailedProductionGroup(h, pipeline.Id, "build", "boom");
+        var (groupId, _) = await FailedProductionGroup(h, pipeline.Id, "build", "boom");
 
         h.Bindings.Set(pipeline.Id, [
             new FailureHandlerBinding("does-not-exist", Steps: [], Env: new Dictionary<string, string>()),
@@ -194,7 +195,7 @@ public class FailureHandlerServiceTests
     {
         var h = CreateHarness();
         var pipeline = Pick(h.Pipelines.Create("p"));
-        var (groupId, _) = FailedProductionGroup(h, pipeline.Id, "build", "boom");
+        var (groupId, _) = await FailedProductionGroup(h, pipeline.Id, "build", "boom");
 
         h.Service.HandleGroupFailed(groupId);
         var jobs = await WaitForJobsAsync(h.K8s, 0);
@@ -215,8 +216,8 @@ public class FailureHandlerServiceTests
         var jobA = Pick(h.Jobs.CreateProductionJob(pipeline.Id, group.Id, stepA.Id));
         var jobB = Pick(h.Jobs.CreateProductionJob(pipeline.Id, group.Id, stepB.Id));
         var now = DateTimeOffset.UtcNow;
-        h.Jobs.UpdateJob<Job>(jobA.Id, j => j with { Status = new Failed(now, now, "a") });
-        h.Jobs.UpdateJob<Job>(jobB.Id, j => j with { Status = new Failed(now, now, "b") });
+        await Assert.That(h.Jobs.UpdateJob<Job>(jobA.Id, j => j with { Status = new Failed(now, now, "a") })).Succeeded();
+        await Assert.That(h.Jobs.UpdateJob<Job>(jobB.Id, j => j with { Status = new Failed(now, now, "b") })).Succeeded();
 
         h.Bindings.Set(pipeline.Id, [
             new FailureHandlerBinding(FailureHandlerLibrary.AoeTriage, Steps: [], Env: new Dictionary<string, string>()),

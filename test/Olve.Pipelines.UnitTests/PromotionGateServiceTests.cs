@@ -65,7 +65,7 @@ public class PromotionGateServiceTests
         steps.Set(step);
         gate.Block(step.Id);
 
-        steps.Delete(step.Id);
+        await Assert.That(steps.Delete(step.Id).Succeeded).IsTrue();
 
         // After the parent step is deleted, the attachment cascade clears the gate so a recreated
         // step with the same Id would not inherit a stale block.

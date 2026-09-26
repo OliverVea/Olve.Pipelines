@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -97,14 +98,14 @@ public class BindingHookRegistrationTests
 
     private record Harness(EntityStore<PipelineConfigBinding> Store, PipelineConfigBindingService Svc, BindingHookStateStore HookState, BindingHookWorkQueue Queue);
 
-    private static Harness CreateEventHarness(string? baseUrl = BaseUrl)
+    private static async Task<Harness> CreateEventHarness(string? baseUrl = BaseUrl)
     {
         var store = new EntityStore<PipelineConfigBinding>([]);
         var svc = new PipelineConfigBindingService(store, new IdProvider());
         var hookState = new BindingHookStateStore();
         var queue = new BindingHookWorkQueue();
         var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(baseUrl), NullLogger<BindingWebhookEventRegistration>.Instance);
-        reg.Run();
+        await Assert.That(reg.Run()).Succeeded();
         return new Harness(store, svc, hookState, queue);
     }
 
@@ -113,7 +114,7 @@ public class BindingHookRegistrationTests
     [Test]
     public async Task WebhookBindingCreated_EnqueuesCreate()
     {
-        var h = CreateEventHarness();
+        var h = await CreateEventHarness();
         var binding = Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
 
         await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
@@ -127,7 +128,7 @@ public class BindingHookRegistrationTests
     [Test]
     public async Task PollBindingCreated_EnqueuesNothing()
     {
-        var h = CreateEventHarness();
+        var h = await CreateEventHarness();
         Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN", BindingDeployTrigger.Poll));
 
         await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
@@ -136,7 +137,7 @@ public class BindingHookRegistrationTests
     [Test]
     public async Task WebhookBindingCreated_NoPublicUrl_EnqueuesNothing()
     {
-        var h = CreateEventHarness(baseUrl: null);
+        var h = await CreateEventHarness(baseUrl: null);
         Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
 
         await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
@@ -146,7 +147,7 @@ public class BindingHookRegistrationTests
     public async Task WebhookBindingCreated_NoCredentials_EnqueuesNothing()
     {
         // Without a credentials secret there is no PAT to manage the hook → fall back to polling.
-        var h = CreateEventHarness();
+        var h = await CreateEventHarness();
         Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", credentialsSecret: null));
 
         await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
@@ -155,7 +156,7 @@ public class BindingHookRegistrationTests
     [Test]
     public async Task SwitchedToPoll_WithLiveHook_EnqueuesDelete()
     {
-        var h = CreateEventHarness();
+        var h = await CreateEventHarness();
         var pid = Id.New<Pipeline>();
         var binding = Pick(h.Svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
         h.Queue.Reader.TryRead(out _); // drain the create from above
@@ -173,13 +174,13 @@ public class BindingHookRegistrationTests
     [Test]
     public async Task BindingDeleted_WithLiveHook_EnqueuesDelete()
     {
-        var h = CreateEventHarness();
+        var h = await CreateEventHarness();
         var pid = Id.New<Pipeline>();
         var binding = Pick(h.Svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
         h.Queue.Reader.TryRead(out _); // drain create
         h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN"));
 
-        h.Svc.Delete(binding.Id);
+        await Assert.That(h.Svc.Delete(binding.Id).Succeeded).IsTrue();
 
         await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
         await Assert.That(work as DeleteBindingHookWork).IsNotNull();

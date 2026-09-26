@@ -3,6 +3,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -56,7 +57,7 @@ public class ProductionStepServiceTests
         var pipelineId = Id.New<Pipeline>();
 
         var step = Pick(service.Create(pipelineId, "build"));
-        service.SetConfiguration(step.Id, new StepConfiguration("alpine:latest", "echo hi", null));
+        await Assert.That(service.SetConfiguration(step.Id, new StepConfiguration("alpine:latest", "echo hi", null))).Succeeded();
 
         await Assert.That(service.HasConfiguredSteps(pipelineId)).IsTrue();
     }

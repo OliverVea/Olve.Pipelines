@@ -65,7 +65,7 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        Bind(svc.Bindings, pipeline.Id); // binds with credentialsSecret: null
+        await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded(); // binds with credentialsSecret: null
 
         var updated = Pick(svc.Bindings.SetCredentialsSecret(pipeline.Id, "GITHUB_TOKEN"));
 
@@ -78,7 +78,7 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        svc.Bindings.Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", "GITHUB_TOKEN");
+        await Assert.That(svc.Bindings.Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", "GITHUB_TOKEN")).Succeeded();
 
         var cleared = Pick(svc.Bindings.SetCredentialsSecret(pipeline.Id, "   "));
 
@@ -99,7 +99,7 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        Bind(svc.Bindings, pipeline.Id);
+        await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
 
         // One binding per pipeline — a second bind must be rejected.
         await Assert.That(Bind(svc.Bindings, pipeline.Id).Failed).IsTrue();
@@ -142,10 +142,10 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        Bind(svc.Bindings, pipeline.Id);
+        await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
         await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Succeeded).IsTrue();
 
-        svc.Pipelines.Delete(pipeline.Id);
+        await Assert.That(svc.Pipelines.Delete(pipeline.Id).Succeeded).IsTrue();
 
         await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Failed).IsTrue();
         await Assert.That(svc.BindingStore.List()).IsEmpty();
@@ -158,9 +158,9 @@ public class PipelineConfigBindingTests
         var keep = Pick(svc.Pipelines.Create("keep"));
         var drop = Pick(svc.Pipelines.Create("drop"));
         var keepBinding = Pick(Bind(svc.Bindings, keep.Id));
-        Bind(svc.Bindings, drop.Id);
+        await Assert.That(Bind(svc.Bindings, drop.Id)).Succeeded();
 
-        svc.Pipelines.Delete(drop.Id);
+        await Assert.That(svc.Pipelines.Delete(drop.Id).Succeeded).IsTrue();
 
         await Assert.That(svc.Bindings.GetByPipelineId(drop.Id).Failed).IsTrue();
         await Assert.That(Pick(svc.Bindings.GetByPipelineId(keep.Id)).Id).IsEqualTo(keepBinding.Id);

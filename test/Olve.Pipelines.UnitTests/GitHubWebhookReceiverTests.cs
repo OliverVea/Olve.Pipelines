@@ -9,6 +9,7 @@ using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -150,7 +151,7 @@ public class GitHubWebhookReceiverTests
 
         var pipeline = Pick(pipelines.Create("demo"));
         var step = Pick(productionSteps.Create(pipeline.Id, "build"));
-        productionSteps.SetConfiguration(step.Id, new StepConfiguration("alpine", "echo hi", []));
+        await Assert.That(productionSteps.SetConfiguration(step.Id, new StepConfiguration("alpine", "echo hi", []))).Succeeded();
 
         var trigger = new Trigger(
             Id.New<Trigger>(), pipeline.Id, "on-push",

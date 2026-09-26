@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -252,7 +253,7 @@ public class JobRunnerTests
         var jobId = CreateProductionJob(h.JobService);
 
         // Simulate the post-restart state: the job was persisted InProgress, but no watcher is running.
-        h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) });
+        await Assert.That(h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) })).Succeeded();
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);

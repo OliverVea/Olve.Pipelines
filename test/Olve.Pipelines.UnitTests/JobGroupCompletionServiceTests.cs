@@ -4,6 +4,8 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -91,14 +93,17 @@ public class JobGroupCompletionServiceTests
 
             using var barrier = new Barrier(2);
 
-            void Complete(Id<Job> id)
+            Result Complete(Id<Job> id)
             {
                 barrier.SignalAndWait();
                 var now = DateTimeOffset.UtcNow;
-                svc.JobService.UpdateJob<ProductionJob>(id, j => j with { Status = new Done(now, now) });
+                return svc.JobService.UpdateJob<ProductionJob>(id, j => j with { Status = new Done(now, now) });
             }
 
-            await Task.WhenAll(Task.Run(() => Complete(job1)), Task.Run(() => Complete(job2)));
+            var results = await Task.WhenAll(Task.Run(() => Complete(job1)), Task.Run(() => Complete(job2)));
+
+            await Assert.That(results[0]).Succeeded();
+            await Assert.That(results[1]).Succeeded();
 
             await Assert.That(completions).IsEqualTo(1);
         }

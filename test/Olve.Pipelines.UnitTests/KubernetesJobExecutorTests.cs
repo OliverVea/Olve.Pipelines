@@ -9,6 +9,7 @@ using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -304,7 +305,7 @@ public class KubernetesJobExecutorTests
         var jobId = CreateScheduledProductionJob(h);
 
         var originalStart = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(originalStart) });
+        await Assert.That(h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(originalStart) })).Succeeded();
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);

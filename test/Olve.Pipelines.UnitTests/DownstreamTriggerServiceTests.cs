@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines.Processing;
 using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -71,44 +72,44 @@ public class DownstreamTriggerServiceTests
         return value!;
     }
 
-    private static void CompleteJob(Services svc, Id<Job> jobId)
+    private static async Task CompleteJob(Services svc, Id<Job> jobId)
     {
         svc.JobService.TryGetJob<Job>(jobId, out var job);
         var now = DateTimeOffset.UtcNow;
         switch (job)
         {
             case ProductionJob:
-                svc.JobService.UpdateJob<ProductionJob>(jobId, j => j with
+                await Assert.That(svc.JobService.UpdateJob<ProductionJob>(jobId, j => j with
                 {
                     Status = new Done(now, now),
-                });
+                })).Succeeded();
                 break;
             case ProcessingJob:
-                svc.JobService.UpdateJob<ProcessingJob>(jobId, j => j with
+                await Assert.That(svc.JobService.UpdateJob<ProcessingJob>(jobId, j => j with
                 {
                     Status = new Done(now, now),
-                });
+                })).Succeeded();
                 break;
         }
     }
 
-    private static void FailJob(Services svc, Id<Job> jobId)
+    private static async Task FailJob(Services svc, Id<Job> jobId)
     {
         svc.JobService.TryGetJob<Job>(jobId, out var job);
         var now = DateTimeOffset.UtcNow;
         switch (job)
         {
             case ProductionJob:
-                svc.JobService.UpdateJob<ProductionJob>(jobId, j => j with
+                await Assert.That(svc.JobService.UpdateJob<ProductionJob>(jobId, j => j with
                 {
                     Status = new Failed(now, now),
-                });
+                })).Succeeded();
                 break;
             case ProcessingJob:
-                svc.JobService.UpdateJob<ProcessingJob>(jobId, j => j with
+                await Assert.That(svc.JobService.UpdateJob<ProcessingJob>(jobId, j => j with
                 {
                     Status = new Failed(now, now),
-                });
+                })).Succeeded();
                 break;
         }
     }
@@ -121,14 +122,14 @@ public class DownstreamTriggerServiceTests
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-staging", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-prod", 2));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo deploy", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo deploy", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo deploy", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo deploy", []))).Succeeded();
 
         var bundleId = Id.New<ArtifactBundle>();
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
-        CompleteJob(svc, prodJob.Id);
+        await CompleteJob(svc, prodJob.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
 
@@ -149,16 +150,16 @@ public class DownstreamTriggerServiceTests
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "test", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 2));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo test", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo deploy", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo test", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo deploy", []))).Succeeded();
 
         var bundleId = Id.New<ArtifactBundle>();
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var buildLinux = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
         var buildWindows = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
-        CompleteJob(svc, buildLinux.Id);
-        CompleteJob(svc, buildWindows.Id);
+        await CompleteJob(svc, buildLinux.Id);
+        await CompleteJob(svc, buildWindows.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
 
@@ -177,13 +178,13 @@ public class DownstreamTriggerServiceTests
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-staging", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-prod", 2));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo 2", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("image", "echo 2", []))).Succeeded();
 
         var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
         var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
 
-        CompleteJob(svc, job1.Id);
+        await CompleteJob(svc, job1.Id);
 
         var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
 
@@ -200,12 +201,12 @@ public class DownstreamTriggerServiceTests
         var bundleId = Id.New<ArtifactBundle>();
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 1));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []))).Succeeded();
 
         var group = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
         var job = Pick(svc.JobService.CreateProcessingJob(pipelineId, group.Id, bundleId, step1.Id));
 
-        CompleteJob(svc, job.Id);
+        await CompleteJob(svc, job.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(1);
@@ -218,15 +219,15 @@ public class DownstreamTriggerServiceTests
         var pipelineId = Id.New<Pipeline>();
 
         Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 1));
-        svc.ProcessingStepService.SetConfiguration(
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(
             Pick(svc.ProcessingStepService.GetByPipelineId(pipelineId))[0].Id,
-            new StepConfiguration("image", "echo 1", []));
+            new StepConfiguration("image", "echo 1", []))).Succeeded();
 
         var bundleId = Id.New<ArtifactBundle>();
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
-        FailJob(svc, prodJob.Id);
+        await FailJob(svc, prodJob.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(0);
@@ -241,15 +242,15 @@ public class DownstreamTriggerServiceTests
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-staging", 1));
         Pick(svc.ProcessingStepService.Create(pipelineId, "deploy-prod", 2));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []));
-        svc.ProcessingStepService.SetConfiguration(
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo 1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(
             Pick(svc.ProcessingStepService.GetByPipelineId(pipelineId))[1].Id,
-            new StepConfiguration("image", "echo 2", []));
+            new StepConfiguration("image", "echo 2", []))).Succeeded();
 
         var group = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
         var job = Pick(svc.JobService.CreateProcessingJob(pipelineId, group.Id, bundleId, step1.Id));
 
-        FailJob(svc, job.Id);
+        await FailJob(svc, job.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(1);
@@ -266,7 +267,7 @@ public class DownstreamTriggerServiceTests
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
-        CompleteJob(svc, prodJob.Id);
+        await CompleteJob(svc, prodJob.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(0);
@@ -279,14 +280,14 @@ public class DownstreamTriggerServiceTests
         var pipelineId = Id.New<Pipeline>();
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "deploy", 1));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo deploy", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("image", "echo deploy", []))).Succeeded();
         svc.PromotionGate.Block(step1.Id);
 
         var bundleId = Id.New<ArtifactBundle>();
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
 
-        CompleteJob(svc, prodJob.Id);
+        await CompleteJob(svc, prodJob.Id);
 
         var processingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(processingJobs).Count().IsEqualTo(0);
@@ -302,9 +303,9 @@ public class DownstreamTriggerServiceTests
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
         var step3 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-3", 3));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []));
-        svc.ProcessingStepService.SetConfiguration(step3.Id, new StepConfiguration("img", "s3", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step3.Id, new StepConfiguration("img", "s3", []))).Succeeded();
 
         // Block the middle step: completing step1 must NOT trigger step2, and must NOT skip to step3.
         svc.PromotionGate.Block(step2.Id);
@@ -312,7 +313,7 @@ public class DownstreamTriggerServiceTests
         var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
         var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
 
-        CompleteJob(svc, job1.Id);
+        await CompleteJob(svc, job1.Id);
 
         var laterJobs = svc.JobService.ListJobs().OfType<ProcessingJob>()
             .Where(j => j.ProcessingStepId == step2.Id || j.ProcessingStepId == step3.Id).ToArray();
@@ -328,8 +329,8 @@ public class DownstreamTriggerServiceTests
 
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []))).Succeeded();
 
         svc.PromotionGate.Block(step2.Id);
         svc.PromotionGate.Unblock(step2.Id);
@@ -337,7 +338,7 @@ public class DownstreamTriggerServiceTests
         var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
         var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
 
-        CompleteJob(svc, job1.Id);
+        await CompleteJob(svc, job1.Id);
 
         var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
         await Assert.That(step2Jobs).Count().IsEqualTo(1);
@@ -353,32 +354,32 @@ public class DownstreamTriggerServiceTests
         var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
         var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
         var step3 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-3", 3));
-        svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []));
-        svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []));
-        svc.ProcessingStepService.SetConfiguration(step3.Id, new StepConfiguration("img", "s3", []));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step3.Id, new StepConfiguration("img", "s3", []))).Succeeded();
 
         // Production completes -> triggers step1
         var prodGroup = svc.JobGroupService.CreateProductionGroup(pipelineId, bundleId);
         var prodJob = Pick(svc.JobService.CreateProductionJob(pipelineId, prodGroup.Id, Id.New<ProductionStep>()));
-        CompleteJob(svc, prodJob.Id);
+        await CompleteJob(svc, prodJob.Id);
 
         var step1Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step1.Id).ToArray();
         await Assert.That(step1Jobs).Count().IsEqualTo(1);
 
         // Step1 completes -> triggers step2
-        CompleteJob(svc, step1Jobs[0].Id);
+        await CompleteJob(svc, step1Jobs[0].Id);
 
         var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
         await Assert.That(step2Jobs).Count().IsEqualTo(1);
 
         // Step2 completes -> triggers step3
-        CompleteJob(svc, step2Jobs[0].Id);
+        await CompleteJob(svc, step2Jobs[0].Id);
 
         var step3Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step3.Id).ToArray();
         await Assert.That(step3Jobs).Count().IsEqualTo(1);
 
         // Step3 completes -> no more
-        CompleteJob(svc, step3Jobs[0].Id);
+        await CompleteJob(svc, step3Jobs[0].Id);
 
         var allProcessingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(allProcessingJobs).Count().IsEqualTo(3);

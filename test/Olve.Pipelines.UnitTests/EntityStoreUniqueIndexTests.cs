@@ -33,7 +33,7 @@ public class EntityStoreUniqueIndexTests
         store.Set(step);
         await Assert.That(index.ContainsKey("build")).IsTrue();
 
-        store.Delete(step.Id);
+        await Assert.That(store.Delete(step.Id).Succeeded).IsTrue();
 
         // Regression: the previous implementation never pruned on delete because the entity is
         // already gone from the store when OnDeleted fires.
@@ -54,7 +54,7 @@ public class EntityStoreUniqueIndexTests
         store.Set(first);
         store.Set(second); // rebinds "build" -> second.Id
 
-        store.Delete(first.Id);
+        await Assert.That(store.Delete(first.Id).Succeeded).IsTrue();
 
         await Assert.That(index.TryGet("build", out var id)).IsTrue();
         await Assert.That(id).IsEqualTo(second.Id);

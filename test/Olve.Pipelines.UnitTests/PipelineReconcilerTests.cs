@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -124,13 +125,13 @@ public class PipelineReconcilerTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(
             production: [Prod("build")],
-            failureHandlers: [new FailureHandlerDocument(FailureHandlerLibrary.AoeTriage, null, null)]));
+            failureHandlers: [new FailureHandlerDocument(FailureHandlerLibrary.AoeTriage, null, null)]))).Succeeded();
         await Assert.That(f.FailureHandlers.Get(pipeline.Id).Count).IsEqualTo(1);
 
         // Manifest no longer declares any handler — reconcile must clear the binding.
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]))).Succeeded();
         await Assert.That(f.FailureHandlers.Get(pipeline.Id).Count).IsEqualTo(0);
     }
 
@@ -141,10 +142,10 @@ public class PipelineReconcilerTests
         var pipeline = Pick(f.Pipelines.Create("p"));
         var manifest = Manifest(production: [Prod("build")], processing: [Proc("deploy")]);
 
-        f.Reconciler.Reconcile(pipeline.Id, manifest);
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, manifest)).Succeeded();
         var firstId = Pick(f.Production.GetByPipelineId(pipeline.Id))[0].Id;
 
-        f.Reconciler.Reconcile(pipeline.Id, manifest);
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, manifest)).Succeeded();
         var secondId = Pick(f.Production.GetByPipelineId(pipeline.Id))[0].Id;
 
         await Assert.That(secondId).IsEqualTo(firstId);
@@ -156,10 +157,10 @@ public class PipelineReconcilerTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build", "old")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build", "old")]))).Succeeded();
         var id = Pick(f.Production.GetByPipelineId(pipeline.Id))[0].Id;
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build", "new")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build", "new")]))).Succeeded();
 
         await Assert.That(Pick(f.Production.GetByPipelineId(pipeline.Id))[0].Id).IsEqualTo(id);
         await Assert.That(Pick(f.Production.TryGetConfiguration(id)).Script).IsEqualTo("new");
@@ -172,8 +173,8 @@ public class PipelineReconcilerTests
         var pipeline = Pick(f.Pipelines.Create("p"));
 
         // Simulate a manual API addition that the manifest does not declare.
-        f.Production.Create(pipeline.Id, "manual");
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]));
+        await Assert.That(f.Production.Create(pipeline.Id, "manual")).Succeeded();
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("build")]))).Succeeded();
 
         var live = Pick(f.Production.GetByPipelineId(pipeline.Id));
         await Assert.That(live.Length).IsEqualTo(1);
@@ -186,10 +187,10 @@ public class PipelineReconcilerTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("old")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("old")]))).Succeeded();
         var oldId = Pick(f.Production.GetByPipelineId(pipeline.Id))[0].Id;
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("new")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(production: [Prod("new")]))).Succeeded();
         var live = Pick(f.Production.GetByPipelineId(pipeline.Id));
 
         await Assert.That(live.Length).IsEqualTo(1);
@@ -203,9 +204,9 @@ public class PipelineReconcilerTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
 
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(processing: [Proc("a"), Proc("b")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(processing: [Proc("a"), Proc("b")]))).Succeeded();
         // Reverse order in the manifest — the live order must follow.
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(processing: [Proc("b"), Proc("a")]));
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(processing: [Proc("b"), Proc("a")]))).Succeeded();
 
         var live = Pick(f.Processing.GetByPipelineId(pipeline.Id));
         await Assert.That(live[0].Name).IsEqualTo("b");
@@ -219,9 +220,9 @@ public class PipelineReconcilerTests
         var pipeline = Pick(f.Pipelines.Create("p"));
 
         // Manually add a trigger (delete-to-match should remove it).
-        f.Triggers.Create(pipeline.Id, "manual", new ProductionTriggerTarget());
-        f.Reconciler.Reconcile(pipeline.Id, Manifest(
-            triggers: [new TriggerDocument("keep", new ProductionTargetDocument())]));
+        await Assert.That(f.Triggers.Create(pipeline.Id, "manual", new ProductionTriggerTarget())).Succeeded();
+        await Assert.That(f.Reconciler.Reconcile(pipeline.Id, Manifest(
+            triggers: [new TriggerDocument("keep", new ProductionTargetDocument())]))).Succeeded();
 
         var live = Pick(f.Triggers.GetByPipelineId(pipeline.Id));
         await Assert.That(live.Length).IsEqualTo(1);

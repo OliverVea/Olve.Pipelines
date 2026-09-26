@@ -89,8 +89,8 @@ public class JobServiceTests
         var pipelineId1 = Id.New<Pipeline>();
         var pipelineId2 = Id.New<Pipeline>();
 
-        service.CreateProductionJob(pipelineId1, Id.New<JobGroup>(), Id.New<ProductionStep>());
-        service.CreateProductionJob(pipelineId2, Id.New<JobGroup>(), Id.New<ProductionStep>());
+        await Assert.That(service.CreateProductionJob(pipelineId1, Id.New<JobGroup>(), Id.New<ProductionStep>())).Succeeded();
+        await Assert.That(service.CreateProductionJob(pipelineId2, Id.New<JobGroup>(), Id.New<ProductionStep>())).Succeeded();
 
         store.TryGet(id, out var job);
         await Assert.That(job!.PipelineId).IsEqualTo(pipelineId2);

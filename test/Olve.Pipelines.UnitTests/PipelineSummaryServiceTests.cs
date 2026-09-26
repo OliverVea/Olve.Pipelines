@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
@@ -59,7 +60,7 @@ public class PipelineSummaryServiceTests
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        f.ProductionSteps.Create(pipeline.Id, "build");
+        await Assert.That(f.ProductionSteps.Create(pipeline.Id, "build")).Succeeded();
 
         var summaries = f.Service.List();
 
@@ -94,8 +95,8 @@ public class PipelineSummaryServiceTests
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        f.ProductionSteps.Create(pipeline.Id, "build");
-        f.ProcessingSteps.Create(pipeline.Id, "deploy", 0);
+        await Assert.That(f.ProductionSteps.Create(pipeline.Id, "build")).Succeeded();
+        await Assert.That(f.ProcessingSteps.Create(pipeline.Id, "deploy", 0)).Succeeded();
 
         var summaries = f.Service.List();
         var kinds = summaries[0].Steps.Select(s => s.Kind).ToArray();
@@ -108,8 +109,8 @@ public class PipelineSummaryServiceTests
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        new PipelineConfigBindingService(f.Bindings, new IdProvider())
-            .Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", null);
+        await Assert.That(new PipelineConfigBindingService(f.Bindings, new IdProvider())
+            .Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", null)).Succeeded();
 
         var summaries = f.Service.List();
 
@@ -120,7 +121,7 @@ public class PipelineSummaryServiceTests
     public async Task UnboundPipeline_HasNullRepo()
     {
         var f = Create();
-        new PipelineService(f.Pipelines, new IdProvider()).Create("draft");
+        await Assert.That(new PipelineService(f.Pipelines, new IdProvider()).Create("draft")).Succeeded();
 
         var summaries = f.Service.List();
 

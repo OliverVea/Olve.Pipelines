@@ -72,6 +72,10 @@ public static class StorageConfiguration
         {
             ServiceURL = endpoint,
             ForcePathStyle = true,
+            // SDK v4 defaults to aws-chunked uploads with a CRC trailer, which Garage rejects
+            // ("Invalid payload signature"). Only send/validate checksums when an API requires them.
+            RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+            ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
         };
 
         if (skipCertValidation)

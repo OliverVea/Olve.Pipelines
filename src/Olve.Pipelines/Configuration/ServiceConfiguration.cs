@@ -19,6 +19,9 @@ public static class ServiceConfiguration
 {
     public static void AddPipelineServices(this IServiceCollection services)
     {
+        // Services that own an EntityStoreIndex are singletons: CreateIndex subscribes to the
+        // store and never unsubscribes, so a transient owner leaks one index per resolution (#26).
+        // Their dependencies must be singletons too (hence JobGroupService).
         services.AddSingleton<EntityStore<Pipeline>>();
         services.AddSingleton<PipelineEvents>();
         services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();
@@ -26,21 +29,21 @@ public static class ServiceConfiguration
         services.AddSingleton<AttachmentStore<ProductionStep, StepConfiguration>>();
         services.AddSingleton<ProductionStepEvents>();
         services.AddSingleton<IRunOnStartup, ProductionStepEventRegistration>();
-        services.AddTransient<ProductionStepService>();
-        services.AddTransient<ProductionStepCleanupService>();
+        services.AddSingleton<ProductionStepService>();
+        services.AddSingleton<ProductionStepCleanupService>();
         services.AddSingleton<EntityStore<ProcessingStep>>();
         services.AddSingleton<AttachmentStore<ProcessingStep, StepConfiguration>>();
         services.AddSingleton<AttachmentStore<ProcessingStep, ProcessingStepPromotion>>();
         services.AddSingleton<ProcessingStepEvents>();
         services.AddSingleton<IRunOnStartup, ProcessingStepEventRegistration>();
-        services.AddTransient<ProcessingStepService>();
-        services.AddTransient<ProcessingStepCleanupService>();
+        services.AddSingleton<ProcessingStepService>();
+        services.AddSingleton<ProcessingStepCleanupService>();
         services.AddTransient<PromotionGateService>();
         services.AddSingleton<EntityStore<Trigger>>();
         services.AddSingleton<TriggerEvents>();
         services.AddSingleton<IRunOnStartup, TriggerEventRegistration>();
-        services.AddTransient<TriggerService>();
-        services.AddTransient<TriggerCleanupService>();
+        services.AddSingleton<TriggerService>();
+        services.AddSingleton<TriggerCleanupService>();
         services.AddTransient<TriggerExecutionService>();
         services.AddTransient<GitHubWebhookReceiver>();
 
@@ -59,8 +62,8 @@ public static class ServiceConfiguration
         services.AddHostedService<GitHubHookRegistrationService>();
         services.AddHostedService<GitHubHookPersistenceService>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
-        services.AddTransient<PipelineConfigBindingService>();
-        services.AddTransient<PipelineConfigBindingCleanupService>();
+        services.AddSingleton<PipelineConfigBindingService>();
+        services.AddSingleton<PipelineConfigBindingCleanupService>();
         services.AddTransient<BindingWebhookReceiver>();
         services.AddSingleton<IRunOnStartup, PipelineConfigBindingEventRegistration>();
         // Binding webhook-mode deploy: auto-register/deregister the push hook (reuses the GitHub
@@ -79,7 +82,7 @@ public static class ServiceConfiguration
         services.AddHostedService<PollTriggerService>();
         services.AddTransient<IEnumerable<ArtifactBundle>>(_ => []);
         services.AddSingleton<EntityStore<ArtifactBundle>>();
-        services.AddTransient<ArtifactBundleService>();
+        services.AddSingleton<ArtifactBundleService>();
         services.AddTransient<IEnumerable<Job>>(_ => []);
         services.AddSingleton<EntityStore<Job>>();
         services.AddTransient<IEnumerable<JobGroup>>(_ => []);
@@ -87,8 +90,8 @@ public static class ServiceConfiguration
         services.AddSingleton<IdProvider>();
         services.AddSingleton<JobEvents>();
         services.AddSingleton<JobGroupCompletionTracker>();
-        services.AddTransient<JobService>();
-        services.AddTransient<JobGroupService>();
+        services.AddSingleton<JobService>();
+        services.AddSingleton<JobGroupService>();
         services.AddTransient<JobLogService>();
         services.AddTransient<JobObsoletionService>();
         services.AddTransient<JobCancellationService>();

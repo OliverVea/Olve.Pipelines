@@ -50,10 +50,10 @@ convention if you add functions (there is no `local` in POSIX `sh`, so names lea
 | Function | Purpose |
 |---|---|
 | `olve_version` | Echo the build version stamp (`date +%Y%m%d-%H%M%S`). Capture with `VERSION=$(olve_version)`. |
-| `olve_fetch_repo <owner/repo> <branch> <dest>` | Fetch + unpack the repo tarball from the GitHub API into `<dest>` (strip-components=1). Needs `$GITHUB_TOKEN`. Carries the busybox-`wget` TLS workaround. |
+| `olve_fetch_repo <owner/repo> <branch> <dest>` | Resolve `<branch>` to a commit SHA, then fetch + unpack the tarball **at that SHA** into `<dest>` (strip-components=1). Logs `olve: building <repo>@<sha>`, sets `$OLVE_COMMIT`, and writes `<repo>@<sha>` to `/output/commit.txt` (when `/output` exists) so the commit travels in the bundle. Falls back to the branch head with a warning if the lookup fails. Needs `$GITHUB_TOKEN`. Carries the busybox-`wget` TLS workaround. |
 | `olve_stage_artifact <src> <dest>` | Copy a deploy artifact (file or dir) into `/output` **before** Kaniko runs, so it travels in the bundle — Kaniko wipes the context root between multi-stage stages. |
 | `olve_kaniko_build <context-dir> <image:tag>` | Build to `/output/image.tar` (no registry push). Uses the correct `/kaniko/build-context` and the multi-stage-safe flags (no `--single-snapshot`). |
-| `olve_bundle_input` | Echo the build step's bundle dir (no trailing slash) by locating the dir that contains `version.txt` — ignoring the parallel code-test step's empty output. Use `"$INPUT_DIR/file"`. |
+| `olve_bundle_input` | Echo the build step's bundle dir (no trailing slash) by locating the dir that contains `version.txt` — ignoring the parallel code-test step's empty output. Use `"$INPUT_DIR/file"`. If the bundle has a `commit.txt`, logs `olve: deploying <repo>@<sha>` (to stderr, so the captured dir is unaffected). |
 | `olve_ssh_host <host>` | Install the ssh client and set up key auth + `known_hosts` from `$SSH_PRIVATE_KEY`. Run once before import/deploy. |
 | `olve_image_import <image-tar> <ssh-target>` | Stream an image tar over SSH and load it into the homelab **k3s** containerd (`/run/k3s/containerd/containerd.sock`) so pods can see it. |
 | `olve_helm_deploy <ssh-target> <release> <namespace> <chart-dir> <version> [helm args…]` | Copy the chart to the host and `helm upgrade --install` from inside it (so `-f values-beta.yaml` resolves chart-relative), with `image.pullPolicy=Never` and `slo.enabled=false`. |

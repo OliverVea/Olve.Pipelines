@@ -30,6 +30,12 @@ olve_version() {
 # (strip-components=1, so files land at <dest-dir>/... not <dest-dir>/<repo-sha>/...).
 # Requires $GITHUB_TOKEN in the env.
 #
+# Resolves <branch> to a commit SHA first and fetches the tarball at that SHA, so the
+# build is exactly the commit it logs ("olve: building <repo>@<sha>"). The SHA is left in
+# $OLVE_COMMIT and, when /output exists, written to /output/commit.txt so it travels in
+# the bundle for later steps (see olve_bundle_input). If the SHA lookup fails, falls back
+# to the branch tarball with a warning rather than failing the build.
+#
 # Footgun: the Kaniko debug image ships busybox wget, which fails TLS against the
 # GitHub API without --no-check-certificate.
 olve_fetch_repo() {
@@ -38,8 +44,24 @@ olve_fetch_repo() {
   dest=$3
   mkdir -p "$dest"
   cd "$dest"
+  OLVE_COMMIT=$(wget --no-check-certificate -q -O - \
+    --header="Authorization: token $GITHUB_TOKEN" \
+    --header="Accept: application/vnd.github.sha" \
+    "https://api.github.com/repos/$repo/commits/$branch" 2>/dev/null) || OLVE_COMMIT=""
+  case "$OLVE_COMMIT" in
+    *[!0-9a-f]* | "")
+      echo "olve: warning: could not resolve $repo@$branch to a commit; fetching the branch head" >&2
+      OLVE_COMMIT=""
+      ref=$branch
+      ;;
+    *)
+      echo "olve: building $repo@$OLVE_COMMIT ($branch)" >&2
+      ref=$OLVE_COMMIT
+      [ -d /output ] && echo "$repo@$OLVE_COMMIT" > /output/commit.txt
+      ;;
+  esac
   wget --no-check-certificate -q --header="Authorization: token $GITHUB_TOKEN" \
-    -O repo.tar.gz "https://api.github.com/repos/$repo/tarball/$branch"
+    -O repo.tar.gz "https://api.github.com/repos/$repo/tarball/$ref"
   tar xzf repo.tar.gz --strip-components=1
   rm repo.tar.gz
 }
@@ -85,7 +107,12 @@ olve_kaniko_build() {
 # output by the artifact it alone produces — version.txt — so the parallel code-test
 # step's (empty) output dir is ignored. Capture with INPUT_DIR=$(olve_bundle_input).
 olve_bundle_input() {
-  dirname "$(ls /input/*/version.txt | head -1)"
+  olve_input_dir=$(dirname "$(ls /input/*/version.txt | head -1)")
+  # Log which commit this bundle was built from (stderr: stdout is the captured dir).
+  if [ -f "$olve_input_dir/commit.txt" ]; then
+    echo "olve: deploying $(cat "$olve_input_dir/commit.txt")" >&2
+  fi
+  echo "$olve_input_dir"
   # dirname strips the trailing slash; callers append it (or use "$INPUT_DIR/file").
 }
 

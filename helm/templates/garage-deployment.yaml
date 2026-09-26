@@ -1,0 +1,87 @@
+{{- if .Values.garage.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-garage
+  labels:
+    app: {{ .Release.Name }}-garage
+spec:
+  replicas: 1
+  # RWO volumes: never run two pods at once during a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-garage
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-garage
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/garage-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: garage
+          image: "{{ .Values.garage.image }}"
+          imagePullPolicy: IfNotPresent
+          # --single-node lays out a one-node cluster on first boot (a no-op on restart);
+          # --default-bucket idempotently creates the access key + bucket from the env below.
+          command: ["/garage", "server", "--single-node", "--default-bucket"]
+          env:
+            - name: GARAGE_CONFIG_FILE
+              value: /etc/garage/garage.toml
+            - name: GARAGE_DEFAULT_BUCKET
+              value: {{ .Values.garage.bucket | quote }}
+            - name: GARAGE_DEFAULT_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.garage.credentialsSecret }}
+                  key: root-user
+            - name: GARAGE_DEFAULT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.garage.credentialsSecret }}
+                  key: root-password
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.garage.credentialsSecret }}
+                  key: rpc-secret
+          ports:
+            - name: s3
+              containerPort: 3900
+            - name: admin
+              containerPort: 3903
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage
+              readOnly: true
+            - name: meta
+              mountPath: /var/lib/garage/meta
+            - name: data
+              mountPath: /var/lib/garage/data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: admin
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: admin
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.garage.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-garage
+        - name: meta
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-garage-meta
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-garage-data
+{{- end }}

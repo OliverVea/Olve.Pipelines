@@ -1,0 +1,25 @@
+{{- if .Values.garage.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-garage
+  labels:
+    app: {{ .Release.Name }}-garage
+data:
+  garage.toml: |
+    metadata_dir = "/var/lib/garage/meta"
+    data_dir = "/var/lib/garage/data"
+    db_engine = "sqlite"
+    replication_factor = 1
+    rpc_bind_addr = "[::]:3901"
+    rpc_public_addr = "127.0.0.1:3901"
+
+    [s3_api]
+    # us-east-1 (not Garage's default "garage") so SigV4 clients that assume the AWS
+    # default region — curl --aws-sigv4 in publish-cli.sh, the step-pod helpers — sign correctly.
+    s3_region = "us-east-1"
+    api_bind_addr = "[::]:3900"
+
+    [admin]
+    api_bind_addr = "[::]:3903"
+{{- end }}

@@ -1,0 +1,38 @@
+{{- if .Values.garage.enabled }}
+# Metadata (sqlite, node key, cluster layout): small and latency-sensitive — keep on SSD.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-garage-meta
+  labels:
+    app: {{ .Release.Name }}-garage
+  annotations:
+    # Precious data volume: survive `helm uninstall`. `pl teardown --purge-data` deletes it.
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.garage.metaStorageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.garage.metaStorage }}
+---
+# Object data (bundles, job logs, pl binaries): bulky — belongs on the HDD.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-garage-data
+  labels:
+    app: {{ .Release.Name }}-garage
+  annotations:
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.garage.dataStorageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.garage.dataStorage }}
+{{- end }}

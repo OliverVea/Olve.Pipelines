@@ -39,6 +39,10 @@ minio:
   enabled: true
   bucket: olve-pipelines-beta
 
+garage:
+  enabled: true
+  bucket: olve-pipelines-beta
+
 authentikCa:
   fileName: auth-beta-ca.crt
 

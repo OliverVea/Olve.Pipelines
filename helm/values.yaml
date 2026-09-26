@@ -86,6 +86,28 @@ minio:
       cpu: 500m
       memory: 512Mi
 
+
+# Dedicated in-cluster Garage (S3-compatible), replacing the archived MinIO above. Runs
+# single-node; the access key + bucket are created at startup from the credentials Secret
+# (keys: root-user, root-password, rpc-secret). Metadata on SSD, object data on the bulk HDD.
+# See docs/superpowers/specs/2026-09-26-garage-storage-design.md.
+garage:
+  enabled: false
+  image: "dxflrs/garage:v2.4.1"
+  credentialsSecret: olve-pipelines-minio
+  bucket: olve-pipelines
+  metaStorage: 5Gi
+  metaStorageClass: local-path
+  dataStorage: 500Gi
+  dataStorageClass: bulk
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
 config:
   Host: "0.0.0.0"
   Port: "5000"

@@ -7,9 +7,9 @@ config:
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: ""
   OpenTelemetry__OAuth2__ClientId: ""
-  # Dedicated in-cluster MinIO (this instance's own), reached cross-namespace by the
+  # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
   # runner Jobs in olve-runners-beta. Static creds (below) take precedence over STS.
-  Storage__Endpoint: "http://olve-pipelines-minio.apps-beta:9000"
+  Storage__Endpoint: "http://olve-pipelines-garage.apps-beta:3900"
   Storage__Bucket: "olve-pipelines-beta"
   # AuthUrl/ClientId/ClientSecret are still required: KubernetesConfiguration reuses
   # them for OpenBao auth to reach the cluster. They are now inert for storage.

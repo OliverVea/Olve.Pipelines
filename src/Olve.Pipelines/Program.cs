@@ -24,6 +24,12 @@ builder.Services.AddPipelineServices();
 
 var app = builder.Build();
 
+// Store events isolate their handlers: a throwing handler no longer fails the write that raised the
+// event, and its exception goes here instead of being swallowed.
+var eventLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Olve.Pipelines.StoreEvents");
+EventDispatch.OnHandlerException = ex =>
+    eventLogger.LogError(ex, "Unhandled exception in a store event handler; other handlers still ran");
+
 app.Use(async (context, next) =>
 {
     var sw = System.Diagnostics.Stopwatch.StartNew();

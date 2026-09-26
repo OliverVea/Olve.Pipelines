@@ -353,7 +353,7 @@ The `clients/Olve.Pipelines.Client/` project uses the Refitter source generator 
 
 ```bash
 dotnet tool restore
-dotnet kiota generate -l typescript -d api.json -c OlvePipelinesApiClient -o clients/olve-pipelines-client-ts/src -n OlvePipelinesApi
+dotnet kiota generate -l typescript -d api.json -c ApiClient -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient
 ```
 
 ## Versioning

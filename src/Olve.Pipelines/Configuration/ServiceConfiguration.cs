@@ -19,9 +19,10 @@ public static class ServiceConfiguration
 {
     public static void AddPipelineServices(this IServiceCollection services)
     {
-        // Services that own an EntityStoreIndex are singletons: CreateIndex subscribes to the
-        // store and never unsubscribes, so a transient owner leaks one index per resolution (#26).
-        // Their dependencies must be singletons too (hence JobGroupService).
+        // Services that own an EntityStoreIndex are singletons: CreateIndex subscribes to the store,
+        // so an index must be disposed or live as long as the store. A transient owner that never
+        // disposes leaks one index per resolution (#26). Their dependencies must be singletons too
+        // (hence JobGroupService).
         services.AddSingleton<EntityStore<Pipeline>>();
         services.AddSingleton<PipelineEvents>();
         services.AddSingleton<IRunOnStartup, PipelineEventRegistration>();

@@ -996,6 +996,7 @@ export function deserializeIntoJobStatusObsolete(jobStatusObsolete: Partial<JobS
 export function deserializeIntoJobStatusScheduled(jobStatusScheduled: Partial<JobStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         ...deserializeIntoJobStatus(jobStatusScheduled),
+        "attempts": n => { jobStatusScheduled.attempts = n.getNumberValue(); },
     }
 }
 /**
@@ -1266,6 +1267,7 @@ export function deserializeIntoReconcileStatus(reconcileStatus: Partial<Reconcil
 export function deserializeIntoResultProblem(resultProblem: Partial<ResultProblem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "exceptionSummary": n => { resultProblem.exceptionSummary = n.getStringValue(); },
+        "isRetryable": n => { resultProblem.isRetryable = n.getBooleanValue(); },
         "message": n => { resultProblem.messageEscaped = n.getStringValue(); },
         "severity": n => { resultProblem.severity = n.getNumberValue(); },
         "source": n => { resultProblem.source = n.getStringValue(); },
@@ -1805,6 +1807,10 @@ export interface JobStatusObsolete extends JobStatus, Parsable {
     supersedingJobId?: Guid | null;
 }
 export interface JobStatusScheduled extends JobStatus, Parsable {
+    /**
+     * The attempts property
+     */
+    attempts?: number | null;
 }
 export interface PageOfJob extends AdditionalDataHolder, Parsable {
     /**
@@ -2110,6 +2116,10 @@ export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable 
      * The exceptionSummary property
      */
     exceptionSummary?: string | null;
+    /**
+     * The isRetryable property
+     */
+    isRetryable?: boolean | null;
     /**
      * The message property
      */
@@ -2440,6 +2450,7 @@ export function serializeJobStatusObsolete(writer: SerializationWriter, jobStatu
 export function serializeJobStatusScheduled(writer: SerializationWriter, jobStatusScheduled: Partial<JobStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!jobStatusScheduled || isSerializingDerivedType) { return; }
     serializeJobStatus(writer, jobStatusScheduled, isSerializingDerivedType)
+    writer.writeNumberValue("attempts", jobStatusScheduled.attempts);
 }
 /**
  * Serializes information the current object
@@ -2725,6 +2736,7 @@ export function serializeReconcileStatus(writer: SerializationWriter, reconcileS
 export function serializeResultProblem(writer: SerializationWriter, resultProblem: Partial<ResultProblem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!resultProblem || isSerializingDerivedType) { return; }
     writer.writeStringValue("exceptionSummary", resultProblem.exceptionSummary);
+    writer.writeBooleanValue("isRetryable", resultProblem.isRetryable);
     writer.writeStringValue("message", resultProblem.messageEscaped);
     writer.writeNumberValue("severity", resultProblem.severity);
     writer.writeStringValue("source", resultProblem.source);

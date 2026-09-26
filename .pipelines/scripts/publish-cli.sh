@@ -33,11 +33,9 @@ MINIO_BUCKET=olve-pipelines
 INPUT_DIR=$(olve_bundle_input)
 VERSION=$(cat "$INPUT_DIR/version.txt")
 
-# Native-AOT linux link needs clang + zlib headers (the SDK image ships neither); curl pulls mc.
+# Native-AOT linux link needs clang + zlib headers (the SDK image ships neither); curl uploads.
 apt-get update -qq
 apt-get install -y --no-install-recommends clang zlib1g-dev curl ca-certificates >/dev/null
-curl -fsSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
-chmod +x /usr/local/bin/mc
 
 olve_fetch_repo "$REPO" "$BRANCH" "$SRC"
 
@@ -53,12 +51,16 @@ dotnet publish "$CLI" -c Release -r win-x64 \
   -p:PublishAot=false -p:PublishSingleFile=true -p:SelfContained=true \
   -p:InformationalVersion="$VERSION" -o /out/win
 
-mc alias set store "$MINIO_ENDPOINT" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+# Upload with curl's built-in SigV4 signing: MinIO archived mc and dl.min.io now returns 410.
+s3_put() {
+  curl -fsS --aws-sigv4 "aws:amz:us-east-1:s3" --user "$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY" \
+    -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -T "$1" "$MINIO_ENDPOINT/$MINIO_BUCKET/$2"
+}
 
 # Publish to a stable `latest/` (what install.sh/.ps1 fetch) and an immutable `<version>/` archive.
 for channel in latest "$VERSION"; do
-  mc cp /out/linux/pl     "store/$MINIO_BUCKET/cli/$channel/pl-linux-x64"
-  mc cp /out/win/pl.exe   "store/$MINIO_BUCKET/cli/$channel/pl-win-x64.exe"
+  s3_put /out/linux/pl   "cli/$channel/pl-linux-x64"
+  s3_put /out/win/pl.exe "cli/$channel/pl-win-x64.exe"
 done
 
 echo "Published pl $VERSION (linux-x64 AOT, win-x64 self-contained) to $MINIO_BUCKET/cli/{latest,$VERSION}/"

@@ -56,7 +56,7 @@ New templates `garage-{deployment,service,pvc,configmap}.yaml` behind `garage.en
 - ConfigMap `garage.toml`:
   - `replication_factor = 1`
   - `db_engine = "sqlite"`
-  - `metadata_dir` and `data_dir` on the PVC
+  - `metadata_dir` on the meta PVC, `data_dir` on the data PVC
   - `rpc_bind_addr [::]:3901`, `rpc_public_addr 127.0.0.1:3901`
   - `[s3_api] s3_region = "us-east-1"` (keeps the curl SigV4 scope unchanged), `api_bind_addr [::]:3900`
   - `[admin] api_bind_addr [::]:3903`
@@ -66,9 +66,14 @@ New templates `garage-{deployment,service,pvc,configmap}.yaml` behind `garage.en
     `root-password`, `GARAGE_RPC_SECRET` ← new key `rpc-secret` (32-byte hex)
   - `GARAGE_DEFAULT_BUCKET` ← `garage.bucket`
   - readiness and liveness probes: `GET :3903/health`
-- Service `{release}-garage`, port 3900. PVC `{release}-garage-data`, `resource-policy: keep`,
-  `local-path`, requested size 100Gi. local-path doesn't enforce the size, but the number should
-  be honest; prod MinIO already holds 86 GB on its "10Gi" claim.
+- Service `{release}-garage`, port 3900.
+- **Two PVCs, split by disk.** This follows Garage's recommendation: metadata on SSD, object data on HDD.
+  - `{release}-garage-meta` → `local-path` (root SSD), 5Gi. Holds `metadata_dir` (sqlite, node
+    key, layout): small and latency-sensitive.
+  - `{release}-garage-data` → `bulk` (7.3 TB HDD at `/mnt/minio-data/bulk`, 6.9 TB free,
+    `reclaimPolicy: Retain`, provisioner owned by Olve.Homelab), 500Gi. Holds `data_dir`.
+  - Both carry `helm.sh/resource-policy: keep`. This moves the bundle archive off the SSD, where MinIO's 86 GB
+    currently sits on a "10Gi" local-path claim.
 - Image `dxflrs/garage:v2.4.1`, **mirrored to `registry.ovea.pro:5000`** and referenced from there,
   so a Docker Hub change can't strand us the way quay did.
 - Runner NetworkPolicy (Olve.Homelab `runner-hardening.yaml`, rule 4) allows the `apps`/`apps-beta`
@@ -81,8 +86,8 @@ hooks), 2.1 GB `cli/`, 84 GB `bundles/`. Beta: 404 KB.
 
 **Copy everything, bundles included.** Re-promote redrives each step's last bundle, `JobLogService`
 reads logs from under `bundles/`, and pending cascades carry bundle prefixes. Deciding which
-bundles are safe to drop is its own project (retention, below). The node has 376 GB free, so
-a second 86 GB copy fits.
+bundles are safe to drop is its own project (retention, below). The target is the `bulk` HDD
+(6.9 TB free), so size isn't a concern.
 
 Tool: a one-shot in-cluster pod running `rclone sync` (pinned `rclone/rclone` image, also
 mirrored), with both endpoints configured through env, S3 provider `Other`, path-style. `mc` is
@@ -122,7 +127,10 @@ untouched from step 2 on, so anything written to Garage after cutover is lost on
   - wait for `{release}-garage`
   - drop `EnsureBucket` and the `mc` image
   - endpoint `http://{release}-garage.{ns}:3900`
-- `pl teardown --purge-data` removes the Garage PVC.
+- `pl teardown --purge-data` removes both Garage PVCs.
+- Portability: `bulk` exists only on this homelab. `pl bootstrap` / `values-minimal.yaml` set
+  `garage.dataStorageClass: ""` (the cluster default); only `values.yaml` / `values-beta.yaml`
+  use `bulk`.
 - `values-minimal.yaml`: comment update (`garage.bucket`).
 - `.pipelines/scripts/publish-cli.sh`: endpoint → `olve-pipelines-garage.apps.svc.cluster.local:3900`.
   Rename `MINIO_*` secrets in cleanup.

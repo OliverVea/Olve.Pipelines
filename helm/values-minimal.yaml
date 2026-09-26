@@ -14,6 +14,11 @@ ingress:
 serviceAccount:
   enabled: true
 
+# Garage stays off until pl bootstrap is switched over from MinIO (its bulk data
+# StorageClass default only exists on the homelab).
+garage:
+  enabled: false
+
 # No Authentik CA mount — nothing ovea.pro is contacted.
 authentikCa:
   enabled: false

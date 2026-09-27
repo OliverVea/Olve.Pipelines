@@ -25,6 +25,12 @@ public class DeployPollService(
     // background poll loop and the reconcile-now endpoint can both touch it at once.
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
 
+    // Serializes the deploy decision (compare cursor → fire production → advance cursor). The
+    // background loop, the binding webhook and reconcile-now can all poll the same binding at once;
+    // without this, both saw the old cursor and each fired a production run for one push (#39).
+    // Held only around synchronous work — never across a network call or a reconcile drain.
+    private readonly Lock _deployLock = new();
+
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         logger.LogInformation("Deploy poll service started");
@@ -131,7 +137,9 @@ public class DeployPollService(
 
         _configEtags[binding.Id] = changed.ETag;
 
-        if (changed.Sha == binding.LastSyncedSha)
+        // Re-read the cursor: `binding` was captured before the fetch, and a concurrent poll of the
+        // same binding may have applied this config meanwhile.
+        if (changed.Sha == CurrentOrSnapshot(bindingService, binding).LastSyncedSha)
         {
             ClearStaleError(bindingService, binding); // already applied this config
             return true;
@@ -177,6 +185,11 @@ public class DeployPollService(
             ReconcileResult.Success, DateTimeOffset.UtcNow, [], binding.Status.DeclaredSecrets)).DiscardResult();
     }
 
+    // The binding as currently stored, falling back to the caller's snapshot if it was unbound meanwhile.
+    private static PipelineConfigBinding CurrentOrSnapshot(
+        PipelineConfigBindingService bindingService, PipelineConfigBinding snapshot)
+        => bindingService.TryGet(snapshot.Id).TryPickProblems(out _, out var current) ? snapshot : current;
+
     // Record an error outcome, carrying forward the last-known declared secrets so the badge still
     // lists them when a fetch/compile fails before a manifest is available.
     private static void RecordError(
@@ -198,6 +211,23 @@ public class DeployPollService(
             return;
         }
 
+        var execution = scope.ServiceProvider.GetRequiredService<TriggerExecutionService>();
+
+        lock (_deployLock)
+        {
+            // Re-read under the lock: `binding` is a snapshot from before the awaits above, so a
+            // concurrent poll may already have fired this head and advanced the cursor.
+            if (bindingService.TryGet(binding.Id).TryPickProblems(out _, out var current))
+                return; // unbound meanwhile — nothing to deploy
+
+            FireIfAdvanced(execution, bindingService, current, head);
+        }
+    }
+
+    private void FireIfAdvanced(
+        TriggerExecutionService execution, PipelineConfigBindingService bindingService,
+        PipelineConfigBinding binding, string head)
+    {
         if (binding.LastDeployedSha == head)
             return;
 
@@ -215,7 +245,6 @@ public class DeployPollService(
         logger.LogInformation("Deploy poll: '{Repo}@{Branch}' advanced {Old} -> {New}; firing production",
             binding.Repo, binding.Branch, binding.LastDeployedSha, head);
 
-        var execution = scope.ServiceProvider.GetRequiredService<TriggerExecutionService>();
         if (execution.ExecuteProductionForPipeline(binding.PipelineId).TryPickProblems(out var execProblems))
         {
             // Leave the cursor unadvanced so the next interval retries this commit.

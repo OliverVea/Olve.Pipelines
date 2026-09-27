@@ -4,10 +4,10 @@ using System.Text;
 namespace Olve.Pipelines.Cli.Commands;
 
 /// <summary>
-/// <c>pl bootstrap</c> — idempotent cold install of the controller + its private MinIO
+/// <c>pl bootstrap</c> — idempotent cold install of the controller + its private Garage S3 store
 /// (Tier-A minimal profile). Mirrors docs/operations/environment-setup.md, automated:
-/// ensure namespace → generate-if-absent MinIO creds → helm upgrade (minimal profile) →
-/// create bucket → wait for readiness. Re-running converges. Named <c>bootstrap</c> (not
+/// ensure namespace → generate-if-absent storage creds → helm upgrade (minimal profile) →
+/// wait for readiness (Garage creates its key + bucket at startup). Re-running converges. Named <c>bootstrap</c> (not
 /// <c>install</c>) to stay distinct from the <c>install.sh</c> CLI-fetch script.
 /// </summary>
 public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
@@ -17,22 +17,23 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
     public const string DefaultBucket = "olve-pipelines";
     public const string DefaultRef = "main";
     public const string DefaultImageTag = "latest";
-    public const string MinioCredentialsSecret = "olve-pipelines-minio";
-    public const string MinioRootUser = "olve-pipelines";
+    // Name predates the Garage migration (MinIO used it too); kept so existing installs converge.
+    public const string StorageCredentialsSecret = "olve-pipelines-minio";
+    public const string StorageAccessKey = "olve-pipelines";
 
     public string Noun => "bootstrap";
     public string Verb => "";
     public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "allow-prod" };
     public IReadOnlyDictionary<string, string> Aliases { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal) { ["n"] = "namespace" };
-    public string HelpLine => "Cold-install the controller + private MinIO (idempotent)";
+    public string HelpLine => "Cold-install the controller + private Garage store (idempotent)";
     public string? HelpDetail =>
         """
-        pl bootstrap -n <namespace> [options]   Cold-install the controller + private MinIO
+        pl bootstrap -n <namespace> [options]   Cold-install the controller + private Garage store
 
           -n, --namespace <ns>     Target namespace (required)
           --release <name>         Helm release name (default: olve-pipelines)
-          --bucket <name>          MinIO bucket name (default: olve-pipelines)
+          --bucket <name>          Storage bucket name (default: olve-pipelines)
           --image-tag <tag>        Controller image tag (default: latest)
           --image-repository <r>   Controller image repository (default: chart value)
           --image-pull-policy <p>  Controller image pull policy, e.g. Never (default: chart value)
@@ -66,7 +67,10 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         if ((await EnsureNamespace(ns, ct)).TryPickProblems(out var nsProblems))
             return nsProblems;
 
-        if ((await EnsureMinioSecret(ns, ct)).TryPickProblems(out var secProblems))
+        if ((await RefuseLegacyMinioInstall(ns, release, ct)).TryPickProblems(out var legacyProblems))
+            return legacyProblems;
+
+        if ((await EnsureStorageSecret(ns, ct)).TryPickProblems(out var secProblems))
             return secProblems;
 
         var chartResult = await new ChartFetcher().ResolveAsync(localChart, ChartFetcher.DefaultRepo, gitRef, ct);
@@ -79,12 +83,10 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
             if ((await HelmUpgrade(ns, release, bucket, image, chart.ChartDirectory, ct)).TryPickProblems(out var helmProblems))
                 return helmProblems;
 
-            Step($"Waiting for MinIO ({release}-minio) to be ready");
-            if ((await RolloutStatus(ns, $"{release}-minio", "120s", ct)).TryPickProblems(out var minioProblems))
-                return minioProblems;
-
-            if ((await EnsureBucket(ns, release, bucket, ct)).TryPickProblems(out var bucketProblems))
-                return bucketProblems;
+            // Garage creates the access key + bucket itself at startup (--default-bucket).
+            Step($"Waiting for Garage ({release}-garage) to be ready");
+            if ((await RolloutStatus(ns, $"{release}-garage", "120s", ct)).TryPickProblems(out var garageProblems))
+                return garageProblems;
 
             Step($"Waiting for the controller ({release}) to become ready");
             if ((await RolloutStatus(ns, release, "180s", ct)).TryPickProblems(out var ctrlProblems))
@@ -112,30 +114,74 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         return Forget(await processRunner.RunCheckedAsync("kubectl", ["create", "namespace", ns], ct: ct));
     }
 
-    private async Task<Result> EnsureMinioSecret(string ns, CancellationToken ct)
+    // A pre-Garage install keeps its data in the MinIO PVC; upgrading it in place would point the
+    // controller at an empty Garage bucket. Make that an explicit migration, not a silent reset.
+    private async Task<Result> RefuseLegacyMinioInstall(string ns, string release, CancellationToken ct)
+    {
+        var minio = await processRunner.RunAsync("kubectl", ["get", "deployment", $"{release}-minio", "-n", ns], ct: ct);
+        if (minio.TryPickProblems(out var minioProblems, out var minioOutput))
+            return minioProblems;
+        if (!minioOutput.Succeeded)
+            return Result.Success();
+
+        var garage = await processRunner.RunAsync("kubectl", ["get", "deployment", $"{release}-garage", "-n", ns], ct: ct);
+        if (garage.TryPickProblems(out var garageProblems, out var garageOutput))
+            return garageProblems;
+        if (garageOutput.Succeeded)
+            return Result.Success();
+
+        return new ResultProblem(
+            "Release '{0}' in '{1}' still stores its data in MinIO. Re-running bootstrap would switch it to an empty "
+            + "Garage store; migrate the data first (docs/operations/environment-setup.md, \"Migrating from MinIO\").",
+            release, ns);
+    }
+
+    private async Task<Result> EnsureStorageSecret(string ns, CancellationToken ct)
     {
         var get = await processRunner.RunAsync("kubectl",
-            ["get", "secret", MinioCredentialsSecret, "-n", ns], ct: ct);
+            ["get", "secret", StorageCredentialsSecret, "-n", ns], ct: ct);
         if (get.TryPickProblems(out var problems, out var output))
             return problems;
 
         if (output.Succeeded)
-        {
-            Step($"MinIO credentials secret '{MinioCredentialsSecret}' already exists — leaving untouched");
-            return Result.Success();
-        }
+            return await EnsureRpcSecret(ns, ct);
 
         // Generate-if-absent: the cluster Secret is the source of truth. Never regenerate on
-        // re-run (would rotate the password out from under a running MinIO).
-        Step($"Generating MinIO credentials secret '{MinioCredentialsSecret}'");
+        // re-run (would rotate the key out from under a running Garage).
+        Step($"Generating storage credentials secret '{StorageCredentialsSecret}'");
         var password = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(24));
         return Forget(await processRunner.RunCheckedAsync("kubectl",
         [
-            "create", "secret", "generic", MinioCredentialsSecret, "-n", ns,
-            $"--from-literal=root-user={MinioRootUser}",
+            "create", "secret", "generic", StorageCredentialsSecret, "-n", ns,
+            $"--from-literal=root-user={StorageAccessKey}",
             $"--from-literal=root-password={password}",
+            $"--from-literal=rpc-secret={NewRpcSecret()}",
         ], ct: ct));
     }
+
+    // Secrets created before the Garage migration lack Garage's cluster RPC secret: add just that
+    // key, leaving the access key/secret (which Garage imports as-is) untouched.
+    private async Task<Result> EnsureRpcSecret(string ns, CancellationToken ct)
+    {
+        var existing = await GetSecretValue(ns, "rpc-secret", ct);
+        if (existing.TryPickProblems(out var problems, out var value))
+            return problems;
+
+        if (value.Length > 0)
+        {
+            Step($"Storage credentials secret '{StorageCredentialsSecret}' already exists — leaving untouched");
+            return Result.Success();
+        }
+
+        Step($"Adding Garage rpc-secret to existing secret '{StorageCredentialsSecret}'");
+        return Forget(await processRunner.RunCheckedAsync("kubectl",
+        [
+            "patch", "secret", StorageCredentialsSecret, "-n", ns, "--type", "merge",
+            "-p", "{\"stringData\":{\"rpc-secret\":\"" + NewRpcSecret() + "\"}}",
+        ], ct: ct));
+    }
+
+    private static string NewRpcSecret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     private readonly record struct ImageOverrides(string Tag, string? Repository, string? PullPolicy);
 
@@ -143,7 +189,7 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         string ns, string release, string bucket, ImageOverrides image, string chartDir, CancellationToken ct)
     {
         Step($"Deploying release '{release}' (minimal profile) into '{ns}'");
-        var endpoint = $"http://{release}-minio.{ns}:9000";
+        var endpoint = $"http://{release}-garage.{ns}:3900";
         var args = new List<string>
         {
             "upgrade", "--install", release, chartDir,
@@ -152,7 +198,7 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
             "--set", $"config.Storage__Endpoint={endpoint}",
             "--set", $"config.Storage__Bucket={bucket}",
             "--set", $"config.Kubernetes__Namespace={ns}",
-            "--set", $"minio.bucket={bucket}",
+            "--set", $"garage.bucket={bucket}",
             "--set", $"image.tag={image.Tag}",
         };
         if (!string.IsNullOrWhiteSpace(image.Repository))
@@ -163,44 +209,10 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         return Forget(await processRunner.RunCheckedAsync("helm", args, ct: ct));
     }
 
-    private async Task<Result> EnsureBucket(string ns, string release, string bucket, CancellationToken ct)
-    {
-        Step($"Ensuring bucket '{bucket}' exists");
-
-        var credsResult = await ReadMinioCredentials(ns, ct);
-        if (credsResult.TryPickProblems(out var credProblems, out var creds))
-            return credProblems;
-
-        var (user, password) = creds;
-        var mcHost = $"http://{user}:{password}@{release}-minio.{ns}:9000";
-        var podName = $"pl-minio-mb-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4))}";
-
-        // MinIO is ClusterIP-only, so create the bucket from inside the cluster via a one-shot
-        // mc pod. --ignore-existing makes it idempotent.
-        return Forget(await processRunner.RunCheckedAsync("kubectl",
-        [
-            "run", podName, "-n", ns, "--rm", "-i", "--restart=Never",
-            "--image=quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z",
-            $"--env=MC_HOST_local={mcHost}",
-            "--command", "--", "mc", "mb", "--ignore-existing", $"local/{bucket}",
-        ], ct: ct));
-    }
-
-    private async Task<Result<(string User, string Password)>> ReadMinioCredentials(string ns, CancellationToken ct)
-    {
-        var user = await GetSecretValue(ns, "root-user", ct);
-        if (user.TryPickProblems(out var up, out var userValue))
-            return up;
-        var password = await GetSecretValue(ns, "root-password", ct);
-        if (password.TryPickProblems(out var pp, out var passwordValue))
-            return pp;
-        return (userValue, passwordValue);
-    }
-
     private async Task<Result<string>> GetSecretValue(string ns, string key, CancellationToken ct)
     {
         var result = await processRunner.RunCheckedAsync("kubectl",
-            ["get", "secret", MinioCredentialsSecret, "-n", ns, "-o", $"jsonpath={{.data.{key}}}"], ct: ct);
+            ["get", "secret", StorageCredentialsSecret, "-n", ns, "-o", $"jsonpath={{.data.{key}}}"], ct: ct);
         if (result.TryPickProblems(out var problems, out var output))
             return problems;
 
@@ -210,7 +222,7 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         }
         catch (FormatException)
         {
-            return new ResultProblem("Secret '{0}' key '{1}' is not valid base64.", MinioCredentialsSecret, key);
+            return new ResultProblem("Secret '{0}' key '{1}' is not valid base64.", StorageCredentialsSecret, key);
         }
     }
 

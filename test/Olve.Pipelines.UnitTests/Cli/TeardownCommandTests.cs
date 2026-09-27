@@ -86,7 +86,7 @@ public class TeardownCommandTests
             .RunAsync(Args("teardown", "-n", "pl-test", "--purge-data"));
 
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(runner.Invoked("kubectl", "delete", "pvc")).IsTrue();
+        await Assert.That(runner.Invoked("kubectl", "delete", "pvc", "olve-pipelines-garage-meta", "olve-pipelines-garage-data")).IsTrue();
     }
 
     [Test]

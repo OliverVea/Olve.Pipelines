@@ -2,9 +2,9 @@ namespace Olve.Pipelines.Cli.Commands;
 
 /// <summary>
 /// <c>pl teardown</c> — reverse of <c>pl bootstrap</c>, idempotent. Removes the helm release
-/// (controller, MinIO, RBAC, ingress) and the MinIO creds Secret. The MinIO data PVC carries
-/// <c>helm.sh/resource-policy: keep</c>, so it survives a normal teardown and is only deleted
-/// with <c>--purge-data</c>. Re-running on a partial/already-gone install converges.
+/// (controller, Garage, RBAC, ingress) and the storage creds Secret. The Garage data PVCs carry
+/// <c>helm.sh/resource-policy: keep</c>, so they survive a normal teardown and are only deleted
+/// with <c>--purge-data</c> (which also removes a pre-Garage MinIO PVC, if one is left). Re-running on a partial/already-gone install converges.
 /// </summary>
 public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
 {
@@ -14,14 +14,14 @@ public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
         new HashSet<string>(StringComparer.Ordinal) { "allow-prod", "purge-data" };
     public IReadOnlyDictionary<string, string> Aliases { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal) { ["n"] = "namespace" };
-    public string HelpLine => "Remove an installation (release + MinIO creds; data PVC retained)";
+    public string HelpLine => "Remove an installation (release + storage creds; data PVCs retained)";
     public string? HelpDetail =>
         """
         pl teardown -n <namespace> [options]   Remove an installation
 
           -n, --namespace <ns>   Target namespace (required)
           --release <name>       Helm release name (default: olve-pipelines)
-          --purge-data           Also delete the MinIO data PVC (full wipe)
+          --purge-data           Also delete the storage data PVCs (full wipe)
         """;
 
     public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct) => RunAsync(cli, ct);
@@ -44,14 +44,14 @@ public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
         if ((await HelmUninstall(ns, release, ct)).TryPickProblems(out var helmProblems))
             return helmProblems;
 
-        if ((await DeleteMinioSecret(ns, ct)).TryPickProblems(out var secProblems))
+        if ((await DeleteStorageSecret(ns, ct)).TryPickProblems(out var secProblems))
             return secProblems;
 
-        if (purgeData && (await DeleteMinioPvc(ns, release, ct)).TryPickProblems(out var pvcProblems))
+        if (purgeData && (await DeleteDataPvcs(ns, release, ct)).TryPickProblems(out var pvcProblems))
             return pvcProblems;
 
         Step($"Done. Release '{release}' removed from '{ns}'"
-            + (purgeData ? " (MinIO data purged)." : " (MinIO data PVC retained)."));
+            + (purgeData ? " (storage data purged)." : " (storage data PVCs retained)."));
         return Result.Success();
     }
 
@@ -73,23 +73,23 @@ public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
         return Forget(await processRunner.RunCheckedAsync("helm", ["uninstall", release, "-n", ns], ct: ct));
     }
 
-    private async Task<Result> DeleteMinioSecret(string ns, CancellationToken ct)
+    private async Task<Result> DeleteStorageSecret(string ns, CancellationToken ct)
     {
         // The creds Secret is created by `pl bootstrap` via kubectl (not helm), so helm uninstall
         // leaves it behind. --ignore-not-found keeps this idempotent.
-        Step($"Deleting MinIO credentials secret '{BootstrapCommand.MinioCredentialsSecret}'");
+        Step($"Deleting storage credentials secret '{BootstrapCommand.StorageCredentialsSecret}'");
         return Forget(await processRunner.RunCheckedAsync("kubectl",
-            ["delete", "secret", BootstrapCommand.MinioCredentialsSecret, "-n", ns, "--ignore-not-found"], ct: ct));
+            ["delete", "secret", BootstrapCommand.StorageCredentialsSecret, "-n", ns, "--ignore-not-found"], ct: ct));
     }
 
-    private async Task<Result> DeleteMinioPvc(string ns, string release, CancellationToken ct)
+    private async Task<Result> DeleteDataPvcs(string ns, string release, CancellationToken ct)
     {
-        // --purge-data only: the PVC is retained across a normal uninstall, so this explicit
-        // delete is the sole path that wipes MinIO data.
-        var pvc = $"{release}-minio-data";
-        Step($"Purging MinIO data volume '{pvc}'");
+        // --purge-data only: the PVCs are retained across a normal uninstall, so this explicit
+        // delete is the sole path that wipes stored data. The MinIO PVC is from pre-Garage installs.
+        string[] pvcs = [$"{release}-garage-meta", $"{release}-garage-data", $"{release}-minio-data"];
+        Step($"Purging storage data volumes {string.Join(", ", pvcs)}");
         return Forget(await processRunner.RunCheckedAsync("kubectl",
-            ["delete", "pvc", pvc, "-n", ns, "--ignore-not-found"], ct: ct));
+            ["delete", "pvc", ..pvcs, "-n", ns, "--ignore-not-found"], ct: ct));
     }
 
     /// <summary>Collapses a <see cref="Result{T}"/> we only care about for success/failure into a <see cref="Result"/>.</summary>

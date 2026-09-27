@@ -5,7 +5,7 @@
 #
 # pl bootstrap adds the namespace-derived values on top via --set:
 #   config.Storage__Endpoint, config.Storage__Bucket, config.Kubernetes__Namespace,
-#   minio.bucket, image.tag  (and slo.enabled=false if the sloth CRD is absent).
+#   garage.bucket, image.tag  (and slo.enabled=false if the sloth CRD is absent).
 
 ingress:
   enabled: false
@@ -14,9 +14,15 @@ ingress:
 serviceAccount:
   enabled: true
 
-# Garage stays off until pl bootstrap is switched over from MinIO (its bulk data
-# StorageClass default only exists on the homelab).
+# Private Garage store on the cluster's default StorageClass (values.yaml's local-path /
+# bulk split is homelab-specific). MinIO is the pre-Garage store, off for new installs.
 garage:
+  enabled: true
+  metaStorageClass: ""
+  dataStorageClass: ""
+  dataStorage: 20Gi
+
+minio:
   enabled: false
 
 # No Authentik CA mount — nothing ovea.pro is contacted.

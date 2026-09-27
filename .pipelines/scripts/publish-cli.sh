@@ -21,11 +21,11 @@ BRANCH=main
 SRC=/src
 CLI="$SRC/src/Olve.Pipelines.Cli"
 
-# The app's in-cluster MinIO (cross-namespace from the olve-runners job) and the bucket the
+# The app's in-cluster Garage (cross-namespace from the olve-runners job) and the bucket the
 # app serves /download from — must match helm values (Storage__Endpoint / Storage__Bucket).
 # Credentials come from the pipeline secret (olve-pipeline-{id}), auto-mounted as env vars:
-#   MINIO_ACCESS_KEY / MINIO_SECRET_KEY  (declared in config.yaml secrets:).
-MINIO_ENDPOINT=http://olve-pipelines-minio.apps.svc.cluster.local:9000
+#   MINIO_ACCESS_KEY / MINIO_SECRET_KEY  (declared in config.yaml secrets:; same key as Garage's).
+MINIO_ENDPOINT=http://olve-pipelines-garage.apps.svc.cluster.local:3900
 MINIO_BUCKET=olve-pipelines
 
 # Canonical version: reuse the build step's stamp from the bundle so the published CLI is

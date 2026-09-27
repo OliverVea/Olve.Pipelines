@@ -127,9 +127,9 @@ config:
   OpenTelemetry__Protocol: "http"
   OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"
   OpenTelemetry__OAuth2__ClientId: "otel"
-  # Dedicated in-cluster MinIO (this instance's own), reached cross-namespace by the
+  # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
   # runner Jobs in olve-runners. Static creds (below) take precedence over STS.
-  Storage__Endpoint: "http://olve-pipelines-minio.apps:9000"
+  Storage__Endpoint: "http://olve-pipelines-garage.apps:3900"
   Storage__Bucket: "olve-pipelines"
   # AuthUrl/ClientId/ClientSecret are still required: KubernetesConfiguration reuses
   # them for OpenBao auth to reach the cluster. They are now inert for storage.

@@ -324,37 +324,41 @@ public class KubernetesClient : IKubernetesClient, IDisposable
         // Build init containers
         var initContainers = new List<K8sContainer>();
 
-        var insecureFlag = spec.S3SkipCertValidation ? " --insecure" : "";
+        K8sEnvVar[] S3HelperEnv(string prefix) =>
+        [
+            new("S3_ENDPOINT", spec.S3Endpoint),
+            new("S3_BUCKET", spec.S3Bucket),
+            new("S3_PREFIX", prefix),
+            new("S3_INSECURE", spec.S3SkipCertValidation ? "1" : "0"),
+        ];
 
         // s3-download init container (processing jobs with input)
         if (spec.InputBundleS3Prefix is not null)
         {
-            var downloadScript = $"mc mirror{insecureFlag} s3/{spec.S3Bucket}/{spec.InputBundleS3Prefix}/ /input/";
-
             initContainers.Add(new K8sContainer(
                 "s3-download",
                 spec.S3HelperImage,
                 Command: ["/bin/sh", "-c"],
-                Args: [downloadScript],
+                Args: [S3SyncScript.Content, "s3sync", "download"],
+                Env: S3HelperEnv(spec.InputBundleS3Prefix),
                 EnvFrom: s3HelperEnvFrom,
                 VolumeMounts: [new K8sVolumeMount("input", "/input")],
-                SecurityContext: HardenedContainerContext));
+                SecurityContext: S3HelperContainerContext));
         }
 
         // Runner runs as init container (so upload only happens on success)
         initContainers.Add(runner);
 
         // Main container: s3-upload
-        var uploadScript = $"mc mirror{insecureFlag} /output/ s3/{spec.S3Bucket}/{spec.OutputBundleS3Prefix}/";
-
         var s3Upload = new K8sContainer(
             "s3-upload",
             spec.S3HelperImage,
             Command: ["/bin/sh", "-c"],
-            Args: [uploadScript],
+            Args: [S3SyncScript.Content, "s3sync", "upload"],
+            Env: S3HelperEnv(spec.OutputBundleS3Prefix),
             EnvFrom: s3HelperEnvFrom,
             VolumeMounts: [new K8sVolumeMount("output", "/output", ReadOnly: true)],
-            SecurityContext: HardenedContainerContext);
+            SecurityContext: S3HelperContainerContext);
 
         return new K8sJobManifest(
             "batch/v1",
@@ -376,6 +380,11 @@ public class KubernetesClient : IKubernetesClient, IDisposable
     // still blocked, and seccomp applies when a job runs on plain runc.
     private static readonly K8sContainerSecurityContext HardenedContainerContext =
         new(AllowPrivilegeEscalation: false);
+
+    // The curl image defaults to a non-root user, but steps run as root and may leave 0600 files
+    // in /output (the old mc helper ran as root). Run the helpers as root so they can read them.
+    private static readonly K8sContainerSecurityContext S3HelperContainerContext =
+        HardenedContainerContext with { RunAsUser = 0 };
 
     private static readonly K8sPodSecurityContext HardenedPodContext =
         new(new K8sSeccompProfile("RuntimeDefault"));

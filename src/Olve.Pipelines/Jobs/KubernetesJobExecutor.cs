@@ -366,17 +366,14 @@ public class KubernetesJobExecutor(
         var creds = await s3CredentialsProvider.GetCredentialsAsync(ct);
         var secretName = S3SecretName(jobId);
 
-        // Build MC_HOST_s3 value: https://ACCESS:SECRET[:TOKEN]@host
-        var endpoint = new Uri(options.S3Endpoint);
-        var authPart = creds.SessionToken is not null
-            ? $"{creds.AccessKey}:{creds.SecretKey}:{creds.SessionToken}"
-            : $"{creds.AccessKey}:{creds.SecretKey}";
-        var mcHost = $"{endpoint.Scheme}://{authPart}@{endpoint.Authority}";
-
+        // Consumed as env by the s3-download/s3-upload helpers (S3SyncScript).
         var data = new Dictionary<string, string>
         {
-            ["MC_HOST_s3"] = mcHost,
+            ["S3_ACCESS_KEY"] = creds.AccessKey,
+            ["S3_SECRET_KEY"] = creds.SecretKey,
         };
+        if (creds.SessionToken is not null)
+            data["S3_SESSION_TOKEN"] = creds.SessionToken;
 
         await kubernetesClient.CreateSecretAsync(options.Namespace, secretName, data, ct);
         logger.LogInformation("Created S3 credentials secret '{SecretName}'", secretName);

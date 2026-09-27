@@ -9,9 +9,9 @@ public class KubernetesJobManifestTests
         Image: "alpine:latest",
         Script: "echo hi",
         OutputBundleS3Prefix: "p/out",
-        S3HelperImage: "minio/mc",
+        S3HelperImage: "curlimages/curl",
         S3Bucket: "olve-pipelines",
-        S3Endpoint: "http://minio:9000",
+        S3Endpoint: "http://garage:3900",
         S3CredentialsSecretName: "s3-creds",
         InputBundleS3Prefix: inputPrefix,
         RuntimeClassName: runtimeClassName);
@@ -47,6 +47,23 @@ public class KubernetesJobManifestTests
         {
             await Assert.That(container.SecurityContext?.AllowPrivilegeEscalation).IsFalse();
         }
+    }
+
+    [Test]
+    public async Task BuildJobManifest_S3Helpers_RunSyncScriptWithPrefixAndCredentials()
+    {
+        var manifest = KubernetesClient.BuildJobManifest(Spec(inputPrefix: "p/in"));
+        var pod = manifest.Spec.Template.Spec;
+
+        var download = pod.InitContainers!.Single(c => c.Name == "s3-download");
+        var upload = pod.Containers.Single(c => c.Name == "s3-upload");
+
+        await Assert.That(download.Args).IsEquivalentTo(new[] { S3SyncScript.Content, "s3sync", "download" });
+        await Assert.That(upload.Args).IsEquivalentTo(new[] { S3SyncScript.Content, "s3sync", "upload" });
+        await Assert.That(download.Env!.Single(e => e.Name == "S3_PREFIX").Value).IsEqualTo("p/in");
+        await Assert.That(upload.Env!.Single(e => e.Name == "S3_PREFIX").Value).IsEqualTo("p/out");
+        await Assert.That(upload.Env!.Single(e => e.Name == "S3_ENDPOINT").Value).IsEqualTo("http://garage:3900");
+        await Assert.That(upload.EnvFrom![0].SecretRef.Name).IsEqualTo("s3-creds");
     }
 
     [Test]

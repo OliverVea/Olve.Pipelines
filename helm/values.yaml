@@ -143,9 +143,9 @@ config:
   # Run step/failure-handler pods under gVisor (RuntimeClass owned by the Olve.Homelab
   # chart; runsc installed on the node). Clear to fall back to plain runc.
   Kubernetes__RuntimeClassName: "gvisor"
-  # Sidecar that moves artifact bundles to/from storage. Docker Hub no longer serves minio/*
-  # images; MinIO's last community release is frozen on quay.io, so pin it there.
-  Kubernetes__S3HelperImage: "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z"
+  # Helper containers that move artifact bundles to/from storage. They run the curl-based
+  # S3SyncScript (SigV4 per object); needs /bin/sh, curl >= 7.75 and busybox coreutils.
+  Kubernetes__S3HelperImage: "curlimages/curl:8.22.0"
   # Externally-reachable origin GitHub posts webhook deliveries to. Empty = GitHub webhook
   # auto-registration disabled (the receiver still serves manually-created hooks). Set this
   # together with ingress.public.enabled=true to enable auto-registration.

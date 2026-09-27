@@ -36,7 +36,8 @@ public record K8sSeccompProfile(
     [property: JsonPropertyName("type")] string Type);
 
 public record K8sContainerSecurityContext(
-    [property: JsonPropertyName("allowPrivilegeEscalation")] bool? AllowPrivilegeEscalation = null);
+    [property: JsonPropertyName("allowPrivilegeEscalation")] bool? AllowPrivilegeEscalation = null,
+    [property: JsonPropertyName("runAsUser")] long? RunAsUser = null);
 
 public record K8sContainer(
     [property: JsonPropertyName("name")] string Name,

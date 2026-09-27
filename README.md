@@ -222,12 +222,12 @@ read token.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Health check |
-| GET | `/download/{asset}` | Anonymous download of a `pl` CLI binary (`pl-linux-x64`, `pl-win-x64.exe`) — served from the instance's MinIO, published by the `publish-cli` pipeline step |
+| GET | `/download/{asset}` | Anonymous download of a `pl` CLI binary (`pl-linux-x64`, `pl-win-x64.exe`) — served from the instance's Garage store, published by the `publish-cli` pipeline step |
 
 ## Installing the `pl` CLI
 
 The `pl` operator CLI is built and published by this repo's own pipeline (the `publish-cli`
-step) to the instance's MinIO, and served back from `GET /download/<asset>`. Because the CLI
+step) to the instance's Garage store, and served back from `GET /download/<asset>`. Because the CLI
 already defaults its API URL to the same (Tailscale-reachable) host, anyone who can use `pl`
 can install it from there — no GitHub release or public CDN involved.
 
@@ -296,7 +296,7 @@ dotnet test -p:RunIntegrationTests=true                        # All tests
 dotnet run --project src/Olve.Pipelines                        # Run locally
 ```
 
-Integration tests use [Testcontainers](https://dotnet.testcontainers.org/) to build and run the app in Docker with a MinIO sidecar for S3 storage.
+Integration tests run against the live **beta** instance over authenticated HTTP (no Docker or Testcontainers); see `test/Olve.Pipelines.IntegrationTests/AppFixture.cs` for the env vars.
 
 ## Configuration
 
@@ -314,7 +314,7 @@ Sources in priority order (highest wins):
 | `Auth:Authority` | — | OIDC authority |
 | `Auth:Audience` | `olve-pipelines` | JWT audience |
 | `Auth:SigningKey` | — | Local HS256 key (bypasses OIDC, for dev) |
-| `Storage:Endpoint` | — | S3-compatible endpoint (MinIO) |
+| `Storage:Endpoint` | — | S3-compatible endpoint (the instance's Garage) |
 | `Storage:AccessKey` | — | S3 access key |
 | `Storage:SecretKey` | — | S3 secret key |
 | `Storage:Bucket` | — | S3 bucket name |

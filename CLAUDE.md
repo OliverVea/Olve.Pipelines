@@ -127,7 +127,7 @@ cd frontend && npm run build                                # Production build
 - AOT publishing enabled — do not add AOT-incompatible libraries (e.g. EF Core)
 - Namespaces are always plural/more general than contained types (e.g. `Pipeline` type in `Pipelines` namespace)
 - Domain subnamespaces nest under their parent (e.g. `Pipelines.Production`, `Pipelines.Processing`, `Pipelines.Building`)
-- Storage via S3-compatible MinIO (minio.ovea.pro) — JSON files for persistence, zipped directories for bundles
+- Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, bundle directories under `bundles/`
 - TypeScript client generated from OpenAPI via Kiota
 - C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes)
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".

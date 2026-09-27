@@ -1,6 +1,8 @@
 # Design — dedicated in-cluster MinIO with static credentials
 
-**Status:** Draft — for review before implementation.
+**Status:** Implemented, then **superseded** (2026-09-27) by
+[2026-09-26-garage-storage-design.md](2026-09-26-garage-storage-design.md): the dedicated store
+is now Garage, and step pods move bundles with curl instead of `mc`.
 **Date:** 2026-06-15
 
 ## Goal

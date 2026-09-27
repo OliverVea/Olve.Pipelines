@@ -1,6 +1,6 @@
 # Replace the dedicated MinIO server with Garage
 
-**Status:** design, not built · **Date:** 2026-09-26
+**Status:** implemented — beta cut over 2026-09-26, prod 2026-09-27; curl helper and `pl bootstrap` switched 2026-09-27; MinIO removal (cleanup) pending · **Date:** 2026-09-26
 
 ## Why
 
@@ -148,9 +148,9 @@ untouched from step 2 on, so anything written to Garage after cutover is lost on
 
 ## Out of scope / related
 
-- **`mc mirror` helper in step pods** (`KubernetesClient.cs:332,348`): separate change → a curl
-  image with a list-then-loop SigV4 script. Until that lands, step pods still depend on the cached
-  `quay.io/minio/mc` image; mirroring it to `registry.ovea.pro` is the stopgap.
+- **`mc mirror` helper in step pods**: done as a separate change (2026-09-27). The helpers run
+  `S3SyncScript` (list-then-loop SigV4 via `curlimages/curl`), so nothing pulls `quay.io/minio/*`
+  any more once MinIO itself is removed.
 - **Bundle retention**: nothing deletes bundles (84 GB and growing). Garage supports lifecycle
   expiration, but a blanket age rule would expire the "last bundle" that re-promote needs, so
   retention has to be app-driven.

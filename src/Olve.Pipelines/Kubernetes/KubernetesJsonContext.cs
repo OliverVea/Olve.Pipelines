@@ -15,7 +15,8 @@ public record K8sMetadata(
 
 public record K8sJobSpecBody(
     [property: JsonPropertyName("template")] K8sPodTemplateSpec Template,
-    [property: JsonPropertyName("backoffLimit")] int BackoffLimit = 0);
+    [property: JsonPropertyName("backoffLimit")] int BackoffLimit = 0,
+    [property: JsonPropertyName("ttlSecondsAfterFinished")] int? TtlSecondsAfterFinished = null);
 
 public record K8sPodTemplateSpec(
     [property: JsonPropertyName("metadata")] K8sMetadata? Metadata,

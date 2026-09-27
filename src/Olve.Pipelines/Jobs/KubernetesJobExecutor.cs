@@ -385,11 +385,30 @@ public class KubernetesJobExecutor(
     {
         try
         {
-            var logs = await kubernetesClient.GetPodLogsAsync(options.Namespace, k8sJobName, container: "runner", ct: ct);
+            string? logs;
+            try
+            {
+                logs = await kubernetesClient.GetPodLogsAsync(options.Namespace, k8sJobName, container: "runner", ct: ct);
+            }
+            catch (HttpRequestException)
+            {
+                // The runner never started (e.g. s3-download failed first) — the helper logs below say why.
+                logs = "";
+            }
+
             if (logs is null)
             {
                 logger.LogWarning("No pod found for K8s Job '{JobName}' — cannot persist logs", k8sJobName);
                 return;
+            }
+
+            // The bundle helpers are silent on success; when one fails (e.g. a 403 moving the bundle)
+            // its output is the only explanation, and the pod is deleted by TTL — so keep it too.
+            foreach (var helper in (string[])["s3-download", "s3-upload"])
+            {
+                var helperLogs = await TryGetContainerLogsAsync(k8sJobName, helper, ct);
+                if (!string.IsNullOrWhiteSpace(helperLogs))
+                    logs += $"\n--- {helper} ---\n{helperLogs}";
             }
 
             var bytes = Encoding.UTF8.GetBytes(logs);
@@ -406,6 +425,19 @@ public class KubernetesJobExecutor(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to persist logs for K8s Job '{JobName}' to '{LogKey}'", k8sJobName, logKey);
+        }
+    }
+
+    // Absent containers (no s3-download on production jobs) and never-started ones return no logs.
+    private async Task<string?> TryGetContainerLogsAsync(string k8sJobName, string container, CancellationToken ct)
+    {
+        try
+        {
+            return await kubernetesClient.GetPodLogsAsync(options.Namespace, k8sJobName, container, ct);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
         }
     }
 

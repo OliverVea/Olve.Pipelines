@@ -372,8 +372,15 @@ public class KubernetesClient : IKubernetesClient, IDisposable
                         InitContainers: initContainers.ToArray(),
                         Volumes: volumes,
                         RuntimeClassName: spec.RuntimeClassName,
-                        SecurityContext: HardenedPodContext))));
+                        SecurityContext: HardenedPodContext)),
+                TtlSecondsAfterFinished: StepJobTtlSeconds));
     }
+
+    // K8s deletes a finished step Job (and its pod) after this. The controller copies the pod's logs
+    // to storage as soon as it sees the Job finish (bundles/…/logs/, kept per BundleRetentionPolicy),
+    // so this only has to outlast a controller outage — a week is generous. Failure-handler Jobs get
+    // no TTL: nothing persists their logs, so the pod is the only copy.
+    internal const int StepJobTtlSeconds = 7 * 24 * 60 * 60;
 
     // Steps run as root (kaniko, apt, npm need it) so no runAsNonRoot / capability drops here —
     // isolation comes from the gVisor runtime class. Escalation *beyond* the granted set is

@@ -67,6 +67,17 @@ public class KubernetesJobManifestTests
     }
 
     [Test]
+    public async Task StepJobs_ExpireAfterAWeek_FailureHandlerJobsDoNot()
+    {
+        var step = KubernetesClient.BuildJobManifest(Spec());
+        var handler = KubernetesClient.BuildBareJobManifest("olve-fh-x", "alpine:latest", "echo hi", null, null);
+
+        await Assert.That(step.Spec.TtlSecondsAfterFinished).IsEqualTo(7 * 24 * 60 * 60);
+        // Nothing persists failure-handler logs, so their pods must not be auto-deleted.
+        await Assert.That(handler.Spec.TtlSecondsAfterFinished).IsNull();
+    }
+
+    [Test]
     public async Task BuildBareJobManifest_HardensPodAndContainer()
     {
         var manifest = KubernetesClient.BuildBareJobManifest("olve-fh-x", "alpine:latest", "echo hi", null, "gvisor");

@@ -99,7 +99,7 @@ cd frontend && npm run build                                # Production build
 ### Architecture Patterns
 
 **Service layers (per domain area):**
-- **EntityStore\<T\>** — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `Event<Id<T>>` on mutations)
+- **EntityStore\<T\>** — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `OnAdded`/`OnUpdated`/`OnDeleted` after each write, carrying the committed entity: `EntityAdded`, `EntityUpdated` (`Before`/`After`), `EntityDeleted`)
 - **AttachmentStore\<TParent, TAttachment\>** — parallel store for optional attachments, auto-cleanup on parent deletion (singleton)
 - **Domain event hubs** (e.g. `JobEvents`) — hold `Event<T>` properties, receive forwarded store events (singleton)
 - **Domain CRUD services** (e.g. `JobService`) — typed create/read/update/delete over the store, no event awareness (transient)

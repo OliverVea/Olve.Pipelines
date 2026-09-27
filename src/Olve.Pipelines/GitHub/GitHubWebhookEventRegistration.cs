@@ -23,8 +23,8 @@ public class GitHubWebhookEventRegistration(
 {
     public Result Run()
     {
-        triggerEvents.OnAdded.Subscribe(HandleTriggerAdded);
-        triggerEvents.OnDeleted.Subscribe(HandleTriggerDeleted);
+        triggerEvents.OnAdded.Subscribe(e => HandleTriggerAdded(e.Id));
+        triggerEvents.OnDeleted.Subscribe(e => HandleTriggerDeleted(e.Id));
         return Result.Success();
     }
 

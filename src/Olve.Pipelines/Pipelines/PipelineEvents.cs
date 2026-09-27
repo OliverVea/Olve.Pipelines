@@ -4,7 +4,7 @@ namespace Olve.Pipelines.Pipelines;
 
 public class PipelineEvents
 {
-    public Event<Id<Pipeline>> OnAdded { get; } = new();
-    public Event<Id<Pipeline>> OnUpdated { get; } = new();
-    public Event<Id<Pipeline>> OnDeleted { get; } = new();
+    public Event<EntityAdded<Pipeline, Id<Pipeline>>> OnAdded { get; } = new();
+    public Event<EntityUpdated<Pipeline, Id<Pipeline>>> OnUpdated { get; } = new();
+    public Event<EntityDeleted<Pipeline, Id<Pipeline>>> OnDeleted { get; } = new();
 }

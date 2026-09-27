@@ -4,7 +4,7 @@ namespace Olve.Pipelines.Pipelines.Production;
 
 public class ProductionStepEvents
 {
-    public Event<Id<ProductionStep>> OnAdded { get; } = new();
-    public Event<Id<ProductionStep>> OnUpdated { get; } = new();
-    public Event<Id<ProductionStep>> OnDeleted { get; } = new();
+    public Event<EntityAdded<ProductionStep, Id<ProductionStep>>> OnAdded { get; } = new();
+    public Event<EntityUpdated<ProductionStep, Id<ProductionStep>>> OnUpdated { get; } = new();
+    public Event<EntityDeleted<ProductionStep, Id<ProductionStep>>> OnDeleted { get; } = new();
 }

@@ -14,7 +14,7 @@ public class TriggerEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<TriggerCleanupService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<TriggerCleanupService>().HandlePipelineDeleted(e.Id));
 
         return Result.Success();
     }

@@ -22,9 +22,9 @@ public class BindingWebhookEventRegistration(
 {
     public Result Run()
     {
-        store.OnAdded.Subscribe(Reconcile);
-        store.OnUpdated.Subscribe(Reconcile);
-        store.OnDeleted.Subscribe(HandleDeleted);
+        store.OnAdded.Subscribe(e => Reconcile(e.Id));
+        store.OnUpdated.Subscribe(e => Reconcile(e.Id));
+        store.OnDeleted.Subscribe(e => HandleDeleted(e.Id));
         return Result.Success();
     }
 

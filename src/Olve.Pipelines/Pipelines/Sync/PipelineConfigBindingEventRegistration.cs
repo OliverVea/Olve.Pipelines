@@ -8,8 +8,8 @@ public class PipelineConfigBindingEventRegistration(
 {
     public Result Run()
     {
-        pipelineEvents.OnDeleted.Subscribe(id =>
-            sp.GetRequiredService<PipelineConfigBindingCleanupService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(e =>
+            sp.GetRequiredService<PipelineConfigBindingCleanupService>().HandlePipelineDeleted(e.Id));
 
         return Result.Success();
     }

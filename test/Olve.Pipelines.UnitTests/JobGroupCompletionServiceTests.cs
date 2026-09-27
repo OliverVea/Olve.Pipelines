@@ -40,7 +40,7 @@ public class JobGroupCompletionServiceTests
             jobService, jobGroupService, bundleService, new JobGroupCompletionTracker(), events,
             NullLogger<JobGroupCompletionService>.Instance);
 
-        events.OnUpdated.Subscribe(completionService.HandleJobUpdated);
+        events.OnUpdated.Subscribe(e => completionService.HandleJobUpdated(e.Id));
 
         return new Services(jobStore, jobService, jobGroupService, completionService, events);
     }

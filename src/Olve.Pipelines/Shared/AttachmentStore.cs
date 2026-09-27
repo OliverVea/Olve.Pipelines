@@ -13,7 +13,7 @@ public class AttachmentStore<TParent, TAttachment> where TParent : IHasId<Id<TPa
 
     public AttachmentStore(EntityStore<TParent> parentStore)
     {
-        parentStore.OnDeleted.Subscribe(id => Remove(id));
+        parentStore.OnDeleted.Subscribe(e => Remove(e.Id));
     }
 
     public void Set(Id<TParent> id, TAttachment attachment)

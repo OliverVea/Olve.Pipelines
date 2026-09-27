@@ -57,7 +57,7 @@ public class DownstreamTriggerServiceTests
             jobGroupService, processingStepService, promotionGate, jobService,
             NullLogger<DownstreamTriggerService>.Instance);
 
-        events.OnUpdated.Subscribe(completionService.HandleJobUpdated);
+        events.OnUpdated.Subscribe(e => completionService.HandleJobUpdated(e.Id));
         events.OnGroupCompleted.Subscribe(downstreamTriggerService.HandleGroupCompleted);
 
         return new Services(

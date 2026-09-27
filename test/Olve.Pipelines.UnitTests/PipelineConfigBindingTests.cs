@@ -28,7 +28,7 @@ public class PipelineConfigBindingTests
         var cleanup = new PipelineConfigBindingCleanupService(bindingStore);
 
         // Mirror the production wiring: the binding layer reacts to pipeline deletion.
-        pipelineStore.OnDeleted.Subscribe(cleanup.HandlePipelineDeleted);
+        pipelineStore.OnDeleted.Subscribe(e => cleanup.HandlePipelineDeleted(e.Id));
 
         return new Fixture(pipelineStore, bindingStore, pipelineService, bindingService, cleanup);
     }

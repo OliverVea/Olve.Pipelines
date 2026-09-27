@@ -8,9 +8,9 @@ namespace Olve.Pipelines.GitHub;
 
 /// <summary>
 /// What we registered on GitHub for a given trigger, retained so the hook can later be deleted.
-/// The trigger-delete event carries only an <see cref="Id{T}"/> (the entity is already gone), so
-/// everything the GitHub <c>DELETE</c> needs — repo coordinates, the hook id, and the secret name
-/// to resolve the PAT — must be held here.
+/// Everything the GitHub <c>DELETE</c> needs — repo coordinates, the hook id, and the secret name
+/// to resolve the PAT — is held here as it was at registration: the hook id exists nowhere else, and
+/// the deleted trigger's current target may no longer name the repo the hook lives on.
 /// </summary>
 public record GitHubHookState(Id<Pipeline> PipelineId, string Owner, string Repo, long HookId, string TokenSecretName);
 

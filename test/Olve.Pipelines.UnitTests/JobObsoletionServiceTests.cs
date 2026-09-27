@@ -35,7 +35,7 @@ public class JobObsoletionServiceTests
             jobService,
             NullLogger<JobObsoletionService>.Instance);
 
-        events.OnAdded.Subscribe(obsoletion.HandleJobAdded);
+        events.OnAdded.Subscribe(e => obsoletion.HandleJobAdded(e.Id));
 
         return (jobService, store);
     }

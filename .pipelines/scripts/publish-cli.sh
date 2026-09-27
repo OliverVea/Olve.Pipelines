@@ -33,11 +33,22 @@ MINIO_BUCKET=olve-pipelines
 INPUT_DIR=$(olve_bundle_input)
 VERSION=$(cat "$INPUT_DIR/version.txt")
 
+# Build the CLI from the commit the app was built from (commit.txt is "owner/repo@sha"), not
+# main's current head: a push landing mid-run would otherwise publish a CLI from different sources
+# than the app it is stamped to match. Bundles from before commit.txt existed fall back to the branch.
+if [ -f "$INPUT_DIR/commit.txt" ]; then
+  REF=$(cat "$INPUT_DIR/commit.txt")
+  REF=${REF##*@}
+else
+  echo "olve: warning: bundle has no commit.txt; building the CLI from $BRANCH" >&2
+  REF=$BRANCH
+fi
+
 # Native-AOT linux link needs clang + zlib headers (the SDK image ships neither); curl uploads.
 apt-get update -qq
 apt-get install -y --no-install-recommends clang zlib1g-dev curl ca-certificates >/dev/null
 
-olve_fetch_repo "$REPO" "$BRANCH" "$SRC"
+olve_fetch_repo "$REPO" "$REF" "$SRC"
 
 # VERSION is a timestamp (YYYYMMDD-HHMMSS), so stamp it as InformationalVersion (free-form)
 # rather than -p:Version, which sets AssemblyVersion/FileVersion and rejects the hyphen.

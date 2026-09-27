@@ -15,7 +15,7 @@ public class ProcessingStepEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<ProcessingStepCleanupService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<ProcessingStepCleanupService>().HandlePipelineDeleted(e.Id));
 
         return Result.Success();
     }

@@ -15,11 +15,11 @@ public class JobEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        events.OnAdded.Subscribe(id => sp.GetRequiredService<JobObsoletionService>().HandleJobAdded(id));
-        events.OnUpdated.Subscribe(id => sp.GetRequiredService<JobGroupCompletionService>().HandleJobUpdated(id));
+        events.OnAdded.Subscribe(e => sp.GetRequiredService<JobObsoletionService>().HandleJobAdded(e.Id));
+        events.OnUpdated.Subscribe(e => sp.GetRequiredService<JobGroupCompletionService>().HandleJobUpdated(e.Id));
         events.OnGroupCompleted.Subscribe(id => sp.GetRequiredService<DownstreamTriggerService>().HandleGroupCompleted(id));
         events.OnGroupFailed.Subscribe(id => sp.GetRequiredService<FailureHandlers.FailureHandlerService>().HandleGroupFailed(id));
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<JobCancellationService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<JobCancellationService>().HandlePipelineDeleted(e.Id));
 
         return Result.Success();
     }

@@ -15,7 +15,7 @@ public class ProductionStepEventRegistration(
         store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
         store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
 
-        pipelineEvents.OnDeleted.Subscribe(id => sp.GetRequiredService<ProductionStepCleanupService>().HandlePipelineDeleted(id));
+        pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<ProductionStepCleanupService>().HandlePipelineDeleted(e.Id));
 
         return Result.Success();
     }

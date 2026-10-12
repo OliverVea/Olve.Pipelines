@@ -43,8 +43,8 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<StepPromotionState[]>> ListProcessingStepPromotions(string pipelineId, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/processing/promotions", CliJsonContext.Default.StepPromotionStateArray, ct);
 
-    public Task<Result<PromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct) =>
-        transport.GetAsync($"/api/processing-steps/{Enc(stepId)}/promotion", CliJsonContext.Default.PromotionState, ct);
+    public Task<Result<StepPromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct) =>
+        transport.GetAsync($"/api/processing-steps/{Enc(stepId)}/promotion", CliJsonContext.Default.StepPromotionState, ct);
 
     // Jobs
     public Task<Result<PageOfJob>> ListJobs(string? pipelineId, int page, int pageSize, int sort, CancellationToken ct)
@@ -109,9 +109,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.JsonBody(new SetPromotionRequest { Blocked = blocked }, CliJsonContext.Default.SetPromotionRequest),
             CliJsonContext.Default.PromotionState, ct);
 
-    public Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Post, $"/api/processing-steps/{Enc(stepId)}/re-promote",
-            body: null, CliJsonContext.Default.JobGroup, ct);
+    public Task<Result<PromoteResult>> PromoteProcessingStep(string stepId, string? expectedArtifactBundleId, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post,
+            expectedArtifactBundleId is null
+                ? $"/api/processing-steps/{Enc(stepId)}/promote"
+                : $"/api/processing-steps/{Enc(stepId)}/promote?expectedArtifactBundleId={Enc(expectedArtifactBundleId)}",
+            body: null, CliJsonContext.Default.PromoteResult, ct);
 
     public Task<Result> CancelJob(string id, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/jobs/{Enc(id)}/cancel", body: null, ct);

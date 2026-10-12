@@ -49,7 +49,7 @@ Read in this order:
    reconcile loop, the status output, and the config-before-build guarantee.
 4. **[Bundles & Execution](bundles-and-execution.md)** — how steps run as K8s Jobs, what an
    ArtifactBundle is, and how output flows from production to processing.
-5. **[Promotion Gate](promotion-gate.md)** — operational control (brake + re-promote) over
+5. **[Promotion Gate](promotion-gate.md)** — operational control (brake + promote) over
    processing steps, which is *state, not config*.
 6. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 

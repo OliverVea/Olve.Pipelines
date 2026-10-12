@@ -31,7 +31,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<ProcessingStep>? GetProcessingStepResult { get; set; }
     public Result<StepConfiguration>? GetProcessingStepConfigurationResult { get; set; }
     public Result<StepPromotionState[]>? ListProcessingStepPromotionsResult { get; set; }
-    public Result<PromotionState>? GetProcessingStepPromotionResult { get; set; }
+    public Result<StepPromotionState>? GetProcessingStepPromotionResult { get; set; }
 
     // Jobs
     public Result<PageOfJob>? ListJobsResult { get; set; }
@@ -66,7 +66,10 @@ public sealed class FakePipelinesApi : IPipelinesApi
     // Mutations
     public Result<JobGroup>? TriggerProductionResult { get; set; }
     public Result<PromotionState>? SetProcessingStepPromotionResult { get; set; }
-    public Result<JobGroup>? RePromoteProcessingStepResult { get; set; }
+    public Result<PromoteResult>? PromoteProcessingStepResult { get; set; }
+
+    /// <summary>The <c>expectedArtifactBundleId</c> passed to the most recent <see cref="PromoteProcessingStep"/> call.</summary>
+    public string? LastPromoteExpected { get; private set; }
     public Result? CancelJobResult { get; set; }
     public Result? DeletePipelineResult { get; set; }
     public Result? SetSecretResult { get; set; }
@@ -120,7 +123,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<StepPromotionState[]>> ListProcessingStepPromotions(string pipelineId, CancellationToken ct) =>
         Record(ListProcessingStepPromotionsResult, nameof(ListProcessingStepPromotions));
 
-    public Task<Result<PromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct) =>
+    public Task<Result<StepPromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct) =>
         Record(GetProcessingStepPromotionResult, nameof(GetProcessingStepPromotion));
 
     // Jobs
@@ -183,8 +186,11 @@ public sealed class FakePipelinesApi : IPipelinesApi
             ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(SetProcessingStepPromotion)}' called but not configured."));
     }
 
-    public Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct) =>
-        Record(RePromoteProcessingStepResult, nameof(RePromoteProcessingStep));
+    public Task<Result<PromoteResult>> PromoteProcessingStep(string stepId, string? expectedArtifactBundleId, CancellationToken ct)
+    {
+        LastPromoteExpected = expectedArtifactBundleId;
+        return Record(PromoteProcessingStepResult, nameof(PromoteProcessingStep));
+    }
 
     public Task<Result> CancelJob(string id, CancellationToken ct)
     {

@@ -58,7 +58,7 @@ shape; the only difference is execution semantics:
 |---|---|---|
 | Concurrency | all in parallel | sequential, in list order |
 | Output | writes to `bundle/<step-name>/` | receives the full ArtifactBundle |
-| Promotion gate | none | yes (brake + re-promote) — see [Promotion Gate](promotion-gate.md) |
+| Promotion gate | none | yes (brake + promote) — see [Promotion Gate](promotion-gate.md) |
 
 ### Step object
 

@@ -12,6 +12,7 @@ import type {
   StepConfiguration,
   JobProcessingJob,
   JobProductionJob,
+  StepPromotionState,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './promotion-gate.js';
 
@@ -315,6 +316,30 @@ export class StepDetailView extends LitElement {
       color: var(--color-danger);
       padding: 1rem;
     }
+
+    .notice {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 0.5rem 0 1rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-surface);
+      font-size: 0.9rem;
+    }
+
+    .notice span {
+      flex: 1;
+    }
+
+    .notice button {
+      border: none;
+      background: none;
+      color: var(--color-text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
   `;
 
   @property() declare pipelineId: string;
@@ -324,6 +349,8 @@ export class StepDetailView extends LitElement {
   @state() declare private _config: StepConfiguration | null;
   @state() declare private _stepJobs: JobProcessingJob[];
   @state() declare private _blocked: boolean;
+  @state() declare private _promotion: StepPromotionState | null;
+  @state() declare private _notice: string | null;
   @state() declare private _loading: boolean;
   @state() declare private _error: string | null;
   @state() declare private _logTail: string | null;
@@ -337,6 +364,8 @@ export class StepDetailView extends LitElement {
     this._config = null;
     this._stepJobs = [];
     this._blocked = false;
+    this._promotion = null;
+    this._notice = null;
     this._loading = true;
     this._error = null;
     this._logTail = null;
@@ -373,6 +402,7 @@ export class StepDetailView extends LitElement {
       this._step = stepRecord ?? null;
       this._config = config ?? null;
       this._blocked = promotion?.blocked === true;
+      this._promotion = promotion ?? null;
       this._stepJobs = ((jobsPage?.items ?? []) as Job[])
         .filter(
           (j): j is JobProcessingJob =>
@@ -448,12 +478,27 @@ export class StepDetailView extends LitElement {
           .stepId=${this.stepId}
           .stepName=${this._step.name ?? ''}
           .blocked=${this._blocked}
-          .hasBundle=${latest !== undefined}
+          .promotion=${this._promotion}
+          .variant=${'full'}
           @changed=${() => this._load()}
+          @gate-notice=${(e: CustomEvent<{ message: string }>) =>
+            (this._notice = e.detail.message)}
           @gate-error=${(e: CustomEvent<{ message: string }>) =>
             (this._error = e.detail.message)}
         ></promotion-gate>
       </div>
+      ${this._notice
+        ? html`<div class="notice" role="status">
+            <span>${this._notice}</span>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              @click=${() => (this._notice = null)}
+            >
+              ×
+            </button>
+          </div>`
+        : nothing}
 
       <div class="step-grid">
         <section class="panel">

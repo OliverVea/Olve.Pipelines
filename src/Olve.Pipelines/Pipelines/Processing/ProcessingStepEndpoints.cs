@@ -8,9 +8,7 @@ namespace Olve.Pipelines.Pipelines.Processing;
 
 public static class ProcessingStepEndpoints
 {
-    public record PromotionState(bool Blocked);
     public record SetPromotionRequest(bool Blocked);
-    public record StepPromotionState(Id<ProcessingStep> ProcessingStepId, bool Blocked);
 
     public static void MapProcessingStepEndpoints(this WebApplication app)
     {
@@ -25,23 +23,13 @@ public static class ProcessingStepEndpoints
             .AllowAnonymous();
 
         // Bulk promotion state for the whole pipeline — lets the flow view render every step's brake
-        // without an N+1 of per-step calls. Includes every step (blocked and enabled).
+        // and what Promote would use without an N+1 of per-step calls. Includes every step.
         pipelineGroup.MapGet("/promotions", Result<StepPromotionState[]> (
             PipelineService pipelines,
-            ProcessingStepService steps,
-            PromotionGateService promotionGate,
-            Id<Pipeline> pipelineId) =>
-            {
-                if (!pipelines.TryGet(pipelineId, out _))
-                    return new ResultProblem($"Pipeline '{pipelineId}' not found.");
-
-                if (steps.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var stepArray))
-                    return problems;
-
-                return stepArray
-                    .Select(s => new StepPromotionState(s.Id, promotionGate.IsBlocked(s.Id)))
-                    .ToArray();
-            })
+            PromotionService promotions,
+            Id<Pipeline> pipelineId) => pipelines.TryGet(pipelineId, out _)
+                ? promotions.ListStates(pipelineId)
+                : new ResultProblem($"Pipeline '{pipelineId}' not found."))
             .WithResultMapping<StepPromotionState[]>()
             .WithName("ListProcessingStepPromotions")
             .AllowAnonymous();
@@ -65,63 +53,42 @@ public static class ProcessingStepEndpoints
             .AllowAnonymous();
 
         // Promotion gate (operational state, not config). Available even on a bound pipeline:
-        // configuration is git-owned, but blocking/unblocking promotion is an operator action.
-        stepGroup.MapGet("/promotion", Result<PromotionState> (
-            ProcessingStepService steps,
-            PromotionGateService promotionGate,
-            Id<ProcessingStep> stepId) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems))
-                    return problems;
-
-                return new PromotionState(promotionGate.IsBlocked(stepId));
-            })
-            .WithResultMapping<PromotionState>()
+        // configuration is git-owned, but blocking/unblocking and promoting are operator actions.
+        stepGroup.MapGet("/promotion", Result<StepPromotionState> (
+            PromotionService promotions,
+            Id<ProcessingStep> stepId) => promotions.GetState(stepId))
+            .WithResultMapping<StepPromotionState>()
             .WithName("GetProcessingStepPromotion")
             .AllowAnonymous();
 
+        // Block, or unblock. Unblocking a blocked step also starts the promotion that is due, if any;
+        // the response's `promotion` says whether it did and with which bundle.
         stepGroup.MapPut("/promotion", Result<PromotionState> (
-            ProcessingStepService steps,
-            PromotionGateService promotionGate,
+            PromotionService promotions,
             Id<ProcessingStep> stepId,
-            SetPromotionRequest request) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems))
-                    return problems;
-
-                promotionGate.Set(stepId, request.Blocked);
-                return new PromotionState(request.Blocked);
-            })
+            SetPromotionRequest request) => promotions.SetBlocked(stepId, request.Blocked))
             .WithResultMapping<PromotionState>()
             .WithName("SetProcessingStepPromotion");
 
-        // Re-promote: redrive the step's last-used artifact bundle. Reuses the processing-job
-        // creation path; refuses when promotion is blocked or the step has never run.
-        stepGroup.MapPost("/re-promote", Result<JobGroup> (
-            ProcessingStepService steps,
-            PromotionGateService promotionGate,
-            ArtifactBundleService bundles,
-            JobService jobs,
-            Id<ProcessingStep> stepId) =>
-            {
-                if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
-                    return problems;
+        // Promote: run the step with the bundle that last succeeded at the step before it (for the
+        // first step, the latest completed production run). `expectedArtifactBundleId` is the bundle
+        // the caller was shown; when given, the promote is refused if the server would use another.
+        stepGroup.MapPost("/promote", Result<PromoteResult> (
+            PromotionService promotions,
+            Id<ProcessingStep> stepId,
+            Id<ArtifactBundle>? expectedArtifactBundleId) => promotions.Promote(stepId, expectedArtifactBundleId))
+            .WithResultMapping<PromoteResult>()
+            .WithName("PromoteProcessingStep");
 
-                if (promotionGate.IsBlocked(stepId))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{stepId}' has promotion blocked; re-promote refused."));
-
-                if (jobs.GetLastPromotedBundle(step.PipelineId, stepId) is not { } bundleId)
-                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{stepId}' has no prior run to re-promote."));
-
-                if (!bundles.TryGet(bundleId, out _))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Artifact bundle '{bundleId}' for step '{stepId}' no longer exists."));
-
-                if (steps.TryGetConfiguration(stepId).TryPickProblems(out problems))
-                    return problems;
-
-                return jobs.CreateProcessingRun(step.PipelineId, bundleId, stepId);
-            })
+        // Removed: re-promote re-ran a step with its OWN last bundle, which redeployed the previous
+        // release after a staged release (#41). Kept only so callers on an older `pl` get a clear
+        // error instead of a 404; it never starts a job. Not in the OpenAPI document.
+        stepGroup.MapPost("/re-promote", Result<JobGroup> (Id<ProcessingStep> stepId)
+                => new ResultProblem(
+                    "re-promote has been removed. Use POST /api/processing-steps/<stepId>/promote (`pl processing promote <stepId>`), " +
+                    "which runs the bundle that last succeeded at the previous step, not this step's own last bundle. " +
+                    "See `pl processing promotion <stepId>` for the bundle it would use."))
             .WithResultMapping<JobGroup>()
-            .WithName("RePromoteProcessingStep");
+            .ExcludeFromDescription();
     }
 }

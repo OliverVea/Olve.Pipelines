@@ -11,6 +11,11 @@ import './promotion-gate.js';
 
 type Job = JobProcessingJob | JobProductionJob;
 
+const statusType = (job: Job): string | undefined =>
+  (job.status as { type?: string } | undefined)?.type;
+const isInProgress = (job: Job): boolean => statusType(job) === 'in-progress';
+const isScheduled = (job: Job): boolean => statusType(job) === 'scheduled';
+
 @customElement('pipeline-flow')
 export class PipelineFlow extends LitElement {
   static styles = css`
@@ -139,6 +144,7 @@ export class PipelineFlow extends LitElement {
                     .stepType=${'production'}
                     .pipelineId=${this.pipelineId}
                     .latestJob=${this._latestProductionJob(step.id ?? '')}
+                    .queued=${this._hasQueuedJob(step.id ?? '')}
                   ></step-node>
                 `,
               )
@@ -168,6 +174,7 @@ export class PipelineFlow extends LitElement {
                     .stepType=${'processing'}
                     .pipelineId=${this.pipelineId}
                     .latestJob=${this._latestProcessingJob(step.id ?? '')}
+                    .queued=${this._hasQueuedJob(step.id ?? '')}
                   ></step-node>
                 </div>
               `,
@@ -211,24 +218,39 @@ export class PipelineFlow extends LitElement {
     `;
   }
 
-  private _latestProductionJob(
-    stepId: string,
-  ): JobProductionJob | undefined {
+  private _latestProductionJob(stepId: string): JobProductionJob | undefined {
     const stepJobs = this.jobs.filter(
       (j): j is JobProductionJob =>
         'productionStepId' in j && j.productionStepId === stepId,
     );
-    return this._mostRecent(stepJobs);
+    return this._current(stepJobs);
   }
 
-  private _latestProcessingJob(
-    stepId: string,
-  ): JobProcessingJob | undefined {
+  private _latestProcessingJob(stepId: string): JobProcessingJob | undefined {
     const stepJobs = this.jobs.filter(
       (j): j is JobProcessingJob =>
         'processingStepId' in j && j.processingStepId === stepId,
     );
-    return this._mostRecent(stepJobs);
+    return this._current(stepJobs);
+  }
+
+  /**
+   * The job a step node shows: the one running now if there is one, else the most recent.
+   * A newer run that is only scheduled must not hide the run that is actually executing;
+   * the node flags it separately (see _hasQueuedJob).
+   */
+  private _current<T extends Job>(jobs: T[]): T | undefined {
+    return this._mostRecent(jobs.filter(isInProgress)) ?? this._mostRecent(jobs);
+  }
+
+  /** True when the step has a job running AND another one scheduled behind it. */
+  private _hasQueuedJob(stepId: string): boolean {
+    const stepJobs = this.jobs.filter(
+      (j) =>
+        ('productionStepId' in j && j.productionStepId === stepId) ||
+        ('processingStepId' in j && j.processingStepId === stepId),
+    );
+    return stepJobs.some(isInProgress) && stepJobs.some(isScheduled);
   }
 
   private _mostRecent<T extends Job>(jobs: T[]): T | undefined {

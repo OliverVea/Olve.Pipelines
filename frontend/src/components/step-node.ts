@@ -151,6 +151,17 @@ export class StepNode extends LitElement {
       animation: pulse 1.5s ease-in-out infinite;
     }
 
+    .queued-note {
+      margin-top: 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--color-warning);
+    }
+
+    .queued-note::before {
+      content: '↻ ';
+    }
+
     .status-badge.done {
       color: var(--color-success);
       background: color-mix(in srgb, var(--color-success) 15%, transparent);
@@ -202,6 +213,8 @@ export class StepNode extends LitElement {
   @property() declare stepType: 'production' | 'processing';
   @property() declare pipelineId: string;
   @property({ attribute: false }) declare latestJob: Job | undefined;
+  /** A newer run is scheduled behind the one shown, and starts when it finishes. */
+  @property({ type: Boolean }) declare queued: boolean;
 
   constructor() {
     super();
@@ -209,6 +222,7 @@ export class StepNode extends LitElement {
     this.stepName = '';
     this.stepType = 'production';
     this.pipelineId = '';
+    this.queued = false;
   }
 
   render() {
@@ -250,6 +264,14 @@ export class StepNode extends LitElement {
     return html`
       <div class="node">
         <div class="node-header">${name} ${badge}</div>
+        ${this.queued
+          ? html`<div
+              class="queued-note"
+              title="A newer run is scheduled for this step and starts when the current one finishes"
+            >
+              Next run queued
+            </div>`
+          : nothing}
         ${this._renderDetail()}
       </div>
     `;

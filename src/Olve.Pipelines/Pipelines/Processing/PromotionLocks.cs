@@ -3,9 +3,9 @@ using System.Collections.Concurrent;
 namespace Olve.Pipelines.Pipelines.Processing;
 
 /// <summary>
-/// One lock per pipeline, held around "read the gate and the job history, then create a processing
-/// run" by every path that decides on its own whether to start one: the automatic cascade
-/// (<c>DownstreamTriggerService</c>), Promote, and block/unblock. Serialising them means an unblock
+/// One lock per pipeline, held around "read the gate (and the job history), then create a processing
+/// run" by every path that starts one: the automatic cascade (<c>DownstreamTriggerService</c>),
+/// Promote, block/unblock, the manual <c>trigger/processing</c> endpoint and processing triggers. Serialising them means an unblock
 /// and a cascade arriving together cannot both start the same step, and a block cannot slip between a
 /// promote's gate check and its job creation. Singleton: it is state.
 /// </summary>

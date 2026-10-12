@@ -178,8 +178,12 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct) =>
         Record(TriggerProductionResult, nameof(TriggerProduction));
 
-    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct)
+    /// <summary>The <c>expectedPromotion</c> passed to the most recent <see cref="SetProcessingStepPromotion"/> call.</summary>
+    public string? LastUnblockExpected { get; private set; }
+
+    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, string? expectedPromotion, CancellationToken ct)
     {
+        LastUnblockExpected = expectedPromotion;
         Calls.Add($"{nameof(SetProcessingStepPromotion)}({blocked})");
         return Task.FromResult(
             SetProcessingStepPromotionResult

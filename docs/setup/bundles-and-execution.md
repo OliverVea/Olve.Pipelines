@@ -75,6 +75,11 @@ that, a bundle that [Promote](promotion-gate.md) may still run is **never** dele
 age: the latest completed production run, each processing step's last successful bundle, and the
 bundle of any scheduled or running job.
 
+This protection starts with the release that introduced it; a bundle swept earlier is not
+recreated. Promote judges whether a bundle still exists from the job history (its production run
+on record and fully succeeded), not by listing storage, so a bundle whose files were removed some
+other way would run with an empty input.
+
 ## Jobs and scheduling
 
 Jobs are first-class persisted entities managed by a **JobQueue** that controls when they're

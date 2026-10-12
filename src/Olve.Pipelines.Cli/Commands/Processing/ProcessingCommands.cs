@@ -166,7 +166,7 @@ public sealed class ProcessingBlockCommand : ICliCommand
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: true, ct)).TryPickProblems(out var problems, out var state))
+        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: true, expectedPromotion: null, ct)).TryPickProblems(out var problems, out var state))
             return problems;
 
         ctx.Output.Emit(state, CliJsonContext.Default.PromotionState,
@@ -186,17 +186,20 @@ public sealed class ProcessingUnblockCommand : ICliCommand
     public int RequiredOperands => 1;
     public string HelpLine => "Unblock promotion for a processing step, and start the promotion that is due";
     public string? HelpDetail => """
-        pl processing unblock <stepId>
+        pl processing unblock <stepId> [--expect <bundleId>|none]
 
         Releases the gate. If the step was blocked and the bundle that last succeeded at the step
         before it is newer than what this step last ran successfully, that promotion starts now.
         Prints the build it started, or why it started none. Never goes backwards.
         Check first with `pl processing promotion <stepId>` (the "On unblock" line).
+
+          --expect <bundleId>|none  Refuse (and stay blocked) unless unblocking would start that
+                                    bundle (full id), or start nothing ("none").
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: false, ct)).TryPickProblems(out var problems, out var state))
+        if ((await ctx.Api.SetProcessingStepPromotion(cli.Operand(0)!, blocked: false, cli.Option("expect"), ct)).TryPickProblems(out var problems, out var state))
             return problems;
 
         ctx.Output.Emit(state, CliJsonContext.Default.PromotionState, () =>

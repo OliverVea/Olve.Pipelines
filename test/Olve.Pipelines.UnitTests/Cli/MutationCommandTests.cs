@@ -102,11 +102,12 @@ public class MutationCommandTests
                 },
             }),
         };
-        var (ctx, stdout, cli) = Build(new ProcessingUnblockCommand(), api, json: false, "processing", "unblock", "sid");
+        var (ctx, stdout, cli) = Build(new ProcessingUnblockCommand(), api, json: false, "processing", "unblock", "sid", "--expect", BundleId.ToString());
 
         var result = await new ProcessingUnblockCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.LastUnblockExpected).IsEqualTo(BundleId.ToString());
         await Assert.That(stdout.ToString()).Contains("started promotion of the build of 2026-10-12 05:49:21 UTC (bundle 87c932c0)");
         await Assert.That(stdout.ToString()).Contains(GroupId.ToString());
     }

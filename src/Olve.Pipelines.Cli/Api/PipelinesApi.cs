@@ -104,9 +104,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/trigger/production",
             body: null, CliJsonContext.Default.JobGroup, ct);
 
-    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct) =>
+    public Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, string? expectedPromotion, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Put, $"/api/processing-steps/{Enc(stepId)}/promotion",
-            ApiTransport.JsonBody(new SetPromotionRequest { Blocked = blocked }, CliJsonContext.Default.SetPromotionRequest),
+            ApiTransport.JsonBody(new SetPromotionRequest { Blocked = blocked, ExpectedPromotion = expectedPromotion }, CliJsonContext.Default.SetPromotionRequest),
             CliJsonContext.Default.PromotionState, ct);
 
     public Task<Result<PromoteResult>> PromoteProcessingStep(string stepId, string? expectedArtifactBundleId, CancellationToken ct) =>

@@ -17,6 +17,7 @@ public sealed class PromotionHistory
     private readonly Dictionary<Id<ArtifactBundle>, (PromotionBundle Bundle, bool Succeeded)> _builds = new();
     private readonly Dictionary<Id<ProcessingStep>, (Id<ArtifactBundle> Bundle, DateTimeOffset CompletedAt, DateTimeOffset CreatedAt)> _lastSuccess = new();
     private readonly Dictionary<Id<ProcessingStep>, List<ProcessingJob>> _active = new();
+    private readonly Dictionary<Id<ProcessingStep>, (Id<ArtifactBundle> Bundle, DateTimeOffset StartedAt, DateTimeOffset CreatedAt)> _lastRun = new();
 
     /// <summary>The bundle of the production run that most recently completed with every job Done.</summary>
     public Id<ArtifactBundle>? LatestProductionSuccess { get; private set; }
@@ -45,11 +46,29 @@ public sealed class PromotionHistory
                             history._active[processing.ProcessingStepId] = active = [];
                         active.Add(processing);
                     }
-                    else if (processing.Status is Done done
-                        && (!history._lastSuccess.TryGetValue(processing.ProcessingStepId, out var cur)
-                            || (done.CompletedAt, processing.CreatedAt).CompareTo((cur.CompletedAt, cur.CreatedAt)) > 0))
+                    else
                     {
-                        history._lastSuccess[processing.ProcessingStepId] = (processing.ArtifactBundleId, done.CompletedAt, processing.CreatedAt);
+                        if (processing.Status is Done done
+                            && (!history._lastSuccess.TryGetValue(processing.ProcessingStepId, out var cur)
+                                || (done.CompletedAt, processing.CreatedAt).CompareTo((cur.CompletedAt, cur.CreatedAt)) > 0))
+                        {
+                            history._lastSuccess[processing.ProcessingStepId] = (processing.ArtifactBundleId, done.CompletedAt, processing.CreatedAt);
+                        }
+
+                        // A run that started may have changed the target even if it then failed or was cancelled.
+                        DateTimeOffset? startedAt = processing.Status switch
+                        {
+                            Done d => d.StartedAt,
+                            Failed f => f.StartedAt,
+                            Cancelled { StartedAt: { } s } => s,
+                            _ => null,
+                        };
+                        if (startedAt is { } started
+                            && (!history._lastRun.TryGetValue(processing.ProcessingStepId, out var run)
+                                || (started, processing.CreatedAt).CompareTo((run.StartedAt, run.CreatedAt)) > 0))
+                        {
+                            history._lastRun[processing.ProcessingStepId] = (processing.ArtifactBundleId, started, processing.CreatedAt);
+                        }
                     }
                     break;
             }
@@ -92,6 +111,10 @@ public sealed class PromotionHistory
     /// <summary>The bundle the step most recently ran successfully (newest <see cref="Done"/>).</summary>
     public Id<ArtifactBundle>? LastSuccessOf(Id<ProcessingStep> stepId)
         => _lastSuccess.TryGetValue(stepId, out var s) ? s.Bundle : null;
+
+    /// <summary>The bundle of the step's most recent run that actually started (Done, Failed, or cancelled after starting).</summary>
+    public Id<ArtifactBundle>? LastRunOf(Id<ProcessingStep> stepId)
+        => _lastRun.TryGetValue(stepId, out var r) ? r.Bundle : null;
 
     /// <summary>The step's Scheduled/InProgress jobs (empty when none).</summary>
     public IReadOnlyList<ProcessingJob> ActiveJobsOf(Id<ProcessingStep> stepId)

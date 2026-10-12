@@ -35,15 +35,19 @@ you click, every place that offers Promote names that build:
   `GET /api/pipelines/{pipelineId}/processing/promotions` (all steps) return `promote` (and
   `onUnblock` while blocked): `{ allowed, bundle, reason, message }`.
 
-A build is identified by **when its production run started** and the **bundle id** (the first
-8 hex digits are shown). That is all the service records about a bundle: it does not record the
+A build is identified by **when its production run was created** (queued) and the **bundle id**
+(the first 8 hex digits are shown). That is all the service records about a bundle: it does not record the
 commit a build came from, and the `VERSION` your build script stamps into `version.txt` is written
 inside the job, so it is not known to the service either (it is usually a few seconds after the
 build time shown).
 
-The UI sends the bundle it showed you along with the click; if a newer build has passed the
-previous step in between, the server refuses (*"Refresh and try again"*) rather than promote a
-build you didn't see. The CLI does the same with `pl processing promote <stepId> --expect <bundleId>`.
+The UI sends what it showed you along with the click — for Promote the bundle, for unblock the
+bundle it said would start (or "none"). If that changed in between (say a newer build passed the
+previous step), the server refuses (*"Refresh and try again"*) rather than start a build you
+didn't see; a refused unblock leaves the step **blocked**. The CLI does the same with
+`pl processing promote <stepId> --expect <bundleId>` and
+`pl processing unblock <stepId> --expect <bundleId>|none` (API: `expectedArtifactBundleId` query
+parameter on promote, `expectedPromotion` in the unblock body).
 
 ## The rules
 
@@ -55,12 +59,21 @@ build you didn't see. The CLI does the same with `pl processing promote <stepId>
 | The previous step's last success refers to a bundle whose build record is gone or never completed | refused — it never falls back to an older success | nothing started |
 | A job for this step is already scheduled or running | refused (wait or cancel it) | nothing started |
 | This step already ran exactly that bundle successfully | **runs it again** (retry / redeploy) | nothing started (nothing due) |
-| That bundle is **older** than what this step last ran successfully | refused — never goes backwards | nothing started — no automatic downgrade |
+| That bundle is **older** than what this step last ran — its last success, or its latest run that started (a failed deploy may have half-applied) | refused — never goes backwards | nothing started — no automatic downgrade |
 | Otherwise (newer, or the step never succeeded) | runs it | **starts the promotion** |
 
-"Older" is judged by when each bundle's production run started. Unblocking a step that was not
+"Older" is judged by when each bundle's production run was created. Unblocking a step that was not
 blocked changes nothing and runs no check. Every response (API `promotion` field, CLI output, UI
-notice) says whether a promotion started and with which build, or why not.
+notice) says whether a promotion started and with which build, or why not. The `reason` codes are
+`blocked`, `notConfigured`, `nothingPassedSource`, `bundleGone`, `jobActive`, `alreadyRan`,
+`wouldDowngrade`, `unknownOrder`, plus `notBlocked` (unblock of a step that wasn't blocked) and
+`unknownStep` (the step is not in its pipeline's step list).
+
+> **Changed for existing callers:** `PUT /api/processing-steps/{stepId}/promotion` with
+> `{ "blocked": false }` on a **blocked** step now also starts the promotion that is due. Older
+> `pl` binaries and scripts that only read `blocked` will not print which build started — check
+> the step's jobs, or update `pl`. `GET …/promotion` now returns the full read model (it still
+> has `blocked`). `{ "blocked": true }` and unblocking a step that was not blocked behave as before.
 
 Retrying a flaky deploy is just Promote: with nothing newer through the previous step, it is the
 same bundle again.
@@ -95,7 +108,8 @@ step failed." They're independent axes.
 - **Retry a flaky deploy** without rebuilding: Promote the step.
 - **Stage a release**: brake prod, let beta validate, then **unblock** — the build that passed the
   step before prod is promoted into it. The confirmation (UI) or `pl processing promotion <stepId>`
-  (CLI) shows which build that is before you unblock.
+  (CLI) shows which build that is before you unblock; if it changes before you confirm, the
+  unblock is refused and the step stays blocked.
 - **Rebuild the same commit**: the **Fresh build** button on the pipeline page (or
   `pl production trigger <pipelineId>`) starts a new production run of the branch head, even if
   the head has not moved. The new build flows through the steps as usual and stops at any brake.
@@ -110,7 +124,7 @@ Promoting a specific older build (a rollback) is not supported.
 | `pl processing promotions <pipelineId>` | Gate, Promote and on-unblock for every step |
 | `pl processing promotion <stepId>` | One step in detail |
 | `pl processing block <stepId>` | Engage the brake |
-| `pl processing unblock <stepId>` | Release it; prints the promotion it started, or why none |
+| `pl processing unblock <stepId> [--expect <bundleId>\|none]` | Release it; prints the promotion it started, or why none |
 | `pl processing promote <stepId> [--expect <bundleId>]` | Run the step with what passed the step before it |
 
 `pl processing re-promote` and `POST /api/processing-steps/{stepId}/re-promote` were **removed**:
@@ -125,7 +139,9 @@ after a build, the manual processing trigger, configured `processing` triggers, 
 unblock check. A blocked gate short-circuits them all, halting the chain at that step without
 skipping ahead. The automatic cascade still passes each run's own bundle to the next step; the one
 thing it now skips is scheduling a bundle that is already scheduled or running for that step
-(which only an unblock or promote that got there first can cause). See
+(which only an unblock, promote, manual `trigger/processing` or configured processing trigger of
+that same bundle can cause). The gate check and job creation of every one of these paths runs
+under one per-pipeline lock, so they are ordered strictly one after another. See
 [Bundles & Execution](bundles-and-execution.md) for the job model and bundle retention.
 
 ## See also

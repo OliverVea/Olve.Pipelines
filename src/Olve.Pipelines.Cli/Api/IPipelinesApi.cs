@@ -55,7 +55,7 @@ public interface IPipelinesApi
 
     // Mutations
     Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct);
-    Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct);
+    Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, string? expectedPromotion, CancellationToken ct);
     Task<Result<PromoteResult>> PromoteProcessingStep(string stepId, string? expectedArtifactBundleId, CancellationToken ct);
     Task<Result> CancelJob(string id, CancellationToken ct);
     Task<Result> DeletePipeline(string id, CancellationToken ct);

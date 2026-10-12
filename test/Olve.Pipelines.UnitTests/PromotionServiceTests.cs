@@ -471,6 +471,68 @@ public class PromotionServiceTests
         await Assert.That(h.Gate.IsBlocked(h["deploy"].Id)).IsTrue();
     }
 
+    [Test]
+    public async Task Unblock_NewerFailedAttemptOnTheStep_NeverDowngrades()
+    {
+        var h = ReleasedV1(out var v1);
+        h.Gate.Block(h["deploy"].Id);
+        h.Build();
+        h.RunChain(); // v2 passes beta + test, held
+        h.Gate.Block(h["deploy-beta"].Id);
+        var v3 = h.Build(); // held before beta
+        h.ManualRun("deploy", v3, succeed: false); // an out-of-chain deploy of v3 fails partway
+
+        var state = Pick(h.Promotions.SetBlocked(h["deploy"].Id, false));
+        var promote = h.Promotions.Promote(h["deploy"].Id, expectedBundleId: null);
+
+        await Assert.That(state.Promotion!.Reason).IsEqualTo("wouldDowngrade");
+        await Assert.That(promote).Failed();
+        await Assert.That(h.ActiveFor("deploy")).IsEmpty();
+        await Assert.That(h.LastSuccess("deploy")).IsEqualTo(v1);
+    }
+
+    [Test]
+    public async Task Unblock_WithStaleExpectation_IsRefused_AndStaysBlocked()
+    {
+        var h = ReleasedV1(out _);
+        h.Gate.Block(h["deploy"].Id);
+        var v2 = h.Build();
+        h.RunChain();
+        var shown = Pick(h.Promotions.GetState(h["deploy"].Id)).OnUnblock!.Bundle!.ArtifactBundleId;
+        await Assert.That(shown).IsEqualTo(v2);
+
+        // v3 passes test-after-beta between the confirmation and the click.
+        var v3 = h.Build();
+        h.RunChain();
+
+        var stale = h.Promotions.SetBlocked(h["deploy"].Id, false, shown.Value.Value.ToString());
+        await Assert.That(stale).Failed();
+        await Assert.That(Problems(stale)).Contains("still blocked");
+        await Assert.That(h.Gate.IsBlocked(h["deploy"].Id)).IsTrue();
+        await Assert.That(h.ActiveFor("deploy")).IsEmpty();
+
+        var expectedNone = h.Promotions.SetBlocked(h["deploy"].Id, false, PromotionService.ExpectNoPromotion);
+        await Assert.That(expectedNone).Failed();
+        await Assert.That(h.Gate.IsBlocked(h["deploy"].Id)).IsTrue();
+
+        var current = Pick(h.Promotions.SetBlocked(h["deploy"].Id, false, v3.Value.Value.ToString()));
+        await Assert.That(current.Promotion!.Started).IsTrue();
+        await Assert.That(current.Promotion.Bundle!.ArtifactBundleId).IsEqualTo(v3);
+    }
+
+    [Test]
+    public async Task Unblock_ExpectingNoPromotion_WhenNoneIsDue_Unblocks()
+    {
+        var h = ReleasedV1(out _);
+        h.Gate.Block(h["deploy"].Id);
+
+        var state = Pick(h.Promotions.SetBlocked(h["deploy"].Id, false, PromotionService.ExpectNoPromotion));
+
+        await Assert.That(state.Blocked).IsFalse();
+        await Assert.That(state.Promotion!.Reason).IsEqualTo("alreadyRan");
+        await Assert.That(h.Gate.IsBlocked(h["deploy"].Id)).IsFalse();
+    }
+
     // ---- Promote guards ----
 
     [Test]

@@ -1667,6 +1667,7 @@ export function deserializeIntoSetDeployTriggerRequest(setDeployTriggerRequest: 
 export function deserializeIntoSetPromotionRequest(setPromotionRequest: Partial<SetPromotionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "blocked": n => { setPromotionRequest.blocked = n.getBooleanValue(); },
+        "expectedPromotion": n => { setPromotionRequest.expectedPromotion = n.getStringValue(); },
     }
 }
 /**
@@ -3499,6 +3500,7 @@ export function serializeSetDeployTriggerRequest(writer: SerializationWriter, se
 export function serializeSetPromotionRequest(writer: SerializationWriter, setPromotionRequest: Partial<SetPromotionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!setPromotionRequest || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("blocked", setPromotionRequest.blocked);
+    writer.writeStringValue("expectedPromotion", setPromotionRequest.expectedPromotion);
     writer.writeAdditionalData(setPromotionRequest.additionalData);
 }
 /**
@@ -4003,6 +4005,10 @@ export interface SetPromotionRequest extends AdditionalDataHolder, Parsable {
      * The blocked property
      */
     blocked?: boolean | null;
+    /**
+     * The expectedPromotion property
+     */
+    expectedPromotion?: string | null;
 }
 export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**

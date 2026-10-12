@@ -121,12 +121,18 @@ public class PromotionService(
         }
     }
 
+    /// <summary>Value of <c>expectedPromotion</c> meaning "I was told unblocking starts nothing".</summary>
+    public const string ExpectNoPromotion = "none";
+
     /// <summary>
     /// Sets the gate. Unblocking a blocked step then checks whether a promotion is due (the previous
     /// step's last success is newer than what this step last ran successfully) and starts it.
     /// Unblocking a step that was not blocked changes nothing and starts nothing.
+    /// <paramref name="expectedPromotion"/> (unblock only) is what the caller was shown unblocking would
+    /// do — a bundle id, or <see cref="ExpectNoPromotion"/>. When given and it no longer holds, the
+    /// unblock is refused and the gate stays blocked, so a build nobody confirmed is never started.
     /// </summary>
-    public Result<PromotionState> SetBlocked(Id<ProcessingStep> stepId, bool blocked)
+    public Result<PromotionState> SetBlocked(Id<ProcessingStep> stepId, bool blocked, string? expectedPromotion = null)
     {
         if (steps.TryGet(stepId).TryPickProblems(out var problems, out var step))
             return problems;
@@ -139,18 +145,30 @@ public class PromotionService(
                 return new PromotionState(true, null);
             }
 
-            var wasBlocked = gate.IsBlocked(stepId);
-            gate.Unblock(stepId);
-
-            if (!wasBlocked)
+            if (!gate.IsBlocked(stepId))
                 return new PromotionState(false, new UnblockPromotion(false, null, null, "notBlocked",
                     $"'{step.Name}' was not blocked; no promotion check was run."));
 
-            if (Load(step).TryPickProblems(out problems, out var ctx))
+            if (Load(step).TryPickProblems(out problems, out var loaded))
+            {
+                if (expectedPromotion is not null)
+                    return problems;
+                gate.Unblock(stepId);
                 return new PromotionState(false, new UnblockPromotion(false, null, null, "unknownStep",
                     $"Unblocked '{step.Name}', but could not check for a due promotion: {string.Join("; ", problems.Select(p => p.Message))}"));
+            }
 
+            // Decide as if already unblocked, before touching the gate, so a stale confirmation
+            // can be refused with the brake still on.
+            var ctx = loaded with { Facts = loaded.Facts with { Blocked = false } };
             var decision = PromotionPolicy.Decide(PromotionIntent.Unblock, ctx.Facts);
+
+            if (expectedPromotion is { } expected && !Matches(expected, decision))
+                return new ResultProblem(
+                    $"Unblock refused, '{step.Name}' is still blocked: you confirmed {(expected == ExpectNoPromotion ? "that no promotion would start" : $"bundle {Short(expected)}")}, " +
+                    $"but unblocking now {(decision.Bundle is { } now ? $"would start {Describe(now)} from {SourceLabel(ctx.Source)}" : "would start no promotion")}. Refresh and try again.");
+
+            gate.Unblock(stepId);
             if (decision.Bundle is not { } bundle)
                 return new PromotionState(false, new UnblockPromotion(false, null, null, ReasonOf(decision),
                     $"Unblocked '{step.Name}'; no promotion started: {Explain(PromotionIntent.Unblock, decision, ctx)}"));
@@ -164,6 +182,13 @@ public class PromotionService(
                 $"Unblocked '{step.Name}' and started promotion of {Describe(bundle)} from {SourceLabel(ctx.Source)}."));
         }
     }
+
+    private static bool Matches(string expected, PromotionDecision decision)
+        => decision.Bundle is { } bundle
+            ? Guid.TryParse(expected, out var id) && id == bundle.ArtifactBundleId.Value.Value
+            : expected == ExpectNoPromotion;
+
+    private static string Short(string id) => Guid.TryParse(id, out var g) ? g.ToString("N")[..8] : id;
 
     /// <summary>The bundles the promotion logic may still need for one pipeline (see <see cref="PromotionHistory.BundlesInUse"/>).</summary>
     public IEnumerable<Id<ArtifactBundle>> BundlesInUse(Id<Pipeline> pipelineId) => HistoryOf(pipelineId).BundlesInUse();
@@ -202,6 +227,7 @@ public class PromotionService(
         }
 
         var lastSuccess = history.LastSuccessOf(step.Id);
+        var lastRun = history.LastRunOf(step.Id);
         var facts = new PromotionFacts(
             Blocked: gate.IsBlocked(step.Id),
             Configured: !steps.TryGetConfiguration(step.Id).TryPickProblems(out _),
@@ -209,7 +235,9 @@ public class PromotionService(
             SourceSuccessBuilt: sourceSuccess is { } s ? history.SucceededBuildOf(s) : null,
             LastSuccess: lastSuccess,
             LastSuccessBuilt: lastSuccess is { } l ? history.BuildOf(l) : null,
-            HasActiveJob: history.ActiveJobsOf(step.Id).Count > 0);
+            HasActiveJob: history.ActiveJobsOf(step.Id).Count > 0,
+            LastRun: lastRun,
+            LastRunBuilt: lastRun is { } r ? history.BuildOf(r) : null);
 
         return new Context(step, source, facts, history);
     }
@@ -265,12 +293,24 @@ public class PromotionService(
             PromotionRefusal.JobActive => $"a job for '{step}' is already scheduled or in progress; wait for it or cancel it.",
             PromotionRefusal.AlreadyRan => $"'{step}' already ran {Describe(f.SourceSuccessBuilt!)}, the last success at {source}.",
             PromotionRefusal.WouldDowngrade =>
-                $"the last success at {source} ({Describe(f.SourceSuccessBuilt!)}) is older than what '{step}' last ran ({Describe(f.LastSuccessBuilt!)}); promotion never goes backwards.",
+                $"the last success at {source} ({Describe(f.SourceSuccessBuilt!)}) is older than what '{step}' last ran ({Describe(NewerThanCandidate(f)!)}); promotion never goes backwards.",
             PromotionRefusal.UnknownOrder =>
-                $"'{step}' last ran bundle {Short(f.LastSuccess!.Value)}, which has no build record, so it cannot be told whether the last success at {source} is newer.",
+                $"'{step}' last ran bundle {Short(UnknownRan(f)!.Value)}, which has no build record, so it cannot be told whether the last success at {source} is newer.",
             _ => intent == PromotionIntent.Promote ? "nothing to promote." : "no promotion due.",
         };
     }
+
+    /// <summary>What B ran that is newer than the candidate (for the downgrade message).</summary>
+    private static PromotionBundle? NewerThanCandidate(PromotionFacts f)
+        => new[] { f.LastSuccessBuilt, f.LastRunBuilt }
+            .Where(b => b is not null && b.BuiltAt > f.SourceSuccessBuilt!.BuiltAt)
+            .MaxBy(b => b!.BuiltAt);
+
+    /// <summary>What B ran that has no build record (for the unknown-order message).</summary>
+    private static Id<ArtifactBundle>? UnknownRan(PromotionFacts f)
+        => f.LastSuccess is { } s && s != f.SourceSuccess && f.LastSuccessBuilt?.ArtifactBundleId != s ? s
+            : f.LastRun is { } r && r != f.SourceSuccess && f.LastRunBuilt?.ArtifactBundleId != r ? r
+            : null;
 
     private static string SourceLabel(PromotionSource source)
         => source.IsProduction ? "production" : $"'{source.Name}'";

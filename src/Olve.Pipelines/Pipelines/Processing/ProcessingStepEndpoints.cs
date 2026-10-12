@@ -8,7 +8,10 @@ namespace Olve.Pipelines.Pipelines.Processing;
 
 public static class ProcessingStepEndpoints
 {
-    public record SetPromotionRequest(bool Blocked);
+    /// <param name="Blocked">The gate to set.</param>
+    /// <param name="ExpectedPromotion">Unblock only, optional: what the caller was shown unblocking would
+    /// start — a bundle id, or <c>"none"</c>. If it no longer holds, the unblock is refused (gate stays blocked).</param>
+    public record SetPromotionRequest(bool Blocked, string? ExpectedPromotion = null);
 
     public static void MapProcessingStepEndpoints(this WebApplication app)
     {
@@ -62,11 +65,12 @@ public static class ProcessingStepEndpoints
             .AllowAnonymous();
 
         // Block, or unblock. Unblocking a blocked step also starts the promotion that is due, if any;
-        // the response's `promotion` says whether it did and with which bundle.
+        // the response's `promotion` says whether it did and with which bundle. `expectedPromotion`
+        // guards against starting a build the caller was not shown.
         stepGroup.MapPut("/promotion", Result<PromotionState> (
             PromotionService promotions,
             Id<ProcessingStep> stepId,
-            SetPromotionRequest request) => promotions.SetBlocked(stepId, request.Blocked))
+            SetPromotionRequest request) => promotions.SetBlocked(stepId, request.Blocked, request.ExpectedPromotion))
             .WithResultMapping<PromotionState>()
             .WithName("SetProcessingStepPromotion");
 

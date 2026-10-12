@@ -112,7 +112,10 @@ public sealed class PromotionHistory
     public Id<ArtifactBundle>? LastSuccessOf(Id<ProcessingStep> stepId)
         => _lastSuccess.TryGetValue(stepId, out var s) ? s.Bundle : null;
 
-    /// <summary>The bundle of the step's most recent run that actually started (Done, Failed, or cancelled after starting).</summary>
+    /// <summary>
+    /// The bundle of the step's most recent attempt: Done, Failed, or cancelled after starting. (A job
+    /// that fails before reaching Kubernetes is recorded as Failed too, so this errs towards counting.)
+    /// </summary>
     public Id<ArtifactBundle>? LastRunOf(Id<ProcessingStep> stepId)
         => _lastRun.TryGetValue(stepId, out var r) ? r.Bundle : null;
 

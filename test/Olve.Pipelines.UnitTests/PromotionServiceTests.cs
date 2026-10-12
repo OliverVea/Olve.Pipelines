@@ -533,6 +533,54 @@ public class PromotionServiceTests
         await Assert.That(h.Gate.IsBlocked(h["deploy"].Id)).IsFalse();
     }
 
+    [Test]
+    public async Task LastRun_CountsCancelledAfterStart_NotCancelledWhileScheduled()
+    {
+        var pipelineId = Id.New<Pipeline>();
+        var stepId = Id.New<ProcessingStep>();
+        var t = new DateTimeOffset(2026, 10, 12, 5, 0, 0, TimeSpan.Zero);
+        ProcessingJob Job(Id<ArtifactBundle> bundle, DateTimeOffset createdAt, JobStatus status)
+            => new(Id.New<Job>(), pipelineId, createdAt, status, Id.New<JobGroup>(), bundle, stepId);
+
+        var done = Id.New<ArtifactBundle>();
+        var cancelledRunning = Id.New<ArtifactBundle>();
+        var cancelledQueued = Id.New<ArtifactBundle>();
+        var tieLoser = Id.New<ArtifactBundle>();
+        var tieWinner = Id.New<ArtifactBundle>();
+
+        var started = PromotionHistory.Build([
+            Job(done, t, new Done(t.AddMinutes(1), t.AddMinutes(2))),
+            Job(cancelledRunning, t.AddMinutes(3), new Cancelled(t.AddMinutes(4), t.AddMinutes(5))),
+            Job(cancelledQueued, t.AddMinutes(6), new Cancelled(null, t.AddMinutes(7))),
+        ], _ => null);
+        await Assert.That(started.LastRunOf(stepId)).IsEqualTo(cancelledRunning);
+        await Assert.That(started.LastSuccessOf(stepId)).IsEqualTo(done);
+
+        // Same start instant: the later-created job wins, deterministically.
+        var tied = PromotionHistory.Build([
+            Job(tieWinner, t.AddMinutes(1), new Failed(t.AddMinutes(5), t.AddMinutes(6))),
+            Job(tieLoser, t, new Failed(t.AddMinutes(5), t.AddMinutes(7))),
+        ], _ => null);
+        await Assert.That(tied.LastRunOf(stepId)).IsEqualTo(tieWinner);
+    }
+
+    [Test]
+    public async Task Promote_RetryAfterFailedAttempt_StillAllowed_WhileOlderIsRefused()
+    {
+        var h = ReleasedV1(out var v1);
+        var v2 = h.Build();
+        h.Run("deploy-beta");
+        h.Run("test-after-beta");
+        h.Run("deploy", succeed: false); // v2's deploy failed: its last attempt is v2, last success v1
+
+        var state = Pick(h.Promotions.GetState(h["deploy"].Id));
+        await Assert.That(state.Promote.Bundle!.ArtifactBundleId).IsEqualTo(v2);
+        await Assert.That(state.LastSuccess!.ArtifactBundleId).IsEqualTo(v1);
+
+        var retry = Pick(h.Promotions.Promote(h["deploy"].Id, v2));
+        await Assert.That(retry.Bundle.ArtifactBundleId).IsEqualTo(v2);
+    }
+
     // ---- Promote guards ----
 
     [Test]

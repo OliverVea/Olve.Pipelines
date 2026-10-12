@@ -282,9 +282,13 @@ export class PromotionGate extends LitElement {
     e.stopPropagation();
     if (this._busy) return;
     const next = !this.blocked;
+    // What the confirmation promised; the server refuses (and stays blocked) if
+    // unblocking would now start something else.
+    let expectedPromotion: string | undefined;
 
     if (!next) {
       const bundle = optionBundle(unblockOption(this.promotion));
+      expectedPromotion = bundle ? String(bundle.artifactBundleId) : 'none';
       const question = bundle
         ? `Unblock ${this.stepName}?\n\nThis starts promotion of ${bundleLabel(bundle)} from ${sourceLabel(this.promotion?.source)} into ${this.stepName}.`
         : `Unblock ${this.stepName}?\n\nNo promotion will start: ${
@@ -298,7 +302,7 @@ export class PromotionGate extends LitElement {
     try {
       const result = await client.api.processingSteps
         .byStepId(this.stepId)
-        .promotion.put({ blocked: next });
+        .promotion.put({ blocked: next, expectedPromotion });
       this.blocked = next;
       // The server re-checks at unblock time and reports what it actually started.
       const promotion = result?.promotion as UnblockPromotion | null | undefined;

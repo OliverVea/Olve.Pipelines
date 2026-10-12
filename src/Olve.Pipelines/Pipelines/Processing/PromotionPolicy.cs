@@ -24,9 +24,9 @@ public enum PromotionRefusal
     JobActive,
     /// <summary>Unblock only: the step's last success already is the previous step's last success.</summary>
     AlreadyRan,
-    /// <summary>The previous step's last success is older than what this step last ran successfully.</summary>
+    /// <summary>The previous step's last success is older than what this step last ran (its last success, or its latest attempt that started).</summary>
     WouldDowngrade,
-    /// <summary>This step's last success has no build record, so "older" cannot be judged.</summary>
+    /// <summary>What this step last ran has no build record, so "older" cannot be judged.</summary>
     UnknownOrder,
 }
 
@@ -45,6 +45,9 @@ public enum PromotionIntent { Promote, Unblock }
 /// <param name="LastSuccess">The bundle B most recently ran successfully; null when B never succeeded.</param>
 /// <param name="LastSuccessBuilt">The build record of <paramref name="LastSuccess"/>; null when unknown.</param>
 /// <param name="HasActiveJob">A job for B is Scheduled or InProgress.</param>
+/// <param name="LastRun">The bundle of B's most recent run that actually started (Done, Failed, or cancelled
+/// after starting) — it may have changed the target even if it failed. Null when B never started a run.</param>
+/// <param name="LastRunBuilt">The build record of <paramref name="LastRun"/>; null when unknown.</param>
 public record PromotionFacts(
     bool Blocked,
     bool Configured,
@@ -52,7 +55,9 @@ public record PromotionFacts(
     PromotionBundle? SourceSuccessBuilt,
     Id<ArtifactBundle>? LastSuccess,
     PromotionBundle? LastSuccessBuilt,
-    bool HasActiveJob);
+    bool HasActiveJob,
+    Id<ArtifactBundle>? LastRun = null,
+    PromotionBundle? LastRunBuilt = null);
 
 /// <summary>The outcome: start B with <see cref="Bundle"/>, or refuse with <see cref="Refusal"/>.</summary>
 public record PromotionDecision(PromotionBundle? Bundle, PromotionRefusal? Refusal)
@@ -67,8 +72,9 @@ public record PromotionDecision(PromotionBundle? Bundle, PromotionRefusal? Refus
 /// The single promote/unblock rule. Pure: the table of unit tests in <c>PromotionPolicyTests</c> pins
 /// every row. Promote and the unblock check differ in one place only: when the step already ran the
 /// previous step's last success, Promote re-runs it (the "retry a flaky deploy" case) while unblock
-/// has nothing to do. Neither ever goes backwards, and neither falls back to an older success when
-/// the newest one is gone.
+/// has nothing to do. Neither ever goes backwards — not behind B's last success, and not behind B's
+/// latest started attempt (a failed deploy may have half-applied) — and neither falls back to an older
+/// success when the newest one is gone.
 /// </summary>
 public static class PromotionPolicy
 {
@@ -89,19 +95,21 @@ public static class PromotionPolicy
         if (facts.HasActiveJob)
             return PromotionDecision.Refuse(PromotionRefusal.JobActive);
 
-        if (facts.LastSuccess is { } last)
+        // Never older than anything B last ran.
+        foreach (var (ran, built) in new[] { (facts.LastSuccess, facts.LastSuccessBuilt), (facts.LastRun, facts.LastRunBuilt) })
         {
-            if (last == candidate.ArtifactBundleId)
-                return intent == PromotionIntent.Promote
-                    ? PromotionDecision.Start(candidate)
-                    : PromotionDecision.Refuse(PromotionRefusal.AlreadyRan);
+            if (ran is not { } ranId || ranId == candidate.ArtifactBundleId)
+                continue;
 
-            if (facts.LastSuccessBuilt is not { } lastBuilt || lastBuilt.ArtifactBundleId != last)
+            if (built is not { } ranBuilt || ranBuilt.ArtifactBundleId != ranId)
                 return PromotionDecision.Refuse(PromotionRefusal.UnknownOrder);
 
-            if (candidate.BuiltAt < lastBuilt.BuiltAt)
+            if (candidate.BuiltAt < ranBuilt.BuiltAt)
                 return PromotionDecision.Refuse(PromotionRefusal.WouldDowngrade);
         }
+
+        if (facts.LastSuccess == candidate.ArtifactBundleId && intent == PromotionIntent.Unblock)
+            return PromotionDecision.Refuse(PromotionRefusal.AlreadyRan);
 
         return PromotionDecision.Start(candidate);
     }

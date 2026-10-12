@@ -122,4 +122,55 @@ public class PromotionPolicyTests
             await Assert.That(decision.Bundle).IsNull();
         }
     }
+
+    /// <summary>B's most recent run that actually started (it may have failed), relative to the candidate.</summary>
+    public enum Run { None, SameAsCandidate, Older, Newer, Unknown }
+
+    // The no-downgrade rule also covers B's latest started attempt: a failed deploy of a newer build
+    // may have half-applied, so the previous step's (older) last success must not follow it.
+    [Test]
+    [Arguments(Promote, Last.Older, Run.Newer, WouldDowngrade)]
+    [Arguments(Unblock, Last.Older, Run.Newer, WouldDowngrade)]
+    [Arguments(Promote, Last.Same, Run.Newer, WouldDowngrade)] // same bundle as last success, but a newer attempt since
+    [Arguments(Unblock, Last.Never, Run.Newer, WouldDowngrade)]
+    [Arguments(Promote, Last.Older, Run.SameAsCandidate, null)] // retry: the failed attempt was this very bundle
+    [Arguments(Unblock, Last.Older, Run.SameAsCandidate, null)]
+    [Arguments(Promote, Last.Never, Run.SameAsCandidate, null)]
+    [Arguments(Promote, Last.Older, Run.Older, null)]
+    [Arguments(Unblock, Last.Same, Run.Older, AlreadyRan)]
+    [Arguments(Promote, Last.Older, Run.Unknown, UnknownOrder)]
+    [Arguments(Unblock, Last.Older, Run.Unknown, UnknownOrder)]
+    [Arguments(Promote, Last.Older, Run.None, null)]
+    public async Task Decide_ConsidersLatestStartedRun(PromotionIntent intent, Last last, Run run, PromotionRefusal? expected)
+    {
+        var candidateId = Id.New<ArtifactBundle>();
+        var candidate = new PromotionBundle(candidateId, T0);
+
+        var lastId = Id.New<ArtifactBundle>();
+        (Id<ArtifactBundle>? lastSuccess, PromotionBundle? lastBuilt) = last switch
+        {
+            Last.Never => ((Id<ArtifactBundle>?)null, (PromotionBundle?)null),
+            Last.Same => (candidateId, candidate),
+            Last.Older => (lastId, new PromotionBundle(lastId, T0.AddHours(-1))),
+            _ => throw new ArgumentOutOfRangeException(nameof(last)),
+        };
+
+        var runId = Id.New<ArtifactBundle>();
+        (Id<ArtifactBundle>? lastRun, PromotionBundle? runBuilt) = run switch
+        {
+            Run.None => ((Id<ArtifactBundle>?)null, (PromotionBundle?)null),
+            Run.SameAsCandidate => (candidateId, candidate),
+            Run.Older => (runId, new PromotionBundle(runId, T0.AddHours(-2))),
+            Run.Newer => (runId, new PromotionBundle(runId, T0.AddHours(2))),
+            Run.Unknown => (runId, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(run)),
+        };
+
+        var facts = new PromotionFacts(false, true, candidateId, candidate, lastSuccess, lastBuilt, false, lastRun, runBuilt);
+
+        var decision = PromotionPolicy.Decide(intent, facts);
+
+        await Assert.That(decision.Refusal).IsEqualTo(expected);
+        await Assert.That(decision.Bundle).IsEqualTo(expected is null ? candidate : null);
+    }
 }

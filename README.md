@@ -26,7 +26,8 @@ git-bound pipeline (configuration is git-only, but operations like blocking/unbl
 promoting are allowed). The blocked set is persisted separately (`promotion-state.json`) so a
 braked step stays braked across a restart. `blocked` is orthogonal to job status — a step can be
 `Done` *and* have its promotion blocked. (`re-promote`, which re-ran a step with its own last
-bundle, was removed.)
+bundle, was removed. Note for existing API callers: `PUT …/promotion` with `{ "blocked": false }`
+on a blocked step now also starts the due promotion.)
 
 ## GitOps Configuration
 
@@ -168,7 +169,7 @@ Steps and their order are defined in `.pipelines/config.yaml` and materialized b
 | GET | `/api/processing-steps/{stepId}` | Get processing step |
 | GET | `/api/processing-steps/{stepId}/configuration` | Get step configuration |
 | GET | `/api/processing-steps/{stepId}/promotion` | Get promotion gate and what Promote / unblock would use (`{ blocked, source, sourceLastSuccess, lastSuccess, promote, onUnblock }`) |
-| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational). Unblocking a blocked step starts the due promotion; `promotion` in the response says whether and with which bundle |
+| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational). Unblocking a blocked step starts the due promotion; `promotion` in the response says whether and with which bundle. Optional `expectedPromotion` (bundle id or `"none"`): refused, still blocked, if unblocking would start something else |
 | POST | `/api/processing-steps/{stepId}/promote` | Run the step with the bundle that last succeeded at the previous step (`?expectedArtifactBundleId=` to refuse if it changed). Refused while blocked, while a job for the step is active, or if it would go backwards |
 | POST | `/api/processing-steps/{stepId}/re-promote` | Removed — always fails with a pointer to `promote` (kept one release for old `pl` binaries; not in `api.json`) |
 

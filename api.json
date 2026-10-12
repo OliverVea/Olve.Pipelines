@@ -2861,6 +2861,12 @@
         "properties": {
           "blocked": {
             "type": "boolean"
+          },
+          "expectedPromotion": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

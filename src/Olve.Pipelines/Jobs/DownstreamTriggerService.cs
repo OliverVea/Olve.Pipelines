@@ -6,6 +6,7 @@ public class DownstreamTriggerService(
     JobGroupService jobGroupService,
     ProcessingStepService processingStepService,
     PromotionGateService promotionGate,
+    PromotionLocks promotionLocks,
     JobService jobService,
     ILogger<DownstreamTriggerService> logger)
 {
@@ -47,15 +48,20 @@ public class DownstreamTriggerService(
             return;
         }
 
-        if (promotionGate.IsBlocked(firstStep.Id))
+        // Gate check and creation under the pipeline's promotion lock, so an unblock or promote
+        // racing this cascade sees either no job or this one (never creates a second).
+        lock (promotionLocks.For(group.PipelineId))
         {
-            logger.LogInformation(
-                "First processing step '{StepId}' has promotion blocked — halting downstream trigger",
-                firstStep.Id);
-            return;
-        }
+            if (promotionGate.IsBlocked(firstStep.Id))
+            {
+                logger.LogInformation(
+                    "First processing step '{StepId}' has promotion blocked — halting downstream trigger",
+                    firstStep.Id);
+                return;
+            }
 
-        CreateProcessingJob(group.PipelineId, group.ArtifactBundleId, firstStep);
+            CreateProcessingJob(group.PipelineId, group.ArtifactBundleId, firstStep);
+        }
     }
 
     private void TriggerNextProcessingStep(ProcessingJobGroup group)
@@ -84,19 +90,38 @@ public class DownstreamTriggerService(
             return;
         }
 
-        if (promotionGate.IsBlocked(nextStep.Id))
+        lock (promotionLocks.For(group.PipelineId))
         {
-            logger.LogInformation(
-                "Next processing step '{StepId}' has promotion blocked — halting downstream trigger",
-                nextStep.Id);
-            return;
-        }
+            if (promotionGate.IsBlocked(nextStep.Id))
+            {
+                logger.LogInformation(
+                    "Next processing step '{StepId}' has promotion blocked — halting downstream trigger",
+                    nextStep.Id);
+                return;
+            }
 
-        CreateProcessingJob(group.PipelineId, group.ArtifactBundleId, nextStep);
+            CreateProcessingJob(group.PipelineId, group.ArtifactBundleId, nextStep);
+        }
     }
 
     private void CreateProcessingJob(Id<Pipelines.Pipeline> pipelineId, Id<Pipelines.Building.ArtifactBundle> artifactBundleId, ProcessingStep step)
     {
+        // The one case the cascade does not schedule: the same bundle is already Scheduled or
+        // InProgress for this step. Only an unblock/promote/manual trigger can have put it there
+        // (between this bundle passing the previous step and this handler running); a second run of
+        // the same bundle would just repeat it.
+        if (jobService.GetJobsByPipeline(pipelineId).Any(j =>
+                j is Job.ProcessingJob p
+                && p.ProcessingStepId == step.Id
+                && p.ArtifactBundleId == artifactBundleId
+                && p.Status is JobStatus.Scheduled or JobStatus.InProgress))
+        {
+            logger.LogInformation(
+                "Processing step '{StepName}' already has bundle '{BundleId}' scheduled or running for pipeline '{PipelineId}' — not scheduling it again",
+                step.Name, artifactBundleId, pipelineId);
+            return;
+        }
+
         jobService.CreateProcessingRun(pipelineId, artifactBundleId, step.Id);
 
         logger.LogInformation(

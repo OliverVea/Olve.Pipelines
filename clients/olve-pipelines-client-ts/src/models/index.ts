@@ -81,6 +81,24 @@ export function createIdOfArtifactBundleFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {IdOfJobGroup}
+ */
+// @ts-ignore
+export function createIdOfJobGroupFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoIdOfJobGroup;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {IdOfProcessingStep}
+ */
+// @ts-ignore
+export function createIdOfProcessingStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoIdOfProcessingStep;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {Job}
  */
 // @ts-ignore
@@ -423,6 +441,96 @@ export function createProductionStepFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromoteResult}
+ */
+// @ts-ignore
+export function createPromoteResultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromoteResult;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionBundle}
+ */
+// @ts-ignore
+export function createPromotionBundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionBundle;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionBundle | PromotionOption_bundleMember1}
+ */
+// @ts-ignore
+export function createPromotionOption_bundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionOption_bundle;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionOption_bundleMember1}
+ */
+// @ts-ignore
+export function createPromotionOption_bundleMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionOption_bundleMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionOption}
+ */
+// @ts-ignore
+export function createPromotionOptionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionOption;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {IdOfProcessingStep | PromotionSource_processingStepIdMember1}
+ */
+// @ts-ignore
+export function createPromotionSource_processingStepIdFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionSource_processingStepId;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionSource_processingStepIdMember1}
+ */
+// @ts-ignore
+export function createPromotionSource_processingStepIdMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionSource_processingStepIdMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionSource}
+ */
+// @ts-ignore
+export function createPromotionSourceFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionSource;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionState_promotionMember1 | UnblockPromotion}
+ */
+// @ts-ignore
+export function createPromotionState_promotionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionState_promotion;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionState_promotionMember1}
+ */
+// @ts-ignore
+export function createPromotionState_promotionMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPromotionState_promotionMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PromotionState}
  */
 // @ts-ignore
@@ -536,6 +644,60 @@ export function createStepConfigurationFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createStepHealthFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoStepHealth;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionBundle | StepPromotionState_lastSuccessMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_lastSuccessFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_lastSuccess;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepPromotionState_lastSuccessMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_lastSuccessMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_lastSuccessMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionOption | StepPromotionState_onUnblockMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_onUnblockFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_onUnblock;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepPromotionState_onUnblockMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_onUnblockMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_onUnblockMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionBundle | StepPromotionState_sourceLastSuccessMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_sourceLastSuccessFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_sourceLastSuccess;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepPromotionState_sourceLastSuccessMember1}
+ */
+// @ts-ignore
+export function createStepPromotionState_sourceLastSuccessMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepPromotionState_sourceLastSuccessMember1;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -718,6 +880,51 @@ export function createTriggerTargetProductionTriggerTargetFromDiscriminatorValue
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PromotionBundle | UnblockPromotion_bundleMember1}
+ */
+// @ts-ignore
+export function createUnblockPromotion_bundleFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUnblockPromotion_bundle;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UnblockPromotion_bundleMember1}
+ */
+// @ts-ignore
+export function createUnblockPromotion_bundleMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUnblockPromotion_bundleMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {IdOfJobGroup | UnblockPromotion_jobGroupIdMember1}
+ */
+// @ts-ignore
+export function createUnblockPromotion_jobGroupIdFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUnblockPromotion_jobGroupId;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UnblockPromotion_jobGroupIdMember1}
+ */
+// @ts-ignore
+export function createUnblockPromotion_jobGroupIdMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUnblockPromotion_jobGroupIdMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {UnblockPromotion}
+ */
+// @ts-ignore
+export function createUnblockPromotionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUnblockPromotion;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateBindingRequest}
  */
 // @ts-ignore
@@ -819,6 +1026,26 @@ export function deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember
  */
 // @ts-ignore
 export function deserializeIntoIdOfArtifactBundle(idOfArtifactBundle: Partial<IdOfArtifactBundle> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param IdOfJobGroup The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoIdOfJobGroup(idOfJobGroup: Partial<IdOfJobGroup> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param IdOfProcessingStep The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoIdOfProcessingStep(idOfProcessingStep: Partial<IdOfProcessingStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
     }
 }
@@ -1235,6 +1462,104 @@ export function deserializeIntoProductionStepDocument_configurationMember1(produ
 }
 /**
  * The deserialization information for the current model
+ * @param PromoteResult The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromoteResult(promoteResult: Partial<PromoteResult> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "bundle": n => { promoteResult.bundle = n.getObjectValue<PromotionBundle>(createPromotionBundleFromDiscriminatorValue); },
+        "jobGroupId": n => { promoteResult.jobGroupId = n.getGuidValue(); },
+        "message": n => { promoteResult.message = n.getStringValue(); },
+        "processingStepId": n => { promoteResult.processingStepId = n.getGuidValue(); },
+        "source": n => { promoteResult.source = n.getObjectValue<PromotionSource>(createPromotionSourceFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionBundle The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionBundle(promotionBundle: Partial<PromotionBundle> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "artifactBundleId": n => { promotionBundle.artifactBundleId = n.getGuidValue(); },
+        "builtAt": n => { promotionBundle.builtAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionOption The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionOption(promotionOption: Partial<PromotionOption> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "allowed": n => { promotionOption.allowed = n.getBooleanValue(); },
+        "bundle": n => { promotionOption.bundle = n.getObjectValue<PromotionBundle>(createPromotionBundleFromDiscriminatorValue) ?? n.getObjectValue<PromotionOption_bundleMember1>(createPromotionOption_bundleMember1FromDiscriminatorValue); },
+        "message": n => { promotionOption.message = n.getStringValue(); },
+        "reason": n => { promotionOption.reason = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionOption_bundle The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionOption_bundle(promotionOption_bundle: Partial<PromotionBundle | PromotionOption_bundleMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionBundle(promotionOption_bundle as PromotionBundle),
+        ...deserializeIntoPromotionOption_bundleMember1(promotionOption_bundle as PromotionOption_bundleMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionOption_bundleMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionOption_bundleMember1(promotionOption_bundleMember1: Partial<PromotionOption_bundleMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionSource The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionSource(promotionSource: Partial<PromotionSource> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "isProduction": n => { promotionSource.isProduction = n.getBooleanValue(); },
+        "name": n => { promotionSource.name = n.getStringValue(); },
+        "processingStepId": n => { promotionSource.processingStepId = n.getObjectValue<IdOfProcessingStep>(createIdOfProcessingStepFromDiscriminatorValue) ?? n.getObjectValue<PromotionSource_processingStepIdMember1>(createPromotionSource_processingStepIdMember1FromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionSource_processingStepId The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionSource_processingStepId(promotionSource_processingStepId: Partial<IdOfProcessingStep | PromotionSource_processingStepIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoIdOfProcessingStep(promotionSource_processingStepId as IdOfProcessingStep),
+        ...deserializeIntoPromotionSource_processingStepIdMember1(promotionSource_processingStepId as PromotionSource_processingStepIdMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionSource_processingStepIdMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionSource_processingStepIdMember1(promotionSource_processingStepIdMember1: Partial<PromotionSource_processingStepIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PromotionState The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1242,6 +1567,29 @@ export function deserializeIntoProductionStepDocument_configurationMember1(produ
 export function deserializeIntoPromotionState(promotionState: Partial<PromotionState> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "blocked": n => { promotionState.blocked = n.getBooleanValue(); },
+        "promotion": n => { promotionState.promotion = n.getObjectValue<PromotionState_promotionMember1>(createPromotionState_promotionMember1FromDiscriminatorValue) ?? n.getObjectValue<UnblockPromotion>(createUnblockPromotionFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionState_promotion The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionState_promotion(promotionState_promotion: Partial<PromotionState_promotionMember1 | UnblockPromotion> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionState_promotionMember1(promotionState_promotion as PromotionState_promotionMember1),
+        ...deserializeIntoUnblockPromotion(promotionState_promotion as UnblockPromotion),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PromotionState_promotionMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPromotionState_promotionMember1(promotionState_promotionMember1: Partial<PromotionState_promotionMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -1319,6 +1667,7 @@ export function deserializeIntoSetDeployTriggerRequest(setDeployTriggerRequest: 
 export function deserializeIntoSetPromotionRequest(setPromotionRequest: Partial<SetPromotionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "blocked": n => { setPromotionRequest.blocked = n.getBooleanValue(); },
+        "expectedPromotion": n => { setPromotionRequest.expectedPromotion = n.getStringValue(); },
     }
 }
 /**
@@ -1401,7 +1750,79 @@ export function deserializeIntoStepHealth(stepHealth: Partial<StepHealth> | unde
 export function deserializeIntoStepPromotionState(stepPromotionState: Partial<StepPromotionState> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "blocked": n => { stepPromotionState.blocked = n.getBooleanValue(); },
+        "lastSuccess": n => { stepPromotionState.lastSuccess = n.getObjectValue<PromotionBundle>(createPromotionBundleFromDiscriminatorValue) ?? n.getObjectValue<StepPromotionState_lastSuccessMember1>(createStepPromotionState_lastSuccessMember1FromDiscriminatorValue); },
+        "onUnblock": n => { stepPromotionState.onUnblock = n.getObjectValue<PromotionOption>(createPromotionOptionFromDiscriminatorValue) ?? n.getObjectValue<StepPromotionState_onUnblockMember1>(createStepPromotionState_onUnblockMember1FromDiscriminatorValue); },
         "processingStepId": n => { stepPromotionState.processingStepId = n.getGuidValue(); },
+        "promote": n => { stepPromotionState.promote = n.getObjectValue<PromotionOption>(createPromotionOptionFromDiscriminatorValue); },
+        "source": n => { stepPromotionState.source = n.getObjectValue<PromotionSource>(createPromotionSourceFromDiscriminatorValue); },
+        "sourceLastSuccess": n => { stepPromotionState.sourceLastSuccess = n.getObjectValue<PromotionBundle>(createPromotionBundleFromDiscriminatorValue) ?? n.getObjectValue<StepPromotionState_sourceLastSuccessMember1>(createStepPromotionState_sourceLastSuccessMember1FromDiscriminatorValue); },
+        "stepName": n => { stepPromotionState.stepName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_lastSuccess The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_lastSuccess(stepPromotionState_lastSuccess: Partial<PromotionBundle | StepPromotionState_lastSuccessMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionBundle(stepPromotionState_lastSuccess as PromotionBundle),
+        ...deserializeIntoStepPromotionState_lastSuccessMember1(stepPromotionState_lastSuccess as StepPromotionState_lastSuccessMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_lastSuccessMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_lastSuccessMember1(stepPromotionState_lastSuccessMember1: Partial<StepPromotionState_lastSuccessMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_onUnblock The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_onUnblock(stepPromotionState_onUnblock: Partial<PromotionOption | StepPromotionState_onUnblockMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionOption(stepPromotionState_onUnblock as PromotionOption),
+        ...deserializeIntoStepPromotionState_onUnblockMember1(stepPromotionState_onUnblock as StepPromotionState_onUnblockMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_onUnblockMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_onUnblockMember1(stepPromotionState_onUnblockMember1: Partial<StepPromotionState_onUnblockMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_sourceLastSuccess The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_sourceLastSuccess(stepPromotionState_sourceLastSuccess: Partial<PromotionBundle | StepPromotionState_sourceLastSuccessMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionBundle(stepPromotionState_sourceLastSuccess as PromotionBundle),
+        ...deserializeIntoStepPromotionState_sourceLastSuccessMember1(stepPromotionState_sourceLastSuccess as StepPromotionState_sourceLastSuccessMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepPromotionState_sourceLastSuccessMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepPromotionState_sourceLastSuccessMember1(stepPromotionState_sourceLastSuccessMember1: Partial<StepPromotionState_sourceLastSuccessMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -1594,6 +2015,65 @@ export function deserializeIntoTriggerTargetProductionTriggerTarget(triggerTarge
 }
 /**
  * The deserialization information for the current model
+ * @param UnblockPromotion The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUnblockPromotion(unblockPromotion: Partial<UnblockPromotion> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "bundle": n => { unblockPromotion.bundle = n.getObjectValue<PromotionBundle>(createPromotionBundleFromDiscriminatorValue) ?? n.getObjectValue<UnblockPromotion_bundleMember1>(createUnblockPromotion_bundleMember1FromDiscriminatorValue); },
+        "jobGroupId": n => { unblockPromotion.jobGroupId = n.getObjectValue<IdOfJobGroup>(createIdOfJobGroupFromDiscriminatorValue) ?? n.getObjectValue<UnblockPromotion_jobGroupIdMember1>(createUnblockPromotion_jobGroupIdMember1FromDiscriminatorValue); },
+        "message": n => { unblockPromotion.message = n.getStringValue(); },
+        "reason": n => { unblockPromotion.reason = n.getStringValue(); },
+        "started": n => { unblockPromotion.started = n.getBooleanValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UnblockPromotion_bundle The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUnblockPromotion_bundle(unblockPromotion_bundle: Partial<PromotionBundle | UnblockPromotion_bundleMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPromotionBundle(unblockPromotion_bundle as PromotionBundle),
+        ...deserializeIntoUnblockPromotion_bundleMember1(unblockPromotion_bundle as UnblockPromotion_bundleMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UnblockPromotion_bundleMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUnblockPromotion_bundleMember1(unblockPromotion_bundleMember1: Partial<UnblockPromotion_bundleMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UnblockPromotion_jobGroupId The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUnblockPromotion_jobGroupId(unblockPromotion_jobGroupId: Partial<IdOfJobGroup | UnblockPromotion_jobGroupIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoIdOfJobGroup(unblockPromotion_jobGroupId as IdOfJobGroup),
+        ...deserializeIntoUnblockPromotion_jobGroupIdMember1(unblockPromotion_jobGroupId as UnblockPromotion_jobGroupIdMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param UnblockPromotion_jobGroupIdMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoUnblockPromotion_jobGroupIdMember1(unblockPromotion_jobGroupIdMember1: Partial<UnblockPromotion_jobGroupIdMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param UpdateBindingRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1637,6 +2117,10 @@ export function deserializeIntoWebhookRequest_artifactBundleIdMember1(webhookReq
     }
 }
 export interface IdOfArtifactBundle extends AdditionalDataHolder, Parsable {
+}
+export interface IdOfJobGroup extends AdditionalDataHolder, Parsable {
+}
+export interface IdOfProcessingStep extends AdditionalDataHolder, Parsable {
 }
 export interface Job extends AdditionalDataHolder, Parsable {
     /**
@@ -2087,11 +2571,88 @@ export interface ProductionStepDocument extends AdditionalDataHolder, Parsable {
 export type ProductionStepDocument_configuration = ProductionStepDocument_configurationMember1 | StepConfigurationDocument;
 export interface ProductionStepDocument_configurationMember1 extends AdditionalDataHolder, Parsable {
 }
+export interface PromoteResult extends AdditionalDataHolder, Parsable {
+    /**
+     * The bundle property
+     */
+    bundle?: PromotionBundle | null;
+    /**
+     * The jobGroupId property
+     */
+    jobGroupId?: Guid | null;
+    /**
+     * The message property
+     */
+    message?: string | null;
+    /**
+     * The processingStepId property
+     */
+    processingStepId?: Guid | null;
+    /**
+     * The source property
+     */
+    source?: PromotionSource | null;
+}
+export interface PromotionBundle extends AdditionalDataHolder, Parsable {
+    /**
+     * The artifactBundleId property
+     */
+    artifactBundleId?: Guid | null;
+    /**
+     * The builtAt property
+     */
+    builtAt?: Date | null;
+}
+export interface PromotionOption extends AdditionalDataHolder, Parsable {
+    /**
+     * The allowed property
+     */
+    allowed?: boolean | null;
+    /**
+     * The bundle property
+     */
+    bundle?: PromotionBundle | PromotionOption_bundleMember1 | null;
+    /**
+     * The message property
+     */
+    message?: string | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+}
+export type PromotionOption_bundle = PromotionBundle | PromotionOption_bundleMember1;
+export interface PromotionOption_bundleMember1 extends AdditionalDataHolder, Parsable {
+}
+export interface PromotionSource extends AdditionalDataHolder, Parsable {
+    /**
+     * The isProduction property
+     */
+    isProduction?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The processingStepId property
+     */
+    processingStepId?: IdOfProcessingStep | PromotionSource_processingStepIdMember1 | null;
+}
+export type PromotionSource_processingStepId = IdOfProcessingStep | PromotionSource_processingStepIdMember1;
+export interface PromotionSource_processingStepIdMember1 extends AdditionalDataHolder, Parsable {
+}
 export interface PromotionState extends AdditionalDataHolder, Parsable {
     /**
      * The blocked property
      */
     blocked?: boolean | null;
+    /**
+     * The promotion property
+     */
+    promotion?: PromotionState_promotionMember1 | UnblockPromotion | null;
+}
+export type PromotionState_promotion = PromotionState_promotionMember1 | UnblockPromotion;
+export interface PromotionState_promotionMember1 extends AdditionalDataHolder, Parsable {
 }
 export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
@@ -2235,6 +2796,28 @@ export function serializeCreatePipelineWithRepoRequest_deployTriggerMember1(writ
 export function serializeIdOfArtifactBundle(writer: SerializationWriter, idOfArtifactBundle: Partial<IdOfArtifactBundle> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!idOfArtifactBundle || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(idOfArtifactBundle.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param IdOfJobGroup The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeIdOfJobGroup(writer: SerializationWriter, idOfJobGroup: Partial<IdOfJobGroup> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!idOfJobGroup || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(idOfJobGroup.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param IdOfProcessingStep The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeIdOfProcessingStep(writer: SerializationWriter, idOfProcessingStep: Partial<IdOfProcessingStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!idOfProcessingStep || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(idOfProcessingStep.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2702,6 +3285,108 @@ export function serializeProductionStepDocument_configurationMember1(writer: Ser
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromoteResult The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromoteResult(writer: SerializationWriter, promoteResult: Partial<PromoteResult> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promoteResult || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<PromotionBundle>("bundle", promoteResult.bundle, serializePromotionBundle);
+    writer.writeGuidValue("jobGroupId", promoteResult.jobGroupId);
+    writer.writeStringValue("message", promoteResult.message);
+    writer.writeGuidValue("processingStepId", promoteResult.processingStepId);
+    writer.writeObjectValue<PromotionSource>("source", promoteResult.source, serializePromotionSource);
+    writer.writeAdditionalData(promoteResult.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionBundle The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionBundle(writer: SerializationWriter, promotionBundle: Partial<PromotionBundle> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionBundle || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("artifactBundleId", promotionBundle.artifactBundleId);
+    writer.writeDateValue("builtAt", promotionBundle.builtAt);
+    writer.writeAdditionalData(promotionBundle.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionOption The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionOption(writer: SerializationWriter, promotionOption: Partial<PromotionOption> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionOption || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("allowed", promotionOption.allowed);
+    writer.writeObjectValue<PromotionBundle | PromotionOption_bundleMember1>("bundle", promotionOption.bundle, serializePromotionOption_bundle);
+    writer.writeStringValue("message", promotionOption.message);
+    writer.writeStringValue("reason", promotionOption.reason);
+    writer.writeAdditionalData(promotionOption.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionOption_bundle The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionOption_bundle(writer: SerializationWriter, promotionOption_bundle: Partial<PromotionBundle | PromotionOption_bundleMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionBundle(writer, promotionOption_bundle as PromotionBundle);
+    serializePromotionOption_bundleMember1(writer, promotionOption_bundle as PromotionOption_bundleMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionOption_bundleMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionOption_bundleMember1(writer: SerializationWriter, promotionOption_bundleMember1: Partial<PromotionOption_bundleMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionOption_bundleMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(promotionOption_bundleMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionSource The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionSource(writer: SerializationWriter, promotionSource: Partial<PromotionSource> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionSource || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("isProduction", promotionSource.isProduction);
+    writer.writeStringValue("name", promotionSource.name);
+    writer.writeObjectValue<IdOfProcessingStep | PromotionSource_processingStepIdMember1>("processingStepId", promotionSource.processingStepId, serializePromotionSource_processingStepId);
+    writer.writeAdditionalData(promotionSource.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionSource_processingStepId The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionSource_processingStepId(writer: SerializationWriter, promotionSource_processingStepId: Partial<IdOfProcessingStep | PromotionSource_processingStepIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeIdOfProcessingStep(writer, promotionSource_processingStepId as IdOfProcessingStep);
+    serializePromotionSource_processingStepIdMember1(writer, promotionSource_processingStepId as PromotionSource_processingStepIdMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionSource_processingStepIdMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionSource_processingStepIdMember1(writer: SerializationWriter, promotionSource_processingStepIdMember1: Partial<PromotionSource_processingStepIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionSource_processingStepIdMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(promotionSource_processingStepIdMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PromotionState The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2709,7 +3394,30 @@ export function serializeProductionStepDocument_configurationMember1(writer: Ser
 export function serializePromotionState(writer: SerializationWriter, promotionState: Partial<PromotionState> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!promotionState || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("blocked", promotionState.blocked);
+    writer.writeObjectValue<PromotionState_promotionMember1 | UnblockPromotion>("promotion", promotionState.promotion, serializePromotionState_promotion);
     writer.writeAdditionalData(promotionState.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionState_promotion The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionState_promotion(writer: SerializationWriter, promotionState_promotion: Partial<PromotionState_promotionMember1 | UnblockPromotion> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionState_promotionMember1(writer, promotionState_promotion as PromotionState_promotionMember1);
+    serializeUnblockPromotion(writer, promotionState_promotion as UnblockPromotion);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PromotionState_promotionMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePromotionState_promotionMember1(writer: SerializationWriter, promotionState_promotionMember1: Partial<PromotionState_promotionMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!promotionState_promotionMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(promotionState_promotionMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -2792,6 +3500,7 @@ export function serializeSetDeployTriggerRequest(writer: SerializationWriter, se
 export function serializeSetPromotionRequest(writer: SerializationWriter, setPromotionRequest: Partial<SetPromotionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!setPromotionRequest || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("blocked", setPromotionRequest.blocked);
+    writer.writeStringValue("expectedPromotion", setPromotionRequest.expectedPromotion);
     writer.writeAdditionalData(setPromotionRequest.additionalData);
 }
 /**
@@ -2881,8 +3590,80 @@ export function serializeStepHealth(writer: SerializationWriter, stepHealth: Par
 export function serializeStepPromotionState(writer: SerializationWriter, stepPromotionState: Partial<StepPromotionState> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!stepPromotionState || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("blocked", stepPromotionState.blocked);
+    writer.writeObjectValue<PromotionBundle | StepPromotionState_lastSuccessMember1>("lastSuccess", stepPromotionState.lastSuccess, serializeStepPromotionState_lastSuccess);
+    writer.writeObjectValue<PromotionOption | StepPromotionState_onUnblockMember1>("onUnblock", stepPromotionState.onUnblock, serializeStepPromotionState_onUnblock);
     writer.writeGuidValue("processingStepId", stepPromotionState.processingStepId);
+    writer.writeObjectValue<PromotionOption>("promote", stepPromotionState.promote, serializePromotionOption);
+    writer.writeObjectValue<PromotionSource>("source", stepPromotionState.source, serializePromotionSource);
+    writer.writeObjectValue<PromotionBundle | StepPromotionState_sourceLastSuccessMember1>("sourceLastSuccess", stepPromotionState.sourceLastSuccess, serializeStepPromotionState_sourceLastSuccess);
+    writer.writeStringValue("stepName", stepPromotionState.stepName);
     writer.writeAdditionalData(stepPromotionState.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_lastSuccess The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_lastSuccess(writer: SerializationWriter, stepPromotionState_lastSuccess: Partial<PromotionBundle | StepPromotionState_lastSuccessMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionBundle(writer, stepPromotionState_lastSuccess as PromotionBundle);
+    serializeStepPromotionState_lastSuccessMember1(writer, stepPromotionState_lastSuccess as StepPromotionState_lastSuccessMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_lastSuccessMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_lastSuccessMember1(writer: SerializationWriter, stepPromotionState_lastSuccessMember1: Partial<StepPromotionState_lastSuccessMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepPromotionState_lastSuccessMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(stepPromotionState_lastSuccessMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_onUnblock The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_onUnblock(writer: SerializationWriter, stepPromotionState_onUnblock: Partial<PromotionOption | StepPromotionState_onUnblockMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionOption(writer, stepPromotionState_onUnblock as PromotionOption);
+    serializeStepPromotionState_onUnblockMember1(writer, stepPromotionState_onUnblock as StepPromotionState_onUnblockMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_onUnblockMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_onUnblockMember1(writer: SerializationWriter, stepPromotionState_onUnblockMember1: Partial<StepPromotionState_onUnblockMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepPromotionState_onUnblockMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(stepPromotionState_onUnblockMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_sourceLastSuccess The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_sourceLastSuccess(writer: SerializationWriter, stepPromotionState_sourceLastSuccess: Partial<PromotionBundle | StepPromotionState_sourceLastSuccessMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionBundle(writer, stepPromotionState_sourceLastSuccess as PromotionBundle);
+    serializeStepPromotionState_sourceLastSuccessMember1(writer, stepPromotionState_sourceLastSuccess as StepPromotionState_sourceLastSuccessMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepPromotionState_sourceLastSuccessMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepPromotionState_sourceLastSuccessMember1(writer: SerializationWriter, stepPromotionState_sourceLastSuccessMember1: Partial<StepPromotionState_sourceLastSuccessMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepPromotionState_sourceLastSuccessMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(stepPromotionState_sourceLastSuccessMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3110,6 +3891,66 @@ export function serializeTriggerTargetProductionTriggerTarget(writer: Serializat
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UnblockPromotion The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUnblockPromotion(writer: SerializationWriter, unblockPromotion: Partial<UnblockPromotion> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!unblockPromotion || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<PromotionBundle | UnblockPromotion_bundleMember1>("bundle", unblockPromotion.bundle, serializeUnblockPromotion_bundle);
+    writer.writeObjectValue<IdOfJobGroup | UnblockPromotion_jobGroupIdMember1>("jobGroupId", unblockPromotion.jobGroupId, serializeUnblockPromotion_jobGroupId);
+    writer.writeStringValue("message", unblockPromotion.message);
+    writer.writeStringValue("reason", unblockPromotion.reason);
+    writer.writeBooleanValue("started", unblockPromotion.started);
+    writer.writeAdditionalData(unblockPromotion.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UnblockPromotion_bundle The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUnblockPromotion_bundle(writer: SerializationWriter, unblockPromotion_bundle: Partial<PromotionBundle | UnblockPromotion_bundleMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializePromotionBundle(writer, unblockPromotion_bundle as PromotionBundle);
+    serializeUnblockPromotion_bundleMember1(writer, unblockPromotion_bundle as UnblockPromotion_bundleMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UnblockPromotion_bundleMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUnblockPromotion_bundleMember1(writer: SerializationWriter, unblockPromotion_bundleMember1: Partial<UnblockPromotion_bundleMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!unblockPromotion_bundleMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(unblockPromotion_bundleMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UnblockPromotion_jobGroupId The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUnblockPromotion_jobGroupId(writer: SerializationWriter, unblockPromotion_jobGroupId: Partial<IdOfJobGroup | UnblockPromotion_jobGroupIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeIdOfJobGroup(writer, unblockPromotion_jobGroupId as IdOfJobGroup);
+    serializeUnblockPromotion_jobGroupIdMember1(writer, unblockPromotion_jobGroupId as UnblockPromotion_jobGroupIdMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param UnblockPromotion_jobGroupIdMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeUnblockPromotion_jobGroupIdMember1(writer: SerializationWriter, unblockPromotion_jobGroupIdMember1: Partial<UnblockPromotion_jobGroupIdMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!unblockPromotion_jobGroupIdMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(unblockPromotion_jobGroupIdMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateBindingRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3164,6 +4005,10 @@ export interface SetPromotionRequest extends AdditionalDataHolder, Parsable {
      * The blocked property
      */
     blocked?: boolean | null;
+    /**
+     * The expectedPromotion property
+     */
+    expectedPromotion?: string | null;
 }
 export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -3227,9 +4072,42 @@ export interface StepPromotionState extends AdditionalDataHolder, Parsable {
      */
     blocked?: boolean | null;
     /**
+     * The lastSuccess property
+     */
+    lastSuccess?: PromotionBundle | StepPromotionState_lastSuccessMember1 | null;
+    /**
+     * The onUnblock property
+     */
+    onUnblock?: PromotionOption | StepPromotionState_onUnblockMember1 | null;
+    /**
      * The processingStepId property
      */
     processingStepId?: Guid | null;
+    /**
+     * The promote property
+     */
+    promote?: PromotionOption | null;
+    /**
+     * The source property
+     */
+    source?: PromotionSource | null;
+    /**
+     * The sourceLastSuccess property
+     */
+    sourceLastSuccess?: PromotionBundle | StepPromotionState_sourceLastSuccessMember1 | null;
+    /**
+     * The stepName property
+     */
+    stepName?: string | null;
+}
+export type StepPromotionState_lastSuccess = PromotionBundle | StepPromotionState_lastSuccessMember1;
+export interface StepPromotionState_lastSuccessMember1 extends AdditionalDataHolder, Parsable {
+}
+export type StepPromotionState_onUnblock = PromotionOption | StepPromotionState_onUnblockMember1;
+export interface StepPromotionState_onUnblockMember1 extends AdditionalDataHolder, Parsable {
+}
+export type StepPromotionState_sourceLastSuccess = PromotionBundle | StepPromotionState_sourceLastSuccessMember1;
+export interface StepPromotionState_sourceLastSuccessMember1 extends AdditionalDataHolder, Parsable {
 }
 export interface Trigger extends AdditionalDataHolder, Parsable {
     /**
@@ -3380,6 +4258,34 @@ export interface TriggerTargetProcessingTriggerTarget extends Parsable, TriggerT
     processingStepId?: Guid | null;
 }
 export interface TriggerTargetProductionTriggerTarget extends Parsable, TriggerTarget {
+}
+export interface UnblockPromotion extends AdditionalDataHolder, Parsable {
+    /**
+     * The bundle property
+     */
+    bundle?: PromotionBundle | UnblockPromotion_bundleMember1 | null;
+    /**
+     * The jobGroupId property
+     */
+    jobGroupId?: IdOfJobGroup | UnblockPromotion_jobGroupIdMember1 | null;
+    /**
+     * The message property
+     */
+    message?: string | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+    /**
+     * The started property
+     */
+    started?: boolean | null;
+}
+export type UnblockPromotion_bundle = PromotionBundle | UnblockPromotion_bundleMember1;
+export interface UnblockPromotion_bundleMember1 extends AdditionalDataHolder, Parsable {
+}
+export type UnblockPromotion_jobGroupId = IdOfJobGroup | UnblockPromotion_jobGroupIdMember1;
+export interface UnblockPromotion_jobGroupIdMember1 extends AdditionalDataHolder, Parsable {
 }
 export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
     /**

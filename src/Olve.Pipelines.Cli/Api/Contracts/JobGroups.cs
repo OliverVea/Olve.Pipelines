@@ -35,4 +35,8 @@ public sealed class ProcessingJobGroup : JobGroup
 public sealed class SetPromotionRequest
 {
     public bool Blocked { get; set; }
+
+    /// <summary>Unblock only: the bundle id unblocking is expected to start, or <c>"none"</c>. Omitted when null.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExpectedPromotion { get; set; }
 }

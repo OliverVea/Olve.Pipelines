@@ -25,7 +25,7 @@ public interface IPipelinesApi
     Task<Result<ProcessingStep>> GetProcessingStep(string stepId, CancellationToken ct);
     Task<Result<StepConfiguration>> GetProcessingStepConfiguration(string stepId, CancellationToken ct);
     Task<Result<StepPromotionState[]>> ListProcessingStepPromotions(string pipelineId, CancellationToken ct);
-    Task<Result<PromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct);
+    Task<Result<StepPromotionState>> GetProcessingStepPromotion(string stepId, CancellationToken ct);
 
     // Jobs
     Task<Result<PageOfJob>> ListJobs(string? pipelineId, int page, int pageSize, int sort, CancellationToken ct);
@@ -55,8 +55,8 @@ public interface IPipelinesApi
 
     // Mutations
     Task<Result<JobGroup>> TriggerProduction(string pipelineId, CancellationToken ct);
-    Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, CancellationToken ct);
-    Task<Result<JobGroup>> RePromoteProcessingStep(string stepId, CancellationToken ct);
+    Task<Result<PromotionState>> SetProcessingStepPromotion(string stepId, bool blocked, string? expectedPromotion, CancellationToken ct);
+    Task<Result<PromoteResult>> PromoteProcessingStep(string stepId, string? expectedArtifactBundleId, CancellationToken ct);
     Task<Result> CancelJob(string id, CancellationToken ct);
     Task<Result> DeletePipeline(string id, CancellationToken ct);
     Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);

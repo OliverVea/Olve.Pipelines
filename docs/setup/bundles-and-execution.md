@@ -61,6 +61,25 @@ step. You can list and fetch bundles with the `pl` CLI:
 | `pl bundle list <pipelineId>` | List the pipeline's bundles |
 | `pl bundle get <bundleId>` | Get one bundle |
 
+(`pl bundle list` shows the bundles the running controller has seen since it last started; the
+bundle records are in memory only. Promotion does not depend on them — it reads the persisted job
+history.)
+
+### Retention
+
+A bundle's files (every step's output, plus the job logs) live under
+`bundles/<pipeline>/<bundle>/` in the instance's storage. A daily sweep deletes a bundle only when
+it is **both** older than 6 months (by its newest file) **and** not among its pipeline's 20 most
+recent bundles (`Storage:Retention:{Enabled,KeepLatest,MinAgeDays,IntervalHours}`). On top of
+that, a bundle that [Promote](promotion-gate.md) may still run is **never** deleted, whatever its
+age: the latest completed production run, each processing step's last successful bundle, and the
+bundle of any scheduled or running job.
+
+This protection starts with the release that introduced it; a bundle swept earlier is not
+recreated. Promote judges whether a bundle still exists from the job history (its production run
+on record and fully succeeded), not by listing storage, so a bundle whose files were removed some
+other way would run with an empty input.
+
 ## Jobs and scheduling
 
 Jobs are first-class persisted entities managed by a **JobQueue** that controls when they're
@@ -96,11 +115,13 @@ submitted to Kubernetes. There are two job types:
 2. Production steps run in parallel; their combined output is zipped into an **ArtifactBundle**
    in S3.
 3. The bundle is **promoted** into the first processing step (subject to its
-   [promotion gate](promotion-gate.md)) → a **ProcessingJob**.
+   [promotion gate](promotion-gate.md)) → a **ProcessingJob**. A blocked step holds the chain;
+   unblocking it (or Promote) later runs it with the bundle that last succeeded at the step
+   before it.
 4. Each processing step runs in turn; a failure stops the chain. The bundle propagates through
    the pipeline automatically.
 
 ## See also
 
-- [Promotion Gate](promotion-gate.md) — pause/redrive the bundle into a processing step
+- [Promotion Gate](promotion-gate.md) — pause, release or retry the bundle into a processing step
 - [`config.yaml` Reference](config-reference.md) — how to declare the steps that become these jobs

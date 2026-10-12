@@ -15,7 +15,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [examples.md](examples.md) | Four real projects mapped to capabilities; what composability the model needs next |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding commands (`pl binding …`), the reconcile loop, status, git-only restriction |
 | [bundles-and-execution.md](bundles-and-execution.md) | K8s Jobs, ArtifactBundle, scheduling, the production→processing flow |
-| [promotion-gate.md](promotion-gate.md) | Brake + re-promote; operational state vs config |
+| [promotion-gate.md](promotion-gate.md) | Brake + promote; which build Promote/unblock use; operational state vs config |
 | [script-library.md](script-library.md) | `olve-lib.sh` shared shell helpers; how a step sources it; function reference |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
 
@@ -58,7 +58,11 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | `$ref` (extract a step to a file) | [config-reference.md#ref--pull-a-step-from-its-own-file](config-reference.md#ref--pull-a-step-from-its-own-file) |
 | Reconcile loop (steps 1–6) | [binding-and-reconcile.md#the-reconcile-loop](binding-and-reconcile.md#the-reconcile-loop) |
 | Reconcile result (NeverRun/Success/Error) | [binding-and-reconcile.md#reconcile-result](binding-and-reconcile.md#reconcile-result) |
-| Re-promote (redrive last bundle) | [promotion-gate.md](promotion-gate.md) |
+| Promote (run what passed the previous step; retry a deploy) | [promotion-gate.md](promotion-gate.md) |
+| Unblock starts the due promotion | [promotion-gate.md](promotion-gate.md#the-rules) |
+| Re-promote (removed) | [promotion-gate.md](promotion-gate.md#cli) |
+| Fresh build (rebuild the branch head) | [promotion-gate.md](promotion-gate.md#typical-uses) |
+| Bundle retention | [bundles-and-execution.md](bundles-and-execution.md#retention) |
 | `script` vs `scriptFile` | [config-reference.md#scriptfile--keep-a-script-out-of-line](config-reference.md#scriptfile--keep-a-script-out-of-line) |
 | Script library (`olve-lib.sh`, sourcing it) | [script-library.md](script-library.md) |
 | Shared shell functions (deploy/build) | [script-library.md#functions](script-library.md#functions) |

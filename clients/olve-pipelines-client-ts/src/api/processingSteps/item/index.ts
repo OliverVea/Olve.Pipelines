@@ -6,9 +6,9 @@ import { createProcessingStepFromDiscriminatorValue, createResultProblemFromDisc
 // @ts-ignore
 import { ConfigurationRequestBuilderRequestsMetadata, type ConfigurationRequestBuilder } from './configuration/index.js';
 // @ts-ignore
-import { PromotionRequestBuilderRequestsMetadata, type PromotionRequestBuilder } from './promotion/index.js';
+import { PromoteRequestBuilderRequestsMetadata, type PromoteRequestBuilder } from './promote/index.js';
 // @ts-ignore
-import { RePromoteRequestBuilderRequestsMetadata, type RePromoteRequestBuilder } from './rePromote/index.js';
+import { PromotionRequestBuilderRequestsMetadata, type PromotionRequestBuilder } from './promotion/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -21,13 +21,13 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
      */
     get configuration(): ConfigurationRequestBuilder;
     /**
+     * The promote property
+     */
+    get promote(): PromoteRequestBuilder;
+    /**
      * The promotion property
      */
     get promotion(): PromotionRequestBuilder;
-    /**
-     * The rePromote property
-     */
-    get rePromote(): RePromoteRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ProcessingStep>}
@@ -51,11 +51,11 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     configuration: {
         requestsMetadata: ConfigurationRequestBuilderRequestsMetadata,
     },
+    promote: {
+        requestsMetadata: PromoteRequestBuilderRequestsMetadata,
+    },
     promotion: {
         requestsMetadata: PromotionRequestBuilderRequestsMetadata,
-    },
-    rePromote: {
-        requestsMetadata: RePromoteRequestBuilderRequestsMetadata,
     },
 };
 /**

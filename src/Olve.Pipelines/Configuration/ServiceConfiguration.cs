@@ -40,6 +40,8 @@ public static class ServiceConfiguration
         services.AddSingleton<ProcessingStepService>();
         services.AddSingleton<ProcessingStepCleanupService>();
         services.AddTransient<PromotionGateService>();
+        services.AddSingleton<PromotionLocks>();
+        services.AddTransient<PromotionService>();
         services.AddSingleton<EntityStore<Trigger>>();
         services.AddSingleton<TriggerEvents>();
         services.AddSingleton<IRunOnStartup, TriggerEventRegistration>();

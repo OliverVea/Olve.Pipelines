@@ -54,7 +54,7 @@ public class DownstreamTriggerServiceTests
             NullLogger<JobGroupCompletionService>.Instance);
 
         var downstreamTriggerService = new DownstreamTriggerService(
-            jobGroupService, processingStepService, promotionGate, jobService,
+            jobGroupService, processingStepService, promotionGate, new PromotionLocks(), jobService,
             NullLogger<DownstreamTriggerService>.Instance);
 
         events.OnUpdated.Subscribe(e => completionService.HandleJobUpdated(e.Id));
@@ -383,5 +383,54 @@ public class DownstreamTriggerServiceTests
 
         var allProcessingJobs = svc.JobService.ListJobs().OfType<ProcessingJob>().ToArray();
         await Assert.That(allProcessingJobs).Count().IsEqualTo(3);
+    }
+
+    // The one deliberate difference from the old cascade: if the very same bundle is already
+    // Scheduled/InProgress for the next step (an unblock or promote got there first), it is not
+    // scheduled a second time.
+    [Test]
+    public async Task SameBundleAlreadyActiveForNextStep_NotScheduledAgain()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+        var bundleId = Id.New<ArtifactBundle>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
+        var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []))).Succeeded();
+
+        svc.JobService.CreateProcessingRun(pipelineId, bundleId, step2.Id);
+
+        var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
+        var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
+        await CompleteJob(svc, job1.Id);
+
+        var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
+        await Assert.That(step2Jobs).Count().IsEqualTo(1);
+    }
+
+    // A DIFFERENT bundle already queued for the next step does not stop the cascade (unchanged).
+    [Test]
+    public async Task OtherBundleActiveForNextStep_CascadeStillSchedules()
+    {
+        var svc = CreateServices();
+        var pipelineId = Id.New<Pipeline>();
+        var bundleId = Id.New<ArtifactBundle>();
+
+        var step1 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-1", 1));
+        var step2 = Pick(svc.ProcessingStepService.Create(pipelineId, "step-2", 2));
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step1.Id, new StepConfiguration("img", "s1", []))).Succeeded();
+        await Assert.That(svc.ProcessingStepService.SetConfiguration(step2.Id, new StepConfiguration("img", "s2", []))).Succeeded();
+
+        svc.JobService.CreateProcessingRun(pipelineId, Id.New<ArtifactBundle>(), step2.Id);
+
+        var group1 = svc.JobGroupService.CreateProcessingGroup(pipelineId, bundleId, step1.Id);
+        var job1 = Pick(svc.JobService.CreateProcessingJob(pipelineId, group1.Id, bundleId, step1.Id));
+        await CompleteJob(svc, job1.Id);
+
+        var step2Jobs = svc.JobService.ListJobs().OfType<ProcessingJob>().Where(j => j.ProcessingStepId == step2.Id).ToArray();
+        await Assert.That(step2Jobs).Count().IsEqualTo(2);
+        await Assert.That(step2Jobs.Any(j => j.ArtifactBundleId == bundleId)).IsTrue();
     }
 }

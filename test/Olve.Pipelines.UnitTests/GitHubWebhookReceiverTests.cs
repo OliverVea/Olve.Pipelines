@@ -147,7 +147,7 @@ public class GitHubWebhookReceiverTests
 
         var execution = new TriggerExecutionService(
             triggerStore, pipelines, productionSteps, processingSteps, bundles,
-            jobGroups, jobs, promotionGate, pauseState);
+            jobGroups, jobs, promotionGate, new PromotionLocks(), pauseState);
 
         var pipeline = Pick(pipelines.Create("demo"));
         var step = Pick(productionSteps.Create(pipeline.Id, "build"));

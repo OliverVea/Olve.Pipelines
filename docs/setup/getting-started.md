@@ -147,5 +147,5 @@ so bad config never ships on stale code. See
 
 - Tune the file → **[`config.yaml` Reference](config-reference.md)**
 - Understand the loop → **[Binding & Reconcile](binding-and-reconcile.md)**
-- Pause/redrive a deploy → **[Promotion Gate](promotion-gate.md)**
+- Pause, release or retry a deploy → **[Promotion Gate](promotion-gate.md)**
 - Something failed → **[Troubleshooting](troubleshooting.md)**

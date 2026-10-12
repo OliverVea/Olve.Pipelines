@@ -55,6 +55,7 @@ public sealed class CliDispatcher
         Register(new ProcessingPromotionCommand());
         Register(new ProcessingBlockCommand());
         Register(new ProcessingUnblockCommand());
+        Register(new ProcessingPromoteCommand());
         Register(new ProcessingRePromoteCommand());
 
         // job

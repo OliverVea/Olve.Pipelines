@@ -77,6 +77,7 @@ public static class PipelineEndpoints
             PipelineService pipelines,
             ProcessingStepService processingSteps,
             PromotionGateService promotionGate,
+            PromotionLocks promotionLocks,
             ArtifactBundleService bundles,
             JobService jobs,
             Id<Pipeline> id,
@@ -95,14 +96,19 @@ public static class PipelineEndpoints
                 if (step.PipelineId != id)
                     return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{request.ProcessingStepId}' does not belong to pipeline '{id}'."));
 
-                if (promotionGate.IsBlocked(step.Id))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{step.Id}' has promotion blocked; trigger refused."));
+                // Gate check + create under the pipeline's promotion lock, so a concurrent block,
+                // unblock or promote is ordered strictly before or after this trigger.
+                lock (promotionLocks.For(id))
+                {
+                    if (promotionGate.IsBlocked(step.Id))
+                        return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{step.Id}' has promotion blocked; trigger refused."));
 
-                var configResult = processingSteps.TryGetConfiguration(step.Id);
-                if (configResult.TryPickProblems(out problems))
-                    return problems;
+                    var configResult = processingSteps.TryGetConfiguration(step.Id);
+                    if (configResult.TryPickProblems(out problems))
+                        return problems;
 
-                return jobs.CreateProcessingRun(id, bundle.Id, step.Id);
+                    return jobs.CreateProcessingRun(id, bundle.Id, step.Id);
+                }
             })
             .WithResultMapping<JobGroup>()
             .WithName("TriggerProcessing");

@@ -79,4 +79,17 @@ public class BundleRetentionPolicyTests
         await Assert.That(grouped[0].LastActivity).IsEqualTo(Now.AddDays(-10));
         await Assert.That(grouped[0].ObjectKeys).Count().IsEqualTo(2);
     }
+
+    [Test]
+    public async Task BundlesInUseByPromotion_AreKept_HoweverOldAndLowRanked()
+    {
+        // 30 bundles, 10 days apart; positions 20..29 would expire. 25 is some step's last success.
+        var bundles = Enumerable.Range(0, 30).Select(i => Bundle(1, i, i * 10)).ToList();
+        var inUse = new HashSet<(string, string)> { (Hex(1), Hex(25)), (Hex(2), Hex(26)) }; // second: other pipeline, no effect
+
+        var expired = BundleRetentionPolicy.SelectExpired(bundles, Now, keepLatest: 20, SixMonths, inUse);
+
+        await Assert.That(expired.Select(b => b.BundleKey))
+            .IsEquivalentTo(Enumerable.Range(20, 10).Where(i => i != 25).Select(Hex));
+    }
 }

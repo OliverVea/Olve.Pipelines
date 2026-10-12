@@ -33,6 +33,19 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
         return false;
     }
 
+    /// <summary>Every job of one pipeline (any status, unordered). Backs the promotion history queries.</summary>
+    public IReadOnlyList<Job> GetJobsByPipeline(Id<Pipeline> pipelineId)
+    {
+        var ids = _byPipeline.GetForKey(pipelineId);
+        var results = new List<Job>(ids.Count);
+        foreach (var id in ids)
+        {
+            if (store.TryGet(id, out var job))
+                results.Add(job);
+        }
+        return results;
+    }
+
     public Page<Job> ListJobs(ListJobsRequest request)
     {
         IEnumerable<Job> source;
@@ -86,7 +99,7 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
     /// <summary>
     /// Creates a processing run for a (step, bundle): a <see cref="ProcessingJobGroup"/> and its
     /// scheduled <see cref="ProcessingJob"/>. The single entry point every promotion path funnels
-    /// through — the automatic cascade, the manual trigger, the trigger-entity path, and re-promote —
+    /// through — the automatic cascade, the manual trigger, the trigger-entity path, promote and the unblock check —
     /// so the group+job pair is created identically everywhere.
     /// </summary>
     public ProcessingJobGroup CreateProcessingRun(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
@@ -94,28 +107,6 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
         var jobGroup = jobGroups.CreateProcessingGroup(pipelineId, artifactBundleId, processingStepId);
         CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, processingStepId).DiscardResult(); // store-only create, cannot fail
         return jobGroup;
-    }
-
-    /// <summary>
-    /// The artifact bundle most recently promoted into <paramref name="processingStepId"/>, i.e. the
-    /// bundle of the newest <see cref="ProcessingJob"/> created for that step. Used by re-promote to
-    /// redrive the same bundle. Null when the step has never run.
-    /// </summary>
-    public Id<ArtifactBundle>? GetLastPromotedBundle(Id<Pipeline> pipelineId, Id<ProcessingStep> processingStepId)
-    {
-        ProcessingJob? latest = null;
-        foreach (var id in _byPipeline.GetForKey(pipelineId))
-        {
-            if (store.TryGet(id, out var job)
-                && job is ProcessingJob processing
-                && processing.ProcessingStepId == processingStepId
-                && (latest is null || processing.CreatedAt > latest.CreatedAt))
-            {
-                latest = processing;
-            }
-        }
-
-        return latest?.ArtifactBundleId;
     }
 
     /// <summary>

@@ -1023,7 +1023,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PromotionState"
+                  "$ref": "#/components/schemas/StepPromotionState"
                 }
               }
             }
@@ -1095,17 +1095,24 @@
         }
       }
     },
-    "/api/processing-steps/{stepId}/re-promote": {
+    "/api/processing-steps/{stepId}/promote": {
       "post": {
         "tags": [
           "Olve.Pipelines"
         ],
-        "operationId": "RePromoteProcessingStep",
+        "operationId": "PromoteProcessingStep",
         "parameters": [
           {
             "name": "stepId",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "expectedArtifactBundleId",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -1117,7 +1124,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobGroup"
+                  "$ref": "#/components/schemas/PromoteResult"
                 }
               }
             }
@@ -2589,14 +2596,126 @@
           }
         }
       },
+      "PromoteResult": {
+        "required": [
+          "jobGroupId",
+          "processingStepId",
+          "bundle",
+          "source",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "jobGroupId": {
+            "$ref": "#/components/schemas/IdOfJobGroup"
+          },
+          "processingStepId": {
+            "$ref": "#/components/schemas/IdOfProcessingStep"
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/PromotionBundle"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromotionSource"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PromotionBundle": {
+        "required": [
+          "artifactBundleId",
+          "builtAt"
+        ],
+        "type": "object",
+        "properties": {
+          "artifactBundleId": {
+            "$ref": "#/components/schemas/IdOfArtifactBundle"
+          },
+          "builtAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PromotionOption": {
+        "required": [
+          "allowed",
+          "bundle",
+          "reason",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionBundle"
+              }
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "PromotionSource": {
+        "required": [
+          "processingStepId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "processingStepId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IdOfProcessingStep"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "isProduction": {
+            "type": "boolean"
+          }
+        }
+      },
       "PromotionState": {
         "required": [
-          "blocked"
+          "blocked",
+          "promotion"
         ],
         "type": "object",
         "properties": {
           "blocked": {
             "type": "boolean"
+          },
+          "promotion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnblockPromotion"
+              }
+            ]
           }
         }
       },
@@ -2835,15 +2954,60 @@
       "StepPromotionState": {
         "required": [
           "processingStepId",
-          "blocked"
+          "stepName",
+          "blocked",
+          "source",
+          "sourceLastSuccess",
+          "lastSuccess",
+          "promote",
+          "onUnblock"
         ],
         "type": "object",
         "properties": {
           "processingStepId": {
             "$ref": "#/components/schemas/IdOfProcessingStep"
           },
+          "stepName": {
+            "type": "string"
+          },
           "blocked": {
             "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PromotionSource"
+          },
+          "sourceLastSuccess": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionBundle"
+              }
+            ]
+          },
+          "lastSuccess": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionBundle"
+              }
+            ]
+          },
+          "promote": {
+            "$ref": "#/components/schemas/PromotionOption"
+          },
+          "onUnblock": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionOption"
+              }
+            ]
           }
         }
       },
@@ -3116,6 +3280,50 @@
             "$ref": "#/components/schemas/TriggerTarget"
           }
         ]
+      },
+      "UnblockPromotion": {
+        "required": [
+          "started",
+          "jobGroupId",
+          "bundle",
+          "reason",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "started": {
+            "type": "boolean"
+          },
+          "jobGroupId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IdOfJobGroup"
+              }
+            ]
+          },
+          "bundle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionBundle"
+              }
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
       },
       "UpdateBindingRequest": {
         "required": [

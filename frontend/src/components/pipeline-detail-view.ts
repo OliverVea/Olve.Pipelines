@@ -9,6 +9,8 @@ import type {
   JobProcessingJob,
   JobProductionJob,
   PipelineBindingStatus,
+  JobGroupProductionJobGroup,
+  StepPromotionState,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './pipeline-flow.js';
 import './refresh-control.js';
@@ -87,6 +89,51 @@ export class PipelineDetailView extends LitElement {
       color: var(--color-danger);
       border-color: var(--color-danger);
     }
+
+    .fresh-build {
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .fresh-build:hover:not(:disabled) {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    .fresh-build:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .notice {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: var(--color-surface);
+      font-size: 0.9rem;
+    }
+
+    .notice span {
+      flex: 1;
+    }
+
+    .notice button {
+      border: none;
+      background: none;
+      color: var(--color-text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
   `;
 
   @property() declare pipelineId: string;
@@ -96,7 +143,9 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _processingSteps: ProcessingStep[];
   @state() private declare _jobs: (JobProcessingJob | JobProductionJob)[];
   @state() private declare _bindingStatus: PipelineBindingStatus | null;
-  @state() private declare _promotions: Record<string, boolean>;
+  @state() private declare _promotions: Record<string, StepPromotionState>;
+  @state() private declare _notice: string | null;
+  @state() private declare _building: boolean;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
   @state() private declare _titleHint: string;
@@ -110,6 +159,8 @@ export class PipelineDetailView extends LitElement {
     this._jobs = [];
     this._bindingStatus = null;
     this._promotions = {};
+    this._notice = null;
+    this._building = false;
     this._loading = true;
     this._error = null;
     const state = history.state as { pipelineName?: string } | null;
@@ -152,7 +203,7 @@ export class PipelineDetailView extends LitElement {
       this._promotions = Object.fromEntries(
         (promotions ?? [])
           .filter((s) => s.processingStepId)
-          .map((s) => [s.processingStepId as string, s.blocked === true]),
+          .map((s) => [String(s.processingStepId), s]),
       );
       this._productionSteps = production ?? [];
       this._processingSteps = (processing ?? []).sort(
@@ -180,12 +231,21 @@ export class PipelineDetailView extends LitElement {
       <div class="header">
         <a class="back" href="/" @click=${this._back}>&larr; Back</a>
         <h2>${this._pipeline?.name ?? this._titleHint}</h2>
+        ${this._pipeline ? this._renderFreshBuild() : ''}
         <refresh-control
           .loading=${this._loading}
           @refresh=${this._onRefresh}
         ></refresh-control>
       </div>
       ${this._renderBindingBadge()}
+      ${this._notice
+        ? html`<div class="notice" role="status">
+            <span>${this._notice}</span>
+            <button type="button" aria-label="Dismiss" @click=${() => (this._notice = null)}>
+              ×
+            </button>
+          </div>`
+        : ''}
       ${this._pipeline
         ? html`<pipeline-flow
             .pipelineId=${this.pipelineId}
@@ -195,6 +255,8 @@ export class PipelineDetailView extends LitElement {
             .promotions=${this._promotions}
             @reload=${() => this._load()}
             @changed=${() => this._load()}
+            @gate-notice=${(e: CustomEvent<{ message: string }>) =>
+              (this._notice = e.detail.message)}
             @gate-error=${(e: CustomEvent<{ message: string }>) =>
               (this._error = e.detail.message)}
           ></pipeline-flow>`
@@ -239,6 +301,51 @@ export class PipelineDetailView extends LitElement {
           : ''}
       </div>
     `;
+  }
+
+  // "Fresh build": a new production run of the bound branch's head, like
+  // `pl production trigger <pipelineId>` — it builds again even if the head has
+  // not moved. The service does not record which commit a build used; the most it
+  // knows is the last commit the deploy poll started a build for.
+  private _renderFreshBuild() {
+    const none = this._productionSteps.length === 0;
+    return html`<button
+      type="button"
+      class="fresh-build"
+      ?disabled=${none || this._building}
+      title=${none
+        ? 'This pipeline has no production steps'
+        : 'Start a new production run of the branch head'}
+      @click=${this._freshBuild}
+    >
+      Fresh build
+    </button>`;
+  }
+
+  private async _freshBuild() {
+    if (this._building) return;
+    const b = this._bindingStatus;
+    const target = b ? `${b.repo}@${b.branch}` : (this._pipeline?.name ?? 'this pipeline');
+    const sha = b?.lastDeployedSha ? b.lastDeployedSha.slice(0, 7) : null;
+    const question =
+      `Start a fresh production build of ${target}?\n\n` +
+      `It builds the current head of the branch again, even if it has not moved` +
+      (sha ? ` (the last commit the deploy poll built was ${sha}; the head may be newer).` : '.') +
+      `\nThe new build then flows through the processing steps as usual, stopping at any blocked step.`;
+    if (!window.confirm(question)) return;
+
+    this._building = true;
+    try {
+      const group = (await client.api.pipelines
+        .byId(this.pipelineId)
+        .trigger.production.post()) as JobGroupProductionJobGroup | undefined;
+      this._notice = `Started a fresh production build${group?.id ? ` (job group ${group.id})` : ''}.`;
+      await this._load(true);
+    } catch (e) {
+      this._error = extractErrorMessage(e);
+    } finally {
+      this._building = false;
+    }
   }
 
   private _back(e: Event) {

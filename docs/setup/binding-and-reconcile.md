@@ -105,7 +105,7 @@ creation, they don't exist.)
 - Job cancel — `pl job cancel <jobId>`
 - Setting secret **values** — `pl secret set <pipelineId> <name>`
 - The [deploy-trigger mode](#deploy-trigger-mode) — `pl binding set-trigger <pipelineId> <mode>` (how it deploys, not what it deploys)
-- The [promotion gate](promotion-gate.md) — `pl processing block` / `unblock` / `re-promote` on a processing step
+- The [promotion gate](promotion-gate.md) — `pl processing block` / `unblock` / `promote` on a processing step
 
 The dividing line: **shape** is git-owned; **operations** are `pl`-driven.
 

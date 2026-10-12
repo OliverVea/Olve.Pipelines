@@ -5,6 +5,7 @@ import type {
   ProcessingStep,
   JobProcessingJob,
   JobProductionJob,
+  StepPromotionState,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './step-node.js';
 import './promotion-gate.js';
@@ -114,8 +115,9 @@ export class PipelineFlow extends LitElement {
   @property({ attribute: false }) declare productionSteps: ProductionStep[];
   @property({ attribute: false }) declare processingSteps: ProcessingStep[];
   @property({ attribute: false }) declare jobs: Job[];
-  // stepId -> promotion-blocked. Absent/false means promotion is enabled.
-  @property({ attribute: false }) declare promotions: Record<string, boolean>;
+  // stepId -> the server's promotion read model (gate + what Promote would use).
+  // Absent means unknown: the gate renders as enabled with Promote disabled.
+  @property({ attribute: false }) declare promotions: Record<string, StepPromotionState>;
 
   constructor() {
     super();
@@ -200,8 +202,8 @@ export class PipelineFlow extends LitElement {
 
   private _renderPromotionConnector(step: ProcessingStep) {
     const stepId = step.id ?? '';
-    const blocked = this.promotions[stepId] === true;
-    const hasBundle = this._latestProcessingJob(stepId) !== undefined;
+    const promotion = this.promotions[stepId] ?? null;
+    const blocked = promotion?.blocked === true;
     return html`
       <div class="connector promotion ${blocked ? 'gated' : ''}">
         <svg viewBox="0 0 48 24">
@@ -212,7 +214,7 @@ export class PipelineFlow extends LitElement {
           .stepId=${stepId}
           .stepName=${step.name ?? ''}
           .blocked=${blocked}
-          .hasBundle=${hasBundle}
+          .promotion=${promotion}
         ></promotion-gate>
       </div>
     `;

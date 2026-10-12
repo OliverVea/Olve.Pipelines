@@ -84,19 +84,129 @@ public class MutationCommandTests
         await Assert.That(stdout.ToString()).Contains("enabled");
     }
 
+    private static readonly Guid BundleId = Guid.Parse("87c932c0-1111-2222-3333-444444444444");
+    private static readonly PromotionBundle Bundle = new() { ArtifactBundleId = BundleId, BuiltAt = new DateTimeOffset(2026, 10, 12, 5, 49, 21, TimeSpan.Zero) };
+
     [Test]
-    public async Task ProcessingRePromote_CallsApi()
+    public async Task ProcessingUnblock_ReportsThePromotionItStarted()
     {
         var api = new FakePipelinesApi
         {
-            RePromoteProcessingStepResult = Result.Success<JobGroup>(new ProcessingJobGroup { Id = GroupId }),
+            SetProcessingStepPromotionResult = Result.Success(new PromotionState
+            {
+                Blocked = false,
+                Promotion = new UnblockPromotion
+                {
+                    Started = true, JobGroupId = GroupId, Bundle = Bundle,
+                    Message = "Unblocked 'deploy' and started promotion of the build of 2026-10-12 05:49:21 UTC (bundle 87c932c0) from 'test-after-beta'.",
+                },
+            }),
         };
+        var (ctx, stdout, cli) = Build(new ProcessingUnblockCommand(), api, json: false, "processing", "unblock", "sid");
+
+        var result = await new ProcessingUnblockCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("started promotion of the build of 2026-10-12 05:49:21 UTC (bundle 87c932c0)");
+        await Assert.That(stdout.ToString()).Contains(GroupId.ToString());
+    }
+
+    [Test]
+    public async Task ProcessingUnblock_ReportsWhyNoPromotionStarted()
+    {
+        var api = new FakePipelinesApi
+        {
+            SetProcessingStepPromotionResult = Result.Success(new PromotionState
+            {
+                Blocked = false,
+                Promotion = new UnblockPromotion { Started = false, Reason = "alreadyRan", Message = "Unblocked 'deploy'; no promotion started: 'deploy' already ran it." },
+            }),
+        };
+        var (ctx, stdout, cli) = Build(new ProcessingUnblockCommand(), api, json: false, "processing", "unblock", "sid");
+
+        var result = await new ProcessingUnblockCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("no promotion started");
+        await Assert.That(stdout.ToString()).DoesNotContain("Job group");
+    }
+
+    [Test]
+    public async Task ProcessingPromote_CallsApi_AndNamesTheBuild()
+    {
+        var api = new FakePipelinesApi
+        {
+            PromoteProcessingStepResult = Result.Success(new PromoteResult
+            {
+                JobGroupId = GroupId, Bundle = Bundle,
+                Source = new PromotionSource { Name = "test-after-beta" },
+                Message = "Promoted the build of 2026-10-12 05:49:21 UTC (bundle 87c932c0) from 'test-after-beta' into 'deploy'.",
+            }),
+        };
+        var (ctx, stdout, cli) = Build(new ProcessingPromoteCommand(), api, json: false, "processing", "promote", "sid", "--expect", BundleId.ToString());
+
+        var result = await new ProcessingPromoteCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.Invoked("PromoteProcessingStep")).IsTrue();
+        await Assert.That(api.LastPromoteExpected).IsEqualTo(BundleId.ToString());
+        await Assert.That(stdout.ToString()).Contains("bundle 87c932c0");
+        await Assert.That(stdout.ToString()).Contains(GroupId.ToString());
+    }
+
+    [Test]
+    public async Task ProcessingPromote_Refusal_IsPropagated()
+    {
+        var api = new FakePipelinesApi
+        {
+            PromoteProcessingStepResult = (Result<PromoteResult>)new ResultProblem("Promote refused: promotion into 'deploy' is blocked; unblock it first."),
+        };
+        var (ctx, _, cli) = Build(new ProcessingPromoteCommand(), api, json: false, "processing", "promote", "sid");
+
+        var result = await new ProcessingPromoteCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Failed).IsTrue();
+        await Assert.That(api.LastPromoteExpected).IsNull();
+    }
+
+    [Test]
+    public async Task ProcessingRePromote_IsRemoved_AndCallsNothing()
+    {
+        var api = new FakePipelinesApi();
         var (ctx, _, cli) = Build(new ProcessingRePromoteCommand(), api, json: false, "processing", "re-promote", "sid");
 
         var result = await new ProcessingRePromoteCommand().Execute(cli, ctx, CancellationToken.None);
 
+        await Assert.That(result.Failed).IsTrue();
+        await Assert.That(api.Calls).IsEmpty();
+    }
+
+    [Test]
+    public async Task ProcessingList_ShowsGateAndWhatPromoteWouldUse()
+    {
+        var stepId = Guid.NewGuid();
+        var api = new FakePipelinesApi
+        {
+            ListProcessingStepsResult = Result.Success<ProcessingStep[]>([new ProcessingStep { Id = stepId, Name = "deploy", Order = 3 }]),
+            ListProcessingStepPromotionsResult = Result.Success<StepPromotionState[]>([new StepPromotionState
+            {
+                ProcessingStepId = stepId, StepName = "deploy", Blocked = true,
+                Source = new PromotionSource { Name = "test-after-beta" },
+                Promote = new PromotionOption { Allowed = false, Reason = "blocked", Message = "Promotion into 'deploy' is blocked." },
+                OnUnblock = new PromotionOption { Allowed = true, Bundle = Bundle, Message = "Promote …" },
+            }]),
+        };
+        var (ctx, stdout, cli) = Build(new ProcessingListCommand(), api, json: false, "processing", "list", "pid");
+
+        var result = await new ProcessingListCommand().Execute(cli, ctx, CancellationToken.None);
+
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(api.Invoked("RePromoteProcessingStep")).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("blocked");
+        await Assert.That(stdout.ToString()).Contains("- (blocked)");
+
+        var (ctx2, stdout2, cli2) = Build(new ProcessingPromotionsCommand(), api, json: false, "processing", "promotions", "pid");
+        await Assert.That((await new ProcessingPromotionsCommand().Execute(cli2, ctx2, CancellationToken.None)).Succeeded).IsTrue();
+        await Assert.That(stdout2.ToString()).Contains("2026-10-12 05:49 87c932c0 from test-after-beta");
     }
 
     [Test]

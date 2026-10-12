@@ -2,13 +2,15 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Processing;
 using Olve.Utilities.Stores;
 
 namespace Olve.Pipelines.Shared.Persistence;
 
 /// <summary>
 /// Periodically applies <see cref="BundleRetentionPolicy"/> to the bucket: lists <c>bundles/</c>,
-/// and deletes every object of each expired bundle (outputs + logs together). Best-effort — a
+/// and deletes every object of each expired bundle (outputs + logs together). Bundles the promotion
+/// logic may still run (<see cref="PromotionService.BundlesInUse"/>) are kept. Best-effort — a
 /// failed sweep is logged and retried next interval; it never affects jobs or persistence.
 /// </summary>
 public class BundleRetentionService(
@@ -16,6 +18,7 @@ public class BundleRetentionService(
     StorageOptions storageOptions,
     BundleRetentionOptions options,
     EntityStore<Pipeline> pipelines,
+    IServiceProvider services,
     TimeProvider time,
     ILogger<BundleRetentionService> logger) : BackgroundService
 {
@@ -78,12 +81,20 @@ public class BundleRetentionService(
             token = page.IsTruncated == true ? page.NextContinuationToken : null;
         } while (token is not null);
 
+        // Computed after the listing, so a bundle that became some step's last success while we listed
+        // is still protected. If this throws, the sweep is skipped (never delete unprotected).
+        var promotions = services.GetRequiredService<PromotionService>();
+        var inUse = pipelines.List()
+            .SelectMany(p => promotions.BundlesInUse(p.Id).Select(b => (p.Id.Value.Value.ToString("N"), b.Value.Value.ToString("N"))))
+            .ToHashSet();
+
         var bundles = BundleRetentionPolicy.GroupObjects(objects);
-        var expired = BundleRetentionPolicy.SelectExpired(bundles, time.GetUtcNow(), options.KeepLatest, options.MinAge);
+        var expired = BundleRetentionPolicy.SelectExpired(bundles, time.GetUtcNow(), options.KeepLatest, options.MinAge, inUse);
 
         if (expired.Count == 0)
         {
-            logger.LogInformation("Bundle retention sweep: {BundleCount} bundles, none expired", bundles.Count);
+            logger.LogInformation("Bundle retention sweep: {BundleCount} bundles ({InUseCount} in use by promotion), none expired",
+                bundles.Count, inUse.Count);
             return;
         }
 

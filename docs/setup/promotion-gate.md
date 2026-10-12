@@ -58,8 +58,8 @@ parameter on promote, `expectedPromotion` in the unblock body).
 | Nothing has ever succeeded at the previous step (no completed production run, for the first step) | refused | nothing started |
 | The previous step's last success refers to a bundle whose build record is gone or never completed | refused — it never falls back to an older success | nothing started |
 | A job for this step is already scheduled or running | refused (wait or cancel it) | nothing started |
-| This step already ran exactly that bundle successfully | **runs it again** (retry / redeploy) | nothing started (nothing due) |
-| That bundle is **older** than what this step last ran — its last success, or its latest run that started (a failed deploy may have half-applied) | refused — never goes backwards | nothing started — no automatic downgrade |
+| That bundle is **older** than what this step last ran — its last success, or its latest attempt (a failed deploy may have half-applied; an attempt counts once it ended Done or Failed, or was cancelled after starting) | refused — never goes backwards | nothing started — no automatic downgrade |
+| This step already ran exactly that bundle successfully (and has no newer attempt since) | **runs it again** (retry / redeploy) | nothing started (nothing due) |
 | Otherwise (newer, or the step never succeeded) | runs it | **starts the promotion** |
 
 "Older" is judged by when each bundle's production run was created. Unblocking a step that was not

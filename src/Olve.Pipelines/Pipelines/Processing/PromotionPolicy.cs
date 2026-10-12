@@ -45,7 +45,7 @@ public enum PromotionIntent { Promote, Unblock }
 /// <param name="LastSuccess">The bundle B most recently ran successfully; null when B never succeeded.</param>
 /// <param name="LastSuccessBuilt">The build record of <paramref name="LastSuccess"/>; null when unknown.</param>
 /// <param name="HasActiveJob">A job for B is Scheduled or InProgress.</param>
-/// <param name="LastRun">The bundle of B's most recent run that actually started (Done, Failed, or cancelled
+/// <param name="LastRun">The bundle of B's most recent attempt (Done, Failed, or cancelled
 /// after starting) — it may have changed the target even if it failed. Null when B never started a run.</param>
 /// <param name="LastRunBuilt">The build record of <paramref name="LastRun"/>; null when unknown.</param>
 public record PromotionFacts(

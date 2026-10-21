@@ -77,6 +77,8 @@ public static class ServiceConfiguration
         services.AddSingleton<RunService>();
         services.AddSingleton<AttemptService>();
         services.AddTransient<RunQueryService>();
+        services.AddTransient<RunViewService>();
+        services.AddTransient<AttemptFileService>();
         services.AddTransient<RunCleanupService>();
         services.AddSingleton<IRunOnStartup, RunEventRegistration>();
 
@@ -91,6 +93,7 @@ public static class ServiceConfiguration
         services.AddTransient<RunStartService>();
         services.AddTransient<SwitchService>();
         services.AddTransient<RunContinuationService>();
+        services.AddTransient<RunCancellationService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
 
@@ -99,6 +102,7 @@ public static class ServiceConfiguration
         services.AddTransient<JobObsoletionService>();
         services.AddSingleton<NoOpJobExecutorPendingStore>();
         services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
+        services.TryAddTransient<IAttemptLiveLogs, NoAttemptLiveLogs>();
 
         // Registry must be registered before RunPersistenceService so IHostedLifecycleService
         // reverse-order StoppingAsync drains live watchers before persistence flushes.
@@ -113,7 +117,7 @@ public static class ServiceConfiguration
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineSummaryService>();
-        services.AddSingleton<ReconcilePauseState>();
+        services.AddTransient<PipelineHealthService>();
         // PollInterval is config-bindable (Reconcile:PollIntervalSeconds) so integration tests can
         // drive reconcile fast; defaults stay generous for production (see ReconcileOptions).
         services.AddSingleton(sp =>
@@ -124,7 +128,6 @@ public static class ServiceConfiguration
                 ? new ReconcileOptions { PollInterval = TimeSpan.FromSeconds(s) }
                 : new ReconcileOptions();
         });
-        services.AddTransient<ReconcileCoordinator>();
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<RunPersistenceService>();

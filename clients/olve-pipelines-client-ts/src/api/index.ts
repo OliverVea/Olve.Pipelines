@@ -8,6 +8,8 @@ import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from 
 // @ts-ignore
 import { JobsRequestBuilderNavigationMetadata, JobsRequestBuilderRequestsMetadata, type JobsRequestBuilder } from './jobs/index.js';
 // @ts-ignore
+import { ManifestsRequestBuilderNavigationMetadata, type ManifestsRequestBuilder } from './manifests/index.js';
+// @ts-ignore
 import { PipelinesRequestBuilderNavigationMetadata, PipelinesRequestBuilderRequestsMetadata, type PipelinesRequestBuilder } from './pipelines/index.js';
 // @ts-ignore
 import { ReadyRequestBuilderRequestsMetadata, type ReadyRequestBuilder } from './ready/index.js';
@@ -32,6 +34,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      * The jobs property
      */
     get jobs(): JobsRequestBuilder;
+    /**
+     * The manifests property
+     */
+    get manifests(): ManifestsRequestBuilder;
     /**
      * The pipelines property
      */
@@ -62,6 +68,9 @@ export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiReques
     jobs: {
         requestsMetadata: JobsRequestBuilderRequestsMetadata,
         navigationMetadata: JobsRequestBuilderNavigationMetadata,
+    },
+    manifests: {
+        navigationMetadata: ManifestsRequestBuilderNavigationMetadata,
     },
     pipelines: {
         requestsMetadata: PipelinesRequestBuilderRequestsMetadata,

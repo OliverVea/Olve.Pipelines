@@ -5,12 +5,13 @@ namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
 /// Assembles the list-page summaries (<see cref="PipelineSummary"/>) — one card per pipeline with
-/// its bound repo and per-step health strip. Stateless query service over the existing stores.
+/// its bound repo, health over runs and per-step strip. Stateless query service over the existing stores.
 /// </summary>
 public class PipelineSummaryService(
     PipelineService pipelines,
     PipelineConfigBindingService bindings,
-    AttemptService attempts)
+    AttemptService attempts,
+    PipelineHealthService health)
 {
     public IReadOnlyList<PipelineSummary> List()
     {
@@ -31,7 +32,8 @@ public class PipelineSummaryService(
 
             var lastChangedAt = steps.Length > 0 ? steps.Max(s => s.LastChangedAt) : null;
 
-            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, PipelineStatus.Compute(steps), steps, lastChangedAt));
+            var pipelineHealth = health.Get(pipeline.Id);
+            result.Add(new PipelineSummary(pipeline.Id, pipeline.Name, repo, pipelineHealth.Status, steps, lastChangedAt, pipelineHealth));
         }
 
         return result;

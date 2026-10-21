@@ -91,6 +91,7 @@ public static class KubernetesConfiguration
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
+        builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
     }
 
     private static void ConfigureInCluster(
@@ -131,6 +132,7 @@ public static class KubernetesConfiguration
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
+        builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
     }
 }
 

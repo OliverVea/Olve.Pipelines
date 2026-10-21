@@ -106,7 +106,7 @@ public class ManualTriggerTests
     private static (SchedulerScenario S, RunInputService Inputs) Build()
     {
         var s = new SchedulerScenario(TestFixtureManifest.Text);
-        return (s, new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts));
+        return (s, new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations));
     }
 
     [Test]

@@ -6,9 +6,15 @@ import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscrimina
 // @ts-ignore
 import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsMetadata, type BindingRequestBuilder } from './binding/index.js';
 // @ts-ignore
+import { GatesRequestBuilderRequestsMetadata, type GatesRequestBuilder } from './gates/index.js';
+// @ts-ignore
+import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
+// @ts-ignore
 import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
 // @ts-ignore
 import { SecretsRequestBuilderNavigationMetadata, SecretsRequestBuilderRequestsMetadata, type SecretsRequestBuilder } from './secrets/index.js';
+// @ts-ignore
+import { StepsRequestBuilderNavigationMetadata, type StepsRequestBuilder } from './steps/index.js';
 // @ts-ignore
 import { SwitchRequestBuilderRequestsMetadata, type SwitchRequestBuilder } from './switchEscaped/index.js';
 // @ts-ignore
@@ -25,6 +31,14 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
     get binding(): BindingRequestBuilder;
     /**
+     * The gates property
+     */
+    get gates(): GatesRequestBuilder;
+    /**
+     * The health property
+     */
+    get health(): HealthRequestBuilder;
+    /**
      * The runs property
      */
     get runs(): RunsRequestBuilder;
@@ -32,6 +46,10 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      * The secrets property
      */
     get secrets(): SecretsRequestBuilder;
+    /**
+     * The steps property
+     */
+    get steps(): StepsRequestBuilder;
     /**
      * The switch property
      */
@@ -75,6 +93,12 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
         requestsMetadata: BindingRequestBuilderRequestsMetadata,
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
     },
+    gates: {
+        requestsMetadata: GatesRequestBuilderRequestsMetadata,
+    },
+    health: {
+        requestsMetadata: HealthRequestBuilderRequestsMetadata,
+    },
     runs: {
         requestsMetadata: RunsRequestBuilderRequestsMetadata,
         navigationMetadata: RunsRequestBuilderNavigationMetadata,
@@ -82,6 +106,9 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
     secrets: {
         requestsMetadata: SecretsRequestBuilderRequestsMetadata,
         navigationMetadata: SecretsRequestBuilderNavigationMetadata,
+    },
+    steps: {
+        navigationMetadata: StepsRequestBuilderNavigationMetadata,
     },
     switchEscaped: {
         requestsMetadata: SwitchRequestBuilderRequestsMetadata,

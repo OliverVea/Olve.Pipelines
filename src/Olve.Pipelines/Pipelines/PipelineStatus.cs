@@ -1,18 +1,13 @@
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Derives a single pipeline-level health string from a pipeline's per-step <see cref="StepHealth"/>
-/// strip, for the list view. A step is "running" while its latest attempt is <c>scheduled</c> or
-/// <c>in-progress</c>, "failed" when it is <c>failed</c>, and "green" when it is <c>succeeded</c>
-/// or <c>skipped</c> (a skip is a decision, not a fault).
-/// Precedence:
+/// Pipeline-level health strings for list views, computed over runs by <see cref="PipelineHealthService.Compute"/>:
 /// <list type="bullet">
-/// <item><see cref="RunningUnhealthy"/> — something is running and at least one step has failed.</item>
-/// <item><see cref="RunningHealthy"/> — something is running and nothing has failed.</item>
-/// <item><see cref="Unhealthy"/> — nothing running but at least one step has failed.</item>
-/// <item><see cref="Healthy"/> — nothing running, nothing failed, and every step is green.</item>
-/// <item><see cref="Idle"/> — no steps, or a not-yet-fully-run pipeline (idle/cancelled/obsolete steps,
-///   none running, none failed).</item>
+/// <item><see cref="RunningUnhealthy"/> — a run is running and the latest settled run failed.</item>
+/// <item><see cref="RunningHealthy"/> — a run is running and the latest settled run did not fail.</item>
+/// <item><see cref="Unhealthy"/> — nothing running; the latest settled run failed.</item>
+/// <item><see cref="Healthy"/> — nothing running; the latest settled run succeeded (skipped steps are not faults).</item>
+/// <item><see cref="Idle"/> — no settled run and nothing running.</item>
 /// </list>
 /// </summary>
 public static class PipelineStatus
@@ -22,21 +17,4 @@ public static class PipelineStatus
     public const string RunningUnhealthy = "Running (Unhealthy)";
     public const string Unhealthy = "Unhealthy";
     public const string Idle = "Idle";
-
-    public static string Compute(IReadOnlyCollection<StepHealth> steps)
-    {
-        if (steps.Count == 0)
-            return Idle;
-
-        var anyRunning = steps.Any(s => s.Status is "scheduled" or "in-progress");
-        var anyFailed = steps.Any(s => s.Status is "failed");
-
-        if (anyRunning)
-            return anyFailed ? RunningUnhealthy : RunningHealthy;
-
-        if (anyFailed)
-            return Unhealthy;
-
-        return steps.All(s => s.Status is "succeeded" or "skipped") ? Healthy : Idle;
-    }
 }

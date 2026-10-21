@@ -1,11 +1,10 @@
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Pre-aggregated view of a pipeline for the list page: name, optional bound repo, and a health
-/// strip in one round-trip. Interim shape between the v1 cut and the v2 run model — the strip is
-/// derived from the latest attempt per step name. <see cref="LastChangedAt"/> is the most
-/// recent status change across those attempts (null if nothing has run). <see cref="Status"/> is the
-/// aggregate health (see <see cref="PipelineStatus"/>).
+/// Pre-aggregated view of a pipeline for the list page: name, optional bound repo, health over runs and a
+/// per-step strip in one round-trip. <see cref="Status"/> is <see cref="PipelineHealth.Status"/> (computed
+/// over runs); the strip is the latest attempt per step name. <see cref="LastChangedAt"/> is the most
+/// recent status change across those attempts (null if nothing has run).
 /// </summary>
 public record PipelineSummary(
     Id<Pipeline> Id,
@@ -13,7 +12,8 @@ public record PipelineSummary(
     string? Repo,
     string Status,
     StepHealth[] Steps,
-    DateTimeOffset? LastChangedAt);
+    DateTimeOffset? LastChangedAt,
+    PipelineHealth Health);
 
 /// <summary>
 /// One box in the health strip: a step name and the status of its most recent attempt.

@@ -90,7 +90,7 @@ public class AppFixture : IAsyncInitializer, IAsyncDisposable
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var payload = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
             return payload.TryGetProperty("access_token", out var token) ? token.GetString() : null;
         }
         catch

@@ -18,7 +18,8 @@ public class RunInputService(
     PipelineActivationService activations,
     PipelineVersionService versions,
     RunPlanCache plans,
-    RunStartService starts)
+    RunStartService starts,
+    RunContinuationService continuations)
 {
     /// <summary>The version a run started now would bind to.</summary>
     public bool TryGetTargetVersion(Id<Pipeline> pipelineId, [NotNullWhen(true)] out PipelineVersion? version)
@@ -75,5 +76,44 @@ public class RunInputService(
         if (PrepareManual(target.Manifest, input).TryPickProblems(out var inputProblems, out var json))
             return Result.Failure<RunStartOutcome>(inputProblems);
         return starts.Start(pipelineId, json, new RunTrigger(RunTriggerKind.Manual));
+    }
+
+    /// <summary>
+    /// Re-runs a whole run (spec §5.2): a new run with the same input on the version a run started now binds
+    /// to. The input is re-validated against that version's input model first, so a model change surfaces as
+    /// a problem instead of a broken run.
+    /// </summary>
+    public Result<RunStartOutcome> RerunRun(Run original)
+    {
+        if (GetTarget(original.PipelineId).TryPickProblems(out var problems, out var target))
+            return Result.Failure<RunStartOutcome>(problems);
+        if (PrepareManual(target.Manifest, JsonNode.Parse(original.Input)).TryPickProblems(out var inputProblems, out var json))
+            return Result.Failure<RunStartOutcome>(inputProblems.Prepend("Run #{0}'s input is not valid for version {1}.", original.Number, target.Version.Number));
+        return starts.RerunRun(original.Id, json);
+    }
+
+    /// <summary>
+    /// Continues a run (spec §5.2): <paramref name="changes"/> (a JSON object, or null for none) is merged over
+    /// the stored input field by field (top level), validated against the run's pinned input model, and handed
+    /// to <see cref="RunContinuationService.ContinueRun"/> (which rejects changes to consumed fields).
+    /// </summary>
+    public Result<Run> Continue(Run run, JsonNode? changes)
+    {
+        if (changes is not null and not JsonObject)
+            return new ResultProblem("The input changes must be a JSON object.");
+        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+            return Result.Failure<Run>(planProblems);
+        if (JsonNode.Parse(run.Input) is not JsonObject merged)
+            return new ResultProblem("Run #{0} has malformed input.", run.Number);
+
+        if (changes is JsonObject patch)
+        {
+            foreach (var (key, value) in patch)
+                merged[key] = value?.DeepClone();
+        }
+
+        if (PrepareManual(plan.Manifest, merged).TryPickProblems(out var problems, out var json))
+            return Result.Failure<Run>(problems);
+        return continuations.ContinueRun(run.Id, json);
     }
 }

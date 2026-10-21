@@ -136,6 +136,12 @@ internal sealed class TestRunDomain
         return this;
     }
 
+    /// <summary>Read models over this domain (no event wiring needed).</summary>
+    public RunViewService Views => new(RunService, AttemptService, VersionService, ActivationService, Plans,
+        new StepGateService(Gates, Pipelines, SchedulingLock));
+
+    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepGateService(Gates, Pipelines, SchedulingLock));
+
     public Pipeline CreatePipeline(string name = "p") => Pick(PipelineService.Create(name));
 
     public PipelineVersion AddVersion(

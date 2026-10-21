@@ -21,14 +21,12 @@ public class PipelineSummaryServiceTests
     private static Fixture Create()
     {
         var idProvider = new IdProvider();
-        var pipelines = new EntityStore<Pipeline>([]);
-        var jobStore = new EntityStore<Attempt>([]);
+        var domain = new TestRunDomain(TimeProvider.System);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
 
-        var attempts = new AttemptService(jobStore, new EntityStore<Run>([]), idProvider, TimeProvider.System);
         var service = new PipelineSummaryService(
-            new PipelineService(pipelines, idProvider), new PipelineConfigBindingService(bindings, idProvider), attempts);
-        return new Fixture(pipelines, jobStore, bindings, service);
+            domain.PipelineService, new PipelineConfigBindingService(bindings, idProvider), domain.AttemptService, domain.Health);
+        return new Fixture(domain.Pipelines, domain.Attempts, bindings, service);
     }
 
     private static T Pick<T>(Result<T> r)
@@ -67,7 +65,6 @@ public class PipelineSummaryServiceTests
         var step = summaries[0].Steps.Single();
         await Assert.That(step.Name).IsEqualTo("deploy");
         await Assert.That(step.Status).IsEqualTo("succeeded");
-        await Assert.That(summaries[0].Status).IsEqualTo(PipelineStatus.Healthy);
         await Assert.That(summaries[0].LastChangedAt).IsEqualTo(baseTime.AddMinutes(2));
     }
 

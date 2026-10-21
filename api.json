@@ -65,6 +65,36 @@
         }
       }
     },
+    "/api/manifests/validate": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ValidateManifest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManifestValidationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/switch": {
       "post": {
         "tags": [
@@ -949,6 +979,32 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 50
+            }
           }
         ],
         "responses": {
@@ -957,10 +1013,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Run"
-                  }
+                  "$ref": "#/components/schemas/PageOfRunSummary"
                 }
               }
             }
@@ -1064,6 +1117,59 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/cancel": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "CancelRun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/Run"
                 }
               }
@@ -1071,6 +1177,429 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/rerun": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "RerunRun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerRunResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/continue": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ContinueRun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ContinueRunRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListStepAttempts",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attempt"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "RerunStep",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RerunStepRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListStepFiles",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttemptFilesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetStepFile",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1287,6 +1816,269 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/health": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetPipelineHealth",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineHealth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/gates": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListBlockedSteps",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/steps/{step}/block": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "BlockStep",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/steps/{step}/unblock": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "UnblockStep",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/steps/{step}/history": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetStepHistory",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StepHistoryItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/versions": {
       "get": {
         "tags": [
@@ -1449,6 +2241,61 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "AttemptFileEntry": {
+        "required": [
+          "path",
+          "size",
+          "lastModified"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastModified": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptFilesResponse": {
+        "required": [
+          "run",
+          "step",
+          "attempt",
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "run": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "step": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttemptFileEntry"
+            }
           }
         }
       },
@@ -1688,6 +2535,12 @@
         "type": "integer",
         "default": 0
       },
+      "ContinueRunRequest": {
+        "type": "object",
+        "properties": {
+          "input": { }
+        }
+      },
       "CreatePipelineWithRepoRequest": {
         "required": [
           "repo",
@@ -1751,6 +2604,68 @@
         "format": "uuid"
       },
       "JsonElement": { },
+      "ManifestIssueView": {
+        "required": [
+          "code",
+          "severity",
+          "message",
+          "path",
+          "step"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "step": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ManifestValidationResponse": {
+        "required": [
+          "valid",
+          "manifestHash",
+          "errors",
+          "warnings"
+        ],
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "manifestHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManifestIssueView"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManifestIssueView"
+            }
+          }
+        }
+      },
       "PageOfAttempt": {
         "required": [
           "items",
@@ -1764,6 +2679,49 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Attempt"
+            }
+          },
+          "pageNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "next": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "PageOfRunSummary": {
+        "required": [
+          "items",
+          "pageNumber",
+          "pageSize",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
             }
           },
           "pageNumber": {
@@ -2066,6 +3024,74 @@
           }
         }
       },
+      "PipelineHealth": {
+        "required": [
+          "status",
+          "lastRun",
+          "lastSettledRun",
+          "runningRuns",
+          "activation",
+          "draining",
+          "blockedSteps",
+          "heldRuns"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "lastRun": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RunSummary"
+              }
+            ]
+          },
+          "lastSettledRun": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RunSummary"
+              }
+            ]
+          },
+          "runningRuns": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "activation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PipelineActivation"
+              }
+            ]
+          },
+          "draining": {
+            "type": "boolean"
+          },
+          "blockedSteps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "heldRuns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
+            }
+          }
+        }
+      },
       "PipelineSummary": {
         "required": [
           "id",
@@ -2073,7 +3099,8 @@
           "repo",
           "status",
           "steps",
-          "lastChangedAt"
+          "lastChangedAt",
+          "health"
         ],
         "type": "object",
         "properties": {
@@ -2104,6 +3131,9 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "health": {
+            "$ref": "#/components/schemas/PipelineHealth"
           }
         }
       },
@@ -2313,6 +3343,15 @@
           }
         }
       },
+      "RerunStepRequest": {
+        "type": "object",
+        "properties": {
+          "continue": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "ResultProblem": {
         "required": [
           "message",
@@ -2443,6 +3482,85 @@
           }
         }
       },
+      "RunDetail": {
+        "required": [
+          "run",
+          "versionId",
+          "commitSha",
+          "input",
+          "continuable",
+          "stages"
+        ],
+        "type": "object",
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RunSummary"
+          },
+          "versionId": {
+            "$ref": "#/components/schemas/IdOfPipelineVersion"
+          },
+          "commitSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "continuable": {
+            "type": "boolean"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStageView"
+            }
+          }
+        }
+      },
+      "RunStageCondition": {
+        "required": [
+          "field",
+          "values"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array"
+          }
+        }
+      },
+      "RunStageView": {
+        "required": [
+          "index",
+          "when",
+          "steps"
+        ],
+        "type": "object",
+        "properties": {
+          "index": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "when": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStageCondition"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStepView"
+            }
+          }
+        }
+      },
       "RunStatus": {
         "enum": [
           "Running",
@@ -2451,6 +3569,154 @@
           "Cancelled",
           "Superseded"
         ]
+      },
+      "RunStepView": {
+        "required": [
+          "name",
+          "stepVersion",
+          "status",
+          "reason",
+          "attemptCount",
+          "latestAttempt",
+          "succeededAttempt",
+          "startedAt",
+          "finishedAt",
+          "blocked"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "stepVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attemptCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "latestAttempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "succeededAttempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "blocked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RunSummary": {
+        "required": [
+          "id",
+          "number",
+          "status",
+          "triggerKind",
+          "versionNumber",
+          "versionStamp",
+          "createdAt",
+          "finishedAt",
+          "heldAt",
+          "supersededByNumber",
+          "rerunOfNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfRun"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "triggerKind": {
+            "$ref": "#/components/schemas/RunTriggerKind"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "versionStamp": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "heldAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "supersededByNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "rerunOfNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
       },
       "RunTrigger": {
         "required": [
@@ -2561,6 +3827,88 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "StepHistoryItem": {
+        "required": [
+          "runNumber",
+          "runStatus",
+          "versionNumber",
+          "versionStamp",
+          "attemptId",
+          "attemptNumber",
+          "status",
+          "reason",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+          "stepVersion",
+          "stepVersionChanged"
+        ],
+        "type": "object",
+        "properties": {
+          "runNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "runStatus": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "versionStamp": {
+            "type": "string"
+          },
+          "attemptId": {
+            "$ref": "#/components/schemas/IdOfAttempt"
+          },
+          "attemptNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "stepVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "stepVersionChanged": {
+            "type": "boolean"
           }
         }
       },

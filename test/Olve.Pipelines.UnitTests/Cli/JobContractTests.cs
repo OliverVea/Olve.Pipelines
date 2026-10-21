@@ -69,10 +69,10 @@ public class RunApiSerializationTests
             RunStatus.Superseded, new RunTrigger(RunTriggerKind.Poll, "sha:abc"), t, t.AddMinutes(3),
             SupersededBy: Olve.Utilities.Ids.Id.New<Run>(), RerunOf: Olve.Utilities.Ids.Id.New<Run>());
 
-        var json = JsonSerializer.Serialize(new[] { run }, ServerOptions);
-        var back = JsonSerializer.Deserialize<Run[]>(json, ServerOptions)!;
+        var json = JsonSerializer.Serialize(run, ServerOptions);
+        var back = JsonSerializer.Deserialize<Run>(json, ServerOptions)!;
 
-        await Assert.That(back.Single()).IsEqualTo(run);
+        await Assert.That(back).IsEqualTo(run);
         await Assert.That(json).Contains("\"status\":\"Superseded\"");
         await Assert.That(json).Contains("\"kind\":\"Poll\"");
     }

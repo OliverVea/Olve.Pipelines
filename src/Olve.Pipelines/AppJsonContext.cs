@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
@@ -25,7 +26,14 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(AttemptSortField))]
 [JsonSerializable(typeof(Result<Id<Attempt>[]>))]
 [JsonSerializable(typeof(Result<Run>))]
-[JsonSerializable(typeof(Result<Run[]>))]
+[JsonSerializable(typeof(Result<Page<RunSummary>>))]
+[JsonSerializable(typeof(Result<RunDetail>))]
+[JsonSerializable(typeof(Result<StepHistoryItem[]>))]
+[JsonSerializable(typeof(Result<AttemptFilesResponse>))]
+[JsonSerializable(typeof(Result<PipelineHealth>))]
+[JsonSerializable(typeof(RerunStepRequest))]
+[JsonSerializable(typeof(ContinueRunRequest))]
+[JsonSerializable(typeof(ManifestValidationResponse))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement))]
 [JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(Result<TriggerRunResponse>))]

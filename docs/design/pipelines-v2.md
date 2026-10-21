@@ -1,6 +1,6 @@
 # Olve.Pipelines v2 — typed pipelines in TypeScript
 
-Status: **design agreed, not implemented** (2026-10-21). Built on the `v2` branch and deployed as a
+Status: **design agreed, spikes done, not implemented** (2026-10-21). Built on the `v2` branch and deployed as a
 separate instance (`pipelines-v2`) alongside v1 until every pipeline has migrated.
 
 ## 1. Goals
@@ -20,9 +20,9 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 | Concept | What it is |
 |---|---|
 | **Model** | A named, nominal zod schema (`BuildArtifact`). Emitted as JSON Schema. |
-| **Step** | A contract: name, image, input models, output model, secrets. No behavior. |
-| **Handler** | The implementation of one step: `(input, ctx) => output`. |
-| **Library step** | An SDK-provided step + handler pair with typed config (`script`, `gitCheckout`, `imageBuild`, `wait`). |
+| **Step** | A contract: name, image, inputs (models or plain schemas), output model, secrets. No behavior. |
+| **Handler** | The implementation of one step: `(input, ctx) => output`, in `handlers/<step-name>.ts`. |
+| **Library step** | An SDK-provided step + handler pair with typed config (`script`, `gitCheckout`, `imageBuild`). |
 | **Pipeline** | Input model, triggers, and an ordered list of **stages**; each stage runs its steps in parallel. |
 | **Run** | One execution of a pinned pipeline version: an input plus the outputs of each step (the **pool**). |
 | **Attempt** | One execution of one step within a run. Reruns add attempts. |
@@ -36,12 +36,20 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 .pipelines/              # binding path (overridable — several pipelines per repo = several bindings)
   models.ts              # level 1: data models
   pipeline.ts            # level 2: steps (contracts) + pipeline (input, triggers, stages)
-  handlers/*.ts          # level 3: implementations
-  scripts/               # shell scripts handlers may call
+  handlers/<step-name>.ts  # level 3: one implementation per custom step (default export)
+  scripts/               # shell scripts, embedded into the binary at build
 ```
 
 Dependency direction: `models ← steps ← handlers`, `models ← pipeline`. Handlers never depend on the
 pipeline; their types come from the step definition alone.
+
+- **Contract files** (`models.ts`, `pipeline.ts`) contain contracts only — no handler code. Describe
+  evaluates them alone, and they are external to every handler bundle (§6.1).
+- **Handlers by convention**: `handlers/<step-name>.ts` default-exports `implement(step, fn)`. The
+  build generates a registry of literal imports (computed dynamic imports would load from disk at
+  runtime). A custom step without a handler file is a describe error; library steps need none.
+- **Scripts are embedded**: `import script from "../scripts/x.sh" with { type: "file" }`. The repo
+  is not in the step container; the harness copies embedded scripts out before running them.
 
 ### 3.2 Models
 
@@ -69,7 +77,12 @@ export const ProdDeployment = model("ProdDeployment", z.object({ release: z.stri
 - Models are **nominal**: `BetaDeployment` and `ProdDeployment` share a shape but are not
   interchangeable (`model()` brands with the name).
 - **Files are references**, not inline data. Structured output stays small (cap TBD, ~64 KB); large
-  data lives in the bundle and is referenced via `fileRef()`.
+  data lives in the bundle and is referenced via `fileRef()`, marked `"x-olve-kind": "fileRef"` in
+  the JSON Schema so the service and GUI recognize it.
+- **One schema per model name** — two different schemas registered under one name is a describe error.
+- **Outputs are validated strictly**: unknown keys are rejected, not silently stripped.
+- **Input vs output view**: trigger mappers produce the model's `z.input` (fields with defaults are
+  optional); handlers, mapper refs and `when` see `z.output` (defaults applied).
 - zod over TypeSpec: the service and GUI only consume JSON Schema (zod v4 `z.toJSONSchema`). Because
   JSON Schema is the interchange format, another model source can be added later without touching
   the service.
@@ -77,10 +90,17 @@ export const ProdDeployment = model("ProdDeployment", z.object({ release: z.stri
 ### 3.3 Steps
 
 ```ts
-import { step, secret } from "@olve/pipelines";
+import { step, secret, Source } from "@olve/pipelines";
 import * as M from "./models";
 
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for image import + helm on the host.");
+
+export const build = step({     // custom: image build + helm package → BuildArtifact
+  name: "build",
+  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
+  input: { source: Source },
+  output: M.BuildArtifact,
+});
 
 export const deployBeta = step({
   name: "deploy-beta",
@@ -90,9 +110,20 @@ export const deployBeta = step({
   secrets: [SSH_PRIVATE_KEY],
   timeoutSeconds: 900,          // optional
 });
+
+export const deployProd = step({
+  name: "deploy-prod",
+  image: "alpine:latest",
+  input: { artifact: M.BuildArtifact },
+  output: M.ProdDeployment,
+  secrets: [SSH_PRIVATE_KEY],
+});
 ```
 
 - A step's **name is its identity** (history, scheduling, promotion gates are keyed on it).
+- Each **input entry** is a model, `optional(model)` (see skip propagation, §3.6), or a plain zod
+  schema (`{ repo: z.string() }`). Plain-schema entries have no model to match on, so the step
+  **requires a mapper**.
 - Steps declare the **secrets** they use; only those are mounted into the step's Job, and
   `ctx.secrets` is typed to exactly that set.
 - `image` can be any image — the harness brings its own runtime (see [§5.1](#51-harness)).
@@ -103,21 +134,22 @@ First-class, SDK-provided step + handler pairs. Each has **its own typed config 
 SDK-provided models (`Source`, `BuiltImage`, …) so pipelines share vocabulary.
 
 ```ts
-steps.script({ name: "test", image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
-               script: "scripts/test.sh", input: { source: Source }, output: TestReport /* optional */ });
+import testSh from "./scripts/test.sh" with { type: "file" };
 
-steps.gitCheckout({ name: "checkout", depth: 1, submodules: false });
-//   input { repo, sha } → output Source { repo, sha, tree: fileRef }
+export const test = steps.script({ name: "test", image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
+               script: testSh, input: { source: Source }, output: TestReport /* optional */ });
 
-steps.imageBuild({ name: "build", dockerfile: "Dockerfile", context: ".", tag: "olve-pipelines",
+export const checkout = steps.gitCheckout({ name: "checkout", depth: 1, submodules: false });
+//   input { repo: z.string(), sha: z.string() } (plain schemas → mapper required) → output Source { repo, sha, tree: fileRef }
+
+steps.imageBuild({ name: "image", dockerfile: "Dockerfile", context: ".", tag: "olve-pipelines",
                    buildArgs: { CONFIGURATION: "Release" } });
 //   input { source: Source } → output BuiltImage { ref, digest, tar: fileRef }
-
-steps.wait({ … });   // see §3.8
 ```
 
-- `script` exposes inputs as env vars **and** `input.json`; if an output model is declared it reads
-  and validates `output.json`. This is the zero-TypeScript migration path from v1.
+- `script` takes an **embedded** script (the `with { type: "file" }` import), exposes inputs as env
+  vars **and** `input.json`; if an output model is declared it reads and validates `output.json`.
+  This is the zero-TypeScript migration path from v1.
 - Config values that depend on the run (e.g. a tag containing the version) may be functions of the
   inputs; they execute inside the handler, so describe stays pure.
 - Helpers used by library steps are also exported for custom handlers (`ctx.checkout(sha)`).
@@ -125,14 +157,16 @@ steps.wait({ … });   // see §3.8
 ### 3.5 Handlers
 
 ```ts
+// handlers/deploy-beta.ts
 import { implement } from "@olve/pipelines";
 import { deployBeta } from "../pipeline";
+import deployScript from "../scripts/deploy-beta.sh" with { type: "file" };
 
 const RELEASE = "olve-pipelines";
 const URL = "https://pipelines-beta.ovea.pro";
 
 export default implement(deployBeta, async ({ artifact }, ctx) => {
-  await ctx.sh("scripts/deploy-beta.sh", {
+  await ctx.sh(deployScript, {
     env: { RELEASE, VERSION: artifact.version,
            IMAGE_TAR: await ctx.files.fetch(artifact.image),
            CHART_DIR: await ctx.files.fetch(artifact.chart) },
@@ -146,50 +180,72 @@ export default implement(deployBeta, async ({ artifact }, ctx) => {
 `output.dir`, `http`, `retry`, `secrets`, `log`, `signal` (cancellation/timeout), `run` (run id,
 number, derived version), `skip(reason)` (runtime escape hatch — prefer `when`).
 
+`ctx.sh` runs a command string or an embedded script (copied out to `/olve/tmp` first) via the
+image's shell, detected from `/bin/sh`, `/busybox/sh`, `/bin/bash`; shell-less images (distroless)
+get a clear error, not an `ENOENT`. Children use the image's own libc and tools.
+
 Return type is `Infer<Output> | Skipped`: a handler produces a valid output or explicitly skips.
 
 ### 3.6 Pipeline
 
 ```ts
+// checkout, test (§3.4), build, deployBeta, deployProd (§3.3) are defined above in pipeline.ts;
+// publishCli (a step consuming BuildArtifact) and aoeTriage (a failure handler) are defined elsewhere.
+export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "Read-only token for polling the commits API.");
+
 export default pipeline({
   name: "Olve.Pipelines",
   description: "Build, deploy beta then prod, publish the pl CLI.",
   input: M.DeployRequest,
 })
-  .onPush(e => ({ repo: e.repository, sha: e.after,
+  .onPush(e => ({ repo: e.repository.full_name, sha: e.after,
                   deployTo: e.ref === "refs/heads/main" ? "prod" : "beta" }))
-  .onPoll({ url, headers: { Authorization: "$SECRET:GITHUB_TOKEN" }, valuePath: "sha", intervalSeconds: 300 },
-          value => ({ sha: value }))
-  .stage(checkout, from => ({ repo: from.input.repo, sha: from.input.sha }))
-  .stage([build, from => ({ source: from.checkout })], [test, from => ({ source: from.checkout })])
-  .stage(deployBeta)                                   // no mapper: match inputs by model
+  .onPoll({ url: "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
+            secrets: [GITHUB_TOKEN], headers: { Authorization: "$SECRET:GITHUB_TOKEN" },
+            valuePath: "sha", intervalSeconds: 300 },
+          value => ({ sha: value }))                   // z.input: repo/deployTo take their defaults
+  .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(build, test)                                  // no mapper: match inputs by model (Source)
+  .stage(deployBeta)                                   // BuildArtifact from build
   .when({ deployTo: "prod" }, p => p
-    .stage(deploy)
+    .stage(deployProd)
     .when({ publishCli: true }, p => p
       .stage(publishCli)))
-  .onFailure(aoeTriage, { steps: [deploy] });
+  .onFailure(aoeTriage, { steps: [deployProd] });
 ```
 
 **Stages.** Sequential; the steps within a stage run in parallel. A stage is a **barrier**: the next
 stage starts only when every step of the current one has succeeded (or been skipped). This is what
 gates deploys on tests — no declaration needed.
 
-**Triggers.** Each trigger maps its event to the pipeline input model; the mapping is type-checked
-against it. Manual triggers (GUI / `pl trigger --input deployTo=beta`) use a form generated from the
-input model. Input is validated at trigger time; invalid input is a 400, never a half-run.
+**Triggers.** Each trigger maps its event to the pipeline input model's `z.input` view (defaults
+optional); the mapping is type-checked against it. Trigger mappers are **always code**: they run in
+a short `map-trigger` Job from the compiled binary per event (§4), never proxy-recorded. Poll
+triggers declare their own `secrets: [...]`, and `$SECRET:NAME` header references are type-checked
+against that list. Manual triggers (GUI / `pl trigger --input deployTo=beta`) use a form generated
+from the input model. Input is validated at trigger time; invalid input is a 400 (or a rejected
+event), never a half-run.
 
 **Input mapping.** By default a step's inputs are matched **by model** from what is available (the
 pipeline input + outputs of earlier stages). An optional per-step mapper builds the input
-explicitly:
+explicitly, given as a **`[step, mapper]` tuple**:
 
-- `.stage(step, from => ({ … }))` for a single step; `.stage([a, mapA], [b, mapB])` for a parallel stage.
-- `from` (the mapper parameter; `in` is a reserved word) is keyed by **step name**, plus `input` for the pipeline input.
-- `from` holds typed **references** (`Ref<T>`), not values: only property access and literals compile.
-  Describe calls the mapper with recording proxies and stores a **path mapping** in the manifest
-  (`{ source: "checkout" }`, `{ sha: "input.sha" }`); the service builds `input.json` from it without
-  running TypeScript, and the GUI draws exact field-level wiring.
-- Use a mapper to adapt library steps to your models, to resolve ambiguity (two producers of the
-  same model), or to fix constants.
+- `.stage(a)` / `.stage(a, b)` — no mappers, inputs matched by model.
+- `.stage([a, from => ({ … })])` for a single mapped step; `.stage([a, mapA], [b, mapB])` for a
+  parallel stage (tuples and plain steps can be mixed).
+- `from` (the mapper parameter; `in` is a reserved word) is keyed by **step name**, plus `input` for
+  the pipeline input.
+- `from` holds typed **references** (`Ref<T>`, a `symbol & …` type), not values: only property
+  access and literals compile; `===`, `+`, template strings and method calls on refs are type errors.
+  Describe calls the mapper with recording proxies and stores a **tagged mapping** in the manifest
+  (`{ "ref": "input.sha" }`, `{ "const": … }`, nested objects of these); the service builds
+  `input.json` from it without running TypeScript, and the GUI draws exact field-level wiring.
+- Proxies cannot see truthiness, `!`, `??`, `||` or ternaries on refs (they silently record a
+  constant), so describe also **statically analyses the mapper source** (`fn.toString()`): the body
+  must be an object literal of member chains and literals only. The harness is therefore never
+  minified. Reconcile rejects mapper keys the step's input doesn't declare.
+- Use a mapper to adapt library steps to your models, to feed plain-schema inputs (required), to
+  resolve ambiguity (two producers of the same model), or to fix constants.
 
 **Conditions.** `when` blocks are declarative field matches on **literal-like pipeline-input fields**
 (enums, booleans, literals; value or array of values). Typed against the input model — `{ deployTo:
@@ -199,30 +255,38 @@ show a **run plan** before a run starts.
 **Skip propagation.** A step whose `when` does not match is skipped and produces no output. Any later
 step needing that output is skipped too, with a chained reason. Outputs produced inside a `when` are
 only *maybe* available afterwards: a later step must declare them `optional(Model)` (handler sees
-`T | undefined`), or it is a compile error.
+`T | undefined`), or it is a compile error. `optional` means *maybe skipped* only: there must still
+be an earlier producer — `optional(M)` with no producer of `M` at all is an error.
 
 **Failure handlers.** v1's failure handlers carry over as `.onFailure(handler, { steps? })`; the
 failure context becomes a typed `FailureContext` model instead of `$PIPELINE_*` env vars.
 
 ### 3.7 Pipeline-build checks
 
-Enforced in two layers: **TypeScript** (the builder accumulates available outputs in its type) and
-**reconcile** (the service re-runs every check on the manifest and rejects invalid configs — it
-never trusts that the compiler ran, and script handlers bypass it anyway).
+Enforced in three layers: **TypeScript** (the builder accumulates available outputs in its type),
+**describe** (checks only the evaluated source can answer) and **reconcile** (the service re-runs
+every manifest-level check and rejects invalid configs — it never trusts that the compiler ran, and
+script handlers bypass it anyway). The spike verified every TS check below (incl. ambiguity, fully);
+the compile-fail checker runs in SDK CI against both TS lines.
 
-| Check | TS | Reconcile |
-|---|---|---|
-| Input model / mapped ref not available at this stage (incl. same-stage siblings) | ✓ | ✓ |
-| Two earlier producers of a model with no mapper (ambiguity) | best-effort | ✓ |
-| Maybe-available (inside `when`) output used as required input | ✓ | ✓ |
-| Mapper type mismatch / missing field / logic on refs | ✓ | ✓ |
-| Template-string or computed value in a mapper | lint | ✓ (proxy throws on coercion) |
-| `when` on unknown / non-literal field or invalid value | ✓ | ✓ |
-| Trigger mapping doesn't produce valid pipeline input | ✓ | ✓ |
-| Step uses an undeclared secret | ✓ | ✓ |
-| Duplicate step name | ✓ | ✓ |
-| Step without handler | — | ✓ (bundling) |
-| Output nothing consumes | — | warning (fine for gate steps like `test`) |
+| Check | TS | Describe | Reconcile |
+|---|---|---|---|
+| Input model / mapped ref not available at this stage (incl. same-stage siblings) | ✓ | | ✓ |
+| Two earlier producers of a model with no mapper (ambiguity) | ✓ | | ✓ |
+| Maybe-available (inside `when`) output used as required input | ✓ | | ✓ |
+| `optional(M)` with no earlier producer of `M` | ✓ | | ✓ |
+| Plain-schema input without a mapper | ✓ | | ✓ |
+| Mapper type mismatch / missing field | ✓ | | ✓ |
+| Mapper key not in the step's input | — | | ✓ |
+| Logic on refs: `===`, `+`, template strings, method calls | ✓ (`Ref<T>`) | ✓ (source analysis) | — |
+| Logic on refs: truthiness, `!`, `??`, `\|\|`, ternaries | — | ✓ (source analysis) | — |
+| `when` on unknown / non-literal field or invalid value | ✓ | | ✓ |
+| Trigger mapping doesn't produce valid pipeline input | ✓ | | at event time (`map-trigger` output validated) |
+| Step uses an undeclared secret; poll `$SECRET:` header not in the poll's `secrets` | ✓ | | ✓ |
+| Duplicate step name | ✓ | ✓ | ✓ |
+| Two schemas under one model name | — | ✓ | — |
+| Custom step without a handler file | — | ✓ (registry generation) | — |
+| Output nothing consumes | — | | warning (fine for gate steps like `test`) |
 
 ### 3.8 Wait steps (v2.1)
 
@@ -293,14 +357,23 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
   "apiVersion": "2.0",
   "name": "Olve.Pipelines",
   "input": "DeployRequest",
-  "models": { "DeployRequest": { "type": "object", "properties": { "…": {} } } },
-  "secrets": [ { "name": "SSH_PRIVATE_KEY", "description": "…" } ],
-  "triggers": [ { "kind": "push" }, { "kind": "poll", "url": "…", "valuePath": "sha", "intervalSeconds": 300 } ],
+  "harness": { "bun": "1.4.3", "sdkHash": "sha256:…" },
+  "models": {
+    "DeployRequest": { "input": { "type": "object", "properties": { "…": {} } },
+                       "output": { "type": "object", "required": ["repo", "sha", "deployTo", "publishCli"], "…": {} } },
+    "BuildArtifact": { "output": { "type": "object", "additionalProperties": false, "properties": {
+                         "image": { "type": "object", "x-olve-kind": "fileRef" }, "…": {} } } }
+  },
+  "secrets": [ { "name": "SSH_PRIVATE_KEY", "description": "…" }, { "name": "GITHUB_TOKEN", "description": "…" } ],
+  "triggers": [ { "kind": "push" },
+                { "kind": "poll", "url": "…", "secrets": ["GITHUB_TOKEN"], "valuePath": "sha", "intervalSeconds": 300 } ],
   "stages": [
     { "steps": [ { "name": "checkout", "kind": "gitCheckout", "image": "…",
-                   "input": { "repo": "input.repo", "sha": "input.sha" }, "output": "Source" } ] },
+                   "input": { "repo": { "ref": "input.repo" }, "sha": { "ref": "input.sha" } },
+                   "output": "Source" } ] },
+    { "steps": [ "…build, test…" ] },
     { "steps": [ { "name": "deploy-beta", "image": "alpine:latest",
-                   "input": { "artifact": "build" }, "output": "BetaDeployment",
+                   "input": { "artifact": { "ref": "build" } }, "output": "BetaDeployment",
                    "secrets": ["SSH_PRIVATE_KEY"], "handlerHash": "sha256:…" } ] },
     { "when": { "deployTo": ["prod"] }, "stages": [ "…" ] }
   ],
@@ -308,26 +381,61 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
 }
 ```
 
-Trigger mapping functions (`onPush`, `onPoll`) are code; they run in a short Job from the compiled
-binary when an event arrives (or describe records them as path mappings when they are pure — TBD in
-the spike).
+- **Mappings are tagged**: `{ "ref": "<step|input>.<path>" }`, `{ "const": <json> }`, or a nested
+  object of these. Inputs matched by model are emitted resolved (`{ "ref": "build" }`), so the
+  manifest is always explicit.
+- **Two schema views per model**, emitted only where they differ: the **input** view (`z.input`)
+  drives trigger forms and validation of manual input (the service fills `default`s from it); the
+  **output** view (`z.output`, `additionalProperties: false`) validates step outputs, trigger
+  results and the pool, and renders run history. Canonical JSON (sorted keys, no `$schema`).
+- **Trigger mappers** (`onPush`, `onPoll`) are code and appear in the manifest only as the trigger's
+  kind and config. Each event runs `map-trigger <trigger>` in a short Job; its result is parsed by
+  the pipeline input model (yielding `z.output`) and re-validated by the service.
 
 ## 5. Runtime
 
 ### 5.1 Harness
 
 The pipeline compiles (at reconcile, per commit) into **one standalone executable** (`bun build
---compile`) stored in Garage. It has three modes:
+--compile`, ~91 MB, ~38 MB gzipped) stored in Garage as `step.tar.gz`. It has three modes:
 
 - `describe` → the manifest.
-- `run <step>` → read `/olve/input.json`, validate against the step's input models, call the handler,
-  validate the return value against the output model, write `/olve/output.json`, upload referenced
-  files.
-- `check <step>` / `map-trigger <trigger>` → short-lived helpers for wait checks and trigger mapping.
+- `run <step>` → read `/olve/input.json`, validate against the step's input, call the handler,
+  validate the return value strictly against the output model, write `/olve/output.json`, upload
+  referenced files.
+- `map-trigger <trigger>` → short-lived helper mapping one event to pipeline input.
 
-An **init container** copies the executable — plus its own C library and loader — into a shared
-volume; the step container runs `/olve/step run <name>`. Bringing our own libc makes "any image"
-true: glibc images, Alpine (musl) and libc-less images like kaniko all work. (Spike — §12.)
+**`run` contract.** `output.json` is an envelope: `{ "status": "succeeded", "output": … }` or
+`{ "status": "skipped", "reason": "…" }`. Exit codes: `0` ok, `1` handler threw, `64` usage,
+`65` input invalid, `66` output invalid, `78` config invalid.
+
+**Any image via a bundled loader.** The binary is the glibc `bun-linux-x64` build, shipped with
+`/olve/lib` (ld-linux + libc/libpthread/libdl/libm from a pinned debian, ~3 MB) and always launched
+through that loader explicitly:
+
+```
+/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>
+```
+
+This ran in debian-slim, dotnet/sdk, Alpine (musl), kaniko and distroless/static under gVisor
+(+~10 ms). Rules: **never patchelf** (it segfaults Bun's embedded payload), **never set
+`LD_LIBRARY_PATH`** (`--library-path` is per-process, so children use the image's own libc), and
+re-exec self only via the loader command (`process.execPath` is the loader). A musl build with
+bundled ld-musl + libstdc++ + libgcc_s is the documented fallback (immune to exotic NSS /
+`ld.so.preload`; +~70 ms).
+
+**Delivery.** A stable **`harness-base`** image (static busybox + `/olve/lib`, versioned with the
+service) is the single init container. It fetches the per-version `step.tar.gz` and the per-attempt
+`input.json` from Garage via presigned GETs into the `/olve` emptyDir. The step container runs the
+loader command above with `TMPDIR=/olve/tmp` (kaniko has no `/tmp`); outputs go to `/olve/work`.
+
+**Build/describe Job** (on `oven/bun:<pinned>-slim` — never alpine, where `bun-linux-x64` silently
+yields musl): fetch the repo tarball → `bun install --frozen-lockfile` → generate the handler
+registry → `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv
+--no-compile-autoload-bunfig --bytecode --format=esm` → verify the ELF `PT_INTERP` → PUT
+`step.tar.gz` (presigned) → print the manifest between `---OLVE-MANIFEST-BEGIN---` /
+`---OLVE-MANIFEST-END---` on stdout; the service reads it from the pod log (termination messages
+cap at 4 KB). No callbacks to the API. ~1.3 s plus the first image pull.
 
 The service never executes TypeScript itself.
 
@@ -337,8 +445,7 @@ The service never executes TypeScript itself.
   Each job receives only the models its step declared (or its mapped paths), keeping contracts honest.
 - The run's **version stamp is derived from the run** (e.g. `<date>.<run number>`; format TBD), so it
   is known before `build` starts.
-- A step's outcome is `Succeeded`, `Failed`, `Skipped` (with reason), `Waiting`, `Cancelled`,
-  `Obsolete`. A failed step halts the run at its stage barrier.
+- A step's outcome is `Succeeded`, `Failed`, `Skipped` (with reason), `Cancelled`, `Obsolete`. A failed step halts the run at its stage barrier.
 - **Explicit reruns are attempts.** Rerunning a step adds an attempt in the same run with the same
   pinned version and pool input; the operator chooses *rerun only* or *rerun and continue*. Later
   stages consume the **latest successful attempt**; earlier attempts stay in history. Rerunning a
@@ -356,8 +463,9 @@ The service never executes TypeScript itself.
   (linked to the newer one) and its remaining stages are abandoned. Explicit reruns follow the
   per-step rules.
 - **Trigger de-duplication applies to automatic triggers only** (webhook, poll, reconcile): keyed on
-  (pipeline, mapped input) by default, so the same SHA from webhook and poll yields one run. Explicit
-  actions (GUI, `pl`, API) always create work.
+  (pipeline, mapped input) by default, so the same SHA from webhook and poll yields one run. Since
+  mappers are code, de-dup needs the mapped input: one `map-trigger` Job per event, de-dup after it.
+  Explicit actions (GUI, `pl`, API) always create work.
 - **Promotion gates** stay keyed on step id: a blocked step holds its run at that step; unblock
   resumes the due promotion. A braked step stays braked across version switches.
 
@@ -415,13 +523,16 @@ across runs (promote; later the environments view); run by version stamp.
 - **Entity versions**: steps and models each have `<id>.<version>`, incremented only when *that*
   entity's content changes, by content comparison:
   - model → its JSON Schema
-  - step → image, input/output model versions, declared secrets, mapper paths, handler bundle hash
-    (from the esbuild metafile, so imported shared code counts)
+  - step → image, input/output model versions, declared secrets, mappings, handler hash
+  - **handler hash** = hash of that handler's own bundle output, built separately with the contract
+    files external (tree-shaken, so imported shared code and embedded scripts count at function
+    granularity). Not Bun's metafile input list — its import graph is incomplete.
   - stage placement / `when` wrapping are *pipeline* changes, not step changes
 - A model change ripples to every step consuming it.
 - Hash the **manifest**, not the source; describe must be deterministic (no env/time/network) or
   versions flap. Lockfile changes legitimately bump every handler — the GUI labels it "dependency
-  change".
+  change". The manifest carries `harness: { bun, sdkHash }`; a Bun or SDK bump likewise
+  legitimately bumps all handlers.
 - Versions are **immutable** and retained while any retained run references them.
 
 ### 6.2 Single active version and `switch`
@@ -441,7 +552,7 @@ Active(8)              # queued trigger (if any) starts on 8
   so they are mapped and validated against v8's triggers and input model.
 - `switch --cancel-running` cancels v7's in-flight jobs instead of waiting.
 - A reconcile whose manifest fails checks never switches; the problems surface in binding status.
-- Paused runs (waiting for continue/promote, braked, waiting steps) don't block draining and become
+- Paused runs (waiting for continue/promote, braked) don't block draining and become
   un-continuable afterwards (the GUI says so; re-trigger on the new version).
 - No side-by-side canary of pipeline definitions: testing a new definition means switching to it.
 
@@ -464,7 +575,7 @@ deploy-beta
 
 ## 7. GUI and CLI
 
-- **Pipeline view**: stages, field-level wiring from mapper paths / model matches, `when` blocks,
+- **Pipeline view**: stages, field-level wiring from mappings / model matches, `when` blocks,
   versions with diff.
 - **Trigger form** generated from the input model; **run plan** preview (greyed-out stages whose
   `when` won't match).
@@ -498,8 +609,11 @@ No "run on the cluster from a laptop" — pushing to a beta-bound branch covers 
 ## 8. Security
 
 - The describe Job and step Jobs run under the existing runner hardening (gVisor, PSS baseline,
-  NetworkPolicy). New egress needs: describe needs the repo + npm registry; the init container needs
-  Garage.
+  NetworkPolicy). Describe needs the repo + npm registry, the init container Garage — both already
+  allowed; **no NetworkPolicy change needed**.
+- Runner pods can reach everything in apps/apps-beta (both Pipelines APIs, Garage), so **every
+  service endpoint is authenticated**, and artifacts go in/out only via presigned URLs.
+- Manifests and step outputs are **untrusted input**: schema-validated with size caps before use.
 - Repo code (describe, handlers, checks, trigger mappers) only ever executes in sandboxed Jobs, never
   in the service.
 - Secret values are masked in outputs and logs (approach TBD during implementation).
@@ -514,7 +628,7 @@ No "run on the cluster from a laptop" — pushing to a beta-bound branch covers 
 | "find the bundle dir containing version.txt", `commit.txt` | typed fields on `BuildArtifact` |
 | Promotion gate + promote | gate keyed on step id; promote = continue / rerun-and-continue |
 | Processing trigger target | continue a run from a step |
-| Poll trigger (`$SECRET:` headers) | `.onPoll(…, mapper)` |
+| Poll trigger (`$SECRET:` headers) | `.onPoll({ …, secrets }, mapper)`, headers type-checked against `secrets` |
 | Webhook / poll overlap fix | automatic-trigger de-duplication |
 | Failure handlers | `.onFailure(handler, { steps })`, typed `FailureContext` |
 | All pipeline secrets mounted in every job | per-step declared secrets |
@@ -536,16 +650,18 @@ a promote/rerun would roll an environment back to an older build; describe deter
 - **SDK publishing** (`@olve/pipelines` distribution and version compatibility with the service).
 - **TypeSpec** (or other) model sources — possible later since JSON Schema is the interchange.
 
-## 12. Spikes (before building on them)
+## 12. Spikes — done (2026-10-21)
 
-1. **Harness in any image**: compiled Bun executable + bundled libc/loader runs in glibc, Alpine and
-   kaniko (libc-less) images under gVisor.
-2. **One binary, many modes**: `bun build --compile` of models + pipeline + handlers with `describe`,
-   `run`, `check`, `map-trigger`; deterministic manifest; per-handler bundle hashes from the metafile.
-3. **Describe sandbox**: describe Job fetching repo + deps under gVisor/NetworkPolicy, emitting the
-   manifest to the service.
-4. **Type-level builder**: `Ref<T>` mappers, availability accumulation, maybe-available outputs from
-   `when`, readable error messages.
+All four passed; findings are folded into this spec. Details, numbers and gotchas:
+[pipelines-v2-spikes.md](pipelines-v2-spikes.md) (code under `spikes/`).
+
+1. **Harness in any image** — PASS (glibc binary + bundled loader; §5.1).
+2. **One binary, many modes** — PASS (deterministic manifest; per-handler bundle hashes, not the
+   metafile; §6.1).
+3. **Describe sandbox** — PASS (~1.3 s; manifest via stdout sentinels; §5.1, §8).
+4. **Type-level builder** — PASS (every TS check in §3.7; tuple mappers, describe source analysis).
+
+Still to validate early: one full busybox-wget `harness-base` pod end to end.
 
 ## 13. Transition plan
 

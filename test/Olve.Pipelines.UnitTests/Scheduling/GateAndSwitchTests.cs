@@ -99,6 +99,30 @@ public class GateAndSwitchTests
     }
 
     [Test]
+    public async Task Draining_SameTriggerAsOldVersionRun_IsQueuedNotDeduplicated_AndRunsOnNewVersion()
+    {
+        var s = new SchedulerScenario();
+        var old = s.Start(Input(sha: Sha), RunTriggerKind.Push);
+        s.MarkInProgress(old, "checkout");
+        var v2 = s.AddVersion();
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+
+        // Redelivery of the same push while draining: the v1 run is about to be abandoned.
+        await Assert.That(s.StartOutcome(Input(sha: Sha), RunTriggerKind.Push)).IsTypeOf<RunStartOutcome.Queued>();
+
+        s.Succeed(old, "checkout");
+
+        var newest = s.D.RunService.ListByPipeline(s.Pipeline.Id)[0];
+        await Assert.That(newest.Id).IsNotEqualTo(old.Id);
+        await Assert.That(newest.VersionId).IsEqualTo(v2.Id);
+        await Assert.That(s.Latest(newest, "checkout")!.Status).IsTypeOf<Scheduled>();
+        await Assert.That(s.Get(old).Status).IsEqualTo(RunStatus.Cancelled);
+
+        // ...and a later identical trigger is de-duplicated against the v2 run.
+        await Assert.That(s.StartOutcome(Input(sha: Sha), RunTriggerKind.Poll)).IsTypeOf<RunStartOutcome.Deduplicated>();
+    }
+
+    [Test]
     public async Task Switch_WithNothingInFlight_CompletesImmediately_HeldRunDoesNotBlockAndIsCancelled()
     {
         var s = new SchedulerScenario();

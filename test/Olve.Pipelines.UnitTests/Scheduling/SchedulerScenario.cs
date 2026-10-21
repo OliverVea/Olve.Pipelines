@@ -118,8 +118,8 @@ internal sealed class SchedulerScenario
 
     public static bool IsSchedulerSkip(Attempt attempt, out string reason)
     {
-        reason = attempt.Status is Skipped { StartedAt: null } s ? s.Reason : "";
-        return attempt.Status is Skipped { StartedAt: null };
+        reason = attempt.Status is Skipped s ? s.Reason : "";
+        return attempt.IsSchedulerSkip();
     }
 
     public static JsonNode? Json(string? text) => text is null ? null : JsonNode.Parse(text);

@@ -20,8 +20,8 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// <item><b>gate</b> — a blocked step gets no attempt and holds the run (<see cref="Run.HeldAt"/>);</item>
 /// <item>otherwise it schedules an attempt carrying the assembled input and its hash.</item>
 /// </list>
-/// A step whose latest attempt already matches the decision is settled: a succeeded attempt with the
-/// same input hash, a scheduler skip with the same reason, or a failed/cancelled/obsolete attempt that
+/// A step whose latest attempt already matches the decision is settled: a succeeded (or handler-skipped)
+/// attempt with the same input hash, a scheduler skip (no input) with the same reason, or a failed/cancelled/obsolete attempt that
 /// is not stale (older than <see cref="Run.ResumedAt"/>). Hash freshness is what makes continue and
 /// rerun-and-continue re-run exactly the downstream steps whose inputs changed.
 /// <para><b>Barrier.</b> The next stage starts only when every step of the current one is settled and
@@ -151,7 +151,7 @@ public class StageScheduler(
         return latest.Status switch
         {
             Failed or Cancelled or Obsolete => !(run.ResumedAt is { } resumed && latest.CreatedAt < resumed),
-            Skipped { StartedAt: null } skipped => decision is StepDecision.Skip s && s.Reason == skipped.Reason,
+            Skipped skipped when latest.IsSchedulerSkip() => decision is StepDecision.Skip s && s.Reason == skipped.Reason,
             Succeeded or Skipped => decision is StepDecision.Schedule sc && sc.Hash == latest.InputHash,
             _ => false,
         };

@@ -128,7 +128,7 @@ public class RunContinuationService(
             foreach (var step in stage.Steps)
             {
                 var latest = attempts.ListForStep(run.Id, step.Name).LastOrDefault();
-                if (latest?.Status is not (Succeeded or Skipped { StartedAt: not null }))
+                if (latest is null || latest.Status is not (Succeeded or Skipped) || latest.IsSchedulerSkip())
                     continue;
 
                 foreach (var field in AttemptInputBuilder.ConsumedInputFields(step).Concat(stage.ConditionFields))

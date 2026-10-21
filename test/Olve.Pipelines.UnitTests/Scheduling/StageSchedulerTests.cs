@@ -147,6 +147,22 @@ public class StageSchedulerTests
     }
 
     [Test]
+    public async Task HandlerSkip_OnStillScheduledAttempt_IsSettled_NoRescheduleLoop()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input(deployTo: "prod"));
+        s.SucceedThroughDeployBeta(run);
+
+        // An executor may report a skipped envelope without having marked the attempt InProgress.
+        var prod = s.Latest(run, "deploy-prod")!;
+        await Assert.That(s.D.AttemptService.MarkSkipped(prod.Id, "nothing to deploy")).Succeeded();
+
+        await Assert.That(s.All(run, "deploy-prod")).Count().IsEqualTo(1);
+        await Assert.That(IsSchedulerSkip(s.Latest(run, "deploy-prod")!, out _)).IsFalse();
+        await Assert.That(s.Active(run)).IsEquivalentTo(["summary"]);
+    }
+
+    [Test]
     public async Task Failure_HaltsAtBarrier_AfterSiblingsFinish()
     {
         var s = new SchedulerScenario();

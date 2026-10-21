@@ -26,9 +26,10 @@ public abstract record RunStartOutcome
 /// <see cref="SwitchService.OnSwitchCompleted"/> on the new version. No version → error.</item>
 /// <item><b>De-dup</b> (automatic triggers only — Push/Poll): the key is the trigger's
 /// <see cref="RunTrigger.DedupKey"/>, defaulting to the canonical hash of the input (the mapped input).
-/// A request is a duplicate when a Running run has the same key, or when the pipeline's most recent
-/// automatic run has the same key and was created within <see cref="DedupWindow"/>. Comparing with the
-/// latest automatic run only (not any older one) keeps A → B → A deploying A again.</item>
+/// Only runs pinned to the version a new run would pin (Active, or the drain target) count. A request
+/// is a duplicate when such a Running run has the same key, or when the most recent such automatic run
+/// has the same key, was not cancelled and was created within <see cref="DedupWindow"/>. Comparing with
+/// the latest automatic run only (not any older one) keeps A → B → A deploying A again.</item>
 /// <item><b>Supersede.</b> A new automatic run supersedes every older Running run of the pipeline as a
 /// whole: the older run is marked Superseded (linked to the new one) and its scheduled and in-progress
 /// attempts are cancelled. Explicit (manual) runs and whole-run reruns never supersede and are never
@@ -77,16 +78,24 @@ public class RunStartService(
         if (trigger.IsAutomatic && trigger.DedupKey is null)
             trigger = trigger with { DedupKey = CanonicalJson.Hash(input) };
 
-        if (trigger.IsAutomatic && FindDuplicate(pipelineId, trigger.DedupKey!) is { } duplicate)
+        if (!activations.TryGet(pipelineId, out var activation))
+            return new ResultProblem("Pipeline '{0}' has no active version.", pipelineId);
+
+        // De-dup only against runs of the version a new run would pin: during a drain the old
+        // version's runs are about to be abandoned, so they must not swallow the trigger.
+        var targetVersionId = activation switch
+        {
+            PipelineActivation.Draining d => d.ToVersionId,
+            PipelineActivation.Active a => a.VersionId,
+            _ => throw new InvalidOperationException($"Unknown activation state '{activation.GetType().Name}'."),
+        };
+        if (trigger.IsAutomatic && FindDuplicate(pipelineId, targetVersionId, trigger.DedupKey!) is { } duplicate)
         {
             logger.LogInformation(
                 "Ignoring {TriggerKind} trigger of pipeline '{PipelineId}': duplicate of run #{RunNumber} ('{RunId}')",
                 trigger.Kind, pipelineId, duplicate.Number, duplicate.Id);
             return new RunStartOutcome.Deduplicated(duplicate);
         }
-
-        if (!activations.TryGet(pipelineId, out var activation))
-            return new ResultProblem("Pipeline '{0}' has no active version.", pipelineId);
 
         if (activation is PipelineActivation.Draining draining)
         {
@@ -111,14 +120,15 @@ public class RunStartService(
         return new RunStartOutcome.Started(runs.TryGet(run.Id, out var current) ? current : run);
     });
 
-    private Run? FindDuplicate(Id<Pipeline> pipelineId, string key)
+    private Run? FindDuplicate(Id<Pipeline> pipelineId, Id<PipelineVersion> versionId, string key)
     {
-        var all = runs.ListByPipeline(pipelineId); // newest first
+        var all = runs.ListByPipeline(pipelineId).Where(r => r.VersionId == versionId).ToList(); // newest first
         if (all.FirstOrDefault(r => r.Status is RunStatus.Running && r.Trigger.DedupKey == key) is { } running)
             return running;
 
         var latestAutomatic = all.FirstOrDefault(r => r.Trigger.IsAutomatic);
         return latestAutomatic is not null
+               && latestAutomatic.Status is not RunStatus.Cancelled
                && latestAutomatic.Trigger.DedupKey == key
                && latestAutomatic.CreatedAt >= timeProvider.GetUtcNow() - DedupWindow
             ? latestAutomatic

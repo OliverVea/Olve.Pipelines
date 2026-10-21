@@ -160,8 +160,8 @@ export default pipeline({
                   deployTo: e.ref === "refs/heads/main" ? "prod" : "beta" }))
   .onPoll({ url, headers: { Authorization: "$SECRET:GITHUB_TOKEN" }, valuePath: "sha", intervalSeconds: 300 },
           value => ({ sha: value }))
-  .stage(checkout, in => ({ repo: in.input.repo, sha: in.input.sha }))
-  .stage([build, in => ({ source: in.checkout })], [test, in => ({ source: in.checkout })])
+  .stage(checkout, from => ({ repo: from.input.repo, sha: from.input.sha }))
+  .stage([build, from => ({ source: from.checkout })], [test, from => ({ source: from.checkout })])
   .stage(deployBeta)                                   // no mapper: match inputs by model
   .when({ deployTo: "prod" }, p => p
     .stage(deploy)
@@ -182,9 +182,9 @@ input model. Input is validated at trigger time; invalid input is a 400, never a
 pipeline input + outputs of earlier stages). An optional per-step mapper builds the input
 explicitly:
 
-- `.stage(step, in => ({ … }))` for a single step; `.stage([a, mapA], [b, mapB])` for a parallel stage.
-- `in` is keyed by **step name**, plus `input` for the pipeline input.
-- `in` holds typed **references** (`Ref<T>`), not values: only property access and literals compile.
+- `.stage(step, from => ({ … }))` for a single step; `.stage([a, mapA], [b, mapB])` for a parallel stage.
+- `from` (the mapper parameter; `in` is a reserved word) is keyed by **step name**, plus `input` for the pipeline input.
+- `from` holds typed **references** (`Ref<T>`), not values: only property access and literals compile.
   Describe calls the mapper with recording proxies and stores a **path mapping** in the manifest
   (`{ source: "checkout" }`, `{ sha: "input.sha" }`); the service builds `input.json` from it without
   running TypeScript, and the GUI draws exact field-level wiring.

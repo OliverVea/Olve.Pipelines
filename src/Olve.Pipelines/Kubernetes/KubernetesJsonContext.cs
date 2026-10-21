@@ -16,7 +16,8 @@ public record K8sMetadata(
 public record K8sJobSpecBody(
     [property: JsonPropertyName("template")] K8sPodTemplateSpec Template,
     [property: JsonPropertyName("backoffLimit")] int BackoffLimit = 0,
-    [property: JsonPropertyName("ttlSecondsAfterFinished")] int? TtlSecondsAfterFinished = null);
+    [property: JsonPropertyName("ttlSecondsAfterFinished")] int? TtlSecondsAfterFinished = null,
+    [property: JsonPropertyName("activeDeadlineSeconds"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ActiveDeadlineSeconds = null);
 
 public record K8sPodTemplateSpec(
     [property: JsonPropertyName("metadata")] K8sMetadata? Metadata,
@@ -28,7 +29,9 @@ public record K8sPodSpec(
     [property: JsonPropertyName("volumes")] K8sVolume[]? Volumes = null,
     [property: JsonPropertyName("restartPolicy")] string RestartPolicy = "Never",
     [property: JsonPropertyName("runtimeClassName")] string? RuntimeClassName = null,
-    [property: JsonPropertyName("securityContext")] K8sPodSecurityContext? SecurityContext = null);
+    [property: JsonPropertyName("securityContext")] K8sPodSecurityContext? SecurityContext = null,
+    [property: JsonPropertyName("automountServiceAccountToken"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AutomountServiceAccountToken = null,
+    [property: JsonPropertyName("enableServiceLinks"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? EnableServiceLinks = null);
 
 public record K8sPodSecurityContext(
     [property: JsonPropertyName("seccompProfile")] K8sSeccompProfile? SeccompProfile = null);
@@ -48,11 +51,31 @@ public record K8sContainer(
     [property: JsonPropertyName("env")] K8sEnvVar[]? Env = null,
     [property: JsonPropertyName("envFrom")] K8sEnvFromSource[]? EnvFrom = null,
     [property: JsonPropertyName("volumeMounts")] K8sVolumeMount[]? VolumeMounts = null,
-    [property: JsonPropertyName("securityContext")] K8sContainerSecurityContext? SecurityContext = null);
+    [property: JsonPropertyName("securityContext")] K8sContainerSecurityContext? SecurityContext = null,
+    [property: JsonPropertyName("imagePullPolicy"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ImagePullPolicy = null,
+    [property: JsonPropertyName("resources"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] K8sResourceRequirements? Resources = null);
+
+public record K8sResourceRequirements(
+    [property: JsonPropertyName("requests"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, string>? Requests = null,
+    [property: JsonPropertyName("limits"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Dictionary<string, string>? Limits = null);
 
 public record K8sEnvVar(
     [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("value")] string Value);
+    [property: JsonPropertyName("value"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Value,
+    [property: JsonPropertyName("valueFrom"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] K8sEnvVarSource? ValueFrom = null)
+{
+    /// <summary>An env var read from one key of a Secret (<c>valueFrom.secretKeyRef</c>).</summary>
+    public static K8sEnvVar FromSecret(string name, string secretName, string key, bool optional = false)
+        => new(name, null, new K8sEnvVarSource(new K8sSecretKeySelector(secretName, key, optional)));
+}
+
+public record K8sEnvVarSource(
+    [property: JsonPropertyName("secretKeyRef")] K8sSecretKeySelector SecretKeyRef);
+
+public record K8sSecretKeySelector(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("optional")] bool Optional = false);
 
 public record K8sEnvFromSource(
     [property: JsonPropertyName("secretRef")] K8sSecretRef SecretRef);
@@ -64,7 +87,8 @@ public record K8sVolume(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("emptyDir")] K8sEmptyDir? EmptyDir = null);
 
-public record K8sEmptyDir;
+public record K8sEmptyDir(
+    [property: JsonPropertyName("sizeLimit"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SizeLimit = null);
 
 public record K8sVolumeMount(
     [property: JsonPropertyName("name")] string Name,
@@ -85,14 +109,39 @@ public record K8sJobStatusBody(
 public record K8sJobCondition(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("message")] string? Message);
+    [property: JsonPropertyName("message")] string? Message,
+    [property: JsonPropertyName("reason")] string? Reason = null);
 
 // K8s Pod list for log retrieval
 public record K8sPodList(
     [property: JsonPropertyName("items")] K8sPodItem[] Items);
 
 public record K8sPodItem(
-    [property: JsonPropertyName("metadata")] K8sMetadata Metadata);
+    [property: JsonPropertyName("metadata")] K8sMetadata Metadata,
+    [property: JsonPropertyName("status")] K8sPodStatus? Status = null);
+
+public record K8sPodStatus(
+    [property: JsonPropertyName("phase")] string? Phase = null,
+    [property: JsonPropertyName("reason")] string? Reason = null,
+    [property: JsonPropertyName("initContainerStatuses")] K8sContainerStatus[]? InitContainerStatuses = null,
+    [property: JsonPropertyName("containerStatuses")] K8sContainerStatus[]? ContainerStatuses = null);
+
+public record K8sContainerStatus(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("state")] K8sContainerState? State = null);
+
+public record K8sContainerState(
+    [property: JsonPropertyName("waiting")] K8sContainerStateWaiting? Waiting = null,
+    [property: JsonPropertyName("terminated")] K8sContainerStateTerminated? Terminated = null);
+
+public record K8sContainerStateWaiting(
+    [property: JsonPropertyName("reason")] string? Reason = null,
+    [property: JsonPropertyName("message")] string? Message = null);
+
+public record K8sContainerStateTerminated(
+    [property: JsonPropertyName("exitCode")] int ExitCode,
+    [property: JsonPropertyName("reason")] string? Reason = null,
+    [property: JsonPropertyName("message")] string? Message = null);
 
 // K8s Secret
 public record K8sSecret(

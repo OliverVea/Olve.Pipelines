@@ -1,0 +1,644 @@
+{
+  "apiVersion": "2.0",
+  "description": "Build, deploy beta then prod, publish the pl CLI.",
+  "failureHandlers": [
+    {
+      "step": {
+        "handlerHash": "sha256:9661380684c83818cb4cfb999ea3fad906109bc40934695aade9979776219c96",
+        "image": "alpine:latest",
+        "input": {
+          "failure": {
+            "ref": "failure"
+          }
+        },
+        "inputTypes": {
+          "failure": {
+            "model": "FailureContext",
+            "optional": false
+          }
+        },
+        "kind": "custom",
+        "name": "aoe-triage",
+        "output": null,
+        "secrets": []
+      },
+      "steps": [
+        "deploy-prod",
+        "deploy-beta"
+      ]
+    }
+  ],
+  "harness": {
+    "bun": "1.4.3",
+    "sdk": "0.1.0",
+    "sdkHash": "sha256:5916c4b1e47820ddb14f0acff4d64bff32ecab4b9144957fa8ddbb693ebe0b1e"
+  },
+  "input": "DeployRequest",
+  "models": {
+    "BetaDeployment": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "release": {
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "release",
+          "version",
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "BuildArtifact": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "chart": {
+            "additionalProperties": false,
+            "properties": {
+              "attempt": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "path": {
+                "pattern": "^(?:(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/)*(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/?$",
+                "type": "string"
+              },
+              "run": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "step": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "run",
+              "step",
+              "attempt",
+              "path",
+              "sha256"
+            ],
+            "type": "object",
+            "x-olve-kind": "fileRef"
+          },
+          "commit": {
+            "additionalProperties": false,
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "repo",
+              "sha"
+            ],
+            "type": "object"
+          },
+          "image": {
+            "additionalProperties": false,
+            "properties": {
+              "attempt": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "path": {
+                "pattern": "^(?:(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/)*(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/?$",
+                "type": "string"
+              },
+              "run": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "step": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "run",
+              "step",
+              "attempt",
+              "path",
+              "sha256"
+            ],
+            "type": "object",
+            "x-olve-kind": "fileRef"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "commit",
+          "image",
+          "chart"
+        ],
+        "type": "object"
+      }
+    },
+    "CliRelease": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "assets"
+        ],
+        "type": "object"
+      }
+    },
+    "DeployRequest": {
+      "input": {
+        "properties": {
+          "deployTo": {
+            "default": "prod",
+            "enum": [
+              "beta",
+              "prod"
+            ],
+            "type": "string"
+          },
+          "publishCli": {
+            "default": true,
+            "type": "boolean"
+          },
+          "repo": {
+            "default": "OliverVea/Olve.Pipelines",
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "deployTo": {
+            "default": "prod",
+            "enum": [
+              "beta",
+              "prod"
+            ],
+            "type": "string"
+          },
+          "publishCli": {
+            "default": true,
+            "type": "boolean"
+          },
+          "repo": {
+            "default": "OliverVea/Olve.Pipelines",
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo",
+          "sha",
+          "deployTo",
+          "publishCli"
+        ],
+        "type": "object"
+      }
+    },
+    "FailureContext": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "logUrl": {
+            "type": "string"
+          },
+          "pipeline": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "run": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pipeline",
+          "run",
+          "step",
+          "attempt",
+          "reason",
+          "logUrl"
+        ],
+        "type": "object"
+      }
+    },
+    "ProdDeployment": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "release": {
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "release",
+          "version",
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "Source": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "tree": {
+            "additionalProperties": false,
+            "properties": {
+              "attempt": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "path": {
+                "pattern": "^(?:(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/)*(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/?$",
+                "type": "string"
+              },
+              "run": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "step": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "run",
+              "step",
+              "attempt",
+              "path",
+              "sha256"
+            ],
+            "type": "object",
+            "x-olve-kind": "fileRef"
+          }
+        },
+        "required": [
+          "repo",
+          "sha",
+          "tree"
+        ],
+        "type": "object"
+      }
+    },
+    "TestReport": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "passed": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "passed",
+          "failed"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "name": "Olve.Pipelines",
+  "secrets": [
+    {
+      "description": "GitHub read token (repo tarball, poll, CLI release).",
+      "name": "GITHUB_TOKEN"
+    },
+    {
+      "description": "SSH key for image import + helm on the host.",
+      "name": "SSH_PRIVATE_KEY"
+    }
+  ],
+  "stages": [
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:3c4426f5a51a7c151132fdd800693c967f2223abbca0b2095da04184d4b7db17",
+          "image": "alpine/git:latest",
+          "input": {
+            "repo": {
+              "ref": "input.repo"
+            },
+            "sha": {
+              "ref": "input.sha"
+            }
+          },
+          "inputTypes": {
+            "repo": {
+              "schema": {
+                "output": {
+                  "type": "string"
+                }
+              }
+            },
+            "sha": {
+              "schema": {
+                "output": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "kind": "custom",
+          "name": "checkout",
+          "output": "Source",
+          "secrets": [
+            "GITHUB_TOKEN"
+          ]
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:4faabba0793138cdb3731d270335d520df1f1bbc1ccc756ecafba8370320da93",
+          "image": "gcr.io/kaniko-project/executor:debug",
+          "input": {
+            "source": {
+              "ref": "checkout"
+            }
+          },
+          "inputTypes": {
+            "source": {
+              "model": "Source",
+              "optional": false
+            }
+          },
+          "kind": "custom",
+          "name": "build",
+          "output": "BuildArtifact",
+          "secrets": [],
+          "timeoutSeconds": 1800
+        },
+        {
+          "config": {
+            "computedEnv": [],
+            "env": {},
+            "scriptSha256": "sha256:5f4046ba05cc97e156e93d68b3e9a45362c9ea09b5fa86de6b9bc33842852854"
+          },
+          "handlerHash": "sha256:0b9d1f3f8d37ed5c6a5bda1c9677df2396b5680ab4318af08e370d195fbb7635",
+          "image": "mcr.microsoft.com/dotnet/sdk:10.0-noble",
+          "input": {
+            "source": {
+              "ref": "checkout"
+            }
+          },
+          "inputTypes": {
+            "source": {
+              "model": "Source",
+              "optional": false
+            }
+          },
+          "kind": "script",
+          "name": "test",
+          "output": "TestReport",
+          "secrets": []
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:69f6255e89dc5719955560aad5e635d374da344ccd6f39bd70f3fffb2c7578fb",
+          "image": "alpine:latest",
+          "input": {
+            "artifact": {
+              "ref": "build"
+            }
+          },
+          "inputTypes": {
+            "artifact": {
+              "model": "BuildArtifact",
+              "optional": false
+            }
+          },
+          "kind": "custom",
+          "name": "deploy-beta",
+          "output": "BetaDeployment",
+          "secrets": [
+            "SSH_PRIVATE_KEY"
+          ],
+          "timeoutSeconds": 900
+        }
+      ]
+    },
+    {
+      "stages": [
+        {
+          "steps": [
+            {
+              "handlerHash": "sha256:ca63940b93886a617bbc1e2c5036d7dba8a24f75502bb7ec815b4587b436a73b",
+              "image": "alpine:latest",
+              "input": {
+                "artifact": {
+                  "ref": "build"
+                }
+              },
+              "inputTypes": {
+                "artifact": {
+                  "model": "BuildArtifact",
+                  "optional": false
+                }
+              },
+              "kind": "custom",
+              "name": "deploy-prod",
+              "output": "ProdDeployment",
+              "secrets": [
+                "SSH_PRIVATE_KEY"
+              ]
+            }
+          ]
+        },
+        {
+          "stages": [
+            {
+              "steps": [
+                {
+                  "handlerHash": "sha256:b412d0408f704ef597c8229fceb856e47227e95355e3110d1245373247eeb4fc",
+                  "image": "mcr.microsoft.com/dotnet/sdk:10.0-noble",
+                  "input": {
+                    "artifact": {
+                      "ref": "build"
+                    },
+                    "prod": {
+                      "ref": "deploy-prod"
+                    }
+                  },
+                  "inputTypes": {
+                    "artifact": {
+                      "model": "BuildArtifact",
+                      "optional": false
+                    },
+                    "prod": {
+                      "model": "ProdDeployment",
+                      "optional": false
+                    }
+                  },
+                  "kind": "custom",
+                  "name": "publish-cli",
+                  "output": "CliRelease",
+                  "secrets": [
+                    "GITHUB_TOKEN"
+                  ]
+                }
+              ]
+            }
+          ],
+          "when": {
+            "publishCli": [
+              true
+            ]
+          }
+        }
+      ],
+      "when": {
+        "deployTo": [
+          "prod"
+        ]
+      }
+    },
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:13ed0fba61d404be51447fbf862dd89551b75a3a367a894ef9371890183647ea",
+          "image": "alpine:latest",
+          "input": {
+            "beta": {
+              "ref": "deploy-beta"
+            },
+            "cli": {
+              "ref": "publish-cli"
+            },
+            "prod": {
+              "ref": "deploy-prod"
+            }
+          },
+          "inputTypes": {
+            "beta": {
+              "model": "BetaDeployment",
+              "optional": false
+            },
+            "cli": {
+              "model": "CliRelease",
+              "optional": true
+            },
+            "prod": {
+              "model": "ProdDeployment",
+              "optional": true
+            }
+          },
+          "kind": "custom",
+          "name": "summary",
+          "output": null,
+          "secrets": []
+        }
+      ]
+    }
+  ],
+  "triggers": [
+    {
+      "kind": "push",
+      "name": "push"
+    },
+    {
+      "headers": {
+        "Authorization": "$SECRET:GITHUB_TOKEN"
+      },
+      "intervalSeconds": 300,
+      "kind": "poll",
+      "name": "poll",
+      "secrets": [
+        "GITHUB_TOKEN"
+      ],
+      "url": "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
+      "valuePath": "sha"
+    }
+  ]
+}

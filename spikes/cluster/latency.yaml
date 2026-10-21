@@ -1,0 +1,50 @@
+# Per-exec wall-clock latency: native glibc vs bundled-glibc loader vs bundled-musl loader,
+# 10 runs each, in debian (glibc) and alpine (musl). Also runs as non-root (uid 65534).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spike-h-latency
+  namespace: olve-runners-beta
+  labels: { spike: v2-harness, app: olve-pipelines }
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { spike: v2-harness, app: olve-pipelines, spike-case: latency }
+    spec:
+      runtimeClassName: gvisor
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext: { runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534 }
+      volumes: [{ name: olve, emptyDir: {} }]
+      initContainers:
+        - name: harness-glibc
+          image: registry.ovea.pro/olve-pipelines-v2/spike-harness-glibc:2
+          command: ["/bin/sh", "-c", "mkdir -p /shared/g /shared/work /shared/tmp && cp -a /olve/. /shared/g/ && echo '{}' > /shared/input.json"]
+          volumeMounts: [{ name: olve, mountPath: /shared }]
+        - name: harness-musl
+          image: registry.ovea.pro/olve-pipelines-v2/spike-harness-musl:2
+          command: ["/bin/sh", "-c", "mkdir -p /shared/m && cp -a /olve/. /shared/m/"]
+          volumeMounts: [{ name: olve, mountPath: /shared }]
+      containers:
+        - &c
+          name: debian
+          image: debian:bookworm-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              id
+              t() { label=$1; shift; s=$(date +%s%N); i=0; while [ $i -lt 10 ]; do "$@" run x >/dev/null 2>&1 || { echo "$label FAILED"; return; }; i=$((i+1)); done; e=$(date +%s%N); echo "$label avg_ms=$(( (e-s)/10000000 ))"; }
+              [ -e /lib64/ld-linux-x86-64.so.2 ] && t native-glibc /olve/g/step
+              t loader-glibc /olve/g/lib/ld-linux-x86-64.so.2 --library-path /olve/g/lib /olve/g/step
+              t loader-musl /olve/m/lib/ld-musl-x86_64.so.1 --library-path /olve/m/lib /olve/m/step
+              echo 'console.log(1)' > /olve/tmp/a.js; s=$(date +%s%N); /olve/m/lib/ld-musl-x86_64.so.1 --library-path /olve/m/lib /olve/m/step run x >/dev/null; e=$(date +%s%N); echo "single musl ms=$(( (e-s)/1000000 ))"
+          env: [{ name: TMPDIR, value: /olve/tmp }, { name: OLVE_INPUT, value: /olve/input.json }, { name: OLVE_OUTPUT, value: /olve/tmp/o.json }]
+          volumeMounts: [{ name: olve, mountPath: /olve }]
+          resources: { requests: { cpu: 500m, memory: 128Mi }, limits: { memory: 512Mi } }
+        - <<: *c
+          name: alpine
+          image: alpine:latest
+          env: [{ name: TMPDIR, value: /olve/tmp }, { name: OLVE_INPUT, value: /olve/input.json }, { name: OLVE_OUTPUT, value: /olve/tmp/o2.json }]

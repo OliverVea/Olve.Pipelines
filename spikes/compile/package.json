@@ -1,0 +1,20 @@
+{
+  "name": "olve-pipelines-spike-compile",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun build.ts",
+    "build:bytecode": "bun build.ts --out dist-bc --bytecode",
+    "test": "bun test tests/ && sh tests/modes.sh && sh tests/negative.sh && sh tests/hash-demo.sh",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "zod": "^4"
+  }
+}

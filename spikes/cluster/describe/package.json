@@ -1,0 +1,1 @@
+{ "name": "spike-describe", "private": true, "type": "module", "dependencies": { "zod": "^4.1.0" } }

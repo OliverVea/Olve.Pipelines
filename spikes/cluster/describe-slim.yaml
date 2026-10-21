@@ -1,0 +1,35 @@
+# Spike 3b: compile image = oven/bun:1-slim (glibc). Native glibc compile + cross musl compile
+# (runtime download through the NetworkPolicy).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spike-h-describe-slim
+  namespace: olve-runners-beta
+  labels: { spike: v2-harness, app: olve-pipelines }
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { spike: v2-harness, app: olve-pipelines, spike-case: describe-slim }
+    spec:
+      runtimeClassName: gvisor
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      volumes:
+        - { name: spike, configMap: { name: spike-h-describe, defaultMode: 0755 } }
+        - { name: work, emptyDir: { sizeLimit: 1Gi } }
+      containers:
+        - name: describe
+          image: oven/bun:1-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cd /work && cp /spike/package.json /spike/describe.ts . && bun install --no-progress | tail -1
+              s=$(date +%s%N); bun build --compile --target=bun-linux-x64 describe.ts --outfile g >/dev/null; e=$(date +%s%N); echo "glibc compile ms=$(( (e-s)/1000000 )) size=$(stat -c %s g)"
+              s=$(date +%s%N); bun build --compile --target=bun-linux-x64-musl describe.ts --outfile m 2>&1 | tail -1; e=$(date +%s%N); echo "musl cross compile ms=$(( (e-s)/1000000 )) size=$(stat -c %s m)"
+              ./g | head -c 60; echo
+          env: [{ name: HOME, value: /work }]
+          volumeMounts: [{ name: spike, mountPath: /spike }, { name: work, mountPath: /work }]
+          resources: { requests: { cpu: "1", memory: 256Mi }, limits: { memory: 1Gi } }

@@ -1,0 +1,6 @@
+# local-matrix.sh on the dev box (docker/runc, not gVisor) - all 6 variants x 4 images
+native glibc binary : debian OK; alpine/distroless/kaniko "exec: no such file" (no /lib64/ld-linux)
+native musl binary  : alpine fails (no libstdc++ installed), others "no such file"
+glibc via loader    : OK everywhere (kaniko rc=1 only because it has no /tmp for the output file)
+musl via loader     : OK everywhere (same kaniko /tmp note)
+patchelf'd (both)   : rc=139 SIGSEGV everywhere - rewriting the ELF breaks Bun's embedded payload

@@ -64,6 +64,31 @@ In a gVisor pod under the NetworkPolicy: fetch public repo tarball (no token) 0.
 - Runner pods can reach everything in apps/apps-beta (both Pipelines APIs, Garage) — all service
   endpoints must be authenticated; manifests/outputs are untrusted input (schema + size caps).
 
+## Spike 4 — type-level builder — PASS
+
+Every §3.7 TypeScript check is enforceable at compile time (51 compile-fail cases, verified to fail
+for the *right* reason by `spikes/sdk-types/scripts/check-compile-fail.ts`), including ambiguity
+(fully, not best-effort), maybe-available outputs, nominal models, `when` values, trigger mapping
+exactness, undeclared secrets, duplicate/reserved names. Identical on TS 7.0.2 and 5.9.3; whole
+project type-checks in 0.36 s (TS 7), ~linear in stages.
+
+- `Ref<T>` as `symbol & …` turns template strings, `+`, `===`, method calls on refs into errors.
+- **Holes types can't close:** truthiness/`!`/`??`/`||` on refs (proxy silently records a constant)
+  and extra keys in mapper results → describe-time static analysis of mapper source + reconcile
+  key check are **required**. Model-name collisions → describe check. zod strips unknown output keys
+  silently → output models validated strictly.
+- Inference constraints are fragile (homomorphic mapped stage param mentioning `E[K]`, exact
+  `readonly [S, (refs) => R]` tuple branch, widened-step guard, required `Step` brand) — keep the
+  compile-fail checker in SDK CI against both TS lines.
+- Error messages: branded `❌ …` messages read well; noise comes from zod internals in printed types
+  → print refs/models by name. Async handler output errors land on the whole handler (TS limitation).
+
+Recommended API changes: `[step, mapper]` tuple form instead of bare `.stage(step, mapper)`;
+poll triggers declare their own `secrets`; tagged `{ref}`/`{const}` mapping encoding; FileRef marked
+`x-olve-kind: fileRef`; trigger mappers see `z.input`, everything else `z.output`; plain-schema step
+inputs (e.g. gitCheckout's `{repo, sha}`) require a mapper. Spec example bugs to fix: `imageBuild`
+output vs `deployBeta` input, `e.repository.full_name`, undefined `deploy`/`publishCli`/`aoeTriage`.
+
 ## Decisions taken into the plan
 
 1. **glibc build + bundled glibc loader** is the default harness runtime (faster, libstdc++ static);
@@ -89,3 +114,7 @@ In a gVisor pod under the NetworkPolicy: fetch public repo tarball (no token) 0.
    78 config invalid.
 8. Manifest carries `harness: { bun, sdkHash }`; a Bun/SDK bump legitimately bumps all handlers.
 9. Store binaries compressed; later consider shared runtime + per-commit JS bundle (~1 MB).
+10. Output models are validated strictly (unknown keys rejected); describe enforces one schema per model
+    name; describe statically analyses mapper source (object literal of member chains + literals only);
+    reconcile rejects mapper keys the step's input doesn't have.
+11. Poll triggers declare their own secrets; FileRef marked `x-olve-kind: fileRef` in JSON Schema.

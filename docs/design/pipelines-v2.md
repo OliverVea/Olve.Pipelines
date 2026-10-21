@@ -468,6 +468,11 @@ a promote/rerun would roll an environment back to an older build; describe deter
 
 ## 13. Transition plan
 
+**v2 is fully breaking.** Anything in v1 that conflicts with this design (the production/processing
+split, job groups, the combined ArtifactBundle zip, the `config.yaml` format, all-secrets-mounted,
+the hand-written `version:` field, …) is removed on the `v2` branch rather than kept for
+compatibility. Nothing is migrated from a v1 instance's state.
+
 1. **v2 branch, v1 feature-frozen** (critical fixes only, ported to `v2`). v2 is deployed as a
    separate instance (`pipelines-v2`), initially beta-only, by a v1 pipeline bound to the `v2` branch.
    It needs its own Helm release + hostname, Garage bucket, Authentik app, Cloudflare tunnel route for

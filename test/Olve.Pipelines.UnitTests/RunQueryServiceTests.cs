@@ -38,26 +38,6 @@ public class RunQueryServiceTests
         await Assert.That(d.Query.TryGetLatestSucceededAcrossRuns(version.PipelineId, "build", out var latest)).IsTrue();
         await Assert.That(latest!.Id).IsEqualTo(good.Id);
     }
-
-    [Test]
-    public async Task GetStepHistory_FollowsIdentityAcrossVersions_WithStepVersions()
-    {
-        var d = new TestRunDomain();
-        var p = d.CreatePipeline().Id;
-        var v1 = d.AddVersion(p, steps: new Dictionary<string, int> { ["deploy-beta"] = 2 });
-        var v2 = d.AddVersion(p, steps: new Dictionary<string, int> { ["deploy-beta"] = 3 });
-        var runOnV1 = d.CreateRun(v1);
-        var runOnV2 = d.CreateRun(v2);
-        d.Schedule("deploy-beta", runOnV1);
-        d.Schedule("deploy-beta", runOnV2);
-        d.Schedule("other", runOnV2);
-
-        var history = d.Query.GetStepHistory(p, "deploy-beta");
-
-        await Assert.That(history.Select(h => (h.Run.Number, h.StepVersion)).ToArray())
-            .IsEquivalentTo(new[] { (2, (int?)3), (1, (int?)2) });
-        await Assert.That(d.Query.GetStepHistory(p, "deploy-beta", limit: 1)).Count().IsEqualTo(1);
-    }
 }
 
 public class RunCascadeCleanupTests

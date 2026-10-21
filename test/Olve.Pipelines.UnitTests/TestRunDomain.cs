@@ -41,7 +41,7 @@ internal sealed class TestRunDomain
         ActivationService = new PipelineActivationService(Activations, VersionService, Time);
         RunService = new RunService(Runs, Versions, Numbering, ids, Time);
         AttemptService = new AttemptService(Attempts, Runs, ids, Time);
-        Query = new RunQueryService(RunService, AttemptService, VersionService);
+        Query = new RunQueryService(RunService, AttemptService);
         Plans = new RunPlanCache(VersionService);
     }
 

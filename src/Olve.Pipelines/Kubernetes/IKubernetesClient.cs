@@ -2,8 +2,6 @@ namespace Olve.Pipelines.Kubernetes;
 
 public interface IKubernetesClient
 {
-    Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default);
-
     /// <summary>
     /// Submits a minimal single-container Job — image + script + env, no S3 plumbing, not tracked as
     /// a first-class <c>Job</c> entity.

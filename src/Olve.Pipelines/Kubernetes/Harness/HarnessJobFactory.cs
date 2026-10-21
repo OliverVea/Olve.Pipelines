@@ -2,6 +2,7 @@ using System.Text.Json;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Storage;
 
 namespace Olve.Pipelines.Kubernetes.Harness;
@@ -13,16 +14,16 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// </summary>
 public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions options)
 {
-    /// <param name="versionNumber">The run's pinned pipeline version (its <c>step.tar.gz</c> is fetched).</param>
+    /// <param name="binaryKey">The pinned version's <c>step.tar.gz</c> (<see cref="PipelineVersion.BinaryKey"/>).</param>
     /// <param name="step">The step from that version's manifest (image, timeout, secrets).</param>
     /// <param name="input">The attempt's assembled <c>input.json</c>, scanned for file refs (→ <c>OLVE_FILE_URLS</c>); null = no input file.</param>
     public async Task<Result<HarnessJobSpec>> CreateStepJobAsync(
-        Attempt attempt, int versionNumber, string versionStamp, StepDescriptor step, JsonElement? input,
+        Attempt attempt, string binaryKey, string versionStamp, StepDescriptor step, JsonElement? input,
         CancellationToken ct = default)
     {
         var lateExpiry = options.LateUrlExpiry(step.TimeoutSeconds);
 
-        var stepUrl = await presigner.PresignGetAsync(StorageLayout.VersionBinaryKey(attempt.PipelineId, versionNumber), ct: ct);
+        var stepUrl = await presigner.PresignGetAsync(binaryKey, ct: ct);
         var inputUrl = input is null ? null : await presigner.PresignGetAsync(HarnessStorageKeys.AttemptInputKey(attempt), ct: ct);
         var resultUrl = await presigner.PresignPutAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), lateExpiry, ct);
 

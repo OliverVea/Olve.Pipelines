@@ -1,0 +1,265 @@
+{
+  "apiVersion": "2.0",
+  "description": "Tiny end-to-end fixture: file refs between steps, a parallel stage and a when block.",
+  "failureHandlers": [],
+  "harness": {
+    "bun": "1.4.3",
+    "sdk": "0.1.0",
+    "sdkHash": "sha256:5141060790ce159017000d0abf8cad8f31d3d981817bccf1d9d3530c31b1e22f"
+  },
+  "input": "TestInput",
+  "models": {
+    "Greeting": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "additionalProperties": false,
+            "properties": {
+              "attempt": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "path": {
+                "pattern": "^(?:(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/)*(?!\\.\\.?(?:\\/|$))[^/\\\\\\x00]+\\/?$",
+                "type": "string"
+              },
+              "run": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "step": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "run",
+              "step",
+              "attempt",
+              "path",
+              "sha256"
+            ],
+            "type": "object",
+            "x-olve-kind": "fileRef"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "file"
+        ],
+        "type": "object"
+      }
+    },
+    "LineCount": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "lines": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lines"
+        ],
+        "type": "object"
+      }
+    },
+    "Summary": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "type": "object"
+      }
+    },
+    "TestInput": {
+      "input": {
+        "properties": {
+          "mode": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "skip-last"
+            ],
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-f]{7,40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "default": "normal",
+            "enum": [
+              "normal",
+              "skip-last"
+            ],
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-f]{7,40}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "mode"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "name": "v2 test fixture",
+  "secrets": [],
+  "stages": [
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:454502d32ea6d06612895c4b5a11fa6fef6f937c9e9635b1421c74e0ab97467c",
+          "image": "alpine:3.22",
+          "input": {
+            "request": {
+              "ref": "input"
+            }
+          },
+          "inputTypes": {
+            "request": {
+              "model": "TestInput",
+              "optional": false
+            }
+          },
+          "kind": "custom",
+          "name": "hello",
+          "output": "Greeting",
+          "secrets": [],
+          "timeoutSeconds": 300
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "handlerHash": "sha256:5e5004d05cb386c92cbd75b4672a5597b62a9e09b77366dc3be6936abb7f3b6a",
+          "image": "debian:bookworm-slim",
+          "input": {
+            "greeting": {
+              "ref": "hello"
+            }
+          },
+          "inputTypes": {
+            "greeting": {
+              "model": "Greeting",
+              "optional": false
+            }
+          },
+          "kind": "custom",
+          "name": "count",
+          "output": "LineCount",
+          "secrets": [],
+          "timeoutSeconds": 300
+        },
+        {
+          "handlerHash": "sha256:102de36b74402f659bdaf748ae910f894db092dcc5c1970f8cc705462d0f41f2",
+          "image": "busybox:1.37",
+          "input": {
+            "request": {
+              "ref": "input"
+            }
+          },
+          "inputTypes": {
+            "request": {
+              "model": "TestInput",
+              "optional": false
+            }
+          },
+          "kind": "custom",
+          "name": "echo",
+          "output": null,
+          "secrets": [],
+          "timeoutSeconds": 300
+        }
+      ]
+    },
+    {
+      "stages": [
+        {
+          "steps": [
+            {
+              "handlerHash": "sha256:ef01b9131908642d2a8f82e89337a8bdf931b8d4438fd04a9877751600bb9271",
+              "image": "alpine:3.22",
+              "input": {
+                "count": {
+                  "ref": "count"
+                },
+                "greeting": {
+                  "ref": "hello"
+                }
+              },
+              "inputTypes": {
+                "count": {
+                  "model": "LineCount",
+                  "optional": false
+                },
+                "greeting": {
+                  "model": "Greeting",
+                  "optional": false
+                }
+              },
+              "kind": "custom",
+              "name": "last",
+              "output": "Summary",
+              "secrets": [],
+              "timeoutSeconds": 300
+            }
+          ]
+        }
+      ],
+      "when": {
+        "mode": [
+          "normal"
+        ]
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "kind": "push",
+      "name": "push"
+    },
+    {
+      "headers": {},
+      "intervalSeconds": 600,
+      "kind": "poll",
+      "name": "poll",
+      "secrets": [],
+      "url": "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2",
+      "valuePath": "sha"
+    }
+  ]
+}

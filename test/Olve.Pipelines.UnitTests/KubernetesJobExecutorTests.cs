@@ -1,89 +1,139 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Shared;
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Shared.Storage;
+using Olve.Pipelines.UnitTests.Manifests;
+using Olve.Pipelines.UnitTests.Scheduling;
+using Olve.Results;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
-using Olve.Pipelines.Pipelines.Runs;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests;
 
 public class KubernetesJobExecutorTests
 {
-    private sealed class FakeKubernetesClient : IKubernetesClient
+    private static readonly HarnessContainerState InitOk = new(HarnessJobBuilder.InitContainerName, 0, "Completed", null);
+    private static readonly HarnessPodState Running = new(null, null, InitOk, new HarnessContainerState("step", null, null, null));
+    private static readonly HarnessPodState Exited0 = new(null, null, InitOk, new HarnessContainerState("step", 0, "Completed", null));
+
+    private sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClient
     {
-        public KubernetesJobStatus? InitialStatus { get; set; }
-        public List<KubernetesJobStatus> PollSequence { get; } = new();
-        public int CreateJobCallCount { get; private set; }
-        public int CreateSecretCallCount { get; private set; }
-        public int DeleteSecretCallCount { get; private set; }
-
-        // When > 0, the next CreateJobAsync throws (and decrements) to simulate a K8s-API outage.
+        /// <summary>Returned by GetHarnessPodStateAsync before any Job was created by the executor.</summary>
+        public HarnessPodState? Existing { get; set; }
+        /// <summary>States returned after creation (or on reattach); the last one repeats.</summary>
+        public List<HarnessPodState?> States { get; } = [];
+        public bool Created { get; private set; }
+        public int CreateJobCalls { get; private set; }
         public int FailCreateJobTimes { get; set; }
+        public K8sJobManifest? LastJob { get; private set; }
+        public Dictionary<string, string>? LastSecretData { get; private set; }
+        public List<string> UpsertedSecrets { get; } = [];
+        public List<string> DeletedSecrets { get; } = [];
+        public List<string> DeletedJobs { get; } = [];
+        public Dictionary<string, string> Logs { get; } = [];
+        public Action? OnPoll { get; set; }
 
-        public KubernetesJobSpec? LastSpec { get; private set; }
-
-        public Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default)
+        public Task<bool> CreateJobAsync(string ns, K8sJobManifest manifest, CancellationToken ct = default)
         {
-            CreateJobCallCount++;
-            LastSpec = spec;
+            CreateJobCalls++;
             if (FailCreateJobTimes > 0)
             {
                 FailCreateJobTimes--;
                 throw new InvalidOperationException("simulated K8s API unavailable");
             }
+            LastJob = manifest;
+            Created = true;
+            return Task.FromResult(true);
+        }
+
+        public Task UpsertSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
+        {
+            UpsertedSecrets.Add(secretName);
+            LastSecretData = data;
+            return Task.CompletedTask;
+        }
+
+        public Task<HarnessPodState?> GetHarnessPodStateAsync(string ns, string jobName, CancellationToken ct = default)
+        {
+            if (!Created)
+            {
+                if (Existing is null)
+                    return Task.FromResult<HarnessPodState?>(null);
+                Created = true; // reattached: later polls follow States
+                return Task.FromResult<HarnessPodState?>(Existing);
+            }
+            OnPoll?.Invoke();
+            if (States.Count == 0)
+                return Task.FromResult<HarnessPodState?>(Exited0);
+            var next = States[0];
+            if (States.Count > 1) States.RemoveAt(0);
+            return Task.FromResult(next);
+        }
+
+        public Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default)
+            => Logs.TryGetValue(container ?? "", out var log) ? Task.FromResult<string?>(log) : throw new HttpRequestException("container not started");
+
+        public Task DeleteJobAsync(string ns, string jobName, CancellationToken ct = default)
+        {
+            DeletedJobs.Add(jobName);
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default)
+        {
+            DeletedSecrets.Add(secretName);
             return Task.CompletedTask;
         }
 
         public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default)
             => Task.CompletedTask;
-
-        public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
-            => Task.FromResult(InitialStatus);
-
-        public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
-        {
-            if (PollSequence.Count == 0)
-                return Task.FromResult(new KubernetesJobStatus(jobName, JobPhase.Succeeded));
-
-            var next = PollSequence[0];
-            if (PollSequence.Count > 1) PollSequence.RemoveAt(0);
-            return Task.FromResult(next);
-        }
-
-        public Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default)
-            => Task.FromResult<string?>(null);
-
-        public Task DeleteJobAsync(string ns, string jobName, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
-        {
-            CreateSecretCallCount++;
-            return Task.CompletedTask;
-        }
-
-        public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default)
-            => Task.FromResult<Dictionary<string, string>?>(null);
-
-        public Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
-            => Task.CompletedTask;
-
-        public Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default)
-        {
-            DeleteSecretCallCount++;
-            return Task.CompletedTask;
-        }
+        public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default) => Task.FromResult<Dictionary<string, string>?>(null);
+        public Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
     }
 
-    private sealed class NoSecretsStore : IPipelineSecretStore
+    private sealed class FakeStorage : IHarnessStorage
     {
-        public Task<bool> HasSecretsAsync(Id<Pipeline> pipelineId, CancellationToken ct = default)
-            => Task.FromResult(false);
+        public ConcurrentDictionary<string, string> Objects { get; } = new();
+        public List<string> Deleted { get; } = [];
+        public HarnessCollection Collection { get; set; } = new(
+            new HarnessResultContents(new HarnessEnvelope.Succeeded("""{"lines":3}"""), "{}", []), []);
+
+        public Task PutTextAsync(string key, string content, string contentType, CancellationToken ct = default)
+        {
+            Objects[key] = content;
+            return Task.CompletedTask;
+        }
+
+        public Task<string?> GetTextAsync(string key, CancellationToken ct = default)
+            => Task.FromResult(Objects.TryGetValue(key, out var v) ? v : null);
+
+        public Task<bool> ExistsAsync(string key, CancellationToken ct = default) => Task.FromResult(Objects.ContainsKey(key));
+
+        public Task CopyAsync(string sourceKey, string destinationKey, CancellationToken ct = default)
+        {
+            Objects[destinationKey] = Objects[sourceKey];
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteAsync(string key, CancellationToken ct = default)
+        {
+            Deleted.Add(key);
+            Objects.TryRemove(key, out _);
+            return Task.CompletedTask;
+        }
+
+        public Task<HarnessCollection> CollectAsync(Attempt attempt, CancellationToken ct = default) => Task.FromResult(Collection);
     }
 
     private sealed class StubS3CredentialsProvider : ICredentialsProvider<S3Credentials>
@@ -103,270 +153,250 @@ public class KubernetesJobExecutorTests
 
     private sealed record Harness(
         KubernetesJobExecutor Executor,
-        FakeKubernetesClient K8s,
-        TestRunDomain Domain,
+        FakeKubernetes K8s,
+        FakeStorage Storage,
+        SchedulerScenario Scenario,
+        Run Run,
         JobWatcherRegistry Registry,
         FakeApplicationLifetime Lifetime)
     {
-        public EntityStore<Attempt> JobStore => Domain.Attempts;
+        public Attempt Hello => Scenario.Latest(Scenario.Get(Run), "hello")!;
+        public AttemptService Attempts => Scenario.D.AttemptService;
     }
 
-    private static Harness BuildHarness(IKubernetesClient? k8sOverride = null)
+    private static Harness Build(string input = """{"sha":"abcdef1","mode":"normal"}""")
     {
-        var k8s = k8sOverride as FakeKubernetesClient ?? new FakeKubernetesClient();
-
-        var time = TimeProvider.System;
-        var domain = new TestRunDomain(time);
+        var k8s = new FakeKubernetes();
+        var storage = new FakeStorage();
+        var scenario = new SchedulerScenario(TestFixtureManifest.Text);
+        var run = scenario.Start(input);
 
         var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
         var lifetime = new FakeApplicationLifetime();
-        var options = new KubernetesOptions("default", "alpine", "minio/mc", "bucket", "https://s3", false);
-        var storage = new StorageOptions("bucket");
+        var presigner = new S3UrlPresigner(
+            new PresignOptions(new Uri("http://garage.test:3900"), "bucket", "us-east-1", TimeSpan.FromHours(1)),
+            new StubS3CredentialsProvider(), TimeProvider.System);
+        var factory = new HarnessJobFactory(presigner, new HarnessOptions());
+        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners", "alpine", "curl", "bucket", "http://s3", false),
+            TimeProvider.System, NullLogger<HarnessJobControl>.Instance) { FatalWaitingGrace = TimeSpan.Zero };
 
+        KubernetesJobExecutor? executor = null;
         var services = new ServiceCollection();
-        services.AddSingleton(domain.Attempts);
-        services.AddSingleton(registry);
-        services.AddSingleton<IHostApplicationLifetime>(lifetime);
-        services.AddSingleton(k8s);
-        services.AddSingleton(options);
-        services.AddSingleton(storage);
-        services.AddSingleton(time);
-        services.AddSingleton(domain.AttemptService);
-        services.AddSingleton<IPipelineSecretStore>(new NoSecretsStore());
-        services.AddSingleton<ICredentialsProvider<S3Credentials>>(new StubS3CredentialsProvider());
-        services.AddTransient<IJobExecutor>(sp => new KubernetesJobExecutor(
-            sp.GetRequiredService<IServiceScopeFactory>(),
-            registry,
-            lifetime,
-            k8s,
-            options,
-            sp.GetRequiredService<IPipelineSecretStore>(),
-            sp.GetRequiredService<ICredentialsProvider<S3Credentials>>(),
-            s3: null!,
-            storage,
-            domain.AttemptService,
-            NullLogger<KubernetesJobExecutor>.Instance)
-        {
-            // Don't wait real seconds between submission retries in tests.
-            SubmissionRetryDelay = TimeSpan.Zero,
-        });
-
+        services.AddSingleton(scenario.D.AttemptService);
+        services.AddTransient<IJobExecutor>(_ => executor!);
         var sp = services.BuildServiceProvider();
-        var executor = (KubernetesJobExecutor)sp.GetRequiredService<IJobExecutor>();
 
-        return new Harness(executor, k8s, domain, registry, lifetime);
+        executor = new KubernetesJobExecutor(
+            sp.GetRequiredService<IServiceScopeFactory>(), registry, lifetime, control, factory, storage,
+            scenario.D.AttemptService, scenario.D.Launches, NullLogger<KubernetesJobExecutor>.Instance)
+        {
+            SubmissionRetryDelay = TimeSpan.Zero,
+            PollInterval = TimeSpan.FromMilliseconds(5),
+        };
+
+        return new Harness(executor, k8s, storage, scenario, run, registry, lifetime);
     }
 
-    private static Id<Attempt> CreateScheduledJob(Harness h) => h.Domain.Schedule("step").Id;
-
-    private static async Task WaitForWatcherComplete(Harness h, Id<Attempt> id)
+    private static async Task RunWatcher(Harness h, Id<Attempt> id)
     {
+        h.Executor.EnsureRunning(id);
         var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
         while (h.Registry.IsRunning(id))
         {
             if (DateTimeOffset.UtcNow > deadline)
                 throw new TimeoutException($"Watcher for '{id}' did not complete in time.");
-            await Task.Delay(20);
+            await Task.Delay(10);
         }
     }
 
     [Test]
-    public async Task FreshSubmit_NoExistingK8sJob_SubmitsThenCompletes()
+    public async Task FreshSubmit_UploadsInput_CreatesSecretThenJob_CollectsAndSucceeds()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+        var h = Build();
+        h.K8s.States.Add(Running);
+        h.K8s.States.Add(Exited0);
+        h.K8s.Logs["step"] = "hi\n---OLVE-RESULT-BEGIN---\n{\"status\":\"succeeded\",\"output\":{}}\n---OLVE-RESULT-END---\n";
+        h.Storage.Collection = new(new HarnessResultContents(new HarnessEnvelope.Succeeded("""{"message":"m"}"""), "{}", []), []);
+        var attempt = h.Hello;
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, attempt.Id);
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(1);
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
+        var after = h.Scenario.D.Get(attempt.Id);
+        await Assert.That(after.Status).IsTypeOf<Succeeded>();
+        await Assert.That(after.Output!.Json).IsEqualTo("""{"message":"m"}""");
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(1);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEquivalentTo(new[] { HarnessStorageKeys.UrlSecretName(attempt.Id) });
+        await Assert.That(h.K8s.DeletedSecrets).IsEquivalentTo(new[] { HarnessStorageKeys.UrlSecretName(attempt.Id) });
+        await Assert.That(h.Storage.Objects[HarnessStorageKeys.AttemptInputKey(attempt)]).IsEqualTo(attempt.Input!);
+        await Assert.That(h.Storage.Objects[StorageLayout.AttemptLogKey(attempt)]).StartsWith("hi\n");
+        await Assert.That(h.Storage.Deleted).Contains(HarnessStorageKeys.AttemptResultArchiveKey(attempt));
     }
 
     [Test]
-    public async Task Reattach_ExistingRunningK8sJob_DoesNotCreateJob()
+    public async Task FreshSubmit_JobIsTheHarnessSpecOfTheAttempt()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+        var h = Build();
+        var attempt = h.Hello;
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, attempt.Id);
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(0);
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
+        var job = h.K8s.LastJob!;
+        await Assert.That(job.Metadata.Name).IsEqualTo(attempt.KubernetesJobName);
+        var step = job.Spec.Template.Spec.Containers.Single();
+        await Assert.That(step.Image).IsEqualTo("alpine:3.22");
+        await Assert.That(step.Command!.TakeLast(2)).IsEquivalentTo(new[] { "run", "hello" });
+        await Assert.That(job.Spec.ActiveDeadlineSeconds).IsEqualTo(300 + new HarnessOptions().StartupGraceSeconds);
+        await Assert.That(h.K8s.LastSecretData![HarnessJobBuilder.StepUrlKey])
+            .Contains(StorageLayout.VersionBinaryKey(attempt.PipelineId, h.Scenario.Version.Number));
     }
 
     [Test]
-    public async Task Reattach_ExistingSucceededK8sJob_SkipsPollingAndCompletes()
+    public async Task SkippedEnvelope_MarksSkipped()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Succeeded);
-        // PollSequence empty — a bug that polled would throw since we'd use default
+        var h = Build();
+        h.Storage.Collection = new(new HarnessResultContents(new HarnessEnvelope.Skipped("nothing to do"), "{}", []), []);
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, h.Hello.Id);
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(0);
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
+        await Assert.That(h.Hello.Status).IsTypeOf<Skipped>();
+        await Assert.That(((Skipped)h.Hello.Status).Reason).IsEqualTo("nothing to do");
     }
 
     [Test]
-    public async Task TerminalCompletion_DeletesPerJobS3Secret()
+    public async Task InitFailure_FailsWithInitLog()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+        var h = Build();
+        h.K8s.States.Add(new HarnessPodState(null, null,
+            new HarnessContainerState("olve-init", 65, "Error", null), new HarnessContainerState("step", null, "PodInitializing", null)));
+        h.K8s.Logs["olve-init"] = "olve-init: HTTP/1.1 403 Forbidden\n";
+        h.Storage.Collection = new(null, []);
+        var attempt = h.Hello;
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, attempt.Id);
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        await Assert.That(h.K8s.CreateSecretCallCount).IsEqualTo(1);
-        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(1);
-    }
-
-    // Regression: a self-deploy step restarts this controller mid-run, cancelling the watcher while the
-    // K8s Job is still running. The per-job S3 secret must NOT be deleted then — deleting it breaks the
-    // Job's pending s3-upload container and wedges the job. The job stays InProgress so the next startup
-    // reattaches with the secret intact.
-    [Test]
-    public async Task CancellationDuringShutdown_PreservesPerJobS3Secret()
-    {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
-
-        var jobId = CreateScheduledJob(h);
-
-        h.Lifetime.StopApplication();
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        await Assert.That(h.K8s.CreateSecretCallCount).IsEqualTo(1);
-        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(0);
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<InProgress>();
+        var failed = (Failed)h.Hello.Status;
+        await Assert.That(failed.Reason!).Contains("olve-init failed");
+        await Assert.That(h.Storage.Objects[StorageLayout.AttemptLogKey(attempt)]).Contains("403 Forbidden");
     }
 
     [Test]
-    public async Task Reattach_InProgressJobRecord_KeepsOriginalStartTime()
+    public async Task StuckContainer_FailsAndDeletesTheJob()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
+        var h = Build();
+        h.K8s.States.Add(new HarnessPodState(null, null, InitOk,
+            new HarnessContainerState("step", null, "CreateContainerConfigError", "secret key FOO not found")));
+        h.Storage.Collection = new(null, []);
+        var attempt = h.Hello;
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, attempt.Id);
 
+        var failed = (Failed)h.Hello.Status;
+        await Assert.That(failed.Reason!).Contains("CreateContainerConfigError");
+        await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
+    }
+
+    [Test]
+    public async Task CancelledWhileInProgress_DeletesTheJob()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        var polls = 0;
+        h.K8s.States.Add(Running);
+        h.K8s.OnPoll = () => { if (++polls == 2) h.Attempts.Cancel(attempt.Id).DiscardResult(); };
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Cancelled>();
+        await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
+        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+    }
+
+    [Test]
+    public async Task Reattach_ExistingJob_DoesNotSubmitAgain()
+    {
+        var h = Build();
+        h.K8s.Existing = Running;
+        var attempt = h.Hello;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
+        await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
+    }
+
+    [Test]
+    public async Task Reattach_InProgressAttempt_KeepsOriginalStartTime()
+    {
+        var h = Build();
+        h.K8s.Existing = Running;
+        var attempt = h.Hello;
         var originalStart = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        await Assert.That(h.Domain.AttemptService.Update(jobId, a => a with { Status = new InProgress(originalStart) })).Succeeded();
+        await Assert.That(h.Attempts.Update(attempt.Id, a => a with { Status = new InProgress(originalStart) })).Succeeded();
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
+        await RunWatcher(h, attempt.Id);
 
-        h.JobStore.TryGet(jobId, out var job);
-        var done = (Succeeded)job!.Status;
-        await Assert.That(done.StartedAt).IsEqualTo(originalStart);
+        await Assert.That(((Succeeded)h.Hello.Status).StartedAt).IsEqualTo(originalStart);
     }
 
-    // A K8s-API outage makes submission throw before the job reaches InProgress. The job must not be
-    // retried forever (silent idle) — after MaxSubmissionAttempts it fails loudly. Each EnsureRunning
-    // call here stands in for one JobRunner respawn.
+    [Test]
+    public async Task InProgressAttempt_WhoseJobIsGone_FailsWithoutResubmitting()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        await Assert.That(h.Attempts.MarkInProgress(attempt.Id)).Succeeded();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(((Failed)h.Hello.Status).Reason!).Contains("no longer exists");
+    }
+
+    // A controller restart (e.g. v2's own self-deploy) cancels the watcher while the Job runs: the URL
+    // Secret must survive so the reattach finds working URLs, and the attempt stays InProgress.
+    [Test]
+    public async Task ShutdownDuringWatch_PreservesUrlSecret()
+    {
+        var h = Build();
+        h.K8s.Existing = Running;
+        h.K8s.States.Add(Running);
+        h.K8s.OnPoll = h.Lifetime.StopApplication;
+        var attempt = h.Hello;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.DeletedSecrets).IsEmpty();
+        await Assert.That(h.Hello.Status).IsTypeOf<InProgress>();
+    }
+
     [Test]
     public async Task SubmissionKeepsFailing_MarksFailedAfterMaxAttempts()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.FailCreateJobTimes = 99; // always fail
-
-        var jobId = CreateScheduledJob(h);
+        var h = Build();
+        h.K8s.FailCreateJobTimes = 99;
+        var attempt = h.Hello;
 
         for (var i = 0; i < KubernetesJobExecutor.MaxSubmissionAttempts; i++)
-        {
-            h.Executor.EnsureRunning(jobId);
-            await WaitForWatcherComplete(h, jobId);
-        }
+            await RunWatcher(h, attempt.Id);
 
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Failed>();
-        await Assert.That(h.K8s.CreateJobCallCount).IsEqualTo(KubernetesJobExecutor.MaxSubmissionAttempts);
-        // The per-job S3 secret is cleaned up when the job reaches its terminal failure.
-        await Assert.That(h.K8s.DeleteSecretCallCount).IsEqualTo(1);
+        await Assert.That(h.Hello.Status).IsTypeOf<Failed>();
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(KubernetesJobExecutor.MaxSubmissionAttempts);
+        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+        await Assert.That(h.Storage.Objects[StorageLayout.AttemptLogKey(attempt)]).Contains("giving up");
     }
 
-    // Intermediate attempts leave the job Scheduled with a bumped Attempts count so the stuck-and-
-    // retrying state survives a watcher respawn / restart.
     [Test]
-    public async Task SubmissionFails_LeavesJobScheduledWithBumpedAttempts()
+    public async Task SubmissionFailsThenRecovers_Completes()
     {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.FailCreateJobTimes = 99;
+        var h = Build();
+        h.K8s.FailCreateJobTimes = 1;
+        var attempt = h.Hello;
 
-        var jobId = CreateScheduledJob(h);
+        await RunWatcher(h, attempt.Id);
+        await Assert.That(h.Hello.Status).IsTypeOf<Scheduled>();
+        await Assert.That(((Scheduled)h.Hello.Status).SubmissionAttempts).IsEqualTo(1);
 
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        h.JobStore.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Scheduled>();
-        await Assert.That(((Scheduled)job.Status).SubmissionAttempts).IsEqualTo(1);
-    }
-
-    // A transient outage that clears before the attempt budget is exhausted must recover and complete,
-    // not fail the job.
-    [Test]
-    public async Task SubmissionFailsThenRecovers_CompletesWithoutFailing()
-    {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.FailCreateJobTimes = 1; // first attempt throws, second succeeds
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
-
-        var jobId = CreateScheduledJob(h);
-
-        // Attempt 1 fails → still Scheduled.
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-        h.JobStore.TryGet(jobId, out var afterFirst);
-        await Assert.That(afterFirst!.Status).IsTypeOf<Scheduled>();
-
-        // Attempt 2 succeeds → Done.
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-        h.JobStore.TryGet(jobId, out var afterSecond);
-        await Assert.That(afterSecond!.Status).IsTypeOf<Succeeded>();
-    }
-
-    // Until B5 the spec is a placeholder, but its identity is load-bearing: the K8s Job name is derived
-    // from the attempt id (reattach after restart) and outputs land under the attempt's storage prefix.
-    [Test]
-    public async Task FreshSubmit_SpecIsDerivedFromAttempt()
-    {
-        var h = BuildHarness();
-        h.K8s.InitialStatus = null;
-        h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
-
-        var jobId = CreateScheduledJob(h);
-
-        h.Executor.EnsureRunning(jobId);
-        await WaitForWatcherComplete(h, jobId);
-
-        var attempt = h.Domain.Get(jobId);
-        var spec = h.K8s.LastSpec!;
-        await Assert.That(spec.Name).IsEqualTo(attempt.KubernetesJobName);
-        await Assert.That(spec.Name.Length).IsLessThanOrEqualTo(63);
-        await Assert.That(spec.OutputBundleS3Prefix).IsEqualTo(StorageLayout.AttemptFilesPrefix(attempt));
-        await Assert.That(spec.EnvironmentVariables!["OLVE_STEP"]).IsEqualTo("step");
+        await RunWatcher(h, attempt.Id);
+        await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
     }
 }

@@ -82,6 +82,25 @@ public static class HarnessExitCodes
     };
 
     /// <summary>
+    /// The pod has reached a verdict: the Job failed (deadline, backoff), the step container terminated,
+    /// or olve-init failed (restartPolicy Never, so the step never starts). Only then is
+    /// <see cref="Classify"/> meaningful — on a running pod it reports "did not terminate".
+    /// </summary>
+    public static bool IsFinished(HarnessPodState state)
+        => state.JobFailedReason is not null
+           || state.Main is { Terminated: true }
+           || state.Init is { Terminated: true, ExitCode: not 0 };
+
+    /// <summary>
+    /// A container is stuck in a waiting state that does not heal on its own (image pull failure,
+    /// missing Secret key, …). The caller fails the attempt after a short grace and deletes the Job
+    /// instead of waiting out <c>activeDeadlineSeconds</c>.
+    /// </summary>
+    public static bool IsFatalWaiting(HarnessPodState state)
+        => new[] { state.Init, state.Main }.Any(c =>
+            c is { Terminated: false, Reason: { } reason } && FatalWaitingReasons.Contains(reason));
+
+    /// <summary>
     /// Classifies the pod. Null means the step container exited 0 and nothing else went wrong — the
     /// envelope decides succeeded vs skipped. Init and step exit codes overlap with different meanings,
     /// so which container terminated matters.

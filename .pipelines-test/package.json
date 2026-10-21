@@ -1,0 +1,17 @@
+{
+  "name": "olve-pipelines-test-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "describe": "olve-dev describe .",
+    "build": "olve-build . --out .olve/out"
+  },
+  "dependencies": {
+    "@olve/pipelines": "file:../sdk"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "typescript": "7.0.2"
+  }
+}

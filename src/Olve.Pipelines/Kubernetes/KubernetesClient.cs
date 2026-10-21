@@ -70,28 +70,6 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
-    public async Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default)
-    {
-        var manifest = BuildJobManifest(spec);
-
-        _logger?.LogInformation("Creating K8s Job {JobName} in namespace {Namespace}", spec.Name, ns);
-
-        var response = await _httpClient.PostAsJsonAsync(
-            $"apis/batch/v1/namespaces/{ns}/jobs",
-            manifest,
-            KubernetesJsonContext.Default.K8sJobManifest,
-            ct);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger?.LogError("Failed to create Job {JobName}: {StatusCode} {Body}", spec.Name, response.StatusCode, body);
-            throw new InvalidOperationException($"Failed to create K8s Job '{spec.Name}': {response.StatusCode}");
-        }
-
-        _logger?.LogInformation("K8s Job {JobName} created", spec.Name);
-    }
-
     public async Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default)
     {
         var manifest = BuildBareJobManifest(name, image, script, env, runtimeClassName);
@@ -276,106 +254,6 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
-    internal static K8sJobManifest BuildJobManifest(KubernetesJobSpec spec)
-    {
-        var labels = new Dictionary<string, string>
-        {
-            ["app"] = "olve-pipelines",
-            ["job-name"] = spec.Name,
-        };
-
-        var volumes = new[]
-        {
-            new K8sVolume("input", new K8sEmptyDir()),
-            new K8sVolume("output", new K8sEmptyDir()),
-        };
-
-        // Runner env vars (user-defined + pipeline secrets)
-        var runnerEnv = new List<K8sEnvVar>();
-        if (spec.EnvironmentVariables is not null)
-        {
-            foreach (var (key, value) in spec.EnvironmentVariables)
-                runnerEnv.Add(new K8sEnvVar(key, value));
-        }
-
-        var runnerEnvFrom = spec.SecretName is not null
-            ? new[] { new K8sEnvFromSource(new K8sSecretRef(spec.SecretName)) }
-            : (K8sEnvFromSource[]?)null;
-
-        var runnerVolumeMounts = new[]
-        {
-            new K8sVolumeMount("input", "/input", ReadOnly: true),
-            new K8sVolumeMount("output", "/output"),
-        };
-
-        var runner = new K8sContainer(
-            "runner",
-            spec.Image,
-            Command: ["/bin/sh", "-c"],
-            Args: [spec.Script],
-            Env: runnerEnv.Count > 0 ? runnerEnv.ToArray() : null,
-            EnvFrom: runnerEnvFrom,
-            VolumeMounts: runnerVolumeMounts,
-            SecurityContext: HardenedContainerContext);
-
-        // S3 helper env/credentials
-        var s3HelperEnvFrom = new[] { new K8sEnvFromSource(new K8sSecretRef(spec.S3CredentialsSecretName)) };
-
-        // Build init containers
-        var initContainers = new List<K8sContainer>();
-
-        K8sEnvVar[] S3HelperEnv(string prefix) =>
-        [
-            new("S3_ENDPOINT", spec.S3Endpoint),
-            new("S3_BUCKET", spec.S3Bucket),
-            new("S3_PREFIX", prefix),
-            new("S3_INSECURE", spec.S3SkipCertValidation ? "1" : "0"),
-        ];
-
-        // s3-download init container (processing jobs with input)
-        if (spec.InputBundleS3Prefix is not null)
-        {
-            initContainers.Add(new K8sContainer(
-                "s3-download",
-                spec.S3HelperImage,
-                Command: ["/bin/sh", "-c"],
-                Args: [S3SyncScript.Content, "s3sync", "download"],
-                Env: S3HelperEnv(spec.InputBundleS3Prefix),
-                EnvFrom: s3HelperEnvFrom,
-                VolumeMounts: [new K8sVolumeMount("input", "/input")],
-                SecurityContext: S3HelperContainerContext));
-        }
-
-        // Runner runs as init container (so upload only happens on success)
-        initContainers.Add(runner);
-
-        // Main container: s3-upload
-        var s3Upload = new K8sContainer(
-            "s3-upload",
-            spec.S3HelperImage,
-            Command: ["/bin/sh", "-c"],
-            Args: [S3SyncScript.Content, "s3sync", "upload"],
-            Env: S3HelperEnv(spec.OutputBundleS3Prefix),
-            EnvFrom: s3HelperEnvFrom,
-            VolumeMounts: [new K8sVolumeMount("output", "/output", ReadOnly: true)],
-            SecurityContext: S3HelperContainerContext);
-
-        return new K8sJobManifest(
-            "batch/v1",
-            "Job",
-            new K8sMetadata(spec.Name, labels),
-            new K8sJobSpecBody(
-                new K8sPodTemplateSpec(
-                    new K8sMetadata(spec.Name, labels),
-                    new K8sPodSpec(
-                        Containers: [s3Upload],
-                        InitContainers: initContainers.ToArray(),
-                        Volumes: volumes,
-                        RuntimeClassName: spec.RuntimeClassName,
-                        SecurityContext: HardenedPodContext)),
-                TtlSecondsAfterFinished: StepJobTtlSeconds));
-    }
-
     // K8s deletes a finished step Job (and its pod) after this. The controller copies the pod's logs
     // to storage as soon as it sees the Job finish, so this only has to outlast a controller outage —
     // a week is generous. Bare Jobs get no TTL: nothing persists their logs, so the pod is the only copy.
@@ -386,11 +264,6 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
     // still blocked, and seccomp applies when a job runs on plain runc.
     private static readonly K8sContainerSecurityContext HardenedContainerContext =
         new(AllowPrivilegeEscalation: false);
-
-    // The curl image defaults to a non-root user, but steps run as root and may leave 0600 files
-    // in /output (the old mc helper ran as root). Run the helpers as root so they can read them.
-    private static readonly K8sContainerSecurityContext S3HelperContainerContext =
-        HardenedContainerContext with { RunAsUser = 0 };
 
     private static readonly K8sPodSecurityContext HardenedPodContext =
         new(new K8sSeccompProfile("RuntimeDefault"));

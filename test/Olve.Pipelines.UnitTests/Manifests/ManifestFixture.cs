@@ -68,3 +68,18 @@ internal static class ManifestFixture
         _ => node.DeepClone(),
     };
 }
+
+/// <summary>The <c>.pipelines-test</c> fixture manifest (real <c>olve-build</c> output): hello | count, echo | when mode=normal: last.</summary>
+internal static class TestFixtureManifest
+{
+    public static readonly string Path = System.IO.Path.Combine(AppContext.BaseDirectory, "Manifests", "Fixtures", "test-fixture.manifest.json");
+
+    public static string Text => File.ReadAllText(Path);
+
+    public static Manifest Parse()
+    {
+        if (!ManifestParser.TryParse(File.ReadAllBytes(Path), out var manifest, out var issues))
+            throw new InvalidOperationException("test fixture does not parse: " + string.Join("; ", issues));
+        return manifest;
+    }
+}

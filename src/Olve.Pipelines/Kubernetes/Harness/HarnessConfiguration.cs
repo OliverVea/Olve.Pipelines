@@ -40,5 +40,7 @@ public static class HarnessConfiguration
         services.AddSingleton(options);
         services.AddTransient<HarnessJobFactory>();
         services.AddTransient<HarnessResultCollector>();
+        services.AddTransient<IHarnessStorage, S3HarnessStorage>();
+        services.AddTransient<HarnessJobControl>();
     }
 }

@@ -1,0 +1,21 @@
+// Models of the v2 test fixture pipeline (contract file: contracts only).
+import { fileRef, model, z } from "@olve/pipelines";
+
+export const TestInput = model("TestInput", z.object({
+  sha: z.string().regex(/^[0-9a-f]{7,40}$/),
+  /** "skip-last" leaves out the conditional last stage (exercises `when` skips). */
+  mode: z.enum(["normal", "skip-last"]).default("normal"),
+}));
+
+export const Greeting = model("Greeting", z.object({
+  message: z.string(),
+  file: fileRef(),
+}));
+
+export const LineCount = model("LineCount", z.object({
+  lines: z.number().int(),
+}));
+
+export const Summary = model("Summary", z.object({
+  summary: z.string(),
+}));

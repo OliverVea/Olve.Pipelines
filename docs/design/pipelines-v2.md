@@ -259,6 +259,27 @@ step with a long timeout; if the result is pushed or can be checked periodically
 Semantics: a waiting run is abandoned when superseded or when its version is switched out; it does
 not block a `switch` drain.
 
+**Execution model — waits are not Jobs.** An attempt has an **execution kind**, and the scheduler
+dispatches by kind instead of assuming "attempt = one K8s Job":
+
+| Kind | Lifecycle | K8s footprint |
+|---|---|---|
+| `job` (every ordinary/library step) | Scheduled → InProgress → Succeeded/Failed | exactly one Job per attempt |
+| `wait` | Scheduled → Waiting → Succeeded (resolved) / Failed (timeout) / Cancelled | none while waiting; zero or more short **probe** Jobs |
+
+- A waiting attempt is a **persisted state with a schedule** (`nextCheckAt`, `deadline`), driven by the
+  service: a timer fires checks, the API/callback endpoint delivers resolutions, a timeout fails it.
+  It survives restarts like any other state.
+- **Probes** (scheduled-check Jobs) are children of the attempt, not attempts themselves: many per
+  attempt, each returning `notYet` or an output. They don't consume the step's slot or count as
+  attempts in history (shown as a probe log under the attempt).
+- A `Waiting` attempt **holds its step's slot** (one in progress per step): latest-wins and supersede
+  apply to it like any in-progress step — a newer run's arrival at the wait abandons the older wait.
+- Resolution is the only way out besides timeout/cancel: whichever resolver (manual, callback, probe)
+  delivers a valid output first wins; later deliveries are rejected (attempt no longer Waiting).
+- In the backend this is one executor per kind behind a common interface (`JobStepExecutor`,
+  `WaitStepExecutor`), so further kinds can be added without touching the stage scheduler.
+
 **Scope for v2.0: the model must support waits** (`Waiting` status, `wait` kind in the manifest); the
 implementation can follow later.
 

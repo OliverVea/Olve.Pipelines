@@ -465,8 +465,9 @@ The service never executes TypeScript itself.
 - **Keyed on step id, not version.** At most one `InProgress` job per (pipeline, step); latest-wins
   among scheduled jobs; v1 semantics carry over.
 - **An automatic newer run supersedes an older run as a whole**: the older run is marked superseded
-  (linked to the newer one) and its remaining stages are abandoned. Explicit reruns follow the
-  per-step rules.
+  (linked to the newer one) and its remaining stages are abandoned: scheduled attempts are cancelled,
+  in-progress attempts finish (a half-done deploy is never killed) but the run never advances.
+  Explicit reruns follow the per-step rules.
 - **Trigger de-duplication applies to automatic triggers only** (webhook, poll, reconcile): keyed on
   (pipeline, mapped input) by default, so the same SHA from webhook and poll yields one run. Since
   mappers are code, de-dup needs the mapped input: one `map-trigger` Job per event, de-dup after it.

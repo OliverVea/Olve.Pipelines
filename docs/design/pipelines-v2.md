@@ -598,7 +598,7 @@ Three loops, all from the repo via `pl` (which shells out to Bun):
    manifest + describe-time checks from source; `pl dev validate` posts it to the service's
    validation endpoint for the C# reconcile checks without pushing.
 2. **One step from source** — `pl dev run <step>` runs the handler with Bun directly (no compile),
-   through the same harness path (validate input → handler → validate output → `./.olve/work/`).
+   through the same harness path (validate input → handler → validate output → `<pipeline dir>/.olve/work/`).
    Input via `--input-file`, `--input k=v` (pipeline-input fields), or **`--from <pipeline>#<run>`**,
    which pulls a real run's input + outputs (file refs on demand) to reproduce or iterate on a step
    with production data. Secrets come from the local env or `--secret NAME=…` — never auto-pulled.

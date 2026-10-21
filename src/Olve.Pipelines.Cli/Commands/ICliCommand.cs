@@ -22,6 +22,12 @@ public interface ICliCommand
     /// <summary>Number of positional operands required after the noun/verb (e.g. an id).</summary>
     int RequiredOperands => 0;
 
+    /// <summary>
+    /// False for local-only commands (e.g. <c>pl dev …</c>): the dispatcher then skips the token
+    /// pre-flight refresh, so they never touch the network or need a session.
+    /// </summary>
+    bool UsesApi => true;
+
     /// <summary>One-line summary shown in the noun's help listing.</summary>
     string HelpLine { get; }
 

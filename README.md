@@ -294,6 +294,58 @@ A **Job** runs a single step (`ProductionJob` → one production step; `Processi
 processing step), so `pl job list` resolves and shows that step's name in the `STEP` column,
 falling back to the step id when the name can't be resolved.
 
+#### `pl dev` (v2 local development)
+
+`pl dev` runs a v2 TypeScript pipeline from the repo, with no service and no login. It calls the
+SDK's `olve-dev`/`olve-build` through Bun. Bun is looked up in this order: `$OLVE_BUN`, then
+`PATH`, then `~/.bun/bin/bun`. The SDK is the `@olve/pipelines` that the pipeline itself resolves;
+override it with `$OLVE_SDK`. The pipeline directory defaults to `.pipelines` (`--dir` overrides
+it). Everything is written to `<dir>/.olve/`, which is already git-ignored.
+
+```bash
+pl dev describe [--json]                         # manifest summary + describe-time checks (exit 78 on problems)
+pl dev run <step> --input sha=<40 hex>           # one step from source -> <dir>/.olve/work/; exit code = harness's
+pl dev run build                                 # next step: inputs come from the local pool
+pl dev run checkout --input-file in.json         # use input.json verbatim
+pl dev run deploy-beta --secret SSH_PRIVATE_KEY="$(cat key)"   # secrets: --secret, else the environment
+pl dev run build --docker                        # olve-build, then run the binary in the step's image like the pod
+pl dev run build --from olve-pipelines#412       # parsed, but needs the v2 run API (not available yet)
+pl dev pipeline --input sha=<sha> --input deployTo=beta [--until <step>] [--only a,b] [--yes]
+```
+
+How `pl dev run` and `pl dev pipeline` work:
+
+- **Local pool.** `<dir>/.olve/pool.json` holds the pipeline input and each step's latest local
+  outcome. A step's `input.json` is built from its manifest mappings, the same way the service
+  builds it:
+  - `input.*` refs read the pipeline input. That is the `--input k=v` values, typed by the input
+    model, layered over the pool's previous input, with the model's defaults filling the rest.
+  - Step refs read earlier steps' outputs.
+
+  Output files are copied to `<dir>/.olve/files/0/<step>/1/files/`, which is passed to the harness
+  as `OLVE_FILES_DIR`. So running steps one after another chains them, file refs included.
+- **Missing inputs.** If a required input's step never ran, `pl dev run` fails with a hint to run
+  that step first. If that step was skipped, an optional input is left out.
+- **Secrets.** Only the step's declared secrets reach it, from `--secret` or the environment. Other
+  pipeline secrets are removed from the child's environment. A declared secret that isn't set only
+  produces a warning, because the handler fails only if it reads that secret.
+- **`pl dev pipeline`.**
+  - It runs the stages in order. Steps within a stage run one after another.
+  - It evaluates `when` blocks against the input and propagates skips.
+  - A failed step stops the run.
+  - Before each step that declares secrets it asks for confirmation. Without a terminal it refuses
+    unless you pass `--yes`.
+  - A full run starts a fresh pool. `--only` reuses the pool for everything it doesn't run.
+  - Failure handlers are not run.
+- **`--docker`.**
+  - It compiles into `<dir>/.olve/build`.
+  - It extracts the glibc loader libs from the `harness-base` image once, into `<dir>/.olve/lib/<tag>/`.
+  - It stages `/olve` (`step`, `lib/`, `input.json`, and `work/` and `tmp/` at mode 1777) and copies
+    it into a container of the step's image.
+  - The container runs `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>`
+    with `OLVE_DIR=/olve` and `TMPDIR=/olve/tmp`. The pool's files are mounted read-only.
+  - It copies `/olve/work` back into `<dir>/.olve/work`.
+
 ## Build & Test
 
 ```bash

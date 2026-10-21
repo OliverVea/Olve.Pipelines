@@ -14,6 +14,7 @@ namespace Olve.Pipelines.Cli;
 public sealed class CliArgs
 {
     private readonly Dictionary<string, string> _options;
+    private readonly Dictionary<string, List<string>> _optionValues;
     private readonly HashSet<string> _flags;
     private readonly List<string> _positionals;
 
@@ -26,14 +27,24 @@ public sealed class CliArgs
     /// <summary>Number of leading positionals that named the command (1 for verbless, 2 for noun-verb). Set by the dispatcher after routing.</summary>
     public int OperandOffset { get; set; }
 
-    private CliArgs(List<string> positionals, Dictionary<string, string> options, HashSet<string> flags)
+    private CliArgs(
+        List<string> positionals,
+        Dictionary<string, string> options,
+        Dictionary<string, List<string>> optionValues,
+        HashSet<string> flags)
     {
         _positionals = positionals;
         _options = options;
+        _optionValues = optionValues;
         _flags = flags;
     }
 
+    /// <summary>The value of option <paramref name="name"/>; when repeated, the last occurrence wins.</summary>
     public string? Option(string name) => _options.GetValueOrDefault(name);
+
+    /// <summary>Every value of a repeatable option (e.g. <c>--input a=1 --input b=2</c>), in order; empty when absent.</summary>
+    public IReadOnlyList<string> Options(string name) =>
+        _optionValues.TryGetValue(name, out var values) ? values : [];
 
     public string Option(string name, string fallback) => _options.GetValueOrDefault(name) ?? fallback;
 
@@ -61,6 +72,7 @@ public sealed class CliArgs
     {
         var positionals = new List<string>();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        var optionValues = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         var flags = new HashSet<string>(StringComparer.Ordinal);
 
         for (var i = 0; i < args.Count; i++)
@@ -95,18 +107,24 @@ public sealed class CliArgs
                 continue;
             }
 
+            string value;
             if (inlineValue is not null)
             {
-                options[name] = inlineValue;
-                continue;
+                value = inlineValue;
+            }
+            else
+            {
+                if (i + 1 >= args.Count)
+                    return new ResultProblem("Option '--{0}' requires a value.", name);
+                value = args[++i];
             }
 
-            if (i + 1 >= args.Count)
-                return new ResultProblem("Option '--{0}' requires a value.", name);
-
-            options[name] = args[++i];
+            options[name] = value;
+            if (!optionValues.TryGetValue(name, out var values))
+                optionValues[name] = values = [];
+            values.Add(value);
         }
 
-        return Result.Success(new CliArgs(positionals, options, flags));
+        return Result.Success(new CliArgs(positionals, options, optionValues, flags));
     }
 }

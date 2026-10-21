@@ -1,6 +1,7 @@
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Bindings;
+using Olve.Pipelines.Cli.Commands.Dev;
 using Olve.Pipelines.Cli.Commands.Jobs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Secrets;
@@ -25,7 +26,7 @@ public sealed class CliDispatcher
     private readonly List<ICliCommand> _commands = [];
     private readonly Dictionary<string, ICliCommand> _byKey = new(StringComparer.Ordinal);
 
-    public CliDispatcher(IProcessRunner processRunner)
+    public CliDispatcher(IProcessRunner processRunner, IConfirmPrompt? confirmPrompt = null)
     {
         Register(new BootstrapCommand(processRunner));
         Register(new TeardownCommand(processRunner));
@@ -55,6 +56,12 @@ public sealed class CliDispatcher
         Register(new BindingSetCredentialsCommand());
         Register(new BindingSetTriggerCommand());
         Register(new BindingReconcileCommand());
+
+        // dev (local development from source; no API)
+        var prompt = confirmPrompt ?? new ConsoleConfirmPrompt();
+        Register(new DevDescribeCommand(processRunner));
+        Register(new DevRunCommand(processRunner));
+        Register(new DevPipelineCommand(processRunner, prompt));
     }
 
     private void Register(ICliCommand command)
@@ -147,7 +154,8 @@ public sealed class CliDispatcher
             return Fail(configProblems);
 
         // Pre-flight refresh of the cached token so commands go out with a fresh bearer (best-effort).
-        await TokenRefresh.EnsureFreshAsync(cli, config, log, ct);
+        if (command.UsesApi)
+            await TokenRefresh.EnsureFreshAsync(cli, config, log, ct);
 
         if (ApiClientFactory.Create(cli, config, log).TryPickProblems(out var clientProblems, out var api))
             return Fail(clientProblems);
@@ -163,7 +171,7 @@ public sealed class CliDispatcher
         };
 
         var result = await command.Execute(cli, ctx, ct);
-        return result.TryPickProblems(out var problems) ? Fail(problems) : 0;
+        return result.TryPickProblems(out var problems) ? Fail(problems) : ctx.ExitCode ?? 0;
     }
 
     private bool HasNoun(string noun) => _commands.Any(c => c.Noun == noun);

@@ -13,6 +13,24 @@ public sealed record ProcessResult(int ExitCode, string StandardOutput, string S
 }
 
 /// <summary>
+/// A process invocation with an environment overlay, a working directory and optional live
+/// line streaming (used by <c>pl dev</c>, where handler logs must appear as they happen).
+/// </summary>
+public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Arguments)
+{
+    /// <summary>Environment overlay on top of the current process's: a null value removes the variable.</summary>
+    public IReadOnlyDictionary<string, string?> Environment { get; init; } = new Dictionary<string, string?>();
+
+    public string? WorkingDirectory { get; init; }
+
+    /// <summary>When set, stdout is streamed line by line here instead of being captured.</summary>
+    public Action<string>? OnStdoutLine { get; init; }
+
+    /// <summary>When set, stderr is streamed line by line here instead of being captured.</summary>
+    public Action<string>? OnStderrLine { get; init; }
+}
+
+/// <summary>
 /// Runs external CLIs (kubectl, helm). Seam so commands are testable without a cluster.
 /// A non-zero exit is still a successful <see cref="ProcessResult"/> (the process ran);
 /// only a failure to launch (binary missing) is a <see cref="ResultProblem"/>.
@@ -24,9 +42,17 @@ public interface IProcessRunner
         IReadOnlyList<string> arguments,
         string? standardInput = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs <paramref name="spec"/> to completion. On cancellation the child (which shares the
+    /// terminal and so received the same Ctrl-C) gets a grace period to exit before it is killed.
+    /// </summary>
+    Task<Result<ProcessResult>> RunAsync(ProcessSpec spec, CancellationToken ct = default) =>
+        Task.FromResult<Result<ProcessResult>>(
+            new ResultProblem("This process runner cannot run '{0}' with a ProcessSpec.", spec.FileName));
 }
 
-public sealed class ProcessRunner : IProcessRunner
+public sealed partial class ProcessRunner : IProcessRunner
 {
     public async Task<Result<ProcessResult>> RunAsync(
         string fileName,
@@ -77,6 +103,86 @@ public sealed class ProcessRunner : IProcessRunner
 
             return Result.Success(new ProcessResult(process.ExitCode, stdout, stderr));
         }
+    }
+}
+
+public sealed partial class ProcessRunner
+{
+    private static readonly TimeSpan CancelGrace = TimeSpan.FromSeconds(15);
+
+    public async Task<Result<ProcessResult>> RunAsync(ProcessSpec spec, CancellationToken ct = default)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = spec.FileName,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        if (spec.WorkingDirectory is not null)
+            startInfo.WorkingDirectory = spec.WorkingDirectory;
+        foreach (var argument in spec.Arguments)
+            startInfo.ArgumentList.Add(argument);
+        foreach (var (name, value) in spec.Environment)
+        {
+            if (value is null)
+                startInfo.Environment.Remove(name);
+            else
+                startInfo.Environment[name] = value;
+        }
+
+        Process? process;
+        try
+        {
+            process = Process.Start(startInfo);
+        }
+        catch (Win32Exception ex)
+        {
+            return new ResultProblem(
+                "Could not run '{0}': {1}. Is it installed and on PATH?", spec.FileName, ex.Message);
+        }
+
+        if (process is null)
+            return new ResultProblem("Could not start process '{0}'.", spec.FileName);
+
+        using (process)
+        {
+            var stdoutTask = Pump(process.StandardOutput, spec.OnStdoutLine);
+            var stderrTask = Pump(process.StandardError, spec.OnStderrLine);
+
+            try
+            {
+                await process.WaitForExitAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                using var grace = new CancellationTokenSource(CancelGrace);
+                try
+                {
+                    await process.WaitForExitAsync(grace.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    process.Kill(entireProcessTree: true);
+                    await process.WaitForExitAsync(CancellationToken.None);
+                }
+            }
+
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+            return Result.Success(new ProcessResult(process.ExitCode, stdout, stderr));
+        }
+    }
+
+    /// <summary>Reads a stream to the end, either streaming each line to <paramref name="onLine"/> or capturing it.</summary>
+    private static async Task<string> Pump(StreamReader reader, Action<string>? onLine)
+    {
+        if (onLine is null)
+            return await reader.ReadToEndAsync(CancellationToken.None);
+
+        while (await reader.ReadLineAsync(CancellationToken.None) is { } line)
+            onLine(line);
+        return "";
     }
 }
 

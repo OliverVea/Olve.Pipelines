@@ -27,4 +27,10 @@ public sealed class CommandContext
 
     /// <summary>The config loaded from <c>~/.pl</c> (used by auth commands).</summary>
     public required CliConfig Config { get; init; }
+
+    /// <summary>
+    /// Exit code to return when the command succeeds but must still exit non-zero without an
+    /// <c>error:</c> line (e.g. <c>pl dev run</c> mirroring the harness exit code). Null means 0.
+    /// </summary>
+    public int? ExitCode { get; set; }
 }

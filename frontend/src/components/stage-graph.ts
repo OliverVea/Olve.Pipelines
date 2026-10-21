@@ -47,6 +47,7 @@ export class StageGraph extends LitElement {
       }
       .toolbar {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 0.75rem;
         margin-bottom: 0.6rem;
@@ -58,6 +59,11 @@ export class StageGraph extends LitElement {
         align-items: center;
         gap: 0.3rem;
         cursor: pointer;
+      }
+      @media (max-width: 640px) {
+        .toolbar .hint {
+          display: none;
+        }
       }
       .legend {
         display: flex;
@@ -336,7 +342,7 @@ export class StageGraph extends LitElement {
         <label
           ><input type="checkbox" .checked=${this._wiring} @change=${this._toggleWiring} /> Show wiring</label
         >
-        <span>Hover a step to trace its inputs.</span>
+        <span class="hint">Hover a step to trace its inputs.</span>
         ${this.states
           ? html`<span class="legend">
               ${['succeeded', 'failed', 'in-progress', 'held', 'skipped', 'pending', 'cancelled'].map(

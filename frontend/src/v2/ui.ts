@@ -103,6 +103,11 @@ export const sharedStyles = css`
   :host {
     display: block;
   }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
   a {
     color: var(--color-primary);
     text-decoration: none;

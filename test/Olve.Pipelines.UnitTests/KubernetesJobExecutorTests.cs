@@ -5,13 +5,9 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.UnitTests;
@@ -108,9 +104,6 @@ public class KubernetesJobExecutorTests
         JobWatcherRegistry Registry,
         JobService JobService,
         Id<Pipeline> PipelineId,
-        Id<JobGroup> JobGroupId,
-        Id<ArtifactBundle> BundleId,
-        Id<ProductionStep> StepId,
         FakeApplicationLifetime Lifetime);
 
     private static Harness BuildHarness(IKubernetesClient? k8sOverride = null)
@@ -118,28 +111,10 @@ public class KubernetesJobExecutorTests
         var k8s = k8sOverride as FakeKubernetesClient ?? new FakeKubernetesClient();
 
         var pipelineId = Id.New<Pipeline>();
-        var bundleId = Id.New<ArtifactBundle>();
-        var stepId = Id.New<ProductionStep>();
-
-        var pipelineStore = new EntityStore<Pipeline>([new Pipeline(pipelineId, "p")]);
-
-        var prodStore = new EntityStore<ProductionStep>([new ProductionStep(stepId, "step", pipelineId)]);
-        var prodConfig = new AttachmentStore<ProductionStep, StepConfiguration>(prodStore);
-        prodConfig.Set(stepId, new StepConfiguration("alpine", "echo hi"));
-        var prodSvc = new ProductionStepService(prodStore, prodConfig, new IdProvider());
-
-        var procStore = new EntityStore<ProcessingStep>([]);
-        var procConfig = new AttachmentStore<ProcessingStep, StepConfiguration>(procStore);
-        var procSvc = new ProcessingStepService(procStore, procConfig, new IdProvider());
-
         var jobStore = new EntityStore<Job>([]);
-        var jobGroupStore = new EntityStore<JobGroup>([]);
         var idProvider = new IdProvider();
         var time = TimeProvider.System;
-        var jobGroupSvc = new JobGroupService(jobGroupStore, idProvider, time);
-        var jobSvc = new JobService(NullLogger<JobService>.Instance, jobStore, jobGroupSvc, idProvider, time);
-
-        var group = jobGroupSvc.CreateProductionGroup(pipelineId, bundleId);
+        var jobSvc = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, time);
 
         var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
         var lifetime = new FakeApplicationLifetime();
@@ -148,16 +123,12 @@ public class KubernetesJobExecutorTests
 
         var services = new ServiceCollection();
         services.AddSingleton(jobStore);
-        services.AddSingleton(jobGroupStore);
         services.AddSingleton(registry);
         services.AddSingleton<IHostApplicationLifetime>(lifetime);
         services.AddSingleton(k8s);
         services.AddSingleton(options);
         services.AddSingleton(storage);
         services.AddSingleton(time);
-        services.AddSingleton<ProductionStepService>(prodSvc);
-        services.AddSingleton<ProcessingStepService>(procSvc);
-        services.AddSingleton(jobGroupSvc);
         services.AddSingleton(jobSvc);
         services.AddSingleton<IPipelineSecretStore>(new NoSecretsStore());
         services.AddSingleton<ICredentialsProvider<S3Credentials>>(new StubS3CredentialsProvider());
@@ -167,9 +138,6 @@ public class KubernetesJobExecutorTests
             lifetime,
             k8s,
             options,
-            prodSvc,
-            procSvc,
-            jobGroupSvc,
             sp.GetRequiredService<IPipelineSecretStore>(),
             sp.GetRequiredService<ICredentialsProvider<S3Credentials>>(),
             s3: null!,
@@ -185,12 +153,12 @@ public class KubernetesJobExecutorTests
         var sp = services.BuildServiceProvider();
         var executor = (KubernetesJobExecutor)sp.GetRequiredService<IJobExecutor>();
 
-        return new Harness(executor, k8s, jobStore, registry, jobSvc, pipelineId, group.Id, bundleId, stepId, lifetime);
+        return new Harness(executor, k8s, jobStore, registry, jobSvc, pipelineId, lifetime);
     }
 
-    private static Id<Job> CreateScheduledProductionJob(Harness h)
+    private static Id<Job> CreateScheduledJob(Harness h)
     {
-        var r = h.JobService.CreateProductionJob(h.PipelineId, h.JobGroupId, h.StepId);
+        var r = h.JobService.CreateJob(h.PipelineId, "step", "alpine", "echo hi");
         r.TryPickProblems(out _, out var job);
         return job!.Id;
     }
@@ -213,7 +181,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = null;
         h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);
@@ -230,7 +198,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
         h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);
@@ -247,7 +215,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Succeeded);
         // PollSequence empty — a bug that polled would throw since we'd use default
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);
@@ -264,7 +232,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = null;
         h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);
@@ -283,7 +251,7 @@ public class KubernetesJobExecutorTests
         var h = BuildHarness();
         h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Lifetime.StopApplication();
         h.Executor.EnsureRunning(jobId);
@@ -302,7 +270,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = new KubernetesJobStatus("x", JobPhase.Running);
         h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         var originalStart = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
         await Assert.That(h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(originalStart) })).Succeeded();
@@ -325,7 +293,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = null;
         h.K8s.FailCreateJobTimes = 99; // always fail
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         for (var i = 0; i < KubernetesJobExecutor.MaxSubmissionAttempts; i++)
         {
@@ -349,7 +317,7 @@ public class KubernetesJobExecutorTests
         h.K8s.InitialStatus = null;
         h.K8s.FailCreateJobTimes = 99;
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         h.Executor.EnsureRunning(jobId);
         await WaitForWatcherComplete(h, jobId);
@@ -369,7 +337,7 @@ public class KubernetesJobExecutorTests
         h.K8s.FailCreateJobTimes = 1; // first attempt throws, second succeeds
         h.K8s.PollSequence.Add(new KubernetesJobStatus("x", JobPhase.Succeeded));
 
-        var jobId = CreateScheduledProductionJob(h);
+        var jobId = CreateScheduledJob(h);
 
         // Attempt 1 fails → still Scheduled.
         h.Executor.EnsureRunning(jobId);

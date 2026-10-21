@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.GitHub;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
@@ -21,10 +21,9 @@ public enum BindingWebhookAction
 
 /// <summary>
 /// Decision logic for the binding webhook receiver, split from the endpoint so the
-/// signature/event/ref rules are unit-testable. Reuses the Phase-1 GitHub HMAC + push parsing, but
-/// authenticates against the binding's <see cref="PipelineConfigBinding.WebhookSecret"/> and, on a
-/// matching push, runs the binding's reconcile-then-deploy cycle (config-before-build) — not a raw
-/// production run like the per-pipeline <see cref="GitHubWebhookTarget"/> trigger.
+/// signature/event/ref rules are unit-testable. Authenticates against the binding's
+/// <see cref="PipelineConfigBinding.WebhookSecret"/> and, on a matching push, runs the binding's
+/// reconcile-then-deploy cycle (config-before-build).
 /// </summary>
 public class BindingWebhookReceiver(PipelineConfigBindingService bindings, ILogger<BindingWebhookReceiver> logger)
 {

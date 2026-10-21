@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Olve.Pipelines.Pipelines.Triggers;
+namespace Olve.Pipelines.GitHub;
 
 /// <summary>
 /// Verifies the <c>X-Hub-Signature-256</c> header GitHub sends with each webhook delivery: an

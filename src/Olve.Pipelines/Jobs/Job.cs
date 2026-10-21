@@ -1,40 +1,27 @@
 using System.Text.Json.Serialization;
-using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Utilities.Lookup;
 
 namespace Olve.Pipelines.Jobs;
 
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-[JsonDerivedType(typeof(ProductionJob), "production")]
-[JsonDerivedType(typeof(ProcessingJob), "processing")]
-public abstract record Job(Id<Job> Id, Id<Pipeline> PipelineId, DateTimeOffset CreatedAt, JobStatus Status, Id<JobGroup> JobGroupId) : IHasId<Id<Job>>
+/// <summary>
+/// Placeholder unit of work kept so the scheduling/execution machinery (queue, obsoletion, runner,
+/// K8s executor) stays alive between the v1 cut (B1) and the v2 Attempt model (B3/B4), which
+/// replaces it. One job runs one named step of a pipeline as a single K8s Job.
+/// </summary>
+public record Job(
+    Id<Job> Id,
+    Id<Pipeline> PipelineId,
+    string StepName,
+    string Image,
+    string Script,
+    DateTimeOffset CreatedAt,
+    JobStatus Status,
+    Dictionary<string, string>? EnvironmentVariables = null) : IHasId<Id<Job>>
 {
-    public readonly record struct ProductionJobKey(Id<Pipeline> PipelineId, Id<ProductionStep> ProductionStepId);
-    public readonly record struct ProcessingJobKey(Id<Pipeline> PipelineId, Id<ProcessingStep> ProcessingStepId);
-
-    public record ProductionJob(
-        Id<Job> Id,
-        Id<Pipeline> PipelineId,
-        DateTimeOffset CreatedAt,
-        JobStatus Status,
-        Id<JobGroup> JobGroupId,
-        Id<ProductionStep> ProductionStepId) : Job(Id, PipelineId, CreatedAt, Status, JobGroupId)
-    {
-        public ProductionJobKey JobKey => new(PipelineId, ProductionStepId);
-    }
-
-    public record ProcessingJob(
-        Id<Job> Id,
-        Id<Pipeline> PipelineId,
-        DateTimeOffset CreatedAt,
-        JobStatus Status,
-        Id<JobGroup> JobGroupId,
-        Id<ArtifactBundle> ArtifactBundleId,
-        Id<ProcessingStep> ProcessingStepId) : Job(Id, PipelineId, CreatedAt, Status, JobGroupId)
-    {
-        public ProcessingJobKey JobKey => new(PipelineId, ProcessingStepId);
-    }
+    /// <summary>The scheduling key: at most one InProgress job per (pipeline, step).</summary>
+    [JsonIgnore]
+    public JobKey Key => new(PipelineId, StepName);
 }
+
+public readonly record struct JobKey(Id<Pipeline> PipelineId, string StepName);

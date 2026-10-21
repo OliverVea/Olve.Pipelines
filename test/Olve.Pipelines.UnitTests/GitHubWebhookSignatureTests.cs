@@ -1,5 +1,5 @@
 using System.Text;
-using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.GitHub;
 
 namespace Olve.Pipelines.UnitTests;
 

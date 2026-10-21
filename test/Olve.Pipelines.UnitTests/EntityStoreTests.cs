@@ -1,5 +1,4 @@
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
@@ -89,29 +88,5 @@ public class EntityStoreTests
 
         store.TryGet(id, out var result);
         await Assert.That(result!.Value).IsEqualTo(threads * incrementsPerThread);
-    }
-
-    [Test]
-    public async Task ArtifactBundleService_UpdateStatus_UnknownId_Fails()
-    {
-        var service = new ArtifactBundleService(new EntityStore<ArtifactBundle>([]));
-
-        var result = service.UpdateStatus(Id.New<ArtifactBundle>(), ArtifactBundleStatus.Completed);
-
-        await Assert.That(result).Failed();
-    }
-
-    [Test]
-    public async Task ArtifactBundleService_UpdateStatus_KnownId_FlipsStatus()
-    {
-        var store = new EntityStore<ArtifactBundle>([]);
-        var service = new ArtifactBundleService(store);
-        var bundle = service.Create(Id.New<Pipeline>(), ArtifactBundleStatus.Pending);
-
-        var result = service.UpdateStatus(bundle.Id, ArtifactBundleStatus.Completed);
-
-        await Assert.That(result).Succeeded();
-        store.TryGet(bundle.Id, out var updated);
-        await Assert.That(updated!.Status).IsEqualTo(ArtifactBundleStatus.Completed);
     }
 }

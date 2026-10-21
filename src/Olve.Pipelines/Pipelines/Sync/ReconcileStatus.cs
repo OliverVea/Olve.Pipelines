@@ -26,3 +26,9 @@ public record ReconcileStatus(
 {
     public static ReconcileStatus NeverRun { get; } = new(ReconcileResult.NeverRun, null, [], []);
 }
+
+/// <summary>
+/// A secret declared by NAME ONLY. The value never lives in the repo — it stays in the
+/// pipeline's own k8s secret <c>olve-pipeline-{id:N}</c>.
+/// </summary>
+public record SecretDeclaration(string Name, string? Description);

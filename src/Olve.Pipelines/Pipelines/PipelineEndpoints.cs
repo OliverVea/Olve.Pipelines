@@ -1,8 +1,4 @@
 using Olve.MinimalApi;
-using Olve.Pipelines.Jobs;
-using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines;
@@ -41,78 +37,5 @@ public static class PipelineEndpoints
                 => service.Delete(id))
             .WithDeletionMapping()
             .WithName("DeletePipeline");
-
-        group.MapPost("/{id}/trigger/production", Result<JobGroup> (
-            PipelineService pipelines,
-            ProductionStepService productionSteps,
-            ArtifactBundleService bundles,
-            JobGroupService jobGroups,
-            JobService jobs,
-            Id<Pipeline> id) =>
-            {
-                if (!pipelines.TryGet(id, out _))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' not found."));
-
-                if (!productionSteps.HasConfiguredSteps(id))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' has no configured production steps."));
-
-                var steps = productionSteps.GetByPipelineId(id);
-                if (steps.TryPickProblems(out var problems, out var stepArray))
-                    return problems;
-
-                var bundle = bundles.Create(id, ArtifactBundleStatus.Pending);
-                var jobGroup = jobGroups.CreateProductionGroup(id, bundle.Id);
-
-                foreach (var step in stepArray)
-                {
-                    jobs.CreateProductionJob(id, jobGroup.Id, step.Id).DiscardResult(); // store-only create, cannot fail
-                }
-
-                return jobGroup;
-            })
-            .WithResultMapping<JobGroup>()
-            .WithName("TriggerProduction");
-
-        group.MapPost("/{id}/trigger/processing", Result<JobGroup> (
-            PipelineService pipelines,
-            ProcessingStepService processingSteps,
-            PromotionGateService promotionGate,
-            PromotionLocks promotionLocks,
-            ArtifactBundleService bundles,
-            JobService jobs,
-            Id<Pipeline> id,
-            TriggerProcessingRequest request) =>
-            {
-                if (!pipelines.TryGet(id, out _))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Pipeline '{id}' not found."));
-
-                if (!bundles.TryGet(request.ArtifactBundleId, out var bundle))
-                    return Result.Failure<JobGroup>(new ResultProblem($"Artifact bundle '{request.ArtifactBundleId}' not found."));
-
-                var stepResult = processingSteps.TryGet(request.ProcessingStepId);
-                if (stepResult.TryPickProblems(out var problems, out var step))
-                    return problems;
-
-                if (step.PipelineId != id)
-                    return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{request.ProcessingStepId}' does not belong to pipeline '{id}'."));
-
-                // Gate check + create under the pipeline's promotion lock, so a concurrent block,
-                // unblock or promote is ordered strictly before or after this trigger.
-                lock (promotionLocks.For(id))
-                {
-                    if (promotionGate.IsBlocked(step.Id))
-                        return Result.Failure<JobGroup>(new ResultProblem($"Processing step '{step.Id}' has promotion blocked; trigger refused."));
-
-                    var configResult = processingSteps.TryGetConfiguration(step.Id);
-                    if (configResult.TryPickProblems(out problems))
-                        return problems;
-
-                    return jobs.CreateProcessingRun(id, bundle.Id, step.Id);
-                }
-            })
-            .WithResultMapping<JobGroup>()
-            .WithName("TriggerProcessing");
     }
 }
-
-public record TriggerProcessingRequest(Id<ArtifactBundle> ArtifactBundleId, Id<ProcessingStep> ProcessingStepId);

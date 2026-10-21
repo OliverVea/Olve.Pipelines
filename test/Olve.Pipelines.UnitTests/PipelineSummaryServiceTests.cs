@@ -1,15 +1,10 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Results.TUnit;
-using Olve.Utilities.Ids;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.UnitTests;
@@ -18,35 +13,22 @@ public class PipelineSummaryServiceTests
 {
     private sealed record Fixture(
         EntityStore<Pipeline> Pipelines,
-        EntityStore<ProductionStep> ProductionStore,
-        EntityStore<ProcessingStep> ProcessingStore,
         EntityStore<Job> JobStore,
         EntityStore<PipelineConfigBinding> Bindings,
-        ProductionStepService ProductionSteps,
-        ProcessingStepService ProcessingSteps,
         PipelineSummaryService Service);
 
     private static Fixture Create()
     {
         var idProvider = new IdProvider();
         var pipelines = new EntityStore<Pipeline>([]);
-        var productionStore = new EntityStore<ProductionStep>([]);
-        var processingStore = new EntityStore<ProcessingStep>([]);
         var jobStore = new EntityStore<Job>([]);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
 
-        var pipelineService = new PipelineService(pipelines, idProvider);
-        var production = new ProductionStepService(
-            productionStore, new AttachmentStore<ProductionStep, StepConfiguration>(productionStore), idProvider);
-        var processing = new ProcessingStepService(
-            processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
-        var bindingService = new PipelineConfigBindingService(bindings, idProvider);
         var jobTime = new TimeProviderMake().Instance();
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore,
-            new JobGroupService(new EntityStore<JobGroup>([]), idProvider, jobTime), idProvider, jobTime);
-
-        var service = new PipelineSummaryService(pipelineService, production, processing, bindingService, jobService);
-        return new Fixture(pipelines, productionStore, processingStore, jobStore, bindings, production, processing, service);
+        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, jobTime);
+        var service = new PipelineSummaryService(
+            new PipelineService(pipelines, idProvider), new PipelineConfigBindingService(bindings, idProvider), jobService);
+        return new Fixture(pipelines, jobStore, bindings, service);
     }
 
     private static T Pick<T>(Result<T> r)
@@ -56,52 +38,51 @@ public class PipelineSummaryServiceTests
     }
 
     [Test]
-    public async Task NeverRunStep_ReportsIdle()
+    public async Task NeverRunPipeline_HasNoSteps_AndIsIdle()
     {
         var f = Create();
-        var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        await Assert.That(f.ProductionSteps.Create(pipeline.Id, "build")).Succeeded();
+        await Assert.That(new PipelineService(f.Pipelines, new IdProvider()).Create("p")).Succeeded();
 
         var summaries = f.Service.List();
 
         await Assert.That(summaries).Count().IsEqualTo(1);
-        await Assert.That(summaries[0].Steps).Count().IsEqualTo(1);
-        await Assert.That(summaries[0].Steps[0].Status).IsEqualTo("idle");
-        await Assert.That(summaries[0].Steps[0].Kind).IsEqualTo("production");
+        await Assert.That(summaries[0].Steps).IsEmpty();
+        await Assert.That(summaries[0].Status).IsEqualTo(PipelineStatus.Idle);
+        await Assert.That(summaries[0].LastChangedAt).IsNull();
     }
 
     [Test]
-    public async Task StepWithJob_ReportsLatestStatus()
+    public async Task StepWithJobs_ReportsLatestStatus()
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        var step = Pick(f.ProcessingSteps.Create(pipeline.Id, "deploy", 0));
 
         var baseTime = DateTimeOffset.UtcNow;
         // Older failed job, then a newer done job — the summary must report the newest (done).
-        f.JobStore.Set(new ProcessingJob(Id.New<Job>(), pipeline.Id, baseTime, new Failed(baseTime, baseTime),
-            Id.New<JobGroup>(), Id.New<ArtifactBundle>(), step.Id));
-        f.JobStore.Set(new ProcessingJob(Id.New<Job>(), pipeline.Id, baseTime.AddMinutes(1), new Done(baseTime, baseTime),
-            Id.New<JobGroup>(), Id.New<ArtifactBundle>(), step.Id));
+        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy", baseTime, new Failed(baseTime, baseTime)));
+        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy", baseTime.AddMinutes(1), new Done(baseTime, baseTime.AddMinutes(2))));
 
         var summaries = f.Service.List();
 
-        var processing = summaries[0].Steps.Single(s => s.Kind == "processing");
-        await Assert.That(processing.Status).IsEqualTo("done");
+        var step = summaries[0].Steps.Single();
+        await Assert.That(step.Name).IsEqualTo("deploy");
+        await Assert.That(step.Status).IsEqualTo("done");
+        await Assert.That(summaries[0].Status).IsEqualTo(PipelineStatus.Healthy);
+        await Assert.That(summaries[0].LastChangedAt).IsEqualTo(baseTime.AddMinutes(2));
     }
 
     [Test]
-    public async Task Order_ProductionThenProcessing()
+    public async Task Steps_AreOneBoxPerStepName_OrderedByName()
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        await Assert.That(f.ProductionSteps.Create(pipeline.Id, "build")).Succeeded();
-        await Assert.That(f.ProcessingSteps.Create(pipeline.Id, "deploy", 0)).Succeeded();
+        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy"));
+        f.JobStore.Set(TestJobs.Make(pipeline.Id, "build"));
+        f.JobStore.Set(TestJobs.Make(pipeline.Id, "build"));
 
-        var summaries = f.Service.List();
-        var kinds = summaries[0].Steps.Select(s => s.Kind).ToArray();
+        var names = f.Service.List()[0].Steps.Select(s => s.Name).ToArray();
 
-        await Assert.That(kinds).IsEquivalentTo(new[] { "production", "processing" });
+        await Assert.That(names).IsEquivalentTo(new[] { "build", "deploy" });
     }
 
     [Test]

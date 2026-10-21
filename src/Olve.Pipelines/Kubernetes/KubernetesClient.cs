@@ -377,9 +377,8 @@ public class KubernetesClient : IKubernetesClient, IDisposable
     }
 
     // K8s deletes a finished step Job (and its pod) after this. The controller copies the pod's logs
-    // to storage as soon as it sees the Job finish (bundles/…/logs/, kept per BundleRetentionPolicy),
-    // so this only has to outlast a controller outage — a week is generous. Failure-handler Jobs get
-    // no TTL: nothing persists their logs, so the pod is the only copy.
+    // to storage as soon as it sees the Job finish, so this only has to outlast a controller outage —
+    // a week is generous. Bare Jobs get no TTL: nothing persists their logs, so the pod is the only copy.
     internal const int StepJobTtlSeconds = 7 * 24 * 60 * 60;
 
     // Steps run as root (kaniko, apt, npm need it) so no runAsNonRoot / capability drops here —

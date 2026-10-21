@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Olve.Pipelines.Pipelines.Triggers;
+namespace Olve.Pipelines.GitHub;
 
 /// <summary>The slice of a GitHub <c>push</c> event payload we care about: the pushed ref.</summary>
 public record GitHubPushPayload(

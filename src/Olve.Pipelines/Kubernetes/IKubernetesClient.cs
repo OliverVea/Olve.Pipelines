@@ -5,9 +5,8 @@ public interface IKubernetesClient
     Task CreateJobAsync(string ns, KubernetesJobSpec spec, CancellationToken ct = default);
 
     /// <summary>
-    /// Submits a minimal single-container Job — image + script + env, no S3 bundle plumbing. Used for
-    /// best-effort failure-handler runs, which produce no artifact bundle and are not tracked as
-    /// first-class <c>Job</c> entities.
+    /// Submits a minimal single-container Job — image + script + env, no S3 plumbing, not tracked as
+    /// a first-class <c>Job</c> entity.
     /// </summary>
     Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default);
     Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default);

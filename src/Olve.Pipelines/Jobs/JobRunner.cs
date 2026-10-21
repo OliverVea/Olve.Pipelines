@@ -1,4 +1,3 @@
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
@@ -66,41 +65,10 @@ public class JobRunner(
         return queue.GetActiveJobs().ToList();
     }
 
-    private static BusyKeys CollectInProgressKeys(IEnumerable<Job> jobs)
-    {
-        var production = new HashSet<ProductionJob.ProductionJobKey>();
-        var processing = new HashSet<ProcessingJob.ProcessingJobKey>();
+    private static HashSet<JobKey> CollectInProgressKeys(IEnumerable<Job> jobs)
+        => jobs.Where(j => j.Status is InProgress).Select(j => j.Key).ToHashSet();
 
-        foreach (var job in jobs)
-        {
-            if (job.Status is not InProgress) continue;
-            switch (job)
-            {
-                case ProductionJob p: production.Add(p.JobKey); break;
-                case ProcessingJob p: processing.Add(p.JobKey); break;
-            }
-        }
+    private static bool IsBusy(Job job, HashSet<JobKey> busyKeys) => busyKeys.Contains(job.Key);
 
-        return new BusyKeys(production, processing);
-    }
-
-    private static bool IsBusy(Job job, BusyKeys busyKeys) => job switch
-    {
-        ProductionJob p => busyKeys.Production.Contains(p.JobKey),
-        ProcessingJob p => busyKeys.Processing.Contains(p.JobKey),
-        _ => false,
-    };
-
-    private static void ReserveKey(Job job, BusyKeys busyKeys)
-    {
-        switch (job)
-        {
-            case ProductionJob p: busyKeys.Production.Add(p.JobKey); break;
-            case ProcessingJob p: busyKeys.Processing.Add(p.JobKey); break;
-        }
-    }
-
-    private readonly record struct BusyKeys(
-        HashSet<ProductionJob.ProductionJobKey> Production,
-        HashSet<ProcessingJob.ProcessingJobKey> Processing);
+    private static void ReserveKey(Job job, HashSet<JobKey> busyKeys) => busyKeys.Add(job.Key);
 }

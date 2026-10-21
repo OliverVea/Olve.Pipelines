@@ -1,14 +1,10 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using Rocks;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.UnitTests;
@@ -27,55 +23,42 @@ public class JobServiceTests
     {
         store ??= new EntityStore<Job>([]);
         var timeProvider = new TimeProviderMake().Instance();
-        var idp = idProvider ?? new IdProvider();
-        var jobGroups = new JobGroupService(new EntityStore<JobGroup>([]), idp, timeProvider);
 
         return new JobService(
             NullLogger<JobService>.Instance,
             store,
-            jobGroups,
-            idp,
+            idProvider ?? new IdProvider(),
             timeProvider);
     }
 
     [Test]
-    public async Task CreateProductionJob_ReturnsScheduledJob()
+    public async Task CreateJob_ReturnsScheduledJob()
     {
         var service = CreateService();
         var pipelineId = Id.New<Pipeline>();
-        var jobGroupId = Id.New<JobGroup>();
-        var stepId = Id.New<ProductionStep>();
 
-        var result = service.CreateProductionJob(pipelineId, jobGroupId, stepId);
+        var result = service.CreateJob(pipelineId, "build", "alpine:latest", "echo hi");
 
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
+        await Assert.That(result).Succeeded();
         result.TryPickProblems(out _, out var job);
         await Assert.That(job!.Status).IsTypeOf<Scheduled>();
         await Assert.That(job.PipelineId).IsEqualTo(pipelineId);
+        await Assert.That(job.StepName).IsEqualTo("build");
+        await Assert.That(job.Key).IsEqualTo(new JobKey(pipelineId, "build"));
     }
 
     [Test]
-    public async Task CreateProcessingJob_ReturnsScheduledJob()
+    public async Task CreateJob_WithoutStepName_Fails()
     {
         var service = CreateService();
-        var pipelineId = Id.New<Pipeline>();
-        var jobGroupId = Id.New<JobGroup>();
-        var artifactBundleId = Id.New<ArtifactBundle>();
-        var processingStepId = Id.New<ProcessingStep>();
 
-        var result = service.CreateProcessingJob(pipelineId, jobGroupId, artifactBundleId, processingStepId);
+        var result = service.CreateJob(Id.New<Pipeline>(), " ", "alpine:latest", "echo hi");
 
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProcessingJob>());
-        result.TryPickProblems(out _, out var job);
-        var pj = (ProcessingJob)job!;
-        await Assert.That(pj.Status).IsTypeOf<Scheduled>();
-        await Assert.That(pj.PipelineId).IsEqualTo(pipelineId);
-        await Assert.That(pj.ArtifactBundleId).IsEqualTo(artifactBundleId);
-        await Assert.That(pj.ProcessingStepId).IsEqualTo(processingStepId);
+        await Assert.That(result).Failed();
     }
 
     [Test]
-    public async Task CreateProductionJob_WithDuplicateId_OverwritesExisting()
+    public async Task CreateJob_WithDuplicateId_OverwritesExisting()
     {
         var id = Id.New<Job>();
 
@@ -89,8 +72,8 @@ public class JobServiceTests
         var pipelineId1 = Id.New<Pipeline>();
         var pipelineId2 = Id.New<Pipeline>();
 
-        await Assert.That(service.CreateProductionJob(pipelineId1, Id.New<JobGroup>(), Id.New<ProductionStep>())).Succeeded();
-        await Assert.That(service.CreateProductionJob(pipelineId2, Id.New<JobGroup>(), Id.New<ProductionStep>())).Succeeded();
+        await Assert.That(service.CreateJob(pipelineId1, "build", "img", "sh")).Succeeded();
+        await Assert.That(service.CreateJob(pipelineId2, "build", "img", "sh")).Succeeded();
 
         store.TryGet(id, out var job);
         await Assert.That(job!.PipelineId).IsEqualTo(pipelineId2);
@@ -98,38 +81,41 @@ public class JobServiceTests
     }
 
     [Test]
-    public async Task CreateProductionJob_WithPrepopulatedStore_AddsNewJob()
+    public async Task CreateJob_WithPrepopulatedStore_AddsNewJob()
     {
-        var existingJob = new ProductionJob(Id.New<Job>(), Id.New<Pipeline>(), DateTimeOffset.UtcNow, new Scheduled(), Id.New<JobGroup>(), Id.New<ProductionStep>());
-        var store = new EntityStore<Job>([existingJob]);
+        var store = new EntityStore<Job>([TestJobs.Make()]);
         var service = CreateService(store: store);
 
-        var result = service.CreateProductionJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ProductionStep>());
+        var result = service.CreateJob(Id.New<Pipeline>(), "build", "img", "sh");
 
-        await Assert.That(result).SucceededAndValue(v => v.IsTypeOf<ProductionJob>());
+        await Assert.That(result).Succeeded();
         await Assert.That(store.List()).Count().IsEqualTo(2);
     }
-
-    private static ProcessingJob MakeProcessingJob(
-        Id<Pipeline> pipelineId, Id<ProcessingStep> stepId, Id<ArtifactBundle> bundleId, DateTimeOffset createdAt)
-        => new(Id.New<Job>(), pipelineId, createdAt, new Scheduled(), Id.New<JobGroup>(), bundleId, stepId);
 
     [Test]
     public async Task GetJobsByPipeline_ReturnsOnlyThatPipelinesJobs()
     {
         var pipelineId = Id.New<Pipeline>();
-        var stepId = Id.New<ProcessingStep>();
-        var baseTime = DateTimeOffset.UtcNow;
-        var mine = MakeProcessingJob(pipelineId, stepId, Id.New<ArtifactBundle>(), baseTime);
+        var mine = TestJobs.Make(pipelineId);
 
-        var store = new EntityStore<Job>([
-            mine,
-            MakeProcessingJob(Id.New<Pipeline>(), stepId, Id.New<ArtifactBundle>(), baseTime),
-        ]);
+        var store = new EntityStore<Job>([mine, TestJobs.Make()]);
         var service = CreateService(store: store);
 
         var result = service.GetJobsByPipeline(pipelineId);
 
         await Assert.That(result.Select(j => j.Id)).IsEquivalentTo([mine.Id]);
+    }
+
+    [Test]
+    public async Task CancelJob_Scheduled_BecomesCancelled()
+    {
+        var job = TestJobs.Make();
+        var store = new EntityStore<Job>([job]);
+        var service = CreateService(store: store);
+
+        await Assert.That(service.CancelJob(job.Id)).Succeeded();
+
+        store.TryGet(job.Id, out var cancelled);
+        await Assert.That(cancelled!.Status).IsTypeOf<Cancelled>();
     }
 }

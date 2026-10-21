@@ -1,18 +1,13 @@
 using System.Diagnostics.CodeAnalysis;
-using Olve.Pipelines.Pipelines.Building;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Paginations;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobGroupService jobGroups, IdProvider idProvider, TimeProvider timeProvider)
+public class JobService(ILogger<JobService> logger, EntityStore<Job> store, IdProvider idProvider, TimeProvider timeProvider)
 {
-    private readonly EntityStoreIndex<Job, Id<JobGroup>> _byGroup = store.CreateIndex(j => j.JobGroupId);
     private readonly EntityStoreIndex<Job, Id<Pipeline>> _byPipeline = store.CreateIndex(j => j.PipelineId);
 
     public IReadOnlyList<Job> ListJobs() => store.List();
@@ -33,7 +28,7 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
         return false;
     }
 
-    /// <summary>Every job of one pipeline (any status, unordered). Backs the promotion history queries.</summary>
+    /// <summary>Every job of one pipeline (any status, unordered).</summary>
     public IReadOnlyList<Job> GetJobsByPipeline(Id<Pipeline> pipelineId)
     {
         var ids = _byPipeline.GetForKey(pipelineId);
@@ -82,75 +77,18 @@ public class JobService(ILogger<JobService> logger, EntityStore<Job> store, JobG
         return new Page<Job>(items, pageNumber, pageSize, materialized.Count);
     }
 
-    public Result<Job> CreateProductionJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ProductionStep> productionStepId)
+    /// <summary>Schedules a placeholder job running one named step of a pipeline.</summary>
+    public Result<Job> CreateJob(
+        Id<Pipeline> pipelineId, string stepName, string image, string script,
+        Dictionary<string, string>? environmentVariables = null)
     {
-        ProductionJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, productionStepId);
+        if (string.IsNullOrWhiteSpace(stepName))
+            return new ResultProblem("Step name is required.");
+
+        Job job = new(idProvider.Create<Job>(), pipelineId, stepName, image, script,
+            timeProvider.GetUtcNow(), new Scheduled(), environmentVariables);
         store.Set(job);
         return job;
-    }
-
-    public Result<Job> CreateProcessingJob(Id<Pipeline> pipelineId, Id<JobGroup> jobGroupId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
-    {
-        ProcessingJob job = new(idProvider.Create<Job>(), pipelineId, timeProvider.GetUtcNow(), new Scheduled(), jobGroupId, artifactBundleId, processingStepId);
-        store.Set(job);
-        return job;
-    }
-
-    /// <summary>
-    /// Creates a processing run for a (step, bundle): a <see cref="ProcessingJobGroup"/> and its
-    /// scheduled <see cref="ProcessingJob"/>. The single entry point every promotion path funnels
-    /// through — the automatic cascade, the manual trigger, the trigger-entity path, promote and the unblock check —
-    /// so the group+job pair is created identically everywhere.
-    /// </summary>
-    public ProcessingJobGroup CreateProcessingRun(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<ProcessingStep> processingStepId)
-    {
-        var jobGroup = jobGroups.CreateProcessingGroup(pipelineId, artifactBundleId, processingStepId);
-        CreateProcessingJob(pipelineId, jobGroup.Id, artifactBundleId, processingStepId).DiscardResult(); // store-only create, cannot fail
-        return jobGroup;
-    }
-
-    /// <summary>
-    /// The most recent job for each (production/processing) step in a pipeline, keyed by step Id.
-    /// One pass over the pipeline's jobs; used by the list summary to colour the step-health strip
-    /// without an N+1 of per-step queries.
-    /// </summary>
-    public (Dictionary<Id<ProductionStep>, Job> Production, Dictionary<Id<ProcessingStep>, Job> Processing)
-        GetLatestJobsByStep(Id<Pipeline> pipelineId)
-    {
-        var production = new Dictionary<Id<ProductionStep>, Job>();
-        var processing = new Dictionary<Id<ProcessingStep>, Job>();
-
-        foreach (var id in _byPipeline.GetForKey(pipelineId))
-        {
-            if (!store.TryGet(id, out var job))
-                continue;
-
-            switch (job)
-            {
-                case ProductionJob p
-                    when !production.TryGetValue(p.ProductionStepId, out var cur) || p.CreatedAt > cur.CreatedAt:
-                    production[p.ProductionStepId] = p;
-                    break;
-                case ProcessingJob p
-                    when !processing.TryGetValue(p.ProcessingStepId, out var cur) || p.CreatedAt > cur.CreatedAt:
-                    processing[p.ProcessingStepId] = p;
-                    break;
-            }
-        }
-
-        return (production, processing);
-    }
-
-    public IReadOnlyList<Job> GetJobsByGroup(Id<JobGroup> jobGroupId)
-    {
-        var ids = _byGroup.GetForKey(jobGroupId);
-        var results = new List<Job>(ids.Count);
-        foreach (var id in ids)
-        {
-            if (store.TryGet(id, out var job))
-                results.Add(job);
-        }
-        return results;
     }
 
     public bool TryGetJob<T>(Id<Job> jobId, [MaybeNullWhen(false)] out T job)

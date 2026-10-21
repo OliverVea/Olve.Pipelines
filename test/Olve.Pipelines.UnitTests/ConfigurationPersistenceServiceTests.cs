@@ -2,10 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
-using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Utilities.Ids;
@@ -40,17 +37,11 @@ public class ConfigurationPersistenceServiceTests
         CreateService(ISnapshotStore? store, StorageMode mode = StorageMode.Persistent)
     {
         var pipelines = new EntityStore<Pipeline>([]);
-        var productionSteps = new EntityStore<ProductionStep>([]);
-        var productionConfigs = new AttachmentStore<ProductionStep, StepConfiguration>(productionSteps);
-        var processingSteps = new EntityStore<ProcessingStep>([]);
-        var processingConfigs = new AttachmentStore<ProcessingStep, StepConfiguration>(processingSteps);
-        var triggers = new EntityStore<Trigger>([]);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
         var readiness = new PersistenceReadiness();
 
         var service = new ConfigurationPersistenceService(
-            pipelines, productionSteps, productionConfigs, processingSteps, processingConfigs,
-            triggers, bindings,
+            pipelines, bindings,
             new StorageOptions("test-bucket", Mode: mode),
             readiness,
             NullLogger<ConfigurationPersistenceService>.Instance,
@@ -106,9 +97,7 @@ public class ConfigurationPersistenceServiceTests
     {
         var pipelineId = Id.New<Pipeline>();
         var snapshot = new ConfigurationSnapshot(
-            Pipelines: [new PipelineData(pipelineId, "loaded-pipeline")],
-            ProductionSteps: [],
-            ProcessingSteps: []);
+            Pipelines: [new PipelineData(pipelineId, "loaded-pipeline")]);
         var store = new FakeSnapshotStore { Data = SerializeSnapshot(snapshot) };
         var (service, pipelines, readiness) = CreateService(store);
 
@@ -168,7 +157,7 @@ public class ConfigurationPersistenceServiceTests
     {
         var store = new FakeSnapshotStore
         {
-            Data = """{"Pipelines": null, "ProductionSteps": null, "ProcessingSteps": null}"""u8.ToArray(),
+            Data = """{"Pipelines": null, "Bindings": null}"""u8.ToArray(),
         };
         var (service, pipelines, readiness) = CreateService(store);
 
@@ -176,6 +165,29 @@ public class ConfigurationPersistenceServiceTests
 
         await Assert.That(readiness.IsReady).IsTrue();
         await Assert.That(pipelines.List()).IsEmpty();
+    }
+
+    // v2 drops the v1 step/trigger collections from the snapshot. A v1-era configuration.json must
+    // still load (unknown members skipped) so pipelines and bindings survive the upgrade.
+    [Test]
+    public async Task V1Snapshot_WithStepsAndTriggers_LoadsPipelines()
+    {
+        var pipelineId = Id.New<Pipeline>();
+        var json = $$"""
+            {"Pipelines": [{"Id": "{{pipelineId.Value.Value}}", "Name": "v1-pipeline"}],
+             "ProductionSteps": [{"Id": "{{Guid.NewGuid()}}", "Name": "build", "PipelineId": "{{pipelineId.Value.Value}}", "Configuration": null}],
+             "ProcessingSteps": [],
+             "Triggers": [],
+             "Bindings": []}
+            """;
+        var store = new FakeSnapshotStore { Data = System.Text.Encoding.UTF8.GetBytes(json) };
+        var (service, pipelines, readiness) = CreateService(store);
+
+        await service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(readiness.IsReady).IsTrue();
+        await Assert.That(pipelines.TryGet(pipelineId, out var loaded)).IsTrue();
+        await Assert.That(loaded!.Name).IsEqualTo("v1-pipeline");
     }
 
     // Reframed from the old AppFixture integration test CreatedPipeline_SurvivesRestart: state

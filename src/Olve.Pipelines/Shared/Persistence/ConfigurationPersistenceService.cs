@@ -1,20 +1,12 @@
 using System.Text.Json;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
-using Olve.Pipelines.Pipelines.Triggers;
 
 namespace Olve.Pipelines.Shared.Persistence;
 
 public class ConfigurationPersistenceService(
     EntityStore<Pipeline> pipelines,
-    EntityStore<ProductionStep> productionSteps,
-    AttachmentStore<ProductionStep, StepConfiguration> productionConfigs,
-    EntityStore<ProcessingStep> processingSteps,
-    AttachmentStore<ProcessingStep, StepConfiguration> processingConfigs,
-    EntityStore<Trigger> triggers,
     EntityStore<PipelineConfigBinding> bindings,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
@@ -108,8 +100,8 @@ public class ConfigurationPersistenceService(
         readiness.MarkReady(ReadinessKey);
 
         logger.LogInformation(
-            "Loaded configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
-            snapshot.Pipelines?.Length ?? 0, snapshot.ProductionSteps?.Length ?? 0, snapshot.ProcessingSteps?.Length ?? 0, snapshot.Triggers?.Length ?? 0);
+            "Loaded configuration: {Pipelines} pipelines, {Bindings} bindings",
+            snapshot.Pipelines?.Length ?? 0, snapshot.Bindings?.Length ?? 0);
     }
 
     public Task StartedAsync(CancellationToken cancellationToken)
@@ -117,22 +109,6 @@ public class ConfigurationPersistenceService(
         pipelines.OnAdded.Subscribe(_ => RequestSave());
         pipelines.OnUpdated.Subscribe(_ => RequestSave());
         pipelines.OnDeleted.Subscribe(_ => RequestSave());
-
-        productionSteps.OnAdded.Subscribe(_ => RequestSave());
-        productionSteps.OnUpdated.Subscribe(_ => RequestSave());
-        productionSteps.OnDeleted.Subscribe(_ => RequestSave());
-        productionConfigs.OnSet.Subscribe(_ => RequestSave());
-        productionConfigs.OnRemoved.Subscribe(_ => RequestSave());
-
-        processingSteps.OnAdded.Subscribe(_ => RequestSave());
-        processingSteps.OnUpdated.Subscribe(_ => RequestSave());
-        processingSteps.OnDeleted.Subscribe(_ => RequestSave());
-        processingConfigs.OnSet.Subscribe(_ => RequestSave());
-        processingConfigs.OnRemoved.Subscribe(_ => RequestSave());
-
-        triggers.OnAdded.Subscribe(_ => RequestSave());
-        triggers.OnUpdated.Subscribe(_ => RequestSave());
-        triggers.OnDeleted.Subscribe(_ => RequestSave());
 
         bindings.OnAdded.Subscribe(_ => RequestSave());
         bindings.OnUpdated.Subscribe(_ => RequestSave());
@@ -180,8 +156,8 @@ public class ConfigurationPersistenceService(
             await store.WriteAsync(Key, json, cancellationToken);
 
             logger.LogInformation(
-                "Saved configuration: {Pipelines} pipelines, {ProductionSteps} production steps, {ProcessingSteps} processing steps, {Triggers} triggers",
-                snapshot.Pipelines.Length, snapshot.ProductionSteps.Length, snapshot.ProcessingSteps.Length, snapshot.Triggers?.Length ?? 0);
+                "Saved configuration: {Pipelines} pipelines, {Bindings} bindings",
+                snapshot.Pipelines.Length, snapshot.Bindings?.Length ?? 0);
         }
         catch (Exception ex)
         {
@@ -189,56 +165,17 @@ public class ConfigurationPersistenceService(
         }
     }
 
-    private ConfigurationSnapshot CreateSnapshot()
-    {
-        var prodConfigs = productionConfigs.GetAll();
-        var procConfigs = processingConfigs.GetAll();
-
-        return new ConfigurationSnapshot(
+    private ConfigurationSnapshot CreateSnapshot() =>
+        new(
             Pipelines: pipelines.List().Select(p => new PipelineData(p.Id, p.Name)).ToArray(),
-            ProductionSteps: productionSteps.List().Select(s =>
-            {
-                prodConfigs.TryGetValue(s.Id, out var config);
-                return new ProductionStepData(
-                    s.Id, s.Name, s.PipelineId,
-                    config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
-            }).ToArray(),
-            ProcessingSteps: processingSteps.List().Select(s =>
-            {
-                procConfigs.TryGetValue(s.Id, out var config);
-                return new ProcessingStepData(
-                    s.Id, s.Name, s.PipelineId, s.Order,
-                    config is not null ? new StepConfigurationData(config.Image, config.Script, config.EnvironmentVariables) : null);
-            }).ToArray(),
-            Triggers: triggers.List().Select(t => new TriggerData(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt)).ToArray(),
             Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
                 b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.Status, b.CreatedAt,
                 b.DeployTrigger, b.WebhookSecret)).ToArray());
-    }
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
     {
         foreach (var p in snapshot.Pipelines ?? [])
             pipelines.Set(new Pipeline(p.Id, p.Name));
-
-        foreach (var s in snapshot.ProductionSteps ?? [])
-        {
-            productionSteps.Set(new ProductionStep(s.Id, s.Name, s.PipelineId));
-
-            if (s.Configuration is not null)
-                productionConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
-        }
-
-        foreach (var s in snapshot.ProcessingSteps ?? [])
-        {
-            processingSteps.Set(new ProcessingStep(s.Id, s.Name, s.PipelineId, s.Order));
-
-            if (s.Configuration is not null)
-                processingConfigs.Set(s.Id, new StepConfiguration(s.Configuration.Image, s.Configuration.Script, s.Configuration.EnvironmentVariables));
-        }
-
-        foreach (var t in snapshot.Triggers ?? [])
-            triggers.Set(new Trigger(t.Id, t.PipelineId, t.Name, t.Target, t.Secret, t.CreatedAt));
 
         foreach (var b in snapshot.Bindings ?? [])
             bindings.Set(new PipelineConfigBinding(

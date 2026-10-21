@@ -1,14 +1,11 @@
-using Olve.Pipelines.Pipelines.Building;
-
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Pre-aggregated view of a pipeline for the list page: enough to render a card
-/// (name, optional bound repo, and the per-step health strip) in one round-trip,
-/// avoiding an N+1 fan-out of steps+jobs per pipeline from the client.
-/// <see cref="LastChangedAt"/> is the most recent status change across all of the pipeline's
-/// steps (null if no step has ever run). <see cref="Status"/> is the aggregate pipeline health
-/// derived from the step strip (see <see cref="PipelineStatus"/>).
+/// Pre-aggregated view of a pipeline for the list page: name, optional bound repo, and a health
+/// strip in one round-trip. Interim shape between the v1 cut and the v2 run model — the strip is
+/// derived from the latest placeholder job per step name. <see cref="LastChangedAt"/> is the most
+/// recent status change across those jobs (null if nothing has run). <see cref="Status"/> is the
+/// aggregate health (see <see cref="PipelineStatus"/>).
 /// </summary>
 public record PipelineSummary(
     Id<Pipeline> Id,
@@ -19,11 +16,8 @@ public record PipelineSummary(
     DateTimeOffset? LastChangedAt);
 
 /// <summary>
-/// One box in the CI strip: a step and the status of its most recent job. Order
-/// is production steps first, then processing steps in pipeline order. <see cref="Status"/>
-/// is the job-status discriminator (idle / scheduled / in-progress / done / failed /
-/// cancelled / obsolete); "idle" means the step has never run. <see cref="Kind"/> is
-/// "production" or "processing". <see cref="LastChangedAt"/> is when that latest job last
-/// changed status (null if the step has never run).
+/// One box in the health strip: a step name and the status of its most recent job.
+/// <see cref="Status"/> is the job-status discriminator (scheduled / in-progress / done / failed /
+/// cancelled / obsolete). <see cref="LastChangedAt"/> is when that job last changed status.
 /// </summary>
-public record StepHealth(string Name, string Kind, string Status, DateTimeOffset? LastChangedAt);
+public record StepHealth(string Name, string Status, DateTimeOffset? LastChangedAt);

@@ -4,7 +4,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// Shared reconcile concurrency state (singleton). Holds the set of pipelines currently being
 /// reconciled (paused) and the single coarse global config-mutation lock.
 ///
-/// While a pipeline is paused the trigger layer refuses to START new production runs; in-flight
+/// While a pipeline is paused the trigger layer refuses to START new runs; in-flight
 /// chains are unaffected and run to completion on the config they started with. The mutation lock
 /// is held only around the synchronous diff-apply — never across the drain wait or any I/O.
 /// </summary>

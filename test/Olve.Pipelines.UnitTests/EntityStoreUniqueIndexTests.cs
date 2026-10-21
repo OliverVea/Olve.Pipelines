@@ -1,19 +1,21 @@
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Ids;
+using Olve.Utilities.Lookup;
 
 namespace Olve.Pipelines.UnitTests;
 
 public class EntityStoreUniqueIndexTests
 {
-    private static ProductionStep Step(string name)
-        => new(Id.New<ProductionStep>(), name, Id.New<Pipeline>());
+    private record TestStep(Id<TestStep> Id, string Name, Id<Pipeline> PipelineId) : IHasId<Id<TestStep>>;
+
+    private static TestStep Step(string name)
+        => new(Id.New<TestStep>(), name, Id.New<Pipeline>());
 
     [Test]
     public async Task TryGet_ResolvesKeyToId()
     {
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateUniqueIndex(s => s.Name);
 
         var step = Step("build");
@@ -26,7 +28,7 @@ public class EntityStoreUniqueIndexTests
     [Test]
     public async Task Delete_RemovesFromIndex()
     {
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateUniqueIndex(s => s.Name);
 
         var step = Step("build");
@@ -46,7 +48,7 @@ public class EntityStoreUniqueIndexTests
     {
         // A key rebound to a different id (collision), then the original id is deleted: the forward
         // entry must survive because it now points at the newer id.
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateUniqueIndex(s => s.Name);
 
         var first = Step("build");

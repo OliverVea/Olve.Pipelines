@@ -45,22 +45,3 @@ public sealed class PipelineDeleteCommand : ICliCommand
         return Result.Success();
     }
 }
-
-/// <summary><c>pl pipeline document &lt;id&gt;</c> — export the pipeline's config document as JSON.</summary>
-public sealed class PipelineDocumentCommand : ICliCommand
-{
-    public string Noun => "pipeline";
-    public string Verb => "document";
-    public int RequiredOperands => 1;
-    public string HelpLine => "Export the pipeline config document (JSON)";
-    public string? HelpDetail => "pl pipeline document <pipelineId>";
-
-    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
-    {
-        if ((await ctx.Api.GetPipelineDocumentRaw(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var doc))
-            return problems;
-
-        ctx.Output.Line(doc);
-        return Result.Success();
-    }
-}

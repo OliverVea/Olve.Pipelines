@@ -1,6 +1,6 @@
 using Olve.MinimalApi;
 using Olve.Pipelines.Kubernetes;
-using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.GitHub;
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace Olve.Pipelines.Pipelines.Sync;

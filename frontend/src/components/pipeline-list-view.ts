@@ -153,14 +153,6 @@ export class PipelineListView extends LitElement {
       white-space: nowrap;
     }
 
-    .ci-divider {
-      width: 1px;
-      align-self: stretch;
-      min-height: 1.4rem;
-      background: var(--color-border);
-      margin: 0 0.2rem;
-    }
-
     /* ---- Card footer (pipeline last-run time) ---- */
     .pc-foot {
       display: flex;
@@ -342,8 +334,6 @@ export class PipelineListView extends LitElement {
 
   private _renderCard(p: PipelineSummary) {
     const steps = p.steps ?? [];
-    const production = steps.filter((s) => s.kind === 'production');
-    const processing = steps.filter((s) => s.kind === 'processing');
     return html`
       <div class="pipeline-card">
         <div class="pc-top">
@@ -370,14 +360,7 @@ export class PipelineListView extends LitElement {
           </button>
         </div>
         ${steps.length
-          ? html`<div class="ci-strip">
-              ${production.map((s) => this._ciBox(s))}
-              ${processing.length
-                ? html`<span class="ci-divider"></span> ${processing.map((s) =>
-                      this._ciBox(s),
-                    )}`
-                : nothing}
-            </div>`
+          ? html`<div class="ci-strip">${steps.map((s) => this._ciBox(s))}</div>`
           : html`<span class="pc-empty">No steps yet</span>`}
         <div class="pc-foot">
           ${p.lastChangedAt
@@ -427,11 +410,9 @@ export class PipelineListView extends LitElement {
   }
 
   private async _create() {
-    const name = window.prompt('New pipeline name');
-    if (!name) return;
     const repo = window.prompt('Repository (owner/name)');
     if (!repo) return;
-    await client.api.pipelines.withRepo.post({ name, repo });
+    await client.api.pipelines.withRepo.post({ repo });
     await this._load();
   }
 

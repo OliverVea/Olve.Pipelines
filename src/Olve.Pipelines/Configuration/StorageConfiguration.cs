@@ -90,16 +90,7 @@ public static class StorageConfiguration
             return new AmazonS3Client(awsCreds, s3Config);
         });
 
-        builder.Services.AddSingleton<IBundleStore, S3BundleStore>();
         builder.Services.AddSingleton<ISnapshotStore, S3SnapshotStore>();
-
-        // Bundles + job logs: delete only when older than MinAgeDays AND beyond a pipeline's latest KeepLatest.
-        builder.Services.AddSingleton(new BundleRetentionOptions(
-            Enabled: builder.Configuration.GetValue("Storage:Retention:Enabled", true),
-            KeepLatest: builder.Configuration.GetValue("Storage:Retention:KeepLatest", 20),
-            MinAge: TimeSpan.FromDays(builder.Configuration.GetValue("Storage:Retention:MinAgeDays", 183)),
-            Interval: TimeSpan.FromHours(builder.Configuration.GetValue("Storage:Retention:IntervalHours", 24))));
-        builder.Services.AddHostedService<BundleRetentionService>();
     }
 
     // dotnet-getdocument launches a nested "GetDocument.Insider" process that reflectively loads this

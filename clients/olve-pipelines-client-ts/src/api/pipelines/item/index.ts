@@ -4,21 +4,9 @@
 // @ts-ignore
 import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscriminatorValue, type Pipeline, type ResultProblem } from '../../../models/index.js';
 // @ts-ignore
-import { ArtifactBundlesRequestBuilderRequestsMetadata, type ArtifactBundlesRequestBuilder } from './artifactBundles/index.js';
-// @ts-ignore
 import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsMetadata, type BindingRequestBuilder } from './binding/index.js';
 // @ts-ignore
-import { DocumentRequestBuilderRequestsMetadata, type DocumentRequestBuilder } from './document/index.js';
-// @ts-ignore
-import { ProcessingRequestBuilderNavigationMetadata, ProcessingRequestBuilderRequestsMetadata, type ProcessingRequestBuilder } from './processing/index.js';
-// @ts-ignore
-import { ProductionRequestBuilderRequestsMetadata, type ProductionRequestBuilder } from './production/index.js';
-// @ts-ignore
 import { SecretsRequestBuilderNavigationMetadata, SecretsRequestBuilderRequestsMetadata, type SecretsRequestBuilder } from './secrets/index.js';
-// @ts-ignore
-import { TriggerRequestBuilderNavigationMetadata, type TriggerRequestBuilder } from './trigger/index.js';
-// @ts-ignore
-import { TriggersRequestBuilderRequestsMetadata, type TriggersRequestBuilder } from './triggers/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -27,37 +15,13 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  */
 export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilder> {
     /**
-     * The artifactBundles property
-     */
-    get artifactBundles(): ArtifactBundlesRequestBuilder;
-    /**
      * The binding property
      */
     get binding(): BindingRequestBuilder;
     /**
-     * The document property
-     */
-    get document(): DocumentRequestBuilder;
-    /**
-     * The processing property
-     */
-    get processing(): ProcessingRequestBuilder;
-    /**
-     * The production property
-     */
-    get production(): ProductionRequestBuilder;
-    /**
      * The secrets property
      */
     get secrets(): SecretsRequestBuilder;
-    /**
-     * The trigger property
-     */
-    get trigger(): TriggerRequestBuilder;
-    /**
-     * The triggers property
-     */
-    get triggers(): TriggersRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
@@ -89,32 +53,13 @@ export const ItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}";
  * Metadata for all the navigation properties in the request builder.
  */
 export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    artifactBundles: {
-        requestsMetadata: ArtifactBundlesRequestBuilderRequestsMetadata,
-    },
     binding: {
         requestsMetadata: BindingRequestBuilderRequestsMetadata,
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
     },
-    document: {
-        requestsMetadata: DocumentRequestBuilderRequestsMetadata,
-    },
-    processing: {
-        requestsMetadata: ProcessingRequestBuilderRequestsMetadata,
-        navigationMetadata: ProcessingRequestBuilderNavigationMetadata,
-    },
-    production: {
-        requestsMetadata: ProductionRequestBuilderRequestsMetadata,
-    },
     secrets: {
         requestsMetadata: SecretsRequestBuilderRequestsMetadata,
         navigationMetadata: SecretsRequestBuilderNavigationMetadata,
-    },
-    trigger: {
-        navigationMetadata: TriggerRequestBuilderNavigationMetadata,
-    },
-    triggers: {
-        requestsMetadata: TriggersRequestBuilderRequestsMetadata,
     },
 };
 /**

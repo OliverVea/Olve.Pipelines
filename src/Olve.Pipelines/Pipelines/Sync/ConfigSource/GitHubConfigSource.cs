@@ -10,7 +10,7 @@ namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 /// branch head; reconcile fetches the config subtree with an ETag conditional request so idle
 /// polls and code-only pushes cost nothing. The read token is resolved at fetch time from the
 /// pipeline's own k8s secret via <see cref="PipelineConfigBinding.CredentialsSecret"/> (a
-/// reference, never a raw value) — mirroring the <c>$SECRET</c> resolution in PollTriggerService.
+/// reference, never a raw value).
 /// </summary>
 public class GitHubConfigSource(
     IKubernetesClient kubernetes,

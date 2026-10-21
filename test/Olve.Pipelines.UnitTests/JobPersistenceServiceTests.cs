@@ -33,11 +33,10 @@ public class JobPersistenceServiceTests
         CreateService(ISnapshotStore? store, StorageMode mode = StorageMode.Persistent)
     {
         var jobs = new EntityStore<Job>([]);
-        var jobGroups = new EntityStore<JobGroup>([]);
         var readiness = new PersistenceReadiness();
 
         var service = new JobPersistenceService(
-            jobs, jobGroups,
+            jobs,
             new StorageOptions("test-bucket", Mode: mode),
             readiness,
             NullLogger<JobPersistenceService>.Instance,
@@ -91,7 +90,7 @@ public class JobPersistenceServiceTests
     [Test]
     public async Task SuccessfulLoad_NoRedundantSave_AndBecomesReady()
     {
-        var store = new FakeSnapshotStore { Data = SerializeSnapshot(new JobSnapshot([], [])) };
+        var store = new FakeSnapshotStore { Data = SerializeSnapshot(new JobSnapshot([TestJobs.Make()])) };
         var (service, readiness) = CreateService(store);
 
         await Assert.That(readiness.IsReady).IsFalse();

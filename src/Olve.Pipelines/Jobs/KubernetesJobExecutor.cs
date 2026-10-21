@@ -5,10 +5,6 @@ using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
@@ -19,9 +15,6 @@ public class KubernetesJobExecutor(
     IHostApplicationLifetime lifetime,
     IKubernetesClient kubernetesClient,
     KubernetesOptions options,
-    ProductionStepService productionStepService,
-    ProcessingStepService processingStepService,
-    JobGroupService jobGroupService,
     IPipelineSecretStore secretStore,
     ICredentialsProvider<S3Credentials> s3CredentialsProvider,
     IAmazonS3 s3,
@@ -43,100 +36,28 @@ public class KubernetesJobExecutor(
 
     protected internal override async Task RunToCompletionAsync(Job job, CancellationToken ct)
     {
-        switch (job)
-        {
-            case ProductionJob pj:
-                await ExecuteProductionJobAsync(pj, ct);
-                break;
-            case ProcessingJob cj:
-                await ExecuteProcessingJobAsync(cj, ct);
-                break;
-            default:
-                FailJob(job, job.Status as InProgress, $"Unknown job type: {job.GetType().Name}");
-                break;
-        }
-    }
-
-    private async Task ExecuteProductionJobAsync(ProductionJob job, CancellationToken ct)
-    {
-        var configResult = productionStepService.TryGetConfiguration(job.ProductionStepId);
-        if (configResult.TryPickProblems(out var problems, out var config))
-        {
-            FailJob(job, job.Status as InProgress, $"Missing configuration for production step '{job.ProductionStepId}': {problems}");
-            return;
-        }
-
-        if (!jobGroupService.TryGet(job.JobGroupId, out var group) || group is not ProductionJobGroup productionGroup)
-        {
-            FailJob(job, job.Status as InProgress, $"Production job group '{job.JobGroupId}' not found.");
-            return;
-        }
-
-        var stepName = productionStepService.TryGet(job.ProductionStepId).TryPickProblems(out _, out var step)
-            ? "(unknown)"
-            : step.Name;
-        var logKey = LogS3Key(job.PipelineId, productionGroup.ArtifactBundleId, job.Id);
+        var logKey = LogS3Key(job.PipelineId, job.Id);
 
         await SubmitGuardedAsync(job, logKey, async token =>
         {
             var secretName = await GetSecretNameIfExists(job.PipelineId, token);
             var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, token);
-            var prefix = S3Prefix(job.PipelineId, productionGroup.ArtifactBundleId);
 
             var spec = new KubernetesJobSpec(
                 Name: JobName(job.Id),
-                Image: config.Image,
-                Script: config.Script,
-                OutputBundleS3Prefix: $"{prefix}/production/{job.ProductionStepId.Value.Value:N}",
+                Image: job.Image,
+                Script: job.Script,
+                OutputBundleS3Prefix: $"{S3Prefix(job.PipelineId, job.Id)}/output",
                 S3HelperImage: options.S3HelperImage,
                 S3Bucket: options.S3Bucket,
                 S3Endpoint: options.S3Endpoint,
                 S3CredentialsSecretName: s3SecretName,
                 S3SkipCertValidation: options.S3SkipCertValidation,
-                EnvironmentVariables: config.EnvironmentVariables,
+                EnvironmentVariables: job.EnvironmentVariables,
                 SecretName: secretName,
                 RuntimeClassName: options.RuntimeClassName);
 
-            await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
-        }, ct);
-    }
-
-    private async Task ExecuteProcessingJobAsync(ProcessingJob job, CancellationToken ct)
-    {
-        var configResult = processingStepService.TryGetConfiguration(job.ProcessingStepId);
-        if (configResult.TryPickProblems(out var problems, out var config))
-        {
-            FailJob(job, job.Status as InProgress, $"Missing configuration for processing step '{job.ProcessingStepId}': {problems}");
-            return;
-        }
-
-        var stepName = processingStepService.TryGet(job.ProcessingStepId).TryPickProblems(out _, out var step)
-            ? "(unknown)"
-            : step.Name;
-        var logKey = LogS3Key(job.PipelineId, job.ArtifactBundleId, job.Id);
-
-        await SubmitGuardedAsync(job, logKey, async token =>
-        {
-            var secretName = await GetSecretNameIfExists(job.PipelineId, token);
-            var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, token);
-            var prefix = S3Prefix(job.PipelineId, job.ArtifactBundleId);
-
-            var spec = new KubernetesJobSpec(
-                Name: JobName(job.Id),
-                Image: config.Image,
-                Script: config.Script,
-                OutputBundleS3Prefix: $"{prefix}/processing/{job.ProcessingStepId.Value.Value:N}",
-                S3HelperImage: options.S3HelperImage,
-                S3Bucket: options.S3Bucket,
-                S3Endpoint: options.S3Endpoint,
-                S3CredentialsSecretName: s3SecretName,
-                S3SkipCertValidation: options.S3SkipCertValidation,
-                EnvironmentVariables: config.EnvironmentVariables,
-                SecretName: secretName,
-                InputBundleS3Prefix: $"{prefix}/production",
-                RuntimeClassName: options.RuntimeClassName);
-
-            await SubmitOrReattachAsync(job, spec, stepName, s3SecretName, logKey, token);
+            await SubmitOrReattachAsync(job, spec, job.StepName, s3SecretName, logKey, token);
         }, ct);
     }
 
@@ -464,11 +385,12 @@ public class KubernetesJobExecutor(
     // it through the failure path. Matches the name used at creation.
     private static string S3SecretName(Id<Job> jobId) => $"olve-s3-{jobId.Value.Value:N}";
 
-    internal static string S3Prefix(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId)
-        => $"bundles/{pipelineId.Value.Value:N}/{artifactBundleId.Value.Value:N}";
+    // Placeholder layout until v2 runs/attempts own storage (B3/B4).
+    internal static string S3Prefix(Id<Pipeline> pipelineId, Id<Job> jobId)
+        => $"jobs/{pipelineId.Value.Value:N}/{jobId.Value.Value:N}";
 
-    internal static string LogS3Key(Id<Pipeline> pipelineId, Id<ArtifactBundle> artifactBundleId, Id<Job> jobId)
-        => $"{S3Prefix(pipelineId, artifactBundleId)}/logs/{jobId.Value.Value:N}.log";
+    internal static string LogS3Key(Id<Pipeline> pipelineId, Id<Job> jobId)
+        => $"{S3Prefix(pipelineId, jobId)}/job.log";
 
     // Determinism is load-bearing: on app restart, the watcher dispatcher derives this name from the
     // persisted Id<Job> and calls TryGetJobStatusAsync to decide whether to submit or reattach.

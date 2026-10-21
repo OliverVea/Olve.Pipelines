@@ -1,19 +1,21 @@
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Ids;
+using Olve.Utilities.Lookup;
 
 namespace Olve.Pipelines.UnitTests;
 
 public class EntityStoreIndexTests
 {
-    private static ProductionStep Step(Id<Pipeline> pipelineId, string name = "step")
-        => new(Id.New<ProductionStep>(), name, pipelineId);
+    private record TestStep(Id<TestStep> Id, string Name, Id<Pipeline> PipelineId) : IHasId<Id<TestStep>>;
+
+    private static TestStep Step(Id<Pipeline> pipelineId, string name = "step")
+        => new(Id.New<TestStep>(), name, pipelineId);
 
     [Test]
     public async Task GetForKey_GroupsByKey()
     {
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineA = Id.New<Pipeline>();
         var pipelineB = Id.New<Pipeline>();
@@ -34,7 +36,7 @@ public class EntityStoreIndexTests
     [Test]
     public async Task Delete_RemovesFromIndex_AndDropsEmptyKey()
     {
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
 
@@ -56,7 +58,7 @@ public class EntityStoreIndexTests
         // Deterministic non-aliasing guard (design blocker B7): a reference handed out by
         // GetForKey must not reflect a subsequent mutation. Fails on the old live-HashSet code,
         // passes on the immutable-backed index.
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
 
@@ -73,7 +75,7 @@ public class EntityStoreIndexTests
     [Test]
     public async Task GetForKey_ReturnsStableSnapshot_UnaffectedByLaterDelete()
     {
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
 
@@ -97,7 +99,7 @@ public class EntityStoreIndexTests
         // Supplementary stress test (B7): enumerate while concurrently adding/deleting on the
         // same key. The old live-HashSet code throws InvalidOperationException on concurrent Add
         // during iteration; the immutable index never does.
-        var store = new EntityStore<ProductionStep>([]);
+        var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
 

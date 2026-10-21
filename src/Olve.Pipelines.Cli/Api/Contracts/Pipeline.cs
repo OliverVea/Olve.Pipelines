@@ -25,7 +25,6 @@ public sealed class PipelineSummary
 public sealed class StepHealth
 {
     public string Name { get; set; } = "";
-    public string Kind { get; set; } = "";
     public string Status { get; set; } = "";
     public DateTimeOffset? LastChangedAt { get; set; }
 }

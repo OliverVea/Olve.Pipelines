@@ -3,35 +3,17 @@ using System.Text.Json.Serialization;
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
 /// <summary>
-/// A scheduled unit of work. Polymorphic on the server's <c>type</c> discriminator. Modeled with
-/// native <see cref="JsonPolymorphicAttribute"/> (AOT-safe), unlike the generated client's
-/// reflection-based converter. <see cref="Kind"/> is a non-serialized label for human output.
+/// A scheduled unit of work: one named step of a pipeline. Interim placeholder shape (v2 B1) until
+/// runs/attempts replace jobs.
 /// </summary>
-[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
-[JsonDerivedType(typeof(ProductionJob), "production")]
-[JsonDerivedType(typeof(ProcessingJob), "processing")]
-public abstract class Job
+public sealed class Job
 {
     public Guid Id { get; set; }
     public Guid PipelineId { get; set; }
-    public Guid JobGroupId { get; set; }
+    public string StepName { get; set; } = "";
+    public string Image { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public JobStatus Status { get; set; } = new ScheduledStatus();
-
-    [JsonIgnore] public abstract string Kind { get; }
-}
-
-public sealed class ProductionJob : Job
-{
-    public Guid ProductionStepId { get; set; }
-    [JsonIgnore] public override string Kind => "production";
-}
-
-public sealed class ProcessingJob : Job
-{
-    public Guid ProcessingStepId { get; set; }
-    public Guid ArtifactBundleId { get; set; }
-    [JsonIgnore] public override string Kind => "processing";
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

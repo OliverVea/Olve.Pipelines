@@ -1,12 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
-using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
-using Olve.Pipelines.Shared;
 using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests;
@@ -15,31 +12,32 @@ public class DeployPollServiceTests
 {
     private static T Pick<T>(Result<T> r) { r.TryPickProblems(out _, out var v); return v!; }
 
-    /// <summary>
-    /// #39: the binding webhook and a second poll of the same binding (background loop or
-    /// reconcile-now) both read the old deploy cursor before either advanced it, and each fired a
-    /// production run for one push. Both polls are held at the branch-head fetch so they overlap.
-    /// </summary>
-    [Test]
-    public async Task ConcurrentPolls_OfOneNewHead_FireProductionOnce()
+    private static (ServiceProvider Provider, GatedConfigSource Source) Build(int expectedCallers)
     {
-        var source = new GatedConfigSource(expectedCallers: 2);
+        var source = new GatedConfigSource(expectedCallers);
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddPipelineServices();
         services.AddSingleton<IConfigSource>(source);
-        await using var provider = services.BuildServiceProvider();
+        return (services.BuildServiceProvider(), source);
+    }
+
+    /// <summary>
+    /// #39: the binding webhook and a second poll of the same binding (background loop or
+    /// reconcile-now) both read the old deploy cursor before either advanced it. Both polls are held
+    /// at the branch-head fetch so they overlap; the cursor must still land on the new head.
+    /// </summary>
+    [Test]
+    public async Task ConcurrentPolls_OfOneNewHead_AdvanceCursorToHead()
+    {
+        var (provider, source) = Build(expectedCallers: 2);
+        await using var _ = provider;
 
         var pipeline = Pick(provider.GetRequiredService<PipelineService>().Create("widgets"));
-        var steps = provider.GetRequiredService<ProductionStepService>();
-        var step = Pick(steps.Create(pipeline.Id, "build"));
-        Pick(steps.SetConfiguration(step.Id, new StepConfiguration("alpine", "true")));
-
         var bindings = provider.GetRequiredService<PipelineConfigBindingService>();
         var binding = Pick(bindings.Create(pipeline.Id, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
-        Pick(bindings.SetLastSyncedSha(binding.Id, source.Inner.ConfigSha)); // config already applied
         Pick(bindings.SetLastDeployedSha(binding.Id, "head-0"));
         source.Inner.BranchHeadSha = "head-1"; // the push
 
@@ -51,12 +49,27 @@ public class DeployPollServiceTests
         source.Release();
         await Task.WhenAll(first, second);
 
-        var groups = provider.GetRequiredService<JobGroupService>().List()
-            .OfType<ProductionJobGroup>()
-            .Count(g => g.PipelineId == pipeline.Id);
-
-        await Assert.That(groups).IsEqualTo(1);
         await Assert.That(Pick(bindings.TryGet(binding.Id)).LastDeployedSha).IsEqualTo("head-1");
+    }
+
+    /// <summary>Until v2 reconcile lands, a successful config fetch records an explicit not-implemented status.</summary>
+    [Test]
+    public async Task Poll_RecordsNotImplementedReconcileStatus()
+    {
+        var (provider, source) = Build(expectedCallers: 1);
+        await using var _ = provider;
+        source.Release();
+
+        var pipeline = Pick(provider.GetRequiredService<PipelineService>().Create("widgets"));
+        var bindings = provider.GetRequiredService<PipelineConfigBindingService>();
+        var binding = Pick(bindings.Create(pipeline.Id, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+
+        var result = await provider.GetRequiredService<DeployPollService>().ReconcileNowAsync(pipeline.Id, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        var status = Pick(bindings.TryGet(binding.Id)).Status;
+        await Assert.That(status.Result).IsEqualTo(ReconcileResult.Error);
+        await Assert.That(status.Problems).IsEquivalentTo([DeployPollService.NotImplementedProblem]);
     }
 
     /// <summary>Holds every branch-head fetch until all expected callers are waiting, then releases them together.</summary>

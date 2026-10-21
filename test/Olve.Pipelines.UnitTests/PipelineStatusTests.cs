@@ -4,7 +4,7 @@ namespace Olve.Pipelines.UnitTests;
 
 public class PipelineStatusTests
 {
-    private static StepHealth Step(string status) => new("step", "production", status, null);
+    private static StepHealth Step(string status) => new("step", status, null);
 
     [Test]
     public async Task NoSteps_IsIdle()

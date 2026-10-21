@@ -1,13 +1,9 @@
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Bindings;
-using Olve.Pipelines.Cli.Commands.Bundles;
 using Olve.Pipelines.Cli.Commands.Jobs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
-using Olve.Pipelines.Cli.Commands.Processing;
-using Olve.Pipelines.Cli.Commands.Production;
 using Olve.Pipelines.Cli.Commands.Secrets;
-using Olve.Pipelines.Cli.Commands.Triggers;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 
@@ -38,25 +34,7 @@ public sealed class CliDispatcher
         // pipeline
         Register(new PipelineListCommand());
         Register(new PipelineGetCommand());
-        Register(new PipelineDocumentCommand());
         Register(new PipelineDeleteCommand());
-
-        // production
-        Register(new ProductionListCommand());
-        Register(new ProductionGetCommand());
-        Register(new ProductionConfigCommand());
-        Register(new ProductionTriggerCommand());
-
-        // processing
-        Register(new ProcessingListCommand());
-        Register(new ProcessingGetCommand());
-        Register(new ProcessingConfigCommand());
-        Register(new ProcessingPromotionsCommand());
-        Register(new ProcessingPromotionCommand());
-        Register(new ProcessingBlockCommand());
-        Register(new ProcessingUnblockCommand());
-        Register(new ProcessingPromoteCommand());
-        Register(new ProcessingRePromoteCommand());
 
         // job
         Register(new JobListCommand());
@@ -64,14 +42,6 @@ public sealed class CliDispatcher
         Register(new JobLogsCommand());
         Register(new JobQueueCommand());
         Register(new JobCancelCommand());
-
-        // bundle
-        Register(new BundleListCommand());
-        Register(new BundleGetCommand());
-
-        // trigger
-        Register(new TriggerListCommand());
-        Register(new TriggerGetCommand());
 
         // secret
         Register(new SecretListCommand());

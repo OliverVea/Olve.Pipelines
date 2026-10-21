@@ -3,13 +3,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Building;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.UnitTests;
@@ -53,7 +49,6 @@ public class JobRunnerTests
         services.AddSingleton<IHostApplicationLifetime>(lifetime);
         services.AddTransient(_ => new JobService(
             NullLogger<JobService>.Instance, jobStore,
-            new JobGroupService(new EntityStore<JobGroup>([]), new IdProvider(), TimeProvider.System),
             new IdProvider(), TimeProvider.System));
         services.AddTransient<JobQueueService>(_ => new JobQueueService(jobStore));
         services.AddTransient<IJobExecutor>(sp => new NoOpJobExecutor(
@@ -72,22 +67,14 @@ public class JobRunnerTests
         };
 
         var jobService = new JobService(NullLogger<JobService>.Instance, jobStore,
-            new JobGroupService(new EntityStore<JobGroup>([]), new IdProvider(), TimeProvider.System),
             new IdProvider(), TimeProvider.System);
 
         return new TestHarness(runner, jobService, pendingStore, registry, jobStore);
     }
 
-    private static Id<Job> CreateProductionJob(JobService jobService)
+    private static Id<Job> CreateJob(JobService jobService, string stepName = "build")
     {
-        var result = jobService.CreateProductionJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ProductionStep>());
-        result.TryPickProblems(out _, out var job);
-        return job!.Id;
-    }
-
-    private static Id<Job> CreateProcessingJob(JobService jobService)
-    {
-        var result = jobService.CreateProcessingJob(Id.New<Pipeline>(), Id.New<JobGroup>(), Id.New<ArtifactBundle>(), Id.New<ProcessingStep>());
+        var result = jobService.CreateJob(Id.New<Pipeline>(), stepName, "img", "sh");
         result.TryPickProblems(out _, out var job);
         return job!.Id;
     }
@@ -105,10 +92,10 @@ public class JobRunnerTests
     }
 
     [Test]
-    public async Task ProductionJob_FinishSuccess_TransitionsToDone()
+    public async Task Job_FinishSuccess_TransitionsToDone()
     {
         var h = CreateRunner();
-        var jobId = CreateProductionJob(h.JobService);
+        var jobId = CreateJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -124,10 +111,10 @@ public class JobRunnerTests
     }
 
     [Test]
-    public async Task ProcessingJob_FinishSuccess_TransitionsToDone()
+    public async Task SecondStepJob_FinishSuccess_TransitionsToDone()
     {
         var h = CreateRunner();
-        var jobId = CreateProcessingJob(h.JobService);
+        var jobId = CreateJob(h.JobService, "deploy");
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -146,7 +133,7 @@ public class JobRunnerTests
     public async Task Job_FinishFailure_TransitionsToFailed()
     {
         var h = CreateRunner();
-        var jobId = CreateProductionJob(h.JobService);
+        var jobId = CreateJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -167,7 +154,7 @@ public class JobRunnerTests
     public async Task Job_BeforeFinish_IsInProgress()
     {
         var h = CreateRunner();
-        var jobId = CreateProductionJob(h.JobService);
+        var jobId = CreateJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -187,9 +174,9 @@ public class JobRunnerTests
     {
         var h = CreateRunner(maxConcurrentJobs: 2);
 
-        var job1 = CreateProductionJob(h.JobService);
-        var job2 = CreateProductionJob(h.JobService);
-        var job3 = CreateProductionJob(h.JobService);
+        var job1 = CreateJob(h.JobService);
+        var job2 = CreateJob(h.JobService);
+        var job3 = CreateJob(h.JobService);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -222,8 +209,8 @@ public class JobRunnerTests
     {
         var h = CreateRunner();
 
-        var job1 = CreateProductionJob(h.JobService);
-        var job2 = CreateProcessingJob(h.JobService);
+        var job1 = CreateJob(h.JobService);
+        var job2 = CreateJob(h.JobService, "deploy");
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -250,7 +237,7 @@ public class JobRunnerTests
     public async Task InProgressJob_WithNoLiveWatcher_IsReattached()
     {
         var h = CreateRunner();
-        var jobId = CreateProductionJob(h.JobService);
+        var jobId = CreateJob(h.JobService);
 
         // Simulate the post-restart state: the job was persisted InProgress, but no watcher is running.
         await Assert.That(h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) })).Succeeded();
@@ -274,13 +261,13 @@ public class JobRunnerTests
     {
         var h = CreateRunner();
         var pipelineId = Id.New<Pipeline>();
-        var stepId = Id.New<ProductionStep>();
+        var stepId = "build";
 
-        var first = h.JobService.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
+        var first = h.JobService.CreateJob(pipelineId, stepId, "img", "sh");
         first.TryPickProblems(out _, out var firstJob);
         var firstId = firstJob!.Id;
 
-        var second = h.JobService.CreateProductionJob(pipelineId, Id.New<JobGroup>(), stepId);
+        var second = h.JobService.CreateJob(pipelineId, stepId, "img", "sh");
         second.TryPickProblems(out _, out var secondJob);
         var secondId = secondJob!.Id;
 

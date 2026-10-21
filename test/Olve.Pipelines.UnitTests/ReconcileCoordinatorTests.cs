@@ -1,11 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Olve.Pipelines.FailureHandlers;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Processing;
-using Olve.Pipelines.Pipelines.Production;
 using Olve.Pipelines.Pipelines.Sync;
-using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared;
 using Olve.Results;
 
@@ -15,35 +11,19 @@ public class ReconcileCoordinatorTests
 {
     private sealed record Fixture(
         PipelineService Pipelines,
-        ProductionStepService Production,
         EntityStore<Job> JobStore,
         ReconcilePauseState PauseState,
-        IdProvider IdProvider,
-        JobService Jobs,
-        PipelineReconciler Reconciler);
+        JobService Jobs);
 
     private static Fixture CreateFixture()
     {
         var idProvider = new IdProvider();
-        var pipelineStore = new EntityStore<Pipeline>([]);
-        var productionStore = new EntityStore<ProductionStep>([]);
-        var processingStore = new EntityStore<ProcessingStep>([]);
-        var triggerStore = new EntityStore<Trigger>([]);
         var jobStore = new EntityStore<Job>([]);
 
-        var pipelines = new PipelineService(pipelineStore, idProvider);
-        var production = new ProductionStepService(
-            productionStore, new AttachmentStore<ProductionStep, StepConfiguration>(productionStore), idProvider);
-        var processing = new ProcessingStepService(
-            processingStore, new AttachmentStore<ProcessingStep, StepConfiguration>(processingStore), idProvider);
-        var triggers = new TriggerService(triggerStore, idProvider);
-        var failureHandlers = new FailureHandlerBindingService(new AttachmentStore<Pipeline, FailureHandlerBindings>(pipelineStore));
-        var reconciler = new PipelineReconciler(pipelines, production, processing, triggers, failureHandlers);
-        var jobs = new JobService(NullLogger<JobService>.Instance, jobStore,
-            new JobGroupService(new EntityStore<JobGroup>([]), idProvider, TimeProvider.System),
-            idProvider, TimeProvider.System);
+        var pipelines = new PipelineService(new EntityStore<Pipeline>([]), idProvider);
+        var jobs = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, TimeProvider.System);
 
-        return new Fixture(pipelines, production, jobStore, new ReconcilePauseState(), idProvider, jobs, reconciler);
+        return new Fixture(pipelines, jobStore, new ReconcilePauseState(), jobs);
     }
 
     private static T Pick<T>(Result<T> result)
@@ -52,13 +32,8 @@ public class ReconcileCoordinatorTests
         return value!;
     }
 
-    private static PipelineManifest Manifest(params string[] productionStepNames)
-        => new("0.0", "p", null, null, null,
-            productionStepNames.Select(n => new ProductionStepDocument(n, new StepConfigurationDocument("alpine", "echo", null))).ToArray(),
-            [], []);
-
-    private ReconcileCoordinator Coordinator(Fixture f, ReconcileOptions options)
-        => new(f.PauseState, f.Reconciler, f.Jobs, options, TimeProvider.System, NullLogger<ReconcileCoordinator>.Instance);
+    private static ReconcileCoordinator Coordinator(Fixture f, ReconcileOptions options)
+        => new(f.PauseState, f.Jobs, options, TimeProvider.System, NullLogger<ReconcileCoordinator>.Instance);
 
     [Test]
     public async Task ReconcileAsync_WhenQuiescent_AppliesAndClearsPause()
@@ -66,11 +41,16 @@ public class ReconcileCoordinatorTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
         var coordinator = Coordinator(f, new ReconcileOptions());
+        var pausedDuringMutate = false;
 
-        var result = await coordinator.ReconcileAsync(pipeline.Id, Manifest("build"));
+        var result = await coordinator.ReconcileAsync(pipeline.Id, () =>
+        {
+            pausedDuringMutate = f.PauseState.IsPaused(pipeline.Id);
+            return Result.Success();
+        });
 
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(Pick(f.Production.GetByPipelineId(pipeline.Id)).Length).IsEqualTo(1);
+        await Assert.That(pausedDuringMutate).IsTrue();
         await Assert.That(f.PauseState.IsPaused(pipeline.Id)).IsFalse();
     }
 
@@ -81,17 +61,20 @@ public class ReconcileCoordinatorTests
         var pipeline = Pick(f.Pipelines.Create("p"));
 
         // A scheduled job that never terminates — drain can never complete.
-        f.JobStore.Set(new Job.ProductionJob(
-            f.IdProvider.Create<Job>(), pipeline.Id, DateTimeOffset.UtcNow,
-            new JobStatus.Scheduled(), f.IdProvider.Create<JobGroup>(), f.IdProvider.Create<ProductionStep>()));
+        f.JobStore.Set(TestJobs.Make(pipeline.Id));
 
         var coordinator = Coordinator(f, new ReconcileOptions { DrainTimeout = TimeSpan.Zero });
+        var mutated = false;
 
-        var result = await coordinator.ReconcileAsync(pipeline.Id, Manifest("build"));
+        var result = await coordinator.ReconcileAsync(pipeline.Id, () =>
+        {
+            mutated = true;
+            return Result.Success();
+        });
 
         await Assert.That(result.Failed).IsTrue();
         await Assert.That(f.PauseState.IsPaused(pipeline.Id)).IsFalse();
         // Nothing applied — the mutate never ran.
-        await Assert.That(Pick(f.Production.GetByPipelineId(pipeline.Id)).Length).IsEqualTo(0);
+        await Assert.That(mutated).IsFalse();
     }
 }

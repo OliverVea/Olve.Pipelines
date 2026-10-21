@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
-using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Utilities.Ids;

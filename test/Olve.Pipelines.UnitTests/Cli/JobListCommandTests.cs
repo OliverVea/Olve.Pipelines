@@ -12,7 +12,6 @@ namespace Olve.Pipelines.UnitTests.Cli;
 public class JobListCommandTests
 {
     private static readonly Guid PipelineId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid StepId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid JobId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     private static (CommandContext Ctx, StringWriter Out, CliArgs Cli) Build(
@@ -36,44 +35,40 @@ public class JobListCommandTests
         return (ctx, stdout, cli);
     }
 
-    private static FakePipelinesApi ApiWithOneProductionJob() => new()
+    private static FakePipelinesApi ApiWithOneJob() => new()
     {
         ListJobsResult = Result.Success<PageOfJob>(new PageOfJob
         {
-            Items = [new ProductionJob { Id = JobId, PipelineId = PipelineId, ProductionStepId = StepId }],
+            Items = [new Job { Id = JobId, PipelineId = PipelineId, StepName = "build-backend" }],
             PageNumber = 0,
             PageSize = 50,
             TotalCount = 1,
         }),
-        ListProductionStepsResult = Result.Success<ProductionStep[]>(
-            [new ProductionStep { Id = StepId, Name = "build-backend", PipelineId = PipelineId }]),
-        ListProcessingStepsResult = Result.Success<ProcessingStep[]>([]),
     };
 
     [Test]
-    public async Task List_Human_ResolvesAndRendersStepName()
+    public async Task List_Human_RendersStepName()
     {
-        var api = ApiWithOneProductionJob();
+        var api = ApiWithOneJob();
         var (ctx, stdout, cli) = Build(api, json: false, "job", "list");
 
         var result = await new JobListCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(api.Invoked("ListProductionSteps")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("STEP");
         await Assert.That(stdout.ToString()).Contains("build-backend");
     }
 
     [Test]
-    public async Task List_Json_SkipsStepNameResolution()
+    public async Task List_Json_EmitsJson()
     {
-        var api = ApiWithOneProductionJob();
+        var api = ApiWithOneJob();
         var (ctx, stdout, cli) = Build(api, json: true, "job", "list", "--json");
 
         var result = await new JobListCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(api.Invoked("ListProductionSteps")).IsFalse();
         await Assert.That(stdout.ToString().Trim().StartsWith('{')).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("build-backend");
     }
 }

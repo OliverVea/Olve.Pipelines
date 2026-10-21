@@ -1,4 +1,3 @@
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;
@@ -49,10 +48,5 @@ public class JobObsoletionService(JobService jobService, ILogger<JobObsoletionSe
         }
     }
 
-    private static bool HasSameKey(Job a, Job b) => (a, b) switch
-    {
-        (ProductionJob pa, ProductionJob pb) => pa.JobKey == pb.JobKey,
-        (ProcessingJob pa, ProcessingJob pb) => pa.JobKey == pb.JobKey,
-        _ => false
-    };
+    private static bool HasSameKey(Job a, Job b) => a.Key == b.Key;
 }

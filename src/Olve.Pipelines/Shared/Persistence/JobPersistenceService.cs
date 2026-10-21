@@ -6,13 +6,14 @@ namespace Olve.Pipelines.Shared.Persistence;
 
 public class JobPersistenceService(
     EntityStore<Job> jobs,
-    EntityStore<JobGroup> jobGroups,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<JobPersistenceService> logger,
     ISnapshotStore? store = null) : IHostedLifecycleService, IDisposable
 {
-    private const string Key = "jobs.json";
+    // v1's jobs.json holds polymorphic production/processing jobs the placeholder Job can't read;
+    // a fresh key keeps v2 from crashlooping on it (v1 job history is intentionally abandoned).
+    private const string Key = "jobs-v2.json";
     private const string ReadinessKey = "jobs";
 
     private volatile bool _dirty;
@@ -99,8 +100,7 @@ public class JobPersistenceService(
         readiness.MarkReady(ReadinessKey);
 
         logger.LogInformation(
-            "Loaded {Jobs} jobs, {JobGroups} job groups",
-            snapshot.Jobs.Length, snapshot.JobGroups.Length);
+            "Loaded {Jobs} jobs", snapshot.Jobs.Length);
     }
 
     public Task StartedAsync(CancellationToken cancellationToken)
@@ -108,10 +108,6 @@ public class JobPersistenceService(
         jobs.OnAdded.Subscribe(_ => RequestSave());
         jobs.OnUpdated.Subscribe(_ => RequestSave());
         jobs.OnDeleted.Subscribe(_ => RequestSave());
-
-        jobGroups.OnAdded.Subscribe(_ => RequestSave());
-        jobGroups.OnUpdated.Subscribe(_ => RequestSave());
-        jobGroups.OnDeleted.Subscribe(_ => RequestSave());
 
         _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
@@ -155,8 +151,7 @@ public class JobPersistenceService(
             await store.WriteAsync(Key, json, cancellationToken);
 
             logger.LogInformation(
-                "Saved {Jobs} jobs, {JobGroups} job groups",
-                snapshot.Jobs.Length, snapshot.JobGroups.Length);
+                "Saved {Jobs} jobs", snapshot.Jobs.Length);
         }
         catch (Exception ex)
         {
@@ -165,13 +160,10 @@ public class JobPersistenceService(
     }
 
     private JobSnapshot CreateSnapshot() =>
-        new(jobs.List().ToArray(), jobGroups.List().ToArray());
+        new(jobs.List().ToArray());
 
     private void LoadSnapshot(JobSnapshot snapshot)
     {
-        foreach (var group in snapshot.JobGroups)
-            jobGroups.Set(group);
-
         // Restore jobs as-is. Scheduled/InProgress jobs are reconciled on the next JobRunner tick:
         // the executor calls TryGetJobStatusAsync(JobName(job.Id)) and either reattaches to the
         // existing K8s Job or submits a fresh one. K8s is the source of truth for in-flight state.

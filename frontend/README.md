@@ -85,29 +85,16 @@ frontend/
     └── components/
         ├── app-shell.ts                # Top-level layout, route switching
         ├── pipeline-list-view.ts       # Pipeline list with create/delete
-        ├── pipeline-detail-view.ts     # Loads pipeline data, renders flow
-        ├── pipeline-flow.ts            # Flow diagram layout (columns + connectors)
-        └── step-node.ts               # Single step card with job status badge
+        ├── pipeline-detail-view.ts     # Binding status + recent jobs (v2 view placeholder)
+        ├── job-logs-view.ts            # Job log viewer
+        └── docs-view.ts                # Serves the /docs setup guide
 ```
 
-## Pipeline Flow Visualization
+## Pipeline Detail
 
-The detail view renders the pipeline as a horizontal flow:
-
-```
-┌──────────────┐                        ┌──────────────┐    ┌──────────────┐
-│ Prod Step A  │                        │              │    │              │
-│   ● Done     │   ┌───────────────┐    │ Proc Step 1  │    │ Proc Step 2  │
-├──────────────┤──▶│ ArtifactBundle│──▶ │   ⟳ Running  │──▶│   — Idle     │
-│ Prod Step B  │   └───────────────┘    │              │    │              │
-│   ● Done     │                        └──────────────┘    └──────────────┘
-└──────────────┘
-  (parallel)                                  (sequential, ordered)
-```
-
-- **Production steps** stack vertically (run in parallel)
-- **Processing steps** chain left-to-right (run sequentially)
-- Each step node shows the latest job status: Idle, Scheduled, Running, Done, Failed, Cancelled, Obsolete
+The v1 production/processing flow diagram was removed with the v2 cut. The detail view currently
+shows the binding/reconcile status and the pipeline's recent jobs; the v2 stage graph and run
+history replace it.
 
 ## API Client
 

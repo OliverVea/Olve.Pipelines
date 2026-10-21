@@ -26,38 +26,18 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(Pipeline[]))]
 [JsonSerializable(typeof(PipelineSummary))]
 [JsonSerializable(typeof(PipelineSummary[]))]
-// Steps
-[JsonSerializable(typeof(ProductionStep))]
-[JsonSerializable(typeof(ProductionStep[]))]
-[JsonSerializable(typeof(ProcessingStep))]
-[JsonSerializable(typeof(ProcessingStep[]))]
-[JsonSerializable(typeof(StepConfiguration))]
-[JsonSerializable(typeof(PromotionState))]
-[JsonSerializable(typeof(StepPromotionState))]
-[JsonSerializable(typeof(StepPromotionState[]))]
-[JsonSerializable(typeof(PromoteResult))]
-// Jobs (polymorphic)
+// Jobs
 [JsonSerializable(typeof(Job))]
 [JsonSerializable(typeof(PageOfJob))]
 [JsonSerializable(typeof(JobStatus))]
-// Job groups (polymorphic) — returned by the trigger mutations
-[JsonSerializable(typeof(JobGroup))]
 // Bindings (GitOps)
 [JsonSerializable(typeof(PipelineConfigBinding))]
 [JsonSerializable(typeof(PipelineBindingStatus))]
 // Mutation request bodies
-[JsonSerializable(typeof(SetPromotionRequest))]
 [JsonSerializable(typeof(SetSecretRequest))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(UpdateBindingRequest))]
 [JsonSerializable(typeof(SetDeployTriggerRequest))]
-// Triggers (polymorphic)
-[JsonSerializable(typeof(Trigger))]
-[JsonSerializable(typeof(Trigger[]))]
-[JsonSerializable(typeof(TriggerTarget))]
-// Artifact bundles
-[JsonSerializable(typeof(ArtifactBundle))]
-[JsonSerializable(typeof(ArtifactBundle[]))]
 // Secrets
 [JsonSerializable(typeof(string[]))]
 public sealed partial class CliJsonContext : JsonSerializerContext;

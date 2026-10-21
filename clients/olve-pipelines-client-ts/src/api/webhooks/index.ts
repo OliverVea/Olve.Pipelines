@@ -4,10 +4,6 @@
 // @ts-ignore
 import { BindingRequestBuilderNavigationMetadata, type BindingRequestBuilder } from './binding/index.js';
 // @ts-ignore
-import { GithubRequestBuilderNavigationMetadata, type GithubRequestBuilder } from './github/index.js';
-// @ts-ignore
-import { type WithTriggerItemRequestBuilder, WithTriggerItemRequestBuilderRequestsMetadata } from './item/index.js';
-// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -18,16 +14,6 @@ export interface WebhooksRequestBuilder extends BaseRequestBuilder<WebhooksReque
      * The binding property
      */
     get binding(): BindingRequestBuilder;
-    /**
-     * The github property
-     */
-    get github(): GithubRequestBuilder;
-    /**
-     * Gets an item from the OlvePipelinesClient.api.webhooks.item collection
-     * @param triggerId Unique identifier of the item
-     * @returns {WithTriggerItemRequestBuilder}
-     */
-     byTriggerId(triggerId: string) : WithTriggerItemRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -37,15 +23,8 @@ export const WebhooksRequestBuilderUriTemplate = "{+baseurl}/api/webhooks";
  * Metadata for all the navigation properties in the request builder.
  */
 export const WebhooksRequestBuilderNavigationMetadata: Record<Exclude<keyof WebhooksRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    byTriggerId: {
-        requestsMetadata: WithTriggerItemRequestBuilderRequestsMetadata,
-        pathParametersMappings: ["triggerId"],
-    },
     binding: {
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
-    },
-    github: {
-        navigationMetadata: GithubRequestBuilderNavigationMetadata,
     },
 };
 /* tslint:enable */

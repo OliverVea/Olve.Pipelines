@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Hosting;
-using Olve.Pipelines.Pipelines.Building;
-using static Olve.Pipelines.Jobs.Job;
 using static Olve.Pipelines.Jobs.JobStatus;
 
 namespace Olve.Pipelines.Jobs;

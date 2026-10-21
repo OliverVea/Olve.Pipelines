@@ -11,6 +11,32 @@ export type LoadedVersion = {
   createdAt: Date | null;
 };
 
+export type Activation =
+  | { kind: 'active'; version: number; since: Date | null }
+  | { kind: 'draining'; from: number; to: number; cancelRunning: boolean; since: Date | null }
+  | { kind: 'none' };
+
+/** Normalise the API's polymorphic `PipelineActivation` (`active` / `draining`). */
+export function toActivation(a: unknown): Activation {
+  const o = (a ?? {}) as Record<string, unknown>;
+  const since = (o.since as Date | undefined) ?? null;
+  if (o.type === 'active') return { kind: 'active', version: Number(o.versionNumber), since };
+  if (o.type === 'draining')
+    return {
+      kind: 'draining',
+      from: Number(o.fromVersionNumber),
+      to: Number(o.toVersionNumber),
+      cancelRunning: Boolean(o.cancelRunning),
+      since,
+    };
+  return { kind: 'none' };
+}
+
+/** The version new runs use (the switch target while draining). */
+export function currentVersion(a: Activation): number | null {
+  return a.kind === 'active' ? a.version : a.kind === 'draining' ? a.to : null;
+}
+
 // Versions are immutable, so a per-session cache is safe.
 const cache = new Map<string, Promise<LoadedVersion | null>>();
 

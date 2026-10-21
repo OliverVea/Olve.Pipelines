@@ -43,6 +43,7 @@ export class StageGraph extends LitElement {
     css`
       :host {
         display: block;
+        --graph-bg: var(--color-bg);
       }
       .toolbar {
         display: flex;
@@ -106,7 +107,7 @@ export class StageGraph extends LitElement {
         border-top: 1.5px solid var(--color-text-muted);
         border-right: 1.5px solid var(--color-text-muted);
         transform: rotate(45deg);
-        background: var(--color-bg);
+        background: var(--graph-bg);
       }
       .when {
         display: flex;
@@ -120,7 +121,7 @@ export class StageGraph extends LitElement {
         align-self: flex-start;
         margin: -0.7rem 0 0.25rem;
         padding: 0 0.4rem;
-        background: var(--color-bg);
+        background: var(--graph-bg);
         color: var(--color-when);
         font-size: 0.75rem;
         font-weight: 600;
@@ -144,7 +145,7 @@ export class StageGraph extends LitElement {
 
       .tile {
         position: relative;
-        width: 12.5rem;
+        width: 11.5rem;
         padding: 0.45rem 0.6rem 0.5rem;
         background: var(--color-surface);
         border: 1px solid var(--color-border);

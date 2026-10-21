@@ -4,6 +4,8 @@ import { client, extractErrorMessage } from '../api.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
 import './refresh-control.js';
+import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../v2/ui.js';
+import { toActivation } from '../v2/versions.js';
 import type {
   PipelineSummary,
   StepHealth,
@@ -13,9 +15,45 @@ const GITHUB_MARK = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden
 
 @customElement('pipeline-list-view')
 export class PipelineListView extends LitElement {
-  static styles = css`
+  static styles = [sharedStyles, css`
     :host {
       display: block;
+    }
+
+    .health {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .h-main {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .h-last {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+    }
+    .h-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .tag {
+      font-size: 0.72rem;
+      padding: 0 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      color: var(--color-text-muted);
+    }
+    .tag.warn {
+      color: var(--color-warning);
+      border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
+    }
+    .tag.run {
+      color: var(--color-primary);
+      border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
     }
 
     .header {
@@ -259,7 +297,7 @@ export class PipelineListView extends LitElement {
       color: var(--color-danger);
       padding: 1rem;
     }
-  `;
+  `];
 
   @state() declare private _pipelines: PipelineSummary[];
   @state() declare private _loading: boolean;
@@ -364,20 +402,45 @@ export class PipelineListView extends LitElement {
             Delete
           </button>
         </div>
+        ${this._renderHealth(p)}
         ${steps.length
           ? html`<div class="ci-strip">${steps.map((s) => this._ciBox(s))}</div>`
           : html`<span class="pc-empty">No steps yet</span>`}
-        <div class="pc-foot">
-          ${p.lastChangedAt
-            ? html`<span>Last run</span
-                ><relative-time
-                  class="ci-time"
-                  .value=${p.lastChangedAt}
-                ></relative-time>`
-            : html`<span>Never run</span>`}
-        </div>
       </div>
     `;
+  }
+
+  /** Run-level health: last run, active version / switch, running and held runs, closed gates. */
+  private _renderHealth(p: PipelineSummary) {
+    const h = p.health;
+    if (!h) return nothing;
+    const a = toActivation(h.activation);
+    const last = h.lastRun;
+    const held = h.heldRuns ?? [];
+    const blocked = h.blockedSteps ?? [];
+    return html`<div class="health">
+      <div class="h-main">
+        <span class="st t-${toneOf(h.status)}"><span class="dot"></span>${statusLabel(h.status)}</span>
+        ${last
+          ? html`<span class="h-last"
+              >last run
+              <a href=${runPath(p.id ?? '', last.number)} @click=${navClick}>#${last.number}</a>
+              ${statusLabel(last.status)}
+              <relative-time class="ci-time" .value=${last.finishedAt ?? last.createdAt}></relative-time
+            ></span>`
+          : html`<span class="h-last">never run</span>`}
+      </div>
+      <div class="h-tags">
+        ${a.kind === 'active'
+          ? html`<span class="tag" title="Active version">active v${a.version}</span>`
+          : a.kind === 'draining'
+            ? html`<span class="tag warn">switching v${a.from} → v${a.to}</span>`
+            : html`<span class="tag">no version</span>`}
+        ${(h.runningRuns ?? 0) > 0 ? html`<span class="tag run">${h.runningRuns} running</span>` : nothing}
+        ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
+        ${blocked.length ? html`<span class="tag warn" title=${blocked.join(', ')}>${blocked.length} gate${blocked.length > 1 ? 's' : ''} closed</span>` : nothing}
+      </div>
+    </div>`;
   }
 
   private _ciBox(step: StepHealth) {

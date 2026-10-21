@@ -12,7 +12,7 @@ separate instance (`pipelines-v2`) alongside v1 until every pipeline has migrate
 3. **Introspectable.** The models, steps and wiring are plain data in a manifest, so the GUI and
    `pl` can render forms, run plans, typed inputs/outputs and history without running user code.
 
-Non-goals for v2.0: matrix steps, output caching, environments/tags, SDK publishing story,
+Non-goals for v2.0: wait steps (v2.1), matrix steps, output caching, environments/tags, SDK publishing story,
 arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 
 ## 2. Concepts at a glance
@@ -224,7 +224,10 @@ never trusts that the compiler ran, and script handlers bypass it anyway).
 | Step without handler | — | ✓ (bundling) |
 | Output nothing consumes | — | warning (fine for gate steps like `test`) |
 
-### 3.8 Wait steps
+### 3.8 Wait steps (v2.1)
+
+> **Deferred to v2.1.** Waits don't fit the "attempt = one Job" model and get designed properly
+> then. Nothing in v2.0 implements or reserves them; the notes below are the starting point.
 
 A `wait` step has **no pod while waiting**. The attempt sits in `Waiting` until it is resolved with a
 value that is validated against the step's **output model** — the output model *is* the human's or
@@ -280,8 +283,6 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
 - In the backend this is one executor per kind behind a common interface (`JobStepExecutor`,
   `WaitStepExecutor`), so further kinds can be added without touching the stage scheduler.
 
-**Scope for v2.0: the model must support waits** (`Waiting` status, `wait` kind in the manifest); the
-implementation can follow later.
 
 ## 4. Manifest
 
@@ -512,7 +513,7 @@ a promote/rerun would roll an environment back to an older build; describe deter
 - **Matrix steps** (`step.matrix([...])`) — near future.
 - **Output caching** by (step version, input hash) — near future; store the input hash per attempt now.
 - **Environments / tags** (environment strip, promote-beta-to-prod, rollback warnings).
-- **Arbitrary-payload webhook mapping** for wait callbacks (run as a one-off Job).
+- **Wait steps** (§3.8) — v2.1, including arbitrary-payload callback mapping.
 - **SDK publishing** (`@olve/pipelines` distribution and version compatibility with the service).
 - **TypeSpec** (or other) model sources — possible later since JSON Schema is the interchange.
 

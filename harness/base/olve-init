@@ -1,0 +1,100 @@
+#!/bin/sh
+# olve-init — entrypoint of the harness-base init container (v2 "design B" step pods).
+#
+# Populates the pod's shared emptyDir so the step container (any image, any libc, with or without
+# a shell) can run:  /olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <name>
+#
+# Env contract (see harness/README.md):
+#   OLVE_STEP_URL       required  pre-signed GET of a gzipped tar whose root contains `step`
+#   OLVE_INPUT_URL      optional  pre-signed GET of input.json (saved as <shared>/input.json)
+#   OLVE_SHARED         optional  mount point of the shared emptyDir      (default /shared)
+#   OLVE_FETCH_RETRIES  optional  attempts per download                   (default 5)
+#   OLVE_FETCH_TIMEOUT  optional  busybox wget network idle timeout, secs (default 60)
+#
+# Result in <shared>:  step  lib/  input.json (if OLVE_INPUT_URL)  work/  work/files/  tmp/
+# Exit codes: 0 ok, 64 bad config, 65 download failed, 66 bad archive, 70 filesystem error.
+#
+# Pre-signed URLs embed credentials: never print one past the path (everything from `?` is cut).
+
+set -eu
+
+SHARED=${OLVE_SHARED:-/shared}
+RETRIES=${OLVE_FETCH_RETRIES:-5}
+TIMEOUT=${OLVE_FETCH_TIMEOUT:-60}
+LIB_SRC=/olve/lib
+
+log() { echo "olve-init: $*"; }
+die() { code=$1; shift; echo "olve-init: ERROR: $*" >&2; exit "$code"; }
+now() { cut -d' ' -f1 /proc/uptime; }
+elapsed() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'; }
+redact() { printf '%s' "${1%%\?*}"; }
+
+case $RETRIES in '' | *[!0-9]*) die 64 "OLVE_FETCH_RETRIES must be a positive integer" ;; esac
+case $TIMEOUT in '' | *[!0-9]*) die 64 "OLVE_FETCH_TIMEOUT must be a positive integer" ;; esac
+[ "$RETRIES" -ge 1 ] || die 64 "OLVE_FETCH_RETRIES must be >= 1"
+[ -n "${OLVE_STEP_URL:-}" ] || die 64 "OLVE_STEP_URL is not set (pre-signed GET of step.tar.gz)"
+[ -d "$SHARED" ] || die 64 "shared mount $SHARED does not exist (mount the emptyDir there)"
+[ -w "$SHARED" ] || die 70 "shared mount $SHARED is not writable"
+[ -x "$LIB_SRC/ld-linux-x86-64.so.2" ] || die 70 "$LIB_SRC/ld-linux-x86-64.so.2 missing from this image"
+
+# fetch <url> <dest> <what> — download with retries. Fails fast on HTTP 4xx (an expired or
+# tampered pre-signed URL never heals) except 408/429; retries everything else (DNS, connection
+# refused/reset, timeouts, 5xx) with linear backoff.
+fetch() {
+  url=$1 dest=$2 what=$3
+  shown=$(redact "$url")
+  case $url in http://* | https://*) ;; *) die 64 "$what URL must be http(s):// (got $shown)" ;; esac
+  errf="$SHARED/.olve-init.err"
+  n=1
+  while :; do
+    rm -f "$dest" "$errf"
+    if wget -q -T "$TIMEOUT" -O "$dest" "$url" 2>"$errf"; then
+      rm -f "$errf"
+      [ -s "$dest" ] || die 65 "$what download from $shown returned an empty body"
+      return 0
+    fi
+    err=$(tr '\n' ' ' <"$errf" 2>/dev/null | sed 's/?[^ ]*//g' | cut -c1-300)
+    rm -f "$dest" "$errf"
+    case $err in
+      *" 408 "* | *" 429 "*) ;;
+      *" 4"[0-9][0-9]" "*) die 65 "$what download from $shown failed permanently: $err(pre-signed URL expired, wrong host, or object missing?)" ;;
+    esac
+    [ "$n" -lt "$RETRIES" ] || die 65 "$what download from $shown failed after $n attempts: $err"
+    log "$what download attempt $n/$RETRIES failed: $err- retrying in $((n * 2))s"
+    sleep $((n * 2))
+    n=$((n + 1))
+  done
+}
+
+t0=$(now)
+log "fetching step archive $(redact "$OLVE_STEP_URL") into $SHARED"
+archive="$SHARED/.step.tar.gz"
+fetch "$OLVE_STEP_URL" "$archive" "step archive"
+t1=$(now)
+size=$(wc -c <"$archive" | tr -d ' ')
+
+tar -xzf "$archive" -C "$SHARED" 2>"$SHARED/.olve-init.err" \
+  || die 66 "step archive is not a valid gzipped tar: $(head -c 300 "$SHARED/.olve-init.err")"
+rm -f "$archive" "$SHARED/.olve-init.err"
+[ -f "$SHARED/step" ] || die 66 "step archive did not contain \`step\` at its root (found: $(ls -A "$SHARED" | tr '\n' ' '))"
+chmod 0755 "$SHARED/step" || die 70 "cannot chmod $SHARED/step"
+t2=$(now)
+
+if [ -n "${OLVE_INPUT_URL:-}" ]; then
+  log "fetching input $(redact "$OLVE_INPUT_URL")"
+  fetch "$OLVE_INPUT_URL" "$SHARED/input.json" "input"
+  chmod 0644 "$SHARED/input.json"
+else
+  log "OLVE_INPUT_URL not set: no input.json"
+fi
+t3=$(now)
+
+rm -rf "$SHARED/lib"
+cp -a "$LIB_SRC" "$SHARED/lib" || die 70 "cannot copy $LIB_SRC to $SHARED/lib"
+mkdir -p "$SHARED/work/files" "$SHARED/tmp" || die 70 "cannot create work/ and tmp/ in $SHARED"
+# Step images may run as non-root: let any uid write outputs and temp files.
+chmod 1777 "$SHARED/work" "$SHARED/work/files" "$SHARED/tmp"
+t4=$(now)
+
+log "ready: step=${size}B $(ls -A "$SHARED" | tr '\n' ' ')"
+log "timing step_fetch=$(elapsed "$t0" "$t1")s extract=$(elapsed "$t1" "$t2")s input_fetch=$(elapsed "$t2" "$t3")s lib=$(elapsed "$t3" "$t4")s total=$(elapsed "$t0" "$t4")s"

@@ -1,0 +1,42 @@
+# Design-B step pod, as validated by validate.sh (rendered with envsubst; URLs are pre-signed
+# GETs and must never be committed or printed). Mirrors what the B5 executor should generate.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${JOB_NAME}
+  namespace: olve-runners-beta
+  labels: { app: olve-pipelines, spike: v2-harness-base }
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: { app: olve-pipelines, spike: v2-harness-base, spike-case: "${CASE}" }
+    spec:
+      runtimeClassName: gvisor
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      volumes:
+        - name: olve
+          emptyDir: { sizeLimit: 1Gi }
+      initContainers:
+        - name: olve-init
+          image: ${HARNESS_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: OLVE_STEP_URL, value: "${STEP_URL}" }
+            - { name: OLVE_INPUT_URL, value: "${INPUT_URL}" }
+          volumeMounts: [{ name: olve, mountPath: /shared }]
+          resources: { requests: { cpu: 100m, memory: 64Mi }, limits: { memory: 256Mi } }
+      containers:
+        - name: step
+          image: ${STEP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command: ["/olve/lib/ld-linux-x86-64.so.2", "--library-path", "/olve/lib", "/olve/step"]
+          env:
+            - { name: OLVE_DIR, value: /olve }
+            - { name: TMPDIR, value: /olve/tmp }
+          volumeMounts: [{ name: olve, mountPath: /olve }]
+          resources: { requests: { cpu: 250m, memory: 128Mi }, limits: { memory: 512Mi } }

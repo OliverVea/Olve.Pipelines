@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -31,6 +32,7 @@ internal sealed class TestRunDomain
         Sequences = new AttachmentStore<Pipeline, PipelineSequences>(Pipelines);
         Gates = new AttachmentStore<Pipeline, PipelineStepGates>(Pipelines);
         PendingStarts = new AttachmentStore<Pipeline, PendingRunStart>(Pipelines);
+        EntityVersions = new AttachmentStore<Pipeline, EntityVersionMap>(Pipelines);
 
         var ids = new IdProvider();
         PipelineService = new PipelineService(Pipelines, ids);
@@ -45,6 +47,7 @@ internal sealed class TestRunDomain
 
     public AttachmentStore<Pipeline, PipelineStepGates> Gates { get; }
     public AttachmentStore<Pipeline, PendingRunStart> PendingStarts { get; }
+    public AttachmentStore<Pipeline, EntityVersionMap> EntityVersions { get; }
     public RunSchedulingLock SchedulingLock { get; } = new();
     public RunPlanCache Plans { get; }
 

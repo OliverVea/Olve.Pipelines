@@ -34,6 +34,21 @@ public class PipelineService(EntityStore<Pipeline> store, IdProvider idProvider)
         return renamed;
     }
 
+    /// <summary>Sets name and description from the active version's manifest (no-op when unchanged).</summary>
+    public Result<Pipeline> SetDefinition(Id<Pipeline> id, string name, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return new ResultProblem("Pipeline name is required.");
+        if (!store.TryGet(id, out var pipeline))
+            return new ResultProblem("Pipeline '{0}' not found.", id);
+        if (pipeline.Name == name && pipeline.Description == description)
+            return pipeline;
+
+        var updated = pipeline with { Name = name, Description = description };
+        store.Set(updated);
+        return updated;
+    }
+
     public bool TryGet(Id<Pipeline> id, [NotNullWhen(true)] out Pipeline? pipeline) => store.TryGet(id, out pipeline);
 
     public IReadOnlyList<Pipeline> List() => store.List();

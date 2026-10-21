@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -45,6 +46,7 @@ public class RunPersistenceService(
     AttachmentStore<Pipeline, PipelineSequences> sequences,
     AttachmentStore<Pipeline, PipelineStepGates> gates,
     AttachmentStore<Pipeline, PendingRunStart> pendingStarts,
+    AttachmentStore<Pipeline, EntityVersionMap> entityVersions,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<RunPersistenceService> logger,
@@ -123,6 +125,8 @@ public class RunPersistenceService(
         gates.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         pendingStarts.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
         pendingStarts.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        entityVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        entityVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
 
         runs.OnAdded.Subscribe(e => OnRunChanged(e.Id));
         runs.OnUpdated.Subscribe(e => OnRunChanged(e.Id));
@@ -365,7 +369,8 @@ public class RunPersistenceService(
         new(activations.GetAll().Select(kv => new PipelineActivationEntry(kv.Key, kv.Value)).ToArray(),
             sequences.GetAll().Select(kv => new PipelineSequencesEntry(kv.Key, kv.Value)).ToArray(),
             gates.GetAll().Select(kv => new PipelineStepGatesEntry(kv.Key, kv.Value)).ToArray(),
-            pendingStarts.GetAll().Select(kv => new PendingRunStartEntry(kv.Key, kv.Value)).ToArray());
+            pendingStarts.GetAll().Select(kv => new PendingRunStartEntry(kv.Key, kv.Value)).ToArray(),
+            entityVersions.GetAll().Select(kv => new EntityVersionHistoryEntry(kv.Key, kv.Value)).ToArray());
 
     private RunIndexSnapshot BuildRunsIndex() =>
         new(runs.List()
@@ -427,6 +432,8 @@ public class RunPersistenceService(
             gates.Set(entry.PipelineId, entry.Gates);
         foreach (var entry in state?.PendingStarts ?? [])
             pendingStarts.Set(entry.PipelineId, entry.Pending);
+        foreach (var entry in state?.EntityVersions ?? [])
+            entityVersions.Set(entry.PipelineId, entry.History);
 
         var attemptCount = 0;
         foreach (var document in documents)

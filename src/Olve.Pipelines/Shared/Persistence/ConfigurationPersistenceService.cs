@@ -167,7 +167,7 @@ public class ConfigurationPersistenceService(
 
     private ConfigurationSnapshot CreateSnapshot() =>
         new(
-            Pipelines: pipelines.List().Select(p => new PipelineData(p.Id, p.Name)).ToArray(),
+            Pipelines: pipelines.List().Select(p => new PipelineData(p.Id, p.Name, p.Description)).ToArray(),
             Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
                 b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastDeployedSha, b.LastSyncedSha, b.Status, b.CreatedAt,
                 b.DeployTrigger, b.WebhookSecret)).ToArray());
@@ -175,7 +175,7 @@ public class ConfigurationPersistenceService(
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
     {
         foreach (var p in snapshot.Pipelines ?? [])
-            pipelines.Set(new Pipeline(p.Id, p.Name));
+            pipelines.Set(new Pipeline(p.Id, p.Name, p.Description));
 
         foreach (var b in snapshot.Bindings ?? [])
             bindings.Set(new PipelineConfigBinding(

@@ -18,11 +18,17 @@ public enum ReconcileResult
 /// whether each is actually set in k8s is computed live at read time, not stored here (so setting a
 /// secret reflects immediately rather than waiting for the next reconcile).
 /// </summary>
+/// <param name="Warnings">Manifest warnings of the last reconcile (null in snapshots written before B6).</param>
+/// <param name="Sha">The config commit the last reconcile attempt was for.</param>
+/// <param name="InProgress">A reconcile is running right now (not persisted meaningfully; cleared when it ends).</param>
 public record ReconcileStatus(
     ReconcileResult Result,
     DateTimeOffset? LastSyncTime,
     IReadOnlyList<string> Problems,
-    IReadOnlyList<SecretDeclaration> DeclaredSecrets)
+    IReadOnlyList<SecretDeclaration> DeclaredSecrets,
+    IReadOnlyList<string>? Warnings = null,
+    string? Sha = null,
+    bool InProgress = false)
 {
     public static ReconcileStatus NeverRun { get; } = new(ReconcileResult.NeverRun, null, [], []);
 }

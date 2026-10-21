@@ -1,16 +1,36 @@
+using System.Collections.Concurrent;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
+/// <summary>Reconciles one config commit of a binding (seam over <see cref="PipelineReconcileService"/>).</summary>
+public interface IConfigReconciler
+{
+    Task<Result<ReconcileReport>> ReconcileAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct);
+}
+
+/// <summary>Fires the pipeline's push trigger for a new branch head (seam over the trigger layer).</summary>
+public interface IPushTriggerHandler
+{
+    Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct);
+}
+
 /// <summary>
-/// The binding-derived deploy poll. For each bound pipeline it fetches the bound config
-/// (config-before-build), then polls the branch head and advances
-/// <see cref="PipelineConfigBinding.LastDeployedSha"/> when it moves.
-///
-/// Interim (v2 B1): the v1 YAML compile/apply and production run are gone. The config step only
-/// verifies the fetch and records <see cref="NotImplementedProblem"/> on the binding status; the
-/// deploy step logs the head advance. v2 reconcile (describe → version) and runs replace both.
+/// The binding-derived poll, sequenced <b>config-before-run</b> per binding:
+/// <list type="number">
+/// <item><b>Config.</b> A conditional fetch of the config subtree's cursor (the newest commit touching
+/// <see cref="PipelineConfigBinding.Path"/>). When that commit is not yet applied, reconcile it
+/// (<see cref="IConfigReconciler"/>: build/describe → validate → version → switch). A commit whose
+/// reconcile failed is not retried by the background loop (only by an explicit reconcile-now or a
+/// restart), and while the current config commit is unapplied the run step is held.</item>
+/// <item><b>Runs.</b> When the branch head advanced past <see cref="PipelineConfigBinding.LastDeployedSha"/>,
+/// advance the cursor and fire the push trigger (<see cref="IPushTriggerHandler"/>). The first
+/// observation only seeds the cursor.</item>
+/// </list>
+/// Both steps run under a per-binding async gate, so the background loop, the binding webhook and
+/// reconcile-now never build or trigger the same commit twice, and a run for a commit always starts
+/// after that commit's reconcile + switch.
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
@@ -19,20 +39,21 @@ public class DeployPollService(
     IServiceProvider sp,
     ILogger<DeployPollService> logger) : BackgroundService
 {
-    // Per-binding config ETag (in-memory). A pure rate-limit optimization: losing it on restart
-    // costs one extra (idempotent) config fetch, never correctness. Concurrent because the
-    // background poll loop and the reconcile-now endpoint can both touch it at once.
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<Id<PipelineConfigBinding>, string> _configEtags = new();
+    // Per-binding config cursor cache (in-memory). The ETag is a rate-limit optimization; the sha is
+    // the cursor it stands for (a 304 means "still this sha"). Losing it on restart costs one fetch.
+    private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, (string ETag, string Sha)> _config = new();
 
-    // Serializes the deploy decision (compare cursor → deploy → advance cursor). The
-    // background loop, the binding webhook and reconcile-now can all poll the same binding at once;
-    // without this, both saw the old cursor and each fired a deploy for one push (#39).
-    // Held only around synchronous work — never across a network call or a reconcile drain.
-    private readonly Lock _deployLock = new();
+    // The config commit whose reconcile last failed, per binding: not retried until forced.
+    private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, string> _failed = new();
+
+    private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, SemaphoreSlim> _gates = new();
+
+    private readonly CancellationTokenSource _lifetime = new();
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         logger.LogInformation("Deploy poll service started");
+        await using var _ = ct.Register(_lifetime.Cancel);
 
         while (!ct.IsCancellationRequested)
         {
@@ -62,9 +83,9 @@ public class DeployPollService(
 
             try
             {
-                await PollBindingAsync(binding, ct);
+                await PollBindingAsync(binding.Id, force: false, ct);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "Deploy poll failed for binding '{BindingId}' ({Repo}@{Branch})",
                     binding.Id, binding.Repo, binding.Branch);
@@ -73,102 +94,172 @@ public class DeployPollService(
     }
 
     /// <summary>
-    /// Whether the background poll should run for this binding. Only the background loop honors the
-    /// deploy-trigger mode; <see cref="ReconcileNowAsync"/> (explicit / just-bound) always runs.
-    /// WebhookOnly suppresses polling only once a hook is confirmed registered — until then (or if it
-    /// can't be registered at all) polling continues, so deploys never silently stop.
+    /// Whether the background poll should run for this binding. WebhookOnly suppresses polling only once
+    /// a hook is confirmed registered — until then polling continues, so deploys never silently stop.
     /// </summary>
     private bool ShouldPoll(PipelineConfigBinding binding)
         => binding.DeployTrigger != BindingDeployTrigger.WebhookOnly
            || !bindingHookState.TryGet(binding.Id, out _);
 
     /// <summary>
-    /// Runs one reconcile+deploy cycle for a single pipeline's binding immediately, off the poll
-    /// schedule. Used by the reconcile-now endpoint so an operator (or a test) can apply a just-bound
-    /// config without waiting up to <see cref="ReconcileOptions.PollInterval"/> for the next tick.
-    /// Same code path as the background loop — no behavioural drift.
+    /// Runs one config + runs cycle for a pipeline's binding now and waits for it. <paramref name="force"/>
+    /// bypasses the ETag cache and retries a config commit whose reconcile failed.
     /// </summary>
-    public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct)
+    public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool force = true)
     {
         var binding = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId);
         if (binding is null)
-            return new ResultProblem($"Pipeline '{pipelineId}' has no config binding.");
+            return new ResultProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
-        await PollBindingAsync(binding, ct);
+        await PollBindingAsync(binding.Id, force, ct);
         return Result.Success();
     }
 
-    private async Task PollBindingAsync(PipelineConfigBinding binding, CancellationToken ct)
+    /// <summary>
+    /// Starts <see cref="ReconcileNowAsync"/> in the background and returns at once (webhook deliveries and
+    /// HTTP callers must not wait for a build). Progress shows in the binding status.
+    /// </summary>
+    public Result RequestReconcile(Id<Pipeline> pipelineId, bool force)
     {
-        using var scope = sp.CreateScope();
-        var source = scope.ServiceProvider.GetRequiredService<IConfigSource>();
-        var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
+        if (bindings.List().All(b => b.PipelineId != pipelineId))
+            return new ResultProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
-        // Config before build: if config can't be fetched, the deploy step is held off until it can.
-        if (!await ReconcileConfigAsync(source, bindingService, binding, ct))
-            return;
-
-        await DeployAsync(source, bindingService, binding, ct);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                (await ReconcileNowAsync(pipelineId, _lifetime.Token, force)).DiscardResult();
+            }
+            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background reconcile of pipeline '{PipelineId}' failed", pipelineId);
+            }
+        });
+        return Result.Success();
     }
 
-    /// <summary>Returns true if it is safe to proceed to the deploy step (config fetched).</summary>
-    private async Task<bool> ReconcileConfigAsync(
-        IConfigSource source, PipelineConfigBindingService bindingService,
-        PipelineConfigBinding binding, CancellationToken ct)
+    private async Task PollBindingAsync(Id<PipelineConfigBinding> bindingId, bool force, CancellationToken ct)
     {
-        _configEtags.TryGetValue(binding.Id, out var etag);
+        var gate = _gates.GetOrAdd(bindingId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        try
+        {
+            using var scope = sp.CreateScope();
+            var source = scope.ServiceProvider.GetRequiredService<IConfigSource>();
+            var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
+
+            if (bindingService.TryGet(bindingId).TryPickProblems(out _, out var binding))
+                return; // unbound meanwhile
+
+            // Config before runs: while the current config commit is not applied, no run starts.
+            if (!await ReconcileConfigAsync(scope.ServiceProvider, source, bindingService, binding, force, ct))
+                return;
+
+            await DeployAsync(scope.ServiceProvider, source, bindingService, bindingId, ct);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>Returns true when the binding's current config commit is applied (safe to start runs).</summary>
+    private async Task<bool> ReconcileConfigAsync(
+        IServiceProvider services, IConfigSource source, PipelineConfigBindingService bindingService,
+        PipelineConfigBinding binding, bool force, CancellationToken ct)
+    {
+        _config.TryGetValue(binding.Id, out var cached);
+        var etag = force ? null : cached.ETag;
 
         var fetchResult = await source.FetchConfigAsync(binding, etag, ct);
         if (fetchResult.TryPickProblems(out var fetchProblems, out var fetch))
         {
-            logger.LogProblems(LogLevel.Warning, fetchProblems, "Config fetch failed for '{Repo}@{Branch}'",
-                binding.Repo, binding.Branch);
-            RecordError(bindingService, binding, fetchProblems);
+            logger.LogProblems(LogLevel.Warning, fetchProblems, "Config fetch failed for '{Repo}@{Branch}'", binding.Repo, binding.Branch);
+            RecordStatus(bindingService, binding.Id, s => s with
+            {
+                Result = ReconcileResult.Error,
+                LastSyncTime = DateTimeOffset.UtcNow,
+                Problems = fetchProblems.Select(p => p.ToBriefString()).ToArray(),
+            });
             return false;
         }
 
-        if (fetch is ConfigFetch.Changed changed)
+        string sha;
+        switch (fetch)
         {
-            _configEtags[binding.Id] = changed.ETag;
-            logger.LogInformation("Fetched config {Sha} for '{Repo}@{Branch}' ({FileCount} files); v2 reconcile not implemented yet",
-                changed.Sha, binding.Repo, binding.Branch, changed.Files.Count);
+            case ConfigFetch.Changed changed:
+                _config[binding.Id] = (changed.ETag, changed.Sha);
+                sha = changed.Sha;
+                break;
+            case ConfigFetch.NotModified when cached.Sha is not null:
+                sha = cached.Sha;
+                break;
+            default:
+                return false;
         }
 
-        RecordNotImplemented(bindingService, CurrentOrSnapshot(bindingService, binding));
+        if (binding.LastSyncedSha == sha && binding.Status.Result == ReconcileResult.Success)
+            return true;
+
+        if (!force && _failed.TryGetValue(binding.Id, out var failedSha) && failedSha == sha)
+            return false;
+
+        logger.LogInformation("Reconciling config {Sha} of '{Repo}@{Branch}' ({Path}) for pipeline '{PipelineId}'",
+            sha, binding.Repo, binding.Branch, binding.Path, binding.PipelineId);
+        RecordStatus(bindingService, binding.Id, s => s with { InProgress = true, Sha = sha });
+
+        Result<ReconcileReport> result;
+        try
+        {
+            result = await services.GetRequiredService<IConfigReconciler>().ReconcileAsync(binding, sha, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            result = Result.Failure<ReconcileReport>(new ResultProblem("Reconcile failed: {0}", ex.Message));
+        }
+
+        if (result.TryPickProblems(out var problems, out var report))
+        {
+            _failed[binding.Id] = sha;
+            RecordStatus(bindingService, binding.Id, s => s with
+            {
+                Result = ReconcileResult.Error,
+                LastSyncTime = DateTimeOffset.UtcNow,
+                Problems = problems.Select(p => p.ToBriefString()).ToArray(),
+                Warnings = [],
+                Sha = sha,
+                InProgress = false,
+            });
+            return false;
+        }
+
+        _failed.TryRemove(binding.Id, out _);
+        RecordStatus(bindingService, binding.Id, _ => new ReconcileStatus(
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], report.Secrets, report.Warnings, sha, InProgress: false));
+        bindingService.SetLastSyncedSha(binding.Id, sha).DiscardResult();
         return true;
     }
 
-    /// <summary>The status recorded after a successful config fetch until v2 reconcile lands.</summary>
-    public const string NotImplementedProblem = "v2 reconcile not implemented yet";
-
-    // Only writes when the status differs, so steady state doesn't rewrite the snapshot every interval.
-    private static void RecordNotImplemented(
-        PipelineConfigBindingService bindingService, PipelineConfigBinding binding)
+    private static void RecordStatus(
+        PipelineConfigBindingService bindingService, Id<PipelineConfigBinding> id, Func<ReconcileStatus, ReconcileStatus> update)
     {
-        if (binding.Status is { Result: ReconcileResult.Error, Problems: [NotImplementedProblem] })
+        if (bindingService.TryGet(id).TryPickProblems(out _, out var current))
             return;
-        bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
-            ReconcileResult.Error, DateTimeOffset.UtcNow, [NotImplementedProblem], binding.Status.DeclaredSecrets)).DiscardResult();
+        var next = update(current.Status);
+        if (next != current.Status)
+            bindingService.SetReconcileStatus(id, next).DiscardResult();
     }
 
-    // The binding as currently stored, falling back to the caller's snapshot if it was unbound meanwhile.
-    private static PipelineConfigBinding CurrentOrSnapshot(
-        PipelineConfigBindingService bindingService, PipelineConfigBinding snapshot)
-        => bindingService.TryGet(snapshot.Id).TryPickProblems(out _, out var current) ? snapshot : current;
-
-    // Record an error outcome, carrying forward the last-known declared secrets so the badge still
-    // lists them when a fetch/compile fails before a manifest is available.
-    private static void RecordError(
-        PipelineConfigBindingService bindingService, PipelineConfigBinding binding, IEnumerable<ResultProblem> problems)
-        => bindingService.SetReconcileStatus(binding.Id, new ReconcileStatus(
-            ReconcileResult.Error, DateTimeOffset.UtcNow,
-            problems.Select(p => p.ToBriefString()).ToArray(),
-            binding.Status.DeclaredSecrets)).DiscardResult();
-
     private async Task DeployAsync(
-        IConfigSource source, PipelineConfigBindingService bindingService,
-        PipelineConfigBinding binding, CancellationToken ct)
+        IServiceProvider services, IConfigSource source, PipelineConfigBindingService bindingService,
+        Id<PipelineConfigBinding> bindingId, CancellationToken ct)
     {
+        if (bindingService.TryGet(bindingId).TryPickProblems(out _, out var binding))
+            return;
+
         var headResult = await source.GetBranchHeadShaAsync(binding, ct);
         if (headResult.TryPickProblems(out var problems, out var head))
         {
@@ -177,35 +268,38 @@ public class DeployPollService(
             return;
         }
 
-        lock (_deployLock)
-        {
-            // Re-read under the lock: `binding` is a snapshot from before the awaits above, so a
-            // concurrent poll may already have fired this head and advanced the cursor.
-            if (bindingService.TryGet(binding.Id).TryPickProblems(out _, out var current))
-                return; // unbound meanwhile — nothing to deploy
-
-            AdvanceIfMoved(bindingService, current, head);
-        }
-    }
-
-    private void AdvanceIfMoved(
-        PipelineConfigBindingService bindingService, PipelineConfigBinding binding, string head)
-    {
         if (binding.LastDeployedSha == head)
             return;
 
-        // First observation seeds the cursor — restarts and freshly-bound pipelines never treat
-        // already-current code as a new deploy.
+        bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult();
+
+        // First observation seeds the cursor — restarts and freshly bound pipelines never treat
+        // already-current code as a new push.
         if (binding.LastDeployedSha is null)
         {
-            logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha}",
-                binding.Repo, binding.Branch, head);
-            bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult(); // concurrent unbind is the only failure; moot
+            logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha}", binding.Repo, binding.Branch, head);
             return;
         }
 
-        logger.LogInformation("Deploy poll: '{Repo}@{Branch}' advanced {Old} -> {New}; v2 runs not implemented yet, nothing triggered",
+        logger.LogInformation("Deploy poll: '{Repo}@{Branch}' advanced {Old} -> {New}; firing the push trigger",
             binding.Repo, binding.Branch, binding.LastDeployedSha, head);
-        bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult(); // concurrent unbind is the only failure; moot
+
+        var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct);
+        if (fired.TryPickProblems(out var fireProblems))
+            logger.LogProblems(LogLevel.Warning, fireProblems, "Push trigger of pipeline '{PipelineId}' for {Sha} did not start a run",
+                binding.PipelineId, head);
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await _lifetime.CancelAsync();
+        await base.StopAsync(cancellationToken);
+    }
+
+    public override void Dispose()
+    {
+        _lifetime.Dispose();
+        base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

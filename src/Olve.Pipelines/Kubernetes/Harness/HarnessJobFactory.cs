@@ -42,18 +42,21 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         return HarnessJobBuilder.Build(request, options);
     }
 
-    /// <param name="hasPipelineSecret">Whether the pipeline has a K8s Secret (its token key, if present, authenticates the fetch).</param>
+    /// <summary>
+    /// The build/describe Job for <paramref name="commitSha"/>; the binary is PUT to <see cref="StorageLayout.BuildBinaryKey"/>.
+    /// </summary>
+    /// <param name="tokenSecretKey">Key of the GitHub token in the pipeline's K8s Secret (the binding's credentials); null = anonymous codeload.</param>
     public async Task<Result<HarnessJobSpec>> CreateBuildJobAsync(
-        string jobName, Id<Pipeline> pipelineId, int versionNumber, string repo, string commitSha, string pipelinePath,
-        bool hasPipelineSecret, CancellationToken ct = default)
+        string jobName, Id<Pipeline> pipelineId, string repo, string commitSha, string pipelinePath,
+        string? tokenSecretKey, CancellationToken ct = default)
     {
         var binaryUrl = await presigner.PresignPutAsync(
-            StorageLayout.VersionBinaryKey(pipelineId, versionNumber),
+            StorageLayout.BuildBinaryKey(pipelineId, commitSha),
             TimeSpan.FromSeconds(options.BuildTimeoutSeconds + options.UrlExpiryGraceSeconds), ct);
 
         return BuildJobBuilder.Build(new BuildJobRequest(
             jobName, pipelineId, repo, commitSha, pipelinePath,
-            hasPipelineSecret ? HarnessJobBuilder.PipelineSecretName(pipelineId) : null,
-            binaryUrl), options);
+            tokenSecretKey is null ? null : HarnessJobBuilder.PipelineSecretName(pipelineId),
+            binaryUrl, tokenSecretKey), options);
     }
 }

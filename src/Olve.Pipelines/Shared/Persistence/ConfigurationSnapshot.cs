@@ -9,7 +9,7 @@ public record ConfigurationSnapshot(
     PipelineData[] Pipelines,
     PipelineConfigBindingData[]? Bindings = null);
 
-public record PipelineData(Id<Pipeline> Id, string Name);
+public record PipelineData(Id<Pipeline> Id, string Name, string? Description = null);
 
 public record PipelineConfigBindingData(
     Id<PipelineConfigBinding> Id,

@@ -20,7 +20,8 @@ public class PipelineVersionService(
 
     /// <summary>
     /// Adds the next version of a pipeline. The hash and entity version maps are computed by the
-    /// manifest layer (B2); this only validates shape, allocates the number and derives the binary key.
+    /// manifest layer (B2); this only validates shape and allocates the number. <paramref name="binaryKey"/> is
+    /// where reconcile's build Job stored the compiled harness (default: <see cref="StorageLayout.VersionBinaryKey"/>).
     /// Never deduplicates — callers compare <see cref="PipelineVersion.ManifestHash"/> with
     /// <see cref="TryGetLatest"/> first.
     /// </summary>
@@ -30,7 +31,8 @@ public class PipelineVersionService(
         string manifestHash,
         string? commitSha,
         IReadOnlyDictionary<string, int> stepVersions,
-        IReadOnlyDictionary<string, int> modelVersions)
+        IReadOnlyDictionary<string, int> modelVersions,
+        string? binaryKey = null)
     {
         if (!pipelines.Contains(pipelineId))
             return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
@@ -49,7 +51,7 @@ public class PipelineVersionService(
                 manifest,
                 manifestHash,
                 commitSha,
-                StorageLayout.VersionBinaryKey(pipelineId, number),
+                binaryKey ?? StorageLayout.VersionBinaryKey(pipelineId, number),
                 new Dictionary<string, int>(stepVersions, StringComparer.Ordinal),
                 new Dictionary<string, int>(modelVersions, StringComparer.Ordinal),
                 timeProvider.GetUtcNow());

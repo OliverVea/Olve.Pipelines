@@ -1434,6 +1434,12 @@
           },
           "name": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1640,6 +1646,25 @@
             "items": {
               "$ref": "#/components/schemas/SecretDeclaration"
             }
+          },
+          "warnings": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "sha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inProgress": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

@@ -8,8 +8,10 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// <param name="Repo">GitHub <c>owner/name</c>.</param>
 /// <param name="CommitSha">Full 40-hex commit id.</param>
 /// <param name="PipelinePath">The binding path inside the repo (the package root holding <c>package.json</c>), e.g. <c>.pipelines</c>.</param>
-/// <param name="PipelineSecretName">The pipeline's K8s Secret; its <see cref="HarnessOptions.BuildTokenSecretKey"/> key (optional) authenticates the tarball fetch. Null = anonymous.</param>
-/// <param name="BinaryPutUrl">Pre-signed PUT for <c>versions/&lt;p&gt;/&lt;n&gt;/step.tar.gz</c>.</param>
+/// <param name="PipelineSecretName">The pipeline's K8s Secret; its <paramref name="TokenSecretKey"/> key (optional) authenticates the
+/// tarball fetch through the GitHub API. Null = anonymous download from codeload.github.com (public repos; no API rate limit).</param>
+/// <param name="BinaryPutUrl">Pre-signed PUT for the build's <c>step.tar.gz</c> (<see cref="Pipelines.StorageLayout.BuildBinaryKey"/>).</param>
+/// <param name="TokenSecretKey">Key of the GitHub token in the pipeline Secret (the binding's credentials key); null = <see cref="HarnessOptions.BuildTokenSecretKey"/>.</param>
 public sealed record BuildJobRequest(
     string JobName,
     Id<Pipeline> PipelineId,
@@ -17,7 +19,8 @@ public sealed record BuildJobRequest(
     string CommitSha,
     string PipelinePath,
     string? PipelineSecretName,
-    string BinaryPutUrl);
+    string BinaryPutUrl,
+    string? TokenSecretKey = null);
 
 /// <summary>
 /// Builds the build/describe Job: on a glibc Bun image, fetch the repo tarball at the commit, install,
@@ -52,7 +55,8 @@ public static partial class BuildJobBuilder
         cd /work
         bun -e '(async () => {
         const repo = process.env.OLVE_REPO, sha = process.env.OLVE_SHA, token = process.env.OLVE_GITHUB_TOKEN;
-        const url = `https://api.github.com/repos/${repo}/tarball/${sha}`;
+        // With a token: the API tarball endpoint (private repos). Without: codeload, which has no API rate limit.
+        const url = token ? `https://api.github.com/repos/${repo}/tarball/${sha}` : `https://codeload.github.com/${repo}/tar.gz/${sha}`;
         const headers = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
         if (token) headers.authorization = `Bearer ${token}`;
         for (let i = 1; ; i++) {
@@ -118,7 +122,7 @@ public static partial class BuildJobBuilder
             K8sEnvVar.FromSecret(BinaryUrlKey, urlSecretName, BinaryUrlKey),
         };
         if (request.PipelineSecretName is not null)
-            env.Add(K8sEnvVar.FromSecret("OLVE_GITHUB_TOKEN", request.PipelineSecretName, options.BuildTokenSecretKey, optional: true));
+            env.Add(K8sEnvVar.FromSecret("OLVE_GITHUB_TOKEN", request.PipelineSecretName, request.TokenSecretKey ?? options.BuildTokenSecretKey, optional: true));
 
         var labels = new Dictionary<string, string>
         {

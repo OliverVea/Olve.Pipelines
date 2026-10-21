@@ -3,6 +3,7 @@ using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -45,6 +46,8 @@ public static class ServiceConfiguration
         services.AddHostedService<BindingHookRegistrationService>();
         services.AddHostedService<BindingHookPersistenceService>();
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
+        services.AddTransient<IConfigReconciler, PipelineReconcileService>();
+        services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
         // Register as a singleton AND as the hosted service so the reconcile-now endpoint can
         // resolve the same instance (which owns the per-binding config ETag cache) to run an
         // off-schedule reconcile.
@@ -56,6 +59,7 @@ public static class ServiceConfiguration
         services.AddSingleton<EntityStore<PipelineVersion>>();
         services.AddSingleton<AttachmentStore<Pipeline, PipelineActivation>>();
         services.AddSingleton<AttachmentStore<Pipeline, PipelineSequences>>();
+        services.AddSingleton<AttachmentStore<Pipeline, EntityVersionMap>>();
         services.AddSingleton<PipelineNumberingService>();
         services.AddSingleton<PipelineVersionEvents>();
         services.AddSingleton<PipelineVersionService>();

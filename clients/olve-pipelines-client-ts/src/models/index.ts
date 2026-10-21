@@ -714,6 +714,7 @@ export function deserializeIntoPagination(pagination: Partial<Pagination> | unde
 // @ts-ignore
 export function deserializeIntoPipeline(pipeline: Partial<Pipeline> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "description": n => { pipeline.description = n.getStringValue(); },
         "id": n => { pipeline.id = n.getGuidValue(); },
         "name": n => { pipeline.name = n.getStringValue(); },
     }
@@ -785,9 +786,12 @@ export function deserializeIntoPipelineSummary(pipelineSummary: Partial<Pipeline
 export function deserializeIntoReconcileStatus(reconcileStatus: Partial<ReconcileStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "declaredSecrets": n => { reconcileStatus.declaredSecrets = n.getCollectionOfObjectValues<SecretDeclaration>(createSecretDeclarationFromDiscriminatorValue); },
+        "inProgress": n => { reconcileStatus.inProgress = n.getBooleanValue(); },
         "lastSyncTime": n => { reconcileStatus.lastSyncTime = n.getDateValue(); },
         "problems": n => { reconcileStatus.problems = n.getCollectionOfPrimitiveValues<string>(); },
         "result": n => { reconcileStatus.result = n.getNumberValue(); },
+        "sha": n => { reconcileStatus.sha = n.getStringValue(); },
+        "warnings": n => { reconcileStatus.warnings = n.getCollectionOfPrimitiveValues<string>(); },
     }
 }
 /**
@@ -960,6 +964,10 @@ export interface Pagination extends AdditionalDataHolder, Parsable {
 }
 export interface Pipeline extends AdditionalDataHolder, Parsable {
     /**
+     * The description property
+     */
+    description?: string | null;
+    /**
      * The id property
      */
     id?: Guid | null;
@@ -1092,6 +1100,10 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
      */
     declaredSecrets?: SecretDeclaration[] | null;
     /**
+     * The inProgress property
+     */
+    inProgress?: boolean | null;
+    /**
      * The lastSyncTime property
      */
     lastSyncTime?: Date | null;
@@ -1103,6 +1115,14 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
      * The result property
      */
     result?: number | null;
+    /**
+     * The sha property
+     */
+    sha?: string | null;
+    /**
+     * The warnings property
+     */
+    warnings?: string[] | null;
 }
 export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable {
     /**
@@ -1500,6 +1520,7 @@ export function serializePagination(writer: SerializationWriter, pagination: Par
 // @ts-ignore
 export function serializePipeline(writer: SerializationWriter, pipeline: Partial<Pipeline> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipeline || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", pipeline.description);
     writer.writeGuidValue("id", pipeline.id);
     writer.writeStringValue("name", pipeline.name);
     writer.writeAdditionalData(pipeline.additionalData);
@@ -1575,9 +1596,12 @@ export function serializePipelineSummary(writer: SerializationWriter, pipelineSu
 export function serializeReconcileStatus(writer: SerializationWriter, reconcileStatus: Partial<ReconcileStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!reconcileStatus || isSerializingDerivedType) { return; }
     writer.writeCollectionOfObjectValues<SecretDeclaration>("declaredSecrets", reconcileStatus.declaredSecrets, serializeSecretDeclaration);
+    writer.writeBooleanValue("inProgress", reconcileStatus.inProgress);
     writer.writeDateValue("lastSyncTime", reconcileStatus.lastSyncTime);
     writer.writeCollectionOfPrimitiveValues<string>("problems", reconcileStatus.problems);
     writer.writeNumberValue("result", reconcileStatus.result);
+    writer.writeStringValue("sha", reconcileStatus.sha);
+    writer.writeCollectionOfPrimitiveValues<string>("warnings", reconcileStatus.warnings);
     writer.writeAdditionalData(reconcileStatus.additionalData);
 }
 /**

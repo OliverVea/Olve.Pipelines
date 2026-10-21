@@ -64,56 +64,10 @@ public class GitHubConfigSource(
         var sha = commits[0].Sha;
         var newEtag = cursorResponse.Headers.ETag?.ToString() ?? string.Empty;
 
-        // 2. Fetch the tree at that commit and pull the blobs under the config path.
-        var filesResult = await FetchFilesAsync(client, binding, sha, token, ct);
-        if (filesResult.TryPickProblems(out var problems, out var files))
-            return problems;
-
-        return new ConfigFetch.Changed(sha, newEtag, files);
-    }
-
-    private async Task<Result<IReadOnlyDictionary<string, string>>> FetchFilesAsync(
-        HttpClient client, PipelineConfigBinding binding, string commitSha, string? token, CancellationToken ct)
-    {
-        using var treeRequest = BuildRequest(HttpMethod.Get, $"{ApiBase}/repos/{binding.Repo}/git/trees/{commitSha}?recursive=1", token);
-        using var treeResponse = await client.SendAsync(treeRequest, ct);
-
-        if (!treeResponse.IsSuccessStatusCode)
-            return new ResultProblem($"GitHub returned {(int)treeResponse.StatusCode} fetching tree '{commitSha}' for '{binding.Repo}'.");
-
-        var tree = await treeResponse.Content.ReadFromJsonAsync(GitHubJsonContext.Default.GitHubTree, ct);
-        if (tree is null)
-            return new ResultProblem($"GitHub returned an empty tree '{commitSha}' for '{binding.Repo}'.");
-
-        if (tree.Truncated)
-            logger.LogWarning("GitHub tree '{Sha}' for '{Repo}' was truncated; config may be incomplete", commitSha, binding.Repo);
-
-        var prefix = binding.Path.TrimEnd('/') + "/";
-        var files = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var entry in tree.Tree)
-        {
-            if (entry.Type != "blob" || !entry.Path.StartsWith(prefix, StringComparison.Ordinal))
-                continue;
-
-            using var blobRequest = BuildRequest(HttpMethod.Get, $"{ApiBase}/repos/{binding.Repo}/git/blobs/{entry.Sha}", token);
-            using var blobResponse = await client.SendAsync(blobRequest, ct);
-
-            if (!blobResponse.IsSuccessStatusCode)
-                return new ResultProblem($"GitHub returned {(int)blobResponse.StatusCode} fetching blob '{entry.Path}' for '{binding.Repo}'.");
-
-            var blob = await blobResponse.Content.ReadFromJsonAsync(GitHubJsonContext.Default.GitHubBlob, ct);
-            if (blob is null)
-                return new ResultProblem($"GitHub returned an empty blob for '{entry.Path}'.");
-
-            var content = blob.Encoding == "base64"
-                ? System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(blob.Content.Replace("\n", string.Empty)))
-                : blob.Content;
-
-            files[entry.Path[prefix.Length..]] = content;
-        }
-
-        return files;
+        // v2 reconcile builds the pipeline from the repo tarball at this commit (build/describe Job), so the
+        // subtree's blobs are not fetched here — the commit sha is all reconcile needs (and it keeps
+        // unauthenticated bindings well inside GitHub's 60 requests/hour).
+        return new ConfigFetch.Changed(sha, newEtag, new Dictionary<string, string>(StringComparer.Ordinal));
     }
 
     private static HttpRequestMessage BuildRequest(HttpMethod method, string url, string? token)

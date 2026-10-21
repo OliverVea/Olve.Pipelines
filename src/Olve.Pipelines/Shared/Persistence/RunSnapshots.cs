@@ -1,4 +1,5 @@
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -29,14 +30,18 @@ public record PipelineVersionMetadata(
 
 /// <summary>
 /// <c>pipeline-state.json</c>: per-pipeline operational state (active version/switch, number sequences,
-/// promotion gates, the run start queued during a drain). <see cref="Gates"/> and <see cref="PendingStarts"/>
-/// were added in B4 and are absent from older files (null on load).
+/// promotion gates, the run start queued during a drain, entity-version history). <see cref="Gates"/> and
+/// <see cref="PendingStarts"/> were added in B4, <see cref="EntityVersions"/> in B6; older files lack them (null on load).
 /// </summary>
 public record PipelineStateSnapshot(
     PipelineActivationEntry[] Activations,
     PipelineSequencesEntry[] Sequences,
     PipelineStepGatesEntry[]? Gates = null,
-    PendingRunStartEntry[]? PendingStarts = null);
+    PendingRunStartEntry[]? PendingStarts = null,
+    EntityVersionHistoryEntry[]? EntityVersions = null);
+
+/// <summary>A pipeline's full model/step version history (<see cref="ManifestVersions.History"/>), fed to the next reconcile.</summary>
+public record EntityVersionHistoryEntry(Id<Pipeline> PipelineId, EntityVersionMap History);
 
 public record PipelineStepGatesEntry(Id<Pipeline> PipelineId, PipelineStepGates Gates);
 

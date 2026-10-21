@@ -56,7 +56,7 @@ public class RunPersistenceServiceTests
         var domain = new TestRunDomain();
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
-            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts,
+            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts, domain.EntityVersions,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);

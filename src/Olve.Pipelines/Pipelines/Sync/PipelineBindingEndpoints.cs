@@ -49,9 +49,11 @@ public static class PipelineBindingEndpoints
         // every ReconcileOptions.PollInterval (15 min in prod), so a just-bound pipeline would
         // otherwise wait up to a full interval for its shape to materialize. This applies the
         // current branch config now; the response returns after the reconcile completes.
-        app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", async Task<Result> (
-                DeployPollService deployPoll, Id<Pipeline> pipelineId, CancellationToken ct)
-                => await deployPoll.ReconcileNowAsync(pipelineId, ct))
+        // Returns at once; the reconcile (build/describe Job, a minute or so) runs in the background and
+        // its progress/outcome shows in GET .../binding/status. Retries a commit whose reconcile failed.
+        app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", Result (
+                DeployPollService deployPoll, Id<Pipeline> pipelineId)
+                => deployPoll.RequestReconcile(pipelineId, force: true))
             .WithResultMapping()
             .WithName("ReconcilePipelineBinding")
             .WithTags("beta");
@@ -107,15 +109,15 @@ public static class PipelineBindingEndpoints
                         return HttpResults.NoContent();
                 }
 
+                // GitHub gives a delivery 10 s: queue the reconcile + push trigger and acknowledge.
                 var logger = loggerFactory.CreateLogger("BindingWebhook");
-                var result = await deployPoll.ReconcileNowAsync(pipelineId, ct);
-                if (result.TryPickProblems(out var problems))
+                if (deployPoll.RequestReconcile(pipelineId, force: false).TryPickProblems(out var problems))
                 {
-                    logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' did not deploy", bindingId);
+                    logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' could not queue a reconcile", bindingId);
                     return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
                 }
 
-                logger.LogInformation("Binding webhook for '{BindingId}' ran reconcile+deploy", bindingId);
+                logger.LogInformation("Binding webhook for '{BindingId}' queued reconcile + push trigger", bindingId);
                 return HttpResults.Accepted();
             })
             .WithName("ExecuteBindingGitHubWebhook")

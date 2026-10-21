@@ -24,6 +24,14 @@ public static class StorageLayout
     public static string VersionBinaryKey(Id<Pipeline> pipelineId, int versionNumber)
         => $"{VersionPrefix(pipelineId, versionNumber)}/step.tar.gz";
 
+    /// <summary>
+    /// Where reconcile's build/describe Job PUTs the compiled harness for a commit, before a version
+    /// number exists; a version added from that build keeps this as its <see cref="PipelineVersion.BinaryKey"/>.
+    /// Keyed by commit so a restarted reconcile finds (and reuses) the same build.
+    /// </summary>
+    public static string BuildBinaryKey(Id<Pipeline> pipelineId, string commitSha)
+        => $"versions/{Format(pipelineId)}/builds/{commitSha}/step.tar.gz";
+
     public static string VersionManifestKey(Id<Pipeline> pipelineId, int versionNumber)
         => $"{VersionPrefix(pipelineId, versionNumber)}/manifest.json";
 

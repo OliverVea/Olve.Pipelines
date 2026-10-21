@@ -2,9 +2,12 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Bindings;
 using Olve.Pipelines.Cli.Commands.Dev;
+using Olve.Pipelines.Cli.Commands.Gates;
 using Olve.Pipelines.Cli.Commands.Jobs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
+using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Commands.Secrets;
+using Olve.Pipelines.Cli.Commands.Steps;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 
@@ -36,8 +39,33 @@ public sealed class CliDispatcher
         Register(new PipelineListCommand());
         Register(new PipelineGetCommand());
         Register(new PipelineDeleteCommand());
+        Register(new PipelineHealthCommand());
+        Register(new PipelineVersionsCommand());
+        Register(new PipelineManifestCommand());
+        Register(new PipelineSwitchCommand());
 
-        // job
+        // runs (v2): addresses are <pipeline>#<run>[/<step>[@<attempt>]]
+        Register(new TriggerCommand());
+        Register(new RunListCommand());
+        Register(new RunGetCommand());
+        Register(new RunCancelCommand());
+        Register(new RunRerunCommand());
+        Register(new RunContinueCommand());
+
+        // steps of a run
+        Register(new StepOutputCommand());
+        Register(new StepFilesCommand());
+        Register(new StepFileCommand());
+        Register(new StepLogsCommand());
+        Register(new StepRerunCommand());
+        Register(new StepHistoryCommand());
+
+        // promotion gates
+        Register(new GateListCommand());
+        Register(new GateBlockCommand());
+        Register(new GateUnblockCommand());
+
+        // job (attempt-level, by attempt id)
         Register(new JobListCommand());
         Register(new JobGetCommand());
         Register(new JobLogsCommand());
@@ -60,6 +88,7 @@ public sealed class CliDispatcher
         // dev (local development from source; no API)
         var prompt = confirmPrompt ?? new ConsoleConfirmPrompt();
         Register(new DevDescribeCommand(processRunner));
+        Register(new DevValidateCommand(processRunner));
         Register(new DevRunCommand(processRunner));
         Register(new DevPipelineCommand(processRunner, prompt));
     }

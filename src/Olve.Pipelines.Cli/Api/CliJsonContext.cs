@@ -38,6 +38,26 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(UpdateBindingRequest))]
 [JsonSerializable(typeof(SetDeployTriggerRequest))]
-// Secrets
+// Secrets, gates, logs (a JSON string)
 [JsonSerializable(typeof(string[]))]
+[JsonSerializable(typeof(string))]
+// Runs (v2)
+[JsonSerializable(typeof(Job[]))]
+[JsonSerializable(typeof(PageOfRunSummary))]
+[JsonSerializable(typeof(RunDetail))]
+[JsonSerializable(typeof(Run))]
+[JsonSerializable(typeof(TriggerRunResponse))]
+[JsonSerializable(typeof(AttemptOutputResponse))]
+[JsonSerializable(typeof(AttemptFilesResponse))]
+[JsonSerializable(typeof(StepHistoryItem[]))]
+[JsonSerializable(typeof(RerunStepRequest))]
+[JsonSerializable(typeof(ServerProblem[]))]
+[JsonSerializable(typeof(System.Text.Json.JsonElement))]
+// Versions, health, manifests
+[JsonSerializable(typeof(PipelineVersionsResponse))]
+[JsonSerializable(typeof(PipelineVersion))]
+[JsonSerializable(typeof(PipelineActivation))]
+[JsonSerializable(typeof(SwitchVersionRequest))]
+[JsonSerializable(typeof(PipelineHealth))]
+[JsonSerializable(typeof(ManifestValidationResponse))]
 public sealed partial class CliJsonContext : JsonSerializerContext;

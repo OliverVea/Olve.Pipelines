@@ -28,6 +28,6 @@ public static class Table
             parts[c] = c == widths.Length - 1 ? value : value.PadRight(widths[c]);
         }
 
-        return string.Join("  ", parts);
+        return string.Join("  ", parts).TrimEnd();
     }
 }

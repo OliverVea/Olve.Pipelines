@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Diagnostics;
 
 namespace Olve.Pipelines.Cli.Api;
@@ -42,21 +43,36 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
         SendCoreAsync(HttpMethod.Get, path, body: null,
             async (resp, c) => Result.Success(await resp.Content.ReadAsStringAsync(c)), ct);
 
+    /// <summary>Streams a (possibly binary) response body into <paramref name="destination"/>; returns the bytes copied.</summary>
+    public Task<Result<long>> DownloadAsync(string path, Stream destination, CancellationToken ct) =>
+        SendCoreAsync(HttpMethod.Get, path, body: null, async (resp, c) =>
+        {
+            // Copy inside the callback: SendCoreAsync disposes the response afterwards.
+            await using var source = await resp.Content.ReadAsStreamAsync(c);
+            var before = destination.CanSeek ? destination.Position : 0;
+            await source.CopyToAsync(destination, c);
+            return Result.Success(destination.CanSeek ? destination.Position - before : -1L);
+        }, ct, HttpCompletionOption.ResponseHeadersRead);
+
     public static HttpContent JsonBody<T>(T value, JsonTypeInfo<T> typeInfo)
     {
         var json = JsonSerializer.Serialize(value, typeInfo);
         return new StringContent(json, Encoding.UTF8, "application/json");
     }
 
+    /// <summary>A body of already-serialized JSON text, sent verbatim (e.g. a pipeline input or a manifest).</summary>
+    public static HttpContent RawJson(string json) => new StringContent(json, Encoding.UTF8, "application/json");
+
     private async Task<Result<T>> SendCoreAsync<T>(
         HttpMethod method, string path, HttpContent? body,
-        Func<HttpResponseMessage, CancellationToken, Task<Result<T>>> onSuccess, CancellationToken ct)
+        Func<HttpResponseMessage, CancellationToken, Task<Result<T>>> onSuccess, CancellationToken ct,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
     {
         log.Log($"{method.Method} {path}");
         try
         {
             using var request = new HttpRequestMessage(method, path) { Content = body };
-            using var response = await http.SendAsync(request, ct);
+            using var response = await http.SendAsync(request, completion, ct);
             log.Log($"-> {(int)response.StatusCode} {response.ReasonPhrase}");
 
             return response.IsSuccessStatusCode
@@ -80,8 +96,29 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
             return new ResultProblem("Not authenticated ({0}). Run `pl login`.", code);
 
         var body = await SafeReadAsync(response, ct);
+
+        // The API reports request errors as a ResultProblem[]: one `error:` line per problem.
+        if (ParseProblems(body) is { Length: > 0 } serverProblems)
+            return new ResultProblemCollection(serverProblems.Select(p => new ResultProblem("{0}", p.Message)));
+
         var detail = string.IsNullOrWhiteSpace(body) ? string.Empty : $" — {Snippet(body)}";
         return new ResultProblem("Request failed: {0} {1}{2}", code, response.ReasonPhrase ?? string.Empty, detail);
+    }
+
+    private static ServerProblem[]? ParseProblems(string body)
+    {
+        var trimmed = body.TrimStart();
+        if (!trimmed.StartsWith('['))
+            return null;
+        try
+        {
+            var problems = JsonSerializer.Deserialize(trimmed, CliJsonContext.Default.ServerProblemArray);
+            return problems?.Where(p => !string.IsNullOrEmpty(p.Message)).ToArray();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static async Task<string> SafeReadAsync(HttpResponseMessage response, CancellationToken ct)

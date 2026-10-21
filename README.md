@@ -262,14 +262,30 @@ Every command accepts the global flags `--json` (machine-readable output on stdo
 ```bash
 pl pipeline list                 # ID, NAME, and aggregate STATUS for every pipeline
 pl pipeline list --summaries     # adds bound repo + per-step health strip
-pl pipeline get <id>             # show one pipeline
-pl pipeline document <id>        # export the pipeline's config document (JSON)
+pl pipeline get <pipeline>       # show one pipeline (id or name)
 pl pipeline delete <id>          # delete a pipeline (cascade-cancels its scheduled/in-progress jobs)
+pl pipeline health <pipeline>    # run-based health: last run, running/held runs, blocked gates, activation
+pl pipeline versions <pipeline>  # versions (commit, step versions) and which one is active
+pl pipeline manifest <pipeline> [--version n]          # a version's manifest (--json: the canonical JSON)
+pl pipeline switch <pipeline> <n> [--cancel-running]   # make version n active (rollback = an older n)
 
-pl job list [--pipeline <id>]    # paginated jobs; the STEP column names the step each job ran for
-pl job get <id>                  # show one job
-pl job logs <id>                 # fetch a job's logs
-pl job cancel <id>               # cancel a scheduled or in-progress job
+# v2 runs. Addresses: <pipeline>#<run>[/<step>[@<attempt>]] — pipeline by id or name (quote names
+# with spaces); without @attempt a step means its latest successful attempt (logs: the latest).
+pl trigger <pipeline> [--input json|@file] [--field k=v ...]   # start a run; prints <pipeline>#<run>
+pl run list <pipeline>                       # runs, newest first
+pl run get <pipeline>#<run>                  # input, version, stages with per-step status/reason/held/blocked
+pl run cancel|rerun <pipeline>#<run>         # cancel; or a new run with the same input
+pl run continue <pipeline>#<run> [--field k=v ...]   # continue, changing not-yet-consumed input fields
+pl step output <pipeline>#<run>/<step>[@n]   # the attempt's output JSON
+pl step files <address>                      # stored files; pl step file <address> <path> [-o out]
+pl step logs <address> [--follow]            # logs (follow polls until the attempt finishes)
+pl step rerun <pipeline>#<run>/<step> [--continue]    # a new attempt; --continue re-opens downstream
+pl step history <pipeline>/<step>            # the step's attempts across runs, with definition changes
+pl gate list <pipeline>                      # blocked steps (promotion gates, keyed on step name)
+pl gate block|unblock <pipeline>/<step>      # hold runs at a step / let held runs resume
+
+pl job list [--pipeline <id>]    # attempt-level view: every attempt (one K8s Job each), paginated
+pl job get|logs|cancel <id>      # one attempt by its id
 
 pl binding create <repo>         # create a pipeline bound to a repo (GitOps); --credentials-secret, --branch, --path, --trigger
 pl binding get <pipelineId>      # show a pipeline's binding (repo@branch, trigger, deploy/sync cursors)
@@ -304,6 +320,7 @@ it). Everything is written to `<dir>/.olve/`, which is already git-ignored.
 
 ```bash
 pl dev describe [--json]                         # manifest summary + describe-time checks (exit 78 on problems)
+pl dev validate [--json]                         # describe, then the service's reconcile checks (needs a session; exit 78 if invalid)
 pl dev run <step> --input sha=<40 hex>           # one step from source -> <dir>/.olve/work/; exit code = harness's
 pl dev run build                                 # next step: inputs come from the local pool
 pl dev run checkout --input-file in.json         # use input.json verbatim

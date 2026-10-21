@@ -29,8 +29,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<Job>> GetJob(string id, CancellationToken ct) =>
         transport.GetAsync($"/api/jobs/{Enc(id)}", CliJsonContext.Default.Job, ct);
 
+    // The logs endpoints return the text as a JSON string.
     public Task<Result<string>> GetJobLogs(string id, CancellationToken ct) =>
-        transport.GetStringAsync($"/api/jobs/{Enc(id)}/logs", ct);
+        transport.GetAsync($"/api/jobs/{Enc(id)}/logs", CliJsonContext.Default.String, ct);
 
     public Task<Result<string>> GetJobQueueRaw(CancellationToken ct) =>
         transport.GetStringAsync("/api/jobs/queue", ct);
@@ -101,4 +102,93 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/binding/reconcile", body: null, ct);
+
+    // Runs
+    private static string Runs(string pipelineId) => $"/api/pipelines/{Enc(pipelineId)}/runs";
+
+    private static string StepPath(string pipelineId, int run, string step) => $"{Runs(pipelineId)}/{run}/steps/{Enc(step)}";
+
+    private static string AttemptQuery(int? attempt) => attempt is { } n ? $"?attempt={n}" : "";
+
+    public Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, Runs(pipelineId), ApiTransport.RawJson(inputJson),
+            CliJsonContext.Default.TriggerRunResponse, ct);
+
+    public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct) =>
+        transport.GetAsync($"{Runs(pipelineId)}?Page={page}&PageSize={pageSize}", CliJsonContext.Default.PageOfRunSummary, ct);
+
+    public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct) =>
+        transport.GetAsync($"{Runs(pipelineId)}/{run}", CliJsonContext.Default.RunDetail, ct);
+
+    public Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/cancel", body: null, CliJsonContext.Default.Run, ct);
+
+    public Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/rerun", body: null, CliJsonContext.Default.TriggerRunResponse, ct);
+
+    // Continue's body is {"input": {changed fields}} (or {} for none); the changes are spliced in as raw JSON.
+    public Task<Result<Run>> ContinueRun(string pipelineId, int run, string? inputChangesJson, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/continue",
+            ApiTransport.RawJson(inputChangesJson is null ? "{}" : $"{{\"input\":{inputChangesJson}}}"),
+            CliJsonContext.Default.Run, ct);
+
+    public Task<Result<Job[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct) =>
+        transport.GetAsync($"{StepPath(pipelineId, run, step)}/attempts", CliJsonContext.Default.JobArray, ct);
+
+    public Task<Result<Job>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/rerun",
+            ApiTransport.JsonBody(new RerunStepRequest { Continue = continueRun }, CliJsonContext.Default.RerunStepRequest),
+            CliJsonContext.Default.Job, ct);
+
+    public Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct) =>
+        transport.GetAsync($"{StepPath(pipelineId, run, step)}/output{AttemptQuery(attempt)}", CliJsonContext.Default.AttemptOutputResponse, ct);
+
+    public Task<Result<AttemptFilesResponse>> ListStepFiles(string pipelineId, int run, string step, int? attempt, CancellationToken ct) =>
+        transport.GetAsync($"{StepPath(pipelineId, run, step)}/files{AttemptQuery(attempt)}", CliJsonContext.Default.AttemptFilesResponse, ct);
+
+    // The file route is a catch-all ({*path}): escape each segment, keep the slashes.
+    public Task<Result<long>> DownloadStepFile(
+        string pipelineId, int run, string step, string path, int? attempt, Stream destination, CancellationToken ct) =>
+        transport.DownloadAsync(
+            $"{StepPath(pipelineId, run, step)}/files/{string.Join('/', path.Split('/').Select(Enc))}{AttemptQuery(attempt)}",
+            destination, ct);
+
+    public Task<Result<string>> GetStepLogs(string pipelineId, int run, string step, int? attempt, CancellationToken ct) =>
+        transport.GetAsync($"{StepPath(pipelineId, run, step)}/logs{AttemptQuery(attempt)}", CliJsonContext.Default.String, ct);
+
+    public Task<Result<StepHistoryItem[]>> GetStepHistory(string pipelineId, string step, int? limit, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/history{(limit is { } l ? $"?limit={l}" : "")}",
+            CliJsonContext.Default.StepHistoryItemArray, ct);
+
+    // Gates
+    public Task<Result<string[]>> ListBlockedSteps(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/gates", CliJsonContext.Default.StringArray, ct);
+
+    public Task<Result<string[]>> BlockStep(string pipelineId, string step, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/block", body: null,
+            CliJsonContext.Default.StringArray, ct);
+
+    public Task<Result<string[]>> UnblockStep(string pipelineId, string step, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/unblock", body: null,
+            CliJsonContext.Default.StringArray, ct);
+
+    // Versions, health, manifests
+    public Task<Result<PipelineVersionsResponse>> ListPipelineVersions(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/versions", CliJsonContext.Default.PipelineVersionsResponse, ct);
+
+    public Task<Result<PipelineVersion>> GetPipelineVersion(string pipelineId, int version, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/versions/{version}", CliJsonContext.Default.PipelineVersion, ct);
+
+    public Task<Result<PipelineActivation>> SwitchPipelineVersion(string pipelineId, int version, bool cancelRunning, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/switch",
+            ApiTransport.JsonBody(new SwitchVersionRequest { Version = version, CancelRunning = cancelRunning },
+                CliJsonContext.Default.SwitchVersionRequest),
+            CliJsonContext.Default.PipelineActivation, ct);
+
+    public Task<Result<PipelineHealth>> GetPipelineHealth(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/health", CliJsonContext.Default.PipelineHealth, ct);
+
+    public Task<Result<ManifestValidationResponse>> ValidateManifest(string manifestJson, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, "/api/manifests/validate", ApiTransport.RawJson(manifestJson),
+            CliJsonContext.Default.ManifestValidationResponse, ct);
 }

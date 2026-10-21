@@ -169,6 +169,172 @@ public sealed class FakePipelinesApi : IPipelinesApi
             ReconcilePipelineBindingResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(ReconcilePipelineBinding)}' called but not configured."));
     }
 
+    // Runs (v2)
+    public Result<TriggerRunResponse>? TriggerRunResult { get; set; }
+    public Result<PageOfRunSummary>? ListRunsResult { get; set; }
+    public Result<RunDetail>? GetRunResult { get; set; }
+    public Result<Run>? CancelRunResult { get; set; }
+    public Result<TriggerRunResponse>? RerunRunResult { get; set; }
+    public Result<Run>? ContinueRunResult { get; set; }
+    public Queue<Result<Job[]>> ListStepAttemptsResults { get; } = new();
+    public Result<Job>? RerunStepResult { get; set; }
+    public Result<AttemptOutputResponse>? GetStepOutputResult { get; set; }
+    public Result<AttemptFilesResponse>? ListStepFilesResult { get; set; }
+    public byte[]? StepFileContent { get; set; }
+    public Queue<Result<string>> GetStepLogsResults { get; } = new();
+    public Result<StepHistoryItem[]>? GetStepHistoryResult { get; set; }
+    public Result<string[]>? ListBlockedStepsResult { get; set; }
+    public Result<string[]>? BlockStepResult { get; set; }
+    public Result<string[]>? UnblockStepResult { get; set; }
+    public Result<PipelineVersionsResponse>? ListPipelineVersionsResult { get; set; }
+    public Result<PipelineVersion>? GetPipelineVersionResult { get; set; }
+    public Result<PipelineActivation>? SwitchPipelineVersionResult { get; set; }
+    public Result<PipelineHealth>? GetPipelineHealthResult { get; set; }
+    public Result<ManifestValidationResponse>? ValidateManifestResult { get; set; }
+
+    /// <summary>The pipeline id of the most recent run/step/gate/version call (the resolved id, never a name).</summary>
+    public string? LastPipelineId { get; private set; }
+    public string? LastBody { get; private set; }
+    public int? LastRun { get; private set; }
+    public string? LastStep { get; private set; }
+    public int? LastAttempt { get; private set; }
+    public string? LastPath { get; private set; }
+    public bool? LastFlag { get; private set; }
+
+    public Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct)
+    {
+        (LastPipelineId, LastBody) = (pipelineId, inputJson);
+        return Record(TriggerRunResult, nameof(TriggerRun));
+    }
+
+    public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        return Record(ListRunsResult, nameof(ListRuns));
+    }
+
+    public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun) = (pipelineId, run);
+        return Record(GetRunResult, nameof(GetRun));
+    }
+
+    public Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun) = (pipelineId, run);
+        return Record(CancelRunResult, nameof(CancelRun));
+    }
+
+    public Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun) = (pipelineId, run);
+        return Record(RerunRunResult, nameof(RerunRun));
+    }
+
+    public Task<Result<Run>> ContinueRun(string pipelineId, int run, string? inputChangesJson, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastBody) = (pipelineId, run, inputChangesJson);
+        return Record(ContinueRunResult, nameof(ContinueRun));
+    }
+
+    public Task<Result<Job[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct)
+    {
+        Calls.Add(nameof(ListStepAttempts));
+        return Task.FromResult(ListStepAttemptsResults.Count > 1 ? ListStepAttemptsResults.Dequeue() : ListStepAttemptsResults.Peek());
+    }
+
+    public Task<Result<Job>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep, LastFlag) = (pipelineId, run, step, continueRun);
+        return Record(RerunStepResult, nameof(RerunStep));
+    }
+
+    public Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep, LastAttempt) = (pipelineId, run, step, attempt);
+        return Record(GetStepOutputResult, nameof(GetStepOutput));
+    }
+
+    public Task<Result<AttemptFilesResponse>> ListStepFiles(string pipelineId, int run, string step, int? attempt, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep, LastAttempt) = (pipelineId, run, step, attempt);
+        return Record(ListStepFilesResult, nameof(ListStepFiles));
+    }
+
+    public async Task<Result<long>> DownloadStepFile(
+        string pipelineId, int run, string step, string path, int? attempt, Stream destination, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep, LastAttempt, LastPath) = (pipelineId, run, step, attempt, path);
+        Calls.Add(nameof(DownloadStepFile));
+        if (StepFileContent is null)
+            return new ResultProblem("Attempt has no file '{0}'.", path);
+        await destination.WriteAsync(StepFileContent, ct);
+        return Result.Success(StepFileContent.LongLength);
+    }
+
+    public Task<Result<string>> GetStepLogs(string pipelineId, int run, string step, int? attempt, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep, LastAttempt) = (pipelineId, run, step, attempt);
+        Calls.Add(nameof(GetStepLogs));
+        return Task.FromResult(GetStepLogsResults.Count > 1 ? GetStepLogsResults.Dequeue() : GetStepLogsResults.Peek());
+    }
+
+    public Task<Result<StepHistoryItem[]>> GetStepHistory(string pipelineId, string step, int? limit, CancellationToken ct)
+    {
+        (LastPipelineId, LastStep) = (pipelineId, step);
+        return Record(GetStepHistoryResult, nameof(GetStepHistory));
+    }
+
+    public Task<Result<string[]>> ListBlockedSteps(string pipelineId, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        return Record(ListBlockedStepsResult, nameof(ListBlockedSteps));
+    }
+
+    public Task<Result<string[]>> BlockStep(string pipelineId, string step, CancellationToken ct)
+    {
+        (LastPipelineId, LastStep) = (pipelineId, step);
+        return Record(BlockStepResult, nameof(BlockStep));
+    }
+
+    public Task<Result<string[]>> UnblockStep(string pipelineId, string step, CancellationToken ct)
+    {
+        (LastPipelineId, LastStep) = (pipelineId, step);
+        return Record(UnblockStepResult, nameof(UnblockStep));
+    }
+
+    public Task<Result<PipelineVersionsResponse>> ListPipelineVersions(string pipelineId, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        return Record(ListPipelineVersionsResult, nameof(ListPipelineVersions));
+    }
+
+    public Task<Result<PipelineVersion>> GetPipelineVersion(string pipelineId, int version, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        Calls.Add($"{nameof(GetPipelineVersion)}({version})");
+        return Task.FromResult(GetPipelineVersionResult
+            ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(GetPipelineVersion)}' called but not configured."));
+    }
+
+    public Task<Result<PipelineActivation>> SwitchPipelineVersion(string pipelineId, int version, bool cancelRunning, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastFlag) = (pipelineId, version, cancelRunning);
+        return Record(SwitchPipelineVersionResult, nameof(SwitchPipelineVersion));
+    }
+
+    public Task<Result<PipelineHealth>> GetPipelineHealth(string pipelineId, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        return Record(GetPipelineHealthResult, nameof(GetPipelineHealth));
+    }
+
+    public Task<Result<ManifestValidationResponse>> ValidateManifest(string manifestJson, CancellationToken ct)
+    {
+        LastBody = manifestJson;
+        return Record(ValidateManifestResult, nameof(ValidateManifest));
+    }
+
     private Task<Result<T>> Record<T>(Result<T>? configured, string method)
     {
         Calls.Add(method);

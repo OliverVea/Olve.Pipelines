@@ -1,3 +1,4 @@
+using Olve.Pipelines.Cli.Addressing;
 using Olve.Pipelines.Cli.Api;
 
 namespace Olve.Pipelines.Cli.Commands.Pipelines;
@@ -8,12 +9,14 @@ public sealed class PipelineGetCommand : ICliCommand
     public string Noun => "pipeline";
     public string Verb => "get";
     public int RequiredOperands => 1;
-    public string HelpLine => "Get a pipeline by id";
-    public string? HelpDetail => "pl pipeline get <pipelineId>";
+    public string HelpLine => "Get a pipeline by id or name";
+    public string? HelpDetail => "pl pipeline get <pipeline>   (id or name)";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.GetPipeline(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var pipeline))
+        if ((await PipelineResolver.ResolveAsync(ctx.Api, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var resolved))
+            return resolveProblems;
+        if ((await ctx.Api.GetPipeline(resolved.Id.ToString(), ct)).TryPickProblems(out var problems, out var pipeline))
             return problems;
 
         ctx.Output.Emit(pipeline, CliJsonContext.Default.Pipeline, () =>

@@ -17,6 +17,9 @@ public interface IOutputWriter
 
     /// <summary>Write a human-output line to stdout (no-op semantics still apply in JSON mode — avoid in formatters).</summary>
     void Line(string text = "");
+
+    /// <summary>Write raw text to stdout without a newline (e.g. streaming log chunks).</summary>
+    void Write(string text);
 }
 
 /// <summary>Default writer over <see cref="Console.Out"/>; the <see cref="System.IO.TextWriter"/> is injectable for tests.</summary>
@@ -35,4 +38,10 @@ public sealed class ConsoleOutputWriter(bool json, TextWriter? stdout = null) : 
     }
 
     public void Line(string text = "") => _out.WriteLine(text);
+
+    public void Write(string text)
+    {
+        _out.Write(text);
+        _out.Flush();
+    }
 }

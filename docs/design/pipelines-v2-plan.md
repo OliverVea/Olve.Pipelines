@@ -78,7 +78,15 @@ always 200 with `{valid, manifestHash, errors, warnings}`). Decisions and deviat
 
 C1 v2 commands (`trigger --input`, `run list/get/output/file/continue`, `step rerun [--continue]`,
 `pipeline manifest/versions/switch`, gate block/unblock, logs) over the regenerated contracts; remove
-v1 commands. C2 `pl dev describe|validate|run [--from|--docker]|pipeline` shelling out to the SDK's dev
+v1 commands — **done 2026-10-21**: `pl trigger <p> [--input json|@file] [--field k=v]` (fields typed by
+the current version's input model), `pl run list|get|cancel|rerun|continue`, `pl step
+output|files|file|logs [--follow]|rerun [--continue]|history`, `pl gate list|block|unblock`, `pl pipeline
+health|versions|manifest [--version]|switch [--cancel-running]`, `pl dev validate`. Addresses
+`<pipeline>#<run>[/<step>[@n][/<path>]]` and `<pipeline>/<step>`, pipeline by id or name (resolved via
+`ListPipelines`). Hand-rolled AOT client (no Refit), 400 `ResultProblem[]` bodies shown one per line;
+AOT publish has no trim warnings. No v1 client methods were left without an endpoint (`pl job` stays as
+the attempt-by-id view). Verified live on v2 beta against the fixture. Open: `pl dev run --from` (C2)
+still stubbed. C2 `pl dev describe|validate|run [--from|--docker]|pipeline` shelling out to the SDK's dev
 runner (Bun). (C2 can start right after A2/A4; local runs are wanted early.)
 
 ### Track D — frontend

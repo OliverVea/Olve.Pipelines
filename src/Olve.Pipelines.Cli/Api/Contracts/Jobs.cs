@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
 /// <summary>
-/// One attempt of one step in a run, as served by <c>/api/jobs</c> (each attempt runs as one K8s
-/// Job). Interim shape until the run-scoped v2 commands (C1) replace <c>pl job</c>.
+/// One attempt of one step in a run (the server's <c>Attempt</c>; each runs as one K8s Job), as served
+/// by <c>/api/jobs</c> (<c>pl job</c>, by attempt id) and the run-scoped attempt endpoints (<c>pl step</c>).
 /// </summary>
 public sealed class Job
 {

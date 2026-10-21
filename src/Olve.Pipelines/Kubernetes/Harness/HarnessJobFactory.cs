@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
@@ -39,6 +40,28 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         var request = HarnessJobRequest.ForAttempt(
             attempt, versionStamp, step.Image, step.TimeoutSeconds, step.Secrets,
             new HarnessUrls(stepUrl, inputUrl, resultUrl, fileUrls));
+        return HarnessJobBuilder.Build(request, options);
+    }
+
+    /// <summary>
+    /// A failure handler's Job: <c>run &lt;handler&gt;</c> from the failed run's pinned binary with the dispatch's
+    /// <c>input.json</c> (already at <see cref="FailureHandlerDispatch.InputKey"/>), the handler's declared secrets,
+    /// and no result upload (the outcome is read from the log). Labelled <c>olve-role=on-failure</c>.
+    /// </summary>
+    public async Task<Result<HarnessJobSpec>> CreateFailureHandlerJobAsync(FailureHandlerDispatch dispatch, CancellationToken ct = default)
+    {
+        var expiry = options.LateUrlExpiry(dispatch.Handler.TimeoutSeconds);
+        var stepUrl = await presigner.PresignGetAsync(dispatch.Version.BinaryKey, expiry, ct);
+        var inputUrl = await presigner.PresignGetAsync(dispatch.InputKey, expiry, ct);
+
+        var run = dispatch.Run;
+        var request = new HarnessJobRequest(
+            dispatch.JobName, AttemptId: null, run.PipelineId, run.Id, run.Number, dispatch.Handler.Name, AttemptNumber: 1,
+            run.VersionStamp, dispatch.Handler.Image, dispatch.Handler.TimeoutSeconds, dispatch.Handler.Secrets,
+            HarnessJobBuilder.PipelineSecretName(run.PipelineId),
+            new HarnessUrls(stepUrl, inputUrl, ResultUrl: null, new Dictionary<string, string>()),
+            Role: HarnessJobBuilder.FailureHandlerRole,
+            UrlSecretNameOverride: dispatch.UrlSecretName);
         return HarnessJobBuilder.Build(request, options);
     }
 

@@ -7,6 +7,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared.Storage;
 using Olve.Pipelines.UnitTests.Manifests;
@@ -158,7 +159,9 @@ public class KubernetesJobExecutorTests
         SchedulerScenario Scenario,
         Run Run,
         JobWatcherRegistry Registry,
-        FakeApplicationLifetime Lifetime)
+        FakeApplicationLifetime Lifetime,
+        HarnessJobFactory Factory,
+        HarnessJobControl Control)
     {
         public Attempt Hello => Scenario.Latest(Scenario.Get(Run), "hello")!;
         public AttemptService Attempts => Scenario.D.AttemptService;
@@ -194,7 +197,7 @@ public class KubernetesJobExecutorTests
             PollInterval = TimeSpan.FromMilliseconds(5),
         };
 
-        return new Harness(executor, k8s, storage, scenario, run, registry, lifetime);
+        return new Harness(executor, k8s, storage, scenario, run, registry, lifetime, factory, control);
     }
 
     private static async Task RunWatcher(Harness h, Id<Attempt> id)
@@ -398,5 +401,79 @@ public class KubernetesJobExecutorTests
 
         await RunWatcher(h, attempt.Id);
         await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
+    }
+
+    // ---- failure handlers (untracked harness Jobs) ----
+
+    /// <summary>Fails the fixture run at echo (hello, count succeed) and plans its log-failure handler.</summary>
+    private static FailureHandlerDispatch FailAndPlan(Harness h)
+    {
+        var s = h.Scenario;
+        var run = h.Run;
+        s.Succeed(run, "hello", $$"""{"file":{{SchedulerScenario.FileRef(run.Number, "hello", 1, "greeting.txt")}},"message":"m"}""");
+        s.Succeed(run, "count", """{"lines":1}""");
+        var echo = s.Fail(run, "echo", "handler threw: on purpose");
+        var failedRun = s.Get(run);
+        var (dispatches, _) = FailureHandlerPlanner.Plan(s.Pipeline, failedRun, s.Version, TestFixtureManifest.Parse(), [echo], "https://p.example");
+        return dispatches.Single();
+    }
+
+    private static HarnessFailureHandlerLauncher Launcher(Harness h)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IHarnessStorage>(h.Storage);
+        services.AddSingleton(h.Factory);
+        services.AddSingleton(h.Control);
+        services.AddSingleton(new HarnessOptions());
+        return new HarnessFailureHandlerLauncher(
+            services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), h.Lifetime,
+            NullLogger<HarnessFailureHandlerLauncher>.Instance) { PollInterval = TimeSpan.FromMilliseconds(5) };
+    }
+
+    [Test]
+    public async Task FailureHandler_RunsAsAnUntrackedHarnessJob_AndPersistsItsLog()
+    {
+        var h = Build("""{"sha":"abcdef1","mode":"fail"}""");
+        var dispatch = FailAndPlan(h);
+        var attemptsBefore = h.Attempts.List().Count;
+        h.K8s.States.Add(Running);
+        h.K8s.States.Add(Exited0);
+        h.K8s.Logs["step"] = "run failed run=p#1\n---OLVE-RESULT-BEGIN---\n{\"status\":\"succeeded\",\"output\":null}\n---OLVE-RESULT-END---\n";
+
+        await Launcher(h).RunAsync(dispatch, CancellationToken.None);
+
+        await Assert.That(h.Storage.Objects[dispatch.InputKey]).IsEqualTo(dispatch.InputJson);
+        var job = h.K8s.LastJob!;
+        await Assert.That(job.Metadata.Name).IsEqualTo(dispatch.JobName);
+        await Assert.That(job.Metadata.Labels!["olve-role"]).IsEqualTo(HarnessJobBuilder.FailureHandlerRole);
+        await Assert.That(job.Metadata.Labels!["olve-pipeline"]).IsEqualTo(h.Scenario.Pipeline.Id.Value.Value.ToString("N"));
+        var step = job.Spec.Template.Spec.Containers.Single();
+        await Assert.That(step.Image).IsEqualTo("alpine:3.22");
+        await Assert.That(step.Command!.TakeLast(2).ToArray()).IsEquivalentTo(new[] { "run", "log-failure" });
+        await Assert.That(step.Env!.Select(e => e.Name)).DoesNotContain(HarnessJobBuilder.ResultUrlKey);
+        await Assert.That(job.Spec.TtlSecondsAfterFinished).IsEqualTo(new HarnessOptions().TtlSecondsAfterFinished);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEquivalentTo(new[] { dispatch.UrlSecretName });
+        await Assert.That(h.K8s.LastSecretData!.Keys.Order().ToArray()).IsEquivalentTo(new[] { HarnessJobBuilder.InputUrlKey, HarnessJobBuilder.StepUrlKey });
+        await Assert.That(h.K8s.DeletedSecrets).IsEquivalentTo(new[] { dispatch.UrlSecretName });
+        await Assert.That(h.Storage.Objects[dispatch.LogKey]).Contains("run failed run=p#1");
+        await Assert.That(h.Storage.Objects[dispatch.LogKey]).Contains("controller: failure handler succeeded");
+        // Untracked: no attempt, and the run stays Failed.
+        await Assert.That(h.Attempts.List().Count).IsEqualTo(attemptsBefore);
+        await Assert.That(h.Scenario.Get(h.Run).Status).IsEqualTo(RunStatus.Failed);
+    }
+
+    [Test]
+    public async Task FailureHandler_ThatFails_IsLoggedOnly()
+    {
+        var h = Build("""{"sha":"abcdef1","mode":"fail"}""");
+        var dispatch = FailAndPlan(h);
+        h.K8s.States.Add(new HarnessPodState(null, null, InitOk, new HarnessContainerState("step", 1, "Error", null)));
+        h.K8s.Logs["step"] = "---OLVE-RESULT-BEGIN---\n{\"status\":\"failed\",\"error\":{\"kind\":\"handler\",\"message\":\"nope\"}}\n---OLVE-RESULT-END---\n";
+
+        await Launcher(h).RunAsync(dispatch, CancellationToken.None);
+
+        await Assert.That(h.Storage.Objects[dispatch.LogKey]).Contains("controller: failure handler failed (handler): nope");
+        await Assert.That(h.K8s.DeletedSecrets).IsEquivalentTo(new[] { dispatch.UrlSecretName });
+        await Assert.That(h.Scenario.Get(h.Run).Status).IsEqualTo(RunStatus.Failed);
     }
 }

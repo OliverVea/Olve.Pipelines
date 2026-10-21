@@ -24,9 +24,12 @@ public sealed record HarnessUrls(
 /// <param name="Secrets">The step's declared secret names; each becomes one same-named env var.</param>
 /// <param name="PipelineSecretName">The pipeline's K8s Secret (<c>olve-pipeline-&lt;idN&gt;</c>, see <see cref="HarnessJobBuilder.PipelineSecretName"/>).</param>
 /// <param name="VersionStamp">The run's derived version (<c>OLVE_VERSION_STAMP</c>).</param>
+/// <param name="Role">The <c>olve-role</c> label: <c>step</c> for attempts, <see cref="HarnessJobBuilder.FailureHandlerRole"/> for failure handlers.</param>
+/// <param name="AttemptId">The attempt (names its URL Secret); null for failure handlers, which pass <paramref name="UrlSecretNameOverride"/>.</param>
+/// <param name="UrlSecretNameOverride">The URL Secret's name; null = the attempt's (<see cref="HarnessStorageKeys.UrlSecretName"/>).</param>
 public sealed record HarnessJobRequest(
     string JobName,
-    Id<Attempt> AttemptId,
+    Id<Attempt>? AttemptId,
     Id<Pipeline> PipelineId,
     Id<Run> RunId,
     int RunNumber,
@@ -37,7 +40,9 @@ public sealed record HarnessJobRequest(
     long? TimeoutSeconds,
     IReadOnlyList<string> Secrets,
     string PipelineSecretName,
-    HarnessUrls Urls)
+    HarnessUrls Urls,
+    string Role = HarnessJobBuilder.StepRole,
+    string? UrlSecretNameOverride = null)
 {
     /// <summary>Builds the request from an attempt; the step fields come from the pinned manifest.</summary>
     public static HarnessJobRequest ForAttempt(
@@ -70,6 +75,12 @@ public static partial class HarnessJobBuilder
     public const string InitContainerName = "olve-init";
     public const string StepContainerName = "step";
     public const string ScratchVolumeName = "olve";
+
+    /// <summary><c>olve-role</c> of step attempt Jobs.</summary>
+    public const string StepRole = "step";
+
+    /// <summary><c>olve-role</c> of v2 failure-handler Jobs (v1's bare handler Jobs use <c>failure-handler</c>).</summary>
+    public const string FailureHandlerRole = "on-failure";
 
     public const string StepUrlKey = "OLVE_STEP_URL";
     public const string InputUrlKey = "OLVE_INPUT_URL";
@@ -106,7 +117,10 @@ public static partial class HarnessJobBuilder
                 return new ResultProblem("Step '{0}' declares an invalid secret name '{1}'.", request.StepName, secret);
         }
 
-        var urlSecretName = HarnessStorageKeys.UrlSecretName(request.AttemptId);
+        var urlSecretName = request.UrlSecretNameOverride
+                            ?? (request.AttemptId is { } attemptId ? HarnessStorageKeys.UrlSecretName(attemptId) : null);
+        if (urlSecretName is null)
+            return new ResultProblem("Job '{0}' has neither an attempt nor a URL Secret name.", request.JobName);
         var secretData = new Dictionary<string, string>(StringComparer.Ordinal) { [StepUrlKey] = request.Urls.StepUrl };
         if (request.Urls.InputUrl is not null) secretData[InputUrlKey] = request.Urls.InputUrl;
         if (request.Urls.ResultUrl is not null) secretData[ResultUrlKey] = request.Urls.ResultUrl;
@@ -145,7 +159,7 @@ public static partial class HarnessJobBuilder
         {
             ["app"] = "olve-pipelines",
             ["job-name"] = request.JobName,
-            ["olve-role"] = "step",
+            ["olve-role"] = request.Role,
             ["olve-pipeline"] = request.PipelineId.Value.Value.ToString("N"),
             ["olve-run"] = request.RunNumber.ToString(CultureInfo.InvariantCulture),
             ["olve-step"] = request.StepName,

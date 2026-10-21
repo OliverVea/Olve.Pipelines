@@ -3,6 +3,7 @@ using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -97,6 +98,19 @@ public static class ServiceConfiguration
         services.AddTransient<RunCancellationService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
+
+        // Failure handlers (onFailure): a failed run dispatches its pinned manifest's handlers as untracked
+        // harness Jobs (the K8s launcher replaces the no-op when Kubernetes is configured).
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var linkBase = config["Links:BaseUrl"];
+            if (string.IsNullOrWhiteSpace(linkBase)) linkBase = config["Webhooks:PublicBaseUrl"];
+            return new FailureHandlerOptions(linkBase ?? "");
+        });
+        services.AddTransient<FailureHandlerService>();
+        services.TryAddSingleton<IFailureHandlerLauncher, NoOpFailureHandlerLauncher>();
+        services.AddSingleton<IRunOnStartup, FailureHandlerEventRegistration>();
 
         // Job machinery: each attempt runs as one K8s Job.
         services.AddTransient<JobLogService>();

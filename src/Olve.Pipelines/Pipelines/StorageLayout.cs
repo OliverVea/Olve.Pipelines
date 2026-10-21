@@ -8,12 +8,14 @@ namespace Olve.Pipelines.Pipelines;
 /// addressing scheme <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;[@&lt;attempt&gt;]</c>, using the pipeline id in
 /// <c>N</c> format, the per-pipeline run number and the per-(run, step) attempt number:
 /// <code>
-/// versions/&lt;p&gt;/&lt;n&gt;/step.tar.gz        compiled harness binary of pipeline version n
+/// versions/&lt;p&gt;/builds/&lt;sha&gt;/step.tar.gz compiled harness binary built for a commit (a version keeps its key)
+/// versions/&lt;p&gt;/&lt;n&gt;/step.tar.gz        (legacy default binary key of version n)
 /// versions/&lt;p&gt;/&lt;n&gt;/manifest.json      canonical manifest of version n (write-once)
 /// runs/&lt;p&gt;/&lt;run&gt;/run.json            persisted state of one run and its attempts
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/output.json
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/files/…
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/log
+/// runs/&lt;p&gt;/&lt;run&gt;/_failure/&lt;handler&gt;/&lt;id&gt;/{input.json,log}   failure-handler runs
 /// </code>
 /// </summary>
 public static class StorageLayout
@@ -63,6 +65,13 @@ public static class StorageLayout
         => $"{AttemptFilesPrefix(pipelineId, runNumber, stepName, attemptNumber)}/{objectPath}";
 
     public static string AttemptLogKey(Attempt attempt) => $"{AttemptPrefix(attempt)}/log";
+
+    /// <summary>
+    /// Objects of one failure-handler run (<c>input.json</c>, <c>log</c>), under the failed run so retention
+    /// removes them with it. <c>_failure</c> cannot collide with a step directory: step names are DNS labels.
+    /// </summary>
+    public static string FailureHandlerPrefix(Id<Pipeline> pipelineId, int runNumber, string handlerName, string dispatchId)
+        => $"{RunPrefix(pipelineId, runNumber)}/_failure/{handlerName}/{dispatchId}";
 
     private static string Format(Id<Pipeline> pipelineId) => pipelineId.Value.Value.ToString("N");
 }

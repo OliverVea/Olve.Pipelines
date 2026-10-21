@@ -1,14 +1,167 @@
 {
   "apiVersion": "2.0",
   "description": "Tiny end-to-end fixture: file refs between steps, a parallel stage and a when block.",
-  "failureHandlers": [],
+  "failureHandlers": [
+    {
+      "step": {
+        "handlerHash": "sha256:4e8375001920b30d1a5fc5266dd680779a118bca44ff24f161ddf9e0532444b8",
+        "image": "alpine:3.22",
+        "input": {
+          "failure": {
+            "ref": "failure"
+          }
+        },
+        "inputTypes": {
+          "failure": {
+            "model": "FailureContext",
+            "optional": false
+          }
+        },
+        "kind": "custom",
+        "name": "log-failure",
+        "output": null,
+        "secrets": [],
+        "timeoutSeconds": 120
+      },
+      "steps": null
+    }
+  ],
   "harness": {
     "bun": "1.4.3",
     "sdk": "0.1.0",
-    "sdkHash": "sha256:5141060790ce159017000d0abf8cad8f31d3d981817bccf1d9d3530c31b1e22f"
+    "sdkHash": "sha256:098ea0990fb3de2fd05c3bb0a7c48c33b0e262203a19945433f9be4393b02f28"
   },
   "input": "TestInput",
   "models": {
+    "FailureContext": {
+      "output": {
+        "additionalProperties": false,
+        "properties": {
+          "failedSteps": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "attempt": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "logUrl": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "step": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "step",
+                "attempt",
+                "address",
+                "reason",
+                "logUrl"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "input": {},
+          "pipeline": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ],
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "run": {
+            "additionalProperties": false,
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "number": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "trigger": {
+                "enum": [
+                  "push",
+                  "poll",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "versionStamp": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "address",
+              "versionStamp",
+              "trigger",
+              "url"
+            ],
+            "type": "object"
+          },
+          "version": {
+            "additionalProperties": false,
+            "properties": {
+              "commit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "number": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "number",
+              "commit"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "pipeline",
+          "run",
+          "version",
+          "input",
+          "reason",
+          "failedSteps"
+        ],
+        "type": "object"
+      }
+    },
     "Greeting": {
       "output": {
         "additionalProperties": false,
@@ -97,7 +250,8 @@
             "default": "normal",
             "enum": [
               "normal",
-              "skip-last"
+              "skip-last",
+              "fail"
             ],
             "type": "string"
           },
@@ -118,7 +272,8 @@
             "default": "normal",
             "enum": [
               "normal",
-              "skip-last"
+              "skip-last",
+              "fail"
             ],
             "type": "string"
           },
@@ -141,7 +296,7 @@
     {
       "steps": [
         {
-          "handlerHash": "sha256:454502d32ea6d06612895c4b5a11fa6fef6f937c9e9635b1421c74e0ab97467c",
+          "handlerHash": "sha256:b91a9086f87a6f31919a770a5bb0d0418ea98db3f7fe4cd7e899d7a9c0e19bb8",
           "image": "alpine:3.22",
           "input": {
             "request": {
@@ -165,7 +320,7 @@
     {
       "steps": [
         {
-          "handlerHash": "sha256:5e5004d05cb386c92cbd75b4672a5597b62a9e09b77366dc3be6936abb7f3b6a",
+          "handlerHash": "sha256:f7eaf9c800e5c3e4163fccbd382a47e2b60565d78144c281289fdd04e6961032",
           "image": "debian:bookworm-slim",
           "input": {
             "greeting": {
@@ -185,7 +340,7 @@
           "timeoutSeconds": 300
         },
         {
-          "handlerHash": "sha256:102de36b74402f659bdaf748ae910f894db092dcc5c1970f8cc705462d0f41f2",
+          "handlerHash": "sha256:c5933388dc9e1eb79c8354c6304f488c68c8aabe2c8090af37d512e44b2e14a9",
           "image": "busybox:1.37",
           "input": {
             "request": {
@@ -211,7 +366,7 @@
         {
           "steps": [
             {
-              "handlerHash": "sha256:ef01b9131908642d2a8f82e89337a8bdf931b8d4438fd04a9877751600bb9271",
+              "handlerHash": "sha256:9b166cdf33944a40ecb6f4daedf40be0b285125ee6a1661c7a12c03bc4de7a77",
               "image": "alpine:3.22",
               "input": {
                 "count": {

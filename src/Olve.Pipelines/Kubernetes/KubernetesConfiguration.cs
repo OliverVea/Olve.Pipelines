@@ -2,6 +2,7 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Failures;
 
 namespace Olve.Pipelines.Kubernetes;
 
@@ -92,6 +93,7 @@ public static class KubernetesConfiguration
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
+        builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
 
     private static void ConfigureInCluster(
@@ -133,6 +135,7 @@ public static class KubernetesConfiguration
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
+        builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
 }
 

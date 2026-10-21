@@ -12,6 +12,8 @@ config:
   Storage__Bucket: "olve-pipelines-v2-beta"
   # No GitHub webhook auto-registration yet: v2 has no public route.
   Webhooks__PublicBaseUrl: ""
+  # Base of the run/log links in a failure handler's FailureContext.
+  Links__BaseUrl: "https://pipelines-v2-beta.ovea.pro"
 
 # MinIO is archived (images 401); v2 never had one.
 minio:

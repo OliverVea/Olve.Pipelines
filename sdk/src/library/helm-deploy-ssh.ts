@@ -9,6 +9,7 @@ import type { Ctx } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
+import { httpHealthCheck } from "./http-health.ts";
 import { BuiltImage, HelmRelease, Source } from "./models.ts";
 
 /** Alpine: `apk add openssh-client` at run time gives ssh/scp (the health check runs in the harness). */
@@ -20,9 +21,6 @@ export const HELM_DEPLOY_IMAGE = "alpine:3.22";
  */
 export const K3S_IMAGE_IMPORT = "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load";
 
-/** Health check: attempts × delay (v1: 5 × 5 s). */
-const HEALTH_ATTEMPTS = 5;
-const HEALTH_DELAY_SECONDS = 5;
 const ROLLOUT_TIMEOUT = "120s";
 
 const input = { source: Source, image: BuiltImage };
@@ -46,7 +44,7 @@ export interface HelmDeployOverSshDef<N extends string, K extends string> {
    * the step and always win: `image.repository`, `image.tag`, `image.pullPolicy=Never`.
    */
   set?: Readonly<Record<string, string>>;
-  /** After the rollout, GET this URL until it returns 2xx (or fail the step). */
+  /** After the rollout, GET this URL until it returns 2xx, 5 × 5 s (`httpHealthCheck`), or fail the step. */
   healthUrl?: string;
   timeoutSeconds?: number;
 }
@@ -143,11 +141,7 @@ export function helmDeployOverSsh<const N extends string, const K extends string
         ctx.log("waiting for rollout", { deployment: def.release });
         await ssh(`kubectl -n ${shq(def.namespace)} rollout status ${shq(`deploy/${def.release}`)} --timeout=${ROLLOUT_TIMEOUT}`);
 
-        if (def.healthUrl) {
-          const url = def.healthUrl;
-          await ctx.retry({ attempts: HEALTH_ATTEMPTS, delaySeconds: HEALTH_DELAY_SECONDS }, () => ctx.http.expectOk(url));
-          ctx.log("health OK", { url });
-        }
+        if (def.healthUrl) await httpHealthCheck(ctx, def.healthUrl);
         return { release: def.release, namespace: def.namespace, image: ref };
       },
     },

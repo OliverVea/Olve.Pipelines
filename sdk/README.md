@@ -15,7 +15,7 @@ sdk/
   src/index.ts            authoring API (`@olve/pipelines`)
   src/core/               models, secrets, steps, implement()
   src/builder/            pipeline builder (types + runtime records), Ref<T>
-  src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh) and SDK models
+  src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh), their exported helpers (httpHealthCheck) and SDK models
   src/describe/           describe: manifest, checks, mapper recording + source analysis, manifest schema
   src/harness/            harness CLI modes, env contract, envelope, result upload (`@olve/pipelines/harness`)
   src/ctx/                the ctx handed to handlers
@@ -101,6 +101,17 @@ Library steps carry their own implementation and image; they take typed config a
 - `gitHubSource` downloads `https://api.github.com/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.
 - `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `Dockerfile` at the tree root with `--no-push --tar-path --digest-file`, and outputs the tarball. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`).
 - `helmDeployOverSsh` streams the image tar into the host's **k3s** containerd (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then `image.repository`/`image.tag`/`image.pullPolicy=Never`, which always win), waits for `kubectl rollout status deploy/<release>`, and with `healthUrl` polls it (5 × 5 s) from the harness.
+
+**Helpers.** General functions the library steps are built on, exported for custom handlers:
+
+| Helper | What it does |
+|---|---|
+| `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })` | GETs `url` until it returns 2xx (redirects followed), retrying network errors and non-2xx statuses; defaults 5 attempts, 5 s apart (v1's deploy-beta loop). Throws the last error when the attempts run out. Runs in the harness, so the image needs no curl. `helmDeployOverSsh`'s `healthUrl` uses it. |
+
+```ts
+import { httpHealthCheck, implement } from "@olve/pipelines";
+export default implement(smoke, async (_, ctx) => { await httpHealthCheck(ctx, "http://app.ns.svc.cluster.local/api/health", { attempts: 10 }); });
+```
 
 ### Handlers
 

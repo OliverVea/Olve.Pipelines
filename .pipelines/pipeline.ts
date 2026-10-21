@@ -41,7 +41,7 @@ export const deployBeta = steps.helmDeployOverSsh({
   // The chart's slo block defaults to true, but the sloth CRD is not installed cluster-wide.
   set: { "slo.enabled": "false" },
   // In-cluster Service URL, so the check does not depend on the edge route (the runner
-  // NetworkPolicy allows app namespaces).
+  // NetworkPolicy allows app namespaces). Checked after the rollout with httpHealthCheck, 5 × 5 s.
   healthUrl: "http://olve-pipelines-v2.apps-beta.svc.cluster.local/api/health",
   timeoutSeconds: 900,
 });

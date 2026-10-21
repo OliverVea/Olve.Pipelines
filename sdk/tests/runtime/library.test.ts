@@ -1,9 +1,9 @@
-// Library steps used by Olve.Pipelines' own deploy: gitHubSource, imageBuild, helmDeployOverSsh.
+// Library steps used by Olve.Pipelines' own deploy: gitHubSource, imageBuild, helmDeployOverSsh, httpHealthCheck.
 // Run through testHandler with faked ctx parts; the assertions pin the exact commands they run.
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { model, pipeline, secret, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { httpHealthCheck, model, pipeline, secret, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
 import { describePipeline } from "../../src/describe/describe.ts";
 import { Manifest } from "../../src/describe/manifest-schema.ts";
 import { testFileRef, testHandler } from "../../src/testing/index.ts";
@@ -303,6 +303,49 @@ describe("steps.helmDeployOverSsh", () => {
     const r = await testHandler(steps.helmDeployOverSsh(def), { source, image }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
     expect(r).toMatchObject({ status: "failed", error: { kind: "handler" } });
     expect(f.calls.some((c) => Array.isArray(c) && c.at(-1)!.includes("rollout status"))).toBe(false);
+  });
+});
+
+describe("httpHealthCheck", () => {
+  const URL = "http://app.ns.svc.cluster.local/api/health?token=s3cret";
+  const fake = (healthyOn: number) => {
+    const requests: { url: string; headers?: Record<string, string> }[] = [];
+    const retries: { attempts: number; delaySeconds: number }[] = [];
+    const logs: string[] = [];
+    const ctx = {
+      http: {
+        expectOk: async (url: string, init?: { headers?: Record<string, string> }) => {
+          requests.push({ url, headers: init?.headers });
+          if (requests.length < healthyOn) throw new Error(`HTTP 503 from ${url.split("?")[0]}`);
+          return new Response("ok");
+        },
+      } as unknown as Ctx["http"],
+      retry: (async (opts, fn) => {
+        retries.push({ attempts: opts.attempts, delaySeconds: opts.delaySeconds });
+        return fastRetry(opts, fn);
+      }) as Ctx["retry"],
+      log: (m: string, f?: Record<string, unknown>) => void logs.push(`${m} ${JSON.stringify(f ?? {})}`),
+    };
+    return { ctx, requests, retries, logs };
+  };
+
+  test("retries until 2xx, 5 × 5 s by default (v1 parity), and never logs the query", async () => {
+    const f = fake(3);
+    await httpHealthCheck(f.ctx, URL);
+    expect(f.retries).toEqual([{ attempts: 5, delaySeconds: 5 }]);
+    expect(f.requests.map((r) => r.url)).toEqual([URL, URL, URL]);
+    expect(f.logs.join("\n")).not.toContain("s3cret");
+    expect(f.logs.at(-1)).toContain("health OK");
+  });
+
+  test("custom attempts, delay and headers; fails with the last error once attempts run out", async () => {
+    const f = fake(99);
+    const err = await httpHealthCheck(f.ctx, URL, { attempts: 2, delaySeconds: 1, headers: { authorization: "Bearer t" } }).catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("HTTP 503");
+    expect(f.retries).toEqual([{ attempts: 2, delaySeconds: 1 }]);
+    expect(f.requests).toHaveLength(2);
+    expect(f.requests[0]!.headers).toEqual({ authorization: "Bearer t" });
   });
 });
 

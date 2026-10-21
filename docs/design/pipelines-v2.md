@@ -470,11 +470,30 @@ deploy-beta
   `when` won't match).
 - **Run view**: input, then each step's attempts with typed input/output rendered against the pinned
   model versions; skip reasons; superseded/rerun links.
-- **Wait resolution form** generated from the wait step's output model.
 - **Health summary** redefined over runs/stages — `Skipped` never counts as unhealthy.
 - `pl`: `trigger --input k=v`, `run continue`, `step rerun [--continue]`, `pipeline switch <version>`,
-  `pipeline manifest` (replaces `pipeline document`), and **local runs**:
-  `pl run --step build --input sha=…` (wanted early — the handler dev loop depends on it).
+  `pipeline manifest` (replaces `pipeline document`), and local development (§7.1).
+
+### 7.1 Local development (wanted early)
+
+Three loops, all from the repo via `pl` (which shells out to Bun):
+
+1. **Editor / describe** — `tsc` and the editor catch wiring errors; `pl dev describe` prints the
+   manifest + describe-time checks from source; `pl dev validate` posts it to the service's
+   validation endpoint for the C# reconcile checks without pushing.
+2. **One step from source** — `pl dev run <step>` runs the handler with Bun directly (no compile),
+   through the same harness path (validate input → handler → validate output → `./.olve/work/`).
+   Input via `--input-file`, `--input k=v` (pipeline-input fields), or **`--from <pipeline>#<run>`**,
+   which pulls a real run's input + outputs (file refs on demand) to reproduce or iterate on a step
+   with production data. Secrets come from the local env or `--secret NAME=…` — never auto-pulled.
+3. **One step in its real image** — `pl dev run <step> --docker` compiles the real binary and runs it
+   in the step's declared image exactly like the pod (`/olve` mount, bundled loader, env layout),
+   catching missing shells/tools/`/tmp` surprises.
+
+`pl dev pipeline --input deployTo=beta [--until|--only|--from]` chains stages locally through a
+local pool, evaluating `when`; it asks for confirmation before steps that declare secrets (they do
+real things). The SDK exports `testHandler(step, input, { ctx })` for `bun test` with a fake `ctx`.
+No "run on the cluster from a laptop" — pushing to a beta-bound branch covers that.
 
 ## 8. Security
 

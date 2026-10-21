@@ -1052,7 +1052,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JsonElement"
+                "$ref": "#/components/schemas/TriggerRunRequest"
               }
             }
           },
@@ -2538,7 +2538,12 @@
       "ContinueRunRequest": {
         "type": "object",
         "properties": {
-          "input": { }
+          "input": {
+            "type": [
+              "null",
+              "object"
+            ]
+          }
         }
       },
       "CreatePipelineWithRepoRequest": {
@@ -3928,6 +3933,9 @@
             "default": false
           }
         }
+      },
+      "TriggerRunRequest": {
+        "type": "object"
       },
       "TriggerRunResponse": {
         "required": [

@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Pipelines.Runs;
@@ -85,9 +87,35 @@ public record RerunStepRequest(bool Continue = false);
 
 /// <summary>
 /// Continue a run. <see cref="Input"/> (optional) holds the pipeline-input fields to change; they are merged
-/// over the run's stored input (top-level fields) and validated against the pinned input model.
+/// over the run's stored input (top-level fields) and validated against the pinned input model. Typed as a
+/// free-form object (not a bare <see cref="JsonElement"/>) so generated clients can send it.
 /// </summary>
-public record ContinueRunRequest(JsonElement? Input = null);
+public record ContinueRunRequest(Dictionary<string, JsonElement>? Input = null);
+
+/// <summary>
+/// A manual trigger's body: the pipeline input itself, as a JSON object (the input model's <c>z.input</c>
+/// view; fields are validated against it, defaults filled in). Every top-level field is captured, so the
+/// wire shape is just the input object; in OpenAPI it is a free-form object generated clients can send.
+/// </summary>
+public sealed class TriggerRunRequest
+{
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement> Fields { get; set; } = new(StringComparer.Ordinal);
+}
+
+internal static class JsonFields
+{
+    /// <summary>A field map as a <see cref="JsonObject"/> (null stays null).</summary>
+    public static JsonObject? ToJsonObject(IReadOnlyDictionary<string, JsonElement>? fields)
+    {
+        if (fields is null)
+            return null;
+        var obj = new JsonObject();
+        foreach (var (key, value) in fields)
+            obj[key] = JsonNode.Parse(value.GetRawText());
+        return obj;
+    }
+}
 
 /// <summary>A stored output file of an attempt (<see cref="Path"/> is the object path: <c>dir.tar</c> for a directory ref <c>dir/</c>).</summary>
 public record AttemptFileEntry(string Path, long Size, DateTimeOffset? LastModified);

@@ -196,7 +196,9 @@ export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
     /**
      * The input property
      */
-    input?: UntypedNode | null;
+    input?: ContinueRunRequest_input | null;
+}
+export interface ContinueRunRequest_input extends AdditionalDataHolder, Parsable {
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -346,6 +348,15 @@ export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: Pa
 // @ts-ignore
 export function createBindingDeployTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoBindingDeployTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ContinueRunRequest_input}
+ */
+// @ts-ignore
+export function createContinueRunRequest_inputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContinueRunRequest_input;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -745,6 +756,15 @@ export function createSwitchVersionRequestFromDiscriminatorValue(parseNode: Pars
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerRunRequest}
+ */
+// @ts-ignore
+export function createTriggerRunRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerRunRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {TriggerRunResponse}
  */
 // @ts-ignore
@@ -955,7 +975,17 @@ export function deserializeIntoBindingDeployTrigger(bindingDeployTrigger: Partia
 // @ts-ignore
 export function deserializeIntoContinueRunRequest(continueRunRequest: Partial<ContinueRunRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "input": n => { continueRunRequest.input = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "input": n => { continueRunRequest.input = n.getObjectValue<ContinueRunRequest_input>(createContinueRunRequest_inputFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ContinueRunRequest_input The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoContinueRunRequest_input(continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -1539,6 +1569,16 @@ export function deserializeIntoSwitchVersionRequest(switchVersionRequest: Partia
     return {
         "cancelRunning": n => { switchVersionRequest.cancelRunning = n.getBooleanValue() ?? false; },
         "version": n => { switchVersionRequest.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerRunRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerRunRequest(triggerRunRequest: Partial<TriggerRunRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -2522,8 +2562,19 @@ export function serializeBindingDeployTrigger(writer: SerializationWriter, bindi
 // @ts-ignore
 export function serializeContinueRunRequest(writer: SerializationWriter, continueRunRequest: Partial<ContinueRunRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!continueRunRequest || isSerializingDerivedType) { return; }
-    writer.writeObjectValue("input", continueRunRequest.input);
+    writer.writeObjectValue<ContinueRunRequest_input>("input", continueRunRequest.input, serializeContinueRunRequest_input);
     writer.writeAdditionalData(continueRunRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ContinueRunRequest_input The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeContinueRunRequest_input(writer: SerializationWriter, continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!continueRunRequest_input || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(continueRunRequest_input.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3156,6 +3207,17 @@ export function serializeSwitchVersionRequest(writer: SerializationWriter, switc
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerRunRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerRunRequest(writer: SerializationWriter, triggerRunRequest: Partial<TriggerRunRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerRunRequest || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(triggerRunRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param TriggerRunResponse The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3267,6 +3329,8 @@ export interface SwitchVersionRequest extends AdditionalDataHolder, Parsable {
      * The version property
      */
     version?: number | null;
+}
+export interface TriggerRunRequest extends AdditionalDataHolder, Parsable {
 }
 export interface TriggerRunResponse extends AdditionalDataHolder, Parsable {
     /**

@@ -32,8 +32,8 @@ public static class RunEndpoints
 
         // Manual trigger: the body is the pipeline input (the input model's z.input view; defaults are
         // filled in). Invalid input is a 400 listing every problem — never a half-started run.
-        group.MapPost("/", Result<TriggerRunResponse> (RunInputService inputs, Id<Pipeline> pipelineId, [FromBody] JsonElement input)
-                => inputs.StartManual(pipelineId, System.Text.Json.Nodes.JsonNode.Parse(input.GetRawText()))
+        group.MapPost("/", Result<TriggerRunResponse> (RunInputService inputs, Id<Pipeline> pipelineId, [FromBody] TriggerRunRequest input)
+                => inputs.StartManual(pipelineId, JsonFields.ToJsonObject(input.Fields))
                     .Map(ToResponse))
             .WithResultMapping<TriggerRunResponse>()
             .WithName("TriggerRun");
@@ -61,10 +61,7 @@ public static class RunEndpoints
         // stored input (only fields no completed step consumed may change).
         group.MapPost("/{number:int}/continue", Result<Run> (
                 RunService runs, RunInputService inputs, Id<Pipeline> pipelineId, int number, [FromBody] ContinueRunRequest? request)
-                => FindRun(runs, pipelineId, number).Bind(run => inputs.Continue(run,
-                    request?.Input is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } changes
-                        ? System.Text.Json.Nodes.JsonNode.Parse(changes.GetRawText())
-                        : null)))
+                => FindRun(runs, pipelineId, number).Bind(run => inputs.Continue(run, JsonFields.ToJsonObject(request?.Input))))
             .WithResultMapping<Run>()
             .WithName("ContinueRun");
 

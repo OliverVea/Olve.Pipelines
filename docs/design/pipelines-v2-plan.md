@@ -73,7 +73,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 
 | | Milestone | Needs |
 |---|---|---|
-| M1 | A TS pipeline from `.pipelines-test/` reconciles on v2 beta into a version and runs end to end (push → describe → stages → outputs in Garage) | A1–A4, A7, B1–B7 |
+| M1 | A TS pipeline from `.pipelines-test/` reconciles on v2 beta into a version and runs end to end (push → describe → stages → outputs in Garage) — **done 2026-10-21** (manual, push and poll runs on beta) | A1–A4, A7, B1–B7 |
 | M2 | API + `pl` cover runs, outputs, reruns, switch; `pl dev` loops work | B8, C1, C2 |
 | M3 | Frontend renders the v2 model | D |
 | M4 | v2 deploys itself to beta from `pipeline.ts`; v1 deployer pipeline retired | A6, B9, E1, E2 |

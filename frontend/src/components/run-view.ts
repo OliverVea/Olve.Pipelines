@@ -1,0 +1,611 @@
+import { LitElement, html, css, nothing } from 'lit';
+import { customElement, property, state, query } from 'lit/decorators.js';
+import type { Attempt, RunDetail, AttemptFileEntry } from '@olve/olve-pipelines-client/src/models/index.js';
+import { client, apiPost, downloadFile, encodePath, errorMessages, untypedToJson } from '../api.js';
+import { navigate } from '../router.js';
+import {
+  sharedStyles,
+  toneOf,
+  statusLabel,
+  formatDuration,
+  formatSize,
+  shortSha,
+  navClick,
+  pipelinePath,
+  runPath,
+  stepHistoryPath,
+  isActiveStatus,
+} from '../v2/ui.js';
+import { loadVersion, type LoadedVersion } from '../v2/versions.js';
+import { stepsByName, stepInputSchema, outputSchemaOf, inputSchemaOf } from '../v2/manifest.js';
+import type { StepState } from './stage-graph.js';
+import type { FileRefValue } from './typed-value.js';
+import type { InputForm } from './input-form.js';
+import './stage-graph.js';
+import './typed-value.js';
+import './input-form.js';
+import './log-pane.js';
+import './relative-time.js';
+
+type AttemptStatusFields = {
+  type?: string | null;
+  startedAt?: Date | null;
+  finishedAt?: Date | null;
+  cancelledAt?: Date | null;
+  reason?: string | null;
+};
+
+function attemptStatus(a: Attempt): AttemptStatusFields {
+  return (a.status ?? {}) as AttemptStatusFields;
+}
+
+function parseJson(s: string | null | undefined): unknown {
+  if (!s) return undefined;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return s;
+  }
+}
+
+/**
+ * One run: its input, the pinned version's stage graph coloured by step status,
+ * and per step the attempts with typed input/output, files and logs. Actions:
+ * cancel, rerun the run, continue with changed input, rerun a step (optionally
+ * continuing the run).
+ */
+@customElement('run-view')
+export class RunView extends LitElement {
+  static styles = [
+    sharedStyles,
+    css`
+      .title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .title .st {
+        font-size: 0.9rem;
+      }
+      .actions {
+        margin-left: auto;
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1.2rem;
+        margin: 0.5rem 0 0;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+      }
+      .meta b {
+        font-weight: 500;
+        color: var(--color-text);
+      }
+      .note {
+        margin-top: 0.6rem;
+        font-size: 0.82rem;
+        padding: 0.4rem 0.7rem;
+        border-left: 3px solid var(--color-warning);
+        background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+        border-radius: 0 var(--radius) var(--radius) 0;
+      }
+      .step-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.6rem;
+      }
+      .step-head h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .attempts {
+        display: flex;
+        gap: 0.3rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+      }
+      .attempt-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.6rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        background: transparent;
+        color: var(--color-text);
+        font-size: 0.8rem;
+      }
+      .attempt-tab[aria-selected='true'] {
+        border-color: var(--color-primary);
+        background: var(--color-surface-hover);
+      }
+      .io {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1rem;
+      }
+      @media (max-width: 760px) {
+        .io {
+          grid-template-columns: 1fr;
+        }
+      }
+      .io h4,
+      .sub h4 {
+        margin: 0 0 0.4rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
+      }
+      .io h4 code {
+        font-weight: 500;
+      }
+      .sub {
+        margin-top: 1rem;
+      }
+      .reason {
+        font-size: 0.82rem;
+        margin: 0 0 0.75rem;
+      }
+      .hist {
+        font-size: 0.8rem;
+      }
+      .continue-help {
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        margin: 0 0 0.8rem;
+      }
+    `,
+  ];
+
+  @property() declare pipelineId: string;
+  @property() declare run: string;
+
+  @state() private declare _detail: RunDetail | null;
+  @state() private declare _attempts: Attempt[];
+  @state() private declare _version: LoadedVersion | null;
+  @state() private declare _pipelineName: string;
+  @state() private declare _error: string | null;
+  @state() private declare _actionErrors: string[];
+  @state() private declare _busy: boolean;
+  @state() private declare _step: string;
+  @state() private declare _attempt: number | null;
+  @state() private declare _files: AttemptFileEntry[] | null;
+  @state() private declare _filesError: string | null;
+  @state() private declare _continueErrors: string[];
+
+  @query('#continue-dialog') private declare _continueDialog: HTMLDialogElement;
+  @query('#continue-form') private declare _continueForm: InputForm;
+
+  private _timer?: ReturnType<typeof setInterval>;
+  private _filesKey = '';
+
+  constructor() {
+    super();
+    this.pipelineId = '';
+    this.run = '';
+    this._detail = null;
+    this._attempts = [];
+    this._version = null;
+    this._pipelineName = '';
+    this._error = null;
+    this._actionErrors = [];
+    this._busy = false;
+    const q = new URLSearchParams(location.search);
+    this._step = q.get('step') ?? '';
+    this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
+    this._files = null;
+    this._filesError = null;
+    this._continueErrors = [];
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    this._timer = setInterval(() => {
+      if (this._detail?.run?.status === 'Running') this._load();
+    }, 3000);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this._timer) clearInterval(this._timer);
+  }
+
+  updated(changed: Map<string, unknown>) {
+    if (changed.has('pipelineId') || changed.has('run')) {
+      this._detail = null;
+      this._version = null;
+      this._load();
+      client.api.pipelines
+        .byId(this.pipelineId)
+        .get()
+        .then((p) => (this._pipelineName = p?.name ?? ''))
+        .catch(() => {});
+    }
+  }
+
+  private get _runApi() {
+    return client.api.pipelines.byId(this.pipelineId).runs.byNumber(Number(this.run));
+  }
+
+  private get _base() {
+    return `/api/pipelines/${this.pipelineId}/runs/${this.run}`;
+  }
+
+  private async _load() {
+    try {
+      const [detail, attempts] = await Promise.all([this._runApi.get(), this._runApi.attempts.get()]);
+      this._detail = detail ?? null;
+      this._attempts = attempts ?? [];
+      this._error = null;
+      const vn = detail?.run?.versionNumber;
+      if (vn !== undefined && vn !== null && this._version?.number !== vn) {
+        this._version = await loadVersion(this.pipelineId, vn);
+      }
+      if (!this._step) this._step = this._defaultStep();
+      this._loadFiles();
+    } catch (e) {
+      this._error = errorMessages(e).join(' ');
+    }
+  }
+
+  /** Pick the step worth looking at first: failed, then running/held, else the last that ran. */
+  private _defaultStep(): string {
+    const steps = (this._detail?.stages ?? []).flatMap((s) => s.steps ?? []);
+    const by = (pred: (s: string) => boolean) => steps.find((s) => pred(s.status ?? ''))?.name;
+    return (
+      by((s) => s === 'failed') ??
+      by((s) => s === 'in-progress' || s === 'held' || s === 'scheduled') ??
+      [...steps].reverse().find((s) => (s.attemptCount ?? 0) > 0)?.name ??
+      steps[0]?.name ??
+      ''
+    );
+  }
+
+  private _stepAttempts(step: string): Attempt[] {
+    return this._attempts.filter((a) => a.stepName === step).sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+  }
+
+  private _selectedAttempt(): Attempt | null {
+    const list = this._stepAttempts(this._step);
+    if (!list.length) return null;
+    return list.find((a) => a.number === this._attempt) ?? list[list.length - 1];
+  }
+
+  private async _loadFiles() {
+    const a = this._selectedAttempt();
+    const st = a ? attemptStatus(a).type : null;
+    const key = a ? `${a.id}:${st}` : '';
+    if (key === this._filesKey) return;
+    this._filesKey = key;
+    this._files = null;
+    this._filesError = null;
+    if (!a || st !== 'succeeded') return;
+    try {
+      const res = await this._runApi.steps
+        .byStep(a.stepName ?? '')
+        .files.get({ queryParameters: { attempt: a.number ?? undefined } });
+      if (this._filesKey === key) this._files = res?.files ?? [];
+    } catch (e) {
+      if (this._filesKey === key) this._filesError = errorMessages(e).join(' ');
+    }
+  }
+
+  private _selectStep(step: string, attempt: number | null = null) {
+    this._step = step;
+    this._attempt = attempt;
+    const q = new URLSearchParams();
+    q.set('step', step);
+    if (attempt) q.set('attempt', String(attempt));
+    history.replaceState(history.state, '', `${location.pathname}?${q}`);
+    this._loadFiles();
+  }
+
+  render() {
+    if (this._error && !this._detail) return html`<p class="error">${this._error}</p>`;
+    const d = this._detail;
+    if (!d) return html`<p class="muted">Loading run…</p>`;
+    const r = d.run!;
+    const input = untypedToJson(d.input) as Record<string, unknown>;
+    const m = this._version?.manifest ?? null;
+    const states = new Map<string, StepState>();
+    for (const stage of d.stages ?? []) {
+      for (const s of stage.steps ?? []) {
+        states.set(s.name ?? '', {
+          status: s.status ?? '',
+          reason: s.reason,
+          attemptCount: s.attemptCount ?? 0,
+          latestAttempt: s.latestAttempt,
+          startedAt: s.startedAt,
+          finishedAt: s.finishedAt,
+          blocked: s.blocked ?? false,
+        });
+      }
+    }
+    const running = r.status === 'Running';
+    return html`
+      <div class="crumbs">
+        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._pipelineName || 'Pipeline'}</a>
+      </div>
+      <section>
+        <div class="title">
+          <h2>Run #${r.number}</h2>
+          <span class="st t-${toneOf(r.status)}"><span class="dot"></span>${statusLabel(r.status)}</span>
+          <div class="actions">
+            ${running
+              ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel run</button>`
+              : nothing}
+            <button class="btn" ?disabled=${this._busy} @click=${this._rerunRun}
+              title="Start a new run with the same input">Rerun run</button>
+            <button class="btn primary" ?disabled=${this._busy || !d.continuable} @click=${this._openContinue}
+              title=${d.continuable ? 'Keep completed stages and run the rest with changed input' : 'Only runs on the active version can be continued'}
+              >Continue…</button>
+          </div>
+        </div>
+        <div class="meta">
+          <span>Version <b>v${r.versionNumber}</b></span>
+          <span>Stamp <b class="mono">${r.versionStamp}</b></span>
+          <span>Trigger <b>${(r.triggerKind ?? '').toLowerCase()}</b></span>
+          ${d.commitSha ? html`<span>Pipeline commit <b class="mono" title=${d.commitSha}>${shortSha(d.commitSha)}</b></span>` : nothing}
+          <span>Started <b><relative-time .value=${r.createdAt}></relative-time></b></span>
+          <span>Duration <b>${formatDuration(r.createdAt, r.finishedAt)}</b></span>
+          ${r.heldAt ? html`<span>Held at <b>${r.heldAt}</b></span>` : nothing}
+          ${r.rerunOfNumber
+            ? html`<span>Rerun of <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}>#${r.rerunOfNumber}</a></span>`
+            : nothing}
+          ${r.supersededByNumber
+            ? html`<span>Superseded by <a href=${runPath(this.pipelineId, r.supersededByNumber)} @click=${navClick}>#${r.supersededByNumber}</a></span>`
+            : nothing}
+        </div>
+        ${!d.continuable && r.status !== 'Superseded'
+          ? html`<p class="note">
+              This run's version (v${r.versionNumber}) is no longer active, so it can't be continued. Trigger a new run
+              on the current version instead.
+            </p>`
+          : nothing}
+        ${r.heldAt && running
+          ? html`<p class="note">
+              Held before <b>${r.heldAt}</b>: its gate is closed. Open the gate on the
+              <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>pipeline page</a> to let the run continue.
+            </p>`
+          : nothing}
+        ${this._actionErrors.length
+          ? html`<div class="errors" role="alert">${this._actionErrors.map((e) => html`<p>${e}</p>`)}</div>`
+          : nothing}
+      </section>
+
+      <section class="panel">
+        <h3>Input</h3>
+        <typed-value .value=${input} .schema=${m ? outputSchemaOf(m, m.input) : null}></typed-value>
+      </section>
+
+      <section>
+        <h3>Stages</h3>
+        ${m
+          ? html`<stage-graph
+              .manifest=${m}
+              .states=${states}
+              .stepVersions=${this._version?.stepVersions ?? null}
+              .selected=${this._step}
+              @step-select=${(e: CustomEvent<{ step: string }>) => this._selectStep(e.detail.step)}
+            ></stage-graph>`
+          : html`<p class="muted">Loading the pinned version…</p>`}
+      </section>
+
+      ${this._step ? this._renderStep(states.get(this._step)) : nothing}
+      ${this._renderContinueDialog(input)}
+    `;
+  }
+
+  private _renderStep(st: StepState | undefined) {
+    const m = this._version?.manifest ?? null;
+    const step = stepsByName(m).get(this._step);
+    const attempts = this._stepAttempts(this._step);
+    const a = this._selectedAttempt();
+    const as = a ? attemptStatus(a) : null;
+    const continuable = this._detail?.continuable ?? false;
+    const logsUrl = a ? `${this._base}/steps/${encodeURIComponent(this._step)}/logs?attempt=${a.number}` : '';
+    return html`<section class="panel">
+      <div class="step-head">
+        <h3>${this._step}</h3>
+        ${st ? html`<span class="st t-${toneOf(st.status)}"><span class="dot"></span>${statusLabel(st.status)}</span>` : nothing}
+        ${st?.blocked ? html`<span class="pill t-wait" title="This step's gate is closed">gate closed</span>` : nothing}
+        <a href=${stepHistoryPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step history</a>
+        <div class="actions">
+          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}
+            title="Add an attempt of this step only">Rerun step</button>
+          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}
+            title="Add an attempt, then continue the run from here">Rerun and continue</button>
+        </div>
+      </div>
+      ${attempts.length
+        ? html`<div class="attempts" role="tablist" aria-label="Attempts">
+            ${attempts.map((x) => {
+              const t = attemptStatus(x).type ?? '';
+              return html`<button
+                class="attempt-tab"
+                role="tab"
+                aria-selected=${x.id === a?.id}
+                @click=${() => this._selectStep(this._step, x.number ?? null)}
+              >
+                <span class="dot t-${toneOf(t)}"></span>@${x.number} ${statusLabel(t)}
+              </button>`;
+            })}
+          </div>`
+        : html`<p class="muted">No attempts${st ? ` — ${statusLabel(st.status)}` : ''}.</p>`}
+      ${a && as
+        ? html`
+            <div class="meta" style="margin:0 0 0.75rem">
+              <span>Created <b><relative-time .value=${a.createdAt}></relative-time></b></span>
+              ${as.startedAt ? html`<span>Ran <b>${formatDuration(as.startedAt, as.finishedAt ?? as.cancelledAt)}</b></span>` : nothing}
+              ${a.inputHash ? html`<span title=${a.inputHash}>Input hash <b class="mono">${a.inputHash.slice(7, 17)}</b></span>` : nothing}
+            </div>
+            ${as.reason ? html`<p class="reason"><b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}</p>` : nothing}
+            <div class="io">
+              <div>
+                <h4>Input</h4>
+                ${a.input
+                  ? html`<typed-value
+                      .value=${parseJson(a.input)}
+                      .schema=${m && step ? stepInputSchema(m, step) : null}
+                      @file-download=${this._onFileRef}
+                    ></typed-value>`
+                  : html`<span class="muted">Not assembled.</span>`}
+              </div>
+              <div>
+                <h4>Output${step?.output ? html` <code>${step.output}</code>` : nothing}</h4>
+                ${a.output?.json
+                  ? html`<typed-value
+                      .value=${parseJson(a.output.json)}
+                      .schema=${m ? outputSchemaOf(m, step?.output) : null}
+                      @file-download=${this._onFileRef}
+                    ></typed-value>`
+                  : html`<span class="muted">${step && !step.output ? 'This step declares no output.' : 'No output.'}</span>`}
+              </div>
+            </div>
+            ${this._renderFiles(a)}
+            <div class="sub">
+              <h4>Logs</h4>
+              <log-pane .url=${logsUrl} ?live=${isActiveStatus(as.type)}></log-pane>
+            </div>
+          `
+        : nothing}
+    </section>`;
+  }
+
+  private _renderFiles(a: Attempt) {
+    if (attemptStatus(a).type !== 'succeeded') return nothing;
+    return html`<div class="sub">
+      <h4>Files</h4>
+      ${this._filesError
+        ? html`<p class="error">${this._filesError}</p>`
+        : this._files === null
+          ? html`<span class="muted">Loading…</span>`
+          : this._files.length === 0
+            ? html`<span class="muted">No files.</span>`
+            : html`<div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Path</th><th class="num">Size</th><th>Modified</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    ${this._files.map(
+                      (f) => html`<tr>
+                        <td class="mono">${f.path}</td>
+                        <td class="num">${formatSize(f.size)}</td>
+                        <td>${f.lastModified ? html`<relative-time .value=${f.lastModified}></relative-time>` : ''}</td>
+                        <td>
+                          <button class="btn small" @click=${() => this._download(a.stepName ?? '', a.number ?? 0, f.path ?? '')}>
+                            Download
+                          </button>
+                        </td>
+                      </tr>`,
+                    )}
+                  </tbody>
+                </table>
+              </div>`}
+    </div>`;
+  }
+
+  private _renderContinueDialog(input: Record<string, unknown>) {
+    const m = this._version?.manifest ?? null;
+    return html`<dialog id="continue-dialog" @close=${() => (this._continueErrors = [])}>
+      <h3>Continue run #${this.run}</h3>
+      <p class="continue-help">
+        Completed stages are kept; the rest re-evaluates its <code>when</code> conditions with the new input. Only
+        fields no completed step has read can change.
+      </p>
+      ${m
+        ? html`<input-form id="continue-form" .schema=${inputSchemaOf(m, m.input)} .initial=${input}></input-form>`
+        : nothing}
+      ${this._continueErrors.length
+        ? html`<div class="errors" role="alert">${this._continueErrors.map((e) => html`<p>${e}</p>`)}</div>`
+        : nothing}
+      <div class="dialog-actions">
+        <button class="btn" @click=${() => this._continueDialog.close()}>Close</button>
+        <button class="btn primary" ?disabled=${this._busy} @click=${this._continue}>Continue run</button>
+      </div>
+    </dialog>`;
+  }
+
+  private _openContinue() {
+    this._continueErrors = [];
+    this._continueDialog.showModal();
+  }
+
+  private async _act(fn: () => Promise<void>, errors: 'action' | 'continue' = 'action') {
+    this._busy = true;
+    if (errors === 'action') this._actionErrors = [];
+    else this._continueErrors = [];
+    try {
+      await fn();
+    } catch (e) {
+      if (errors === 'action') this._actionErrors = errorMessages(e);
+      else this._continueErrors = errorMessages(e);
+    } finally {
+      this._busy = false;
+    }
+  }
+
+  private _cancel = () =>
+    this._act(async () => {
+      if (!confirm(`Cancel run #${this.run}? Running steps are stopped.`)) return;
+      await apiPost(`${this._base}/cancel`);
+      await this._load();
+    });
+
+  private _rerunRun = () =>
+    this._act(async () => {
+      const res = await apiPost<{ outcome: string; run: { number: number } | null }>(`${this._base}/rerun`);
+      if (res?.run?.number) navigate(runPath(this.pipelineId, res.run.number));
+      else this._actionErrors = [`Rerun: ${res?.outcome ?? 'no run started'}.`];
+    });
+
+  private _continue = () =>
+    this._act(async () => {
+      const r = this._continueForm?.collect();
+      if (!r || !r.ok) {
+        this._continueErrors = ['Fix the highlighted fields.'];
+        return;
+      }
+      await apiPost(`${this._base}/continue`, { input: r.value });
+      this._continueDialog.close();
+      await this._load();
+    }, 'continue');
+
+  private _rerunStep = (cont: boolean) =>
+    this._act(async () => {
+      const step = this._step;
+      const a = await apiPost<{ number?: number }>(`${this._base}/steps/${encodeURIComponent(step)}/rerun`, {
+        continue: cont,
+      });
+      await this._load();
+      this._selectStep(step, a?.number ?? null);
+    });
+
+  private _download(step: string, attempt: number, path: string) {
+    const name = path.endsWith('/') ? `${path.slice(0, -1).split('/').pop()}.tar` : (path.split('/').pop() ?? path);
+    const url = `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(step)}/files/${encodePath(path)}?attempt=${attempt}`;
+    return this._act(() => downloadFile(url, name));
+  }
+
+  private _onFileRef = (e: CustomEvent<{ ref: FileRefValue }>) => {
+    const ref = e.detail.ref;
+    const name = ref.path.endsWith('/') ? `${ref.path.slice(0, -1).split('/').pop()}.tar` : (ref.path.split('/').pop() ?? ref.path);
+    const url = `/api/pipelines/${this.pipelineId}/runs/${ref.run}/steps/${encodeURIComponent(ref.step)}/files/${encodePath(ref.path)}?attempt=${ref.attempt}`;
+    this._act(() => downloadFile(url, name));
+  };
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'run-view': RunView;
+  }
+}

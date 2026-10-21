@@ -10,6 +10,8 @@ const routes: Route[] = [
   { pattern: /^\/docs\/([\w-]+)$/, params: ['page'], view: 'docs-view' },
   { pattern: /^\/docs\/?$/, params: [], view: 'docs-view' },
   { pattern: /^\/pipeline\/([^/]+)\/job\/([^/]+)\/logs$/, params: ['pipelineId', 'jobId'], view: 'job-logs-view' },
+  { pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)$/, params: ['pipelineId', 'run'], view: 'run-view' },
+  { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'step'], view: 'step-history-view' },
   { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },
 ];
 
@@ -24,7 +26,7 @@ export function resolve(path: string): ResolvedRoute {
     if (match) {
       const params: Record<string, string> = {};
       route.params.forEach((name, i) => {
-        params[name] = match[i + 1];
+        params[name] = decodeURIComponent(match[i + 1]);
       });
       return { view: route.view, params };
     }

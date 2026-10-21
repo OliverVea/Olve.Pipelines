@@ -8,6 +8,7 @@
     "predev": "node scripts/build-docs-index.mjs",
     "dev": "vite",
     "dev:prod": "vite --mode prod-api",
+    "dev:v2beta": "vite --mode v2beta",
     "prebuild": "node scripts/build-docs-index.mjs",
     "build": "tsc -p tsconfig.app.json && vite build",
     "typecheck": "tsc -p tsconfig.app.json",

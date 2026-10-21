@@ -1,4 +1,29 @@
-import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts';
+import { User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
+
+/**
+ * Dev-only auth bypass (`VITE_DEV_AUTH=bypass`, ignored in production builds):
+ * no OIDC redirect, a placeholder user, and `VITE_DEV_TOKEN` (if set) as the
+ * bearer token. Reads are anonymous, so this is enough to run the dev server
+ * against a remote instance whose OIDC client has no localhost redirect URI.
+ */
+export const devAuthBypass: boolean =
+  import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH === 'bypass';
+
+const devUser: User | null = devAuthBypass
+  ? new User({
+      access_token: import.meta.env.VITE_DEV_TOKEN ?? '',
+      token_type: 'Bearer',
+      profile: {
+        sub: 'dev',
+        iss: 'dev',
+        aud: 'dev',
+        exp: 0,
+        iat: 0,
+        preferred_username: import.meta.env.VITE_DEV_TOKEN ? 'dev (token)' : 'dev (anonymous)',
+      },
+      expires_at: Math.floor(Date.now() / 1000) + 365 * 24 * 3600,
+    })
+  : null;
 
 type FrontendConfig = {
   oidcAuthority: string;
@@ -44,11 +69,13 @@ function getUserManager(): Promise<UserManager> {
 export type AuthUser = User;
 
 export async function getUser(): Promise<User | null> {
+  if (devUser) return devUser;
   const userManager = await getUserManager();
   return userManager.getUser();
 }
 
 export async function getAccessToken(): Promise<string | null> {
+  if (devAuthBypass) return import.meta.env.VITE_DEV_TOKEN || null;
   const userManager = await getUserManager();
   const user = await userManager.getUser();
   if (!user || user.expired) return null;
@@ -56,6 +83,7 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 export async function login(): Promise<void> {
+  if (devAuthBypass) return;
   const userManager = await getUserManager();
   await userManager.signinRedirect({ state: window.location.pathname });
 }
@@ -67,6 +95,7 @@ export async function handleCallback(): Promise<string> {
 }
 
 export async function logout(): Promise<void> {
+  if (devAuthBypass) return;
   const userManager = await getUserManager();
   await userManager.signoutRedirect();
 }
@@ -78,6 +107,7 @@ export function onUserChanged(callback: (user: User | null) => void): () => void
 
   let unsubscribe = () => {};
   let cancelled = false;
+  if (devAuthBypass) return () => {};
 
   getUserManager().then((userManager) => {
     if (cancelled) return;

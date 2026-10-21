@@ -15,7 +15,7 @@ export class AppShell extends LitElement {
   static styles = css`
     :host {
       display: block;
-      max-width: 1200px;
+      max-width: 1320px;
       margin: 0 auto;
       padding: 1.5rem;
     }
@@ -164,6 +164,16 @@ export class AppShell extends LitElement {
         return html`<pipeline-detail-view
           .pipelineId=${this._route.params.pipelineId}
         ></pipeline-detail-view>`;
+      case 'run-view':
+        return html`<run-view
+          .pipelineId=${this._route.params.pipelineId}
+          .run=${this._route.params.run}
+        ></run-view>`;
+      case 'step-history-view':
+        return html`<step-history-view
+          .pipelineId=${this._route.params.pipelineId}
+          .step=${this._route.params.step}
+        ></step-history-view>`;
       case 'job-logs-view':
         return html`<job-logs-view
           .pipelineId=${this._route.params.pipelineId}

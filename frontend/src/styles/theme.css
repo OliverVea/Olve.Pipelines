@@ -44,6 +44,36 @@
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --transition: 150ms ease;
   --shadow: 0 1px 3px rgba(4, 32, 55, 0.08), 0 1px 2px rgba(4, 32, 55, 0.04);
+
+  /* Code/data surfaces and the `when` accent. */
+  --color-code-bg: #eef3f8;
+  --color-when: var(--gold-300);
+  --color-diff-add: color-mix(in srgb, var(--color-success) 14%, transparent);
+  --color-diff-del: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  color-scheme: light;
+}
+
+/* Dark theme: the same navy family, lifted — not a neutral near-black. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #0c1a28;
+    --color-surface: #12253a;
+    --color-surface-hover: #183049;
+    --color-border: #26405a;
+    --color-text: #dbe5ee;
+    --color-text-muted: #8aa2b8;
+    --color-primary: #8db3d6;
+    --color-primary-hover: #b3cde6;
+    --color-danger: var(--coral-200);
+    --color-danger-hover: var(--coral-100);
+    --color-success: #4fbf8a;
+    --color-warning: var(--gold-200);
+    --color-pending: #6f8aa3;
+    --color-code-bg: #0f2033;
+    --color-when: var(--gold-200);
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
 }
 
 html {

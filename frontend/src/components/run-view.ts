@@ -221,6 +221,11 @@ export class RunView extends LitElement {
     if (changed.has('pipelineId') || changed.has('run')) {
       this._detail = null;
       this._version = null;
+      this._actionErrors = [];
+      this._filesKey = '';
+      const q = new URLSearchParams(location.search);
+      this._step = q.get('step') ?? '';
+      this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
       this._load();
       client.api.pipelines
         .byId(this.pipelineId)

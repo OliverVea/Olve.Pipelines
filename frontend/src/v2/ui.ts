@@ -15,9 +15,11 @@ export function toneOf(status: string | null | undefined): Tone {
       return 'ok';
     case 'failed':
     case 'unhealthy':
+    case 'running (unhealthy)':
       return 'fail';
     case 'in-progress':
     case 'running':
+    case 'running (healthy)':
     case 'scheduled':
       return 'run';
     case 'held':

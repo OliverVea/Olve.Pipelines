@@ -4,6 +4,7 @@ using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Pipelines.Sync;
@@ -71,6 +72,20 @@ public static class ServiceConfiguration
         services.AddTransient<RunCleanupService>();
         services.AddSingleton<IRunOnStartup, RunEventRegistration>();
 
+        // v2 scheduler: stage barriers, when/skip propagation, supersede, de-dup, reruns/continue,
+        // promotion gates, draining queue + switch completion. One lock serialises it.
+        services.AddSingleton<RunSchedulingLock>();
+        services.AddSingleton<RunPlanCache>();
+        services.AddSingleton<AttachmentStore<Pipeline, PipelineStepGates>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PendingRunStart>>();
+        services.AddTransient<StepGateService>();
+        services.AddTransient<StageScheduler>();
+        services.AddTransient<RunStartService>();
+        services.AddTransient<SwitchService>();
+        services.AddTransient<RunContinuationService>();
+        services.AddTransient<AttemptLaunchService>();
+        services.AddTransient<RunSchedulingHandler>();
+
         // Job machinery: each attempt runs as one K8s Job.
         services.AddTransient<JobLogService>();
         services.AddTransient<JobObsoletionService>();
@@ -84,6 +99,9 @@ public static class ServiceConfiguration
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
+        // After every event registration: the sweep's writes must reach cleanup/obsoletion/scheduling.
+        services.AddSingleton<IRunOnStartup, RunSchedulingEventRegistration>();
+        services.AddSingleton<IRunOnStartup, RunSchedulingStartup>();
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineSummaryService>();

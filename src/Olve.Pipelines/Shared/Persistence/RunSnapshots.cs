@@ -1,5 +1,6 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Shared.Persistence;
@@ -26,8 +27,20 @@ public record PipelineVersionMetadata(
         => new(Id, PipelineId, Number, manifest, ManifestHash, CommitSha, BinaryKey, StepVersions, ModelVersions, CreatedAt);
 }
 
-/// <summary><c>pipeline-state.json</c>: per-pipeline operational state (active version/switch, number sequences).</summary>
-public record PipelineStateSnapshot(PipelineActivationEntry[] Activations, PipelineSequencesEntry[] Sequences);
+/// <summary>
+/// <c>pipeline-state.json</c>: per-pipeline operational state (active version/switch, number sequences,
+/// promotion gates, the run start queued during a drain). <see cref="Gates"/> and <see cref="PendingStarts"/>
+/// were added in B4 and are absent from older files (null on load).
+/// </summary>
+public record PipelineStateSnapshot(
+    PipelineActivationEntry[] Activations,
+    PipelineSequencesEntry[] Sequences,
+    PipelineStepGatesEntry[]? Gates = null,
+    PendingRunStartEntry[]? PendingStarts = null);
+
+public record PipelineStepGatesEntry(Id<Pipeline> PipelineId, PipelineStepGates Gates);
+
+public record PendingRunStartEntry(Id<Pipeline> PipelineId, PendingRunStart Pending);
 
 public record PipelineActivationEntry(Id<Pipeline> PipelineId, PipelineActivation Activation);
 

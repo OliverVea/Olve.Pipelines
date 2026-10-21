@@ -107,7 +107,7 @@ public class RunService(
             return new ResultProblem("'{0}' is not a completion status.", status);
 
         var now = timeProvider.GetUtcNow();
-        return Transition(id, r => r with { Status = status, FinishedAt = now });
+        return Transition(id, r => r with { Status = status, FinishedAt = now, HeldAt = null });
     }
 
     public Result<Run> Cancel(Id<Run> id) => Complete(id, RunStatus.Cancelled);
@@ -119,7 +119,45 @@ public class RunService(
             return new ResultProblem("A run cannot supersede itself.");
 
         var now = timeProvider.GetUtcNow();
-        return Transition(id, r => r with { Status = RunStatus.Superseded, SupersededBy = supersededBy, FinishedAt = now });
+        return Transition(id, r => r with { Status = RunStatus.Superseded, SupersededBy = supersededBy, FinishedAt = now, HeldAt = null });
+    }
+
+    /// <summary>
+    /// Re-opens a finished run for a continue (spec §5.2): Succeeded/Failed/Cancelled → Running, with
+    /// <see cref="Run.ResumedAt"/> = now (its failed/cancelled attempts become stale and are retried).
+    /// A superseded run cannot be re-opened — a newer run replaced it. Optionally replaces the input.
+    /// Also valid on a Running run (only stamps <see cref="Run.ResumedAt"/> and the input).
+    /// </summary>
+    public Result<Run> Reopen(Id<Run> id, string? input = null)
+    {
+        if (input is not null && !JsonText.IsWellFormed(input))
+            return new ResultProblem("Run input must be well-formed JSON.");
+        if (!store.TryGet(id, out var current))
+            return new ResultProblem("Run '{0}' not found.", id);
+        if (current.Status is RunStatus.Superseded)
+            return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", current.Number);
+
+        var now = timeProvider.GetUtcNow();
+        var mutated = store.Mutate(id, r => r.Status is RunStatus.Superseded
+            ? r
+            : r with { Status = RunStatus.Running, FinishedAt = null, HeldAt = null, ResumedAt = now, Input = input ?? r.Input });
+        if (mutated.TryPickProblems(out var problems))
+            return problems;
+
+        return store.TryGet(id, out var after) && after.Status is RunStatus.Running
+            ? after
+            : new ResultProblem("Run '{0}' changed concurrently.", id);
+    }
+
+    /// <summary>Sets (or clears, with null) the gate hold marker of a Running run. No-op when unchanged.</summary>
+    public Result SetHeldAt(Id<Run> id, string? stepName)
+    {
+        if (!store.TryGet(id, out var current))
+            return new ResultProblem("Run '{0}' not found.", id);
+        if (current.HeldAt == stepName || current.Status is not RunStatus.Running)
+            return Result.Success();
+
+        return store.Mutate(id, r => r.Status is RunStatus.Running ? r with { HeldAt = stepName } : r);
     }
 
     public DeletionResult Delete(Id<Run> id) => store.Delete(id);

@@ -14,6 +14,9 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// <param name="VersionStamp">Derived from the run: <c>yyyy.MM.dd.&lt;number&gt;</c> (UTC creation date), see <see cref="RunVersionStamp"/>.</param>
 /// <param name="SupersededBy">The newer automatic run that superseded this one (status <see cref="RunStatus.Superseded"/>).</param>
 /// <param name="RerunOf">The run this one re-runs as a whole (same input, new run).</param>
+/// <param name="HeldAt">While Running: the step a promotion gate holds the run at (no attempt created yet).</param>
+/// <param name="ResumedAt">When the run was last continued (rerun-and-continue / continue). Failed, cancelled
+/// and obsolete attempts created before this are stale and get retried by the scheduler.</param>
 public record Run(
     Id<Run> Id,
     Id<Pipeline> PipelineId,
@@ -27,7 +30,9 @@ public record Run(
     DateTimeOffset CreatedAt,
     DateTimeOffset? FinishedAt = null,
     Id<Run>? SupersededBy = null,
-    Id<Run>? RerunOf = null) : IHasId<Id<Run>>;
+    Id<Run>? RerunOf = null,
+    string? HeldAt = null,
+    DateTimeOffset? ResumedAt = null) : IHasId<Id<Run>>;
 
 [JsonConverter(typeof(JsonStringEnumConverter<RunStatus>))]
 public enum RunStatus
@@ -51,7 +56,12 @@ public enum RunTriggerKind
 /// What started a run. <see cref="DedupKey"/> is the automatic-trigger de-duplication key (spec §5.3:
 /// pipeline + mapped input); null for explicit (manual) runs, which always create work.
 /// </summary>
-public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null);
+public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null)
+{
+    /// <summary>Webhook/poll triggers: de-duplicated and superseding (spec §5.3). Explicit actions are neither.</summary>
+    [JsonIgnore]
+    public bool IsAutomatic => Kind is RunTriggerKind.Push or RunTriggerKind.Poll;
+}
 
 public static class RunStatusExtensions
 {

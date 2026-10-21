@@ -3,7 +3,10 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-/// <summary>Latest-wins among Scheduled attempts sharing a (pipeline, step name) key (spec §5.3).</summary>
+/// <summary>
+/// Latest-wins among Scheduled attempts sharing a (pipeline, step name) key (spec §5.3). The loser
+/// becomes Obsolete; the scheduler then supersedes the loser's run by the winner's run.
+/// </summary>
 public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletionService> logger)
 {
     public void HandleAttemptAdded(Id<Attempt> attemptId)
@@ -19,14 +22,17 @@ public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletion
         if (contenders.Count < 2)
             return;
 
-        // Latest-wins as a STRICT total order: newest CreatedAt, with Id as a deterministic
-        // tie-break for genuinely simultaneous creations. The winner is the maximum of a fixed
+        // Latest-wins as a STRICT total order: the newest run first (an older run's pending attempt never
+        // displaces a newer run's — e.g. a rerun inside an old run loses to the newer run's pending
+        // attempt, and the newer run is never superseded by it), then newest CreatedAt, with Id as a
+        // deterministic tie-break for genuinely simultaneous creations. The winner is the maximum of a fixed
         // ordering — never "the other attempt" — so two attempts created concurrently can never name
         // each other as superseding (the mutual-supersession cycle that silently wedged the pipeline).
         // The maximum is never obsoleted, so after any burst of concurrent scheduling exactly one
         // runnable attempt survives for the key.
         var winner = contenders
-            .OrderByDescending(a => a.CreatedAt)
+            .OrderByDescending(a => a.RunNumber)
+            .ThenByDescending(a => a.CreatedAt)
             .ThenByDescending(a => a.Id)
             .First();
 

@@ -1097,6 +1097,12 @@
                 "$ref": "#/components/schemas/AttemptOutput"
               }
             ]
+          },
+          "input": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -1751,6 +1757,19 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "heldAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resumedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

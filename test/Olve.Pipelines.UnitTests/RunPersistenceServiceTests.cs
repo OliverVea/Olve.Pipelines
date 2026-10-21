@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Results.TUnit;
@@ -55,7 +56,7 @@ public class RunPersistenceServiceTests
         var domain = new TestRunDomain();
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
-            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences,
+            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);
@@ -246,6 +247,41 @@ public class RunPersistenceServiceTests
         await Assert.That(e.CreateRun(v2b!).Number).IsEqualTo(4);
         await Assert.That(e.AddVersion(pipeline.Id).Number).IsEqualTo(3);
         await Assert.That(e.Schedule("build", run1After!).Number).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Restart_RestoresGatesAndQueuedRunStart()
+    {
+        var store = new FakeObjectStore();
+        var a = await StartNode(store);
+        var pipeline = a.Domain.CreatePipeline();
+        a.Domain.Gates.Set(pipeline.Id, new PipelineStepGates(["deploy-prod"]));
+        var queued = new PendingRunStart("""{"sha":"aaa"}""", new RunTrigger(RunTriggerKind.Push, "sha:aaa"), DateTimeOffset.UnixEpoch);
+        a.Domain.PendingStarts.Set(pipeline.Id, queued);
+        await a.Service.StoppingAsync(CancellationToken.None);
+        a.Service.Dispose();
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(b.Domain.Gates.TryGet(pipeline.Id, out var gates)).IsTrue();
+        await Assert.That(gates!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
+        await Assert.That(b.Domain.PendingStarts.TryGet(pipeline.Id, out var pending)).IsTrue();
+        await Assert.That(pending).IsEqualTo(queued);
+    }
+
+    [Test]
+    public async Task PipelineStateWrittenBeforeGatesExisted_Loads()
+    {
+        var store = new FakeObjectStore();
+        store.Objects[RunPersistenceService.StateKey] = """{"Activations":[],"Sequences":[]}"""u8.ToArray();
+        var node = CreateNode(store);
+
+        await node.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(node.Readiness.IsReady).IsTrue();
+        await Assert.That(node.Domain.Gates.GetAll()).IsEmpty();
+        await Assert.That(node.Domain.PendingStarts.GetAll()).IsEmpty();
     }
 
     // ---- incremental writes ----

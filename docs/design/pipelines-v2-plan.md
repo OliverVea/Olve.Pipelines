@@ -46,7 +46,7 @@ Two tracks run in parallel until they meet at the harness contract (B5/B6).
 | B6 | **Build/describe in reconcile + versions + switch**: subtree changed → build/describe Job (presigned PUT for binary, manifest from log sentinels) → validate → new version if hash changed → persisted `switch` state machine (Draining → Active); binding status shows manifest problems | integration test on beta with `.pipelines-test/` TS fixture |
 | B7 | **Triggers**: push (binding webhook/deploy poll → map-trigger Job → validated input), poll (adapted `PollTriggerService`, per-trigger secrets), manual `POST trigger` with input validation (C# JSON Schema validator if AOT-safe, else a `validate-input` harness mode Job) | push → run end to end on beta |
 | B8 | **API**: runs, attempts, outputs/files (§5.5 addressing), logs, rerun/continue/cancel, gate block/unblock, versions/manifest/switch, manifest validate endpoint (for `pl dev validate`), health summary over runs | regenerated clients; integration tests — **done 2026-10-21** (see B8 notes) |
-| B9 | `onFailure` with typed `FailureContext` (handler run via harness, untracked); retention for runs/versions/binaries/file refs | tests |
+| B9 | `onFailure` with typed `FailureContext` (handler run via harness, untracked); retention for runs/versions/binaries/file refs | tests — **done 2026-10-21** (see B9 notes) |
 
 **B8 notes (2026-10-21).** Endpoints (operationId): `ListRuns` (paged `RunSummary`, newest first),
 `GetRun` (`RunDetail`: input, pinned version + commit, links by run number, `continuable`, the pinned
@@ -73,6 +73,51 @@ always 200 with `{valid, manifestHash, errors, warnings}`). Decisions and deviat
   the changed downstream steps, continue rejections, whole-run rerun, cancel mid-stage).
 - Known: the generated TS client has a pre-existing `tsc` error on nullable polymorphic
   `PipelineActivation` members (also in `PipelineVersionsResponse` before B8); `vite build` is green.
+
+**B9 notes (2026-10-21).** No API changes.
+- **onFailure.** A run going Running → Failed (`RunEvents.OnUpdated`) runs each failure handler of its
+  *pinned* manifest whose scope (`steps`, null = any) contains one of the run's failed steps (each step's
+  latest attempt that failed, not stale relative to `ResumedAt`); a run that failed without a failed step
+  (unusable manifest) runs none. `FailureContext` (SDK `library/models.ts`): `pipeline {id, name}`,
+  `run {id, number, address, versionStamp, trigger, url}`, `version {number, commit}`, `input`, `reason`,
+  `failedSteps[] {step, attempt, address, reason, logUrl}` (only the steps in the handler's scope). The
+  service projects it onto the pinned manifest's FailureContext schema and validates it first — a
+  version built with an older SDK model is skipped with a logged reason, not launched into exit 65.
+  Untracked and best-effort: a harness Job `olve-fh-<24 hex>` (deterministic per run + failure +
+  handler, so a duplicate dispatch reattaches; a continued run that fails again dispatches again),
+  role `on-failure` (v1 handler Jobs are `failure-handler`), the handler's declared secrets, no result
+  upload, 7-day TTL; `input.json` and the log under `runs/<p>/<run>/_failure/<handler>/<id>/`; the URL
+  Secret is deleted after. No attempt, no retry, no effect on the run. Links use `Links:BaseUrl` (else
+  `Webhooks:PublicBaseUrl`), set on v2 beta. The fixture has `mode: "fail"` (echo throws) and an
+  unscoped `log-failure` handler.
+- **Retention** (`Retention:*`, **dry run by default** — set `Retention__DryRun=false` to delete). A run
+  expires only when BOTH older than `MinRunAgeDays` (183) AND beyond its pipeline's `KeepLatestRuns`
+  (20); never Running. Its objects (outputs, files, logs, `_failure/`) go after it is deleted through
+  `RunService.Delete` and persistence is flushed; `run.json`, manifests and indexes are never deleted by
+  retention (persistence owns them). `step.tar.gz` (both key shapes) is kept for active/draining
+  versions and versions of retained runs, else deleted after `BuildGraceDays` (7). Leftovers: objects of
+  runs no longer in state after `OrphanGraceDays` (7), leftover `result.tar.gz` of finished attempts
+  (`ResultArchiveGraceHours`, 24), stale `triggers/…/event.json`. K8s: URL Secrets (`olve-urls-<attempt>`,
+  `olve-{map,fh,build}-…-urls`) once their Job is gone/finished and their attempt is not active; leaked
+  (running, attempt not active) step Jobs and TTL-less finished Jobs — only with a v2 role and a
+  pipeline of this instance (the runner namespace is shared with v1). Startup sweep after
+  `StartupDelayMinutes` (2), then every `IntervalHours` (24); per-category counts every sweep, each
+  item in dry run. Version entities and their manifests are kept (small; history).
+- **Poll triggers** persist their last value per (pipeline, trigger) in `pipeline-state.json`
+  (`PollTriggers`): after a restart the first fetch is compared against it, so a commit pushed just
+  before a redeploy still triggers; only a new trigger or a changed URL seeds.
+- Removed the test-only `RunQueryService.GetStepHistory`/`StepHistoryEntry`.
+- Verified live on v2 beta: fixture run #20 (`mode: fail`) failed at echo → `olve-fh-30657fc6…`
+  (role `on-failure`) ran `log-failure` and printed the full context (run address, version 5 + commit,
+  input, reason, echo@1 with a working log link); log persisted under `_failure/`, URL Secret gone. A
+  dry-run sweep with temporary aggressive thresholds (latest 3, 0 days) listed 17 runs / 186 objects and
+  4 unused ~44 MB binaries it would delete, keeping the active version's; K8s listings worked. After a
+  redeploy the poll trigger compared against its persisted value instead of re-seeding. Real deletion
+  is unit-tested only (beta keeps dry run).
+- Known gaps: a dispatch lost to a crash between the run failing and the Job being created is not
+  retried (best-effort by design); switching back to a version whose binary retention removed fails at
+  launch (only possible for a version no retained run used, after the grace); handler Jobs do not
+  appear in the API/UI (log is in Garage only).
 
 ### Track C — `pl` CLI
 

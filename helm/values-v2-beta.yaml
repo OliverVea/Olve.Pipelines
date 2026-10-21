@@ -14,12 +14,6 @@ config:
   Webhooks__PublicBaseUrl: ""
   # Base of the run/log links in a failure handler's FailureContext.
   Links__BaseUrl: "https://pipelines-v2-beta.ovea.pro"
-  # TEMPORARY (B9 verification): aggressive thresholds so the dry-run sweep logs what it would delete.
-  # Retention__DryRun stays at its default (true). Remove once verified.
-  Retention__KeepLatestRuns: "3"
-  Retention__MinRunAgeDays: "0"
-  Retention__BuildGraceDays: "0"
-  Retention__StartupDelayMinutes: "1"
 
 # MinIO is archived (images 401); v2 never had one.
 minio:

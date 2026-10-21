@@ -15,6 +15,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- self-deploy.manifest.json: `olve-dev describe sdk/examples/self-deploy` output, byte-for-byte. -->
+    <None Include="Manifests/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Olve.Pipelines/Olve.Pipelines.csproj" />
     <ProjectReference Include="../../src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
   </ItemGroup>

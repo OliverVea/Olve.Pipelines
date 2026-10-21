@@ -14,6 +14,10 @@ export interface Attempt extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
+     * The input property
+     */
+    input?: string | null;
+    /**
      * The inputHash property
      */
     inputHash?: string | null;
@@ -479,6 +483,7 @@ export function deserializeIntoAttempt(attempt: Partial<Attempt> | undefined = {
     return {
         "createdAt": n => { attempt.createdAt = n.getDateValue(); },
         "id": n => { attempt.id = n.getGuidValue(); },
+        "input": n => { attempt.input = n.getStringValue(); },
         "inputHash": n => { attempt.inputHash = n.getStringValue(); },
         "number": n => { attempt.number = n.getNumberValue(); },
         "output": n => { attempt.output = n.getObjectValue<AttemptOutput>(createAttemptOutputFromDiscriminatorValue) ?? n.getObjectValue<Attempt_outputMember1>(createAttempt_outputMember1FromDiscriminatorValue); },
@@ -811,11 +816,13 @@ export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<
     return {
         "createdAt": n => { run.createdAt = n.getDateValue(); },
         "finishedAt": n => { run.finishedAt = n.getDateValue(); },
+        "heldAt": n => { run.heldAt = n.getStringValue(); },
         "id": n => { run.id = n.getGuidValue(); },
         "input": n => { run.input = n.getStringValue(); },
         "number": n => { run.number = n.getNumberValue(); },
         "pipelineId": n => { run.pipelineId = n.getGuidValue(); },
         "rerunOf": n => { run.rerunOf = n.getGuidValue(); },
+        "resumedAt": n => { run.resumedAt = n.getDateValue(); },
         "status": n => { run.status = n.getEnumValue<RunStatus>(RunStatusObject); },
         "supersededBy": n => { run.supersededBy = n.getGuidValue(); },
         "trigger": n => { run.trigger = n.getObjectValue<RunTrigger>(createRunTriggerFromDiscriminatorValue); },
@@ -1133,6 +1140,10 @@ export interface Run extends AdditionalDataHolder, Parsable {
      */
     finishedAt?: Date | null;
     /**
+     * The heldAt property
+     */
+    heldAt?: string | null;
+    /**
      * The id property
      */
     id?: Guid | null;
@@ -1152,6 +1163,10 @@ export interface Run extends AdditionalDataHolder, Parsable {
      * The rerunOf property
      */
     rerunOf?: Guid | null;
+    /**
+     * The resumedAt property
+     */
+    resumedAt?: Date | null;
     /**
      * The status property
      */
@@ -1224,6 +1239,7 @@ export function serializeAttempt(writer: SerializationWriter, attempt: Partial<A
     if (!attempt || isSerializingDerivedType) { return; }
     writer.writeDateValue("createdAt", attempt.createdAt);
     writer.writeGuidValue("id", attempt.id);
+    writer.writeStringValue("input", attempt.input);
     writer.writeStringValue("inputHash", attempt.inputHash);
     writer.writeNumberValue("number", attempt.number);
     writer.writeObjectValue<AttemptOutput | Attempt_outputMember1>("output", attempt.output, serializeAttempt_output);
@@ -1592,11 +1608,13 @@ export function serializeRun(writer: SerializationWriter, run: Partial<Run> | un
     if (!run || isSerializingDerivedType) { return; }
     writer.writeDateValue("createdAt", run.createdAt);
     writer.writeDateValue("finishedAt", run.finishedAt);
+    writer.writeStringValue("heldAt", run.heldAt);
     writer.writeGuidValue("id", run.id);
     writer.writeStringValue("input", run.input);
     writer.writeNumberValue("number", run.number);
     writer.writeGuidValue("pipelineId", run.pipelineId);
     writer.writeGuidValue("rerunOf", run.rerunOf);
+    writer.writeDateValue("resumedAt", run.resumedAt);
     writer.writeEnumValue<RunStatus>("status", run.status);
     writer.writeGuidValue("supersededBy", run.supersededBy);
     writer.writeObjectValue<RunTrigger>("trigger", run.trigger, serializeRunTrigger);

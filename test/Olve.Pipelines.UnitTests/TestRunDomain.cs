@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Results;
@@ -28,6 +29,8 @@ internal sealed class TestRunDomain
         Attempts = new EntityStore<Attempt>([]);
         Activations = new AttachmentStore<Pipeline, PipelineActivation>(Pipelines);
         Sequences = new AttachmentStore<Pipeline, PipelineSequences>(Pipelines);
+        Gates = new AttachmentStore<Pipeline, PipelineStepGates>(Pipelines);
+        PendingStarts = new AttachmentStore<Pipeline, PendingRunStart>(Pipelines);
 
         var ids = new IdProvider();
         PipelineService = new PipelineService(Pipelines, ids);
@@ -37,7 +40,24 @@ internal sealed class TestRunDomain
         RunService = new RunService(Runs, Versions, Numbering, ids, Time);
         AttemptService = new AttemptService(Attempts, Runs, ids, Time);
         Query = new RunQueryService(RunService, AttemptService, VersionService);
+        Plans = new RunPlanCache(VersionService);
     }
+
+    public AttachmentStore<Pipeline, PipelineStepGates> Gates { get; }
+    public AttachmentStore<Pipeline, PendingRunStart> PendingStarts { get; }
+    public RunSchedulingLock SchedulingLock { get; } = new();
+    public RunPlanCache Plans { get; }
+
+    /// <summary>Resolves the scheduler services (available after <see cref="WireEvents"/>).</summary>
+    public IServiceProvider Services => _services ?? throw new InvalidOperationException("Call WireEvents() first.");
+    private IServiceProvider? _services;
+
+    public StageScheduler Scheduler => Services.GetRequiredService<StageScheduler>();
+    public RunStartService Starts => Services.GetRequiredService<RunStartService>();
+    public SwitchService Switches => Services.GetRequiredService<SwitchService>();
+    public RunContinuationService Continuations => Services.GetRequiredService<RunContinuationService>();
+    public StepGateService GateService => Services.GetRequiredService<StepGateService>();
+    public AttemptLaunchService Launches => Services.GetRequiredService<AttemptLaunchService>();
 
     public TimeProvider Time { get; }
     public EntityStore<Pipeline> Pipelines { get; }
@@ -60,8 +80,12 @@ internal sealed class TestRunDomain
     public AttemptEvents AttemptEvents { get; } = new();
     public PipelineVersionEvents VersionEvents { get; } = new();
 
-    /// <summary>Wires store → hub forwarding, cascade cleanup and obsoletion exactly as in production.</summary>
-    public TestRunDomain WireEvents()
+    /// <summary>
+    /// Wires store → hub forwarding, cascade cleanup and obsoletion exactly as in production; with
+    /// <paramref name="scheduler"/>, also the stage scheduler's subscriptions (run creation, attempt
+    /// completion, gate changes).
+    /// </summary>
+    public TestRunDomain WireEvents(bool scheduler = false)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
@@ -72,7 +96,24 @@ internal sealed class TestRunDomain
         services.AddTransient<RunCleanupService>();
         services.AddTransient<PipelineVersionCleanupService>();
         services.AddTransient<JobObsoletionService>();
+        services.AddSingleton(Time);
+        services.AddSingleton(Pipelines);
+        services.AddSingleton(Runs);
+        services.AddSingleton(Attempts);
+        services.AddSingleton(Gates);
+        services.AddSingleton(PendingStarts);
+        services.AddSingleton(ActivationService);
+        services.AddSingleton(SchedulingLock);
+        services.AddSingleton(Plans);
+        services.AddTransient<StepGateService>();
+        services.AddTransient<StageScheduler>();
+        services.AddTransient<RunStartService>();
+        services.AddTransient<SwitchService>();
+        services.AddTransient<RunContinuationService>();
+        services.AddTransient<AttemptLaunchService>();
+        services.AddTransient<RunSchedulingHandler>();
         var sp = services.BuildServiceProvider();
+        _services = sp;
 
         var registrations = new IRunOnStartup[]
         {
@@ -81,6 +122,8 @@ internal sealed class TestRunDomain
             new RunEventRegistration(Runs, Attempts, RunEvents, AttemptEvents, PipelineEvents, sp),
             new JobEventRegistration(AttemptEvents, sp),
         };
+        if (scheduler)
+            registrations = [.. registrations, new RunSchedulingEventRegistration(RunEvents, AttemptEvents, Gates, sp)];
         foreach (var registration in registrations)
         {
             if (registration.Run().TryPickProblems(out var problems))

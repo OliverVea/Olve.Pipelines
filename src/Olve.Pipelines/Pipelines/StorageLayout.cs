@@ -46,6 +46,14 @@ public static class StorageLayout
 
     public static string AttemptFilesPrefix(Attempt attempt) => $"{AttemptPrefix(attempt)}/files";
 
+    public static string AttemptFilesPrefix(Id<Pipeline> pipelineId, int runNumber, string stepName, int attemptNumber)
+        => $"{AttemptPrefix(pipelineId, runNumber, stepName, attemptNumber)}/files";
+
+    /// <summary>Garage key of one stored file object (<paramref name="objectPath"/>: a file ref's path, or
+    /// <c>dir.tar</c> for a directory ref <c>dir/</c> — see <c>sdk/README.md</c> "Storage rule").</summary>
+    public static string AttemptFileKey(Id<Pipeline> pipelineId, int runNumber, string stepName, int attemptNumber, string objectPath)
+        => $"{AttemptFilesPrefix(pipelineId, runNumber, stepName, attemptNumber)}/{objectPath}";
+
     public static string AttemptLogKey(Attempt attempt) => $"{AttemptPrefix(attempt)}/log";
 
     private static string Format(Id<Pipeline> pipelineId) => pipelineId.Value.Value.ToString("N");

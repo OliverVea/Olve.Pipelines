@@ -13,4 +13,7 @@ internal sealed class MonotonicTimeProvider(DateTimeOffset? start = null, TimeSp
 
     public override DateTimeOffset GetUtcNow()
         => new(Interlocked.Add(ref _ticks, _step), TimeSpan.Zero);
+
+    /// <summary>Jumps the clock forward (e.g. past a time window).</summary>
+    public void Advance(TimeSpan by) => Interlocked.Add(ref _ticks, by.Ticks);
 }

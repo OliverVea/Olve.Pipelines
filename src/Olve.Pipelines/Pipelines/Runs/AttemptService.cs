@@ -23,14 +23,35 @@ public class AttemptService(
     /// are typed models (refs, shas, URLs); bulk data belongs in files.</summary>
     public const int MaxOutputJsonBytes = 64 * 1024;
 
+    /// <summary>Cap on the assembled <c>input.json</c> kept on the attempt (it is built from outputs,
+    /// each capped at <see cref="MaxOutputJsonBytes"/>, plus the run input).</summary>
+    public const int MaxInputJsonBytes = 256 * 1024;
+
     private readonly EntityStoreIndex<Attempt, Id<Pipeline>> _byPipeline = store.CreateIndex(a => a.PipelineId);
     private readonly EntityStoreIndex<Attempt, Id<Run>> _byRun = store.CreateIndex(a => a.RunId);
     private readonly EntityStoreIndex<Attempt, StepKey> _byStep = store.CreateIndex(a => a.Key);
     private readonly Lock _createGate = new();
 
-    /// <summary>Schedules the next attempt of <paramref name="stepName"/> in a run.</summary>
-    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null)
-        => Create(runId, stepName, inputHash, _ => new Scheduled());
+    /// <summary>
+    /// Schedules the next attempt of <paramref name="stepName"/> in a run, carrying its assembled
+    /// <c>input.json</c> (<paramref name="input"/>) and that input's canonical hash.
+    /// </summary>
+    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null)
+    {
+        if (input is not null)
+        {
+            if (Encoding.UTF8.GetByteCount(input) > MaxInputJsonBytes)
+                return new ResultProblem("Input of step '{0}' exceeds {1} bytes.", stepName, MaxInputJsonBytes);
+            if (!JsonText.IsWellFormed(input))
+                return new ResultProblem("Input of step '{0}' is not well-formed JSON.", stepName);
+        }
+
+        return Create(runId, stepName, inputHash, _ => new Scheduled(), input);
+    }
+
+    /// <summary>Records an attempt the scheduler failed without running (e.g. its input exceeds the cap).</summary>
+    public Result<Attempt> RecordFailed(Id<Run> runId, string stepName, string reason, string? inputHash = null)
+        => Create(runId, stepName, inputHash, now => new Failed(now, now, reason));
 
     /// <summary>
     /// Records an attempt the scheduler decided to skip without running (<c>when</c> false, upstream
@@ -212,7 +233,7 @@ public class AttemptService(
     /// latest one would let its number (and storage prefix) be reused.</summary>
     internal DeletionResult Delete(Id<Attempt> id) => store.Delete(id);
 
-    private Result<Attempt> Create(Id<Run> runId, string stepName, string? inputHash, Func<DateTimeOffset, AttemptStatus> status)
+    private Result<Attempt> Create(Id<Run> runId, string stepName, string? inputHash, Func<DateTimeOffset, AttemptStatus> status, string? input = null)
     {
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
@@ -231,7 +252,8 @@ public class AttemptService(
                 MaxNumber(runId, stepName) + 1,
                 status(now),
                 now,
-                inputHash);
+                inputHash,
+                Input: input);
             store.Set(attempt);
             return attempt;
         }

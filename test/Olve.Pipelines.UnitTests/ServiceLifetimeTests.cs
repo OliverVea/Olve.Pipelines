@@ -23,6 +23,8 @@ public class ServiceLifetimeTests
     [Arguments(typeof(PipelineNumberingService))]
     [Arguments(typeof(PipelineConfigBindingService))]
     [Arguments(typeof(PipelineConfigBindingCleanupService))]
+    [Arguments(typeof(Olve.Pipelines.Pipelines.Scheduling.RunSchedulingLock))]
+    [Arguments(typeof(Olve.Pipelines.Pipelines.Scheduling.RunPlanCache))]
     public async Task IndexOwningService_ResolvedTwice_IsSameInstance(Type serviceType)
     {
         var services = new ServiceCollection();

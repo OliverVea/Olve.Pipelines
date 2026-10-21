@@ -11,6 +11,8 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// </summary>
 /// <param name="InputHash">Hash of the assembled <c>input.json</c> (kept now for output caching later).</param>
 /// <param name="Output">The step's output, present only once <see cref="AttemptStatus.Succeeded"/> with an output.</param>
+/// <param name="Input">The assembled <c>input.json</c> (compact JSON, capped at <see cref="AttemptService.MaxInputJsonBytes"/>)
+/// the executor uploads for the step; null for attempts the scheduler skipped or failed without running.</param>
 public record Attempt(
     Id<Attempt> Id,
     Id<Pipeline> PipelineId,
@@ -21,7 +23,8 @@ public record Attempt(
     AttemptStatus Status,
     DateTimeOffset CreatedAt,
     string? InputHash = null,
-    AttemptOutput? Output = null) : IHasId<Id<Attempt>>
+    AttemptOutput? Output = null,
+    string? Input = null) : IHasId<Id<Attempt>>
 {
     /// <summary>The scheduling key: at most one InProgress attempt per (pipeline, step name).</summary>
     [JsonIgnore]

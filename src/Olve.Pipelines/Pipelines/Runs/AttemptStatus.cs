@@ -29,6 +29,12 @@ public static class AttemptStatusExtensions
 
     public static bool IsTerminal(this AttemptStatus status) => !status.IsActive();
 
+    /// <summary>
+    /// Skipped by the scheduler without running (<c>when</c> false, upstream skipped) — as opposed to a
+    /// handler that returned a skipped envelope. Scheduler skips never carry an input.
+    /// </summary>
+    public static bool IsSchedulerSkip(this Attempt attempt) => attempt.Status is AttemptStatus.Skipped && attempt.Input is null;
+
     /// <summary>The wire discriminator (scheduled / in-progress / succeeded / failed / skipped / cancelled / obsolete).</summary>
     public static string Discriminator(this AttemptStatus status) => status switch
     {

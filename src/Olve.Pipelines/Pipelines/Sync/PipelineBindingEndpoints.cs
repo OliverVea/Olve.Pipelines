@@ -170,7 +170,7 @@ public static class PipelineBindingEndpoints
                     binding.PipelineId, binding.Repo, binding.Branch, binding.Path,
                     binding.LastDeployedSha, binding.LastSyncedSha,
                     binding.Status.Result, binding.Status.LastSyncTime, binding.Status.Problems,
-                    secretStatuses);
+                    secretStatuses, binding.Status.Warnings ?? [], binding.Status.Sha, binding.Status.InProgress);
             })
             .WithResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
@@ -213,7 +213,10 @@ public record PipelineBindingStatus(
     ReconcileResult Result,
     DateTimeOffset? LastSyncTime,
     IReadOnlyList<string> Problems,
-    IReadOnlyList<SecretStatus> Secrets);
+    IReadOnlyList<SecretStatus> Secrets,
+    IReadOnlyList<string> Warnings,
+    string? ReconcileSha,
+    bool ReconcileInProgress);
 
 /// <summary><see cref="IsSet"/> is null when k8s could not be read (unknown), not false.</summary>
 public record SecretStatus(string Name, string? Description, bool? IsSet);

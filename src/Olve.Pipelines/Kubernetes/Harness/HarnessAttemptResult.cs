@@ -39,7 +39,7 @@ public static class HarnessOutcome
         if (archive is { } a)
         {
             if (a.TryPickProblems(out var problems, out var contents))
-                archiveProblem = string.Join("; ", problems.Select(p => p.Message));
+                archiveProblem = string.Join("; ", problems.Select(p => p.FormattedMessage));
             else
                 envelope = contents.Envelope;
         }

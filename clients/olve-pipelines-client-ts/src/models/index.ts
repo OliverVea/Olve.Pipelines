@@ -63,6 +63,35 @@ export interface AttemptOutput extends AdditionalDataHolder, Parsable {
      */
     key?: string | null;
 }
+export interface AttemptOutputResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The attempt property
+     */
+    attempt?: number | null;
+    /**
+     * The output property
+     */
+    output?: AttemptOutputResponse_outputMember1 | JsonElement | null;
+    /**
+     * The outputKey property
+     */
+    outputKey?: string | null;
+    /**
+     * The run property
+     */
+    run?: number | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+}
+export type AttemptOutputResponse_output = AttemptOutputResponse_outputMember1 | JsonElement;
+export interface AttemptOutputResponse_outputMember1 extends AdditionalDataHolder, Parsable {
+}
 export interface AttemptStatus extends AdditionalDataHolder, Parsable {
     /**
      * The type property
@@ -172,6 +201,33 @@ export function createAttemptFromDiscriminatorValue(parseNode: ParseNode | undef
 // @ts-ignore
 export function createAttemptOutputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAttemptOutput;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptOutputResponse_outputMember1 | JsonElement}
+ */
+// @ts-ignore
+export function createAttemptOutputResponse_outputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptOutputResponse_output;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptOutputResponse_outputMember1}
+ */
+// @ts-ignore
+export function createAttemptOutputResponse_outputMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptOutputResponse_outputMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptOutputResponse}
+ */
+// @ts-ignore
+export function createAttemptOutputResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptOutputResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -307,6 +363,15 @@ export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {JsonElement}
+ */
+// @ts-ignore
+export function createJsonElementFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoJsonElement;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PageOfAttempt}
  */
 // @ts-ignore
@@ -321,6 +386,46 @@ export function createPageOfAttemptFromDiscriminatorValue(parseNode: ParseNode |
 // @ts-ignore
 export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPagination;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivationActive}
+ */
+// @ts-ignore
+export function createPipelineActivationActiveFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineActivationActive;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivationDraining}
+ */
+// @ts-ignore
+export function createPipelineActivationDrainingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineActivationDraining;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivation}
+ */
+// @ts-ignore
+export function createPipelineActivationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    if(!parseNode) throw new Error("parseNode cannot be undefined");
+    const mappingValueNode = parseNode?.getChildNode("type");
+    if (mappingValueNode) {
+        const mappingValue = mappingValueNode.getStringValue();
+        if (mappingValue) {
+            switch (mappingValue) {
+                case "active":
+                    return deserializeIntoPipelineActivationActive;
+                case "draining":
+                    return deserializeIntoPipelineActivationDraining;
+            }
+        }
+    }
+    return deserializeIntoPipelineActivation;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -357,6 +462,99 @@ export function createPipelineFromDiscriminatorValue(parseNode: ParseNode | unde
 // @ts-ignore
 export function createPipelineSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipelineSummary;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersion_modelVersions}
+ */
+// @ts-ignore
+export function createPipelineVersion_modelVersionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersion_modelVersions;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersion_stepVersions}
+ */
+// @ts-ignore
+export function createPipelineVersion_stepVersionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersion_stepVersions;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersion}
+ */
+// @ts-ignore
+export function createPipelineVersionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersion;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivation | PipelineVersionsResponse_activationMember1}
+ */
+// @ts-ignore
+export function createPipelineVersionsResponse_activationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    const mappingValueNode = parseNode?.getChildNode("type");
+    if (mappingValueNode) {
+        const mappingValue = mappingValueNode.getStringValue();
+        if (mappingValue) {
+            switch (mappingValue) {
+                case "active":
+                    return deserializeIntoPipelineActivationActive;
+                case "draining":
+                    return deserializeIntoPipelineActivationDraining;
+            }
+        }
+    }
+    return deserializeIntoPipelineVersionsResponse_activation;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersionsResponse_activationMember1}
+ */
+// @ts-ignore
+export function createPipelineVersionsResponse_activationMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersionsResponse_activationMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersionsResponse}
+ */
+// @ts-ignore
+export function createPipelineVersionsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersionsResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersionSummary_modelVersions}
+ */
+// @ts-ignore
+export function createPipelineVersionSummary_modelVersionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersionSummary_modelVersions;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersionSummary_stepVersions}
+ */
+// @ts-ignore
+export function createPipelineVersionSummary_stepVersionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersionSummary_stepVersions;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineVersionSummary}
+ */
+// @ts-ignore
+export function createPipelineVersionSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersionSummary;
 }
 export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -467,6 +665,42 @@ export function createStepHealthFromDiscriminatorValue(parseNode: ParseNode | un
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SwitchVersionRequest}
+ */
+// @ts-ignore
+export function createSwitchVersionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSwitchVersionRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Run | TriggerRunResponse_runMember1}
+ */
+// @ts-ignore
+export function createTriggerRunResponse_runFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerRunResponse_run;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerRunResponse_runMember1}
+ */
+// @ts-ignore
+export function createTriggerRunResponse_runMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerRunResponse_runMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TriggerRunResponse}
+ */
+// @ts-ignore
+export function createTriggerRunResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTriggerRunResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateBindingRequest}
  */
 // @ts-ignore
@@ -526,6 +760,44 @@ export function deserializeIntoAttemptOutput(attemptOutput: Partial<AttemptOutpu
     return {
         "json": n => { attemptOutput.json = n.getStringValue(); },
         "key": n => { attemptOutput.key = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptOutputResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptOutputResponse(attemptOutputResponse: Partial<AttemptOutputResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attempt": n => { attemptOutputResponse.attempt = n.getNumberValue(); },
+        "output": n => { attemptOutputResponse.output = n.getObjectValue<AttemptOutputResponse_outputMember1>(createAttemptOutputResponse_outputMember1FromDiscriminatorValue) ?? n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "outputKey": n => { attemptOutputResponse.outputKey = n.getStringValue(); },
+        "run": n => { attemptOutputResponse.run = n.getNumberValue(); },
+        "status": n => { attemptOutputResponse.status = n.getStringValue(); },
+        "step": n => { attemptOutputResponse.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptOutputResponse_output The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptOutputResponse_output(attemptOutputResponse_output: Partial<AttemptOutputResponse_outputMember1 | JsonElement> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptOutputResponse_outputMember1(attemptOutputResponse_output as AttemptOutputResponse_outputMember1),
+        ...deserializeIntoJsonElement(attemptOutputResponse_output as JsonElement),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptOutputResponse_outputMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptOutputResponse_outputMember1(attemptOutputResponse_outputMember1: Partial<AttemptOutputResponse_outputMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -678,6 +950,16 @@ export function deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember
 }
 /**
  * The deserialization information for the current model
+ * @param JsonElement The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoJsonElement(jsonElement: Partial<JsonElement> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PageOfAttempt The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -721,6 +1003,48 @@ export function deserializeIntoPipeline(pipeline: Partial<Pipeline> | undefined 
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineActivation The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineActivation(pipelineActivation: Partial<PipelineActivation> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "type": n => { pipelineActivation.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineActivationActive The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineActivationActive(pipelineActivationActive: Partial<PipelineActivationActive> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPipelineActivation(pipelineActivationActive),
+        "since": n => { pipelineActivationActive.since = n.getDateValue(); },
+        "versionId": n => { pipelineActivationActive.versionId = n.getGuidValue(); },
+        "versionNumber": n => { pipelineActivationActive.versionNumber = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineActivationDraining The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineActivationDraining(pipelineActivationDraining: Partial<PipelineActivationDraining> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPipelineActivation(pipelineActivationDraining),
+        "cancelRunning": n => { pipelineActivationDraining.cancelRunning = n.getBooleanValue(); },
+        "fromVersionId": n => { pipelineActivationDraining.fromVersionId = n.getGuidValue(); },
+        "fromVersionNumber": n => { pipelineActivationDraining.fromVersionNumber = n.getNumberValue(); },
+        "since": n => { pipelineActivationDraining.since = n.getDateValue(); },
+        "toVersionId": n => { pipelineActivationDraining.toVersionId = n.getGuidValue(); },
+        "toVersionNumber": n => { pipelineActivationDraining.toVersionNumber = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PipelineBindingStatus The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -734,9 +1058,12 @@ export function deserializeIntoPipelineBindingStatus(pipelineBindingStatus: Part
         "path": n => { pipelineBindingStatus.path = n.getStringValue(); },
         "pipelineId": n => { pipelineBindingStatus.pipelineId = n.getGuidValue(); },
         "problems": n => { pipelineBindingStatus.problems = n.getCollectionOfPrimitiveValues<string>(); },
+        "reconcileInProgress": n => { pipelineBindingStatus.reconcileInProgress = n.getBooleanValue(); },
+        "reconcileSha": n => { pipelineBindingStatus.reconcileSha = n.getStringValue(); },
         "repo": n => { pipelineBindingStatus.repo = n.getStringValue(); },
         "result": n => { pipelineBindingStatus.result = n.getNumberValue(); },
         "secrets": n => { pipelineBindingStatus.secrets = n.getCollectionOfObjectValues<SecretStatus>(createSecretStatusFromDiscriminatorValue); },
+        "warnings": n => { pipelineBindingStatus.warnings = n.getCollectionOfPrimitiveValues<string>(); },
     }
 }
 /**
@@ -775,6 +1102,117 @@ export function deserializeIntoPipelineSummary(pipelineSummary: Partial<Pipeline
         "repo": n => { pipelineSummary.repo = n.getStringValue(); },
         "status": n => { pipelineSummary.status = n.getStringValue(); },
         "steps": n => { pipelineSummary.steps = n.getCollectionOfObjectValues<StepHealth>(createStepHealthFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersion The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersion(pipelineVersion: Partial<PipelineVersion> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "binaryKey": n => { pipelineVersion.binaryKey = n.getStringValue(); },
+        "commitSha": n => { pipelineVersion.commitSha = n.getStringValue(); },
+        "createdAt": n => { pipelineVersion.createdAt = n.getDateValue(); },
+        "id": n => { pipelineVersion.id = n.getGuidValue(); },
+        "manifest": n => { pipelineVersion.manifest = n.getStringValue(); },
+        "manifestHash": n => { pipelineVersion.manifestHash = n.getStringValue(); },
+        "modelVersions": n => { pipelineVersion.modelVersions = n.getObjectValue<PipelineVersion_modelVersions>(createPipelineVersion_modelVersionsFromDiscriminatorValue); },
+        "number": n => { pipelineVersion.number = n.getNumberValue(); },
+        "pipelineId": n => { pipelineVersion.pipelineId = n.getGuidValue(); },
+        "stepVersions": n => { pipelineVersion.stepVersions = n.getObjectValue<PipelineVersion_stepVersions>(createPipelineVersion_stepVersionsFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersion_modelVersions The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersion_modelVersions(pipelineVersion_modelVersions: Partial<PipelineVersion_modelVersions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersion_stepVersions The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersion_stepVersions(pipelineVersion_stepVersions: Partial<PipelineVersion_stepVersions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionsResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionsResponse(pipelineVersionsResponse: Partial<PipelineVersionsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "activation": n => { pipelineVersionsResponse.activation = n.getObjectValue<PipelineActivation>(createPipelineActivationFromDiscriminatorValue) ?? n.getObjectValue<PipelineVersionsResponse_activationMember1>(createPipelineVersionsResponse_activationMember1FromDiscriminatorValue); },
+        "versions": n => { pipelineVersionsResponse.versions = n.getCollectionOfObjectValues<PipelineVersionSummary>(createPipelineVersionSummaryFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionsResponse_activation The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionsResponse_activation(pipelineVersionsResponse_activation: Partial<PipelineActivation | PipelineVersionsResponse_activationMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoPipelineActivation(pipelineVersionsResponse_activation as PipelineActivation),
+        ...deserializeIntoPipelineVersionsResponse_activationMember1(pipelineVersionsResponse_activation as PipelineVersionsResponse_activationMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionsResponse_activationMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionsResponse_activationMember1(pipelineVersionsResponse_activationMember1: Partial<PipelineVersionsResponse_activationMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionSummary The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionSummary(pipelineVersionSummary: Partial<PipelineVersionSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "commitSha": n => { pipelineVersionSummary.commitSha = n.getStringValue(); },
+        "createdAt": n => { pipelineVersionSummary.createdAt = n.getDateValue(); },
+        "id": n => { pipelineVersionSummary.id = n.getGuidValue(); },
+        "manifestHash": n => { pipelineVersionSummary.manifestHash = n.getStringValue(); },
+        "modelVersions": n => { pipelineVersionSummary.modelVersions = n.getObjectValue<PipelineVersionSummary_modelVersions>(createPipelineVersionSummary_modelVersionsFromDiscriminatorValue); },
+        "number": n => { pipelineVersionSummary.number = n.getNumberValue(); },
+        "stepVersions": n => { pipelineVersionSummary.stepVersions = n.getObjectValue<PipelineVersionSummary_stepVersions>(createPipelineVersionSummary_stepVersionsFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionSummary_modelVersions The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionSummary_modelVersions(pipelineVersionSummary_modelVersions: Partial<PipelineVersionSummary_modelVersions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineVersionSummary_stepVersions The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineVersionSummary_stepVersions(pipelineVersionSummary_stepVersions: Partial<PipelineVersionSummary_stepVersions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -909,6 +1347,52 @@ export function deserializeIntoStepHealth(stepHealth: Partial<StepHealth> | unde
 }
 /**
  * The deserialization information for the current model
+ * @param SwitchVersionRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSwitchVersionRequest(switchVersionRequest: Partial<SwitchVersionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "cancelRunning": n => { switchVersionRequest.cancelRunning = n.getBooleanValue(); },
+        "version": n => { switchVersionRequest.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerRunResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerRunResponse(triggerRunResponse: Partial<TriggerRunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "outcome": n => { triggerRunResponse.outcome = n.getStringValue(); },
+        "run": n => { triggerRunResponse.run = n.getObjectValue<Run>(createRunFromDiscriminatorValue) ?? n.getObjectValue<TriggerRunResponse_runMember1>(createTriggerRunResponse_runMember1FromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerRunResponse_run The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerRunResponse_run(triggerRunResponse_run: Partial<Run | TriggerRunResponse_runMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoRun(triggerRunResponse_run as Run),
+        ...deserializeIntoTriggerRunResponse_runMember1(triggerRunResponse_run as TriggerRunResponse_runMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TriggerRunResponse_runMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTriggerRunResponse_runMember1(triggerRunResponse_runMember1: Partial<TriggerRunResponse_runMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param UpdateBindingRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -917,6 +1401,8 @@ export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partia
     return {
         "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
     }
+}
+export interface JsonElement extends AdditionalDataHolder, Parsable {
 }
 export interface PageOfAttempt extends AdditionalDataHolder, Parsable {
     /**
@@ -976,6 +1462,52 @@ export interface Pipeline extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+export interface PipelineActivation extends AdditionalDataHolder, Parsable {
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface PipelineActivationActive extends Parsable, PipelineActivation {
+    /**
+     * The since property
+     */
+    since?: Date | null;
+    /**
+     * The versionId property
+     */
+    versionId?: Guid | null;
+    /**
+     * The versionNumber property
+     */
+    versionNumber?: number | null;
+}
+export interface PipelineActivationDraining extends Parsable, PipelineActivation {
+    /**
+     * The cancelRunning property
+     */
+    cancelRunning?: boolean | null;
+    /**
+     * The fromVersionId property
+     */
+    fromVersionId?: Guid | null;
+    /**
+     * The fromVersionNumber property
+     */
+    fromVersionNumber?: number | null;
+    /**
+     * The since property
+     */
+    since?: Date | null;
+    /**
+     * The toVersionId property
+     */
+    toVersionId?: Guid | null;
+    /**
+     * The toVersionNumber property
+     */
+    toVersionNumber?: number | null;
+}
 export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
     /**
      * The branch property
@@ -1006,6 +1538,14 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
      */
     problems?: string[] | null;
     /**
+     * The reconcileInProgress property
+     */
+    reconcileInProgress?: boolean | null;
+    /**
+     * The reconcileSha property
+     */
+    reconcileSha?: string | null;
+    /**
      * The repo property
      */
     repo?: string | null;
@@ -1017,6 +1557,10 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
      * The secrets property
      */
     secrets?: SecretStatus[] | null;
+    /**
+     * The warnings property
+     */
+    warnings?: string[] | null;
 }
 export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
     /**
@@ -1093,6 +1637,99 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      * The steps property
      */
     steps?: StepHealth[] | null;
+}
+export interface PipelineVersion extends AdditionalDataHolder, Parsable {
+    /**
+     * The binaryKey property
+     */
+    binaryKey?: string | null;
+    /**
+     * The commitSha property
+     */
+    commitSha?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The manifest property
+     */
+    manifest?: string | null;
+    /**
+     * The manifestHash property
+     */
+    manifestHash?: string | null;
+    /**
+     * The modelVersions property
+     */
+    modelVersions?: PipelineVersion_modelVersions | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The stepVersions property
+     */
+    stepVersions?: PipelineVersion_stepVersions | null;
+}
+export interface PipelineVersion_modelVersions extends AdditionalDataHolder, Parsable {
+}
+export interface PipelineVersion_stepVersions extends AdditionalDataHolder, Parsable {
+}
+export interface PipelineVersionsResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The activation property
+     */
+    activation?: PipelineActivation | PipelineVersionsResponse_activationMember1 | null;
+    /**
+     * The versions property
+     */
+    versions?: PipelineVersionSummary[] | null;
+}
+export type PipelineVersionsResponse_activation = PipelineActivation | PipelineVersionsResponse_activationMember1;
+export interface PipelineVersionsResponse_activationMember1 extends AdditionalDataHolder, Parsable {
+}
+export interface PipelineVersionSummary extends AdditionalDataHolder, Parsable {
+    /**
+     * The commitSha property
+     */
+    commitSha?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The manifestHash property
+     */
+    manifestHash?: string | null;
+    /**
+     * The modelVersions property
+     */
+    modelVersions?: PipelineVersionSummary_modelVersions | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The stepVersions property
+     */
+    stepVersions?: PipelineVersionSummary_stepVersions | null;
+}
+export interface PipelineVersionSummary_modelVersions extends AdditionalDataHolder, Parsable {
+}
+export interface PipelineVersionSummary_stepVersions extends AdditionalDataHolder, Parsable {
 }
 export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
@@ -1307,6 +1944,45 @@ export function serializeAttemptOutput(writer: SerializationWriter, attemptOutpu
 }
 /**
  * Serializes information the current object
+ * @param AttemptOutputResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptOutputResponse(writer: SerializationWriter, attemptOutputResponse: Partial<AttemptOutputResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptOutputResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attempt", attemptOutputResponse.attempt);
+    writer.writeObjectValue<AttemptOutputResponse_outputMember1 | JsonElement>("output", attemptOutputResponse.output, serializeAttemptOutputResponse_output);
+    writer.writeStringValue("outputKey", attemptOutputResponse.outputKey);
+    writer.writeNumberValue("run", attemptOutputResponse.run);
+    writer.writeStringValue("status", attemptOutputResponse.status);
+    writer.writeStringValue("step", attemptOutputResponse.step);
+    writer.writeAdditionalData(attemptOutputResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptOutputResponse_output The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptOutputResponse_output(writer: SerializationWriter, attemptOutputResponse_output: Partial<AttemptOutputResponse_outputMember1 | JsonElement> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeAttemptOutputResponse_outputMember1(writer, attemptOutputResponse_output as AttemptOutputResponse_outputMember1);
+    serializeJsonElement(writer, attemptOutputResponse_output as JsonElement);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptOutputResponse_outputMember1 The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptOutputResponse_outputMember1(writer: SerializationWriter, attemptOutputResponse_outputMember1: Partial<AttemptOutputResponse_outputMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptOutputResponse_outputMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(attemptOutputResponse_outputMember1.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param AttemptStatus The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -1482,6 +2158,17 @@ export function serializeCreatePipelineWithRepoRequest_deployTriggerMember1(writ
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param JsonElement The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeJsonElement(writer: SerializationWriter, jsonElement: Partial<JsonElement> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!jsonElement || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(jsonElement.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PageOfAttempt The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1528,6 +2215,57 @@ export function serializePipeline(writer: SerializationWriter, pipeline: Partial
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineActivation The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineActivation(writer: SerializationWriter, pipelineActivation: Partial<PipelineActivation> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineActivation || isSerializingDerivedType) { return; }
+    writer.writeStringValue("type", pipelineActivation.type);
+    writer.writeAdditionalData(pipelineActivation.additionalData);
+    switch (pipelineActivation.type) {
+        case "active":
+            serializePipelineActivationActive(writer, pipelineActivation, true);
+        break;
+        case "draining":
+            serializePipelineActivationDraining(writer, pipelineActivation, true);
+        break;
+    }
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineActivationActive The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineActivationActive(writer: SerializationWriter, pipelineActivationActive: Partial<PipelineActivationActive> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineActivationActive || isSerializingDerivedType) { return; }
+    serializePipelineActivation(writer, pipelineActivationActive, isSerializingDerivedType)
+    writer.writeDateValue("since", pipelineActivationActive.since);
+    writer.writeGuidValue("versionId", pipelineActivationActive.versionId);
+    writer.writeNumberValue("versionNumber", pipelineActivationActive.versionNumber);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineActivationDraining The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineActivationDraining(writer: SerializationWriter, pipelineActivationDraining: Partial<PipelineActivationDraining> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineActivationDraining || isSerializingDerivedType) { return; }
+    serializePipelineActivation(writer, pipelineActivationDraining, isSerializingDerivedType)
+    writer.writeBooleanValue("cancelRunning", pipelineActivationDraining.cancelRunning);
+    writer.writeGuidValue("fromVersionId", pipelineActivationDraining.fromVersionId);
+    writer.writeNumberValue("fromVersionNumber", pipelineActivationDraining.fromVersionNumber);
+    writer.writeDateValue("since", pipelineActivationDraining.since);
+    writer.writeGuidValue("toVersionId", pipelineActivationDraining.toVersionId);
+    writer.writeNumberValue("toVersionNumber", pipelineActivationDraining.toVersionNumber);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PipelineBindingStatus The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1541,9 +2279,12 @@ export function serializePipelineBindingStatus(writer: SerializationWriter, pipe
     writer.writeStringValue("path", pipelineBindingStatus.path);
     writer.writeGuidValue("pipelineId", pipelineBindingStatus.pipelineId);
     writer.writeCollectionOfPrimitiveValues<string>("problems", pipelineBindingStatus.problems);
+    writer.writeBooleanValue("reconcileInProgress", pipelineBindingStatus.reconcileInProgress);
+    writer.writeStringValue("reconcileSha", pipelineBindingStatus.reconcileSha);
     writer.writeStringValue("repo", pipelineBindingStatus.repo);
     writer.writeNumberValue("result", pipelineBindingStatus.result);
     writer.writeCollectionOfObjectValues<SecretStatus>("secrets", pipelineBindingStatus.secrets, serializeSecretStatus);
+    writer.writeCollectionOfPrimitiveValues<string>("warnings", pipelineBindingStatus.warnings);
     writer.writeAdditionalData(pipelineBindingStatus.additionalData);
 }
 /**
@@ -1585,6 +2326,131 @@ export function serializePipelineSummary(writer: SerializationWriter, pipelineSu
     writer.writeStringValue("status", pipelineSummary.status);
     writer.writeCollectionOfObjectValues<StepHealth>("steps", pipelineSummary.steps, serializeStepHealth);
     writer.writeAdditionalData(pipelineSummary.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersion The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersion(writer: SerializationWriter, pipelineVersion: Partial<PipelineVersion> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersion || isSerializingDerivedType) { return; }
+    writer.writeStringValue("binaryKey", pipelineVersion.binaryKey);
+    writer.writeStringValue("commitSha", pipelineVersion.commitSha);
+    writer.writeDateValue("createdAt", pipelineVersion.createdAt);
+    writer.writeGuidValue("id", pipelineVersion.id);
+    writer.writeStringValue("manifest", pipelineVersion.manifest);
+    writer.writeStringValue("manifestHash", pipelineVersion.manifestHash);
+    writer.writeObjectValue<PipelineVersion_modelVersions>("modelVersions", pipelineVersion.modelVersions, serializePipelineVersion_modelVersions);
+    writer.writeNumberValue("number", pipelineVersion.number);
+    writer.writeGuidValue("pipelineId", pipelineVersion.pipelineId);
+    writer.writeObjectValue<PipelineVersion_stepVersions>("stepVersions", pipelineVersion.stepVersions, serializePipelineVersion_stepVersions);
+    writer.writeAdditionalData(pipelineVersion.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersion_modelVersions The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersion_modelVersions(writer: SerializationWriter, pipelineVersion_modelVersions: Partial<PipelineVersion_modelVersions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersion_modelVersions || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(pipelineVersion_modelVersions.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersion_stepVersions The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersion_stepVersions(writer: SerializationWriter, pipelineVersion_stepVersions: Partial<PipelineVersion_stepVersions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersion_stepVersions || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(pipelineVersion_stepVersions.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionsResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionsResponse(writer: SerializationWriter, pipelineVersionsResponse: Partial<PipelineVersionsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersionsResponse || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<PipelineActivation | PipelineVersionsResponse_activationMember1>("activation", pipelineVersionsResponse.activation, serializePipelineVersionsResponse_activation);
+    writer.writeCollectionOfObjectValues<PipelineVersionSummary>("versions", pipelineVersionsResponse.versions, serializePipelineVersionSummary);
+    writer.writeAdditionalData(pipelineVersionsResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionsResponse_activation The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionsResponse_activation(writer: SerializationWriter, pipelineVersionsResponse_activation: Partial<PipelineActivation | PipelineVersionsResponse_activationMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (pipelineVersionsResponse_activation === undefined || pipelineVersionsResponse_activation === null) return;
+    switch (pipelineVersionsResponse_activation.type) {
+        case "active":
+            serializePipelineActivationActive(writer, pipelineVersionsResponse_activation as PipelineActivationActive);
+            break;
+        case "draining":
+            serializePipelineActivationDraining(writer, pipelineVersionsResponse_activation as PipelineActivationDraining);
+            break;
+    }
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionsResponse_activationMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionsResponse_activationMember1(writer: SerializationWriter, pipelineVersionsResponse_activationMember1: Partial<PipelineVersionsResponse_activationMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersionsResponse_activationMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(pipelineVersionsResponse_activationMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionSummary The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionSummary(writer: SerializationWriter, pipelineVersionSummary: Partial<PipelineVersionSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersionSummary || isSerializingDerivedType) { return; }
+    writer.writeStringValue("commitSha", pipelineVersionSummary.commitSha);
+    writer.writeDateValue("createdAt", pipelineVersionSummary.createdAt);
+    writer.writeGuidValue("id", pipelineVersionSummary.id);
+    writer.writeStringValue("manifestHash", pipelineVersionSummary.manifestHash);
+    writer.writeObjectValue<PipelineVersionSummary_modelVersions>("modelVersions", pipelineVersionSummary.modelVersions, serializePipelineVersionSummary_modelVersions);
+    writer.writeNumberValue("number", pipelineVersionSummary.number);
+    writer.writeObjectValue<PipelineVersionSummary_stepVersions>("stepVersions", pipelineVersionSummary.stepVersions, serializePipelineVersionSummary_stepVersions);
+    writer.writeAdditionalData(pipelineVersionSummary.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionSummary_modelVersions The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionSummary_modelVersions(writer: SerializationWriter, pipelineVersionSummary_modelVersions: Partial<PipelineVersionSummary_modelVersions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersionSummary_modelVersions || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(pipelineVersionSummary_modelVersions.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineVersionSummary_stepVersions The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineVersionSummary_stepVersions(writer: SerializationWriter, pipelineVersionSummary_stepVersions: Partial<PipelineVersionSummary_stepVersions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersionSummary_stepVersions || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(pipelineVersionSummary_stepVersions.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1728,6 +2594,54 @@ export function serializeStepHealth(writer: SerializationWriter, stepHealth: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SwitchVersionRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSwitchVersionRequest(writer: SerializationWriter, switchVersionRequest: Partial<SwitchVersionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!switchVersionRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("cancelRunning", switchVersionRequest.cancelRunning);
+    writer.writeNumberValue("version", switchVersionRequest.version);
+    writer.writeAdditionalData(switchVersionRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerRunResponse The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerRunResponse(writer: SerializationWriter, triggerRunResponse: Partial<TriggerRunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerRunResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("outcome", triggerRunResponse.outcome);
+    writer.writeObjectValue<Run | TriggerRunResponse_runMember1>("run", triggerRunResponse.run, serializeTriggerRunResponse_run);
+    writer.writeAdditionalData(triggerRunResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerRunResponse_run The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerRunResponse_run(writer: SerializationWriter, triggerRunResponse_run: Partial<Run | TriggerRunResponse_runMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeRun(writer, triggerRunResponse_run as Run);
+    serializeTriggerRunResponse_runMember1(writer, triggerRunResponse_run as TriggerRunResponse_runMember1);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TriggerRunResponse_runMember1 The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTriggerRunResponse_runMember1(writer: SerializationWriter, triggerRunResponse_runMember1: Partial<TriggerRunResponse_runMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!triggerRunResponse_runMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(triggerRunResponse_runMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateBindingRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1762,6 +2676,29 @@ export interface StepHealth extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: string | null;
+}
+export interface SwitchVersionRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The cancelRunning property
+     */
+    cancelRunning?: boolean | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+}
+export interface TriggerRunResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The outcome property
+     */
+    outcome?: string | null;
+    /**
+     * The run property
+     */
+    run?: Run | TriggerRunResponse_runMember1 | null;
+}
+export type TriggerRunResponse_run = Run | TriggerRunResponse_runMember1;
+export interface TriggerRunResponse_runMember1 extends AdditionalDataHolder, Parsable {
 }
 export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
     /**

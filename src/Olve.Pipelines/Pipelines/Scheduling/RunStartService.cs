@@ -148,7 +148,7 @@ public class RunStartService(
             if (runs.Supersede(older.Id, newer.Id).TryPickProblems(out var problems))
             {
                 logger.LogDebug("Run #{RunNumber} ('{RunId}') was not superseded: {Reason}", older.Number, older.Id,
-                    string.Join("; ", problems.Select(p => p.Message)));
+                    string.Join("; ", problems.Select(p => p.FormattedMessage)));
             }
             else
             {

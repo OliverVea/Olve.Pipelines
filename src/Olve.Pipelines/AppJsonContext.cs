@@ -4,6 +4,7 @@ using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Paginations;
 
@@ -25,6 +26,14 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<Id<Attempt>[]>))]
 [JsonSerializable(typeof(Result<Run>))]
 [JsonSerializable(typeof(Result<Run[]>))]
+[JsonSerializable(typeof(System.Text.Json.JsonElement))]
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(Result<TriggerRunResponse>))]
+[JsonSerializable(typeof(Result<AttemptOutputResponse>))]
+[JsonSerializable(typeof(Result<PipelineVersionsResponse>))]
+[JsonSerializable(typeof(Result<PipelineVersion>))]
+[JsonSerializable(typeof(Result<PipelineActivation>))]
+[JsonSerializable(typeof(SwitchVersionRequest))]
 [JsonSerializable(typeof(PipelineConfigBinding))]
 [JsonSerializable(typeof(Result<PipelineConfigBinding>))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]

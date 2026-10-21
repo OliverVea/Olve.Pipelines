@@ -58,6 +58,12 @@ public sealed record HarnessOptions
     /// <summary>Key in the pipeline Secret holding the GitHub token used to fetch the repo tarball (optional).</summary>
     public string BuildTokenSecretKey { get; init; } = "GITHUB_TOKEN";
 
+    /// <summary><c>activeDeadlineSeconds</c> of a map-trigger Job (mappers are pure and fast).</summary>
+    public long MapTriggerTimeoutSeconds { get; init; } = 300;
+
+    /// <summary>Map-trigger Jobs are collected after a day (their outcome is in the service log and the run).</summary>
+    public int MapTriggerTtlSeconds { get; init; } = 24 * 3600;
+
     /// <summary>Caps on what a step's <c>result.tar.gz</c> may contain.</summary>
     public HarnessResultLimits ResultLimits { get; init; } = new();
 

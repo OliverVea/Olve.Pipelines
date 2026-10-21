@@ -7,6 +7,7 @@ using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Versions;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -57,6 +58,7 @@ app.MapPipelineEndpoints();
 app.MapSecretEndpoints();
 app.MapJobEndpoints();
 app.MapRunEndpoints();
+app.MapPipelineVersionEndpoints();
 app.MapPipelineBindingEndpoints();
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

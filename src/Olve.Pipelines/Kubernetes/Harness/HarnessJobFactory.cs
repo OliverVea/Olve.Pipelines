@@ -59,4 +59,14 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
             tokenSecretKey is null ? null : HarnessJobBuilder.PipelineSecretName(pipelineId),
             binaryUrl, tokenSecretKey), options);
     }
+
+    /// <summary>A map-trigger Job over the version binary at <paramref name="binaryKey"/>; the event must already be at <paramref name="eventKey"/>.</summary>
+    public async Task<Result<HarnessJobSpec>> CreateMapTriggerJobAsync(
+        string jobName, Id<Pipeline> pipelineId, string binaryKey, string triggerName, string eventKey, CancellationToken ct = default)
+    {
+        var expiry = TimeSpan.FromSeconds(options.MapTriggerTimeoutSeconds + options.UrlExpiryGraceSeconds);
+        var stepUrl = await presigner.PresignGetAsync(binaryKey, expiry, ct);
+        var eventUrl = await presigner.PresignGetAsync(eventKey, expiry, ct);
+        return HarnessJobBuilder.BuildMapTrigger(new MapTriggerJobRequest(jobName, pipelineId, triggerName, stepUrl, eventUrl), options);
+    }
 }

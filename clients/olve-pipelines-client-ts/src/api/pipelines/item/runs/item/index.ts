@@ -6,6 +6,8 @@ import { createResultProblemFromDiscriminatorValue, createRunFromDiscriminatorVa
 // @ts-ignore
 import { AttemptsRequestBuilderRequestsMetadata, type AttemptsRequestBuilder } from './attempts/index.js';
 // @ts-ignore
+import { StepsRequestBuilderNavigationMetadata, type StepsRequestBuilder } from './steps/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -16,6 +18,10 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
      * The attempts property
      */
     get attempts(): AttemptsRequestBuilder;
+    /**
+     * The steps property
+     */
+    get steps(): StepsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Run>}
@@ -38,6 +44,9 @@ export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines
 export const WithNumberItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithNumberItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     attempts: {
         requestsMetadata: AttemptsRequestBuilderRequestsMetadata,
+    },
+    steps: {
+        navigationMetadata: StepsRequestBuilderNavigationMetadata,
     },
 };
 /**

@@ -174,7 +174,7 @@ public class StageScheduler(
                 {
                     logger.LogProblems(LogLevel.Warning, scheduleProblems, "Could not schedule step '{StepName}' in run #{RunNumber} ('{RunId}'); failing it",
                         step.Name, run.Number, run.Id);
-                    LogIfFailed(attempts.RecordFailed(run.Id, step.Name, string.Join("; ", scheduleProblems.Select(p => p.Message)), schedule.Hash), run, "record a failed attempt in");
+                    LogIfFailed(attempts.RecordFailed(run.Id, step.Name, string.Join("; ", scheduleProblems.Select(p => p.FormattedMessage)), schedule.Hash), run, "record a failed attempt in");
                 }
                 else
                 {

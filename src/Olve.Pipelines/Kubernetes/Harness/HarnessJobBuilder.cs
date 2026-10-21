@@ -48,6 +48,11 @@ public sealed record HarnessJobRequest(
             HarnessJobBuilder.PipelineSecretName(attempt.PipelineId), urls);
 }
 
+/// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
+/// <param name="StepUrl">Pre-signed GET of the version's <c>step.tar.gz</c>.</param>
+/// <param name="EventUrl">Pre-signed GET of the event JSON (becomes <c>/olve/input.json</c>).</param>
+public sealed record MapTriggerJobRequest(string JobName, Id<Pipeline> PipelineId, string TriggerName, string StepUrl, string EventUrl);
+
 /// <summary>
 /// A built Job plus the Secret it depends on. Create <see cref="UrlSecretName"/> with
 /// <see cref="UrlSecretData"/> first, then the Job; delete the Secret once the Job is terminal (not on
@@ -186,6 +191,86 @@ public static partial class HarnessJobBuilder
                 BackoffLimit: 0,
                 TtlSecondsAfterFinished: options.TtlSecondsAfterFinished,
                 ActiveDeadlineSeconds: options.DeadlineSeconds(request.TimeoutSeconds)));
+
+        return new HarnessJobSpec(job, urlSecretName, secretData);
+    }
+
+    /// <summary>
+    /// A short <c>map-trigger &lt;trigger&gt;</c> Job: olve-init fetches the version's binary and the event
+    /// (as <c>input.json</c>); the main container is harness-base itself (already pulled; the emptyDir carries
+    /// the loader). The mapped input is read from the result block in the pod log — no result upload, no
+    /// secrets. Pure.
+    /// </summary>
+    public static Result<HarnessJobSpec> BuildMapTrigger(MapTriggerJobRequest request, HarnessOptions options)
+    {
+        if (!DnsLabelRegex().IsMatch(request.JobName))
+            return new ResultProblem("Invalid K8s Job name '{0}'.", request.JobName);
+        if (string.IsNullOrWhiteSpace(request.TriggerName) || request.TriggerName.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            return new ResultProblem("Invalid trigger name '{0}'.", request.TriggerName);
+
+        var urlSecretName = $"{request.JobName}-urls";
+        var secretData = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [StepUrlKey] = request.StepUrl,
+            [InputUrlKey] = request.EventUrl,
+        };
+        K8sEnvVar Url(string key) => K8sEnvVar.FromSecret(key, urlSecretName, key);
+
+        var labels = new Dictionary<string, string>
+        {
+            ["app"] = "olve-pipelines",
+            ["job-name"] = request.JobName,
+            ["olve-role"] = "map-trigger",
+            ["olve-pipeline"] = request.PipelineId.Value.Value.ToString("N"),
+        };
+
+        var init = new K8sContainer(
+            InitContainerName,
+            options.HarnessBaseImage,
+            Env: [Url(StepUrlKey), Url(InputUrlKey)],
+            VolumeMounts: [new K8sVolumeMount(ScratchVolumeName, "/shared")],
+            SecurityContext: HarnessSecurity.Container,
+            ImagePullPolicy: "IfNotPresent",
+            Resources: new K8sResourceRequirements(
+                Requests: new() { ["cpu"] = "100m", ["memory"] = "64Mi" },
+                Limits: new() { ["memory"] = "256Mi" }));
+
+        var main = new K8sContainer(
+            StepContainerName,
+            options.HarnessBaseImage,
+            Command: ["/olve/lib/ld-linux-x86-64.so.2", "--library-path", "/olve/lib", "/olve/step", "map-trigger", request.TriggerName],
+            Env:
+            [
+                new("OLVE_DIR", "/olve"),
+                new("TMPDIR", "/olve/tmp"),
+                new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("N")),
+            ],
+            VolumeMounts: [new K8sVolumeMount(ScratchVolumeName, "/olve")],
+            SecurityContext: HarnessSecurity.Container,
+            ImagePullPolicy: "IfNotPresent",
+            Resources: new K8sResourceRequirements(
+                Requests: new() { ["cpu"] = "100m", ["memory"] = "128Mi" },
+                Limits: new() { ["memory"] = "512Mi" }));
+
+        var job = new K8sJobManifest(
+            "batch/v1",
+            "Job",
+            new K8sMetadata(request.JobName, labels),
+            new K8sJobSpecBody(
+                new K8sPodTemplateSpec(
+                    new K8sMetadata(request.JobName, labels),
+                    new K8sPodSpec(
+                        Containers: [main],
+                        InitContainers: [init],
+                        Volumes: [new K8sVolume(ScratchVolumeName, new K8sEmptyDir(options.ScratchSizeLimit))],
+                        RestartPolicy: "Never",
+                        RuntimeClassName: options.RuntimeClassName,
+                        SecurityContext: HarnessSecurity.Pod,
+                        AutomountServiceAccountToken: false,
+                        EnableServiceLinks: false)),
+                BackoffLimit: 0,
+                TtlSecondsAfterFinished: options.MapTriggerTtlSeconds,
+                ActiveDeadlineSeconds: options.MapTriggerTimeoutSeconds));
 
         return new HarnessJobSpec(job, urlSecretName, secretData);
     }

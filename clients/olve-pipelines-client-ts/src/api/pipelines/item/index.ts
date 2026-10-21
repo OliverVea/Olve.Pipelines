@@ -10,6 +10,10 @@ import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadat
 // @ts-ignore
 import { SecretsRequestBuilderNavigationMetadata, SecretsRequestBuilderRequestsMetadata, type SecretsRequestBuilder } from './secrets/index.js';
 // @ts-ignore
+import { SwitchRequestBuilderRequestsMetadata, type SwitchRequestBuilder } from './switchEscaped/index.js';
+// @ts-ignore
+import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, VersionsRequestBuilderRequestsMetadata } from './versions/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -28,6 +32,14 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      * The secrets property
      */
     get secrets(): SecretsRequestBuilder;
+    /**
+     * The switch property
+     */
+    get switchEscaped(): SwitchRequestBuilder;
+    /**
+     * The versions property
+     */
+    get versions(): VersionsRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
@@ -70,6 +82,13 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
     secrets: {
         requestsMetadata: SecretsRequestBuilderRequestsMetadata,
         navigationMetadata: SecretsRequestBuilderNavigationMetadata,
+    },
+    switchEscaped: {
+        requestsMetadata: SwitchRequestBuilderRequestsMetadata,
+    },
+    versions: {
+        requestsMetadata: VersionsRequestBuilderRequestsMetadata,
+        navigationMetadata: VersionsRequestBuilderNavigationMetadata,
     },
 };
 /**

@@ -84,7 +84,7 @@ public class KubernetesJobExecutor(
     {
         if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
         {
-            Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.Message)));
+            Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.FormattedMessage)));
             return false;
         }
 
@@ -99,7 +99,7 @@ public class KubernetesJobExecutor(
 
         if (specResult.TryPickProblems(out var specProblems, out var spec))
         {
-            Fail(attempt, "cannot build the step Job: " + string.Join("; ", specProblems.Select(p => p.Message)));
+            Fail(attempt, "cannot build the step Job: " + string.Join("; ", specProblems.Select(p => p.FormattedMessage)));
             return false;
         }
 
@@ -164,7 +164,7 @@ public class KubernetesJobExecutor(
         {
             case HarnessAttemptResult.Succeeded s:
                 if (attempts.MarkSucceeded(attempt.Id, s.OutputJson).TryPickProblems(out var problems))
-                    Fail(attempt, "output rejected: " + string.Join("; ", problems.Select(p => p.Message)));
+                    Fail(attempt, "output rejected: " + string.Join("; ", problems.Select(p => p.FormattedMessage)));
                 break;
             case HarnessAttemptResult.Skipped s:
                 LogIfFailed(attempts.MarkSkipped(attempt.Id, s.Reason), attempt.Id);

@@ -9,6 +9,7 @@ using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared.Persistence;
 
@@ -48,6 +49,9 @@ public static class ServiceConfiguration
         services.AddSingleton<IConfigSource, GitHubConfigSource>();
         services.AddTransient<IConfigReconciler, PipelineReconcileService>();
         services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
+        services.AddTransient<RunInputService>();
+        services.AddTransient<TriggerMappingService>();
+        services.AddHostedService<PollTriggerService>();
         // Register as a singleton AND as the hosted service so the reconcile-now endpoint can
         // resolve the same instance (which owns the per-binding config ETag cache) to run an
         // off-schedule reconcile.

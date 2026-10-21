@@ -1,5 +1,6 @@
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
 
 namespace Olve.Pipelines.Kubernetes;
@@ -17,6 +18,7 @@ public static class KubernetesConfiguration
         // Empty/absent = no runtimeClassName on job pods (plain runc) — the rollback path.
         var runtimeClassName = builder.Configuration["Kubernetes:RuntimeClassName"];
         if (string.IsNullOrWhiteSpace(runtimeClassName)) runtimeClassName = null;
+        builder.Services.AddHarness(builder.Configuration, runtimeClassName);
 
         // InCluster (Tier-A): reach the cluster API via the pod's own ServiceAccount — no
         // OpenBao/Authentik. Opt-in via config so the legacy path below stays the default
@@ -85,6 +87,7 @@ public static class KubernetesConfiguration
                 sp.GetRequiredService<ILogger<KubernetesClient>>());
         });
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
@@ -124,6 +127,7 @@ public static class KubernetesConfiguration
                 InClusterCredentialsProvider.ReadTokenAsync);
         });
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();

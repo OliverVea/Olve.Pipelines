@@ -378,6 +378,16 @@ Sources in priority order (highest wins):
 | `Storage:AccessKey` | — | S3 access key |
 | `Storage:SecretKey` | — | S3 secret key |
 | `Storage:Bucket` | — | S3 bucket name |
+| `Storage:InClusterEndpoint` | `Storage:Endpoint` | Garage endpoint as step pods reach it; pre-signed URLs are signed for this host (`Host` is in the SigV4 signature) |
+| `Storage:Region` | `us-east-1` | SigV4 region for pre-signed URLs (Garage's `s3_region`) |
+| `Storage:PresignExpirySeconds` | `3600` | Default pre-signed URL expiry (result PUT / file GETs get the step deadline + grace) |
+| `Harness:HarnessBaseImage` | `registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf` | v2 step-pod init image (pinned, never `latest`) |
+| `Harness:BunImage` | `oven/bun:1.4.3-slim` | v2 build/describe Job image (glibc, never alpine) |
+| `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
+| `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `olve` emptyDir |
+| `Harness:StepCpuRequest` / `StepMemoryRequest` / `StepMemoryLimit` | — | Optional step container resources |
+| `Harness:BuildTimeoutSeconds` / `BuildScratchSizeLimit` | `900` / `4Gi` | Build/describe Job deadline and scratch size |
+| `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used (optionally) to fetch the repo tarball in build Jobs |
 | `Kubernetes:Namespace` | — | K8s namespace for jobs and secrets |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. Set to `json` in deployed envs for structured logs (see below) |

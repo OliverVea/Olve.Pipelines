@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Olve.Pipelines.Kubernetes;
 
-public class KubernetesClient : IKubernetesClient, IDisposable
+public partial class KubernetesClient : IKubernetesClient, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<KubernetesClient>? _logger;

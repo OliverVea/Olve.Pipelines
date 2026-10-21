@@ -2,6 +2,7 @@ using System.Reflection;
 using Amazon.Runtime;
 using Amazon.S3;
 using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Shared.Storage;
 
 namespace Olve.Pipelines.Configuration;
 
@@ -67,6 +68,7 @@ public static class StorageConfiguration
         }
 
         builder.Services.AddSingleton(credentialsProvider);
+        builder.Services.AddStoragePresigning(builder.Configuration, endpoint, bucket);
 
         var s3Config = new AmazonS3Config
         {

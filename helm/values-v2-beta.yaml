@@ -6,6 +6,9 @@
 config:
   # This release's own Garage (olve-pipelines-v2-garage), not v1 beta's.
   Storage__Endpoint: "http://olve-pipelines-v2-garage.apps-beta:3900"
+  # Host step pods dial for pre-signed URLs (signed into SigV4). The FQDN is what the harness
+  # validation ran against (harness/README.md); the short form above relies on search domains.
+  Storage__InClusterEndpoint: "http://olve-pipelines-v2-garage.apps-beta.svc.cluster.local:3900"
   Storage__Bucket: "olve-pipelines-v2-beta"
   # No GitHub webhook auto-registration yet: v2 has no public route.
   Webhooks__PublicBaseUrl: ""

@@ -45,8 +45,34 @@ Two tracks run in parallel until they meet at the harness contract (B5/B6).
 | B5 | **Harness executor**: K8s Job spec (single harness-base init container, presigned GET for binary + input, per-step `secretKeyRef` for declared secrets only, `activeDeadlineSeconds`, TMPDIR, labels/runtimeClass), output collection (`output.json` + files → `runs/<p>/<run>/<step>/<attempt>/`), log capture, reattach-by-name; presigned URL support in the storage client | ported executor tests + one real step on beta |
 | B6 | **Build/describe in reconcile + versions + switch**: subtree changed → build/describe Job (presigned PUT for binary, manifest from log sentinels) → validate → new version if hash changed → persisted `switch` state machine (Draining → Active); binding status shows manifest problems | integration test on beta with `.pipelines-test/` TS fixture |
 | B7 | **Triggers**: push (binding webhook/deploy poll → map-trigger Job → validated input), poll (adapted `PollTriggerService`, per-trigger secrets), manual `POST trigger` with input validation (C# JSON Schema validator if AOT-safe, else a `validate-input` harness mode Job) | push → run end to end on beta |
-| B8 | **API**: runs, attempts, outputs/files (§5.5 addressing), logs, rerun/continue/cancel, gate block/unblock, versions/manifest/switch, manifest validate endpoint (for `pl dev validate`), health summary over runs | regenerated clients; integration tests |
+| B8 | **API**: runs, attempts, outputs/files (§5.5 addressing), logs, rerun/continue/cancel, gate block/unblock, versions/manifest/switch, manifest validate endpoint (for `pl dev validate`), health summary over runs | regenerated clients; integration tests — **done 2026-10-21** (see B8 notes) |
 | B9 | `onFailure` with typed `FailureContext` (handler run via harness, untracked); retention for runs/versions/binaries/file refs | tests |
+
+**B8 notes (2026-10-21).** Endpoints (operationId): `ListRuns` (paged `RunSummary`, newest first),
+`GetRun` (`RunDetail`: input, pinned version + commit, links by run number, `continuable`, the pinned
+manifest's stage layout with `when` conditions and per-step latest attempt / reason / `held` / `blocked`),
+`CancelRun`, `RerunRun`, `ContinueRun`, `ListRunAttempts`, `ListStepAttempts`, `RerunStep`
+(`{continue}`), `GetStepOutput`, `ListStepFiles`, `GetStepFile` (`…/steps/{step}/files/{*path}?attempt=`,
+streamed from Garage; `dir/` → `dir.tar`), `GetStepLogs`, `GetStepHistory` (by step name across runs,
+`stepVersionChanged` markers), `GetPipelineHealth` (also embedded as `health` in `ListPipelineSummaries`),
+`ListBlockedSteps` / `BlockStep` / `UnblockStep`, `ValidateManifest` (`POST /api/manifests/validate`,
+always 200 with `{valid, manifestHash, errors, warnings}`). Decisions and deviations:
+- **Continue** takes `{ input: { field: value } }`, merged field-by-field over the stored input and
+  validated against the run's *pinned* input model (then the consumed-field rule). **Whole-run rerun**
+  re-validates the original input against the version it binds to (defaults filled in).
+- **Explicit cancel** also cancels in-progress attempts (their Jobs are deleted) — unlike supersede.
+  A finished run with still-active attempts (e.g. superseded) gets only those attempts cancelled.
+- **Logs** of a running attempt are the pod's current logs (`IAttemptLiveLogs`; olve-init's while the
+  step container hasn't started); attempts that never ran return a one-line note, not an error.
+- **Health** is over runs: running if any run is Running, else the latest Succeeded/Failed run
+  (cancelled/superseded ignored). `PipelineSummary.status` now uses it; the per-step strip stays.
+- GETs stay `AllowAnonymous` like the existing reads, except file downloads/listing (authenticated).
+- Removed `ReconcileCoordinator`, `ReconcilePauseState` and the drain options.
+- No new beta integration tests (the suite targets v1 beta); verified live on v2 beta against the
+  fixture instead (gate hold → unblock, file fetch by attempt, rerun-and-continue re-running exactly
+  the changed downstream steps, continue rejections, whole-run rerun, cancel mid-stage).
+- Known: the generated TS client has a pre-existing `tsc` error on nullable polymorphic
+  `PipelineActivation` members (also in `PipelineVersionsResponse` before B8); `vite build` is green.
 
 ### Track C — `pl` CLI
 
@@ -74,7 +100,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 | | Milestone | Needs |
 |---|---|---|
 | M1 | A TS pipeline from `.pipelines-test/` reconciles on v2 beta into a version and runs end to end (push → describe → stages → outputs in Garage) — **done 2026-10-21** (manual, push and poll runs on beta) | A1–A4, A7, B1–B7 |
-| M2 | API + `pl` cover runs, outputs, reruns, switch; `pl dev` loops work | B8, C1, C2 |
+| M2 | API + `pl` cover runs, outputs, reruns, switch; `pl dev` loops work (B8 API done) | B8, C1, C2 |
 | M3 | Frontend renders the v2 model | D |
 | M4 | v2 deploys itself to beta from `pipeline.ts`; v1 deployer pipeline retired | A6, B9, E1, E2 |
 | M5 | Other pipelines migrated; v2 promoted to prod and `main` | E3, E4 |

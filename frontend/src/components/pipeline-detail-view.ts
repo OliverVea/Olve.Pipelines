@@ -4,7 +4,7 @@ import { client, extractErrorMessage } from '../api.js';
 import { navigate } from '../router.js';
 import type {
   Pipeline,
-  Job,
+  Attempt,
   PipelineBindingStatus,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import './refresh-control.js';
@@ -133,7 +133,7 @@ export class PipelineDetailView extends LitElement {
   @property() declare pipelineId: string;
 
   @state() private declare _pipeline: Pipeline | null;
-  @state() private declare _jobs: Job[];
+  @state() private declare _jobs: Attempt[];
   @state() private declare _bindingStatus: PipelineBindingStatus | null;
   @state() private declare _loading: boolean;
   @state() private declare _error: string | null;
@@ -220,12 +220,14 @@ export class PipelineDetailView extends LitElement {
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Step</th><th>Status</th><th>Created</th><th></th></tr>
+            <tr><th>Run</th><th>Step</th><th>Attempt</th><th>Status</th><th>Created</th><th></th></tr>
           </thead>
           <tbody>
             ${this._jobs.map(
               (j) => html`<tr>
+                <td>#${j.runNumber ?? ''}</td>
                 <td>${j.stepName}</td>
+                <td>${j.number ?? ''}</td>
                 <td>${j.status?.type ?? ''}</td>
                 <td>${j.createdAt
                   ? html`<relative-time .value=${j.createdAt}></relative-time>`

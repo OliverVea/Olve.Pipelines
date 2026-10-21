@@ -1,180 +1,134 @@
-using Microsoft.Extensions.Logging.Abstractions;
-using Olve.Pipelines.Jobs;
-using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Shared;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
-using static Olve.Pipelines.Jobs.JobStatus;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests;
 
 public class JobObsoletionServiceTests
 {
-    private static (JobService Service, EntityStore<Job> Store) CreateServices()
+    // Advancing clock (TestRunDomain default) so each attempt's CreatedAt is distinct and increasing —
+    // makes latest-wins supersession deterministic.
+    private static TestRunDomain Create() => new TestRunDomain().WireEvents();
+
+    [Test]
+    public async Task Attempt_SupersedesPendingForSameKey()
     {
-        var store = new EntityStore<Job>([]);
-        // Advancing clock so each job's CreatedAt is distinct and increasing — makes latest-wins
-        // supersession deterministic (the Make mock returns a constant timestamp).
-        var timeProvider = new MonotonicTimeProvider();
-        var events = new JobEvents();
+        var d = Create();
+        var run1 = d.CreateRun();
+        var run2 = d.CreateRun(d.Versions.List().Single());
 
-        store.OnAdded.Subscribe(events.OnAdded.Invoke);
+        var a1 = d.Schedule("build", run1);
+        var a2 = d.Schedule("build", run2);
 
-        var jobService = new JobService(
-            NullLogger<JobService>.Instance,
-            store,
-            new IdProvider(),
-            timeProvider);
-
-        var obsoletion = new JobObsoletionService(
-            jobService,
-            NullLogger<JobObsoletionService>.Instance);
-
-        events.OnAdded.Subscribe(e => obsoletion.HandleJobAdded(e.Id));
-
-        return (jobService, store);
-    }
-
-    private static Job GetJob(EntityStore<Job> store, Id<Job> id)
-    {
-        store.TryGet(id, out var job);
-        return job!;
-    }
-
-    private static Job CreateAndGet(JobService service, Func<JobService, Olve.Results.Result<Job>> create)
-    {
-        var result = create(service);
-        result.TryPickProblems(out _, out var job);
-        return job!;
+        var updated = d.Get(a1.Id);
+        await Assert.That(updated.Status).IsTypeOf<Obsolete>();
+        await Assert.That(((Obsolete)updated.Status).SupersedingAttemptId).IsEqualTo(a2.Id);
+        await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]
-    public async Task Job_SupersedesPendingForSameKey()
+    public async Task Attempt_DifferentPipelines_NoSuperseding()
     {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = "build";
+        var d = Create();
 
-        var job1 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
-        var job2 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
+        var a1 = d.Schedule("build");
+        var a2 = d.Schedule("build");
 
-        var updatedJob1 = GetJob(store, job1.Id);
-        await Assert.That(updatedJob1.Status).IsTypeOf<Obsolete>();
-        await Assert.That(((Obsolete)updatedJob1.Status).SupersedingJobId).IsEqualTo(job2.Id);
-        await Assert.That(job2.Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a1.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]
-    public async Task Job_DifferentPipelines_NoSuperseding()
+    public async Task Attempt_SamePipelineDifferentStep_NoSuperseding()
     {
-        var (service, store) = CreateServices();
-        var stepId = "build";
+        var d = Create();
+        var run = d.CreateRun();
 
-        var job1 = CreateAndGet(service, s => s.CreateJob(Id.New<Pipeline>(), stepId, "img", "sh"));
-        var job2 = CreateAndGet(service, s => s.CreateJob(Id.New<Pipeline>(), stepId, "img", "sh"));
+        var a1 = d.Schedule("build", run);
+        var a2 = d.Schedule("test", run);
 
-        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
-        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a1.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]
-    public async Task Job_SamePipelineDifferentStep_NoSuperseding()
+    public async Task Attempt_AfterFirstInProgress_SecondIsQueuedScheduled()
     {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
+        var d = Create();
+        var run = d.CreateRun();
 
-        var job1 = CreateAndGet(service, s => s.CreateJob(pipelineId, Guid.NewGuid().ToString(), "img", "sh"));
-        var job2 = CreateAndGet(service, s => s.CreateJob(pipelineId, Guid.NewGuid().ToString(), "img", "sh"));
+        var a1 = d.Schedule("build", run);
+        await Assert.That(d.AttemptService.MarkInProgress(a1.Id)).Succeeded();
 
-        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Scheduled>();
-        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
-    }
+        var a2 = d.Schedule("build", run);
 
-    [Test]
-    public async Task Job_AfterFirstInProgress_SecondIsQueuedScheduled()
-    {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = "build";
-
-        var job1 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
-
-        await Assert.That(service.UpdateJob<Job>(job1.Id, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) })).Succeeded();
-
-        var job2 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
-
-        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<InProgress>();
-        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a1.Id).Status).IsTypeOf<InProgress>();
+        await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]
     public async Task ThreeScheduled_SameKey_OnlyNewestSurvives_SupersessionChainTerminates()
     {
-        var (service, store) = CreateServices();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = "build";
+        var d = Create();
+        var run = d.CreateRun();
 
-        var job1 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
-        var job2 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
-        var job3 = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh"));
+        var a1 = d.Schedule("build", run);
+        var a2 = d.Schedule("build", run);
+        var a3 = d.Schedule("build", run);
 
-        // Newest (job3) is the single survivor; the two older jobs are obsolete and following their
-        // SupersedingJobId always converges on job3 with no cycle (strict total order).
-        await Assert.That(GetJob(store, job3.Id).Status).IsTypeOf<Scheduled>();
-        await Assert.That(GetJob(store, job1.Id).Status).IsTypeOf<Obsolete>();
-        await Assert.That(GetJob(store, job2.Id).Status).IsTypeOf<Obsolete>();
-        await Assert.That(ResolveSurvivor(store, job1.Id)).IsEqualTo(job3.Id);
-        await Assert.That(ResolveSurvivor(store, job2.Id)).IsEqualTo(job3.Id);
+        await Assert.That(d.Get(a3.Id).Status).IsTypeOf<Scheduled>();
+        await Assert.That(d.Get(a1.Id).Status).IsTypeOf<Obsolete>();
+        await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Obsolete>();
+        await Assert.That(ResolveSurvivor(d, a1.Id)).IsEqualTo(a3.Id);
+        await Assert.That(ResolveSurvivor(d, a2.Id)).IsEqualTo(a3.Id);
     }
 
-    // Walk the SupersedingJobId chain to the single non-obsolete job; throws if it loops, so a
+    // Walk the supersession chain to the single non-obsolete attempt; throws if it loops, so a
     // mutual-supersession cycle fails the test rather than hanging.
-    private static Id<Job> ResolveSurvivor(EntityStore<Job> store, Id<Job> start)
+    private static Id<Attempt> ResolveSurvivor(TestRunDomain d, Id<Attempt> start)
     {
-        var seen = new HashSet<Id<Job>>();
+        var seen = new HashSet<Id<Attempt>>();
         var current = start;
-        while (GetJob(store, current).Status is Obsolete obsolete)
+        while (d.Get(current).Status is Obsolete obsolete)
         {
             if (!seen.Add(current))
-                throw new InvalidOperationException($"Supersession cycle detected at job '{current}'.");
-            current = obsolete.SupersedingJobId;
+                throw new InvalidOperationException($"Supersession cycle detected at attempt '{current}'.");
+            current = obsolete.SupersedingAttemptId;
         }
         return current;
     }
 
-    // Requirement #3: under concurrent scheduling for one (pipeline, step) key, supersession is a
-    // strict total order — exactly one runnable job survives and no two jobs name each other.
-    // Reproduces the mutual-supersession deadlock pre-fix (each handler obsoleted "the other").
+    // Under concurrent scheduling for one (pipeline, step) key, supersession is a strict total order
+    // — exactly one runnable attempt survives and no two attempts name each other.
     [Test]
     public async Task ConcurrentCreations_SameKey_NoMutualSupersession()
     {
         for (var iteration = 0; iteration < 200; iteration++)
         {
-            var (service, store) = CreateServices();
-            var pipelineId = Id.New<Pipeline>();
-            var stepId = "build";
+            var d = Create();
+            var run = d.CreateRun();
 
             using var barrier = new Barrier(2);
-            var created = new Id<Job>[2];
+            var created = new Id<Attempt>[2];
 
-            void Create(int index)
+            void Schedule(int index)
             {
                 barrier.SignalAndWait();
-                created[index] = CreateAndGet(service, s => s.CreateJob(pipelineId, stepId, "img", "sh")).Id;
+                created[index] = d.Schedule("build", run).Id;
             }
 
-            var t1 = Task.Run(() => Create(0));
-            var t2 = Task.Run(() => Create(1));
-            await Task.WhenAll(t1, t2);
+            await Task.WhenAll(Task.Run(() => Schedule(0)), Task.Run(() => Schedule(1)));
 
-            var jobs = created.Select(id => GetJob(store, id)).ToArray();
-            var scheduled = jobs.Where(j => j.Status is Scheduled).ToArray();
-            var obsolete = jobs.Where(j => j.Status is Obsolete).ToArray();
+            var attempts = created.Select(d.Get).ToArray();
+            var scheduled = attempts.Where(a => a.Status is Scheduled).ToArray();
+            var obsolete = attempts.Where(a => a.Status is Obsolete).ToArray();
 
-            // Exactly one survives; the loser points at the survivor — never each other (a cycle).
             await Assert.That(scheduled).Count().IsEqualTo(1);
             await Assert.That(obsolete).Count().IsEqualTo(1);
-            await Assert.That(((Obsolete)obsolete[0].Status).SupersedingJobId).IsEqualTo(scheduled[0].Id);
+            await Assert.That(((Obsolete)obsolete[0].Status).SupersedingAttemptId).IsEqualTo(scheduled[0].Id);
+            // Concurrent creation still yields distinct attempt numbers.
+            await Assert.That(attempts.Select(a => a.Number).Distinct()).Count().IsEqualTo(2);
         }
     }
 }

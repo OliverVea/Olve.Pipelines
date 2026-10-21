@@ -1,4 +1,4 @@
-using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
@@ -10,7 +10,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// <item><b>Pause</b> — flag the pipeline so the trigger layer refuses new runs.
 /// In-flight work runs to completion on its original config.</item>
 /// <item><b>Drain</b> — wait (no lock held, no I/O) until the pipeline is quiescent: no job in
-/// Scheduled/InProgress. A generous timeout prevents a stuck job from wedging the pipeline.</item>
+/// Scheduled/InProgress attempt. A generous timeout prevents a stuck attempt from wedging the pipeline.</item>
 /// <item><b>Mutate</b> — under the global config lock, apply the change. At this point there are
 /// zero non-terminal jobs, so reconcile can never change config out from under a running job.</item>
 /// <item><b>Resume</b> — always clear the pause flag (success, failure, or timeout).</item>
@@ -19,7 +19,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// </summary>
 public class ReconcileCoordinator(
     ReconcilePauseState pauseState,
-    JobService jobs,
+    AttemptService attempts,
     ReconcileOptions options,
     TimeProvider timeProvider,
     ILogger<ReconcileCoordinator> logger)
@@ -63,7 +63,7 @@ public class ReconcileCoordinator(
     {
         var deadline = timeProvider.GetUtcNow() + options.DrainTimeout;
 
-        while (jobs.HasActiveJobs(pipelineId))
+        while (attempts.HasActiveAttempts(pipelineId))
         {
             if (timeProvider.GetUtcNow() >= deadline)
                 return false;

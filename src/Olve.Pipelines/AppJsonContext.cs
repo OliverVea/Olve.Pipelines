@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 using Olve.Pipelines.Configuration;
-using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Utilities.Paginations;
@@ -18,11 +18,13 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<PipelineSummary[]>))]
 [JsonSerializable(typeof(Result<string>))]
 [JsonSerializable(typeof(Result<string[]>))]
-[JsonSerializable(typeof(Result<Job>))]
-[JsonSerializable(typeof(Result<Job[]>))]
-[JsonSerializable(typeof(Result<Page<Job>>))]
-[JsonSerializable(typeof(JobSortField))]
-[JsonSerializable(typeof(Result<Id<Job>[]>))]
+[JsonSerializable(typeof(Result<Attempt>))]
+[JsonSerializable(typeof(Result<Attempt[]>))]
+[JsonSerializable(typeof(Result<Page<Attempt>>))]
+[JsonSerializable(typeof(AttemptSortField))]
+[JsonSerializable(typeof(Result<Id<Attempt>[]>))]
+[JsonSerializable(typeof(Result<Run>))]
+[JsonSerializable(typeof(Result<Run[]>))]
 [JsonSerializable(typeof(PipelineConfigBinding))]
 [JsonSerializable(typeof(Result<PipelineConfigBinding>))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]

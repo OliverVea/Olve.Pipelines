@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Hosting;
-using static Olve.Pipelines.Jobs.JobStatus;
+using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Jobs;
 
@@ -9,23 +9,24 @@ public abstract class JobExecutorBase(
     IHostApplicationLifetime lifetime,
     ILogger logger) : IJobExecutor
 {
-    public void EnsureRunning(Id<Job> id)
+    public void EnsureRunning(Id<Attempt> id)
     {
         registry.EnsureRunning(id, async () =>
         {
             await using var scope = scopeFactory.CreateAsyncScope();
             var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
-            var jobService = scope.ServiceProvider.GetRequiredService<JobService>();
+            var attempts = scope.ServiceProvider.GetRequiredService<AttemptService>();
 
-            if (!jobService.TryGetJob<Job>(id, out var job))
+            if (!attempts.TryGet(id, out var attempt))
             {
-                logger.LogDebug("Watcher for job '{JobId}' exiting: job not found", id);
+                logger.LogDebug("Watcher for attempt '{AttemptId}' exiting: attempt not found", id);
                 return;
             }
 
-            if (job.Status is not (Scheduled or InProgress))
+            if (!attempt.Status.IsActive())
             {
-                logger.LogDebug("Watcher for job '{JobId}' exiting: status is {Status}", id, job.Status.GetType().Name);
+                logger.LogDebug("Watcher for attempt '{AttemptId}' ({StepName} #{RunNumber}@{AttemptNumber}) exiting: status is {Status}",
+                    id, attempt.StepName, attempt.RunNumber, attempt.Number, attempt.Status.Discriminator());
                 return;
             }
 
@@ -37,18 +38,18 @@ public abstract class JobExecutorBase(
 
             try
             {
-                await typedExecutor.RunToCompletionAsync(job, lifetime.ApplicationStopping);
+                await typedExecutor.RunToCompletionAsync(attempt, lifetime.ApplicationStopping);
             }
             catch (OperationCanceledException) when (lifetime.ApplicationStopping.IsCancellationRequested)
             {
-                logger.LogInformation("Watcher for job '{JobId}' cancelled during shutdown — will reattach on next start", id);
+                logger.LogInformation("Watcher for attempt '{AttemptId}' cancelled during shutdown — will reattach on next start", id);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Unhandled exception in watcher for job '{JobId}'", id);
+                logger.LogError(ex, "Unhandled exception in watcher for attempt '{AttemptId}'", id);
             }
         });
     }
 
-    protected internal abstract Task RunToCompletionAsync(Job job, CancellationToken ct);
+    protected internal abstract Task RunToCompletionAsync(Attempt attempt, CancellationToken ct);
 }

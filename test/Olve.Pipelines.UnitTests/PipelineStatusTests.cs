@@ -12,17 +12,17 @@ public class PipelineStatusTests
 
     [Test]
     public async Task AllDone_IsHealthy()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("done")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("succeeded")]))
             .IsEqualTo(PipelineStatus.Healthy);
 
     [Test]
     public async Task RunningWithNoFailures_IsRunningHealthy()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("in-progress")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("in-progress")]))
             .IsEqualTo(PipelineStatus.RunningHealthy);
 
     [Test]
     public async Task ScheduledCountsAsRunning()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("scheduled")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("scheduled")]))
             .IsEqualTo(PipelineStatus.RunningHealthy);
 
     [Test]
@@ -32,16 +32,21 @@ public class PipelineStatusTests
 
     [Test]
     public async Task NotRunningWithAFailure_IsUnhealthy()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("failed")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("failed")]))
             .IsEqualTo(PipelineStatus.Unhealthy);
 
     [Test]
     public async Task IdleSteps_AreIdle()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("idle")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("idle")]))
             .IsEqualTo(PipelineStatus.Idle);
 
     [Test]
     public async Task CancelledOrObsolete_WithoutFailure_IsIdle()
-        => await Assert.That(PipelineStatus.Compute([Step("done"), Step("cancelled"), Step("obsolete")]))
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("cancelled"), Step("obsolete")]))
             .IsEqualTo(PipelineStatus.Idle);
+
+    [Test]
+    public async Task SkippedSteps_CountAsHealthy()
+        => await Assert.That(PipelineStatus.Compute([Step("succeeded"), Step("skipped")]))
+            .IsEqualTo(PipelineStatus.Healthy);
 }

@@ -4,7 +4,265 @@
 // @ts-ignore
 import { type AdditionalDataHolder, type ApiError, type Guid, type Parsable, type ParseNode, type SerializationWriter } from '@microsoft/kiota-abstractions';
 
+export interface Attempt extends AdditionalDataHolder, Parsable {
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The inputHash property
+     */
+    inputHash?: string | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The output property
+     */
+    output?: AttemptOutput | Attempt_outputMember1 | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The runId property
+     */
+    runId?: Guid | null;
+    /**
+     * The runNumber property
+     */
+    runNumber?: number | null;
+    /**
+     * The status property
+     */
+    status?: AttemptStatus | null;
+    /**
+     * The stepName property
+     */
+    stepName?: string | null;
+}
+export type Attempt_output = AttemptOutput | Attempt_outputMember1;
+export interface Attempt_outputMember1 extends AdditionalDataHolder, Parsable {
+}
+export interface AttemptOutput extends AdditionalDataHolder, Parsable {
+    /**
+     * The json property
+     */
+    json?: string | null;
+    /**
+     * The key property
+     */
+    key?: string | null;
+}
+export interface AttemptStatus extends AdditionalDataHolder, Parsable {
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface AttemptStatusCancelled extends AttemptStatus, Parsable {
+    /**
+     * The cancelledAt property
+     */
+    cancelledAt?: Date | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+}
+export interface AttemptStatusFailed extends AttemptStatus, Parsable {
+    /**
+     * The finishedAt property
+     */
+    finishedAt?: Date | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+}
+export interface AttemptStatusInProgress extends AttemptStatus, Parsable {
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+}
+export interface AttemptStatusObsolete extends AttemptStatus, Parsable {
+    /**
+     * The supersedingAttemptId property
+     */
+    supersedingAttemptId?: Guid | null;
+}
+export interface AttemptStatusScheduled extends AttemptStatus, Parsable {
+    /**
+     * The submissionAttempts property
+     */
+    submissionAttempts?: number | null;
+}
+export interface AttemptStatusSkipped extends AttemptStatus, Parsable {
+    /**
+     * The finishedAt property
+     */
+    finishedAt?: Date | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+}
+export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
+    /**
+     * The finishedAt property
+     */
+    finishedAt?: Date | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+}
 export interface BindingDeployTrigger extends AdditionalDataHolder, Parsable {
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptOutput | Attempt_outputMember1}
+ */
+// @ts-ignore
+export function createAttempt_outputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttempt_output;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Attempt_outputMember1}
+ */
+// @ts-ignore
+export function createAttempt_outputMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttempt_outputMember1;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Attempt}
+ */
+// @ts-ignore
+export function createAttemptFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttempt;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptOutput}
+ */
+// @ts-ignore
+export function createAttemptOutputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptOutput;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusCancelled}
+ */
+// @ts-ignore
+export function createAttemptStatusCancelledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusCancelled;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusFailed}
+ */
+// @ts-ignore
+export function createAttemptStatusFailedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusFailed;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatus}
+ */
+// @ts-ignore
+export function createAttemptStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    if(!parseNode) throw new Error("parseNode cannot be undefined");
+    const mappingValueNode = parseNode?.getChildNode("type");
+    if (mappingValueNode) {
+        const mappingValue = mappingValueNode.getStringValue();
+        if (mappingValue) {
+            switch (mappingValue) {
+                case "cancelled":
+                    return deserializeIntoAttemptStatusCancelled;
+                case "failed":
+                    return deserializeIntoAttemptStatusFailed;
+                case "in-progress":
+                    return deserializeIntoAttemptStatusInProgress;
+                case "obsolete":
+                    return deserializeIntoAttemptStatusObsolete;
+                case "scheduled":
+                    return deserializeIntoAttemptStatusScheduled;
+                case "skipped":
+                    return deserializeIntoAttemptStatusSkipped;
+                case "succeeded":
+                    return deserializeIntoAttemptStatusSucceeded;
+            }
+        }
+    }
+    return deserializeIntoAttemptStatus;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusInProgress}
+ */
+// @ts-ignore
+export function createAttemptStatusInProgressFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusInProgress;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusObsolete}
+ */
+// @ts-ignore
+export function createAttemptStatusObsoleteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusObsolete;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusScheduled}
+ */
+// @ts-ignore
+export function createAttemptStatusScheduledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusScheduled;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusSkipped}
+ */
+// @ts-ignore
+export function createAttemptStatusSkippedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusSkipped;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusSucceeded}
+ */
+// @ts-ignore
+export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusSucceeded;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -45,113 +303,11 @@ export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {Job_environmentVariables}
+ * @returns {PageOfAttempt}
  */
 // @ts-ignore
-export function createJob_environmentVariablesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJob_environmentVariables;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {Job}
- */
-// @ts-ignore
-export function createJobFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJob;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusCancelled}
- */
-// @ts-ignore
-export function createJobStatusCancelledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusCancelled;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusDone}
- */
-// @ts-ignore
-export function createJobStatusDoneFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusDone;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusFailed}
- */
-// @ts-ignore
-export function createJobStatusFailedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusFailed;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatus}
- */
-// @ts-ignore
-export function createJobStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    if(!parseNode) throw new Error("parseNode cannot be undefined");
-    const mappingValueNode = parseNode?.getChildNode("type");
-    if (mappingValueNode) {
-        const mappingValue = mappingValueNode.getStringValue();
-        if (mappingValue) {
-            switch (mappingValue) {
-                case "cancelled":
-                    return deserializeIntoJobStatusCancelled;
-                case "done":
-                    return deserializeIntoJobStatusDone;
-                case "failed":
-                    return deserializeIntoJobStatusFailed;
-                case "in-progress":
-                    return deserializeIntoJobStatusInProgress;
-                case "obsolete":
-                    return deserializeIntoJobStatusObsolete;
-                case "scheduled":
-                    return deserializeIntoJobStatusScheduled;
-            }
-        }
-    }
-    return deserializeIntoJobStatus;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusInProgress}
- */
-// @ts-ignore
-export function createJobStatusInProgressFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusInProgress;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusObsolete}
- */
-// @ts-ignore
-export function createJobStatusObsoleteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusObsolete;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {JobStatusScheduled}
- */
-// @ts-ignore
-export function createJobStatusScheduledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoJobStatusScheduled;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PageOfJob}
- */
-// @ts-ignore
-export function createPageOfJobFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPageOfJob;
+export function createPageOfAttemptFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageOfAttempt;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -244,6 +400,24 @@ export function createResultProblemFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Run}
+ */
+// @ts-ignore
+export function createRunFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRun;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RunTrigger}
+ */
+// @ts-ignore
+export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SecretDeclaration}
  */
 // @ts-ignore
@@ -297,6 +471,161 @@ export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: Pars
 }
 /**
  * The deserialization information for the current model
+ * @param Attempt The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttempt(attempt: Partial<Attempt> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "createdAt": n => { attempt.createdAt = n.getDateValue(); },
+        "id": n => { attempt.id = n.getGuidValue(); },
+        "inputHash": n => { attempt.inputHash = n.getStringValue(); },
+        "number": n => { attempt.number = n.getNumberValue(); },
+        "output": n => { attempt.output = n.getObjectValue<AttemptOutput>(createAttemptOutputFromDiscriminatorValue) ?? n.getObjectValue<Attempt_outputMember1>(createAttempt_outputMember1FromDiscriminatorValue); },
+        "pipelineId": n => { attempt.pipelineId = n.getGuidValue(); },
+        "runId": n => { attempt.runId = n.getGuidValue(); },
+        "runNumber": n => { attempt.runNumber = n.getNumberValue(); },
+        "status": n => { attempt.status = n.getObjectValue<AttemptStatus>(createAttemptStatusFromDiscriminatorValue); },
+        "stepName": n => { attempt.stepName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param Attempt_output The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttempt_output(attempt_output: Partial<AttemptOutput | Attempt_outputMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptOutput(attempt_output as AttemptOutput),
+        ...deserializeIntoAttempt_outputMember1(attempt_output as Attempt_outputMember1),
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param Attempt_outputMember1 The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttempt_outputMember1(attempt_outputMember1: Partial<Attempt_outputMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptOutput The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptOutput(attemptOutput: Partial<AttemptOutput> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "json": n => { attemptOutput.json = n.getStringValue(); },
+        "key": n => { attemptOutput.key = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatus The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatus(attemptStatus: Partial<AttemptStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "type": n => { attemptStatus.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusCancelled The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusCancelled(attemptStatusCancelled: Partial<AttemptStatusCancelled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusCancelled),
+        "cancelledAt": n => { attemptStatusCancelled.cancelledAt = n.getDateValue(); },
+        "startedAt": n => { attemptStatusCancelled.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusFailed The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusFailed(attemptStatusFailed: Partial<AttemptStatusFailed> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusFailed),
+        "finishedAt": n => { attemptStatusFailed.finishedAt = n.getDateValue(); },
+        "reason": n => { attemptStatusFailed.reason = n.getStringValue(); },
+        "startedAt": n => { attemptStatusFailed.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusInProgress The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusInProgress(attemptStatusInProgress: Partial<AttemptStatusInProgress> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusInProgress),
+        "startedAt": n => { attemptStatusInProgress.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusObsolete The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusObsolete(attemptStatusObsolete: Partial<AttemptStatusObsolete> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusObsolete),
+        "supersedingAttemptId": n => { attemptStatusObsolete.supersedingAttemptId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusScheduled The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusScheduled(attemptStatusScheduled: Partial<AttemptStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusScheduled),
+        "submissionAttempts": n => { attemptStatusScheduled.submissionAttempts = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusSkipped The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusSkipped(attemptStatusSkipped: Partial<AttemptStatusSkipped> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusSkipped),
+        "finishedAt": n => { attemptStatusSkipped.finishedAt = n.getDateValue(); },
+        "reason": n => { attemptStatusSkipped.reason = n.getStringValue(); },
+        "startedAt": n => { attemptStatusSkipped.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusSucceeded The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Partial<AttemptStatusSucceeded> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusSucceeded),
+        "finishedAt": n => { attemptStatusSucceeded.finishedAt = n.getDateValue(); },
+        "startedAt": n => { attemptStatusSucceeded.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param BindingDeployTrigger The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -344,134 +673,19 @@ export function deserializeIntoCreatePipelineWithRepoRequest_deployTriggerMember
 }
 /**
  * The deserialization information for the current model
- * @param Job The instance to deserialize into.
+ * @param PageOfAttempt The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoJob(job: Partial<Job> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoPageOfAttempt(pageOfAttempt: Partial<PageOfAttempt> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "createdAt": n => { job.createdAt = n.getDateValue(); },
-        "environmentVariables": n => { job.environmentVariables = n.getObjectValue<Job_environmentVariables>(createJob_environmentVariablesFromDiscriminatorValue); },
-        "id": n => { job.id = n.getGuidValue(); },
-        "image": n => { job.image = n.getStringValue(); },
-        "pipelineId": n => { job.pipelineId = n.getGuidValue(); },
-        "script": n => { job.script = n.getStringValue(); },
-        "status": n => { job.status = n.getObjectValue<JobStatus>(createJobStatusFromDiscriminatorValue); },
-        "stepName": n => { job.stepName = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param Job_environmentVariables The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJob_environmentVariables(job_environmentVariables: Partial<Job_environmentVariables> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatus The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatus(jobStatus: Partial<JobStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "type": n => { jobStatus.type = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusCancelled The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusCancelled(jobStatusCancelled: Partial<JobStatusCancelled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusCancelled),
-        "cancelledAt": n => { jobStatusCancelled.cancelledAt = n.getDateValue(); },
-        "startedAt": n => { jobStatusCancelled.startedAt = n.getDateValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusDone The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusDone(jobStatusDone: Partial<JobStatusDone> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusDone),
-        "completedAt": n => { jobStatusDone.completedAt = n.getDateValue(); },
-        "startedAt": n => { jobStatusDone.startedAt = n.getDateValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusFailed The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusFailed(jobStatusFailed: Partial<JobStatusFailed> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusFailed),
-        "failedAt": n => { jobStatusFailed.failedAt = n.getDateValue(); },
-        "reason": n => { jobStatusFailed.reason = n.getStringValue(); },
-        "startedAt": n => { jobStatusFailed.startedAt = n.getDateValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusInProgress The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusInProgress(jobStatusInProgress: Partial<JobStatusInProgress> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusInProgress),
-        "startedAt": n => { jobStatusInProgress.startedAt = n.getDateValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusObsolete The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusObsolete(jobStatusObsolete: Partial<JobStatusObsolete> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusObsolete),
-        "supersedingJobId": n => { jobStatusObsolete.supersedingJobId = n.getGuidValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param JobStatusScheduled The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoJobStatusScheduled(jobStatusScheduled: Partial<JobStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoJobStatus(jobStatusScheduled),
-        "attempts": n => { jobStatusScheduled.attempts = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PageOfJob The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPageOfJob(pageOfJob: Partial<PageOfJob> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "hasNextPage": n => { pageOfJob.hasNextPage = n.getBooleanValue(); },
-        "items": n => { pageOfJob.items = n.getCollectionOfObjectValues<Job>(createJobFromDiscriminatorValue); },
-        "next": n => { pageOfJob.next = n.getObjectValue<Pagination>(createPaginationFromDiscriminatorValue); },
-        "pageNumber": n => { pageOfJob.pageNumber = n.getNumberValue(); },
-        "pageSize": n => { pageOfJob.pageSize = n.getNumberValue(); },
-        "totalCount": n => { pageOfJob.totalCount = n.getNumberValue(); },
-        "totalPages": n => { pageOfJob.totalPages = n.getNumberValue(); },
+        "hasNextPage": n => { pageOfAttempt.hasNextPage = n.getBooleanValue(); },
+        "items": n => { pageOfAttempt.items = n.getCollectionOfObjectValues<Attempt>(createAttemptFromDiscriminatorValue); },
+        "next": n => { pageOfAttempt.next = n.getObjectValue<Pagination>(createPaginationFromDiscriminatorValue); },
+        "pageNumber": n => { pageOfAttempt.pageNumber = n.getNumberValue(); },
+        "pageSize": n => { pageOfAttempt.pageSize = n.getNumberValue(); },
+        "totalCount": n => { pageOfAttempt.totalCount = n.getNumberValue(); },
+        "totalPages": n => { pageOfAttempt.totalPages = n.getNumberValue(); },
     }
 }
 /**
@@ -589,6 +803,41 @@ export function deserializeIntoResultProblem(resultProblem: Partial<ResultProble
 }
 /**
  * The deserialization information for the current model
+ * @param Run The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "createdAt": n => { run.createdAt = n.getDateValue(); },
+        "finishedAt": n => { run.finishedAt = n.getDateValue(); },
+        "id": n => { run.id = n.getGuidValue(); },
+        "input": n => { run.input = n.getStringValue(); },
+        "number": n => { run.number = n.getNumberValue(); },
+        "pipelineId": n => { run.pipelineId = n.getGuidValue(); },
+        "rerunOf": n => { run.rerunOf = n.getGuidValue(); },
+        "status": n => { run.status = n.getEnumValue<RunStatus>(RunStatusObject); },
+        "supersededBy": n => { run.supersededBy = n.getGuidValue(); },
+        "trigger": n => { run.trigger = n.getObjectValue<RunTrigger>(createRunTriggerFromDiscriminatorValue); },
+        "versionId": n => { run.versionId = n.getGuidValue(); },
+        "versionNumber": n => { run.versionNumber = n.getNumberValue(); },
+        "versionStamp": n => { run.versionStamp = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RunTrigger The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
+        "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param SecretDeclaration The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -658,101 +907,7 @@ export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partia
         "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
     }
 }
-export interface Job extends AdditionalDataHolder, Parsable {
-    /**
-     * The createdAt property
-     */
-    createdAt?: Date | null;
-    /**
-     * The environmentVariables property
-     */
-    environmentVariables?: Job_environmentVariables | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The image property
-     */
-    image?: string | null;
-    /**
-     * The pipelineId property
-     */
-    pipelineId?: Guid | null;
-    /**
-     * The script property
-     */
-    script?: string | null;
-    /**
-     * The status property
-     */
-    status?: JobStatus | null;
-    /**
-     * The stepName property
-     */
-    stepName?: string | null;
-}
-export interface Job_environmentVariables extends AdditionalDataHolder, Parsable {
-}
-export interface JobStatus extends AdditionalDataHolder, Parsable {
-    /**
-     * The type property
-     */
-    type?: string | null;
-}
-export interface JobStatusCancelled extends JobStatus, Parsable {
-    /**
-     * The cancelledAt property
-     */
-    cancelledAt?: Date | null;
-    /**
-     * The startedAt property
-     */
-    startedAt?: Date | null;
-}
-export interface JobStatusDone extends JobStatus, Parsable {
-    /**
-     * The completedAt property
-     */
-    completedAt?: Date | null;
-    /**
-     * The startedAt property
-     */
-    startedAt?: Date | null;
-}
-export interface JobStatusFailed extends JobStatus, Parsable {
-    /**
-     * The failedAt property
-     */
-    failedAt?: Date | null;
-    /**
-     * The reason property
-     */
-    reason?: string | null;
-    /**
-     * The startedAt property
-     */
-    startedAt?: Date | null;
-}
-export interface JobStatusInProgress extends JobStatus, Parsable {
-    /**
-     * The startedAt property
-     */
-    startedAt?: Date | null;
-}
-export interface JobStatusObsolete extends JobStatus, Parsable {
-    /**
-     * The supersedingJobId property
-     */
-    supersedingJobId?: Guid | null;
-}
-export interface JobStatusScheduled extends JobStatus, Parsable {
-    /**
-     * The attempts property
-     */
-    attempts?: number | null;
-}
-export interface PageOfJob extends AdditionalDataHolder, Parsable {
+export interface PageOfAttempt extends AdditionalDataHolder, Parsable {
     /**
      * The hasNextPage property
      */
@@ -760,7 +915,7 @@ export interface PageOfJob extends AdditionalDataHolder, Parsable {
     /**
      * The items property
      */
-    items?: Job[] | null;
+    items?: Attempt[] | null;
     /**
      * The next property
      */
@@ -968,6 +1123,72 @@ export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable 
      */
     tags?: string[] | null;
 }
+export interface Run extends AdditionalDataHolder, Parsable {
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The finishedAt property
+     */
+    finishedAt?: Date | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The input property
+     */
+    input?: string | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The rerunOf property
+     */
+    rerunOf?: Guid | null;
+    /**
+     * The status property
+     */
+    status?: RunStatus | null;
+    /**
+     * The supersededBy property
+     */
+    supersededBy?: Guid | null;
+    /**
+     * The trigger property
+     */
+    trigger?: RunTrigger | null;
+    /**
+     * The versionId property
+     */
+    versionId?: Guid | null;
+    /**
+     * The versionNumber property
+     */
+    versionNumber?: number | null;
+    /**
+     * The versionStamp property
+     */
+    versionStamp?: string | null;
+}
+export type RunStatus = (typeof RunStatusObject)[keyof typeof RunStatusObject];
+export interface RunTrigger extends AdditionalDataHolder, Parsable {
+    /**
+     * The dedupKey property
+     */
+    dedupKey?: string | null;
+    /**
+     * The kind property
+     */
+    kind?: RunTriggerKind | null;
+}
+export type RunTriggerKind = (typeof RunTriggerKindObject)[keyof typeof RunTriggerKindObject];
 export interface SecretDeclaration extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -991,6 +1212,187 @@ export interface SecretStatus extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+}
+/**
+ * Serializes information the current object
+ * @param Attempt The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttempt(writer: SerializationWriter, attempt: Partial<Attempt> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attempt || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", attempt.createdAt);
+    writer.writeGuidValue("id", attempt.id);
+    writer.writeStringValue("inputHash", attempt.inputHash);
+    writer.writeNumberValue("number", attempt.number);
+    writer.writeObjectValue<AttemptOutput | Attempt_outputMember1>("output", attempt.output, serializeAttempt_output);
+    writer.writeGuidValue("pipelineId", attempt.pipelineId);
+    writer.writeGuidValue("runId", attempt.runId);
+    writer.writeNumberValue("runNumber", attempt.runNumber);
+    writer.writeObjectValue<AttemptStatus>("status", attempt.status, serializeAttemptStatus);
+    writer.writeStringValue("stepName", attempt.stepName);
+    writer.writeAdditionalData(attempt.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param Attempt_output The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttempt_output(writer: SerializationWriter, attempt_output: Partial<AttemptOutput | Attempt_outputMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    serializeAttemptOutput(writer, attempt_output as AttemptOutput);
+    serializeAttempt_outputMember1(writer, attempt_output as Attempt_outputMember1);
+}
+/**
+ * Serializes information the current object
+ * @param Attempt_outputMember1 The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttempt_outputMember1(writer: SerializationWriter, attempt_outputMember1: Partial<Attempt_outputMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attempt_outputMember1 || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(attempt_outputMember1.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptOutput The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptOutput(writer: SerializationWriter, attemptOutput: Partial<AttemptOutput> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptOutput || isSerializingDerivedType) { return; }
+    writer.writeStringValue("json", attemptOutput.json);
+    writer.writeStringValue("key", attemptOutput.key);
+    writer.writeAdditionalData(attemptOutput.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatus The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatus(writer: SerializationWriter, attemptStatus: Partial<AttemptStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatus || isSerializingDerivedType) { return; }
+    writer.writeStringValue("type", attemptStatus.type);
+    writer.writeAdditionalData(attemptStatus.additionalData);
+    switch (attemptStatus.type) {
+        case "cancelled":
+            serializeAttemptStatusCancelled(writer, attemptStatus, true);
+        break;
+        case "failed":
+            serializeAttemptStatusFailed(writer, attemptStatus, true);
+        break;
+        case "in-progress":
+            serializeAttemptStatusInProgress(writer, attemptStatus, true);
+        break;
+        case "obsolete":
+            serializeAttemptStatusObsolete(writer, attemptStatus, true);
+        break;
+        case "scheduled":
+            serializeAttemptStatusScheduled(writer, attemptStatus, true);
+        break;
+        case "skipped":
+            serializeAttemptStatusSkipped(writer, attemptStatus, true);
+        break;
+        case "succeeded":
+            serializeAttemptStatusSucceeded(writer, attemptStatus, true);
+        break;
+    }
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusCancelled The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusCancelled(writer: SerializationWriter, attemptStatusCancelled: Partial<AttemptStatusCancelled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusCancelled || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusCancelled, isSerializingDerivedType)
+    writer.writeDateValue("cancelledAt", attemptStatusCancelled.cancelledAt);
+    writer.writeDateValue("startedAt", attemptStatusCancelled.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusFailed The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusFailed(writer: SerializationWriter, attemptStatusFailed: Partial<AttemptStatusFailed> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusFailed || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusFailed, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusFailed.finishedAt);
+    writer.writeStringValue("reason", attemptStatusFailed.reason);
+    writer.writeDateValue("startedAt", attemptStatusFailed.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusInProgress The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusInProgress(writer: SerializationWriter, attemptStatusInProgress: Partial<AttemptStatusInProgress> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusInProgress || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusInProgress, isSerializingDerivedType)
+    writer.writeDateValue("startedAt", attemptStatusInProgress.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusObsolete The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusObsolete(writer: SerializationWriter, attemptStatusObsolete: Partial<AttemptStatusObsolete> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusObsolete || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusObsolete, isSerializingDerivedType)
+    writer.writeGuidValue("supersedingAttemptId", attemptStatusObsolete.supersedingAttemptId);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusScheduled The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusScheduled(writer: SerializationWriter, attemptStatusScheduled: Partial<AttemptStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusScheduled || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusScheduled, isSerializingDerivedType)
+    writer.writeNumberValue("submissionAttempts", attemptStatusScheduled.submissionAttempts);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusSkipped The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusSkipped(writer: SerializationWriter, attemptStatusSkipped: Partial<AttemptStatusSkipped> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusSkipped || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusSkipped, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusSkipped.finishedAt);
+    writer.writeStringValue("reason", attemptStatusSkipped.reason);
+    writer.writeDateValue("startedAt", attemptStatusSkipped.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusSucceeded The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusSucceeded(writer: SerializationWriter, attemptStatusSucceeded: Partial<AttemptStatusSucceeded> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusSucceeded || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusSucceeded, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusSucceeded.finishedAt);
+    writer.writeDateValue("startedAt", attemptStatusSucceeded.startedAt);
 }
 /**
  * Serializes information the current object
@@ -1044,158 +1446,20 @@ export function serializeCreatePipelineWithRepoRequest_deployTriggerMember1(writ
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param Job The instance to serialize from.
+ * @param PageOfAttempt The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeJob(writer: SerializationWriter, job: Partial<Job> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!job || isSerializingDerivedType) { return; }
-    writer.writeDateValue("createdAt", job.createdAt);
-    writer.writeObjectValue<Job_environmentVariables>("environmentVariables", job.environmentVariables, serializeJob_environmentVariables);
-    writer.writeGuidValue("id", job.id);
-    writer.writeStringValue("image", job.image);
-    writer.writeGuidValue("pipelineId", job.pipelineId);
-    writer.writeStringValue("script", job.script);
-    writer.writeObjectValue<JobStatus>("status", job.status, serializeJobStatus);
-    writer.writeStringValue("stepName", job.stepName);
-    writer.writeAdditionalData(job.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param Job_environmentVariables The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJob_environmentVariables(writer: SerializationWriter, job_environmentVariables: Partial<Job_environmentVariables> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!job_environmentVariables || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(job_environmentVariables.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatus The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatus(writer: SerializationWriter, jobStatus: Partial<JobStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatus || isSerializingDerivedType) { return; }
-    writer.writeStringValue("type", jobStatus.type);
-    writer.writeAdditionalData(jobStatus.additionalData);
-    switch (jobStatus.type) {
-        case "cancelled":
-            serializeJobStatusCancelled(writer, jobStatus, true);
-        break;
-        case "done":
-            serializeJobStatusDone(writer, jobStatus, true);
-        break;
-        case "failed":
-            serializeJobStatusFailed(writer, jobStatus, true);
-        break;
-        case "in-progress":
-            serializeJobStatusInProgress(writer, jobStatus, true);
-        break;
-        case "obsolete":
-            serializeJobStatusObsolete(writer, jobStatus, true);
-        break;
-        case "scheduled":
-            serializeJobStatusScheduled(writer, jobStatus, true);
-        break;
-    }
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusCancelled The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusCancelled(writer: SerializationWriter, jobStatusCancelled: Partial<JobStatusCancelled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusCancelled || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusCancelled, isSerializingDerivedType)
-    writer.writeDateValue("cancelledAt", jobStatusCancelled.cancelledAt);
-    writer.writeDateValue("startedAt", jobStatusCancelled.startedAt);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusDone The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusDone(writer: SerializationWriter, jobStatusDone: Partial<JobStatusDone> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusDone || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusDone, isSerializingDerivedType)
-    writer.writeDateValue("completedAt", jobStatusDone.completedAt);
-    writer.writeDateValue("startedAt", jobStatusDone.startedAt);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusFailed The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusFailed(writer: SerializationWriter, jobStatusFailed: Partial<JobStatusFailed> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusFailed || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusFailed, isSerializingDerivedType)
-    writer.writeDateValue("failedAt", jobStatusFailed.failedAt);
-    writer.writeStringValue("reason", jobStatusFailed.reason);
-    writer.writeDateValue("startedAt", jobStatusFailed.startedAt);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusInProgress The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusInProgress(writer: SerializationWriter, jobStatusInProgress: Partial<JobStatusInProgress> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusInProgress || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusInProgress, isSerializingDerivedType)
-    writer.writeDateValue("startedAt", jobStatusInProgress.startedAt);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusObsolete The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusObsolete(writer: SerializationWriter, jobStatusObsolete: Partial<JobStatusObsolete> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusObsolete || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusObsolete, isSerializingDerivedType)
-    writer.writeGuidValue("supersedingJobId", jobStatusObsolete.supersedingJobId);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param JobStatusScheduled The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeJobStatusScheduled(writer: SerializationWriter, jobStatusScheduled: Partial<JobStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!jobStatusScheduled || isSerializingDerivedType) { return; }
-    serializeJobStatus(writer, jobStatusScheduled, isSerializingDerivedType)
-    writer.writeNumberValue("attempts", jobStatusScheduled.attempts);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PageOfJob The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePageOfJob(writer: SerializationWriter, pageOfJob: Partial<PageOfJob> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pageOfJob || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("hasNextPage", pageOfJob.hasNextPage);
-    writer.writeCollectionOfObjectValues<Job>("items", pageOfJob.items, serializeJob);
-    writer.writeObjectValue<Pagination>("next", pageOfJob.next, serializePagination);
-    writer.writeNumberValue("pageNumber", pageOfJob.pageNumber);
-    writer.writeNumberValue("pageSize", pageOfJob.pageSize);
-    writer.writeNumberValue("totalCount", pageOfJob.totalCount);
-    writer.writeNumberValue("totalPages", pageOfJob.totalPages);
-    writer.writeAdditionalData(pageOfJob.additionalData);
+export function serializePageOfAttempt(writer: SerializationWriter, pageOfAttempt: Partial<PageOfAttempt> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageOfAttempt || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("hasNextPage", pageOfAttempt.hasNextPage);
+    writer.writeCollectionOfObjectValues<Attempt>("items", pageOfAttempt.items, serializeAttempt);
+    writer.writeObjectValue<Pagination>("next", pageOfAttempt.next, serializePagination);
+    writer.writeNumberValue("pageNumber", pageOfAttempt.pageNumber);
+    writer.writeNumberValue("pageSize", pageOfAttempt.pageSize);
+    writer.writeNumberValue("totalCount", pageOfAttempt.totalCount);
+    writer.writeNumberValue("totalPages", pageOfAttempt.totalPages);
+    writer.writeAdditionalData(pageOfAttempt.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1320,6 +1584,43 @@ export function serializeResultProblem(writer: SerializationWriter, resultProble
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param Run The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRun(writer: SerializationWriter, run: Partial<Run> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!run || isSerializingDerivedType) { return; }
+    writer.writeDateValue("createdAt", run.createdAt);
+    writer.writeDateValue("finishedAt", run.finishedAt);
+    writer.writeGuidValue("id", run.id);
+    writer.writeStringValue("input", run.input);
+    writer.writeNumberValue("number", run.number);
+    writer.writeGuidValue("pipelineId", run.pipelineId);
+    writer.writeGuidValue("rerunOf", run.rerunOf);
+    writer.writeEnumValue<RunStatus>("status", run.status);
+    writer.writeGuidValue("supersededBy", run.supersededBy);
+    writer.writeObjectValue<RunTrigger>("trigger", run.trigger, serializeRunTrigger);
+    writer.writeGuidValue("versionId", run.versionId);
+    writer.writeNumberValue("versionNumber", run.versionNumber);
+    writer.writeStringValue("versionStamp", run.versionStamp);
+    writer.writeAdditionalData(run.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RunTrigger The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Partial<RunTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runTrigger || isSerializingDerivedType) { return; }
+    writer.writeStringValue("dedupKey", runTrigger.dedupKey);
+    writer.writeEnumValue<RunTriggerKind>("kind", runTrigger.kind);
+    writer.writeAdditionalData(runTrigger.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SecretDeclaration The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -1426,5 +1727,17 @@ export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
      */
     credentialsSecret?: string | null;
 }
+export const RunStatusObject = {
+    Running: "Running",
+    Succeeded: "Succeeded",
+    Failed: "Failed",
+    Cancelled: "Cancelled",
+    Superseded: "Superseded",
+} as const;
+export const RunTriggerKindObject = {
+    Push: "Push",
+    Poll: "Poll",
+    Manual: "Manual",
+} as const;
 /* tslint:enable */
 /* eslint-enable */

@@ -696,7 +696,7 @@
             "in": "query",
             "schema": {
               "default": 0,
-              "$ref": "#/components/schemas/JobSortField"
+              "$ref": "#/components/schemas/AttemptSortField"
             }
           }
         ],
@@ -706,7 +706,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfJob"
+                  "$ref": "#/components/schemas/PageOfAttempt"
                 }
               }
             }
@@ -749,47 +749,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Job"
+                  "$ref": "#/components/schemas/Attempt"
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ResultProblem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "DeleteJob",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "404": {
-            "description": "Not Found"
           },
           "400": {
             "description": "Bad Request",
@@ -918,10 +881,412 @@
           }
         }
       }
+    },
+    "/api/pipelines/{pipelineId}/runs": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListRuns",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Run"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "GetRun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/attempts": {
+      "get": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ListRunAttempts",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attempt"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultProblem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Attempt": {
+        "required": [
+          "id",
+          "pipelineId",
+          "runId",
+          "runNumber",
+          "stepName",
+          "number",
+          "status",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfAttempt"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "runId": {
+            "$ref": "#/components/schemas/IdOfRun"
+          },
+          "runNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "stepName": {
+            "type": "string"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttemptStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "inputHash": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "output": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttemptOutput"
+              }
+            ]
+          }
+        }
+      },
+      "AttemptOutput": {
+        "required": [
+          "key",
+          "json"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "json": {
+            "type": "string"
+          }
+        }
+      },
+      "AttemptSortField": {
+        "type": "integer"
+      },
+      "AttemptStatus": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "scheduled": "#/components/schemas/AttemptStatusScheduled",
+            "in-progress": "#/components/schemas/AttemptStatusInProgress",
+            "succeeded": "#/components/schemas/AttemptStatusSucceeded",
+            "failed": "#/components/schemas/AttemptStatusFailed",
+            "skipped": "#/components/schemas/AttemptStatusSkipped",
+            "cancelled": "#/components/schemas/AttemptStatusCancelled",
+            "obsolete": "#/components/schemas/AttemptStatusObsolete"
+          }
+        }
+      },
+      "AttemptStatusCancelled": {
+        "required": [
+          "startedAt",
+          "cancelledAt"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptStatusFailed": {
+        "required": [
+          "startedAt",
+          "finishedAt"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AttemptStatusInProgress": {
+        "required": [
+          "startedAt"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptStatusObsolete": {
+        "required": [
+          "supersedingAttemptId"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "supersedingAttemptId": {
+            "$ref": "#/components/schemas/IdOfAttempt"
+          }
+        }
+      },
+      "AttemptStatusScheduled": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "submissionAttempts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
+      },
+      "AttemptStatusSkipped": {
+        "required": [
+          "reason",
+          "startedAt",
+          "finishedAt"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptStatusSucceeded": {
+        "required": [
+          "startedAt",
+          "finishedAt"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "BindingDeployTrigger": {
         "type": "integer",
         "default": 0
@@ -968,7 +1333,7 @@
           }
         }
       },
-      "IdOfJob": {
+      "IdOfAttempt": {
         "type": "string",
         "format": "uuid"
       },
@@ -980,195 +1345,15 @@
         "type": "string",
         "format": "uuid"
       },
-      "Job": {
-        "required": [
-          "id",
-          "pipelineId",
-          "stepName",
-          "image",
-          "script",
-          "createdAt",
-          "status"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/IdOfJob"
-          },
-          "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
-          },
-          "stepName": {
-            "type": "string"
-          },
-          "image": {
-            "type": "string"
-          },
-          "script": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "status": {
-            "$ref": "#/components/schemas/JobStatus"
-          },
-          "environmentVariables": {
-            "type": [
-              "null",
-              "object"
-            ],
-            "additionalProperties": {
-              "type": "string"
-            }
-          }
-        }
+      "IdOfPipelineVersion": {
+        "type": "string",
+        "format": "uuid"
       },
-      "JobSortField": {
-        "type": "integer"
+      "IdOfRun": {
+        "type": "string",
+        "format": "uuid"
       },
-      "JobStatus": {
-        "required": [
-          "type"
-        ],
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string"
-          }
-        },
-        "discriminator": {
-          "propertyName": "type",
-          "mapping": {
-            "scheduled": "#/components/schemas/JobStatusScheduled",
-            "in-progress": "#/components/schemas/JobStatusInProgress",
-            "done": "#/components/schemas/JobStatusDone",
-            "obsolete": "#/components/schemas/JobStatusObsolete",
-            "cancelled": "#/components/schemas/JobStatusCancelled",
-            "failed": "#/components/schemas/JobStatusFailed"
-          }
-        }
-      },
-      "JobStatusCancelled": {
-        "required": [
-          "startedAt",
-          "cancelledAt"
-        ],
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "startedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "cancelledAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "JobStatusDone": {
-        "required": [
-          "startedAt",
-          "completedAt"
-        ],
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "startedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "completedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "JobStatusFailed": {
-        "required": [
-          "startedAt",
-          "failedAt"
-        ],
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "startedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "failedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "reason": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "JobStatusInProgress": {
-        "required": [
-          "startedAt"
-        ],
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "startedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "JobStatusObsolete": {
-        "required": [
-          "supersedingJobId"
-        ],
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "supersedingJobId": {
-            "$ref": "#/components/schemas/IdOfJob"
-          }
-        }
-      },
-      "JobStatusScheduled": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/JobStatus"
-          }
-        ],
-        "properties": {
-          "attempts": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32",
-            "default": 0
-          }
-        }
-      },
-      "PageOfJob": {
+      "PageOfAttempt": {
         "required": [
           "items",
           "pageNumber",
@@ -1180,7 +1365,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Job"
+              "$ref": "#/components/schemas/Attempt"
             }
           },
           "pageNumber": {
@@ -1495,6 +1680,112 @@
             ]
           }
         }
+      },
+      "Run": {
+        "required": [
+          "id",
+          "pipelineId",
+          "number",
+          "versionId",
+          "versionNumber",
+          "input",
+          "versionStamp",
+          "status",
+          "trigger",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/IdOfRun"
+          },
+          "pipelineId": {
+            "$ref": "#/components/schemas/IdOfPipeline"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "versionId": {
+            "$ref": "#/components/schemas/IdOfPipelineVersion"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "input": {
+            "type": "string"
+          },
+          "versionStamp": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/RunTrigger"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "supersededBy": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "rerunOf": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RunStatus": {
+        "enum": [
+          "Running",
+          "Succeeded",
+          "Failed",
+          "Cancelled",
+          "Superseded"
+        ]
+      },
+      "RunTrigger": {
+        "required": [
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/RunTriggerKind"
+          },
+          "dedupKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RunTriggerKind": {
+        "enum": [
+          "Push",
+          "Poll",
+          "Manual"
+        ]
       },
       "SecretDeclaration": {
         "required": [

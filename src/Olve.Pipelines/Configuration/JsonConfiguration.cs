@@ -14,12 +14,14 @@ public static class JsonConfiguration
         {
             options.AddSchemaTransformer((schema, context, _) =>
             {
-                var type = context.JsonTypeInfo.Type;
+                // Ids (and nullable Ids, e.g. Run.SupersededBy) are plain uuid strings on the wire.
+                var underlying = Nullable.GetUnderlyingType(context.JsonTypeInfo.Type);
+                var type = underlying ?? context.JsonTypeInfo.Type;
                 if ((type.IsGenericType && type.GetGenericTypeDefinition().FullName == "Olve.Utilities.Ids.Id`1")
                     || type.FullName == "Olve.Utilities.Ids.Id")
                 {
                     schema.Properties?.Clear();
-                    schema.Type = JsonSchemaType.String;
+                    schema.Type = underlying is null ? JsonSchemaType.String : JsonSchemaType.String | JsonSchemaType.Null;
                     schema.Format = "uuid";
                 }
                 return Task.CompletedTask;

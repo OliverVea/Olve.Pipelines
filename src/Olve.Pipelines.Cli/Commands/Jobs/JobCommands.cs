@@ -44,9 +44,9 @@ public sealed class JobListCommand : ICliCommand
         {
             var rows = jobsPage.Items
                 .Select(j => (IReadOnlyList<string>)
-                    [j.Id.ToString(), j.StepName, j.Status.Kind, JobCommandHelpers.Format(j.CreatedAt)])
+                    [j.Id.ToString(), $"#{j.RunNumber}", j.StepName, $"@{j.Number}", j.Status.Kind, JobCommandHelpers.Format(j.CreatedAt)])
                 .ToList();
-            foreach (var line in Table.Render(["ID", "STEP", "STATUS", "CREATED"], rows))
+            foreach (var line in Table.Render(["ID", "RUN", "STEP", "ATTEMPT", "STATUS", "CREATED"], rows))
                 ctx.Output.Line(line);
             ctx.Output.Line();
             ctx.Output.Line($"page {jobsPage.PageNumber} · {jobsPage.Items.Length} of {jobsPage.TotalCount} job(s)");
@@ -72,8 +72,9 @@ public sealed class JobGetCommand : ICliCommand
         ctx.Output.Emit(job, CliJsonContext.Default.Job, () =>
         {
             ctx.Output.Line($"Id:       {job.Id}");
+            ctx.Output.Line($"Run:      #{job.RunNumber} ({job.RunId})");
             ctx.Output.Line($"Step:     {job.StepName}");
-            ctx.Output.Line($"Image:    {job.Image}");
+            ctx.Output.Line($"Attempt:  {job.Number}");
             ctx.Output.Line($"Status:   {job.Status.Kind}");
             ctx.Output.Line($"Pipeline: {job.PipelineId}");
             ctx.Output.Line($"Created:  {JobCommandHelpers.Format(job.CreatedAt)}");

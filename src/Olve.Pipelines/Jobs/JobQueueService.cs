@@ -1,24 +1,18 @@
-using Olve.Pipelines.Shared;
-using static Olve.Pipelines.Jobs.JobStatus;
+using Olve.Pipelines.Pipelines.Runs;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobQueueService(EntityStore<Job> store)
+public class JobQueueService(EntityStore<Attempt> store)
 {
-    public IEnumerable<Id<Job>> GetQueuedJobIds()
+    public IEnumerable<Id<Attempt>> GetQueuedAttemptIds()
         => store.List()
-            .Where(j => j.Status is Scheduled)
-            .OrderBy(j => j.CreatedAt)
-            .Select(j => j.Id);
+            .Where(a => a.Status is Scheduled)
+            .OrderBy(a => a.CreatedAt)
+            .Select(a => a.Id);
 
-    public IEnumerable<Id<Job>> GetActiveJobIds()
+    public IEnumerable<Attempt> GetActiveAttempts()
         => store.List()
-            .Where(j => j.Status is Scheduled or InProgress)
-            .OrderBy(j => j.CreatedAt)
-            .Select(j => j.Id);
-
-    public IEnumerable<Job> GetActiveJobs()
-        => store.List()
-            .Where(j => j.Status is Scheduled or InProgress)
-            .OrderBy(j => j.CreatedAt);
+            .Where(a => a.Status.IsActive())
+            .OrderBy(a => a.CreatedAt);
 }

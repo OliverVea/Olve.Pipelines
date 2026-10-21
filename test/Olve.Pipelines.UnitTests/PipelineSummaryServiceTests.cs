@@ -1,11 +1,12 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Results;
 using Olve.Results.TUnit;
-using static Olve.Pipelines.Jobs.JobStatus;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -13,7 +14,7 @@ public class PipelineSummaryServiceTests
 {
     private sealed record Fixture(
         EntityStore<Pipeline> Pipelines,
-        EntityStore<Job> JobStore,
+        EntityStore<Attempt> JobStore,
         EntityStore<PipelineConfigBinding> Bindings,
         PipelineSummaryService Service);
 
@@ -21,13 +22,12 @@ public class PipelineSummaryServiceTests
     {
         var idProvider = new IdProvider();
         var pipelines = new EntityStore<Pipeline>([]);
-        var jobStore = new EntityStore<Job>([]);
+        var jobStore = new EntityStore<Attempt>([]);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
 
-        var jobTime = new TimeProviderMake().Instance();
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, jobTime);
+        var attempts = new AttemptService(jobStore, new EntityStore<Run>([]), idProvider, TimeProvider.System);
         var service = new PipelineSummaryService(
-            new PipelineService(pipelines, idProvider), new PipelineConfigBindingService(bindings, idProvider), jobService);
+            new PipelineService(pipelines, idProvider), new PipelineConfigBindingService(bindings, idProvider), attempts);
         return new Fixture(pipelines, jobStore, bindings, service);
     }
 
@@ -58,15 +58,15 @@ public class PipelineSummaryServiceTests
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
 
         var baseTime = DateTimeOffset.UtcNow;
-        // Older failed job, then a newer done job — the summary must report the newest (done).
-        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy", baseTime, new Failed(baseTime, baseTime)));
-        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy", baseTime.AddMinutes(1), new Done(baseTime, baseTime.AddMinutes(2))));
+        // Failed in run 1, then succeeded in run 2 — the summary must report the newest (succeeded).
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "deploy", baseTime, new Failed(baseTime, baseTime), runNumber: 1));
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "deploy", baseTime.AddMinutes(1), new Succeeded(baseTime, baseTime.AddMinutes(2)), runNumber: 2));
 
         var summaries = f.Service.List();
 
         var step = summaries[0].Steps.Single();
         await Assert.That(step.Name).IsEqualTo("deploy");
-        await Assert.That(step.Status).IsEqualTo("done");
+        await Assert.That(step.Status).IsEqualTo("succeeded");
         await Assert.That(summaries[0].Status).IsEqualTo(PipelineStatus.Healthy);
         await Assert.That(summaries[0].LastChangedAt).IsEqualTo(baseTime.AddMinutes(2));
     }
@@ -76,9 +76,9 @@ public class PipelineSummaryServiceTests
     {
         var f = Create();
         var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
-        f.JobStore.Set(TestJobs.Make(pipeline.Id, "deploy"));
-        f.JobStore.Set(TestJobs.Make(pipeline.Id, "build"));
-        f.JobStore.Set(TestJobs.Make(pipeline.Id, "build"));
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "deploy"));
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "build", number: 1));
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "build", number: 2));
 
         var names = f.Service.List()[0].Steps.Select(s => s.Name).ToArray();
 
@@ -107,5 +107,21 @@ public class PipelineSummaryServiceTests
         var summaries = f.Service.List();
 
         await Assert.That(summaries[0].Repo).IsNull();
+    }
+
+    [Test]
+    public async Task LatestAttempt_IsOrderedByRunThenAttemptNumber_NotCreationTime()
+    {
+        var f = Create();
+        var pipeline = Pick(new PipelineService(f.Pipelines, new IdProvider()).Create("p"));
+        var t = DateTimeOffset.UtcNow;
+
+        // A rerun (attempt 2) of run 1 created after run 2's attempt — run 2 is still the latest.
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "build", t, new Succeeded(t, t), runNumber: 2));
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id, "build", t.AddMinutes(1), new Failed(t, t), runNumber: 1, number: 2));
+
+        var step = f.Service.List()[0].Steps.Single();
+
+        await Assert.That(step.Status).IsEqualTo("succeeded");
     }
 }

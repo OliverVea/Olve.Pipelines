@@ -2,8 +2,9 @@ namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
 /// Derives a single pipeline-level health string from a pipeline's per-step <see cref="StepHealth"/>
-/// strip, for the list view. A step is "running" while its latest job is <c>scheduled</c> or
-/// <c>in-progress</c>, "failed" when it is <c>failed</c>, and "green" when it is <c>done</c>.
+/// strip, for the list view. A step is "running" while its latest attempt is <c>scheduled</c> or
+/// <c>in-progress</c>, "failed" when it is <c>failed</c>, and "green" when it is <c>succeeded</c>
+/// or <c>skipped</c> (a skip is a decision, not a fault).
 /// Precedence:
 /// <list type="bullet">
 /// <item><see cref="RunningUnhealthy"/> — something is running and at least one step has failed.</item>
@@ -36,6 +37,6 @@ public static class PipelineStatus
         if (anyFailed)
             return Unhealthy;
 
-        return steps.All(s => s.Status is "done") ? Healthy : Idle;
+        return steps.All(s => s.Status is "succeeded" or "skipped") ? Healthy : Idle;
     }
 }

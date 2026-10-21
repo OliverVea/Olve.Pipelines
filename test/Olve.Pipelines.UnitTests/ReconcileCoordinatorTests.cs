@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
@@ -11,19 +12,19 @@ public class ReconcileCoordinatorTests
 {
     private sealed record Fixture(
         PipelineService Pipelines,
-        EntityStore<Job> JobStore,
+        EntityStore<Attempt> JobStore,
         ReconcilePauseState PauseState,
-        JobService Jobs);
+        AttemptService Attempts);
 
     private static Fixture CreateFixture()
     {
         var idProvider = new IdProvider();
-        var jobStore = new EntityStore<Job>([]);
+        var jobStore = new EntityStore<Attempt>([]);
 
         var pipelines = new PipelineService(new EntityStore<Pipeline>([]), idProvider);
-        var jobs = new JobService(NullLogger<JobService>.Instance, jobStore, idProvider, TimeProvider.System);
+        var attempts = new AttemptService(jobStore, new EntityStore<Run>([]), idProvider, TimeProvider.System);
 
-        return new Fixture(pipelines, jobStore, new ReconcilePauseState(), jobs);
+        return new Fixture(pipelines, jobStore, new ReconcilePauseState(), attempts);
     }
 
     private static T Pick<T>(Result<T> result)
@@ -33,7 +34,7 @@ public class ReconcileCoordinatorTests
     }
 
     private static ReconcileCoordinator Coordinator(Fixture f, ReconcileOptions options)
-        => new(f.PauseState, f.Jobs, options, TimeProvider.System, NullLogger<ReconcileCoordinator>.Instance);
+        => new(f.PauseState, f.Attempts, options, TimeProvider.System, NullLogger<ReconcileCoordinator>.Instance);
 
     [Test]
     public async Task ReconcileAsync_WhenQuiescent_AppliesAndClearsPause()
@@ -60,8 +61,8 @@ public class ReconcileCoordinatorTests
         var f = CreateFixture();
         var pipeline = Pick(f.Pipelines.Create("p"));
 
-        // A scheduled job that never terminates — drain can never complete.
-        f.JobStore.Set(TestJobs.Make(pipeline.Id));
+        // A scheduled attempt that never terminates — drain can never complete.
+        f.JobStore.Set(TestAttempts.Make(pipeline.Id));
 
         var coordinator = Coordinator(f, new ReconcileOptions { DrainTimeout = TimeSpan.Zero });
         var mutated = false;

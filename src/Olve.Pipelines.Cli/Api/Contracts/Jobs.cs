@@ -3,15 +3,17 @@ using System.Text.Json.Serialization;
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
 /// <summary>
-/// A scheduled unit of work: one named step of a pipeline. Interim placeholder shape (v2 B1) until
-/// runs/attempts replace jobs.
+/// One attempt of one step in a run, as served by <c>/api/jobs</c> (each attempt runs as one K8s
+/// Job). Interim shape until the run-scoped v2 commands (C1) replace <c>pl job</c>.
 /// </summary>
 public sealed class Job
 {
     public Guid Id { get; set; }
     public Guid PipelineId { get; set; }
+    public Guid RunId { get; set; }
+    public int RunNumber { get; set; }
     public string StepName { get; set; } = "";
-    public string Image { get; set; } = "";
+    public int Number { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public JobStatus Status { get; set; } = new ScheduledStatus();
 }
@@ -19,10 +21,11 @@ public sealed class Job
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(ScheduledStatus), "scheduled")]
 [JsonDerivedType(typeof(InProgressStatus), "in-progress")]
-[JsonDerivedType(typeof(DoneStatus), "done")]
-[JsonDerivedType(typeof(ObsoleteStatus), "obsolete")]
-[JsonDerivedType(typeof(CancelledStatus), "cancelled")]
+[JsonDerivedType(typeof(SucceededStatus), "succeeded")]
 [JsonDerivedType(typeof(FailedStatus), "failed")]
+[JsonDerivedType(typeof(SkippedStatus), "skipped")]
+[JsonDerivedType(typeof(CancelledStatus), "cancelled")]
+[JsonDerivedType(typeof(ObsoleteStatus), "obsolete")]
 public abstract class JobStatus
 {
     [JsonIgnore] public abstract string Kind { get; }
@@ -39,11 +42,17 @@ public sealed class InProgressStatus : JobStatus
     [JsonIgnore] public override string Kind => "in-progress";
 }
 
-public sealed class DoneStatus : JobStatus
+public sealed class SucceededStatus : JobStatus
 {
     public DateTimeOffset StartedAt { get; set; }
-    public DateTimeOffset CompletedAt { get; set; }
-    [JsonIgnore] public override string Kind => "done";
+    public DateTimeOffset FinishedAt { get; set; }
+    [JsonIgnore] public override string Kind => "succeeded";
+}
+
+public sealed class SkippedStatus : JobStatus
+{
+    public string Reason { get; set; } = "";
+    [JsonIgnore] public override string Kind => "skipped";
 }
 
 public sealed class ObsoleteStatus : JobStatus
@@ -59,6 +68,7 @@ public sealed class CancelledStatus : JobStatus
 
 public sealed class FailedStatus : JobStatus
 {
+    public string? Reason { get; set; }
     [JsonIgnore] public override string Kind => "failed";
 }
 

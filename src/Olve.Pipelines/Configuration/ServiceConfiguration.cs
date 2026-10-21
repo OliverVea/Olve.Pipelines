@@ -3,6 +3,8 @@ using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
@@ -47,18 +49,35 @@ public static class ServiceConfiguration
         // off-schedule reconcile.
         services.AddSingleton<DeployPollService>();
         services.AddHostedService(sp => sp.GetRequiredService<DeployPollService>());
-        services.AddTransient<IEnumerable<Job>>(_ => []);
-        services.AddSingleton<EntityStore<Job>>();
         services.AddSingleton<IdProvider>();
-        services.AddSingleton<JobEvents>();
-        services.AddSingleton<JobService>();
+
+        // v2 run domain: versions, activation (operational state), sequences, runs, attempts.
+        services.AddSingleton<EntityStore<PipelineVersion>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PipelineActivation>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PipelineSequences>>();
+        services.AddSingleton<PipelineNumberingService>();
+        services.AddSingleton<PipelineVersionEvents>();
+        services.AddSingleton<PipelineVersionService>();
+        services.AddSingleton<PipelineActivationService>();
+        services.AddTransient<PipelineVersionCleanupService>();
+        services.AddSingleton<IRunOnStartup, PipelineVersionEventRegistration>();
+        services.AddSingleton<EntityStore<Run>>();
+        services.AddSingleton<EntityStore<Attempt>>();
+        services.AddSingleton<RunEvents>();
+        services.AddSingleton<AttemptEvents>();
+        services.AddSingleton<RunService>();
+        services.AddSingleton<AttemptService>();
+        services.AddTransient<RunQueryService>();
+        services.AddTransient<RunCleanupService>();
+        services.AddSingleton<IRunOnStartup, RunEventRegistration>();
+
+        // Job machinery: each attempt runs as one K8s Job.
         services.AddTransient<JobLogService>();
         services.AddTransient<JobObsoletionService>();
-        services.AddTransient<JobCancellationService>();
         services.AddSingleton<NoOpJobExecutorPendingStore>();
         services.TryAddTransient<IJobExecutor, NoOpJobExecutor>();
 
-        // Registry must be registered before JobPersistenceService so IHostedLifecycleService
+        // Registry must be registered before RunPersistenceService so IHostedLifecycleService
         // reverse-order StoppingAsync drains live watchers before persistence flushes.
         services.AddSingleton<JobWatcherRegistry>();
         services.AddSingleton<IHostedLifecycleService>(sp => sp.GetRequiredService<JobWatcherRegistry>());
@@ -82,6 +101,6 @@ public static class ServiceConfiguration
         services.AddTransient<ReconcileCoordinator>();
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
-        services.AddHostedService<JobPersistenceService>();
+        services.AddHostedService<RunPersistenceService>();
     }
 }

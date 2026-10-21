@@ -18,6 +18,9 @@ public interface ISnapshotStore
 
     /// <summary>Writes <paramref name="content"/> to <paramref name="key"/>.</summary>
     Task WriteAsync(string key, byte[] content, CancellationToken cancellationToken);
+
+    /// <summary>Deletes the object at <paramref name="key"/>; succeeds if it does not exist.</summary>
+    Task DeleteAsync(string key, CancellationToken cancellationToken);
 }
 
 public sealed class S3SnapshotStore(IAmazonS3 s3, StorageOptions options) : ISnapshotStore
@@ -46,4 +49,7 @@ public sealed class S3SnapshotStore(IAmazonS3 s3, StorageOptions options) : ISna
             InputStream = new MemoryStream(content),
             ContentType = "application/json",
         }, cancellationToken);
+
+    public Task DeleteAsync(string key, CancellationToken cancellationToken) =>
+        s3.DeleteObjectAsync(options.Bucket, key, cancellationToken);
 }

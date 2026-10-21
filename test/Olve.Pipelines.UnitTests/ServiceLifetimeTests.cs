@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
-using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Pipelines.Sync;
 
 namespace Olve.Pipelines.UnitTests;
@@ -14,7 +16,11 @@ namespace Olve.Pipelines.UnitTests;
 public class ServiceLifetimeTests
 {
     [Test]
-    [Arguments(typeof(JobService))]
+    [Arguments(typeof(AttemptService))]
+    [Arguments(typeof(RunService))]
+    [Arguments(typeof(PipelineVersionService))]
+    [Arguments(typeof(PipelineActivationService))]
+    [Arguments(typeof(PipelineNumberingService))]
     [Arguments(typeof(PipelineConfigBindingService))]
     [Arguments(typeof(PipelineConfigBindingCleanupService))]
     public async Task IndexOwningService_ResolvedTwice_IsSameInstance(Type serviceType)

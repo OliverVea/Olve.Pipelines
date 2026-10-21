@@ -46,18 +46,6 @@ public class JobTests
     }
 
     [Test]
-    public async Task DeleteJob_NotFound_ReturnsNotFound()
-    {
-        BetaGuard.SkipIfNoBeta();
-
-        var client = Fixture.CreateApiClient();
-
-        var response = await client.DeleteJob(Guid.NewGuid().ToString());
-
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
-    }
-
-    [Test]
     public async Task CancelJob_NotFound_ReturnsUnprocessableEntity()
     {
         BetaGuard.SkipIfNoBeta();
@@ -67,5 +55,17 @@ public class JobTests
         var response = await client.CancelJob(Guid.NewGuid().ToString());
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
+    public async Task ListRuns_UnknownPipeline_ReturnsOk()
+    {
+        BetaGuard.SkipIfNoBeta();
+
+        var client = Fixture.CreateApiClient();
+
+        var response = await client.ListRuns(Guid.NewGuid().ToString());
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 }

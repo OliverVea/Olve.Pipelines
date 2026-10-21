@@ -6,7 +6,8 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
-using static Olve.Pipelines.Jobs.JobStatus;
+using Olve.Pipelines.Pipelines.Runs;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -20,44 +21,35 @@ public class JobRunnerTests
         public void StopApplication() { }
     }
 
-    private sealed class TestHarness(
-        JobRunner runner,
-        JobService jobService,
-        NoOpJobExecutorPendingStore pendingStore,
-        JobWatcherRegistry registry,
-        EntityStore<Job> store)
+    private sealed record TestHarness(
+        JobRunner Runner,
+        TestRunDomain Domain,
+        NoOpJobExecutorPendingStore PendingStore,
+        JobWatcherRegistry Registry)
     {
-        public JobRunner Runner => runner;
-        public JobService JobService => jobService;
-        public NoOpJobExecutorPendingStore PendingStore => pendingStore;
-        public JobWatcherRegistry Registry => registry;
-        public EntityStore<Job> Store => store;
+        public EntityStore<Attempt> Store => Domain.Attempts;
     }
 
     private static TestHarness CreateRunner(int maxConcurrentJobs = 4)
     {
-        var jobStore = new EntityStore<Job>([]);
+        var domain = new TestRunDomain(TimeProvider.System);
         var pendingStore = new NoOpJobExecutorPendingStore();
         var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
         var lifetime = new NullApplicationLifetime();
 
         var services = new ServiceCollection();
-        services.AddSingleton(jobStore);
-        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton(domain.Attempts);
+        services.AddSingleton(domain.AttemptService);
         services.AddSingleton(pendingStore);
         services.AddSingleton(registry);
         services.AddSingleton<IHostApplicationLifetime>(lifetime);
-        services.AddTransient(_ => new JobService(
-            NullLogger<JobService>.Instance, jobStore,
-            new IdProvider(), TimeProvider.System));
-        services.AddTransient<JobQueueService>(_ => new JobQueueService(jobStore));
+        services.AddTransient<JobQueueService>(_ => new JobQueueService(domain.Attempts));
         services.AddTransient<IJobExecutor>(sp => new NoOpJobExecutor(
             sp.GetRequiredService<IServiceScopeFactory>(),
             registry,
             lifetime,
             pendingStore,
-            sp.GetRequiredService<JobService>(),
-            TimeProvider.System,
+            domain.AttemptService,
             NullLogger<NoOpJobExecutor>.Instance));
         var sp = services.BuildServiceProvider();
 
@@ -66,20 +58,13 @@ public class JobRunnerTests
             MaxConcurrentJobs = maxConcurrentJobs,
         };
 
-        var jobService = new JobService(NullLogger<JobService>.Instance, jobStore,
-            new IdProvider(), TimeProvider.System);
-
-        return new TestHarness(runner, jobService, pendingStore, registry, jobStore);
+        return new TestHarness(runner, domain, pendingStore, registry);
     }
 
-    private static Id<Job> CreateJob(JobService jobService, string stepName = "build")
-    {
-        var result = jobService.CreateJob(Id.New<Pipeline>(), stepName, "img", "sh");
-        result.TryPickProblems(out _, out var job);
-        return job!.Id;
-    }
+    // Each call schedules in a fresh pipeline, so attempts never share a (pipeline, step) key.
+    private static Id<Attempt> CreateJob(TestHarness h, string stepName = "build") => h.Domain.Schedule(stepName).Id;
 
-    private static async Task WaitForPendingAsync(NoOpJobExecutorPendingStore pendingStore, Id<Job> jobId, TimeSpan? timeout = null)
+    private static async Task WaitForPendingAsync(NoOpJobExecutorPendingStore pendingStore, Id<Attempt> jobId, TimeSpan? timeout = null)
     {
         timeout ??= TimeSpan.FromSeconds(5);
         var deadline = DateTimeOffset.UtcNow + timeout.Value;
@@ -92,10 +77,10 @@ public class JobRunnerTests
     }
 
     [Test]
-    public async Task Job_FinishSuccess_TransitionsToDone()
+    public async Task Job_FinishSuccess_TransitionsToSucceeded()
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h.JobService);
+        var jobId = CreateJob(h);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -107,14 +92,14 @@ public class JobRunnerTests
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Done>();
+        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
     }
 
     [Test]
-    public async Task SecondStepJob_FinishSuccess_TransitionsToDone()
+    public async Task SecondStepJob_FinishSuccess_TransitionsToSucceeded()
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h.JobService, "deploy");
+        var jobId = CreateJob(h, "deploy");
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -126,14 +111,14 @@ public class JobRunnerTests
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Done>();
+        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
     }
 
     [Test]
     public async Task Job_FinishFailure_TransitionsToFailed()
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h.JobService);
+        var jobId = CreateJob(h);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -154,7 +139,7 @@ public class JobRunnerTests
     public async Task Job_BeforeFinish_IsInProgress()
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h.JobService);
+        var jobId = CreateJob(h);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -174,9 +159,9 @@ public class JobRunnerTests
     {
         var h = CreateRunner(maxConcurrentJobs: 2);
 
-        var job1 = CreateJob(h.JobService);
-        var job2 = CreateJob(h.JobService);
-        var job3 = CreateJob(h.JobService);
+        var job1 = CreateJob(h);
+        var job2 = CreateJob(h);
+        var job3 = CreateJob(h);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -209,8 +194,8 @@ public class JobRunnerTests
     {
         var h = CreateRunner();
 
-        var job1 = CreateJob(h.JobService);
-        var job2 = CreateJob(h.JobService, "deploy");
+        var job1 = CreateJob(h);
+        var job2 = CreateJob(h, "deploy");
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -226,8 +211,8 @@ public class JobRunnerTests
 
         h.Store.TryGet(job1, out var j1);
         h.Store.TryGet(job2, out var j2);
-        await Assert.That(j1!.Status).IsTypeOf<Done>();
-        await Assert.That(j2!.Status).IsTypeOf<Done>();
+        await Assert.That(j1!.Status).IsTypeOf<Succeeded>();
+        await Assert.That(j2!.Status).IsTypeOf<Succeeded>();
     }
 
     // Regression: after a restart the watcher registry is empty, so an InProgress job has no live
@@ -237,10 +222,10 @@ public class JobRunnerTests
     public async Task InProgressJob_WithNoLiveWatcher_IsReattached()
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h.JobService);
+        var jobId = CreateJob(h);
 
         // Simulate the post-restart state: the job was persisted InProgress, but no watcher is running.
-        await Assert.That(h.JobService.UpdateJob<Job>(jobId, j => j with { Status = new InProgress(DateTimeOffset.UtcNow) })).Succeeded();
+        await Assert.That(h.Domain.AttemptService.MarkInProgress(jobId)).Succeeded();
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -253,23 +238,18 @@ public class JobRunnerTests
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Done>();
+        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
     }
 
     [Test]
     public async Task ScheduledJob_WaitsWhileSameKeyIsInProgress_RunsAfterCompletion()
     {
         var h = CreateRunner();
-        var pipelineId = Id.New<Pipeline>();
-        var stepId = "build";
-
-        var first = h.JobService.CreateJob(pipelineId, stepId, "img", "sh");
-        first.TryPickProblems(out _, out var firstJob);
-        var firstId = firstJob!.Id;
-
-        var second = h.JobService.CreateJob(pipelineId, stepId, "img", "sh");
-        second.TryPickProblems(out _, out var secondJob);
-        var secondId = secondJob!.Id;
+        // Two runs of one pipeline: same (pipeline, step) key. No obsoletion is wired here, so both
+        // stay Scheduled and the busy-key gate alone must serialise them.
+        var version = h.Domain.AddVersion(h.Domain.CreatePipeline().Id);
+        var firstId = h.Domain.Schedule("build", h.Domain.CreateRun(version)).Id;
+        var secondId = h.Domain.Schedule("build", h.Domain.CreateRun(version)).Id;
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -292,7 +272,49 @@ public class JobRunnerTests
 
         h.Store.TryGet(firstId, out var j1);
         h.Store.TryGet(secondId, out var j2);
-        await Assert.That(j1!.Status).IsTypeOf<Done>();
-        await Assert.That(j2!.Status).IsTypeOf<Done>();
+        await Assert.That(j1!.Status).IsTypeOf<Succeeded>();
+        await Assert.That(j2!.Status).IsTypeOf<Succeeded>();
+    }
+
+    [Test]
+    public async Task Job_FinishWithOutput_RecordsOutputUnderAttemptKey()
+    {
+        var h = CreateRunner();
+        var jobId = CreateJob(h);
+
+        using var cts = new CancellationTokenSource();
+        _ = h.Runner.StartAsync(cts.Token);
+
+        await WaitForPendingAsync(h.PendingStore, jobId);
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Success("""{"image":"registry/app:1"}"""));
+
+        await Task.Delay(100);
+        cts.Cancel();
+
+        var attempt = h.Domain.Get(jobId);
+        await Assert.That(attempt.Status).IsTypeOf<Succeeded>();
+        await Assert.That(attempt.Output!.Json).IsEqualTo("""{"image":"registry/app:1"}""");
+        await Assert.That(attempt.Output.Key).IsEqualTo(StorageLayout.AttemptOutputKey(attempt));
+    }
+
+    [Test]
+    public async Task Job_FinishSkipped_TransitionsToSkippedWithReason()
+    {
+        var h = CreateRunner();
+        var jobId = CreateJob(h);
+
+        using var cts = new CancellationTokenSource();
+        _ = h.Runner.StartAsync(cts.Token);
+
+        await WaitForPendingAsync(h.PendingStore, jobId);
+        h.PendingStore.Finish(jobId, new NoOpJobResult.Skip("nothing changed"));
+
+        await Task.Delay(100);
+        cts.Cancel();
+
+        var status = h.Domain.Get(jobId).Status;
+        await Assert.That(status).IsTypeOf<Skipped>();
+        await Assert.That(((Skipped)status).Reason).IsEqualTo("nothing changed");
+        await Assert.That(((Skipped)status).StartedAt).IsNotNull();
     }
 }

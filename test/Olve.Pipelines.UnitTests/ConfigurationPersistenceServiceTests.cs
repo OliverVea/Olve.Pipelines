@@ -31,6 +31,8 @@ public class ConfigurationPersistenceServiceTests
             Data = content;
             return Task.CompletedTask;
         }
+
+        public Task DeleteAsync(string key, CancellationToken ct) => Task.CompletedTask;
     }
 
     private static (ConfigurationPersistenceService Service, EntityStore<Pipeline> Pipelines, PersistenceReadiness Readiness)

@@ -1,22 +1,14 @@
-using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Jobs;
 
-public class JobEventRegistration(
-    EntityStore<Job> store,
-    JobEvents events,
-    PipelineEvents pipelineEvents,
-    IServiceProvider sp) : IRunOnStartup
+/// <summary>Scheduling rules over attempts (the store → hub forwarding lives in <see cref="RunEventRegistration"/>).</summary>
+public class JobEventRegistration(AttemptEvents attemptEvents, IServiceProvider sp) : IRunOnStartup
 {
     public Result Run()
     {
-        store.OnAdded.Subscribe(events.OnAdded.Invoke);
-        store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
-        store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
-
-        events.OnAdded.Subscribe(e => sp.GetRequiredService<JobObsoletionService>().HandleJobAdded(e.Id));
-        pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<JobCancellationService>().HandlePipelineDeleted(e.Id));
+        attemptEvents.OnAdded.Subscribe(e => sp.GetRequiredService<JobObsoletionService>().HandleAttemptAdded(e.Id));
 
         return Result.Success();
     }

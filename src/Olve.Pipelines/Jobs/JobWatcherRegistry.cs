@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Jobs;
 
@@ -6,13 +7,13 @@ public class JobWatcherRegistry(ILogger<JobWatcherRegistry> logger) : IHostedLif
 {
     private static readonly TimeSpan ShutdownDrainTimeout = TimeSpan.FromSeconds(10);
 
-    private readonly ConcurrentDictionary<Id<Job>, Task> _watchers = new();
+    private readonly ConcurrentDictionary<Id<Attempt>, Task> _watchers = new();
 
     public int ActiveCount => _watchers.Count;
 
-    public bool IsRunning(Id<Job> id) => _watchers.ContainsKey(id);
+    public bool IsRunning(Id<Attempt> id) => _watchers.ContainsKey(id);
 
-    public void EnsureRunning(Id<Job> id, Func<Task> work)
+    public void EnsureRunning(Id<Attempt> id, Func<Task> work)
     {
         _watchers.GetOrAdd(id, key => Task.Run(async () =>
         {

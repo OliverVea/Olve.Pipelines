@@ -1,4 +1,4 @@
-using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 
 namespace Olve.Pipelines.Pipelines;
@@ -10,7 +10,7 @@ namespace Olve.Pipelines.Pipelines;
 public class PipelineSummaryService(
     PipelineService pipelines,
     PipelineConfigBindingService bindings,
-    JobService jobs)
+    AttemptService attempts)
 {
     public IReadOnlyList<PipelineSummary> List()
     {
@@ -22,11 +22,11 @@ public class PipelineSummaryService(
                 ? null
                 : binding.Repo;
 
-            var steps = jobs.GetJobsByPipeline(pipeline.Id)
-                .GroupBy(j => j.StepName)
-                .Select(g => g.MaxBy(j => j.CreatedAt)!)
-                .OrderBy(j => j.StepName, StringComparer.Ordinal)
-                .Select(j => new StepHealth(j.StepName, j.Status.Discriminator(), j.LastChangedAt()))
+            var steps = attempts.ListByPipeline(pipeline.Id)
+                .GroupBy(a => a.StepName)
+                .Select(g => g.MaxBy(a => (a.RunNumber, a.Number))!)
+                .OrderBy(a => a.StepName, StringComparer.Ordinal)
+                .Select(a => new StepHealth(a.StepName, a.Status.Discriminator(), a.LastChangedAt()))
                 .ToArray();
 
             var lastChangedAt = steps.Length > 0 ? steps.Max(s => s.LastChangedAt) : null;

@@ -1,4 +1,5 @@
-using static Olve.Pipelines.Jobs.JobStatus;
+using Olve.Pipelines.Pipelines.Runs;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
 
@@ -30,45 +31,45 @@ public class JobRunner(
 
     private void DispatchTick()
     {
-        var jobs = GetActiveJobs();
-        var busyKeys = CollectInProgressKeys(jobs);
+        var attempts = GetActiveAttempts();
+        var busyKeys = CollectInProgressKeys(attempts);
 
-        foreach (var job in jobs)
+        foreach (var attempt in attempts)
         {
-            if (registry.IsRunning(job.Id)) continue;
+            if (registry.IsRunning(attempt.Id)) continue;
             if (registry.ActiveCount >= MaxConcurrentJobs) return;
 
-            // The busy-key gate holds a Scheduled job behind an in-flight job for the same
-            // (pipeline, step). It must NOT apply to an InProgress job: after a restart its watcher is
+            // The busy-key gate holds a Scheduled attempt behind an in-flight attempt for the same
+            // (pipeline, step). It must NOT apply to an InProgress attempt: after a restart its watcher is
             // gone but it still owns its key (CollectInProgressKeys added it), so gating it here would
             // make it block itself forever and never reattach to its K8s Job — wedging the pipeline.
-            if (job.Status is Scheduled && IsBusy(job, busyKeys))
+            if (attempt.Status is Scheduled && IsBusy(attempt, busyKeys))
             {
                 logger.LogDebug(
-                    "Holding Scheduled job '{JobId}' — another job is already InProgress for the same (pipeline, step) key",
-                    job.Id);
+                    "Holding Scheduled attempt '{AttemptId}' of step '{StepName}' — another attempt is already InProgress for the same (pipeline, step) key",
+                    attempt.Id, attempt.StepName);
                 continue;
             }
 
-            ReserveKey(job, busyKeys);
+            ReserveKey(attempt, busyKeys);
 
             using var scope = sp.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
-            executor.EnsureRunning(job.Id);
+            executor.EnsureRunning(attempt.Id);
         }
     }
 
-    private List<Job> GetActiveJobs()
+    private List<Attempt> GetActiveAttempts()
     {
         using var scope = sp.CreateScope();
         var queue = scope.ServiceProvider.GetRequiredService<JobQueueService>();
-        return queue.GetActiveJobs().ToList();
+        return queue.GetActiveAttempts().ToList();
     }
 
-    private static HashSet<JobKey> CollectInProgressKeys(IEnumerable<Job> jobs)
-        => jobs.Where(j => j.Status is InProgress).Select(j => j.Key).ToHashSet();
+    private static HashSet<StepKey> CollectInProgressKeys(IEnumerable<Attempt> attempts)
+        => attempts.Where(j => j.Status is InProgress).Select(j => j.Key).ToHashSet();
 
-    private static bool IsBusy(Job job, HashSet<JobKey> busyKeys) => busyKeys.Contains(job.Key);
+    private static bool IsBusy(Attempt attempt, HashSet<StepKey> busyKeys) => busyKeys.Contains(attempt.Key);
 
-    private static void ReserveKey(Job job, HashSet<JobKey> busyKeys) => busyKeys.Add(job.Key);
+    private static void ReserveKey(Attempt attempt, HashSet<StepKey> busyKeys) => busyKeys.Add(attempt.Key);
 }

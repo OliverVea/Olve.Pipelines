@@ -5,7 +5,8 @@ using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
-using static Olve.Pipelines.Jobs.JobStatus;
+using Olve.Pipelines.Pipelines.Runs;
+using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
 
@@ -19,51 +20,61 @@ public class KubernetesJobExecutor(
     ICredentialsProvider<S3Credentials> s3CredentialsProvider,
     IAmazonS3 s3,
     StorageOptions storageOptions,
-    JobService jobService,
-    TimeProvider time,
+    AttemptService attempts,
     ILogger<KubernetesJobExecutor> logger)
     : JobExecutorBase(scopeFactory, registry, lifetime, logger)
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
-    // A K8s-submission failure keeps the job Scheduled and is retried by JobRunner respawning the
-    // watcher. Cap the attempts so a genuine outage fails the job loudly instead of looping forever.
+    // A K8s-submission failure keeps the attempt Scheduled and is retried by JobRunner respawning the
+    // watcher. Cap the submissions so a genuine outage fails the attempt loudly instead of looping forever.
     internal const int MaxSubmissionAttempts = 3; // initial attempt + 2 retries
 
     // Held between retries so they ride out a transient outage rather than hammering K8s at the
     // JobRunner tick rate. Overridable so tests don't wait real seconds.
     internal TimeSpan SubmissionRetryDelay { get; init; } = TimeSpan.FromSeconds(5);
 
-    protected internal override async Task RunToCompletionAsync(Job job, CancellationToken ct)
-    {
-        var logKey = LogS3Key(job.PipelineId, job.Id);
+    // TODO(B5): replace with the harness spec — harness-base init container fetching step.tar.gz +
+    // input.json via presigned GETs, the pinned image from the version's manifest, per-step
+    // secretKeyRefs, activeDeadlineSeconds. Until then a step pod only proves the plumbing and fails.
+    internal const string PlaceholderScript =
+        "echo \"olve: step '$OLVE_STEP' (run #$OLVE_RUN, attempt $OLVE_ATTEMPT) — harness executor not implemented yet (B5)\" >&2; exit 1";
 
-        await SubmitGuardedAsync(job, logKey, async token =>
+    protected internal override async Task RunToCompletionAsync(Attempt attempt, CancellationToken ct)
+    {
+        var logKey = StorageLayout.AttemptLogKey(attempt);
+
+        await SubmitGuardedAsync(attempt, logKey, async token =>
         {
-            var secretName = await GetSecretNameIfExists(job.PipelineId, token);
-            var s3SecretName = await CreateS3CredentialsSecretAsync(job.Id, token);
+            var secretName = await GetSecretNameIfExists(attempt.PipelineId, token);
+            var s3SecretName = await CreateS3CredentialsSecretAsync(attempt.Id, token);
 
             var spec = new KubernetesJobSpec(
-                Name: JobName(job.Id),
-                Image: job.Image,
-                Script: job.Script,
-                OutputBundleS3Prefix: $"{S3Prefix(job.PipelineId, job.Id)}/output",
+                Name: attempt.KubernetesJobName,
+                Image: options.DefaultImage,
+                Script: PlaceholderScript,
+                OutputBundleS3Prefix: StorageLayout.AttemptFilesPrefix(attempt),
                 S3HelperImage: options.S3HelperImage,
                 S3Bucket: options.S3Bucket,
                 S3Endpoint: options.S3Endpoint,
                 S3CredentialsSecretName: s3SecretName,
                 S3SkipCertValidation: options.S3SkipCertValidation,
-                EnvironmentVariables: job.EnvironmentVariables,
+                EnvironmentVariables: new Dictionary<string, string>
+                {
+                    ["OLVE_STEP"] = attempt.StepName,
+                    ["OLVE_RUN"] = attempt.RunNumber.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["OLVE_ATTEMPT"] = attempt.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                },
                 SecretName: secretName,
                 RuntimeClassName: options.RuntimeClassName);
 
-            await SubmitOrReattachAsync(job, spec, job.StepName, s3SecretName, logKey, token);
+            await SubmitOrReattachAsync(attempt, spec, s3SecretName, logKey, token);
         }, ct);
     }
 
-    private async Task SubmitOrReattachAsync(Job job, KubernetesJobSpec spec, string stepName, string s3SecretName, string logKey, CancellationToken ct)
+    private async Task SubmitOrReattachAsync(Attempt attempt, KubernetesJobSpec spec, string s3SecretName, string logKey, CancellationToken ct)
     {
-        // The per-job S3 secret must outlive a cancelled watcher. A self-deploy step helm-upgrades this
+        // The per-attempt S3 secret must outlive a cancelled watcher. A self-deploy step helm-upgrades this
         // very controller mid-run, which restarts the pod and cancels `ct` (ApplicationStopping) while the
         // K8s Job is still running. Deleting the secret then breaks the Job's still-pending s3-upload
         // container (CreateContainerConfigError) and the Job can never reach Succeeded — wedging it forever.
@@ -76,22 +87,22 @@ public class KubernetesJobExecutor(
 
             if (existing is null)
             {
-                logger.LogInformation("Creating K8s Job '{JobName}' for step '{StepName}' (pipeline '{PipelineId}')",
-                    spec.Name, stepName, job.PipelineId);
+                logger.LogInformation("Creating K8s Job '{JobName}' for step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}')",
+                    spec.Name, attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId);
                 await kubernetesClient.CreateJobAsync(options.Namespace, spec, ct);
             }
             else
             {
-                logger.LogInformation("Reattaching to existing K8s Job '{JobName}' for step '{StepName}' (pipeline '{PipelineId}', phase={Phase})",
-                    spec.Name, stepName, job.PipelineId, existing.Phase);
+                logger.LogInformation("Reattaching to existing K8s Job '{JobName}' for step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}', phase={Phase})",
+                    spec.Name, attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId, existing.Phase);
             }
 
-            var startedAt = EnsureInProgress(job);
+            LogIfFailed(attempts.MarkInProgress(attempt.Id), attempt.Id);
 
             if (existing is { Phase: JobPhase.Succeeded })
             {
                 await UploadLogsAsync(spec.Name, logKey, ct);
-                WriteDone(job, startedAt);
+                Succeed(attempt);
                 reachedTerminal = true;
                 return;
             }
@@ -99,7 +110,7 @@ public class KubernetesJobExecutor(
             if (existing is { Phase: JobPhase.Failed } failed)
             {
                 await UploadLogsAsync(spec.Name, logKey, ct);
-                FailJob(job, startedAt, failed.Message ?? "K8s job failed");
+                Fail(attempt, failed.Message ?? "K8s job failed");
                 reachedTerminal = true;
                 return;
             }
@@ -113,15 +124,15 @@ public class KubernetesJobExecutor(
                 switch (status.Phase)
                 {
                     case JobPhase.Succeeded:
-                        logger.LogInformation("K8s Job '{JobName}' for step '{StepName}' succeeded", spec.Name, stepName);
+                        logger.LogInformation("K8s Job '{JobName}' for step '{StepName}' succeeded", spec.Name, attempt.StepName);
                         await UploadLogsAsync(spec.Name, logKey, ct);
-                        WriteDone(job, startedAt);
+                        Succeed(attempt);
                         reachedTerminal = true;
                         return;
                     case JobPhase.Failed:
-                        logger.LogWarning("K8s Job '{JobName}' for step '{StepName}' failed: {Message}", spec.Name, stepName, status.Message);
+                        logger.LogWarning("K8s Job '{JobName}' for step '{StepName}' failed: {Message}", spec.Name, attempt.StepName, status.Message);
                         await UploadLogsAsync(spec.Name, logKey, ct);
-                        FailJob(job, startedAt, status.Message ?? "K8s job failed");
+                        Fail(attempt, status.Message ?? "K8s job failed");
                         reachedTerminal = true;
                         return;
                 }
@@ -136,11 +147,11 @@ public class KubernetesJobExecutor(
         }
     }
 
-    // Wraps the submission phase (per-job S3 secret creation + submit/reattach). Any failure here
-    // happens while the job is still Scheduled — i.e. a K8s-API-unavailable stall. Rather than let it
+    // Wraps the submission phase (per-attempt S3 secret creation + submit/reattach). Any failure here
+    // happens while the attempt is still Scheduled — i.e. a K8s-API-unavailable stall. Rather than let it
     // bubble up as a silently-retried-forever idle (JobRunner would respawn the watcher every tick),
-    // count the attempt, surface it to the job's run log, and after MaxSubmissionAttempts fail the job.
-    private async Task SubmitGuardedAsync(Job job, string logKey, Func<CancellationToken, Task> submit, CancellationToken ct)
+    // count the submission, surface it to the attempt's log, and after MaxSubmissionAttempts fail it.
+    private async Task SubmitGuardedAsync(Attempt attempt, string logKey, Func<CancellationToken, Task> submit, CancellationToken ct)
     {
         try
         {
@@ -148,48 +159,47 @@ public class KubernetesJobExecutor(
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // Shutdown (e.g. a self-deploy helm-upgrade restarting this controller): leave the job
+            // Shutdown (e.g. a self-deploy helm-upgrade restarting this controller): leave the attempt
             // untouched so the next start reattaches or re-submits.
             throw;
         }
         catch (Exception ex)
         {
-            // A failure once the job has reached InProgress is an in-flight/poll error, not a
+            // A failure once the attempt has reached InProgress is an in-flight/poll error, not a
             // submission stall — rethrow so the watcher respawns and reattaches to the running K8s
-            // Job (idempotent). Only pre-InProgress failures are retried with the attempt budget.
-            if (jobService.TryGetJob<Job>(job.Id, out var current) && current.Status is InProgress)
+            // Job (idempotent). Only pre-InProgress failures are retried with the submission budget.
+            if (attempts.TryGet(attempt.Id, out var current) && current.Status is InProgress)
                 throw;
 
-            await HandleSubmissionFailureAsync(job, logKey, ex, ct);
+            await HandleSubmissionFailureAsync(attempt, logKey, ex, ct);
         }
     }
 
-    private async Task HandleSubmissionFailureAsync(Job job, string logKey, Exception ex, CancellationToken ct)
+    private async Task HandleSubmissionFailureAsync(Attempt attempt, string logKey, Exception ex, CancellationToken ct)
     {
-        var attempt = ((job.Status as Scheduled)?.Attempts ?? 0) + 1;
+        var submission = ((attempt.Status as Scheduled)?.SubmissionAttempts ?? 0) + 1;
 
-        if (attempt >= MaxSubmissionAttempts)
+        if (submission >= MaxSubmissionAttempts)
         {
-            var reason = $"K8s submission failed after {attempt} attempts: {ex.Message}";
+            var reason = $"K8s submission failed after {submission} attempts: {ex.Message}";
             await AppendControllerLogAsync(logKey, $"controller: {reason} — giving up", ct);
-            // Best-effort cleanup of the per-job S3 secret in case an earlier attempt created it
+            // Best-effort cleanup of the per-attempt S3 secret in case an earlier try created it
             // before the K8s Job submission failed. Deterministic name; safe if it never existed.
-            await CleanupS3SecretAsync(S3SecretName(job.Id));
-            FailJob(job, job.Status as InProgress, reason);
-            logger.LogError(ex, "Giving up on job '{JobId}' (pipeline '{PipelineId}') after {Attempts} failed submission attempts",
-                job.Id, job.PipelineId, attempt);
+            await CleanupS3SecretAsync(S3SecretName(attempt.Id));
+            Fail(attempt, reason);
+            logger.LogError(ex, "Giving up on attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}') after {Submissions} failed submissions",
+                attempt.Id, attempt.StepName, attempt.PipelineId, submission);
             return;
         }
 
         await AppendControllerLogAsync(logKey,
-            $"controller: failed to submit K8s Job — {ex.Message}; retry {attempt}/{MaxSubmissionAttempts - 1}", ct);
-        logger.LogWarning(ex, "Submission attempt {Attempt} of {Max} failed for job '{JobId}' (pipeline '{PipelineId}'); retrying",
-            attempt, MaxSubmissionAttempts, job.Id, job.PipelineId);
+            $"controller: failed to submit K8s Job — {ex.Message}; retry {submission}/{MaxSubmissionAttempts - 1}", ct);
+        logger.LogWarning(ex, "Submission {Submission} of {Max} failed for attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}'); retrying",
+            submission, MaxSubmissionAttempts, attempt.Id, attempt.StepName, attempt.PipelineId);
 
-        // Persist the incremented attempt so the next watcher (after respawn) resumes the count and
-        // the stuck-and-retrying state survives a restart.
-        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j =>
-            j.Status is Scheduled s ? j with { Status = s with { Attempts = attempt } } : j), job.Id);
+        // Persist the incremented count so the next watcher (after respawn) resumes it and the
+        // stuck-and-retrying state survives a restart.
+        LogIfFailed(attempts.RecordSubmissionFailure(attempt.Id), attempt.Id);
 
         // Hold the watcher slot briefly so retries ride out a transient outage instead of hammering
         // K8s at the JobRunner tick rate. The watcher then exits and JobRunner respawns it.
@@ -199,7 +209,7 @@ public class KubernetesJobExecutor(
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // Shutting down — the persisted attempt count is enough; retry on next start.
+            // Shutting down — the persisted count is enough; retry on next start.
         }
     }
 
@@ -237,55 +247,45 @@ public class KubernetesJobExecutor(
         }
     }
 
-    private DateTimeOffset EnsureInProgress(Job job)
+    // TODO(B5): collect output.json (envelope: succeeded/skipped) and pass the output along.
+    private void Succeed(Attempt attempt)
     {
-        if (job.Status is InProgress inProgress) return inProgress.StartedAt;
-
-        var startedAt = time.GetUtcNow();
-        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with { Status = new InProgress(startedAt) }), job.Id);
-        return startedAt;
+        LogIfFailed(attempts.MarkSucceeded(attempt.Id), attempt.Id);
+        LogFinished(attempt.Id);
     }
 
-    private void WriteDone(Job job, DateTimeOffset startedAt)
+    private void Fail(Attempt attempt, string reason)
     {
-        var completedAt = time.GetUtcNow();
-        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
-        {
-            Status = new Done(startedAt, completedAt),
-        }), job.Id);
-
-        logger.LogInformation("Job '{JobId}' for pipeline '{PipelineId}' completed in {ElapsedMs}ms",
-            job.Id, job.PipelineId, (long)(completedAt - startedAt).TotalMilliseconds);
+        LogIfFailed(attempts.MarkFailed(attempt.Id, reason), attempt.Id);
+        LogFinished(attempt.Id);
     }
 
-    private void FailJob(Job job, InProgress? currentInProgress, string reason)
+    private void LogFinished(Id<Attempt> attemptId)
     {
-        var startedAt = currentInProgress?.StartedAt ?? time.GetUtcNow();
-        FailJob(job, startedAt, reason);
+        if (!attempts.TryGet(attemptId, out var after))
+            return;
+
+        var elapsed = after.FinishedAt() - after.StartedAt();
+        logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') finished {Status} in {ElapsedMs}ms",
+            after.Number, after.StepName, after.RunNumber, after.PipelineId, after.Status.Discriminator(), (long?)elapsed?.TotalMilliseconds);
     }
 
-    private void FailJob(Job job, DateTimeOffset startedAt, string reason)
-    {
-        var failedAt = time.GetUtcNow();
-        LogIfFailed(jobService.UpdateJob<Job>(job.Id, j => j with
-        {
-            Status = new Failed(startedAt, failedAt, reason),
-        }), job.Id);
-
-        logger.LogWarning("Job '{JobId}' for pipeline '{PipelineId}' failed after {ElapsedMs}ms: {Reason}",
-            job.Id, job.PipelineId, (long)(failedAt - startedAt).TotalMilliseconds, reason);
-    }
-
-    private void LogIfFailed(Result result, Id<Job> jobId)
+    private void LogIfFailed(Result result, Id<Attempt> attemptId)
     {
         if (result.TryPickProblems(out var problems))
-            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of job '{JobId}' (it may have been deleted)", jobId);
+            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of attempt '{AttemptId}' (it may have been deleted)", attemptId);
     }
 
-    private async Task<string> CreateS3CredentialsSecretAsync(Id<Job> jobId, CancellationToken ct)
+    private void LogIfFailed<T>(Result<T> result, Id<Attempt> attemptId)
+    {
+        if (result.TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Warning, problems, "Could not update status of attempt '{AttemptId}' (it may have been deleted)", attemptId);
+    }
+
+    private async Task<string> CreateS3CredentialsSecretAsync(Id<Attempt> attemptId, CancellationToken ct)
     {
         var creds = await s3CredentialsProvider.GetCredentialsAsync(ct);
-        var secretName = S3SecretName(jobId);
+        var secretName = S3SecretName(attemptId);
 
         // Consumed as env by the s3-download/s3-upload helpers (S3SyncScript).
         var data = new Dictionary<string, string>
@@ -381,22 +381,7 @@ public class KubernetesJobExecutor(
         return hasSecrets ? $"olve-pipeline-{pipelineId.Value.Value:N}" : null;
     }
 
-    // Deterministic per-job S3 credentials secret name — reconstructable for cleanup without threading
-    // it through the failure path. Matches the name used at creation.
-    private static string S3SecretName(Id<Job> jobId) => $"olve-s3-{jobId.Value.Value:N}";
-
-    // Placeholder layout until v2 runs/attempts own storage (B3/B4).
-    internal static string S3Prefix(Id<Pipeline> pipelineId, Id<Job> jobId)
-        => $"jobs/{pipelineId.Value.Value:N}/{jobId.Value.Value:N}";
-
-    internal static string LogS3Key(Id<Pipeline> pipelineId, Id<Job> jobId)
-        => $"{S3Prefix(pipelineId, jobId)}/job.log";
-
-    // Determinism is load-bearing: on app restart, the watcher dispatcher derives this name from the
-    // persisted Id<Job> and calls TryGetJobStatusAsync to decide whether to submit or reattach.
-    private static string JobName(Id<Job> jobId)
-    {
-        var name = $"olve-{jobId.Value.Value:N}";
-        return name.Length > 63 ? name[..63] : name;
-    }
+    // Deterministic per-attempt S3 credentials secret name — reconstructable for cleanup without
+    // threading it through the failure path. Matches the name used at creation.
+    private static string S3SecretName(Id<Attempt> attemptId) => $"olve-s3-{attemptId.Value.Value:N}";
 }

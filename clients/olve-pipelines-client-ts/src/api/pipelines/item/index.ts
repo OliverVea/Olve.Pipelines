@@ -6,6 +6,8 @@ import { createPipelineFromDiscriminatorValue, createResultProblemFromDiscrimina
 // @ts-ignore
 import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsMetadata, type BindingRequestBuilder } from './binding/index.js';
 // @ts-ignore
+import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
+// @ts-ignore
 import { SecretsRequestBuilderNavigationMetadata, SecretsRequestBuilderRequestsMetadata, type SecretsRequestBuilder } from './secrets/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -18,6 +20,10 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      * The binding property
      */
     get binding(): BindingRequestBuilder;
+    /**
+     * The runs property
+     */
+    get runs(): RunsRequestBuilder;
     /**
      * The secrets property
      */
@@ -56,6 +62,10 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
     binding: {
         requestsMetadata: BindingRequestBuilderRequestsMetadata,
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
+    },
+    runs: {
+        requestsMetadata: RunsRequestBuilderRequestsMetadata,
+        navigationMetadata: RunsRequestBuilderNavigationMetadata,
     },
     secrets: {
         requestsMetadata: SecretsRequestBuilderRequestsMetadata,

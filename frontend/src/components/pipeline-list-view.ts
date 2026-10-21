@@ -194,9 +194,14 @@ export class PipelineListView extends LitElement {
       color: var(--color-primary);
       background: color-mix(in srgb, var(--color-primary) 15%, transparent);
     }
-    .ci-box.done {
+    .ci-box.succeeded {
       color: var(--color-success);
       background: color-mix(in srgb, var(--color-success) 18%, transparent);
+    }
+    .ci-box.skipped {
+      color: var(--color-success);
+      background: transparent;
+      border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
     }
     .ci-box.failed {
       color: var(--color-danger);

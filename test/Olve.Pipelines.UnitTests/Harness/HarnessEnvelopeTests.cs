@@ -51,6 +51,19 @@ public class HarnessEnvelopeTests
     }
 
     [Test]
+    public async Task IndentedOutputNearTheCap_IsAcceptedCompacted()
+    {
+        // ~35 KB compact, well over 64 KB once indented like canonicalJson.
+        var items = string.Join(",\n", Enumerable.Range(0, 6000).Select(i => $"      {i}"));
+        var json = "{\n  \"output\": {\n    \"xs\": [\n" + items + "\n    ]\n  },\n  \"status\": \"succeeded\"\n}\n";
+
+        var parsed = HarnessEnvelope.Parse(json);
+
+        await Assert.That(parsed).Succeeded();
+        await Assert.That(((HarnessEnvelope.Succeeded)parsed.Value!).OutputJson).StartsWith("""{"xs":[0,1,2""");
+    }
+
+    [Test]
     public async Task OversizedOutput_IsRejected()
     {
         var big = new string('x', 70 * 1024);

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Olve.Pipelines.Pipelines.Runs;
 
@@ -29,7 +30,10 @@ public abstract record HarnessEnvelope
 
     private static readonly string[] FailureKinds = ["handler", "input", "output"];
 
-    public static Result<HarnessEnvelope> Parse(string json, int maxBytes = AttemptService.MaxOutputJsonBytes + 16 * 1024)
+    /// <summary>Default cap on the envelope text: room for an indented output at the compact cap.</summary>
+    public const int DefaultMaxBytes = 4 * AttemptService.MaxOutputJsonBytes;
+
+    public static Result<HarnessEnvelope> Parse(string json, int maxBytes = DefaultMaxBytes)
     {
         if (Encoding.UTF8.GetByteCount(json) > maxBytes)
             return Fail("envelope exceeds {0} bytes", maxBytes);
@@ -57,7 +61,8 @@ public abstract record HarnessEnvelope
                 case "succeeded":
                     if (!OnlyKeys(root, "status", "output"))
                         return Fail("succeeded envelope must have exactly 'status' and 'output'");
-                    var output = root.GetProperty("output").GetRawText();
+                    // output.json is canonical *indented* JSON; cap and store the compact form.
+                    var output = Compact(root.GetProperty("output"));
                     if (Encoding.UTF8.GetByteCount(output) > AttemptService.MaxOutputJsonBytes)
                         return Fail("output exceeds {0} bytes", AttemptService.MaxOutputJsonBytes);
                     return new Succeeded(output);
@@ -84,6 +89,14 @@ public abstract record HarnessEnvelope
                     return Fail("unknown envelope status '{0}'", status.GetString()!);
             }
         }
+    }
+
+    private static string Compact(JsonElement element)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
+            element.WriteTo(writer);
+        return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
     private static bool OnlyKeys(JsonElement obj, params string[] keys)

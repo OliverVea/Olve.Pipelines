@@ -50,7 +50,7 @@ public static partial class BuildJobBuilder
         set -eu
         mkdir -p /work/src /work/out /work/tmp
         cd /work
-        bun -e '
+        bun -e '(async () => {
         const repo = process.env.OLVE_REPO, sha = process.env.OLVE_SHA, token = process.env.OLVE_GITHUB_TOKEN;
         const url = `https://api.github.com/repos/${repo}/tarball/${sha}`;
         const headers = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
@@ -65,7 +65,8 @@ public static partial class BuildJobBuilder
             process.exit(65);
           }
           await Bun.sleep(2000 * i);
-        }'
+        }
+        })().catch((e) => { console.error(`olve-build-job: ${e}`); process.exit(65); });'
         tar -xzf repo.tar.gz -C /work/src --strip-components=1
         rm -f repo.tar.gz
         cd /work/src

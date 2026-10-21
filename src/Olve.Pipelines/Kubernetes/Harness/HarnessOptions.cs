@@ -85,8 +85,11 @@ public sealed record HarnessResultLimits
     /// <summary>Most entries (files + directories) in the archive.</summary>
     public int MaxEntries { get; init; } = 10_000;
 
-    /// <summary>Largest <c>output.json</c> envelope. The <c>output</c> value itself is capped at <see cref="AttemptService.MaxOutputJsonBytes"/>.</summary>
-    public int MaxEnvelopeBytes { get; init; } = AttemptService.MaxOutputJsonBytes + 16 * 1024;
+    /// <summary>
+    /// Largest <c>output.json</c> envelope (canonical, 2-space indented — so well above the compact cap).
+    /// The compacted <c>output</c> value itself is capped at <see cref="AttemptService.MaxOutputJsonBytes"/>.
+    /// </summary>
+    public int MaxEnvelopeBytes { get; init; } = HarnessEnvelope.DefaultMaxBytes;
 }
 
 /// <summary>Garage keys the harness executor uses beyond <see cref="StorageLayout"/> (all under the attempt prefix).</summary>

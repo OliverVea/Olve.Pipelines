@@ -73,6 +73,17 @@ public class HarnessResultArchiveTests
     }
 
     [Test]
+    public async Task IndentedCanonicalEnvelope_OutputIsCompacted()
+    {
+        // What the harness actually writes: canonicalJson = sorted keys, 2-space indent, trailing newline.
+        const string canonical = "{\n  \"output\": {\n    \"n\": 1,\n    \"sha\": \"abc\"\n  },\n  \"status\": \"succeeded\"\n}\n";
+        var (result, _) = await Read(Archive(F("output.json", canonical)));
+
+        await Assert.That(result).Succeeded();
+        await Assert.That(((HarnessEnvelope.Succeeded)result.Value!.Envelope).OutputJson).IsEqualTo("""{"n":1,"sha":"abc"}""");
+    }
+
+    [Test]
     public async Task DotSlashPrefix_IsAccepted()
     {
         var (result, sunk) = await Read(Archive(F("./output.json", """{"reason":"r","status":"skipped"}"""), F("./files/x", "1")));

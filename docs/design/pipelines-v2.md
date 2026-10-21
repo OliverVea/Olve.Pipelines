@@ -344,6 +344,46 @@ The service never executes TypeScript itself.
 Runs, pools, attempts, pipeline versions, enable state and an in-progress `switch` are persisted and
 must survive a restart — in particular during v2's own self-deploy.
 
+### 5.5 Addressing and storage
+
+Past outputs and files are addressed by **run number** (monotonic per pipeline — the build number)
+and **step name**, with an optional **attempt**:
+
+```
+<pipeline>#<run>/<step>[@<attempt>]
+
+olve-pipelines#412/deploy-beta        → output of the latest successful attempt
+olve-pipelines#412/deploy-beta@1      → a specific attempt (e.g. the failed one)
+olve-pipelines#412/build/image.tar    → a file from that step's bundle
+```
+
+- The run pins the pipeline version (and so every step/model version and the input), so addresses
+  never mention versions.
+- The step name is the identity, stable across versions, same key as history.
+- Without an attempt, an address resolves to the **latest successful attempt** — the same one later
+  stages consume.
+- The run's version stamp is derived from the run number (e.g. `2026.10.21.412`), so "version X" and
+  "build 412" resolve to the same run.
+
+**Storage layout** (Garage) mirrors the address:
+
+```
+runs/<pipelineId>/<run>/<step>/<attempt>/output.json
+runs/<pipelineId>/<run>/<step>/<attempt>/files/…
+runs/<pipelineId>/<run>/<step>/<attempt>/log
+```
+
+**File refs carry the full address** — `{ run, step, attempt, path, sha256 }` — so continues and
+reruns reuse earlier outputs by reference without copying files, the harness can verify downloads,
+and content dedup is possible later.
+
+**Queries** the service supports: `run/step[@attempt]` → output; latest successful output of a step
+across runs (promote; later the environments view); run by version stamp.
+
+**API / CLI:** `GET /api/pipelines/{id}/runs/{run}/steps/{step}/output?attempt=…` and
+`…/steps/{step}/files/{path}`; `pl run output <pipeline> 412 deploy-beta`,
+`pl run file <pipeline> 412 build image.tar`.
+
 ## 6. Versioning
 
 ### 6.1 Versions

@@ -22,8 +22,11 @@ RUN cd clients/olve-pipelines-client-ts && npm install
 # The build's `prebuild` hook (scripts/build-docs-index.mjs) reads ../docs/setup to emit
 # the client-side search index, so the docs must be present in this stage too.
 COPY docs/setup/ ./docs/setup/
+# Manifests first so the npm install layer is cached until dependencies change.
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN cd frontend && npm install
 COPY frontend/ ./frontend/
-RUN cd frontend && npm install && npm run build
+RUN cd frontend && npm run build
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
 WORKDIR /app

@@ -24,6 +24,16 @@ olve_fetch_repo "$REPO" "$BRANCH" "$CTX"
 olve_stage_artifact "$CTX/helm" /output/helm
 echo "$VERSION" > /output/version.txt
 
-olve_kaniko_build "$CTX" "olve-pipelines-v2:$VERSION"
+# Same as olve_kaniko_build, plus a layer cache in the in-cluster registry so restore/apt/npm
+# layers are reused until their inputs change. Kaniko pushes cache layers even with --no-push.
+# The registry has no GC: the cache repo grows with every changed layer — prune it when needed.
+/kaniko/executor \
+  --context="$CTX" \
+  --dockerfile="$CTX/Dockerfile" \
+  --no-push \
+  --tar-path=/output/image.tar \
+  --destination="olve-pipelines-v2:$VERSION" \
+  --cache=true \
+  --cache-repo=registry.ovea.pro/olve-pipelines-v2/cache
 
 echo "Build complete: olve-pipelines-v2:$VERSION"

@@ -118,7 +118,25 @@
       "Bash(bash /tmp/watch_deploy.sh)",
       "Bash(dig +short pipelines-private.ovea.pro)",
       "Bash(helm template *)",
-      "Bash(sed -n '/operators:/,/processors:/p')"
+      "Bash(sed -n '/operators:/,/processors:/p')",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(kubectl config *)",
+      "Bash(kubectl get *)",
+      "Read(//var/lib/rancher/k3s/agent/etc/**)",
+      "Bash(sudo -n ls /var/lib/rancher/k3s/agent/etc/containerd/)",
+      "Bash(pl pipeline *)",
+      "Bash(pl --help)",
+      "Bash(sudo -n head -5 /var/lib/rancher/k3s/agent/etc/containerd/config.toml)",
+      "Bash(sudo -n gpg --dearmor --yes -o /usr/share/keyrings/gvisor-archive-keyring.gpg)",
+      "Bash(sudo -n tee /etc/apt/sources.list.d/gvisor.list)",
+      "Bash(sudo -n apt-get update -qq)",
+      "Bash(sudo -n apt-get install -y -qq runsc)",
+      "Bash(runsc --version)",
+      "Bash(sudo -n grep -n \"runtimes\" /var/lib/rancher/k3s/agent/etc/containerd/config.toml)",
+      "Bash(sudo -n grep -n \"io.containerd.cri\" /var/lib/rancher/k3s/agent/etc/containerd/config.toml)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl run *)"
     ]
   }
 }

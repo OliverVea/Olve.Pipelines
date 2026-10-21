@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Results;
@@ -33,6 +34,7 @@ internal sealed class TestRunDomain
         Gates = new AttachmentStore<Pipeline, PipelineStepGates>(Pipelines);
         PendingStarts = new AttachmentStore<Pipeline, PendingRunStart>(Pipelines);
         EntityVersions = new AttachmentStore<Pipeline, EntityVersionMap>(Pipelines);
+        PollTriggers = new AttachmentStore<Pipeline, PollTriggerStates>(Pipelines);
 
         var ids = new IdProvider();
         PipelineService = new PipelineService(Pipelines, ids);
@@ -48,6 +50,7 @@ internal sealed class TestRunDomain
     public AttachmentStore<Pipeline, PipelineStepGates> Gates { get; }
     public AttachmentStore<Pipeline, PendingRunStart> PendingStarts { get; }
     public AttachmentStore<Pipeline, EntityVersionMap> EntityVersions { get; }
+    public AttachmentStore<Pipeline, PollTriggerStates> PollTriggers { get; }
     public RunSchedulingLock SchedulingLock { get; } = new();
     public RunPlanCache Plans { get; }
 

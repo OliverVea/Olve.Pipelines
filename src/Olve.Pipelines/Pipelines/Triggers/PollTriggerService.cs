@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
 
@@ -11,12 +12,15 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// Runs the <c>poll</c> triggers declared by each pipeline's current version (spec §3.6): every
 /// <c>intervalSeconds</c> GET the URL (header values may reference <c>$SECRET:NAME</c>, resolved from the
 /// pipeline's K8s Secret — only names the poll declares), extract the value at <c>valuePath</c>, and when it
-/// changed run <c>map-trigger &lt;name&gt;</c> with <c>{"value": "…"}</c> and start a Poll run. The first
-/// observation after a (re)start or a URL change only seeds the value. State is in memory: a restart costs
-/// one seed, never a duplicate run (de-dup on the mapped input covers the overlap with push).
+/// changed run <c>map-trigger &lt;name&gt;</c> with <c>{"value": "…"}</c> and start a Poll run. The very first
+/// observation of a trigger (or the first after its URL changed) only seeds the value. The last value is
+/// persisted (<see cref="PollTriggerStates"/>, in <c>pipeline-state.json</c>), so after a restart the first
+/// fetch is compared against the value seen before it — a change made while the service was down triggers a
+/// run. The schedule (next poll time) stays in memory. De-dup on the mapped input covers the overlap with push.
 /// </summary>
 public partial class PollTriggerService(
     EntityStore<Pipeline> pipelines,
+    AttachmentStore<Pipeline, PollTriggerStates> persisted,
     IServiceProvider sp,
     TimeProvider timeProvider,
     ILogger<PollTriggerService> logger) : BackgroundService
@@ -25,15 +29,17 @@ public partial class PollTriggerService(
     private const long MinIntervalSeconds = 30;
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    private sealed record PollState(string Url, DateTimeOffset NextAt, string? LastValue);
-
-    private readonly Dictionary<(Id<Pipeline> Pipeline, string Trigger), PollState> _state = [];
+    private readonly Dictionary<(Id<Pipeline> Pipeline, string Trigger), (string Url, DateTimeOffset NextAt)> _schedule = [];
 
     [GeneratedRegex(@"\$SECRET:([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex SecretRefRegex();
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        // Let startup finish first (persistence change tracking subscribes once every host has started).
+        try { await Task.Delay(Tick, timeProvider, ct); }
+        catch (OperationCanceledException) { return; }
+
         while (!ct.IsCancellationRequested)
         {
             try
@@ -55,61 +61,97 @@ public partial class PollTriggerService(
 
     private async Task TickAsync(CancellationToken ct)
     {
-        var live = new HashSet<(Id<Pipeline>, string)>();
         foreach (var pipeline in pipelines.List())
         {
             using var scope = sp.CreateScope();
             var inputs = scope.ServiceProvider.GetRequiredService<RunInputService>();
+            // No runnable version right now (e.g. mid-switch): keep its state, poll it again later.
             if (inputs.GetTarget(pipeline.Id).TryPickProblems(out _, out var target))
                 continue;
 
-            foreach (var poll in target.Manifest.Triggers.OfType<PollTrigger>())
-            {
-                var key = (pipeline.Id, poll.Name);
-                live.Add(key);
-                await PollOneAsync(scope.ServiceProvider, pipeline, poll, key, ct);
-            }
+            var polls = target.Manifest.Triggers.OfType<PollTrigger>().ToList();
+            Prune(pipeline.Id, polls.Select(p => p.Name).ToHashSet(StringComparer.Ordinal));
+            foreach (var poll in polls)
+                await PollOneAsync(scope.ServiceProvider, pipeline, poll, ct);
         }
-
-        foreach (var stale in _state.Keys.Where(k => !live.Contains(k)).ToList())
-            _state.Remove(stale);
     }
 
-    private async Task PollOneAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, (Id<Pipeline>, string) key, CancellationToken ct)
+    private async Task PollOneAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, CancellationToken ct)
     {
+        var key = (pipeline.Id, poll.Name);
         var now = timeProvider.GetUtcNow();
-        if (_state.TryGetValue(key, out var state) && state.Url == poll.Url && now < state.NextAt)
+        if (_schedule.TryGetValue(key, out var scheduled) && scheduled.Url == poll.Url && now < scheduled.NextAt)
             return;
-        if (state is not null && state.Url != poll.Url)
-            state = null; // a changed URL starts over (seed, don't trigger)
 
-        var next = now + TimeSpan.FromSeconds(Math.Max(poll.IntervalSeconds, MinIntervalSeconds));
+        _schedule[key] = (poll.Url, now + TimeSpan.FromSeconds(Math.Max(poll.IntervalSeconds, MinIntervalSeconds)));
         var fetched = await FetchValueAsync(services, pipeline.Id, poll, ct);
         if (fetched.TryPickProblems(out var problems, out var value))
         {
             logger.LogProblems(LogLevel.Warning, problems, "Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') failed",
                 poll.Name, pipeline.Name, pipeline.Id);
-            _state[key] = new PollState(poll.Url, next, state?.LastValue);
             return;
         }
 
-        _state[key] = new PollState(poll.Url, next, value);
-        if (state?.LastValue is null)
+        switch (Observe(pipeline.Id, poll.Name, poll.Url, value))
         {
-            logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') seeded at '{Value}'",
-                poll.Name, pipeline.Name, pipeline.Id, value);
-            return;
+            case PollObservation.Seeded:
+                logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') seeded at '{Value}'",
+                    poll.Name, pipeline.Name, pipeline.Id, value);
+                return;
+            case PollObservation.Unchanged:
+                return;
+            case PollObservation.Changed changed:
+                logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') changed '{Old}' -> '{New}'",
+                    poll.Name, pipeline.Name, pipeline.Id, changed.Previous, value);
+                break;
         }
-        if (state.LastValue == value)
-            return;
 
-        logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') changed '{Old}' -> '{New}'",
-            poll.Name, pipeline.Name, pipeline.Id, state.LastValue, value);
         var outcome = await services.GetRequiredService<TriggerMappingService>().MapAndStartAsync(
             pipeline.Id, poll.Name, RunTriggerKind.Poll, new JsonObject { ["value"] = value }.ToJsonString(), ct);
         if (outcome.TryPickProblems(out var startProblems))
             logger.LogProblems(LogLevel.Warning, startProblems, "Poll trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
                 poll.Name, pipeline.Id);
+    }
+
+    /// <summary>
+    /// Records <paramref name="value"/> as the trigger's last value and says what it means: the first value
+    /// ever seen (or the first after a URL change) seeds; otherwise it is unchanged or changed. The persisted
+    /// state is rewritten only when the value or URL changed.
+    /// </summary>
+    internal PollObservation Observe(Id<Pipeline> pipelineId, string triggerName, string url, string value)
+    {
+        IReadOnlyDictionary<string, PollTriggerState> current = persisted.TryGet(pipelineId, out var states)
+            ? states.Triggers
+            : new Dictionary<string, PollTriggerState>();
+        current.TryGetValue(triggerName, out var previous);
+        if (previous is not null && previous.Url == url && previous.LastValue == value)
+            return new PollObservation.Unchanged();
+
+        var next = new Dictionary<string, PollTriggerState>(current, StringComparer.Ordinal)
+        {
+            [triggerName] = new(url, value, timeProvider.GetUtcNow()),
+        };
+        persisted.Set(pipelineId, new PollTriggerStates(next));
+
+        return previous is null || previous.Url != url
+            ? new PollObservation.Seeded()
+            : new PollObservation.Changed(previous.LastValue);
+    }
+
+    /// <summary>Forgets triggers the pipeline's current version no longer declares.</summary>
+    internal void Prune(Id<Pipeline> pipelineId, IReadOnlySet<string> declared)
+    {
+        foreach (var key in _schedule.Keys.Where(k => k.Pipeline == pipelineId && !declared.Contains(k.Trigger)).ToList())
+            _schedule.Remove(key);
+
+        if (!persisted.TryGet(pipelineId, out var states) || states.Triggers.Keys.All(declared.Contains))
+            return;
+
+        var kept = states.Triggers.Where(kv => declared.Contains(kv.Key)).ToDictionary(StringComparer.Ordinal);
+        if (kept.Count == 0)
+            persisted.Remove(pipelineId);
+        else
+            persisted.Set(pipelineId, new PollTriggerStates(kept));
     }
 
     private static async Task<Result<string>> FetchValueAsync(IServiceProvider services, Id<Pipeline> pipelineId, PollTrigger poll, CancellationToken ct)
@@ -197,4 +239,12 @@ public partial class PollTriggerService(
     }
 
     private static string Redact(string url) => url.Split('?')[0];
+}
+
+/// <summary>What one poll observation means (see <see cref="PollTriggerService.Observe"/>).</summary>
+internal abstract record PollObservation
+{
+    public sealed record Seeded : PollObservation;
+    public sealed record Unchanged : PollObservation;
+    public sealed record Changed(string Previous) : PollObservation;
 }

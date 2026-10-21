@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Shared.Persistence;
@@ -19,7 +20,7 @@ namespace Olve.Pipelines.Shared.Persistence;
 /// <code>
 /// pipeline-versions.json              version metadata (no manifests)
 /// versions/&lt;p&gt;/&lt;n&gt;/manifest.json      one manifest per version, written once (immutable)
-/// pipeline-state.json                 activations (Active/Draining), sequences, gates, queued run starts
+/// pipeline-state.json                 activations (Active/Draining), sequences, gates, queued run starts, poll values
 /// runs.json                           which runs exist: (id, pipeline, number)
 /// runs/&lt;p&gt;/&lt;n&gt;/run.json              one run + all its attempts (incl. capped outputs)
 /// </code>
@@ -47,6 +48,7 @@ public class RunPersistenceService(
     AttachmentStore<Pipeline, PipelineStepGates> gates,
     AttachmentStore<Pipeline, PendingRunStart> pendingStarts,
     AttachmentStore<Pipeline, EntityVersionMap> entityVersions,
+    AttachmentStore<Pipeline, PollTriggerStates> pollTriggers,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<RunPersistenceService> logger,
@@ -127,6 +129,8 @@ public class RunPersistenceService(
         pendingStarts.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         entityVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
         entityVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        pollTriggers.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        pollTriggers.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
 
         runs.OnAdded.Subscribe(e => OnRunChanged(e.Id));
         runs.OnUpdated.Subscribe(e => OnRunChanged(e.Id));
@@ -370,7 +374,8 @@ public class RunPersistenceService(
             sequences.GetAll().Select(kv => new PipelineSequencesEntry(kv.Key, kv.Value)).ToArray(),
             gates.GetAll().Select(kv => new PipelineStepGatesEntry(kv.Key, kv.Value)).ToArray(),
             pendingStarts.GetAll().Select(kv => new PendingRunStartEntry(kv.Key, kv.Value)).ToArray(),
-            entityVersions.GetAll().Select(kv => new EntityVersionHistoryEntry(kv.Key, kv.Value)).ToArray());
+            entityVersions.GetAll().Select(kv => new EntityVersionHistoryEntry(kv.Key, kv.Value)).ToArray(),
+            pollTriggers.GetAll().Select(kv => new PollTriggerStatesEntry(kv.Key, kv.Value)).ToArray());
 
     private RunIndexSnapshot BuildRunsIndex() =>
         new(runs.List()
@@ -434,6 +439,8 @@ public class RunPersistenceService(
             pendingStarts.Set(entry.PipelineId, entry.Pending);
         foreach (var entry in state?.EntityVersions ?? [])
             entityVersions.Set(entry.PipelineId, entry.History);
+        foreach (var entry in state?.PollTriggers ?? [])
+            pollTriggers.Set(entry.PipelineId, entry.States);
 
         var attemptCount = 0;
         foreach (var document in documents)

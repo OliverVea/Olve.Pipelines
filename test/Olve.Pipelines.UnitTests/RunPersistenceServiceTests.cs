@@ -6,6 +6,7 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Results.TUnit;
@@ -56,7 +57,7 @@ public class RunPersistenceServiceTests
         var domain = new TestRunDomain();
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
-            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts, domain.EntityVersions,
+            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts, domain.EntityVersions, domain.PollTriggers,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);
@@ -268,6 +269,27 @@ public class RunPersistenceServiceTests
         await Assert.That(gates!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
         await Assert.That(b.Domain.PendingStarts.TryGet(pipeline.Id, out var pending)).IsTrue();
         await Assert.That(pending).IsEqualTo(queued);
+    }
+
+    [Test]
+    public async Task Restart_RestoresPollTriggerLastValues()
+    {
+        var store = new FakeObjectStore();
+        var a = await StartNode(store);
+        var pipeline = a.Domain.CreatePipeline();
+        var states = new PollTriggerStates(new Dictionary<string, PollTriggerState>
+        {
+            ["poll"] = new("https://example.test/head", "abc123", DateTimeOffset.UnixEpoch),
+        });
+        a.Domain.PollTriggers.Set(pipeline.Id, states);
+        await a.Service.StoppingAsync(CancellationToken.None);
+        a.Service.Dispose();
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(b.Domain.PollTriggers.TryGet(pipeline.Id, out var loaded)).IsTrue();
+        await Assert.That(loaded!.Triggers["poll"]).IsEqualTo(states.Triggers["poll"]);
     }
 
     [Test]

@@ -88,6 +88,7 @@ public static class ServiceConfiguration
         services.AddSingleton<RunPlanCache>();
         services.AddSingleton<AttachmentStore<Pipeline, PipelineStepGates>>();
         services.AddSingleton<AttachmentStore<Pipeline, PendingRunStart>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PollTriggerStates>>();
         services.AddTransient<StepGateService>();
         services.AddTransient<StageScheduler>();
         services.AddTransient<RunStartService>();

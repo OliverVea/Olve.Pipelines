@@ -1,21 +1,16 @@
-# In-repo CD pipeline for Olve.Pipelines (GitOps) — self-deploy.
+# In-repo CD pipeline for Olve.Pipelines v2 (GitOps) — v2 branch, beta only.
 #
-# This file is the single source of truth for how this app is built and deployed.
-# A pipeline is bound to this repo and the service reconciles the live pipeline to
-# match this file on every change; pushing a commit deploys automatically (the
-# deploy poll is configured by the binding — no trigger needs declaring here).
+# This is the v1-format config that deploys the v2 instance while v2 is under development:
+# a pipeline on the v1 prod instance is bound to the `v2` branch and reconciles from this
+# file. It builds the v2 branch and deploys a separate Helm release (olve-pipelines-v2) into
+# apps-beta, next to the v1 beta release. There is no prod step and no CLI publish — those
+# stay on main's config until v2 replaces v1 (docs/design/pipelines-v2.md §13).
 #
-# Secrets are declared by NAME only; their values live in the pipeline's own k8s
-# secret (olve-pipeline-{id}) and never in the repo. Steps reference them as
-# ordinary env vars ($GITHUB_TOKEN, $SSH_PRIVATE_KEY) — they are mounted into
-# every job.
-#
-# Beta deploys first and gates prod: if deploy-beta fails (build, rollout, or the
-# post-deploy health check), the deploy (prod) step never runs.
+# Secrets are declared by NAME only; their values live in the pipeline's own k8s secret
+# (olve-pipeline-{id}), copied from the v1 Olve.Pipelines pipeline.
 apiVersion: "0.0"
-# `name` is GitOps config: reconcile applies it to the live pipeline.
-name: Olve.Pipelines
-description: Build with Kaniko, deploy to the homelab (beta then prod) with Helm.
+name: Olve.Pipelines v2
+description: Build the v2 branch with Kaniko and deploy it to apps-beta (olve-pipelines-v2) with Helm.
 version: "1"
 
 secrets:
@@ -23,13 +18,6 @@ secrets:
     description: GitHub read token used to fetch the repo tarball during build.
   - name: SSH_PRIVATE_KEY
     description: SSH key for importing the image and running helm on the homelab host.
-  # MinIO creds used by publish-cli to upload the pl binaries into the app's bucket. Set
-  # them in the pipeline secret (olve-pipeline-{id}) to the same values as the app's MinIO
-  # root creds (k8s secret olve-pipelines-minio: root-user / root-password).
-  - name: MINIO_ACCESS_KEY
-    description: MinIO access key for publishing pl CLI binaries to the app bucket.
-  - name: MINIO_SECRET_KEY
-    description: MinIO secret key for publishing pl CLI binaries to the app bucket.
 
 # Production steps run in parallel and write to bundle/<step-name>/.
 productionSteps:
@@ -37,46 +25,13 @@ productionSteps:
     configuration:
       image: gcr.io/kaniko-project/executor:debug
       scriptFile: scripts/build.sh
-  # Runs the code-only test suite in parallel with the build (not inside it). If tests
-  # fail, the production job group fails and the deploy cascade never starts. This step
-  # produces no deploy artifacts (no version.txt), so the deploy scripts ignore its
-  # bundle dir by selecting the one that contains version.txt.
   - name: code-test
     configuration:
       image: mcr.microsoft.com/dotnet/sdk:10.0-noble
       scriptFile: scripts/test.sh
 
-# Processing steps run sequentially (order = list position), each receiving the
-# bundle. deploy-beta runs first and gates deploy (prod).
 processingSteps:
   - name: deploy-beta
     configuration:
       image: alpine:latest
       scriptFile: scripts/deploy-beta.sh
-  - name: deploy
-    configuration:
-      image: alpine:latest
-      scriptFile: scripts/deploy.sh
-  # Build the pl operator CLI (linux-x64 AOT + win-x64 self-contained) and upload it to the
-  # app's MinIO, where GET /download/<asset> serves it. Runs last so a CLI build failure
-  # can't block the deploy, and so it stamps the binaries with the just-deployed version.
-  - name: publish-cli
-    configuration:
-      image: mcr.microsoft.com/dotnet/sdk:10.0-noble
-      scriptFile: scripts/publish-cli.sh
-
-# Failure handlers run as best-effort K8s Jobs when a job group fails. `aoe-triage` is a
-# built-in library handler that opens an Agent of Empires session to investigate the failure.
-# Omitting `steps:` makes it fire on ANY failure in this pipeline (build, test, or either deploy).
-# It reaches aoe via the in-cluster Service (below the Authentik ingress), so no token is needed.
-failureHandlers:
-  - handler: aoe-triage
-    env:
-      AOE_BASE_URL: http://agent-of-empires.apps.svc.cluster.local:8080
-      AOE_TOOL: claude
-      AOE_REPO_PATH: /home/oliver/projects/Olve.Pipelines
-      AOE_PROMPT_TEMPLATE: >-
-        The Olve.Pipelines CD pipeline '$PIPELINE_NAME' failed at step
-        '$PIPELINE_FAILED_STEP' ($PIPELINE_FAILED_STEP_KIND): $PIPELINE_FAILURE_REASON.
-        The failed job's logs are in S3 at key '$PIPELINE_LOG_KEY' (pipeline id $PIPELINE_ID).
-        Investigate the root cause and propose or apply a fix on a new branch.

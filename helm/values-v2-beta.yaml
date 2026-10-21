@@ -1,0 +1,22 @@
+# v2 beta overlay, layered after values-beta.yaml (deploy-beta.sh on the v2 branch). Deployed
+# as its own release (olve-pipelines-v2) in apps-beta beside v1 beta; every chart resource is
+# release-scoped, so only the storage wiring and webhook registration differ here. Auth, OIDC
+# (OpenBao cluster access) and the runner namespace (olve-runners-beta) are shared with v1
+# beta — v1 never lists or sweeps Jobs it did not create, so the two don't interfere.
+config:
+  # This release's own Garage (olve-pipelines-v2-garage), not v1 beta's.
+  Storage__Endpoint: "http://olve-pipelines-v2-garage.apps-beta:3900"
+  Storage__Bucket: "olve-pipelines-v2-beta"
+  # No GitHub webhook auto-registration yet: v2 has no public route.
+  Webhooks__PublicBaseUrl: ""
+
+# MinIO is archived (images 401); v2 never had one.
+minio:
+  enabled: false
+
+# Reuses the beta credentials Secret by reference — each Garage keeps its own metadata, so
+# sharing the access key is harmless.
+garage:
+  enabled: true
+  bucket: olve-pipelines-v2-beta
+  dataStorage: 20Gi

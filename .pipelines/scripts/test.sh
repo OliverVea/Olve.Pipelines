@@ -17,7 +17,7 @@ wget --no-check-certificate -qO /tmp/olve-lib.sh \
 . /tmp/olve-lib.sh
 
 REPO=OliverVea/Olve.Pipelines
-BRANCH=main
+BRANCH=v2
 
 olve_fetch_repo "$REPO" "$BRANCH" /src
 

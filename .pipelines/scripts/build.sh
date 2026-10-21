@@ -14,7 +14,7 @@ wget --no-check-certificate -qO /tmp/olve-lib.sh \
 . /tmp/olve-lib.sh
 
 REPO=OliverVea/Olve.Pipelines
-BRANCH=main
+BRANCH=v2
 VERSION=$(olve_version)
 CTX=/kaniko/build-context
 
@@ -24,6 +24,6 @@ olve_fetch_repo "$REPO" "$BRANCH" "$CTX"
 olve_stage_artifact "$CTX/helm" /output/helm
 echo "$VERSION" > /output/version.txt
 
-olve_kaniko_build "$CTX" "olve-pipelines:$VERSION"
+olve_kaniko_build "$CTX" "olve-pipelines-v2:$VERSION"
 
-echo "Build complete: olve-pipelines:$VERSION"
+echo "Build complete: olve-pipelines-v2:$VERSION"

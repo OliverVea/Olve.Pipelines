@@ -401,13 +401,18 @@ The pipeline compiles (at reconcile, per commit) into **one standalone executabl
 
 - `describe` → the manifest.
 - `run <step>` → read `/olve/input.json`, validate against the step's input, call the handler,
-  validate the return value strictly against the output model, write `/olve/output.json`, upload
-  referenced files.
+  validate the return value strictly against the output model, write `/olve/work/output.json` (files
+  under `/olve/work/files/`), pack both into `result.tar.gz` and PUT it to `OLVE_RESULT_URL`.
 - `map-trigger <trigger>` → short-lived helper mapping one event to pipeline input.
 
-**`run` contract.** `output.json` is an envelope: `{ "status": "succeeded", "output": … }` or
-`{ "status": "skipped", "reason": "…" }`. Exit codes: `0` ok, `1` handler threw, `64` usage,
-`65` input invalid, `66` output invalid, `78` config invalid.
+**`run` contract** (authoritative detail: `sdk/README.md`; manifest format: `sdk/manifest.schema.json`).
+`output.json` is an envelope: `{ "status": "succeeded", "output": … }`, `{ "status": "skipped",
+"reason": "…" }` or `{ "status": "failed", "error": { "kind": "handler"|"input"|"output", "message" } }`,
+also printed last on stdout between `---OLVE-RESULT-BEGIN---`/`---OLVE-RESULT-END---` as a fallback.
+Exit codes: `0` ok, `1` handler threw, `64` usage, `65` input invalid, `66` output invalid, `74` result
+upload failed, `78` config invalid, `130`/`143` cancelled. The service provides `OLVE_RUN`,
+`OLVE_ATTEMPT`, `OLVE_RUN_ID`, `OLVE_PIPELINE`, `OLVE_VERSION_STAMP`, declared secrets as same-named env
+vars, `OLVE_RESULT_URL`, and `OLVE_FILE_URLS` (presigned GET per input file ref).
 
 **Any image via a bundled loader.** The binary is the glibc `bun-linux-x64` build, shipped with
 `/olve/lib` (ld-linux + libc/libpthread/libdl/libm from a pinned debian, ~3 MB) and always launched

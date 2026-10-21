@@ -11,7 +11,7 @@ namespace Olve.Pipelines.UnitTests.Scheduling;
 public class RunStartTests
 {
     [Test]
-    public async Task AutomaticRun_SupersedesOlderRunningRuns_AndCancelsTheirAttempts()
+    public async Task AutomaticRun_SupersedesOlderRunningRuns_CancelsScheduled_LetsInProgressFinish()
     {
         var s = new SchedulerScenario();
         var older = s.Start(Input(sha: Sha), RunTriggerKind.Push);
@@ -23,8 +23,12 @@ public class RunStartTests
         var superseded = s.Get(older);
         await Assert.That(superseded.Status).IsEqualTo(RunStatus.Superseded);
         await Assert.That(superseded.SupersededBy).IsEqualTo(newer.Id);
-        await Assert.That(s.Latest(older, "build")!.Status).IsTypeOf<Cancelled>();
+        await Assert.That(s.Latest(older, "build")!.Status).IsTypeOf<InProgress>();
         await Assert.That(s.Latest(older, "test")!.Status).IsTypeOf<Cancelled>();
+
+        // The in-flight attempt finishes normally but the superseded run never advances.
+        s.Succeed(older, "build");
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
 
         // The newer run is unaffected by the older run's cancelled/obsoleted attempts and completes.
         await Assert.That(s.Active(newer)).IsEquivalentTo(["checkout"]);

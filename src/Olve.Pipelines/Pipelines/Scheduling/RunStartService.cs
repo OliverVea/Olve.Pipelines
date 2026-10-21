@@ -31,8 +31,10 @@ public abstract record RunStartOutcome
 /// has the same key, was not cancelled and was created within <see cref="DedupWindow"/>. Comparing with
 /// the latest automatic run only (not any older one) keeps A → B → A deploying A again.</item>
 /// <item><b>Supersede.</b> A new automatic run supersedes every older Running run of the pipeline as a
-/// whole: the older run is marked Superseded (linked to the new one) and its scheduled and in-progress
-/// attempts are cancelled. Explicit (manual) runs and whole-run reruns never supersede and are never
+/// whole: the older run is marked Superseded (linked to the new one) and its scheduled attempts are
+/// cancelled. In-progress attempts are left to finish (killing a half-done deploy is worse than letting
+/// it complete); the superseded run never advances, and the per-step slot makes the newer run's attempt
+/// of the same step wait for it. Explicit (manual) runs and whole-run reruns never supersede and are never
 /// de-duplicated.</item>
 /// </list>
 /// Input is assumed validated against the input model already (B7); it is stored verbatim.
@@ -154,7 +156,7 @@ public class RunStartService(
                     older.Number, older.Id, newer.Number, newer.Id);
             }
 
-            foreach (var attempt in attempts.ListByRun(older.Id).Where(a => a.Status.IsActive()))
+            foreach (var attempt in attempts.ListByRun(older.Id).Where(a => a.Status is AttemptStatus.Scheduled))
             {
                 if (attempts.Cancel(attempt.Id).TryPickProblems(out var cancelProblems))
                     logger.LogProblems(LogLevel.Debug, cancelProblems,

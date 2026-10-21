@@ -45,8 +45,8 @@ public class ManifestValidatorTests
             Step(r, "deploy-beta")["input"]!["repo"] = Ref("build.commit.nope");
         }),
         ["model input from wrong model"] = (C.InputTypeMismatch, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("checkout")),
-        ["model input from a field"] = (C.InputModelNotWholeRef, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("build.commit")),
-        ["model input from a constant"] = (C.InputModelNotWholeRef, r => Step(r, "deploy-beta")["input"]!["artifact"] = Const("x")),
+        ["model input from an incompatible field"] = (C.MappingFieldMissing, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("build.commit")),
+        ["model input from a constant"] = (C.InputTypeMismatch, r => Step(r, "deploy-beta")["input"]!["artifact"] = Const("x")),
         ["plain input type mismatch"] = (C.InputTypeMismatch, r =>
             Step(r, "checkout")["inputTypes"]!["repo"]!["schema"]!["output"]!["type"] = "number"),
         ["const type mismatch"] = (C.InputTypeMismatch, r => Step(r, "checkout")["input"]!["repo"] = Const(true)),
@@ -262,6 +262,73 @@ public class ManifestValidatorTests
             };
             Step(r, "deploy-beta")["inputTypes"]!["note"] = StringSchema();
             Step(r, "deploy-beta")["input"]!["note"] = Ref("test.note.text");
+        }));
+
+        await Assert.That(report.Errors).IsEmpty();
+    }
+
+    [Test]
+    public async Task ModelInput_RebuiltFieldByField_IsAccepted()
+    {
+        // Mirrors sdk/tests/compile-pass/mapper-shapes.ts: the model brand is optional on values.
+        var report = ManifestValidator.Validate(Mutate(r => Step(r, "deploy-beta")["input"]!["artifact"] = new JsonObject
+        {
+            ["version"] = Ref("build.version"),
+            ["commit"] = Ref("build.commit"),
+            ["image"] = Ref("build.image"),
+            ["chart"] = Ref("build.chart"),
+        }));
+
+        await Assert.That(report.Errors).IsEmpty();
+    }
+
+    [Test]
+    public async Task ModelInput_RebuiltWithAMissingField_IsRejected()
+    {
+        var report = ManifestValidator.Validate(Mutate(r => Step(r, "deploy-beta")["input"]!["artifact"] = new JsonObject
+        {
+            ["version"] = Ref("build.version"),
+            ["commit"] = Ref("build.commit"),
+            ["image"] = Ref("build.image"),
+        }));
+
+        await Assert.That(report.Errors.Select(e => e.Code)).IsEquivalentTo([C.MappingFieldMissing]);
+    }
+
+    [Test]
+    public async Task ModelInput_FromAStructurallyCompatibleField_IsAccepted()
+    {
+        var report = ManifestValidator.Validate(Mutate(r =>
+        {
+            r["models"]!["Commit"] = new JsonObject { ["output"] = r["models"]!["BuildArtifact"]!["output"]!["properties"]!["commit"]!.DeepClone() };
+            Step(r, "deploy-beta")["inputTypes"]!["commit"] = ModelType("Commit");
+            Step(r, "deploy-beta")["input"]!["commit"] = Ref("build.commit");
+        }));
+
+        await Assert.That(report.Errors).IsEmpty();
+    }
+
+    [Test]
+    public async Task OptionalSourceField_IntoRequiredField_IsRejected()
+    {
+        var report = ManifestValidator.Validate(Mutate(r =>
+        {
+            r["models"]!["BuildArtifact"]!["output"]!["properties"]!["commit"]!["required"] = new JsonArray("repo");
+            Step(r, "deploy-beta")["inputTypes"]!["commit"] = CommitSchema();
+            Step(r, "deploy-beta")["input"]!["commit"] = Ref("build.commit");
+        }));
+
+        await Assert.That(report.Errors.Select(e => e.Code)).IsEquivalentTo([C.MappingFieldMissing]);
+    }
+
+    [Test]
+    public async Task OptionalModelInput_FromAFieldOfAMaybeProducer_IsAccepted()
+    {
+        var report = ManifestValidator.Validate(Mutate(r =>
+        {
+            r["models"]!["Url"] = new JsonObject { ["output"] = new JsonObject { ["type"] = "string" } };
+            Step(r, "summary")["inputTypes"]!["url"] = ModelType("Url", optional: true);
+            Step(r, "summary")["input"]!["url"] = Ref("deploy-prod.url");
         }));
 
         await Assert.That(report.Errors).IsEmpty();

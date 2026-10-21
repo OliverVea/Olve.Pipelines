@@ -75,7 +75,6 @@ public static class ManifestIssueCodes
     public const string RefMaybeAvailable = "ref-maybe-available";
     public const string RefFailureOutsideHandler = "ref-failure-outside-handler";
     public const string InputTypeMismatch = "input-type-mismatch";
-    public const string InputModelNotWholeRef = "input-model-not-whole-ref";
     public const string MappingFieldMissing = "mapping-field-missing";
     public const string MappingFieldUnknown = "mapping-field-unknown";
 

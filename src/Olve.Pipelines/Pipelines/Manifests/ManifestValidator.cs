@@ -301,24 +301,32 @@ public static partial class ManifestValidator
             }
         }
 
-        /// <summary>A model input takes a whole step output (or the pipeline input) of exactly that model.</summary>
+        /// <summary>
+        /// A model input. A whole-output ref (<c>{"ref": "build"}</c>, what model matching emits) must come from a
+        /// producer of exactly that model — models are nominal. A field ref, constant or field-by-field object
+        /// is checked structurally against the model's schema (the SDK's brand is optional on values, so
+        /// rebuilding a model from refs type-checks; see sdk/tests/compile-pass/mapper-shapes.ts).
+        /// </summary>
         private void CheckModelInput(string at, string path, string step, ModelInputType type, Mapping mapping, IReadOnlyDictionary<string, Avail> avail)
         {
-            if (mapping is not RefMapping r || r.Path.Count > 0)
+            if (mapping is RefMapping { Path.Count: 0 } r)
             {
-                if (mapping is RefMapping) CheckRefSyntax(at, path, step, (RefMapping)mapping);
-                Error(ManifestIssueCodes.InputModelNotWholeRef, path,
-                    $"{at}: a {type.Model} input must be mapped from a whole producer ({{\"ref\": \"<step>\"}}), models are nominal", step);
+                if (!CheckRefSyntax(at, path, step, r)) return;
+                if (!TryRoot(at, path, step, r, avail, type.Optional, out var a)) return;
+                if (a.Model != type.Model)
+                    Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: expects {type.Model} but '{r.Root}' produces {a.Model} (models are nominal)", step);
+                if (a.Maybe && !type.Optional)
+                    Error(ManifestIssueCodes.RefMaybeAvailable, path,
+                        $"{at}: {a.Model} from '{r.Root}' is only maybe-available (produced inside a when block); declare it optional({type.Model})", step);
                 return;
             }
-            if (!CheckRefSyntax(at, path, step, r)) return;
-            if (!TryRoot(at, path, step, r, avail, type.Optional, out var a)) return;
-            if (a.Model is null) return;
-            if (a.Model != type.Model)
-                Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: expects {type.Model} but '{r.Root}' produces {a.Model}", step);
-            if (a.Maybe && !type.Optional)
-                Error(ManifestIssueCodes.RefMaybeAvailable, path,
-                    $"{at}: {a.Model} from '{r.Root}' is only maybe-available (produced inside a when block); declare it optional({type.Model})", step);
+            if (!m.Models.TryGetValue(type.Model, out var model))
+            {
+                CheckMapping(at, path, step, mapping, default, null, avail, type.Optional);
+                return;
+            }
+            var target = model.Input ?? model.Output;
+            CheckMapping(at, path, step, mapping, target, target, avail, type.Optional);
         }
 
         private bool CheckRefSyntax(string at, string path, string step, RefMapping r)
@@ -353,32 +361,29 @@ public static partial class ManifestValidator
             return true;
         }
 
-        /// <summary>A mapping into a plain-schema input: refs must resolve, types must not be disjoint (lenient).</summary>
+        /// <summary>
+        /// A mapping checked structurally: refs must resolve, types must not be disjoint and required object
+        /// fields must be provided (lenient where the schema doesn't say). <paramref name="allowMaybe"/> is true
+        /// only for the top-level mapping of an optional input (a skipped root then yields no value).
+        /// </summary>
         private void CheckMapping(string at, string path, string step, Mapping mapping, JsonElement targetRoot, JsonElement? target,
-            IReadOnlyDictionary<string, Avail> avail)
+            IReadOnlyDictionary<string, Avail> avail, bool allowMaybe = false)
         {
             switch (mapping)
             {
                 case RefMapping r:
                 {
-                    if (!CheckRefSyntax(at, path, step, r) || !TryRoot(at, path, step, r, avail, optionalTarget: false, out var a)) return;
-                    if (a.Maybe)
+                    if (!CheckRefSyntax(at, path, step, r) || !TryRoot(at, path, step, r, avail, allowMaybe, out var a)) return;
+                    if (a.Maybe && !allowMaybe)
                         Error(ManifestIssueCodes.RefMaybeAvailable, path,
-                            $"{at}: '{r.Ref}' is only maybe-available (produced inside a when block); map it whole into an optional(...) input", step);
+                            $"{at}: '{r.Ref}' is only maybe-available (produced inside a when block); map it into an optional(...) input", step);
                     if (!m.Models.TryGetValue(a.Model!, out var source)) return;
                     if (!JsonSchemaShapes.TryResolveField(source.Output, source.Output, r.Path, out var leaf))
                     {
                         Error(ManifestIssueCodes.RefPathUnknown, path, $"{at}: '{r.Ref}': model {a.Model} has no field '{string.Join('.', r.Path)}'", step);
                         return;
                     }
-                    if (target is { } t && leaf is { } l)
-                    {
-                        var want = JsonSchemaShapes.TypesOf(targetRoot, t);
-                        var got = JsonSchemaShapes.TypesOf(source.Output, l);
-                        if (!JsonSchemaShapes.Overlaps(want, got))
-                            Error(ManifestIssueCodes.InputTypeMismatch, path,
-                                $"{at}: '{r.Ref}' is {string.Join("|", got!.Order())} but the input expects {string.Join("|", want!.Order())}", step);
-                    }
+                    if (target is { } t && leaf is { } l) CheckShape(at, path, step, r.Ref, source.Output, l, targetRoot, t, 0);
                     return;
                 }
                 case ConstMapping c:
@@ -420,6 +425,36 @@ public static partial class ManifestValidator
                     return;
                 }
             }
+        }
+
+        private const int MaxShapeDepth = 16;
+
+        /// <summary>A referenced field's schema against the target schema: overlapping types, required fields present.</summary>
+        private void CheckShape(string at, string path, string step, string reference, JsonElement sourceRoot, JsonElement source,
+            JsonElement targetRoot, JsonElement target, int depth)
+        {
+            var want = JsonSchemaShapes.TypesOf(targetRoot, target);
+            var got = JsonSchemaShapes.TypesOf(sourceRoot, source);
+            if (!JsonSchemaShapes.Overlaps(want, got))
+            {
+                Error(ManifestIssueCodes.InputTypeMismatch, path,
+                    $"{at}: '{reference}' is {string.Join("|", got!.Order())} but the input expects {string.Join("|", want!.Order())}", step);
+                return;
+            }
+            if (depth >= MaxShapeDepth) return;
+            var targetShape = JsonSchemaShapes.ObjectShapeOf(targetRoot, target);
+            var sourceShape = JsonSchemaShapes.ObjectShapeOf(sourceRoot, source);
+            if (targetShape is null || sourceShape is null) return;
+            foreach (var req in targetShape.Required.Order(StringComparer.Ordinal))
+            {
+                if (!sourceShape.Properties.ContainsKey(req))
+                    Error(ManifestIssueCodes.MappingFieldMissing, path, $"{at}: '{reference}' has no field '{req}', which the input requires", step);
+                else if (!sourceShape.Required.Contains(req))
+                    Error(ManifestIssueCodes.MappingFieldMissing, path, $"{at}: '{reference}.{req}' is optional but the input requires it", step);
+            }
+            foreach (var (field, fieldSchema) in targetShape.Properties)
+                if (sourceShape.Properties.TryGetValue(field, out var sourceField))
+                    CheckShape(at, path, step, reference + "." + field, sourceRoot, sourceField, targetRoot, fieldSchema, depth + 1);
         }
 
         // ── failure handlers ──

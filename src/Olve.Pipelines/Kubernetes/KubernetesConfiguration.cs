@@ -89,6 +89,7 @@ public static class KubernetesConfiguration
         });
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
@@ -131,6 +132,7 @@ public static class KubernetesConfiguration
         });
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
+        builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
 
         builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();

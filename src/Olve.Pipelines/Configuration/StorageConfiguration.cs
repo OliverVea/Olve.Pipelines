@@ -1,6 +1,7 @@
 using System.Reflection;
 using Amazon.Runtime;
 using Amazon.S3;
+using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Storage;
 
@@ -93,6 +94,7 @@ public static class StorageConfiguration
         });
 
         builder.Services.AddSingleton<ISnapshotStore, S3SnapshotStore>();
+        builder.Services.AddSingleton<IRetentionObjectStore, S3RetentionObjectStore>();
     }
 
     // dotnet-getdocument launches a nested "GetDocument.Insider" process that reflectively loads this

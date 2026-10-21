@@ -5,6 +5,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
+using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -146,5 +147,9 @@ public static class ServiceConfiguration
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
         services.AddHostedService<RunPersistenceService>();
+
+        // Retention (Retention:*): expired runs, unused binaries, leftovers, orphaned URL Secrets / Jobs.
+        services.AddSingleton(sp => RetentionOptions.From(sp.GetRequiredService<IConfiguration>()));
+        services.AddHostedService<RetentionService>();
     }
 }

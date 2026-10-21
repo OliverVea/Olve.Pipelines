@@ -85,11 +85,11 @@ public static class JsonSchemaValidator
         }
 
         if (schema.TryGetProperty("const", out var constant) && !JsonNode.DeepEquals(ToNode(constant), value))
-            errors.Add($"{path}: must be {constant.GetRawText()}");
+            errors.Add($"{path}: must be {ToNode(constant)?.ToJsonString() ?? "null"}");
 
         if (schema.TryGetProperty("enum", out var enumValues) && enumValues.ValueKind == JsonValueKind.Array
             && !enumValues.EnumerateArray().Any(e => JsonNode.DeepEquals(ToNode(e), value)))
-            errors.Add($"{path}: must be one of {enumValues.GetRawText()}");
+            errors.Add($"{path}: must be one of {ToNode(enumValues)?.ToJsonString()}");
 
         switch (value)
         {

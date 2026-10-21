@@ -334,6 +334,8 @@ With an in-repo SDK (`"@olve/pipelines": "file:../sdk"`, as Olve.Pipelines' own 
 
 The repo depends on the SDK as a normal package. It resolves through `exports` (`@olve/pipelines`, `@olve/pipelines/harness`, `@olve/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
 
+How the service runs it (reconcile, `BuildJobBuilder`): one Job per (pipeline, config commit), named `olve-build-<pipeline12>-<sha12>`. The repo tarball comes from `codeload.github.com/<repo>/tar.gz/<sha>` anonymously (public repos), or from the GitHub API tarball endpoint with the binding's credentials key from the pipeline Secret. The binary is PUT to `versions/<pipeline>/builds/<sha>/step.tar.gz`, and a version added from that build keeps this key as its `BinaryKey`. The in-repo fixture `.pipelines-test/` (bound on v2 beta) uses exactly this layout.
+
 The manifest is the text between the sentinels in the pod log. The manifest text is identical across checkouts. The binary and archive bytes are identical for the same checkout layout.
 
 ## Dev runner

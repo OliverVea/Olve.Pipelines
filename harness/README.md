@@ -135,10 +135,14 @@ Notes for the executor:
   an hour is plenty.
 - **The URLs are secrets.** They sit in the pod spec env and carry the access key id, so don't log
   the Job spec. If that matters, move them into a per-Job K8s Secret with `secretKeyRef`.
-- **Output.** After the step container exits, the executor reads `work/output.json` and
-  `work/files/`. B5 still has to decide how; for example, the step PUTs to a pre-signed URL, or the
-  executor captures it. Printing the envelope on stdout as well is a cheap fallback, because the
-  service already reads pod logs.
+- **Output (as implemented, `KubernetesJobExecutor`).** The harness PUTs `result.tar.gz` to
+  `OLVE_RESULT_URL` (`runs/<p>/<run>/<step>/<attempt>/result.tar.gz`). Once the pod has a verdict, the
+  executor copies the `step` log (and the `olve-init` log when the step never ran) to `…/log`, unpacks
+  the archive into `…/output.json` and `…/files/…`, resolves the outcome (archive envelope first, the
+  stdout result block as a fallback for the message), then deletes the archive and the per-attempt URL
+  Secret `olve-urls-<attemptId>`. A container stuck in ErrImagePull / CreateContainerConfigError fails
+  the attempt after ~90 s and its Job is deleted. Map-trigger Jobs (`olve-map-*`) use harness-base as
+  the main image too and are read only from the result block in the log.
 - **Pod Security.** The pod passes the namespace's `baseline` level. `kubectl` warns about
   `restricted`. That is fine for now.
 

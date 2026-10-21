@@ -3,8 +3,11 @@ import { fileRef, model, z } from "@olve/pipelines";
 
 export const TestInput = model("TestInput", z.object({
   sha: z.string().regex(/^[0-9a-f]{7,40}$/),
-  /** "skip-last" leaves out the conditional last stage (exercises `when` skips). */
-  mode: z.enum(["normal", "skip-last"]).default("normal"),
+  /**
+   * "skip-last" leaves out the conditional last stage (exercises `when` skips); "fail" makes `echo`
+   * throw, failing the run (exercises onFailure).
+   */
+  mode: z.enum(["normal", "skip-last", "fail"]).default("normal"),
 }));
 
 export const Greeting = model("Greeting", z.object({

@@ -107,9 +107,20 @@ describe("run", () => {
     expect(r.envelope.status).toBe("failed");
   });
   test("failure handler steps can be run", async () => {
-    const r = await run(["run", "aoe-triage"], { failure: { pipeline: "p", run: 1, step: "deploy-prod", attempt: 1, reason: "boom", logUrl: "u" } });
+    const failure = {
+      pipeline: { id: "p", name: "Olve.Pipelines" },
+      run: { id: "r", number: 1, address: "p#1", versionStamp: "2026.10.21.1", trigger: "push", url: "u/runs/1" },
+      version: { number: 3, commit: null },
+      input: { sha: "abc" },
+      reason: "step 'deploy-prod' failed: boom",
+      failedSteps: [{ step: "deploy-prod", attempt: 1, address: "p#1/deploy-prod@1", reason: "boom", logUrl: "u/logs" }],
+    };
+    const r = await run(["run", "aoe-triage"], { failure });
     expect(r.code).toBe(0);
-    expect(r.io.err.join("\n")).toMatch(/would open an agent session step=deploy-prod/);
+    expect(r.io.err.join("\n")).toMatch(/would open an agent session run=p#1/);
+    // The old flat shape is rejected: handlers get exactly the FailureContext model.
+    const old = await run(["run", "aoe-triage"], { failure: { pipeline: "p", run: 1, step: "deploy-prod", attempt: 1, reason: "boom", logUrl: "u" } });
+    expect(old.code).toBe(65);
   });
 });
 

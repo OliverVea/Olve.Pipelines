@@ -4,8 +4,9 @@
 //   hello ─┬─ count ─┐
 //          └─ echo   ├─ when(mode = normal): last
 //                    ┘
+//   onFailure: log-failure (mode = fail makes echo throw)
 // Four images (alpine, debian, busybox) exercise the bundled loader; hello → count passes a file ref.
-import { pipeline, step } from "@olve/pipelines";
+import { FailureContext, pipeline, step } from "@olve/pipelines";
 import * as M from "./models";
 
 export const hello = step({
@@ -39,6 +40,14 @@ export const last = step({
   timeoutSeconds: 300,
 });
 
+/** Failure handler: logs the FailureContext it is given (proves onFailure dispatch). */
+export const logFailure = step({
+  name: "log-failure",
+  image: "alpine:3.22",
+  input: { failure: FailureContext },
+  timeoutSeconds: 120,
+});
+
 export default pipeline({
   name: "v2 test fixture",
   description: "Tiny end-to-end fixture: file refs between steps, a parallel stage and a when block.",
@@ -49,4 +58,5 @@ export default pipeline({
           value => ({ sha: value }))
   .stage(hello)
   .stage(count, echo)
-  .when({ mode: "normal" }, p => p.stage(last));
+  .when({ mode: "normal" }, p => p.stage(last))
+  .onFailure(logFailure);

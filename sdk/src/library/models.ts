@@ -20,15 +20,44 @@ export const HelmRelease = model(
   z.object({ release: z.string(), namespace: z.string(), image: z.string() }),
 );
 
-/** What a failure handler receives (`.onFailure(handler, …)`). */
+/** One failed step of a run, as seen by a failure handler. */
+export const FailedStep = z.object({
+  step: z.string(),
+  attempt: z.number().int(),
+  /** `<pipeline id>#<run>/<step>@<attempt>` (spec §5.5). */
+  address: z.string(),
+  /** The attempt's failure reason (handler error, exit code, timeout, …). */
+  reason: z.string(),
+  /** The attempt's log (`GET …/runs/<n>/steps/<step>/logs?attempt=<a>`). */
+  logUrl: z.string(),
+});
+
+/**
+ * What a failure handler receives (`.onFailure(handler, …)`). The service builds it when a run fails and
+ * runs the handler once per failure, untracked and best-effort (not a run attempt). `failedSteps` lists
+ * the run's failed steps the handler is scoped to (all of them for an unscoped handler); never empty.
+ */
 export const FailureContext = model(
   "FailureContext",
   z.object({
-    pipeline: z.string(),
-    run: z.number().int(),
-    step: z.string(),
-    attempt: z.number().int(),
+    pipeline: z.object({ id: z.string(), name: z.string() }),
+    run: z.object({
+      id: z.string(),
+      number: z.number().int(),
+      /** `<pipeline id>#<run>` (spec §5.5). */
+      address: z.string(),
+      /** The run's derived version, `yyyy.MM.dd.<run>`. */
+      versionStamp: z.string(),
+      trigger: z.enum(["push", "poll", "manual"]),
+      /** The run (`GET …/api/pipelines/<id>/runs/<n>`). */
+      url: z.string(),
+    }),
+    /** The pipeline version the run is pinned to, and the commit it was built from. */
+    version: z.object({ number: z.number().int(), commit: z.string().nullable() }),
+    /** The run's pipeline input (the pipeline input model's output view). */
+    input: z.unknown(),
+    /** One line summarising why the run failed. */
     reason: z.string(),
-    logUrl: z.string(),
+    failedSteps: z.array(FailedStep),
   }),
 );

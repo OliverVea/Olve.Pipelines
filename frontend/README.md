@@ -21,7 +21,7 @@ npm run dev          # Dev server with hot reload (proxies /api to localhost:500
 npm run dev:prod     # Dev server proxying /api to https://pipelines-private.ovea.pro
 npm run build        # Production build to dist/
 npm run preview      # Preview production build
-npm run typecheck    # Type-check src/ (Kiota client excluded — known TS issues in generated code)
+npm run typecheck    # Type-check src/ and the generated client it imports (also run by build)
 npm run lint         # Lint src/
 npm run format       # Format src/ with Prettier
 npm run format:check # Check formatting
@@ -102,7 +102,7 @@ The frontend uses a Kiota-generated TypeScript client from `clients/olve-pipelin
 
 ```bash
 # From repo root — rebuild the backend to update api.json, then:
-kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
+dotnet tool restore && dotnet kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
 
 # Then install client deps
 cd clients/olve-pipelines-client-ts && npm install

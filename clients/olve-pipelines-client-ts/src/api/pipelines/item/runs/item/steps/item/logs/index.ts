@@ -23,7 +23,7 @@ export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilde
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<LogsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface LogsRequestBuilderGetQueryParameters {
-    attempt?: string;
+    attempt?: number;
 }
 /**
  * Uri template for the request builder.

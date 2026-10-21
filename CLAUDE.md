@@ -93,7 +93,7 @@ cd frontend && npm run build                                # Production build
 
 - Stack: Lit + Vite + TypeScript
 - API client: Kiota-generated at `clients/olve-pipelines-client-ts/`, linked via `file:` reference
-- Regenerate client after API changes: `kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output`
+- Regenerate client after API changes: `dotnet tool restore && dotnet kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output` (Kiota pinned in `.config/dotnet-tools.json`; >= 1.36 needed — 1.30 emits a `tsc` error on nullable polymorphic members)
 - Client deps must be installed separately: `cd clients/olve-pipelines-client-ts && npm install`
 
 ### Architecture Patterns

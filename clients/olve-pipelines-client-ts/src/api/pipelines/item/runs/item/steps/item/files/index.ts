@@ -31,7 +31,7 @@ export interface FilesRequestBuilder extends BaseRequestBuilder<FilesRequestBuil
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<FilesRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface FilesRequestBuilderGetQueryParameters {
-    attempt?: string;
+    attempt?: number;
 }
 /**
  * Uri template for the request builder.

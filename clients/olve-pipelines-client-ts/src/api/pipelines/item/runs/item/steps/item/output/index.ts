@@ -23,7 +23,7 @@ export interface OutputRequestBuilder extends BaseRequestBuilder<OutputRequestBu
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<OutputRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface OutputRequestBuilderGetQueryParameters {
-    attempt?: string;
+    attempt?: number;
 }
 /**
  * Uri template for the request builder.

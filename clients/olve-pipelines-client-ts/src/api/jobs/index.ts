@@ -37,8 +37,8 @@ export interface JobsRequestBuilder extends BaseRequestBuilder<JobsRequestBuilde
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<JobsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface JobsRequestBuilderGetQueryParameters {
-    page?: string;
-    pageSize?: string;
+    page?: number;
+    pageSize?: number;
     pipelineId?: string;
     sort?: number;
 }

@@ -24,7 +24,7 @@ export interface WithPathItemRequestBuilder extends BaseRequestBuilder<WithPathI
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<WithPathItemRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface WithPathItemRequestBuilderGetQueryParameters {
-    attempt?: string;
+    attempt?: number;
 }
 /**
  * Uri template for the request builder.

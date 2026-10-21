@@ -9,7 +9,7 @@
     "dev": "vite",
     "dev:prod": "vite --mode prod-api",
     "prebuild": "node scripts/build-docs-index.mjs",
-    "build": "vite build",
+    "build": "tsc -p tsconfig.app.json && vite build",
     "typecheck": "tsc -p tsconfig.app.json",
     "preview": "vite preview",
     "lint": "eslint src/",
@@ -18,9 +18,9 @@
     "mocks": "sirv ../docs/mocks --dev --port 4173 --host"
   },
   "dependencies": {
-    "@microsoft/kiota-abstractions": "^1.0.0-preview.100",
-    "@microsoft/kiota-bundle": "^1.0.0-preview.100",
-    "@microsoft/kiota-http-fetchlibrary": "^1.0.0-preview.100",
+    "@microsoft/kiota-abstractions": "^1.0.0-preview.111",
+    "@microsoft/kiota-bundle": "^1.0.0-preview.111",
+    "@microsoft/kiota-http-fetchlibrary": "^1.0.0-preview.111",
     "@olve/olve-pipelines-client": "file:../clients/olve-pipelines-client-ts",
     "ansi_up": "^6.0.6",
     "dompurify": "^3.4.11",

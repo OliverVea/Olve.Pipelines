@@ -23,7 +23,7 @@ export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequest
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<HistoryRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 export interface HistoryRequestBuilderGetQueryParameters {
-    limit?: string;
+    limit?: number;
 }
 /**
  * Uri template for the request builder.

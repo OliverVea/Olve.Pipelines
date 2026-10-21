@@ -44,8 +44,8 @@ export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilde
      toPostRequestInformation(body: UntypedNode, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
 export interface RunsRequestBuilderGetQueryParameters {
-    page?: string;
-    pageSize?: string;
+    page?: number;
+    pageSize?: number;
 }
 /**
  * Uri template for the request builder.

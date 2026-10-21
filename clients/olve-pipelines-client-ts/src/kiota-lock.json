@@ -2,7 +2,7 @@
   "descriptionHash": "72853FA65C1DE0311817CE76D78C156FA7359BA7E3CBA5674D2C742221E33F7BA2553DC19469E5156C99492CF5A40E79FFD680EDDB219B32D19129FD5E2A596C",
   "descriptionLocation": "../../../api.json",
   "lockFileVersion": "1.0.0",
-  "kiotaVersion": "1.30.0",
+  "kiotaVersion": "1.36.1",
   "clientClassName": "ApiClient",
   "typeAccessModifier": "Public",
   "clientNamespaceName": "OlvePipelinesClient",
@@ -30,5 +30,6 @@
   ],
   "includePatterns": [],
   "excludePatterns": [],
-  "disabledValidationRules": []
+  "disabledValidationRules": [],
+  "allowedExternalOrigins": []
 }

@@ -172,7 +172,7 @@ export class PipelineDetailView extends LitElement {
         client.api.jobs.get({
           queryParameters: {
             pipelineId: this.pipelineId,
-            pageSize: '50',
+            pageSize: 50,
           },
         }),
         // Unbound (draft) pipelines have no binding — tolerate the 404.

@@ -96,6 +96,37 @@ and field-level wiring, versions + diff + switch, trigger form generated from th
 plan preview, run view with typed input/output per attempt, step history by identity with version
 markers. Keep shell, auth, docs, logs views.
 
+**Track D notes (2026-10-21) — views built** (see `frontend/README.md` "Views"):
+- **Pipeline list** with run health (last run, active version / switch in progress, running and held
+  runs, closed gates) above the per-step strip.
+- **Pipeline view**: active version's stage graph from the manifest (stage columns with barrier
+  rules, nested `when` brackets labelled with their condition, hover traces producers/consumers,
+  "Show wiring" lists every `{ref}`/`{const}` leaf), per-step gate block/unblock, recent runs,
+  versions with step/model version changes, manifest diff between any two versions (line LCS over
+  sorted-key JSON), switch with cancel-running.
+- **Trigger form** generated from the input model's schema (`input` view, else `output`): strings
+  with pattern/length, enums, numbers/integers with bounds, booleans, defaults, optional; anything
+  else a JSON field. Client-side validation; every `ResultProblem` of a 400 is listed. **Run plan**
+  preview greys out `when` blocks that won't match the current values (defaults filled in).
+- **Run view**: input, graph coloured by step status (succeeded/failed/skipped+reason/held/
+  blocked/pending/not-run/cancelled), attempts, typed input/output per attempt against the pinned
+  models (file refs downloadable), files list + download, logs polled while running; cancel, rerun
+  run, continue with field edits (only changed fields sent), rerun step (with continue);
+  rerunOf/supersededBy links. **Step history** by name with definition-change markers.
+- Toolchain: Kiota pinned to **1.36.1** in `.config/dotnet-tools.json` (1.30 typed nullable
+  polymorphic refs as a union with an empty member → `tsc` error); `npm run build` runs `tsc` first.
+  Actions/logs/downloads use a small `apiFetch` (the generated client maps a 400 to one
+  `ResultProblem`, sends `JsonElement` bodies via `setContentFromScalar`, escapes `/` in `{*path}`).
+  `npm run dev:v2beta` + dev-only `VITE_DEV_AUTH=bypass` (optional `VITE_DEV_TOKEN`).
+- Verified in headless Chromium against v2 beta (fixture `ad01bc3f…`), light/dark and phone width,
+  anonymously: every read view incl. skipped/cancelled/not-run/multi-attempt runs; action requests
+  checked for shape (trigger body = input, continue = `{input: changed}`) with a faked 400 for the
+  error display. Not exercised for real: actions with a token, file download, live log polling on a
+  running attempt, draining display.
+- Backend follow-ups (not done here): `TriggerRun`'s `JsonElement` body and 400s as arrays don't
+  map well to generated clients (a typed request wrapper and a single problem-list error schema
+  would let Kiota be used throughout).
+
 ### Track E — self-hosting and migration
 
 E1 v2's own `.pipelines/pipeline.ts` (+ handlers, using A6 library steps) beside `config.yaml`. E2 bind

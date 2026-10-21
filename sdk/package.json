@@ -1,0 +1,34 @@
+{
+  "name": "@olve/pipelines",
+  "version": "0.1.0",
+  "description": "Olve.Pipelines v2 SDK: typed pipeline authoring, the step harness, and the build tool.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./harness": "./src/harness/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./assets": "./src/assets.d.ts",
+    "./manifest.schema.json": "./manifest.schema.json"
+  },
+  "bin": {
+    "olve-build": "./src/build/cli.ts",
+    "olve-dev": "./src/dev/cli.ts"
+  },
+  "files": ["src", "manifest.schema.json", "README.md"],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
+    "check-compile-fail": "bun scripts/check-compile-fail.ts",
+    "gen-schema": "bun scripts/gen-manifest-schema.ts",
+    "check": "tsc --noEmit -p . && bun scripts/check-compile-fail.ts && bun test"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "types": ["bun"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@olve/pipelines": ["./src/index.ts"],
+      "@olve/pipelines/harness": ["./src/harness/index.ts"],
+      "@olve/pipelines/testing": ["./src/testing/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "examples", "scripts"],
+  "exclude": ["tests/.tmp", "**/.olve", "dist", "gen", "node_modules"]
+}

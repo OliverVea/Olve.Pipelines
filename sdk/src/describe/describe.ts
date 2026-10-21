@@ -1,0 +1,377 @@
+// `describe`: evaluates the contracts (models + pipeline, never handlers) into the manifest and runs
+// every describe-time check. All problems are collected and reported together.
+import { z } from "zod";
+import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
+import { SECRET_NAME, type Secret } from "../core/secrets.ts";
+import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
+import { pipelineData, type MapperFunction, type StageNode, type StageStepNode } from "../builder/pipeline.ts";
+import { FailureContext } from "../library/models.ts";
+import { canonicalize, canonicalJson } from "../util/canonical.ts";
+import { libraryHandlerHash, type HarnessInfo } from "../util/handler-hash.ts";
+import { analyzeMapperSource } from "./mapper-source.ts";
+import { MapperError, recordMapper, type Mapping } from "./record.ts";
+import { API_VERSION, Manifest, type ManifestT, type ModelSchemasT, type Stage, type StepDescriptorT, type TriggerT } from "./manifest-schema.ts";
+
+export class DescribeError extends Error {
+  override name = "DescribeError";
+  constructor(readonly problems: readonly string[]) {
+    super(`describe found ${problems.length} problem(s):\n${problems.map((p) => `  - ${p}`).join("\n")}`);
+  }
+}
+
+export interface DescribeOptions {
+  /** Step names that have a handler file (`handlers/<name>.ts`). */
+  handlerNames: Iterable<string>;
+  /** Step name → handler hash (from the build; includes the harness identity). */
+  handlerHashes: Readonly<Record<string, string>>;
+  harness: HarnessInfo;
+}
+
+/** Root name used in failure-handler mappings (the service supplies FailureContext under it). */
+export const FAILURE_ROOT = "failure";
+const RESERVED = new Set([...RESERVED_STEP_NAMES, FAILURE_ROOT]);
+
+type JsonSchema = Record<string, unknown>;
+interface Avail {
+  model: string | null;
+  maybe: boolean;
+}
+
+function stripStrict(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stripStrict);
+  if (v !== null && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) if (!(k === "additionalProperties" && x === false)) out[k] = stripStrict(x);
+    return out;
+  }
+  return v;
+}
+
+/** JSON Schema views of a zod schema. Throws if it is not representable (dates, transforms, …). */
+export function schemaViews(schema: z.ZodType): ModelSchemasT {
+  const view = (io: "input" | "output") => {
+    const js = z.toJSONSchema(schema, { io, target: "draft-2020-12" }) as JsonSchema;
+    delete js.$schema; // constant noise; apiVersion pins the dialect
+    return canonicalize(js) as JsonSchema;
+  };
+  const output = view("output");
+  const input = view("input");
+  const same = JSON.stringify(stripStrict(output)) === JSON.stringify(input);
+  return same ? { output } : { output, input };
+}
+
+/** Follows `segments` through a JSON Schema; undefined if the field doesn't exist. */
+function resolveField(schema: JsonSchema | undefined, segments: readonly string[]): boolean {
+  if (!schema) return false;
+  if (segments.length === 0) return true;
+  const [seg, ...rest] = segments as [string, ...string[]];
+  if (Array.isArray(schema.anyOf)) return (schema.anyOf as JsonSchema[]).some((b) => resolveField(b, segments));
+  if (Array.isArray(schema.oneOf)) return (schema.oneOf as JsonSchema[]).some((b) => resolveField(b, segments));
+  if (Array.isArray(schema.allOf)) return (schema.allOf as JsonSchema[]).some((b) => resolveField(b, segments));
+  const props = schema.properties as Record<string, JsonSchema> | undefined;
+  if (props && Object.hasOwn(props, seg)) return resolveField(props[seg], rest);
+  const extra = schema.additionalProperties;
+  if (extra && typeof extra === "object") return resolveField(extra as JsonSchema, rest);
+  // A schema without type/properties/anyOf accepts anything (z.unknown / z.any).
+  return Object.keys(schema).every((k) => k === "description" || k === "title" || k === "default");
+}
+
+function literalValues(field: JsonSchema | undefined): unknown[] | undefined {
+  if (!field) return undefined;
+  if (Array.isArray(field.enum)) return field.enum as unknown[];
+  if (field.const !== undefined) return [field.const];
+  if (field.type === "boolean") return [true, false];
+  const alts = (field.anyOf ?? field.oneOf) as JsonSchema[] | undefined;
+  if (Array.isArray(alts)) {
+    const all: unknown[] = [];
+    for (const a of alts) {
+      const l = literalValues(a);
+      if (!l) return undefined;
+      all.push(...l);
+    }
+    return all;
+  }
+  return undefined;
+}
+
+export function describePipeline(pipeline: unknown, opts: DescribeOptions): ManifestT {
+  const data = pipelineData(pipeline);
+  const problems: string[] = [...data.problems];
+  const handlerNames = new Set(opts.handlerNames);
+
+  // ── models ──
+  const models = new Map<string, { schemas: ModelSchemasT; key: string }>();
+  const useModel = (m: AnyModel, at: string): string => {
+    if (!MODEL_NAME.test(m.name)) problems.push(`${at}: model name '${m.name}' must match ${MODEL_NAME}`);
+    let schemas: ModelSchemasT;
+    try {
+      schemas = schemaViews(m.schema);
+    } catch (e) {
+      problems.push(`${at}: model '${m.name}' is not representable as JSON Schema (${(e as Error).message})`);
+      return m.name;
+    }
+    const key = JSON.stringify(schemas);
+    const prev = models.get(m.name);
+    if (!prev) models.set(m.name, { schemas, key });
+    else if (prev.key !== key) problems.push(`two different schemas are registered under the model name '${m.name}' (one schema per model name)`);
+    return m.name;
+  };
+
+  // ── secrets ──
+  const secrets = new Map<string, string>();
+  const useSecret = (s: Secret, at: string): string => {
+    if (!SECRET_NAME.test(s.name)) problems.push(`${at}: secret name '${s.name}' must match ${SECRET_NAME}`);
+    const prev = secrets.get(s.name);
+    if (prev === undefined) secrets.set(s.name, s.description);
+    else if (prev !== s.description) problems.push(`secret '${s.name}' is declared twice with different descriptions`);
+    return s.name;
+  };
+
+  // ── step identity ──
+  const steps = new Map<string, AnyStep>();
+  const registerStep = (s: AnyStep, where: string) => {
+    if (typeof s.name !== "string" || !STEP_NAME.test(s.name))
+      problems.push(`${where}: step name '${String(s.name)}' must be lower-case kebab (${STEP_NAME})`);
+    if (RESERVED.has(s.name)) problems.push(`${where}: '${s.name}' is reserved and cannot be a step name`);
+    if (steps.has(s.name)) problems.push(`duplicate step name '${s.name}'`);
+    steps.set(s.name, s);
+  };
+
+  const inputModel = data.input;
+  if (!isModel(inputModel)) throw new DescribeError(["pipeline input must be a model (model(\"Name\", z.object({...})))"]);
+  useModel(inputModel, "pipeline input");
+  const inputOutputView = (): JsonSchema | undefined => models.get(inputModel.name)?.schemas.output;
+  const outputViewOf = (modelName: string | null): JsonSchema | undefined => (modelName ? models.get(modelName)?.schemas.output : undefined);
+
+  // ── one step ──
+  const describeStep = (node: StageStepNode, avail: Map<string, Avail>, failureHandler: boolean): StepDescriptorT => {
+    const s = node.step;
+    const at = `step '${s.name}'`;
+    if (typeof s.image !== "string" || s.image.trim() === "") problems.push(`${at}: image must be a non-empty string`);
+
+    const inputTypes: StepDescriptorT["inputTypes"] = {};
+    const entries = Object.entries(s.input as Record<string, unknown>);
+    for (const [key, e] of entries) {
+      if (isOptional(e)) inputTypes[key] = { model: useModel(e.model, `${at} input '${key}'`), optional: true };
+      else if (isModel(e)) inputTypes[key] = { model: useModel(e, `${at} input '${key}'`), optional: false };
+      else if (e instanceof z.ZodType) {
+        try {
+          inputTypes[key] = { schema: schemaViews(e) };
+        } catch (err) {
+          problems.push(`${at} input '${key}': schema is not representable as JSON Schema (${(err as Error).message})`);
+        }
+      } else problems.push(`${at} input '${key}': must be a model, optional(model) or a zod schema`);
+    }
+
+    let input: Record<string, Mapping> = {};
+    if (failureHandler) {
+      for (const [key, e] of entries) {
+        if (e !== FailureContext && !(isModel(e) && e.name === FailureContext.name))
+          problems.push(`${at}: a failure handler's inputs must all be FailureContext (input '${key}' is not)`);
+        input[key] = { ref: FAILURE_ROOT };
+      }
+      if (node.mapper) problems.push(`${at}: failure handlers take no mapper`);
+    } else if (node.mapper) {
+      input = mapStep(at, s, node.mapper, avail);
+    } else {
+      for (const [key, e] of entries) {
+        const optional = isOptional(e);
+        const m = optional ? e.model : isModel(e) ? e : undefined;
+        if (!m) {
+          problems.push(`${at}: input '${key}' is a plain schema, not a model, so it cannot be matched by model; add a mapper ([step, from => ({ ... })])`);
+          continue;
+        }
+        const producers = [...avail].filter(([, a]) => a.model === m.name);
+        if (producers.length === 0) {
+          problems.push(`${at}: ${m.name} (input '${key}') is not available at this stage${optional ? " (optional() means maybe-skipped; there must still be an earlier producer)" : ""}`);
+        } else if (producers.length > 1) {
+          problems.push(`${at}: ${m.name} (input '${key}') has several producers (${producers.map(([n]) => n).sort().join(", ")}); use a mapper to pick one`);
+        } else {
+          const [producer, a] = producers[0]!;
+          if (a.maybe && !optional) problems.push(`${at}: ${m.name} (input '${key}') is only maybe-available (produced inside a when block); declare it optional(${m.name})`);
+          input[key] = { ref: producer };
+        }
+      }
+    }
+
+    const secretNames = s.secrets.map((x) => useSecret(x, at)).sort();
+    let handlerHash: string;
+    let config: Record<string, unknown> | undefined;
+    if (s.kind === "custom") {
+      if (!handlerNames.has(s.name)) problems.push(`${at} has no handler (expected handlers/${s.name}.ts default-exporting implement(${camel(s.name)}, …))`);
+      handlerHash = opts.handlerHashes[s.name] ?? "";
+      if (handlerNames.has(s.name) && !handlerHash) problems.push(`${at}: no handler hash was computed`);
+    } else if (s.builtin) {
+      try {
+        config = canonicalize(s.builtin.manifestConfig()) as Record<string, unknown>;
+      } catch (e) {
+        problems.push(`${at}: invalid ${s.kind} configuration (${(e as Error).message})`);
+        config = {};
+      }
+      handlerHash = libraryHandlerHash(s.kind, config, opts.harness);
+    } else {
+      problems.push(`${at}: library step of kind '${s.kind}' has no implementation`);
+      handlerHash = "";
+    }
+    if (s.timeoutSeconds !== undefined && !(Number.isInteger(s.timeoutSeconds) && s.timeoutSeconds > 0)) problems.push(`${at}: timeoutSeconds must be a positive integer`);
+    if (s.retries !== undefined && !(Number.isInteger(s.retries) && s.retries >= 0)) problems.push(`${at}: retries must be a non-negative integer`);
+
+    const out: StepDescriptorT = {
+      name: s.name,
+      kind: s.kind,
+      image: s.image,
+      inputTypes,
+      input,
+      output: s.output ? useModel(s.output, `${at} output`) : null,
+      secrets: secretNames,
+      handlerHash: handlerHash || "sha256:" + "0".repeat(64),
+      ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
+      ...(s.retries !== undefined ? { retries: s.retries } : {}),
+      ...(config !== undefined ? { config: config as Record<string, z.core.util.JSONType> } : {}),
+    };
+    if (s.output && !isModel(s.output)) problems.push(`${at}: output must be a model`);
+    return out;
+  };
+
+  const mapStep = (at: string, s: AnyStep, mapper: MapperFunction, avail: Map<string, Avail>): Record<string, Mapping> => {
+    try {
+      analyzeMapperSource(Function.prototype.toString.call(mapper));
+    } catch (e) {
+      if (e instanceof MapperError) problems.push(`${at}: ${e.message}`);
+      else throw e;
+      return {};
+    }
+    const roots = new Set([...avail].filter(([, a]) => a.model !== null).map(([n]) => n));
+    let recorded: Record<string, Mapping>;
+    try {
+      recorded = recordMapper(mapper, roots);
+    } catch (e) {
+      if (e instanceof MapperError) problems.push(`${at}: ${e.message}`);
+      else problems.push(`${at}: mapper threw: ${(e as Error)?.message ?? String(e)}`);
+      return {};
+    }
+    const declared = s.input as Record<string, unknown>;
+    for (const k of Object.keys(declared)) if (!(k in recorded)) problems.push(`${at}: mapper does not provide input '${k}'`);
+    for (const k of Object.keys(recorded)) if (!(k in declared)) problems.push(`${at}: mapper provides '${k}', which is not an input of the step`);
+    for (const [k, m] of Object.entries(recorded)) checkMapping(`${at} input '${k}'`, m, avail, isOptional(declared[k]), true);
+    return recorded;
+  };
+
+  const checkMapping = (at: string, m: Mapping, avail: Map<string, Avail>, optionalTarget: boolean, topLevel: boolean) => {
+    const keys = Object.keys(m);
+    if (keys.length === 1 && keys[0] === "ref" && typeof (m as { ref: unknown }).ref === "string") {
+      const [root, ...path] = (m as { ref: string }).ref.split(".") as [string, ...string[]];
+      const a = avail.get(root);
+      if (!a) return problems.push(`${at}: '${root}' is not available at this stage`);
+      if (!resolveField(outputViewOf(a.model), path)) problems.push(`${at}: '${(m as { ref: string }).ref}' — model ${a.model} has no field '${path.join(".")}'`);
+      if (a.maybe && !(optionalTarget && topLevel))
+        problems.push(`${at}: '${(m as { ref: string }).ref}' is only maybe-available (produced inside a when block); map it whole into an optional(...) input`);
+      return;
+    }
+    if (keys.length === 1 && keys[0] === "const") return;
+    for (const [k, x] of Object.entries(m as Record<string, Mapping>)) checkMapping(`${at}.${k}`, x, avail, optionalTarget, false);
+  };
+
+  // ── stages ──
+  const walk = (nodes: readonly StageNode[], avail: Map<string, Avail>): Stage[] => {
+    const out: Stage[] = [];
+    for (const n of nodes) {
+      if (n.kind === "stage") {
+        const descs = n.steps.map((ss) => {
+          if (!isStep(ss.step)) {
+            problems.push("a stage entry is not a step");
+            return undefined;
+          }
+          registerStep(ss.step, "stage");
+          return describeStep(ss, avail, false);
+        }).filter((d): d is StepDescriptorT => d !== undefined);
+        // Outputs become available only after the barrier (same-stage siblings can't see each other).
+        for (const ss of n.steps) if (isStep(ss.step)) avail.set(ss.step.name, { model: ss.step.output?.name ?? null, maybe: false });
+        if (descs.length) out.push({ steps: descs });
+      } else {
+        const when: Record<string, (string | number | boolean)[]> = {};
+        const props = (inputOutputView()?.properties ?? {}) as Record<string, JsonSchema>;
+        for (const [field, raw] of Object.entries(n.cond)) {
+          const values = (Array.isArray(raw) ? raw : [raw]) as (string | number | boolean)[];
+          if (!Object.hasOwn(props, field)) problems.push(`when: '${field}' is not a field of the pipeline input ${inputModel.name}`);
+          else {
+            const literals = literalValues(props[field]);
+            if (!literals) problems.push(`when: '${field}' is not a literal-like field (enum, boolean or literal)`);
+            else for (const v of values) if (!literals.includes(v)) problems.push(`when: ${JSON.stringify(v)} is not a valid value of '${field}' (${literals.map((l) => JSON.stringify(l)).join(", ")})`);
+          }
+          if (values.length === 0) problems.push(`when: '${field}' has no values`);
+          when[field] = values;
+        }
+        const inner = new Map(avail);
+        const stages = walk(n.nodes, inner);
+        for (const [name, a] of inner) if (!avail.has(name)) avail.set(name, { model: a.model, maybe: true });
+        out.push({ when, stages });
+      }
+    }
+    return out;
+  };
+  const stages = walk(data.nodes, new Map([["input", { model: inputModel.name, maybe: false }]]));
+
+  // ── failure handlers ──
+  const stageStepNames = new Set(steps.keys());
+  const seenHandlers = new Map<string, AnyStep>();
+  const failureHandlers = data.failureHandlers.map((fh) => {
+    if (!isStep(fh.step)) {
+      problems.push("onFailure: handler is not a step");
+      return undefined;
+    }
+    if (seenHandlers.get(fh.step.name) !== fh.step) registerStep(fh.step, "onFailure");
+    seenHandlers.set(fh.step.name, fh.step);
+    const scope = fh.steps === null ? null : fh.steps.map((x) => x.name);
+    for (const n of scope ?? []) if (!stageStepNames.has(n)) problems.push(`onFailure(${fh.step.name}): '${n}' is not a step of this pipeline`);
+    return { step: describeStep({ step: fh.step }, new Map(), true), steps: scope };
+  }).filter((x) => x !== undefined);
+
+  // ── handler files without a step ──
+  for (const h of handlerNames) {
+    const s = steps.get(h);
+    if (!s) problems.push(`handlers/${h}.ts does not match any step of the pipeline`);
+    else if (s.kind !== "custom") problems.push(`handlers/${h}.ts: '${h}' is a library step (${s.kind}) and must not have a handler file`);
+  }
+
+  // ── triggers ──
+  const triggerNames = new Set<string>();
+  const triggers: TriggerT[] = data.triggers.map((t) => {
+    if (triggerNames.has(t.name)) problems.push(`duplicate trigger '${t.name}'${t.kind === "push" ? " (onPush may be used once)" : " (give each onPoll a distinct name)"}`);
+    triggerNames.add(t.name);
+    if (t.kind === "push") return { kind: "push", name: "push" };
+    if (!STEP_NAME.test(t.name)) problems.push(`poll trigger name '${t.name}' must be lower-case kebab`);
+    if (!(Number.isInteger(t.intervalSeconds) && t.intervalSeconds > 0)) problems.push(`poll '${t.name}': intervalSeconds must be a positive integer`);
+    const declared = new Set(t.secrets.map((s) => useSecret(s, `poll '${t.name}'`)));
+    for (const [h, v] of Object.entries(t.headers)) {
+      for (const m of v.matchAll(/\$SECRET:([A-Za-z0-9_]+)/g))
+        if (!declared.has(m[1]!)) problems.push(`poll '${t.name}': header '${h}' references secret '${m[1]}', which is not in the poll's secrets`);
+    }
+    return { kind: "poll", name: t.name, url: t.url, headers: { ...t.headers }, secrets: [...declared].sort(), valuePath: t.valuePath, intervalSeconds: t.intervalSeconds };
+  });
+
+  if (problems.length) throw new DescribeError(problems);
+
+  const manifest = canonicalize({
+    apiVersion: API_VERSION,
+    name: data.name,
+    description: data.description,
+    input: inputModel.name,
+    harness: opts.harness,
+    models: Object.fromEntries([...models].map(([k, v]) => [k, v.schemas])),
+    secrets: [...secrets].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, description]) => ({ name, description })),
+    triggers,
+    stages,
+    failureHandlers,
+  });
+  const checked = Manifest.safeParse(manifest);
+  if (!checked.success) throw new DescribeError([`internal: manifest does not match its schema: ${z.prettifyError(checked.error)}`]);
+  return manifest as ManifestT;
+}
+
+/** Canonical manifest text (what `describe` prints and the service hashes). */
+export const manifestText = (m: ManifestT): string => canonicalJson(m);
+
+function camel(name: string): string {
+  return name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}

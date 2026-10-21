@@ -1,0 +1,516 @@
+{
+  "$defs": {
+    "InputType": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "model": {
+              "description": "Model name (key of `models`).",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            "optional": {
+              "description": "optional(Model): may be absent because its producer was skipped.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "model",
+            "optional"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "schema": {
+              "$ref": "#/$defs/ModelSchemas",
+              "description": "A plain (unnamed) zod schema. Such inputs always have an explicit mapping."
+            }
+          },
+          "required": [
+            "schema"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Json": {
+      "$ref": "#/$defs/__schema0",
+      "description": "Any JSON value."
+    },
+    "Manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "2.0",
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "failureHandlers": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "step": {
+                "$ref": "#/$defs/Step",
+                "description": "The handler step. Not part of any stage; its inputs are all FailureContext ({ref: 'failure'})."
+              },
+              "steps": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "description": "Step name: lower-case kebab, 1-63 chars. The step's identity.",
+                      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Steps whose failure triggers the handler (null = any step)."
+              }
+            },
+            "required": [
+              "step",
+              "steps"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "harness": {
+          "additionalProperties": false,
+          "description": "Harness identity. Already folded into every handlerHash.",
+          "properties": {
+            "bun": {
+              "description": "Bun runtime version compiled into the binary.",
+              "type": "string"
+            },
+            "sdk": {
+              "description": "@olve/pipelines package version.",
+              "type": "string"
+            },
+            "sdkHash": {
+              "description": "Hash of the SDK runtime sources + zod version.",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "bun",
+            "sdk",
+            "sdkHash"
+          ],
+          "type": "object"
+        },
+        "input": {
+          "description": "Pipeline input model.",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "models": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ModelSchemas"
+          },
+          "description": "Every model referenced by the pipeline (input, step inputs/outputs).",
+          "propertyNames": {
+            "description": "Model name (key of `models`).",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "secrets": {
+          "description": "All declared secrets (steps + poll triggers), sorted by name.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "description": "Secret name; also the env var name in the step container.",
+                "pattern": "^[A-Z_][A-Z0-9_]*$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/Stage"
+          },
+          "type": "array"
+        },
+        "triggers": {
+          "items": {
+            "$ref": "#/$defs/Trigger"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "name",
+        "input",
+        "harness",
+        "models",
+        "secrets",
+        "triggers",
+        "stages",
+        "failureHandlers"
+      ],
+      "title": "Olve.Pipelines v2 manifest",
+      "type": "object"
+    },
+    "Mapping": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "Value taken from the run pool. A ref whose root step was skipped yields no value (only allowed for optional inputs).",
+          "properties": {
+            "ref": {
+              "description": "'<root>' or '<root>.<field>.<field>…'. Root: 'input' (pipeline input), a step name (that step's output) or 'failure' (FailureContext, failure handlers only).",
+              "pattern": "^(?:input|failure|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[^.]+)*$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A JSON constant.",
+          "properties": {
+            "const": {
+              "$ref": "#/$defs/Json"
+            }
+          },
+          "required": [
+            "const"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/Mapping"
+          },
+          "description": "An object built field by field. Discrimination: an object whose only key is 'ref' (string value) is a ref, whose only key is 'const' is a constant, anything else is a nested object (describe never emits a nested object whose only key is 'ref' or 'const').",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "ModelSchemas": {
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "additionalProperties": {},
+          "description": "z.input view (defaults make fields optional; `default` values are listed). Present only when it differs from `output`.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "output": {
+          "additionalProperties": {},
+          "description": "z.output view: validates step outputs, trigger results and the pool. Every object has additionalProperties: false.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "output"
+      ],
+      "type": "object"
+    },
+    "Stage": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "steps": {
+              "description": "Steps run in parallel; the stage is a barrier.",
+              "items": {
+                "$ref": "#/$defs/Step"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "steps"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "stages": {
+              "items": {
+                "$ref": "#/$defs/Stage"
+              },
+              "type": "array"
+            },
+            "when": {
+              "additionalProperties": {
+                "items": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "description": "Pipeline-input field → accepted values (all fields must match). Empty object = always.",
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "when",
+            "stages"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Json"
+          },
+          "description": "Library-step configuration (display only; already covered by handlerHash).",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "handlerHash": {
+          "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for library steps kind + config + harness.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "image": {
+          "description": "Container image the step runs in.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "input": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Mapping"
+          },
+          "description": "How the service assembles input.json: one mapping per input key (same keys as inputTypes).",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "inputTypes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InputType"
+          },
+          "description": "Declared input entries, keyed like input.json.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "kind": {
+          "description": "'custom' = handlers/<name>.ts; others are SDK library steps.",
+          "enum": [
+            "custom",
+            "script"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Step name: lower-case kebab, 1-63 chars. The step's identity.",
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "type": "string"
+        },
+        "output": {
+          "anyOf": [
+            {
+              "description": "Model name (key of `models`).",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Output model, or null if the step produces no output."
+        },
+        "retries": {
+          "maximum": 9007199254740991,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "secrets": {
+          "description": "Declared secrets (sorted). Mount exactly these, as env vars of the same name.",
+          "items": {
+            "description": "Secret name; also the env var name in the step container.",
+            "pattern": "^[A-Z_][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timeoutSeconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "image",
+        "inputTypes",
+        "input",
+        "output",
+        "secrets",
+        "handlerHash"
+      ],
+      "type": "object"
+    },
+    "Trigger": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "GitHub push. Event = the webhook payload.",
+          "properties": {
+            "kind": {
+              "const": "push",
+              "type": "string"
+            },
+            "name": {
+              "const": "push",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Background poller.",
+          "properties": {
+            "headers": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Values may contain '$SECRET:NAME' (NAME ∈ secrets).",
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "intervalSeconds": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "poll",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+              "type": "string"
+            },
+            "secrets": {
+              "items": {
+                "description": "Secret name; also the env var name in the step container.",
+                "pattern": "^[A-Z_][A-Z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "url": {
+              "type": "string"
+            },
+            "valuePath": {
+              "description": "Dot path into the JSON response; a change triggers map-trigger with {\"value\": <string>}.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "url",
+            "headers",
+            "secrets",
+            "valuePath",
+            "intervalSeconds"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "__schema0": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema0"
+          },
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$id": "https://olve.dev/schemas/pipelines/manifest-2.0.json",
+  "$ref": "#/$defs/Manifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

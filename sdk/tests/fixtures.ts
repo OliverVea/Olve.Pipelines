@@ -1,0 +1,16 @@
+// Shared models/steps for the compile tests (re-uses the example pipeline).
+import { pipeline, step, steps, Source, secret, z } from "@olve/pipelines";
+import * as M from "../examples/self-deploy/models";
+export * from "../examples/self-deploy/pipeline";
+export { M };
+
+export const base = () => pipeline({ name: "t", input: M.DeployRequest });
+
+/** Second producer of Source, to provoke ambiguity. */
+export const checkout2 = step({ name: "checkout2", image: "alpine/git", input: { repo: z.string(), sha: z.string() }, output: Source });
+/** A step consuming Source. */
+export const lint = steps.script({ name: "lint", image: "alpine", script: "lint.sh", input: { source: Source } });
+/** A producer of BetaDeployment-shaped data that is actually a ProdDeployment. */
+export const fakeProd = step({ name: "fake-prod", image: "alpine", output: M.ProdDeployment });
+export const needsBeta = step({ name: "needs-beta", image: "alpine", input: { beta: M.BetaDeployment } });
+export const NOPE = secret("NOPE", "not declared anywhere");

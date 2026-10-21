@@ -30,7 +30,7 @@ export function inputEnvName(key: string): string {
  *    form `{"$file": "<path>"}` / `{"$dir": "<path>"}` are turned into file references.
  *  - Declared secrets are in the environment under their names.
  */
-function script<
+export function script<
   const N extends string,
   const I extends InputSpec = {},
   O extends AnyModel | null = null,
@@ -83,6 +83,3 @@ async function resolveFilePlaceholders(v: unknown, ctx: Ctx): Promise<unknown> {
   }
   return v;
 }
-
-/** SDK-provided steps (step + handler pairs with typed config). */
-export const steps = { script };

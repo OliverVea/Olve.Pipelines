@@ -49,7 +49,7 @@ export const InputType = z
 export const StepDescriptor = z
   .strictObject({
     name: stepName,
-    kind: z.enum(["custom", "script"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
+    kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
     image: z.string().min(1).describe("Container image the step runs in."),
     inputTypes: z.record(z.string(), InputType).describe("Declared input entries, keyed like input.json."),
     input: z.record(z.string(), Mapping).describe("How the service assembles input.json: one mapping per input key (same keys as inputTypes)."),

@@ -8,4 +8,4 @@ export { implement, type Implementation, type Handler, type HandlerResult, type 
 export type { Ctx, RunInfo, Sh, ShOptions, ExecOptions, Http, HttpInit, RetryOptions, OutputFileOptions } from "./ctx/types.ts";
 export type { Ref, Mappable, MapperResult } from "./builder/refs.ts";
 export { pipeline, Pipeline, type PipelineDef, type InRefs, type InitialAvail, type WhenCond, type PushEvent, type StageEntry, type CheckStage, type MapperFn } from "./builder/pipeline.ts";
-export { steps, Source, FailureContext, type RunValue, type ScriptDef } from "./library/index.ts";
+export { steps, Source, BuiltImage, HelmRelease, FailureContext, type RunValue, type ScriptDef, type GitHubSourceDef, type ImageBuildDef, type HelmDeployOverSshDef } from "./library/index.ts";

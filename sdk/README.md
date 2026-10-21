@@ -15,7 +15,7 @@ sdk/
   src/index.ts            authoring API (`@olve/pipelines`)
   src/core/               models, secrets, steps, implement()
   src/builder/            pipeline builder (types + runtime records), Ref<T>
-  src/library/            library steps (steps.script) and SDK models (Source, FailureContext)
+  src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh) and SDK models
   src/describe/           describe: manifest, checks, mapper recording + source analysis, manifest schema
   src/harness/            harness CLI modes, env contract, envelope, result upload (`@olve/pipelines/harness`)
   src/ctx/                the ctx handed to handlers
@@ -86,6 +86,21 @@ Rules:
 | `$OLVE_OUTPUT` | Set only when the step has an output model. Write the output JSON to this path. |
 
 In the output JSON, an object of the form `{"$file": "<path>"}` or `{"$dir": "<path>"}` becomes a file reference. The step's declared secrets are environment variables named after the secrets.
+
+### Library steps
+
+Library steps carry their own implementation and image; they take typed config and use the SDK models `Source`, `BuiltImage` and `HelmRelease`. The set grows from real use: a step or an option exists because a pipeline uses it.
+
+| Step | Image | Input → output | Config |
+|---|---|---|---|
+| `steps.script` | yours | yours | `script` (embedded), `env` (see above) |
+| `steps.gitHubSource` | `alpine:3.22` (work happens in the harness) | `{ repo: "owner/name", sha }` (plain schemas: needs a mapper) → `Source` | `token?: Secret` (sent as `Authorization: Bearer`; becomes the step's secret) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache) |
+| `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, image: BuiltImage }` → `HelmRelease { release, namespace, image }` | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `healthUrl?` |
+
+- `gitHubSource` downloads `https://api.github.com/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.
+- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `Dockerfile` at the tree root with `--no-push --tar-path --digest-file`, and outputs the tarball. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`).
+- `helmDeployOverSsh` streams the image tar into the host's **k3s** containerd (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then `image.repository`/`image.tag`/`image.pullPolicy=Never`, which always win), waits for `kubectl rollout status deploy/<release>`, and with `healthUrl` polls it (5 × 5 s) from the harness.
 
 ### Handlers
 
@@ -314,6 +329,8 @@ Exit codes: 0 ok, 1 build failure, 64 usage, 78 pipeline invalid.
 bun install --frozen-lockfile
 bunx olve-build .pipelines --out /work/out --upload-url "$STEP_PUT_URL" --sentinels
 ```
+
+With an in-repo SDK (`"@olve/pipelines": "file:../sdk"`, as Olve.Pipelines' own `.pipelines/` does), Bun resolves `@olve/pipelines` to the SDK's **source directory**, not the copy in `node_modules`, so the SDK's own dependencies must be installed there too: run `bun install --frozen-lockfile --production` in `sdk/` before building.
 
 The repo depends on the SDK as a normal package. It resolves through `exports` (`@olve/pipelines`, `@olve/pipelines/harness`, `@olve/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
 

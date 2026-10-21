@@ -347,7 +347,10 @@
           "description": "'custom' = handlers/<name>.ts; others are SDK library steps.",
           "enum": [
             "custom",
-            "script"
+            "script",
+            "gitHubSource",
+            "imageBuild",
+            "helmDeployOverSsh"
           ],
           "type": "string"
         },

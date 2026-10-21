@@ -2,8 +2,9 @@
 
 Companion to [pipelines-v2.md](pipelines-v2.md) (the spec) and
 [pipelines-v2-spikes.md](pipelines-v2-spikes.md) (spike findings). Work happens on the `v2` branch;
-v2 beta (`pipelines-v2-beta.ovea.pro`) is deployed by the v1 pipeline "Olve.Pipelines v2" from this
-branch's `.pipelines/config.yaml` until milestone M4.
+v2 beta (`pipelines-v2-beta.ovea.pro`) deploys itself from this branch's `.pipelines/pipeline.ts` since
+milestone M4 (2026-10-21); the v1 pipeline "Olve.Pipelines v2" that ran `.pipelines/config.yaml` is
+paused, not deleted — see the E2 notes for the rollback.
 
 ## Ground rules
 
@@ -168,9 +169,8 @@ markers. Keep shell, auth, docs, logs views.
   checked for shape (trigger body = input, continue = `{input: changed}`) with a faked 400 for the
   error display. Not exercised for real: actions with a token, file download, live log polling on a
   running attempt, draining display.
-- Backend follow-ups (not done here): `TriggerRun`'s `JsonElement` body and 400s as arrays don't
-  map well to generated clients (a typed request wrapper and a single problem-list error schema
-  would let Kiota be used throughout).
+- Backend follow-ups: `TriggerRun`/`ContinueRun` bodies are typed now (E2 notes); 400 arrays still
+  don't map to Kiota errors (open decision in the E2 notes).
 
 ### Track E — self-hosting and migration
 
@@ -179,6 +179,78 @@ it on the v2 instance itself (beta-only first), verify, then retire the v1 deplo
 rewrite `docs/setup/*` for v2. E4 migrate other pipelines one by one (least critical first), growing
 the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 
+**E2 notes (2026-10-21) — M4 done: v2 beta deploys itself.**
+- **Binding** on v2 beta: pipeline `f26d19cf-810a-4fb8-b5af-e61ca73b1bae` ("Olve.Pipelines v2"), binding
+  `56af939f-2f15-4ebb-8892-a1b2e4894c15`, `OliverVea/Olve.Pipelines@v2`, path `.pipelines`, trigger
+  `poll` (no public webhook route), no credentials key (public repo; a key named before it exists fails
+  the build Job). `pl dev validate --dir .pipelines` was valid first (kinds gitHubSource, imageBuild,
+  custom, helmDeployOverSsh — all in `StepKinds.Known`; one `output-unused` warning on deploy-beta).
+  Secrets GITHUB_TOKEN + SSH_PRIVATE_KEY were piped from v1's `olve-pipeline-c6f4abe1…` (olve-runners)
+  through `pl secret set` (stdin, never `$(…)`: that strips the SSH key's trailing newline) into
+  `olve-pipeline-f26d19cf810a4fb8b5afe61ca73b1bae` in olve-runners-beta; sha256-compared equal.
+- **Result collection is memory-safe for big outputs** (checked before running kaniko through it):
+  `HarnessResultCollector` copies `result.tar.gz` to a temp file, streams the gzip/tar, stages each
+  `files/` entry to disk and PUTs it by `FilePath`; only the capped `output.json` is buffered. Peak disk
+  ≈ archive + one entry in the container's writable layer (no ephemeral-storage limit on the chart).
+  The image tar turned out small anyway (AOT image: `image.tar` 50 MB).
+- **Run #1** (manual, sha 321b136, already deployed by v1 — a dry run of self-restart): source 6 s,
+  build 4m22s (kaniko layer cache push to registry.ovea.pro from olve-runners-beta worked), test 1m10s,
+  deploy-beta 21 s; run 4m52s, Succeeded. deploy-beta replaced the very pod running the run; the new pod
+  logged `Reattaching to K8s Job … deploy-beta`, collected it and finished the run (`run.json` in Garage:
+  Succeeded); `/api/health` 200; image `olve-pipelines-v2:2026.10.21.1`.
+- **v1 deployer paused** by blocking its deploy-beta promotion gate (v1 bindings have no off switch;
+  `IsBlocked` gates every path that creates a v1 processing job, and the block survives reconcile and
+  restarts). v1's poll still runs the production build on each push — it builds but never deploys.
+  The pipeline, its binding, its secrets and `config.yaml` + `scripts/` stay as the recovery path.
+- **Rollback (re-enable the v1 deployer)**, with a v1 prod token (`auth.ovea.pro`, client credentials
+  from `apps/olve-pipelines-oidc`) — and first pause the v2 self-deploy so two deployers don't race
+  (`pl gate block f26d19cf-810a-4fb8-b5af-e61ca73b1bae deploy-beta` against v2 beta):
+  ```sh
+  V1=https://pipelines-private.ovea.pro
+  # unblock; this immediately promotes v1's latest completed production bundle if one is due,
+  # which may be older than the branch head — check the response's `promotion`
+  curl -X PUT $V1/api/processing-steps/5b0acf91-f166-4c41-ae54-6e2d6410fd34/promotion \
+    -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"blocked":false}'
+  # then build + deploy the current head through v1
+  curl -X POST $V1/api/pipelines/c6f4abe1-4821-43d7-afd6-bd9f25414b75/trigger/production -H "Authorization: Bearer $TOKEN"
+  # check which image landed
+  kubectl -n apps-beta get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'
+  ```
+  (State check: `GET $V1/api/pipelines/c6f4abe1-4821-43d7-afd6-bd9f25414b75/processing/promotions`.)
+- **Self-deploy from a push**: commit 35faafc (typed TriggerRun/ContinueRun bodies, below) → the
+  binding's deploy poll fired the push trigger 11 min later → run #2. Its kaniko build hung at
+  "Unpacking rootfs" (3m CPU for 10 min — the same hang seen once before), so it was cancelled and rerun
+  as run #3: 4m34s, Succeeded, new pod on `olve-pipelines-v2:2026.10.21.3`, reattached and collected
+  deploy-beta again. The deployed binary binds the new bodies (fixture trigger #23 started; continue
+  reaches the domain checks; a non-object trigger body is now a framework 400). v1 meanwhile ran its
+  production build for 35faafc (bundle 5ef5ba20) and **did not deploy** (last v1 deploy job still
+  23:07 / bundle ca936b0d). The doc commit after it was the clean end-to-end push check (see below).
+- **Track D follow-up (API)**: `TriggerRun`'s body is `TriggerRunRequest`, a free-form object
+  (`[JsonExtensionData]`; the wire shape is still the input object itself) and `ContinueRunRequest.input`
+  is an object of fields, so Kiota generates AdditionalDataHolder models and sends real object bodies
+  (checked with a stubbed fetch: `{"sha":…}` and `{"input":{…}}`). The 400s were already documented as
+  `ResultProblem[]` — exactly what the API returns — but **Kiota cannot model an array error**: it uses
+  the item type, and at runtime the array lands in the error's `additionalData` under `"0"`, `"1"`, …
+  with `message` undefined. Surfacing every message through Kiota needs either an object-shaped 400
+  (a wire change in every endpoint — Olve.MinimalApi's `WithResultMapping`, `pl`, `apiFetch`, Refitter)
+  or a frontend helper that reads `additionalData`; not done — **open decision**. Mutations stay on
+  `apiFetch`.
+- **Garage**: a self-deploy run stores ≈ 55 MB (`image.tar` 50.4 MB, `tree.tar` 4.1 MB, logs/JSON
+  small); the binary is ≈ 44 MB per version (only `.pipelines/` commits make versions). Bucket total
+  377 MB after these runs. 20 retained runs + a few binaries ≈ 1.2–1.5 GB — fits easily — **but**
+  retention deletes a run only when it is BOTH beyond the latest 20 AND older than 183 days, and beta
+  runs `Retention__DryRun` (nothing deleted). 20 Gi ≈ 390 self-deploy runs: ~2–3 weeks at today's
+  commit rate, ~2.5 months at 5 runs/day — under the 183-day floor. **Decision needed** (not changed
+  here): a shorter `MinRunAgeDays` for beta, dropping big file outputs (image tars) earlier than the
+  run record, a bigger PVC, and flipping `Retention__DryRun=false`. (The `bulk` StorageClass may not
+  enforce the 20 Gi size.)
+- **Gaps**: (1) the config cursor watches only `.pipelines/`, but `pipeline.ts` builds against
+  `../sdk` — an SDK-only commit does not rebuild the step binary (old harness/library code keeps
+  running until a `.pipelines/` commit or `pl binding reconcile`). (2) The kaniko "Unpacking rootfs"
+  hang recurred (1 of 3 builds); with `timeoutSeconds: 3600` a hung build holds the run for an hour —
+  cancel + `pl run rerun`. (3) A cancelled attempt can leave a `result.tar.gz` (retention's 24 h
+  leftover sweep covers it once dry run is off).
+
 ## Milestones
 
 | | Milestone | Needs |
@@ -186,7 +258,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 | M1 | A TS pipeline from `.pipelines-test/` reconciles on v2 beta into a version and runs end to end (push → describe → stages → outputs in Garage) — **done 2026-10-21** (manual, push and poll runs on beta) | A1–A4, A7, B1–B7 |
 | M2 | API + `pl` cover runs, outputs, reruns, switch; `pl dev` loops work (B8 API done) | B8, C1, C2 |
 | M3 | Frontend renders the v2 model — **views built 2026-10-21** (see track D notes) | D |
-| M4 | v2 deploys itself to beta from `pipeline.ts`; v1 deployer pipeline retired | A6, B9, E1, E2 |
+| M4 | v2 deploys itself to beta from `pipeline.ts`; v1 deployer pipeline retired — **done 2026-10-21** (v1 deployer paused, see E2 notes) | A6, B9, E1, E2 |
 | M5 | Other pipelines migrated; v2 promoted to prod and `main` | E3, E4 |
 
 ## Parallelisation (subagents)

@@ -5,8 +5,9 @@
 // apps-beta over SSH once both succeeded (the stage barrier gates the deploy on the tests), then
 // health-check the in-cluster Service.
 //
-// The v1-format config.yaml beside this file still deploys v2 beta until this pipeline is bound on
-// the v2 instance itself (plan milestone M4).
+// Bound on the v2 instance itself since plan milestone M4 (pipeline f26d19cf…, binding path .pipelines).
+// The v1-format config.yaml beside this file is the recovery path: the v1 pipeline that runs it is
+// paused, not deleted (docs/design/pipelines-v2-plan.md, E2 notes, for the rollback).
 import { pipeline, secret, step, steps, Source } from "@olve/pipelines";
 import * as M from "./models";
 

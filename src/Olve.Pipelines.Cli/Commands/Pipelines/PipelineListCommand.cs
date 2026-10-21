@@ -16,12 +16,13 @@ public sealed class PipelineListCommand : ICliCommand
 
           --summaries   Also include repo binding + per-step health and last-changed time
 
-        Status is derived from each pipeline's step strip:
-          Healthy              every step is green
-          Running (Healthy)    a step is running, none have failed
-          Running (Unhealthy)  a step is running and at least one has failed
-          Unhealthy            nothing running but at least one step has failed
-          Idle                 no steps, or not yet fully run
+        Status is computed over runs (cancelled/superseded runs ignored; skipped steps are not faults):
+          Healthy              nothing running; the latest settled run succeeded
+          Running (Healthy)    a run is running; the latest settled run did not fail
+          Running (Unhealthy)  a run is running; the latest settled run failed
+          Unhealthy            nothing running; the latest settled run failed
+          Idle                 no settled run and nothing running
+        Details: `pl pipeline health <pipeline>`.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

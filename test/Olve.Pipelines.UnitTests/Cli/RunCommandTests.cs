@@ -293,6 +293,20 @@ public class RunCommandTests
     }
 
     [Test]
+    public async Task StepLogs_Follow_StopsWhenTheRunEndedWithoutAnAttempt()
+    {
+        var api = Api();
+        api.ListStepAttemptsResults.Enqueue(Result.Success<Job[]>([]));
+        api.GetRunResult = new RunDetail { Run = new RunSummary { Number = 15, Status = "Cancelled" } };
+        var command = new StepLogsCommand { Delay = (_, _) => Task.CompletedTask };
+
+        var (result, _) = await Run(command, api, "step", "logs", $"{Name}#15/last", "--follow");
+
+        await Assert.That(result.TryPickProblems(out var problems)).IsTrue();
+        await Assert.That(problems!.First().ToString()).Contains("Cancelled");
+    }
+
+    [Test]
     public async Task StepLogs_Once_PrintsTheLatestAttemptsLog()
     {
         var api = Api();

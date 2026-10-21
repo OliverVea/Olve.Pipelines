@@ -295,20 +295,19 @@ pl binding set-trigger <pipelineId> <mode>      # webhook | webhook-only | poll
 pl binding reconcile <pipelineId>               # apply the bound config now, off the poll schedule
 ```
 
-`pl pipeline list` reports a derived **status** per pipeline, aggregated from its step-health strip
-(a step is _running_ while `scheduled`/`in-progress`, _failed_ when `failed`, _green_ when `done`):
+`pl pipeline list` reports a **status** per pipeline, computed over its runs (cancelled and
+superseded runs are ignored; skipped steps never count as faults):
 
 | Status | Meaning |
 |--------|---------|
-| `Healthy` | every step is green |
-| `Running (Healthy)` | a step is running and none have failed |
-| `Running (Unhealthy)` | a step is running and at least one has failed |
-| `Unhealthy` | nothing running but at least one step has failed |
-| `Idle` | no steps, or not yet fully run |
+| `Healthy` | nothing running; the latest settled run succeeded |
+| `Running (Healthy)` | a run is running; the latest settled run did not fail |
+| `Running (Unhealthy)` | a run is running; the latest settled run failed |
+| `Unhealthy` | nothing running; the latest settled run failed |
+| `Idle` | no settled run and nothing running |
 
-A **Job** runs a single step (`ProductionJob` → one production step; `ProcessingJob` → one
-processing step), so `pl job list` resolves and shows that step's name in the `STEP` column,
-falling back to the step id when the name can't be resolved.
+Each **attempt** of a step runs as one K8s Job; `pl job list` lists attempts across runs with their
+run number, step name and attempt number.
 
 #### `pl dev` (v2 local development)
 

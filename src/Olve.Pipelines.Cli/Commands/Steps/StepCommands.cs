@@ -202,6 +202,16 @@ public sealed class StepLogsCommand : ICliCommand
                 var target = addr.Attempt is { } n ? attempts.FirstOrDefault(a => a.Number == n) : attempts.LastOrDefault();
                 var finished = target is not null && !IsActive(target);
 
+                // No attempt yet: keep waiting only while the run can still reach the step.
+                if (target is null)
+                {
+                    if ((await ctx.Api.GetRun(addr.Id, addr.Run, ct)).TryPickProblems(out var runProblems, out var detail))
+                        return runProblems;
+                    if (detail.Run.Status != "Running")
+                        return new ResultProblem("Run #{0} is {1} and has no {2} of step '{3}'.", addr.Run, detail.Run.Status,
+                            addr.Attempt is { } a ? $"attempt {a}" : "attempt", addr.Step);
+                }
+
                 if (target is not null)
                 {
                     if ((await ctx.Api.GetStepLogs(addr.Id, addr.Run, addr.Step, target.Number, ct)).TryPickProblems(out var logProblems, out var logs))

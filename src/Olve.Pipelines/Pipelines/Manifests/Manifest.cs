@@ -110,7 +110,13 @@ public static class StepKinds
 {
     public const string Custom = "custom";
     public const string Script = "script";
+    public const string GitHubSource = "gitHubSource";
+    public const string ImageBuild = "imageBuild";
+    public const string HelmDeployOverSsh = "helmDeployOverSsh";
 
-    /// <summary>The kinds manifest schema 2.0 allows. A new SDK library kind needs a service update.</summary>
-    public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal) { Custom, Script };
+    /// <summary>The kinds sdk/manifest.schema.json allows. A new SDK library kind needs a service update.</summary>
+    public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh,
+    };
 }

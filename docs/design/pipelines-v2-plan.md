@@ -321,7 +321,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     10-21 18:18, plus the current one, of 33 in the last 7 days). v1 was left as is.
   - **gVisor is the trigger.** Ad-hoc pods in olve-runners-beta, same node/namespace/NetworkPolicy,
     side by side, `FROM mcr.microsoft.com/dotnet/sdk:10.0-noble` + `RUN true`, kaniko `--no-push`
-    in a loop with a 120 s no-output watchdog: **gVisor 2 of 8 stalled, runc 0 of 8**. Each stall
+    in a loop with a 120 s no-output watchdog: **gVisor 3 of 20 stalled (two rounds), runc 0 of 8**. Each stall
     is one ESTABLISHED socket to 150.171.70.10/69.10:443 with Recv-Q 0, no data, forever.
     `crane copy` of the same image under gVisor (concurrent, fast consumer) took 11 s — the stall
     needs kaniko's slow consumer (stream + extract one layer at a time).
@@ -332,7 +332,8 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     `registry.ovea.pro/olve-pipelines-v2/mirror/<registry>`; a custom `mirror-base-images` step
     (crane:debug, parallel to `source`) runs `crane copy --platform linux/amd64` for the
     Dockerfile's three FROMs — ~2 s when unchanged, non-fatal on failure (stale tag or upstream
-    fallback). Same test, gVisor via the mirror: **0 of 10 stalled**.
+    fallback). Same test, gVisor via the mirror: **0 of 22 stalled**. Live: runs #15–#19 (version
+    6) built first try (3m44s–4m46s), all three FROMs "from mapped registry registry.ovea.pro".
   - The mirror is ~420 MB per base-image version in the registry's 10 Gi PVC (shared with the
     kaniko cache; registry:2 has no GC configured). Keep the step's image list in sync with the
     Dockerfile's FROMs (a missing one still builds, from upstream).

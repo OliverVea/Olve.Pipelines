@@ -116,7 +116,7 @@ cd .pipelines && bun install      # installs the SDK from npm and creates bun.lo
 Add `.pipelines/.olve/` and `.pipelines/node_modules/` to `.gitignore`.
 
 For a real build-and-deploy pipeline (kaniko image build, unit tests in parallel, Helm deploy over
-SSH, smoke tests of beta and prod), copy from
+SSH, the API test suite against beta, a read-only smoke test of prod), copy from
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines),
 the reference app pipeline (see [Moving a repo from v1](#moving-a-repo-from-v1)).
 Every option is in the [Pipeline Reference](pipeline-reference.md).
@@ -250,8 +250,10 @@ create versions. A pipeline without `onPush` ignores pushes.
 Copy the reference app pipeline,
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
 source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test,
-with the smoke tests in `handlers/lib/smoke.ts`. Change the repo, release, namespaces, chart values,
-the Dockerfile's `FROM`s in `mirror-base-images` and the smoke checks. Then, so only one instance
+`beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
+dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
+(`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
+values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks. Then, so only one instance
 deploys the repo at any time:
 
 1. Check the new pipeline locally (`pl dev describe`, `pl dev validate`).

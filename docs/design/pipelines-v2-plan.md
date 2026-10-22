@@ -551,11 +551,14 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      Pipeline `cc720357-1994-45f5-95a1-52e482009e17` on v2 prod (`main`, `.pipelines`, SDK
      `2.0.0-beta.1` from npm, `GITHUB_TOKEN` as credentials key); run #1 (push) went
      source ∥ mirror-base-images → build ∥ test (`mise run ci`) → deploy-beta → beta-test →
-     deploy-prod → prod-test, green in 5m07s. `beta-test`/`prod-test` are one smoke test
-     (`handlers/lib/smoke.ts`) over the release's in-cluster Service, derived from `HelmRelease`:
-     `/health`, `/api/messages` page shape, `/api/auth-config`, the SPA bundle, an anonymous POST
-     answering 401. It replaces v1's `test-after-beta` (the full API suite against beta, ~minutes);
-     `mise run api:remote` still runs that by hand. No library steps added: the mirror step is a
+     deploy-prod → prod-test, green in 5m07s. `beta-test` runs the whole API test suite against the
+     fresh beta, like v1's `test-after-beta`: `mise run api:remote` in the dotnet SDK image with
+     `API_BASE_URL` = the in-cluster Service derived from `HelmRelease`, after the `/health` wait and
+     an SPA bundle check (run #2: 11 tests, 4 passed, 7 skipped, 1m05s). The 7 skipped need a token:
+     the suite mints HS256 tokens, and `Auth:SigningKey` replaces Authentik validation, so beta can't
+     accept them without an app change. `prod-test` is a read-only smoke test
+     (`handlers/lib/smoke.ts`: `/health`, `/api/messages` page shape, `/api/auth-config`, the SPA
+     bundle, an anonymous POST answering 401), since the suite writes data. No library steps added: the mirror step is a
      copy of this repo's (its own FROM list, the shared `olve-pipelines-v2/mirror` prefix, no
      `cacheRepo`), a candidate for a library step now that two pipelines use it. v1
      (`25ce1c9c…`) is paused: `deploy-beta` and `deploy` gates blocked, `config.yaml` kept; it

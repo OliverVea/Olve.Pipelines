@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Olve.Pipelines.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Olve.Results" />
     <PackageReference Include="Net.Codecrete.QrCodeGenerator" />
   </ItemGroup>

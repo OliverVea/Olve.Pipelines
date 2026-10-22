@@ -9,6 +9,7 @@ using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Profiles;
 using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Commands.Secrets;
+using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Commands.Steps;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
@@ -37,6 +38,9 @@ public sealed class CliDispatcher
         Register(new TeardownCommand(processRunner));
         Register(new LoginCommand());
         Register(new ProfileListCommand());
+        Register(new WaitRunCommand());
+        Register(new WaitPushCommand());
+        Register(new WaitReconcileCommand());
 
         // pipeline
         Register(new PipelineListCommand());

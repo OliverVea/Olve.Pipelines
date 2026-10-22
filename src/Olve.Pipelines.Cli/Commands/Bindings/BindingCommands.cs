@@ -6,8 +6,8 @@ namespace Olve.Pipelines.Cli.Commands.Bindings;
 
 /// <summary>
 /// <c>pl binding create &lt;repo&gt;</c> — create a pipeline already bound to a git repo (GitOps).
-/// One call composes pipeline + binding; the reconcile loop then materializes the steps from the
-/// repo's config directory. Mirrors the <c>setup-pipeline</c> bootstrap's bind step.
+/// One call composes pipeline + binding; the reconcile loop then builds the pipeline in the
+/// repo's binding path into a version. Mirrors the <c>setup-pipeline</c> bootstrap's bind step.
 /// </summary>
 public sealed class BindingCreateCommand : ICliCommand
 {
@@ -19,12 +19,12 @@ public sealed class BindingCreateCommand : ICliCommand
         """
         pl binding create <repo> [options]
 
-          Creates a pipeline already bound to a git repo. The reconcile loop then materializes
-          the steps from the repo's config directory (e.g. .pipelines/config.yaml). <repo> is
-          the GitHub "owner/name" slug.
+          Creates a pipeline already bound to a git repo. The reconcile loop then builds the
+          pipeline in the repo's binding path (.pipelines/pipeline.ts by default) into a version
+          and activates it. <repo> is the GitHub "owner/name" slug.
 
           --branch <name>              Branch to track (default: main)
-          --path <dir>                 Config directory in the repo (default: .pipelines)
+          --path <dir>                 Pipeline directory in the repo (default: .pipelines)
           --credentials-secret <key>   Key in the pipeline's k8s secret holding the GitHub token
                                        (omit for a public repo)
           --trigger <mode>             Deploy trigger: webhook (default), webhook-only, or poll

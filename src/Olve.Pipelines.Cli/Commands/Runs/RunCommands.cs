@@ -26,8 +26,8 @@ public sealed class TriggerCommand : ICliCommand
           Prints the run address (<pipeline>#<run>) — use it with `pl run get` / `pl step ...`.
 
           Examples:
-            pl trigger olve-pipelines --field deployTo=beta --field sha=65bdc91
-            pl trigger olve-pipelines --input '{"deployTo":"prod","sha":"65bdc91"}'
+            pl trigger olve-pipelines --field deployTo=beta --field sha=65bdc9171d3c0f1e8a2b4c6d8e0f1a2b3c4d5e6f
+            pl trigger olve-pipelines --input '{"deployTo":"beta","sha":"65bdc9171d3c0f1e8a2b4c6d8e0f1a2b3c4d5e6f"}'
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

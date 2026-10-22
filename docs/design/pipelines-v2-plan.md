@@ -287,9 +287,39 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     deploy-beta 24 s; run Succeeded unattended, pod on `…:2026.10.22.9-attempt2`, health 200. A
     stall now costs ~5 min instead of an hour plus a manual cancel/rerun.
   - Left open: a step version bump on every SDK change (all step versions moved v3 → v4, gap 1's
-    `sdkHash` note); the stall source itself (MCR idle connection; mirroring base images into
-    registry.ovea.pro would remove it); the 10 s TERM→KILL grace is an SDK constant (the 300 s
-    window is `stallTimeoutSeconds`).
+    `sdkHash` note); the stall source itself (fixed below: base-image mirror); the 10 s TERM→KILL
+    grace is an SDK constant (the 300 s window is `stallTimeoutSeconds`).
+- **kaniko stall root cause: gVisor × mcr.microsoft.com; fixed with a base-image mirror**
+  (2026-10-22, dfc4458).
+  - Before: 5 of 17 self-deploy build attempts stalled (#2, #4, #9 a1, #12 a1+a2; #13/#14 clean),
+    every one at the first "Unpacking rootfs" (the `dotnet/sdk:10.0-noble` pull, ~350 MB, 11
+    layers, served straight from mcr.microsoft.com = Azure Front Door 150.171.69/70.10). Never at
+    `node:22-slim` (Docker Hub) or the cache layers from registry.ovea.pro.
+  - **Not v1's concurrent build.** v2 #11 built clean while v1's build of the same push started
+    and hung at the same point (v1 pod `olve-19f8da0d…` in olve-runners, hung since 07:27:57 and
+    still running an hour later); #9 a1 and #12 a2 stalled with no v1 pull in flight, #9 a2
+    overlapped one and was clean. v1's kaniko pods are gVisor too and stall on their own (68 min on
+    10-21 18:18, plus the current one, of 33 in the last 7 days). v1 was left as is.
+  - **gVisor is the trigger.** Ad-hoc pods in olve-runners-beta, same node/namespace/NetworkPolicy,
+    side by side, `FROM mcr.microsoft.com/dotnet/sdk:10.0-noble` + `RUN true`, kaniko `--no-push`
+    in a loop with a 120 s no-output watchdog: **gVisor 2 of 8 stalled, runc 0 of 8**. Each stall
+    is one ESTABLISHED socket to 150.171.70.10/69.10:443 with Recv-Q 0, no data, forever.
+    `crane copy` of the same image under gVisor (concurrent, fast consumer) took 11 s — the stall
+    needs kaniko's slow consumer (stream + extract one layer at a time).
+  - **No kaniko flag helps:** `--image-download-retry` / `--image-fs-extract-retry` / `--push-retry`
+    fire on errors; a hung body read never errors and kaniko has no read timeout.
+  - **Fix.** `steps.imageBuild` gained `registryMap` (kaniko `--registry-map`, falls back upstream
+    when the mirror lacks an image). `.pipelines` maps `mcr.microsoft.com` and `index.docker.io` to
+    `registry.ovea.pro/olve-pipelines-v2/mirror/<registry>`; a custom `mirror-base-images` step
+    (crane:debug, parallel to `source`) runs `crane copy --platform linux/amd64` for the
+    Dockerfile's three FROMs — ~2 s when unchanged, non-fatal on failure (stale tag or upstream
+    fallback). Same test, gVisor via the mirror: **0 of 10 stalled**.
+  - The mirror is ~420 MB per base-image version in the registry's 10 Gi PVC (shared with the
+    kaniko cache; registry:2 has no GC configured). Keep the step's image list in sync with the
+    Dockerfile's FROMs (a missing one still builds, from upstream).
+  - Alternative (not applied, homelab infra): a separate `registry:2` instance in pull-through mode
+    for mcr.microsoft.com (`REGISTRY_PROXY_REMOTEURL`; never on the existing registry, which would
+    then refuse pushes), running under runc, would replace the mirror step.
 - **v2 beta serves the v2 `pl`** (2026-10-22, 0eca595). A custom `publish-cli` step (stage after
   `deploy-beta`, same `when`; `dotnet/sdk:10.0-noble` + apt clang/zlib1g-dev) publishes linux-x64
   AOT + win-x64 single-file stamped with the run version and returns them as **output files**
@@ -315,7 +345,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   CPU) with one ESTABLISHED, empty connection to 150.171.70.10:443 (Microsoft — the MCR base-image
   pull stalled and nothing times it out). Hypothesis (n=5): both hung builds started within ~2 min of
   v1's production build of the same commit (same base image, node, egress); the green ones started 6+
-  min clear — if so, stopping v1's (now useless) production builds would remove it. v1 itself
+  min clear — if so, stopping v1's (now useless) production builds would remove it. (Disproved 2026-10-22: the trigger is gVisor; see the kaniko stall root cause note.) v1 itself
   has had one 4120 s production job out of 41, so MCR stalls are not v2-only. Impact: one attempt per
   (pipeline, step) may be InProgress (`JobRunner`), so a hung build also holds the next push's build
   until `timeoutSeconds: 3600` expires. Recovery: `pl run cancel <p>#n && pl run rerun <p>#n`.

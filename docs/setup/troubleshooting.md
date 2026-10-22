@@ -56,7 +56,8 @@ reconcile; `pl binding status --json` lists them.
   and the next push's attempt of that step waits behind it. Give long-running commands an
   `idleTimeoutSeconds` (`ctx.exec`/`ctx.sh`) and the step `retries`. Kaniko can hang at "Unpacking
   rootfs" (a stalled base-image pull); `steps.imageBuild`'s stall watchdog fails it after 300 s of
-  silence. To recover by hand: `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`, or
+  silence. The stall is kaniko under gVisor pulling from mcr.microsoft.com; pull base images from a
+  mirror (`registryMap`) to avoid it. To recover by hand: `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`, or
   `pl step rerun <pipeline>#<n>/<step> --continue` for just the failed step.
 
 ## A run is `Superseded`

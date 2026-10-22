@@ -94,7 +94,7 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `healthUrl?` |
 
 All take `name` and `timeoutSeconds?`.
@@ -107,7 +107,9 @@ All take `name` and `timeoutSeconds?`.
   outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
   `-attempt<n>` on reruns. A stall watchdog kills kaniko when it prints nothing for
   `stallTimeoutSeconds` (a base-image pull can hang at "Unpacking rootfs"), failing the attempt;
-  with `retries` a fresh attempt follows.
+  with `retries` a fresh attempt follows. `registryMap` (`{ "mcr.microsoft.com": "<registry>/mirror/mcr.microsoft.com" }`,
+  kaniko `--registry-map`) pulls base images from a mirror, falling back upstream when the mirror
+  lacks one: under gVisor, kaniko's pulls from mcr.microsoft.com stall often; a nearby mirror doesn't.
 - **`steps.helmDeployOverSsh`** streams the image tar into the host's k3s containerd, runs
   `helm upgrade --install` (your `values`, then `set`, then the image flags, which always win, with
   `pullPolicy=Never`), waits for `rollout status deploy/<release>`, and with `healthUrl` GETs it until

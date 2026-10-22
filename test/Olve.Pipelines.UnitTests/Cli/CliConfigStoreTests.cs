@@ -1,5 +1,6 @@
 using Olve.Pipelines.Cli;
 using Olve.Pipelines.Cli.Api;
+using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests.Cli;
@@ -22,6 +23,7 @@ public class CliConfigStoreTests
             Environment.SetEnvironmentVariable(CliConfigStore.PathEnvVar, null);
             Environment.SetEnvironmentVariable(CliConfigStore.ProfileEnvVar, null);
             File.Delete(path);
+            File.Delete(path + ".lock");
         }
     }
 
@@ -48,7 +50,7 @@ public class CliConfigStoreTests
 
         if (!OperatingSystem.IsWindows())
             await Assert.That(File.GetUnixFileMode(path)).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        await Assert.That(string.Join(",", Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + "*").Where(f => f != path))).IsEqualTo("");
+        await Assert.That(string.Join(",", Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + "*").Where(f => f != path && f != path + ".lock"))).IsEqualTo("");
     });
 
     [Test]
@@ -59,6 +61,22 @@ public class CliConfigStoreTests
 
         foreach (var n in names)
             await Assert.That(TestRunDomain.Pick(CliConfigStore.Load(n)).ApiUrl).IsEqualTo($"https://{n}");
+    });
+
+    [Test]
+    public async Task Refresh_AdoptsATokenAnotherProcessAlreadyRefreshed_InsteadOfReusingItsRotatedOne() => await WithConfigFile(null, async _ =>
+    {
+        AuthConfig Auth(string access, string refresh, DateTimeOffset expires) => new()
+        {
+            AccessToken = access, RefreshToken = refresh, TokenEndpoint = "http://127.0.0.1:1/token", ClientId = "pl", ExpiresAt = expires,
+        };
+        var stale = new CliConfig { Auth = Auth("old", "rt-0", DateTimeOffset.UtcNow.AddSeconds(-5)) };
+        await Assert.That(CliConfigStore.Save(new CliConfig { Auth = Auth("new", "rt-1", DateTimeOffset.UtcNow.AddMinutes(5)) })).Succeeded();
+
+        await TokenRefresh.RefreshIfExpiringAsync(stale, new StderrLog(false, TextWriter.Null), CancellationToken.None);
+
+        await Assert.That(stale.Auth!.AccessToken).IsEqualTo("new");
+        await Assert.That(stale.Auth.RefreshToken).IsEqualTo("rt-1");
     });
 
     [Test]

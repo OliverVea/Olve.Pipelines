@@ -13,6 +13,10 @@ public static class TokenRefresh
     /// <summary>Seconds of remaining lifetime under which the access token is considered "expiring".</summary>
     private const int SkewSeconds = 60;
 
+    // After a refused refresh, don't ask again on every request of a long-running command.
+    private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(1);
+    private static DateTimeOffset _lastFailure = DateTimeOffset.MinValue;
+
     public static async Task EnsureFreshAsync(CliArgs cli, CliConfig config, IConsoleLog log, CancellationToken ct)
     {
         if (OwnsToken(cli))
@@ -25,32 +29,63 @@ public static class TokenRefresh
 
     public static async Task RefreshIfExpiringAsync(CliConfig config, IConsoleLog log, CancellationToken ct)
     {
-        if (config.Auth is not { } auth)
+        if (!Refreshable(config.Auth) || !Expiring(config.Auth!) || DateTimeOffset.UtcNow - _lastFailure < RetryAfterFailure)
             return;
-        if (auth.RefreshToken is not { Length: > 0 } refreshToken)
-            return;
-        if (auth.TokenEndpoint is not { Length: > 0 } tokenEndpoint || auth.ClientId is not { Length: > 0 } clientId)
-            return;
-        if (auth.ExpiresAt is { } expiresAt && expiresAt > DateTimeOffset.UtcNow.AddSeconds(SkewSeconds))
-            return; // still comfortably valid
 
-        log.Log("access token expired or expiring — refreshing via refresh_token");
-        using var http = new HttpClient();
-        var result = await OidcClient.RefreshAsync(http, tokenEndpoint, clientId, refreshToken, ct);
-        if (result.TryPickProblems(out var problems, out var token))
+        IDisposable fileLock;
+        try
         {
-            log.Log($"token refresh failed (continuing with stale token): {string.Join("; ", problems.Select(p => p.ToString()))}");
+            fileLock = CliConfigStore.Lock();
+        }
+        catch (IOException ex)
+        {
+            log.Log($"token refresh skipped: {ex.Message}");
             return;
         }
 
-        auth.AccessToken = token.AccessToken;
-        if (token.RefreshToken is { Length: > 0 } rotated)
-            auth.RefreshToken = rotated; // refresh-token rotation: keep the newest
-        auth.ExpiresAt = token.ExpiresIn is { } seconds ? DateTimeOffset.UtcNow.AddSeconds(seconds) : null;
+        using (fileLock)
+        {
+            // Another pl process may have refreshed meanwhile: its refresh token replaced ours (rotation),
+            // and reusing the old one would fail, or revoke the session.
+            if (!CliConfigStore.Load(config.Profile).TryPickProblems(out _, out var onDisk) && onDisk.Auth is { } current)
+            {
+                config.Auth = current;
+                if (!Expiring(current))
+                {
+                    log.Log("access token already refreshed by another pl process");
+                    return;
+                }
+            }
 
-        if (CliConfigStore.Save(config).TryPickProblems(out var saveProblems))
-            log.Log($"refreshed token but could not persist it: {string.Join("; ", saveProblems.Select(p => p.ToString()))}");
-        else
-            log.Log("access token refreshed");
+            var auth = config.Auth!;
+            if (!Refreshable(auth))
+                return;
+
+            log.Log("access token expired or expiring — refreshing via refresh_token");
+            using var http = new HttpClient();
+            var result = await OidcClient.RefreshAsync(http, auth.TokenEndpoint!, auth.ClientId!, auth.RefreshToken!, ct);
+            if (result.TryPickProblems(out var problems, out var token))
+            {
+                _lastFailure = DateTimeOffset.UtcNow;
+                log.Log($"token refresh failed (continuing with stale token): {string.Join("; ", problems.Select(p => p.ToString()))}");
+                return;
+            }
+
+            auth.AccessToken = token.AccessToken;
+            if (token.RefreshToken is { Length: > 0 } rotated)
+                auth.RefreshToken = rotated;
+            auth.ExpiresAt = token.ExpiresIn is { } seconds ? DateTimeOffset.UtcNow.AddSeconds(seconds) : null;
+
+            if (CliConfigStore.SaveLocked(config).TryPickProblems(out var saveProblems))
+                log.Log($"refreshed token but could not persist it: {string.Join("; ", saveProblems.Select(p => p.ToString()))}");
+            else
+                log.Log("access token refreshed");
+        }
     }
+
+    private static bool Refreshable(AuthConfig? auth) =>
+        auth is { RefreshToken.Length: > 0, TokenEndpoint.Length: > 0, ClientId.Length: > 0 };
+
+    private static bool Expiring(AuthConfig auth) =>
+        auth.ExpiresAt is not { } expiresAt || expiresAt <= DateTimeOffset.UtcNow.AddSeconds(SkewSeconds);
 }

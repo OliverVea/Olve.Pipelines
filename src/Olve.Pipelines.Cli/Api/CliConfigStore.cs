@@ -70,12 +70,44 @@ public static class CliConfigStore
     /// <summary>Writes <paramref name="config"/> as its profile, keeping the other profiles.</summary>
     public static Result Save(CliConfig config)
     {
+        try
+        {
+            using var _ = Lock();
+            return SaveLocked(config);
+        }
+        catch (IOException ex)
+        {
+            return new ResultProblem("Could not write config '{0}': {1}", ResolvePath(), ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Holds the config file's lock across processes. Parallel <c>pl</c> calls each rotate the refresh
+    /// token, so a refresh re-reads, refreshes and saves under it (see <see cref="TokenRefresh"/>).
+    /// </summary>
+    public static IDisposable Lock()
+    {
+        var lockPath = ResolvePath() + ".lock";
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
+
+    /// <summary><see cref="Save"/> for a caller already holding <see cref="Lock"/>: replaces the file atomically, created owner-only.</summary>
+    public static Result SaveLocked(CliConfig config)
+    {
         var path = ResolvePath();
         try
         {
-            // Parallel `pl` calls may each rotate the refresh token: serialise the read-modify-write,
-            // and replace the file atomically, created owner-only.
-            using var _ = AcquireLock(path + ".lock");
             if (LoadProfiles().TryPickProblems(out var problems, out var profiles))
                 return problems;
             profiles[config.Profile] = config;
@@ -93,22 +125,6 @@ public static class CliConfigStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return new ResultProblem("Could not write config '{0}': {1}", path, ex.Message);
-        }
-    }
-
-    private static FileStream AcquireLock(string lockPath)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-        while (true)
-        {
-            try
-            {
-                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
-            }
-            catch (IOException) when (DateTime.UtcNow < deadline)
-            {
-                Thread.Sleep(50);
-            }
         }
     }
 }

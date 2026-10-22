@@ -71,6 +71,7 @@ export const deployBeta = step({
   output: M.BetaDeployment,             // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],
   timeoutSeconds: 900,                  // optional; default 3600, capped at 21600
+  retries: 1,                           // optional: retry a failed attempt (fresh pod) up to n times
 });
 ```
 
@@ -80,6 +81,10 @@ export const deployBeta = step({
   stage must give the step a mapper.
 - The image needs a shell only if the handler runs shell commands (`ctx.sh`); `ctx.exec` works on
   distroless images.
+- **`retries: n`** is an idempotency claim: a failed attempt is retried automatically, as a new
+  attempt in a fresh pod, until the step has failed 1 + n times in a row. Cancelled and obsolete
+  attempts and scheduler-side failures are never retried; a continue resets the count. Without it,
+  nothing is retried automatically.
 
 ## Library steps
 
@@ -89,7 +94,7 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `healthUrl?` |
 
 All take `name` and `timeoutSeconds?`.
@@ -100,7 +105,9 @@ All take `name` and `timeoutSeconds?`.
   `{"$file": "<path>"}` / `{"$dir": "<path>"}` become file references.
 - **`steps.imageBuild`** builds the `Dockerfile` at the source root with kaniko (`--no-push`) and
   outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
-  `-attempt<n>` on reruns.
+  `-attempt<n>` on reruns. A stall watchdog kills kaniko when it prints nothing for
+  `stallTimeoutSeconds` (a base-image pull can hang at "Unpacking rootfs"), failing the attempt;
+  with `retries` a fresh attempt follows.
 - **`steps.helmDeployOverSsh`** streams the image tar into the host's k3s containerd, runs
   `helm upgrade --install` (your `values`, then `set`, then the image flags, which always win, with
   `pullPolicy=Never`), waits for `rollout status deploy/<release>`, and with `healthUrl` GETs it until
@@ -129,7 +136,7 @@ A handler returns a valid output (validated strictly against the output model) o
 | `ctx.` | |
 |---|---|
 | `sh(cmd \| script, { env, cwd, args })`, `sh.text(…)` | Run a command or an embedded script through the image's shell. Non-zero exit throws. |
-| `exec([argv…])` | Run a binary with no shell. |
+| `exec([argv…], { env, cwd, idleTimeoutSeconds })` | Run a binary with no shell. `idleTimeoutSeconds` (also on `sh`) kills a command that prints nothing for that long. |
 | `files.fetch(ref)` | Download a file reference (sha256-verified); returns a local path. |
 | `output.file(path, { name })`, `output.dir(…)`, `output.write(name, content)` | Add a file to the step's output; returns the `FileRef` to put in the output. |
 | `http.getJson`, `http.expectOk`, `http.fetch` | HTTP, bound to cancellation. |
@@ -271,5 +278,6 @@ versions (`deploy-beta.3`, `BuildArtifact.2`), bumped only when *that* entity ch
 - a lockfile, Bun or SDK change bumps every handler;
 - stage placement and `when` wrapping are pipeline changes, not step changes.
 
-Only commits under the binding path are built, so a change elsewhere (e.g. to an in-repo `sdk/`)
-reaches the binary only with the next commit that touches the binding path.
+Only commits that touch the binding path or one of its local package dependencies (`file:` /
+`link:` entries in its `package.json`, e.g. `file:../sdk`) are built; other commits run on the
+active version.

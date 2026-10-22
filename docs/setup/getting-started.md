@@ -208,13 +208,15 @@ pl step logs my-app#1/test --follow
 ## What happens on every push
 
 1. The deploy poll (or a webhook) sees the branch head move.
-2. If the push touched the binding path, the service reconciles that commit first: build Job →
+2. If the push touched the binding path (or a local `file:` dependency such as `../sdk`), the
+   service reconciles that commit first: build Job →
    checks → a new version if the manifest changed → `switch` to it. A run never starts on a
    definition older than its commit.
 3. The pipeline's `onPush` mapper turns the push into a run input (in a short `map-trigger` Job),
    and a run starts on the active version. A newer automatic run **supersedes** an older running one.
 
-Only commits that touch the binding path create versions. A pipeline without `onPush` ignores pushes.
+Only commits that touch the binding path (or a local `file:` dependency of its `package.json`)
+create versions. A pipeline without `onPush` ignores pushes.
 
 ## Next
 

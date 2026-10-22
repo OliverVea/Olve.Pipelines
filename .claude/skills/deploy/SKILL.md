@@ -70,8 +70,9 @@ that is normal.
 ## 4. On failure
 
 - `pl run get "$R"` shows the failed step's reason (includes the harness exit code); `pl step logs "$R/<step>"`.
-- **kaniko hangs at "Unpacking rootfs"** (a stalled base-image pull; seen on some runs): the build
-  idles until its 3600 s timeout and blocks the next build. Recover:
+- **kaniko hangs at "Unpacking rootfs"** (a stalled base-image pull): `steps.imageBuild`'s stall
+  watchdog fails the attempt after 300 s of silence, and the build's `timeoutSeconds: 900` bounds it
+  anyway. Rerun it: `pl step rerun "$R/build" --continue`, or the whole run:
   ```bash
   pl run cancel "$R" && pl run rerun "$R"
   ```

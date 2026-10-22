@@ -54,8 +54,9 @@ separate: they are declared in `pipeline.ts` and poll their own URL.
 
 Per binding, the deploy poll (or a webhook, or `pl binding reconcile`) does, in this order:
 
-1. **Config.** Ask GitHub for the newest commit touching the binding path (a conditional request,
-   free when unchanged). If that commit hasn't been applied, **reconcile** it:
+1. **Config.** Ask GitHub for the newest commit touching the binding path or one of its local
+   package dependencies (`file:` / `link:` entries in its `package.json`, e.g. `file:../sdk`) — one
+   conditional request per path, free when unchanged. If that commit hasn't been applied, **reconcile** it:
    1. Start a **build Job** `olve-build-<pipeline12>-<sha12>` on `oven/bun:<pinned>-slim` (under the
       runner hardening: gVisor, PSS baseline, NetworkPolicy). It fetches the repo tarball at the
       commit (anonymously, or with the binding's token key, default `GITHUB_TOKEN`), runs
@@ -72,7 +73,8 @@ Both steps run under one per-binding lock, so a run for a commit always starts a
 reconcile and switch (**config-before-run**). While the newest config commit is unapplied, runs are
 held.
 
-- A commit that doesn't touch the binding path makes no version — the run starts on the active one.
+- A commit that touches neither the binding path nor its local dependencies makes no version — the
+  run starts on the active one.
 - A reconcile that fails is **not retried** by the background poll. Push a fix, or
   `pl binding reconcile <pipelineId>` to retry.
 - A failed reconcile changes nothing: no version, no switch; the active version keeps running.

@@ -39,9 +39,9 @@ reconcile; `pl binding status --json` lists them.
 
 ## My change didn't take effect
 
-- **Only commits under the binding path build a new binary.** A change outside it — for example to
-  an in-repo `sdk/` — reaches the binary with the next commit that touches the binding path.
-  `pl binding reconcile` doesn't help: it rebuilds the same config commit.
+- **Only commits that touch the binding path or its local package dependencies** (`file:` / `link:`
+  entries in its `package.json`) build a new binary. A change anywhere else — app code, the chart —
+  is picked up by the *run* (it builds from the pushed commit), not by the pipeline definition.
 - **The run pinned an older version.** A run always uses the version it started on.
   `pl run get` shows it; `pl pipeline versions` shows which one is active.
 - **Someone switched back.** A manual `pl pipeline switch` holds until the next config commit.
@@ -53,9 +53,11 @@ reconcile; `pl binding status --json` lists them.
 - **Waiting for another run.** Only one attempt per step name is in progress at a time; a newer
   run's attempt waits for the older one (including a superseded run's deploy finishing).
 - **A step hangs.** A hung step keeps its slot until its `timeoutSeconds` (plus grace) expires,
-  and the next push's attempt of that step waits behind it. Kaniko builds have been seen to hang at
-  "Unpacking rootfs" (a stalled base-image pull). Recover with
-  `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`.
+  and the next push's attempt of that step waits behind it. Give long-running commands an
+  `idleTimeoutSeconds` (`ctx.exec`/`ctx.sh`) and the step `retries`. Kaniko can hang at "Unpacking
+  rootfs" (a stalled base-image pull); `steps.imageBuild`'s stall watchdog fails it after 300 s of
+  silence. To recover by hand: `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`, or
+  `pl step rerun <pipeline>#<n>/<step> --continue` for just the failed step.
 
 ## A run is `Superseded`
 

@@ -25,7 +25,8 @@ attempts (`@1`, `@2`, …). Attempt statuses: `Scheduled`, `InProgress`, `Succee
 successful attempt**.
 
 A failed step halts the run at its stage barrier: the run is `Failed` and the next stage doesn't
-start. There are no automatic retries.
+start — unless the step opted in to `retries: n`, in which case a failed attempt is retried
+automatically (a new attempt in a fresh pod) until it has failed 1 + n times in a row.
 
 ## Scheduling rules
 

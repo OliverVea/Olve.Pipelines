@@ -2,92 +2,120 @@
 
 [← Index](index.md) · [Subject Index](subjects.md)
 
-Symptoms → likely cause → fix. Most setup problems surface in
-`pl binding status <pipelineId>` as reconcile `Error` with a list of problems — start there.
+Symptoms → causes → fixes. Start with `pl binding status <pipelineId>` (reconcile) or
+`pl run get <pipeline>#<run>` (a run).
 
 ## The reconcile shows `Error`
 
-Live state is **unchanged** (the [config-before-build](binding-and-reconcile.md#config-before-build)
-guarantee). Read the listed problems and match the message:
+Nothing changed: no version was added and the active version keeps running. The first problem
+usually says which phase failed. Reproduce locally with `pl dev describe` and `pl dev validate`.
 
-| Problem message contains | Cause | Fix |
+| Problem mentions | Cause | Fix |
 |---|---|---|
-| `Config file 'config.yaml' not found` | No `config.yaml` under the bound `path` | Add `.pipelines/config.yaml`, or fix the binding `path` |
-| `must be a YAML mapping` | Top-level YAML isn't a key/value map | The file must start with `apiVersion:` etc., not a list/scalar |
-| `Failed to parse 'config.yaml'` | Invalid YAML | Fix the YAML syntax in the named file |
-| `Config 'name' is required` | Missing/empty `name` | Set `name:` |
-| `ApiVersion '…' is incompatible` | Major doesn't match the server | Use `apiVersion: "0.0"` (current major is 0) |
-| `ApiVersion '…' is not in 'major.minor' form` | Bad version string | Use `"0.0"`, not `"0"` or `"v0"` |
-| `Duplicate production step name` / `Duplicate processing step name` | Two steps share a name | Make step names unique within each list |
-| `references unknown processing step` | A `processing` trigger names a step that doesn't exist | Fix `processingStepName` to match a `processingSteps[].name` |
-| `is referenced but not declared in 'secrets:'` | `$SECRET:NAME` used but not declared | Add the secret to `secrets:` |
-| `Step '$ref: …' must not set any other fields` | A `$ref` step has extra keys | A `$ref` step must contain *only* `$ref` |
-| `Referenced step file '…' not found` | `$ref` points at a missing file | Add the file under the config dir, or fix the path |
-| `Script file '…' not found` | `scriptFile` points at a missing file | Add the script, or fix the path |
-| `sets both 'script' and 'scriptFile'` | Both inline and file script set | Use exactly one |
+| `cannot fetch <repo>@<sha>` | The build Job couldn't download the tarball. Private repos need a token; a token key that isn't set means no token. | `pl secret set <pipelineId> GITHUB_TOKEN`, then `pl binding set-credentials <pipelineId> GITHUB_TOKEN` |
+| `bun install` / lockfile errors | `bun.lock` missing or out of date, or `@olve/pipelines` can't be resolved | Run `bun install` in the pipeline directory and commit `bun.lock`. The SDK resolves only from an in-repo `sdk/` today (see [Getting Started](getting-started.md#before-you-start-the-sdk-is-not-published-yet)). |
+| exit `78`, describe problems | The pipeline is invalid: missing handler file, duplicate step name, bad mapper, two schemas for one model name, … | `pl dev describe` prints the same problems |
+| a manifest check (ambiguous producer, unavailable ref, unknown `when` field, undeclared secret, unknown mapper key, …) | A [reconcile check](pipeline-reference.md#checks-that-reject-a-pipeline) failed | `pl dev validate` runs the same checks |
+| `PT_INTERP` | The binary was built for musl | Never build on an alpine Bun image (the service uses `oven/bun:*-slim`) |
 
-After fixing, push again — the next poll cycle re-reconciles.
+A failed reconcile is **not retried** by the background poll. After fixing, push, or run
+`pl binding reconcile <pipelineId>`. Warnings (e.g. an output nothing consumes) don't fail a
+reconcile; `pl binding status --json` lists them.
 
-## A secret shows `unset`
+## I pushed but no run started
 
-The secret is declared in `config.yaml` but its value isn't set in k8s. Set it (the value is
-read from stdin, so it stays out of your shell history):
+- **Wait for the poll.** It runs every 15 minutes (webhook modes react within seconds, but v2 beta
+  has no public webhook). Force it: `pl binding reconcile <pipelineId>`.
+- **No `onPush`.** A pipeline without `.onPush(…)` ignores pushes.
+- **The first observation only records the head.** Right after binding, start the first run with
+  `pl trigger`.
+- **De-duplicated.** The same mapped input already has a running run, or the most recent automatic
+  run had the same input less than 1 hour ago. Use `pl trigger` or `pl run rerun` — explicit actions
+  are never de-duplicated.
+- **The config commit failed to reconcile.** While the newest commit under the binding path is
+  unapplied, runs are held. Check `pl binding status`.
+- **Queued behind a switch.** While the pipeline drains, new runs wait and start on the new version.
+  `pl pipeline health <pipeline>` shows the activation.
 
-```sh
-echo -n "<value>" | pl secret set <pipelineId> <name>
-```
+## My change didn't take effect
 
-This is operational, so it works on a bound pipeline.
+- **Only commits under the binding path build a new binary.** A change outside it — for example to
+  an in-repo `sdk/` — reaches the binary with the next commit that touches the binding path.
+  `pl binding reconcile` doesn't help: it rebuilds the same config commit.
+- **The run pinned an older version.** A run always uses the version it started on.
+  `pl run get` shows it; `pl pipeline versions` shows which one is active.
+- **Someone switched back.** A manual `pl pipeline switch` holds until the next config commit.
 
-## A secret shows `unknown`
+## A run is stuck
 
-`unknown` ≠ `unset`. It means the server **couldn't read** the k8s secret (k8s unconfigured or
-unreachable at read time) — the set/unset state is genuinely unknown. Check k8s connectivity;
-`pl binding status` deliberately won't fail or report a misleading "unset" in this case.
+- **Held at a gate.** `pl run get` shows `held` on the step. `pl gate list <pipeline>`, then
+  `pl gate unblock <pipeline>/<step>` — see [Promotion Gates](promotion-gate.md).
+- **Waiting for another run.** Only one attempt per step name is in progress at a time; a newer
+  run's attempt waits for the older one (including a superseded run's deploy finishing).
+- **A step hangs.** A hung step keeps its slot until its `timeoutSeconds` (plus grace) expires,
+  and the next push's attempt of that step waits behind it. Kaniko builds have been seen to hang at
+  "Unpacking rootfs" (a stalled base-image pull). Recover with
+  `pl run cancel <pipeline>#<n>` then `pl run rerun <pipeline>#<n>`.
 
-## I want to change steps or triggers without pushing
+## A run is `Superseded`
 
-You can't, by design — there is no `pl` command (and no API) that mutates pipeline shape.
-Creating/deleting/reordering steps, setting step configuration, and creating/deleting triggers
-all come **only** from `config.yaml` via reconcile — your repo is the only config writer. Change
-the file and push instead. Operational commands (`pl production trigger`, `pl job cancel`,
-`pl secret set`, the promotion gate) work on a bound pipeline. See
-[git-only](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints).
+A newer automatic run (push or poll) superseded it. Its in-progress attempts finished, but it never
+advanced. Follow `supersededBy` in `pl run get`. Manual runs never supersede anything.
 
-## I pushed but nothing happened
+## A step failed
 
-- The poll runs about every **5 minutes** — give it a cycle.
-- A **code-only** push (nothing under `.pipelines/` changed) still builds but skips the
-  reconcile; if you expected a *shape* change, confirm you actually edited `.pipelines/`.
-- Check the reconcile result / last-sync time via `pl binding status <pipelineId>` to see
-  whether a reconcile ran. Force one now with `pl binding reconcile <pipelineId>`.
+`pl step logs <pipeline>#<run>/<step>` shows the log; the attempt's reason includes the harness exit
+code:
 
-## The build runs but the deploy never starts
+| Exit | Meaning | Look at |
+|---|---|---|
+| 1 | The handler threw | the log |
+| 65 | `input.json` invalid for the step | the mapping / the upstream output |
+| 66 | The output failed strict validation (unknown or missing keys), or an own file ref changed | the handler's return value |
+| 74 | Uploading the result failed after retries | storage reachability from the runner namespace |
+| 78 | The pipeline is invalid / handler module missing | rebuild; should have failed at reconcile |
+| 130 / 143 | Cancelled, or the step hit its deadline | `timeoutSeconds` |
 
-- A processing step's **promotion gate** may be braked. Check/unblock it — see
-  [Promotion Gate](promotion-gate.md). A braked gate halts the chain *without* skipping ahead.
-- An earlier processing step may have **failed**: processing is sequential, so a failure stops
-  the chain. Inspect the failing job: `pl job list --pipeline <pipelineId>` to find it, then
-  `pl job logs <jobId>` for the error.
+"No shell" errors mean the handler used `ctx.sh` on a shell-less image — use `ctx.exec`. Reproduce
+in the real image with `pl dev run <step> --docker`.
 
-## A new job seems to have replaced my queued one
+## Continue or rerun is refused
 
-That's **latest-wins** scheduling. A new job for the same `(pipeline, step)` key marks older
-`Scheduled` jobs `Obsolete`; only the newest runs. This is by design — see
-[scheduling rules](bundles-and-execution.md#jobs-and-scheduling).
+- `cannot change … consumed`: `pl run continue` can only change input fields no completed step
+  consumed (e.g. not `sha`).
+- The run's version is no longer active (the pipeline switched): continue and step rerun need the
+  active version. Re-trigger instead.
+- `pl step rerun` needs the run to be finished, or the step's latest attempt to have failed or been
+  cancelled. A blocked step can't be rerun until it is unblocked.
 
-## Private repo: the fetch fails / branch head 4xx
+## Trigger input is rejected
 
-The repo read token is resolved at fetch time from the pipeline's k8s secret using the
-`credentialsSecret` **key name** you bound. Confirm:
+Every problem is listed and nothing starts. `--field` values are typed by the input model of the
+active version; required fields without defaults must be given (e.g. a 40-character `sha` — use
+`--field sha=$(git rev-parse HEAD)`).
 
-- `credentialsSecret` names a key that actually exists in the secret (e.g. `GITHUB_TOKEN`).
-- That key's **value** is set (`pl secret set <pipelineId> <name>`) and is a valid read token
-  for the repo. Confirm with `pl secret list <pipelineId>` or `pl binding status <pipelineId>`.
+## A secret shows `unset` or `unknown`
 
-A public repo needs no token — omit `credentialsSecret`.
+- `unset`: declared but not set — `pl secret set <pipelineId> <NAME>` (reads stdin; don't use
+  `$(…)`, it strips trailing newlines from keys).
+- `unknown`: Kubernetes couldn't be read at that moment. It doesn't mean missing.
+
+A step only receives the secrets it declares. A secret used by a step but missing from its
+`secrets: [...]` is a compile and reconcile error.
+
+## A failure handler didn't run
+
+Failure handlers are best-effort and untracked: they don't appear in the API or UI. Their input and
+log are in storage under `runs/<pipelineId>/<run>/_failure/`. A handler only runs for failures of
+steps in its scope (`onFailure(handler, { steps })`), and is skipped (with a log line in the
+service) when its `FailureContext` model is from an older SDK than the service's.
+
+## Downloading a file returns 401
+
+Reads are anonymous, except listing and downloading step files, which need a session (`pl login`).
 
 ## See also
 
-- [Binding & Reconcile](binding-and-reconcile.md) — the loop and the status fields
-- [`config.yaml` Reference](config-reference.md#validation-rules-reconcile-rejects-on-any-of-these) — the full validation table
+- [Binding, Reconcile & Versions](binding-and-reconcile.md)
+- [Runs & Operations](runs-and-operations.md)
+- [Local Development](local-development.md)

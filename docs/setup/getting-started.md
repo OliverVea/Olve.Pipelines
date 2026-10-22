@@ -2,150 +2,224 @@
 
 [← Index](index.md) · [Subject Index](subjects.md)
 
-This is the end-to-end path: from a repo with no CD to a pipeline that builds and deploys on
-every push. It is entirely **GitOps** — you author one file in your repo and run one `pl binding
-create`; you never author steps or triggers by hand.
+The end-to-end path from a repo with no CD to a pipeline that runs on every push. It is GitOps
+only: you commit a `.pipelines/` directory and run one `pl binding create`.
 
-Everything here is driven by the **`pl` CLI** — the Olve.Pipelines operator tool. Use it for all
-create/bind, secret, status, and trigger operations; you never call the HTTP API directly.
+## Before you start: the SDK is not published yet
+
+A pipeline imports `@olve/pipelines`. The SDK is not on a package registry yet (SDK publishing is
+deferred in the v2 design). The service's build Job does this, in order:
+
+1. fetch the repo tarball at the commit;
+2. if the repo has `sdk/package.json` **at its root**, run `bun install --frozen-lockfile --production` in `sdk/`;
+3. in the binding path, run `bun install --frozen-lockfile`, then `bunx olve-build`.
+
+So today the only layout that builds is the one Olve.Pipelines itself uses: an `sdk/` directory at
+the repo root, and `"@olve/pipelines": "file:../sdk"` in `.pipelines/package.json`. Any other repo's
+`bun install` fails in the build Job until the SDK is published. Everything below applies once
+that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` and
+`.pipelines-test/` are set up.
 
 ## Prerequisites
 
-- A Git repository on GitHub the server can read (public, or private with a read token).
-- The container images your steps need (e.g. a Kaniko build image, an `alpine` deploy image).
-- The **`pl` CLI**, logged in. Download it from the instance (`GET /download/{asset}`) and
-  authenticate once:
+- A GitHub repository the server can read: public, or private with a token.
+- [Bun](https://bun.sh) on your machine, for `pl dev` and to create `bun.lock`.
+- The v2 **`pl` CLI**. `install.sh` and `/download/pl-linux-x64` serve v1's `pl` from v1 prod; the v2
+  self-deploy has no publish step yet. Build it from the `v2` branch:
   ```sh
-  pl login                                           # prod (pipelines-private.ovea.pro)
-  pl login --api-url https://pipelines-beta.ovea.pro # a specific environment
+  dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin/pl-v2
   ```
-  `pl login` runs a browser OIDC flow (auth-code + PKCE) and caches the token in `~/.pl`. Add
-  `--device` to log in by QR code without a local browser.
+  (Native AOT, so it needs the usual AOT toolchain: `clang`, `zlib`.)
+- A session against the v2 instance. `pl`'s default URL is v1 prod, so name the instance:
+  ```sh
+  pl login --api-url https://pipelines-v2-beta.ovea.pro      # add --device over SSH
+  ```
+  `pl login` caches the token and the URL in `~/.pl`. `PIPELINES_API_URL` and `--api-url` override
+  it per command.
 
-## Step 1 — Add `.pipelines/config.yaml` to your repo
+## Step 1 — Add `.pipelines/` to your repo
 
-Create `.pipelines/config.yaml` at the root of your repository. This file is the **single
-source of truth** for the pipeline's shape.
-
-```yaml
-apiVersion: "0.0"            # major must match the server (currently 0.x)
-name: my-app
-
-secrets:                     # declared by NAME ONLY — values never live in the repo
-  - name: GITHUB_TOKEN
-    description: Read token to fetch the repo tarball during build.
-
-productionSteps:             # run in parallel → bundle/<step-name>/
-  - name: build
-    configuration:
-      image: gcr.io/kaniko-project/executor:debug
-      scriptFile: scripts/build.sh    # keep the script out-of-line under .pipelines/scripts/
-
-processingSteps:             # run sequentially (order = list position)
-  - name: deploy
-    configuration:
-      image: alpine:latest
-      script: |
-        echo "deploying $VERSION"
+```
+.pipelines/
+  package.json          dependencies: @olve/pipelines; devDependencies: typescript, @types/bun
+  bun.lock              committed: the build Job runs `bun install --frozen-lockfile`
+  tsconfig.json
+  models.ts             data models          (contract file)
+  pipeline.ts           steps + pipeline     (contract file)
+  handlers/<step>.ts    one per custom step  (not needed for library steps)
+  scripts/*.sh          embedded into the compiled binary
 ```
 
-You can inline the script with `script: |` or extract it to `.pipelines/scripts/build.sh` and
-reference it with `scriptFile:` (the two are mutually exclusive). See the
-[`config.yaml` Reference](config-reference.md) for every field and the extraction rules.
+`package.json` (as in this repo's `.pipelines/`):
 
-> **Don't declare a deploy trigger.** Binding configures the deploy poll for you — pushing a
-> commit deploys automatically. The `triggers:` block is optional and additive; you only need
-> it for extra triggers (e.g. polling an upstream version). See
-> [Triggers](config-reference.md#triggers).
-
-## Step 2 — Create a pipeline bound to your repo
-
-One command creates the pipeline and binds it. If the bind fails, the draft pipeline is rolled
-back, so you never get an orphan.
-
-```sh
-pl binding create you/my-app --credentials-secret GITHUB_TOKEN
+```json
+{
+  "name": "my-app-pipeline",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
+  "dependencies": { "@olve/pipelines": "file:../sdk" },
+  "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
+}
 ```
 
-- `--branch <name>` — branch to track (default `main`)
-- `--path <dir>` — config directory in the repo (default `.pipelines`)
-- `--credentials-secret <key>` — key in the pipeline's k8s secret holding the repo read token
-  (omit for a public repo)
-- `--trigger <mode>` — deploy trigger: `webhook` (default), `webhook-only`, or `poll`
+Copy `tsconfig.json` from [`.pipelines/tsconfig.json`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/.pipelines/tsconfig.json).
+It needs `"types": ["bun", "@olve/pipelines/assets"]` so that `import x from "./scripts/x.sh" with { type: "file" }`
+type-checks, and it excludes `.olve` (the local work directory).
 
-The command prints the binding, including the pipeline **id** — you need it for the next steps.
-(Or look it up any time with `pl pipeline list`.)
+`models.ts`:
 
-> `pl binding create` is the only way to create a pipeline: every pipeline is bound to a repo
-> from birth, so its shape — including its **name** — always comes from git. The bind seeds a
-> provisional name from the repo; the first reconcile sets it from `config.yaml`'s `name`.
-> See [Binding & Reconcile](binding-and-reconcile.md).
+```ts
+import { model, z } from "@olve/pipelines";
 
-## Step 3 — Set the secret values
+export const Request = model("Request", z.object({
+  repo: z.string().default("you/my-app"),
+  sha: z.string().regex(/^[0-9a-f]{40}$/),
+}));
+```
 
-Your config declares secrets **by name only**. Their *values* live in the pipeline's own
-Kubernetes secret (`olve-pipeline-{id}`) and are mounted into every job — they never pass
-through the repo or the app at runtime. Set each declared secret's value with `pl secret set`,
-which reads the value from **stdin** by default so it stays out of your shell history and the
-process list:
+`pipeline.ts`:
+
+```ts
+import { pipeline, steps, Source } from "@olve/pipelines";
+import testSh from "./scripts/test.sh" with { type: "file" };
+import * as M from "./models";
+
+export const source = steps.gitHubSource({ name: "source" });
+export const test = steps.script({ name: "test", image: "alpine:3.22", script: testSh, input: { source: Source } });
+
+export default pipeline({ name: "my-app", input: M.Request })
+  .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(test);
+```
+
+`scripts/test.sh` gets its inputs as `INPUT_<KEY>` env vars and `$OLVE_INPUT` (see
+[`steps.script`](pipeline-reference.md#library-steps)). Then:
 
 ```sh
-# from stdin (piped)
-echo -n "ghp_xxxxxxxxxxxxxxxxxxxx" | pl secret set <pipelineId> GITHUB_TOKEN
-# from an env var
+cd .pipelines && bun install      # creates bun.lock — commit it
+```
+
+Add `.pipelines/.olve/` and `.pipelines/node_modules/` to `.gitignore`.
+
+For a real build-and-deploy pipeline (kaniko image build, unit tests in parallel, Helm deploy over
+SSH, health check), copy from [`.pipelines/pipeline.ts`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/.pipelines/pipeline.ts).
+Every option is in the [Pipeline Reference](pipeline-reference.md).
+
+## Step 2 — Check it locally
+
+```sh
+pl dev describe            # manifest summary + describe-time checks; exit 78 on problems
+pl dev validate            # also runs the service's reconcile checks (needs a session)
+pl dev run source --input sha=$(git rev-parse HEAD)
+pl dev run test            # chains: takes source's output from the local pool
+```
+
+`pl dev describe` for the example above prints:
+
+```text
+input:    Request { repo="you/my-app", sha* }
+secrets:  none
+triggers: push
+
+stages:
+  1.  source               alpine:3.22 -> Source
+  2.  test                 alpine:3.22
+```
+
+See [Local Development](local-development.md) for the whole local loop.
+
+## Step 3 — Create a pipeline bound to your repo
+
+```sh
+pl binding create you/my-app --trigger poll
+```
+
+- `--branch <name>` — branch to track (default `main`).
+- `--path <dir>` — pipeline directory in the repo (default `.pipelines`). Several pipelines in one
+  repo are several bindings with different paths (this repo binds `.pipelines` and `.pipelines-test`).
+- `--trigger <mode>` — `webhook` (default), `webhook-only` or `poll`. **Use `poll` on v2 beta**: it
+  has no public webhook route (`Webhooks:PublicBaseUrl` is empty), so a webhook can't be registered.
+  See [deploy-trigger mode](binding-and-reconcile.md#deploy-trigger-mode).
+- `--credentials-secret <key>` — key in the pipeline's secret that holds a GitHub token. Leave it out
+  for a public repo. For a private repo, bind without it, set the secret (Step 4), then name it with
+  `pl binding set-credentials <pipelineId> GITHUB_TOKEN`. Until the key holds a value, fetches run
+  without a token, which fails for a private repo.
+
+The command prints the binding, including the **pipeline id**. `pl secret` and `pl binding` take that
+id. The run commands (`pl trigger`, `pl run`, `pl step`, `pl gate`, `pl pipeline …`) also accept the
+pipeline's **name**, which comes from `pipeline({ name })` after the first reconcile. Quote names
+that contain spaces.
+
+## Step 4 — Set the secret values
+
+A pipeline declares secrets by name (`secret("SSH_PRIVATE_KEY", "…")`). Their values live in the
+pipeline's own Kubernetes Secret (`olve-pipeline-<id>`, in the runner namespace), never in the repo.
+A step gets only the secrets it declares, as env vars of the same name.
+
+`pl secret set` reads the value from stdin, so it stays out of shell history and the process list,
+and sends it verbatim:
+
+```sh
 pl secret set <pipelineId> GITHUB_TOKEN --from-env GITHUB_TOKEN
-# from a file, verbatim (multi-line PEM keys round-trip intact)
 pl secret set <pipelineId> SSH_PRIVATE_KEY --from-file ./id_ed25519
+some-command-printing-the-value | pl secret set <pipelineId> API_KEY
 ```
 
-This is an **operational** command, so it works even though the pipeline is git-bound. Setting
-values is the one piece of config that *can't* live in the repo, by design. (List which secrets
-are set with `pl secret list <pipelineId>`.)
+Don't pass a value through `$(…)`: command substitution strips trailing newlines, which breaks SSH
+keys. `pl secret list <pipelineId>` lists the names that are set; `pl binding status <pipelineId>`
+shows which declared secrets are set.
 
-## Step 4 — Push, and watch the reconcile
+## Step 5 — Reconcile, then run
 
-Push a commit. Within ~5 minutes the server notices the branch moved, fetches your
-`.pipelines/` subtree, compiles + validates the config, reconciles the live pipeline to match,
-and runs the build. Check the result:
+The deploy poll checks the branch every 15 minutes. Don't wait — reconcile now:
 
 ```sh
+pl binding reconcile <pipelineId>     # returns at once; the build Job takes a minute or so
 pl binding status <pipelineId>
 ```
 
 ```text
 Pipeline:  <id>
 Repo:      you/my-app@main (.pipelines)
-Reconcile: Success (last sync 2026-06-16 12:00:00Z)
-Deployed:  abc123…
-Synced:    abc123…
+Reconcile: Success (last sync 2026-10-21 12:00:00Z)
+Deployed:  <sha>
+Synced:    <sha>
 Secrets:
-  NAME          SET  DESCRIPTION
-  GITHUB_TOKEN  set  Read token to fetch the repo tarball during build.
+  (none declared)
 ```
 
-- **Reconcile `Success`** with no problems → your config applied and the build ran.
-- **Reconcile `Error`** → live state is **unchanged**; read the listed problems and fix the
-  config. See [Troubleshooting](troubleshooting.md).
-- A secret shown as **`unset`** → set its value (Step 3). **`unknown`** means k8s couldn't be
-  read, not that the secret is missing.
+- **`Success`** — the pipeline compiled, passed every check and is now a version:
+  `pl pipeline versions my-app` lists it, `pl pipeline manifest my-app` summarizes it.
+- **`Error`** — read the problems. Nothing changed: no version was added and the active version
+  keeps running. Fix the pipeline and push (or `pl binding reconcile` again). See
+  [Troubleshooting](troubleshooting.md).
 
-Don't want to wait for the poll? Apply the bound config immediately with
-`pl binding reconcile <pipelineId>`.
+The first time the service sees the branch head it only records it; it doesn't start a run. Start
+the first run by hand:
 
-## What happens on every subsequent push
+```sh
+pl trigger my-app --field sha=$(git rev-parse HEAD)     # prints my-app#1
+pl run get my-app#1
+pl step logs my-app#1/test --follow
+```
 
-1. The deploy poll sees the branch head move.
-2. If `.pipelines/` changed, reconcile re-materializes steps/triggers to match the file.
-3. The build runs; the ArtifactBundle flows through your processing steps in order.
+## What happens on every push
 
-A push that **only** touches code (not `.pipelines/`) still triggers a build — but skips the
-reconcile (nothing to re-materialize). A **broken** config holds off the build for that cycle,
-so bad config never ships on stale code. See
-[config-before-build](binding-and-reconcile.md#config-before-build).
+1. The deploy poll (or a webhook) sees the branch head move.
+2. If the push touched the binding path, the service reconciles that commit first: build Job →
+   checks → a new version if the manifest changed → `switch` to it. A run never starts on a
+   definition older than its commit.
+3. The pipeline's `onPush` mapper turns the push into a run input (in a short `map-trigger` Job),
+   and a run starts on the active version. A newer automatic run **supersedes** an older running one.
+
+Only commits that touch the binding path create versions. A pipeline without `onPush` ignores pushes.
 
 ## Next
 
-- Tune the file → **[`config.yaml` Reference](config-reference.md)**
-- Understand the loop → **[Binding & Reconcile](binding-and-reconcile.md)**
-- Pause, release or retry a deploy → **[Promotion Gate](promotion-gate.md)**
+- Write the real pipeline → **[Pipeline Reference](pipeline-reference.md)**
+- Iterate on a step without pushing → **[Local Development](local-development.md)**
+- Operate runs: rerun, continue, cancel, files, logs → **[Runs & Operations](runs-and-operations.md)**
+- Hold deploys at a step → **[Promotion Gates](promotion-gate.md)**
 - Something failed → **[Troubleshooting](troubleshooting.md)**

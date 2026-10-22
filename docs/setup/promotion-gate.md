@@ -1,152 +1,67 @@
-# Promotion Gate
+# Promotion Gates
 
 [← Index](index.md) · [Subject Index](subjects.md)
 
-The promotion gate is how you **pause, release, or retry** the artifact bundle as it advances
-into a processing step. It is the one place where operational control overlaps with the
-pipeline shape — and it is **state, not config**.
+A **gate** is a brake on one step of a pipeline. While a step is blocked, a run that reaches it is
+**held** there: the service creates no attempt for the step, and the run waits. Unblocking lets the
+held runs resume. Gates are how you pause deploys without touching the pipeline definition.
 
-## What a promotion is
+```sh
+pl gate block my-app/deploy-prod       # runs reaching deploy-prod are held there
+pl gate list my-app                    # the pipeline's blocked steps
+pl gate unblock my-app/deploy-prod     # held runs resume
+```
 
-A **promotion** is a bundle advancing **into** a processing step. A step's promotions come from
-the step **before** it: the bundle that **last succeeded at the previous processing step** — or,
-for the first processing step, the **latest completed production run**. Each processing step
-has a gate with two controls:
+In the UI, each step in the pipeline view has a block/unblock toggle, and a held step shows as
+`held` in the run view (`pl run get` shows `held` / `blocked` per step).
 
-- **Brake** — block / unblock promotion into the step. While blocked, nothing advances into that
-  step (and therefore not into any later step, since processing is sequential).
-- **Promote** — run the step now with the bundle that last succeeded at the step before it.
-  After it succeeds, the chain continues to the next step as usual.
+## Rules
 
-Production steps have **no** gate — only processing steps do.
+- **Keyed on the step name**, not on a version. A blocked step stays blocked across version
+  switches and restarts (persisted in `pipeline-state.json`).
+- **Operational state, not config.** Gates are not in `pipeline.ts`; reconcile never touches them, and
+  they can be changed on a bound pipeline.
+- Blocking affects only **new** attempts. An attempt already running finishes.
+- The run is held at the stage containing the blocked step. Other steps of that stage still run;
+  the stage barrier keeps later stages waiting.
+- `blocked` is independent of results: a step can have succeeded last time *and* be blocked now.
+- Every run that reaches the step is held, however it started: push, poll, manual trigger,
+  continue or rerun-and-continue. An explicit `pl step rerun` of the blocked step itself is refused.
 
-### Which build Promote uses — and how to see it first
+## Held runs and newer runs
 
-Promote never uses the step's *own* last bundle; it uses what has passed the previous step. Before
-you click, every place that offers Promote names that build:
+- A newer automatic run supersedes a held one, as with any running run. So while a gate is closed,
+  pushes keep building up to the gate, and unblocking resumes only the newest run.
+- A held run doesn't block a version switch. When the switch completes, runs left on the old version
+  — held ones included — are cancelled; re-trigger on the new version.
 
-- **UI** — the Promote button (arrow badge in the pipeline flow, labelled button on the step page)
-  reads e.g. *"Promote build 2026-10-12 05:49:21 UTC (3f2a9c1e) from test-after-beta"*. When
-  there is nothing to promote it is disabled and says why.
-- **CLI** — `pl processing list <pipelineId>` has a `PROMOTE` column; `pl processing promotion
-  <stepId>` prints the source step, its last success, this step's last success, what Promote would
-  do, and (when blocked) what unblocking would start.
-- **API** — `GET /api/processing-steps/{stepId}/promotion` (one step) and
-  `GET /api/pipelines/{pipelineId}/processing/promotions` (all steps) return `promote` (and
-  `onUnblock` while blocked): `{ allowed, bundle, reason, message }`.
+## Promoting what you tested
 
-A build is identified by **when its production run was created** (queued) and the **bundle id**
-(the first 8 hex digits are shown). That is all the service records about a bundle: it does not record the
-commit a build came from, and the `VERSION` your build script stamps into `version.txt` is written
-inside the job, so it is not known to the service either (it is usually a few seconds after the
-build time shown).
+v1's "promote" action is replaced by continuing a run:
 
-The UI sends what it showed you along with the click — for Promote the bundle, for unblock the
-bundle it said would start (or "none"). If that changed in between (say a newer build passed the
-previous step), the server refuses (*"Refresh and try again"*) rather than start a build you
-didn't see; a refused unblock leaves the step **blocked**. The CLI does the same with
-`pl processing promote <stepId> --expect <bundleId>` and
-`pl processing unblock <stepId> --expect <bundleId>|none` (API: `expectedArtifactBundleId` query
-parameter on promote, `expectedPromotion` in the unblock body).
-
-## The rules
-
-| Situation | Promote | Unblocking a blocked step |
-|---|---|---|
-| Step is blocked | **refused** — the brake stays a brake | (it is being unblocked) |
-| Step has no configuration | refused | nothing started |
-| Nothing has ever succeeded at the previous step (no completed production run, for the first step) | refused | nothing started |
-| The previous step's last success refers to a bundle whose build record is gone or never completed | refused — it never falls back to an older success | nothing started |
-| A job for this step is already scheduled or running | refused (wait or cancel it) | nothing started |
-| That bundle is **older** than what this step last ran — its last success, or its latest attempt (a failed deploy may have half-applied; an attempt counts once it ended Done or Failed, or was cancelled after starting) | refused — never goes backwards | nothing started — no automatic downgrade |
-| This step already ran exactly that bundle successfully (and has no newer attempt since) | **runs it again** (retry / redeploy) | nothing started (nothing due) |
-| Otherwise (newer, or the step never succeeded) | runs it | **starts the promotion** |
-
-"Older" is judged by when each bundle's production run was created. Unblocking a step that was not
-blocked changes nothing and runs no check. Every response (API `promotion` field, CLI output, UI
-notice) says whether a promotion started and with which build, or why not. The `reason` codes are
-`blocked`, `notConfigured`, `nothingPassedSource`, `bundleGone`, `jobActive`, `alreadyRan`,
-`wouldDowngrade`, `unknownOrder`, plus `notBlocked` (unblock of a step that wasn't blocked) and
-`unknownStep` (the step is not in its pipeline's step list).
-
-> **Changed for existing callers:** `PUT /api/processing-steps/{stepId}/promotion` with
-> `{ "blocked": false }` on a **blocked** step now also starts the promotion that is due. Older
-> `pl` binaries and scripts that only read `blocked` will not print which build started — check
-> the step's jobs, or update `pl`. `GET …/promotion` now returns the full read model (it still
-> has `blocked`). `{ "blocked": true }` and unblocking a step that was not blocked behave as before.
-
-Retrying a flaky deploy is just Promote: with nothing newer through the previous step, it is the
-same bundle again.
-
-## State, not config — and why that matters
-
-The gate is **operational state**, deliberately kept *out* of GitOps config:
-
-- It is **API/UI-mutable even on a git-bound pipeline.** Blocking a deploy is an operation, not
-  a shape change, so the [git-only restriction](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints)
-  does not apply to it.
-- It is stored **separately from the step** (keyed on the step id; absence = enabled), so a
-  **reconcile never erases an operator's brake.** You can pause a deploy and keep pushing code;
-  the brake survives every reconcile until you lift it.
-- It is **persisted** independently, so a braked step stays braked across a server restart.
-
-What Promote would use is derived from the **persisted job history** (each step's last
-successful run, and each production run), so it is the same after a restart.
-
-## Orthogonal to the job result
-
-`blocked` is **orthogonal** to the step's job status. A step can be `Done` *and* have its
-promotion blocked — the brake controls whether the **next** bundle advances in, not whether the
-last run succeeded. Don't read a green step as "promotion is open," or a blocked gate as "the
-step failed." They're independent axes.
+- `pl run continue my-app#12 --field deployTo=prod` keeps the stages that already ran and
+  re-evaluates `when` for the rest — the same commit, the same build. Fields that a completed step
+  already consumed (e.g. `sha`) can't change.
+- `pl step rerun my-app#12/deploy-beta --continue` reruns one step and then continues downstream.
 
 ## Typical uses
 
-- **Freeze production deploys** during an incident: brake the prod processing step. Builds and
-  beta deploys keep running; nothing reaches prod until you unblock (and unblocking then promotes
-  the newest build that passed the step before prod — check which first).
-- **Retry a flaky deploy** without rebuilding: Promote the step.
-- **Stage a release**: brake prod, let beta validate, then **unblock** — the build that passed the
-  step before prod is promoted into it. The confirmation (UI) or `pl processing promotion <stepId>`
-  (CLI) shows which build that is before you unblock; if it changes before you confirm, the
-  unblock is refused and the step stays blocked.
-- **Rebuild the same commit**: the **Fresh build** button on the pipeline page (or
-  `pl production trigger <pipelineId>`) starts a new production run of the branch head, even if
-  the head has not moved. The new build flows through the steps as usual and stops at any brake.
+- **Pause deploys** while you work on the target environment: block the deploy step; builds and
+  tests keep running on every push and wait at the gate. Unblock to deploy the newest one.
+- **Manual approval for prod**: keep `deploy-prod` blocked; unblock when you want a held run to go
+  out, then block again.
+- **Stop a self-deploy**: Olve.Pipelines' own v2 deploy can be paused with
+  `pl gate block <pipeline>/deploy-beta` against the v2 instance.
 
-Promoting a specific older build (a rollback) is not supported.
+## API
 
-## CLI
-
-| `pl` command | Description |
-|---|---|
-| `pl processing list <pipelineId>` | Steps in order, with gate and what Promote would use |
-| `pl processing promotions <pipelineId>` | Gate, Promote and on-unblock for every step |
-| `pl processing promotion <stepId>` | One step in detail |
-| `pl processing block <stepId>` | Engage the brake |
-| `pl processing unblock <stepId> [--expect <bundleId>\|none]` | Release it; prints the promotion it started, or why none |
-| `pl processing promote <stepId> [--expect <bundleId>]` | Run the step with what passed the step before it |
-
-`pl processing re-promote` and `POST /api/processing-steps/{stepId}/re-promote` were **removed**:
-they re-ran a step with its *own* last bundle, which after a staged release redeployed the
-previous version. Both remain for one release only to fail with a pointer to `promote`; neither
-starts anything.
-
-## How it relates to execution
-
-Every path that would create a ProcessingJob consults the gate first — the automatic cascade
-after a build, the manual processing trigger, configured `processing` triggers, Promote and the
-unblock check. A blocked gate short-circuits them all, halting the chain at that step without
-skipping ahead. The automatic cascade still passes each run's own bundle to the next step; the one
-thing it now skips is scheduling a bundle that is already scheduled or running for that step
-(which only an unblock, promote, manual `trigger/processing` or configured processing trigger of
-that same bundle can cause). The gate check and job creation of every one of these paths runs
-under one per-pipeline lock, so they are ordered strictly one after another. See
-[Bundles & Execution](bundles-and-execution.md) for the job model and bundle retention.
+| Method | Path | |
+|---|---|---|
+| GET | `/api/pipelines/{pipelineId}/gates` | blocked step names |
+| POST | `/api/pipelines/{pipelineId}/steps/{step}/block` | block (returns the blocked set) |
+| POST | `/api/pipelines/{pipelineId}/steps/{step}/unblock` | unblock; held runs resume |
 
 ## See also
 
-- [Binding & Reconcile](binding-and-reconcile.md#git-only-there-are-no-config-mutation-endpoints) — why
-  the gate is exempt from the git-only restriction
-- [Bundles & Execution](bundles-and-execution.md) — the sequential processing chain the gate
-  controls
+- [Runs & Operations](runs-and-operations.md) — continue, rerun, supersede
+- [Binding, Reconcile & Versions](binding-and-reconcile.md) — switches

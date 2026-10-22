@@ -2,104 +2,112 @@
 
 > **Served live at `/docs/index.md`.** These pages are raw Markdown, served by the
 > Olve.Pipelines server itself so an agent (or a human) can fetch and read them without
-> cloning the repo. For the in-repo developer/architecture reference, see the
-> [`README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/README.md) instead —
-> these docs are the *operator/setup* view; the README is the *codebase* view.
+> cloning the repo. They are the *operator/setup* view. The *codebase* view is the repo's
+> [`README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/README.md). The SDK reference
+> (every `ctx` helper and the harness contract) is
+> [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md).
+
+> **This guide describes v2.** v2 is developed on the `v2` branch and runs as a separate instance
+> (`https://pipelines-v2-beta.ovea.pro`) next to v1 until every pipeline has migrated. v1's
+> `config.yaml` format, production/processing steps and ArtifactBundles do not exist in v2.
 
 ## What this service does
 
-Olve.Pipelines is a lightweight CD orchestration service. You point it at **your** Git
-repository, and it builds and deploys your app as Kubernetes Jobs whenever you push.
+Olve.Pipelines is a small CD orchestration service for a homelab. You bind a pipeline to a Git
+repository. The pipeline is defined in TypeScript in that repo (`.pipelines/pipeline.ts`). On every
+push the service builds the definition, then runs it. Each step runs as a Kubernetes Job.
 
-A pipeline has two phases:
+A pipeline is a list of **stages**. Stages run one after another; the steps inside a stage run in
+parallel. Each step declares the typed **models** it consumes and the model it produces, so wiring
+mistakes are compile errors and a bad output fails the step that produced it.
 
 ```
-Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N [sequential]
+source ──> build ∥ test ──> when(deployTo = beta): deploy-beta
 ```
 
-- **Production steps** run in **parallel**. Each writes its output to `bundle/<step-name>/`.
-  The combined output is an **ArtifactBundle**.
-- **Processing steps** run **sequentially** (list order). Each receives the full ArtifactBundle.
-- Every step is `(image, script, env)` and runs as a Kubernetes Job.
+| Concept | What it is |
+|---|---|
+| **Model** | A named zod schema (`BuildArtifact`). Nominal: two models with the same shape are not interchangeable. |
+| **Step** | A contract: name, image, inputs, output model, secrets. No behaviour. |
+| **Handler** | The implementation of one step, in `handlers/<step-name>.ts`. |
+| **Library step** | An SDK step with a built-in handler and typed config (`steps.gitHubSource`, `steps.imageBuild`, …). |
+| **Pipeline** | Input model, triggers, stages, `when` blocks, failure handlers. |
+| **Version** | An immutable snapshot of the pipeline, added whenever the definition changes. One version is active at a time. |
+| **Run** | One execution of one version: its input plus every step's output. Numbered per pipeline (`my-app#12`). |
+| **Attempt** | One execution of one step within a run (one K8s Job). Reruns add attempts. |
 
 ## How you configure it: GitOps only
 
-**There is no imperative "create steps" path.** You do not build a pipeline by adding steps
-one at a time. Instead:
+1. Add `.pipelines/` to **your** repository: `models.ts`, `pipeline.ts`, `handlers/`, a
+   `package.json` + `bun.lock`.
+2. Bind a pipeline to the repo with `pl binding create`. That is the only way to create a pipeline.
+3. Set the secret values the pipeline declares with `pl secret set`.
+4. Push. The service compiles the pipeline in a sandboxed build Job, validates it, adds a version,
+   switches to it, and starts a run through the pipeline's `onPush` trigger.
 
-1. You add a single file — `.pipelines/config.yaml` — to **your** repository.
-2. You bind a pipeline to your repo — one `pl binding create` (the `pl` CLI is how you drive
-   every create/bind, secret, and operational action; you never call the HTTP API directly).
-3. The server polls your branch (~5 min) and, on every change to the config, **reconciles**
-   the live pipeline to match the file, then runs the build.
-
-Your repo is the **single source of truth** for the pipeline's shape. A bound pipeline has no
-out-of-band way to mutate its config — only your committed file writes config. (Operational
-actions — `pl production trigger`, `pl job cancel`, setting secret *values* with
-`pl secret set`, the promotion gate — work on a bound pipeline.)
+Your repo is the only writer of pipeline shape. Operations — triggering, cancelling, rerunning,
+continuing, blocking a step, switching versions, setting secret values — go through `pl` or the UI.
 
 ## Start here
 
-Read in this order:
+1. **[Getting Started](getting-started.md)** — put a repo under CD, end to end.
+2. **[Pipeline Reference](pipeline-reference.md)** — models, steps, library steps, handlers,
+   stages, mappers, `when`, triggers, `onFailure`, and the checks that reject a pipeline.
+3. **[Local Development](local-development.md)** — `pl dev describe | validate | run | pipeline`:
+   run steps from source before you push.
+4. **[Binding, Reconcile & Versions](binding-and-reconcile.md)** — the binding, deploy-trigger
+   modes, how a commit becomes a version, `switch` and rollback, reading the status.
+5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, supersede, de-duplication,
+   rerun and continue, outputs and files, how a step runs, retention.
+6. **[Promotion Gates](promotion-gate.md)** — hold runs at a step (`pl gate block`) and let them
+   resume.
+7. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
-1. **[Getting Started](getting-started.md)** — the four steps to put a repo under CD. Start here.
-2. **[`config.yaml` Reference](config-reference.md)** — every field, `$ref`/`scriptFile`
-   extraction, secret declarations, triggers, and the exact validation rules.
-3. **[Binding & Reconcile](binding-and-reconcile.md)** — the `pl binding` commands, the
-   reconcile loop, the status output, and the config-before-build guarantee.
-4. **[Bundles & Execution](bundles-and-execution.md)** — how steps run as K8s Jobs, what an
-   ArtifactBundle is, and how output flows from production to processing.
-5. **[Promotion Gate](promotion-gate.md)** — operational control (brake + promote) over
-   processing steps, which is *state, not config*.
-6. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
-
-See **[Shared Script Library](script-library.md)** to stop re-vendoring the Kaniko-build and
-SSH/Helm-deploy shell in every step — `olve-lib.sh` captures those footguns once.
-
-See **[Examples](examples.md)** for four real projects (this repo, QuestionBank, a homelab, a
-game) mapped to the capability each exercises.
-
-**Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics
-(secrets, poll trigger, ETag, reconcile failure, …) to the exact page and anchor.
+**Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics to pages.
 
 ## Minimal example
 
-The smallest useful `.pipelines/config.yaml` — build with Kaniko, deploy with a script:
+A pipeline that checks out the pushed commit and runs a script against it:
 
-```yaml
-apiVersion: "0.0"
-name: my-app
+```ts
+// .pipelines/models.ts
+import { model, z } from "@olve/pipelines";
 
-secrets:
-  - name: GITHUB_TOKEN
-    description: Read token to fetch the repo tarball.
-
-productionSteps:
-  - name: build
-    configuration:
-      image: gcr.io/kaniko-project/executor:debug
-      scriptFile: scripts/build.sh
-
-processingSteps:
-  - name: deploy
-    configuration:
-      image: alpine:latest
-      script: |
-        echo deploying...
+export const Request = model("Request", z.object({
+  repo: z.string().default("you/my-app"),
+  sha: z.string().regex(/^[0-9a-f]{40}$/),
+}));
 ```
 
-Then bind it with the **`pl` CLI** (used for every create/bind, secret, and status
-operation — you never call the HTTP API directly):
+```ts
+// .pipelines/pipeline.ts
+import { pipeline, steps, Source } from "@olve/pipelines";
+import testSh from "./scripts/test.sh" with { type: "file" };
+import * as M from "./models";
+
+export const source = steps.gitHubSource({ name: "source" });
+export const test = steps.script({ name: "test", image: "alpine:3.22", script: testSh, input: { source: Source } });
+
+export default pipeline({ name: "my-app", input: M.Request })
+  .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(test);
+```
+
+Then:
 
 ```sh
-pl binding create you/my-app --credentials-secret GITHUB_TOKEN
+pl binding create you/my-app            # prints the binding, including the pipeline id
+pl binding status <pipelineId>          # reconcile result, problems, declared secrets
 ```
 
-Set the secret value (`pl secret set <pipelineId> GITHUB_TOKEN`), push, and watch
-`pl binding status <pipelineId>`. Full walkthrough: **[Getting Started](getting-started.md)**.
+Full walkthrough, including the `package.json` and the current SDK limitation for repos other
+than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 
----
+## Real pipelines to copy from
 
-*Starter template:* [`Olve.Template.Api`](https://github.com/OliverVea/Olve.Template.Api)
-ships a copy-me [`.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines)
-(Kaniko build + Helm deploy).
+- [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
+  deploys itself (v2 beta): `gitHubSource` → `imageBuild` ∥ custom `test` → `helmDeployOverSsh`.
+- [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
+  v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
+  failure handler.

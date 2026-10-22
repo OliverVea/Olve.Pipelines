@@ -1,26 +1,26 @@
 # Olve.Pipelines
 
-> A lightweight, GitOps-only CD orchestration service for a homelab. You bind a pipeline to
-> your Git repository; the server polls your branch, reconciles the live pipeline to match a
-> committed `.pipelines/config.yaml`, and runs each step as a Kubernetes Job. Configuration is
-> driven entirely by your repo — there is no imperative "create steps" path. You drive
-> create/bind, secrets, and operational actions with the `pl` CLI, never the raw HTTP API.
+> A small GitOps CD orchestration service for a homelab (v2). You bind a pipeline to your Git
+> repository; the pipeline is defined in TypeScript in `.pipelines/pipeline.ts` (typed models,
+> steps, handlers, sequential stages of parallel steps, `when` blocks, push/poll triggers). On each
+> commit the service compiles the definition in a sandboxed Job into a new version, and runs each
+> step as a Kubernetes Job. You drive binding, secrets and operations (trigger, rerun, continue,
+> cancel, gates, version switch) with the `pl` CLI or the web UI.
 
 All documentation pages below are served as raw Markdown at the listed URLs. Fetch them
 directly (no auth, no repo clone needed) and parse the raw text.
 
 ## Docs
 
-- [Setup Guide index](/docs/index.md): Overview of the service, the two-phase pipeline model (parallel production → sequential processing), and how GitOps configuration works.
-- [Getting Started](/docs/getting-started.md): The four steps to put a repository under CD.
-- [config.yaml Reference](/docs/config-reference.md): Every field, `$ref`/`scriptFile` extraction, secret declarations, triggers, and validation rules.
-- [Examples](/docs/examples.md): Four real projects (this repo, QuestionBank, a homelab, a game) mapped to the capability each exercises and the shared block it implies.
-- [Binding & Reconcile](/docs/binding-and-reconcile.md): The `pl binding` commands, the reconcile loop, the status output, and the config-before-build guarantee.
-- [Bundles & Execution](/docs/bundles-and-execution.md): How steps run as K8s Jobs, what an ArtifactBundle is, and how output flows from production to processing.
-- [Promotion Gate](/docs/promotion-gate.md): Operational control (brake + promote) over processing steps — state, not config.
-- [Shared Script Library](/docs/script-library.md): `olve-lib.sh` — sourced shell helpers that capture the Kaniko-build and SSH/Helm-deploy footguns so step scripts stop re-vendoring them.
+- [Setup Guide index](/docs/index.md): What the service does, the v2 concepts (model, step, handler, stage, version, run, attempt), the GitOps model and a minimal example.
+- [Getting Started](/docs/getting-started.md): Put a repo under CD: `.pipelines/` layout, local check, `pl binding create`, secrets, first run. Includes the current SDK-publishing limitation.
+- [Pipeline Reference](/docs/pipeline-reference.md): Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, the checks that reject a pipeline, versioning.
+- [Local Development](/docs/local-development.md): `pl dev describe | validate | run | pipeline`, running a step in its real image, the local pool.
+- [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, deploy-trigger modes, how a commit becomes a version, switch and rollback, reading the status.
+- [Runs & Operations](/docs/runs-and-operations.md): Runs, attempts, supersede, de-duplication, rerun/continue/cancel, outputs and files, how a step runs, storage, retention.
+- [Promotion Gates](/docs/promotion-gate.md): Blocking a step to hold runs, resuming them, promoting by continuing a run.
 - [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.
 
 ## Reference
 
-- [Subject Index](/docs/subjects.md): Maps topics (secrets, poll trigger, ETag, reconcile failure, …) to the exact page and anchor.
+- [Subject Index](/docs/subjects.md): Maps topics to the exact page and anchor.

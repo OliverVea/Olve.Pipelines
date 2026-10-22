@@ -7,8 +7,9 @@ config:
   # Host step pods dial for pre-signed URLs (signed into SigV4).
   Storage__InClusterEndpoint: "http://olve-pipelines-v2-garage.apps.svc.cluster.local:3900"
   Storage__Bucket: "olve-pipelines-v2"
-  # Empty = no GitHub webhook auto-registration; the inherited value is v1 prod's hook host.
-  Webhooks__PublicBaseUrl: ""
+  # Own public webhook host (Cloudflare tunnel, routes only /api/webhooks/binding and /api/hooks);
+  # the inherited value is v1 prod's.
+  Webhooks__PublicBaseUrl: "https://pipelines-v2-hooks.ovea.pro"
   Links__BaseUrl: "https://pipelines-v2-private.ovea.pro"
   Telemetry__ServiceName: "olve-pipelines-v2"
   Distribution__CliPipeline: "Olve.Pipelines v2"

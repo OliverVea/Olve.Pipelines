@@ -4,7 +4,7 @@ import * as M from "./models";
 
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing the image and running helm on the homelab host.");
-export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines; unset = publish-sdk skips.");
+export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines.");
 
 export const source = steps.gitHubSource({
   name: "source",

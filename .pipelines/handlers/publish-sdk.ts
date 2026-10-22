@@ -15,9 +15,8 @@ export default implement(publishSdk, async ({ source }, ctx) => {
     throw new Error(`npm registry lookup of ${name} failed: HTTP ${res.status}`);
   }
 
-  // Not ctx.secrets: it throws when unset, and an unset token means "skip", not "fail".
   const token = process.env.NPM_TOKEN?.trim();
-  if (!token) return ctx.skip(`${name}@${version} is not on npm, but NPM_TOKEN is not set (pl secret set "Olve.Pipelines v2" NPM_TOKEN)`);
+  if (!token) throw new Error(`${name}@${version} is not on npm, but NPM_TOKEN is not set (pl secret set "Olve.Pipelines v2" NPM_TOKEN)`);
 
   // Clean env for the checks: the harness's OLVE_* variables would leak into the SDK's own tests.
   const home = join(ctx.tmpDir, "home");

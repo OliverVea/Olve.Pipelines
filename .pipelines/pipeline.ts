@@ -56,7 +56,7 @@ export const deployBeta = steps.helmDeployOverSsh({
 
 export const betaTest = step({
   name: "beta-test",
-  description: "Smoke-tests the freshly deployed beta: readiness, this run in the API, the frontend bundle, the error model and SSE.",
+  description: "Smoke-tests the freshly deployed beta: readiness, the API, the frontend bundle, the error model and SSE.",
   image: "alpine:3.22",
   input: { release: HelmRelease },
   timeoutSeconds: 180,

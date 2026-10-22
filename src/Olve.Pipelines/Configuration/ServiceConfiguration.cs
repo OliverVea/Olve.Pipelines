@@ -36,6 +36,7 @@ public static class ServiceConfiguration
             return new WebhookOptions(config["Webhooks:PublicBaseUrl"]);
         });
         services.AddSingleton<IPipelineSecretReader, KubernetesPipelineSecretReader>();
+        services.AddTransient<PipelineSecretCopyService>();
         services.AddSingleton<IGitHubClient, GitHubClient>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
         services.AddSingleton<PipelineConfigBindingService>();

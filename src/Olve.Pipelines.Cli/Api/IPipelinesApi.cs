@@ -37,6 +37,7 @@ public interface IPipelinesApi
     Task<Result> DeletePipeline(string id, CancellationToken ct);
     Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);
     Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
+    Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
         string repo, string? branch, string? path, string? credentialsSecret,
         BindingDeployTrigger? deployTrigger, CancellationToken ct);

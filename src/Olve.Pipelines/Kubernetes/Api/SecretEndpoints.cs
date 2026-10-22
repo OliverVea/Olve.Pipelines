@@ -85,7 +85,25 @@ public static class SecretEndpoints
         })
         .WithResultMapping()
         .WithName("DeleteSecret");
+
+        // Server-side copy from another pipeline on this instance; values are never returned or logged.
+        group.MapPost("/copy", Task<Result<CopySecretsResponse>> (
+            PipelineSecretCopyService copies,
+            HttpContext http,
+            Id<Pipeline> pipelineId,
+            CopySecretsRequest request,
+            CancellationToken ct) => copies.CopyAsync(pipelineId, request, Actor(http.User), ct))
+        .WithResultMapping<CopySecretsResponse>()
+        .WithName("CopySecrets");
     }
+
+    /// <summary>Who is calling, for the audit log: the OIDC username, falling back to name / subject.</summary>
+    private static string Actor(System.Security.Claims.ClaimsPrincipal user) =>
+        user.FindFirst("preferred_username")?.Value
+        ?? user.Identity?.Name
+        ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? user.FindFirst("sub")?.Value
+        ?? "unknown";
 }
 
 public record SetSecretRequest(string Value);

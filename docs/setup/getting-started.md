@@ -173,6 +173,19 @@ Don't pass a value through `$(…)`: command substitution strips trailing newlin
 keys. `pl secret list <pipelineId>` lists the names that are set; `pl binding status <pipelineId>`
 shows which declared secrets are set.
 
+A value another pipeline on the same instance already has (a shared `GITHUB_TOKEN`, say) can be
+copied instead of set again. The service copies it; the value never reaches your machine:
+
+```sh
+pl secret copy "Olve.Pipelines v2"/GITHUB_TOKEN <pipelineId>            # one secret
+pl secret copy <sourcePipeline>/GITHUB_TOKEN <pipelineId> --name GH_TOKEN  # under another name
+pl secret copy <sourcePipeline> <pipelineId>                            # every secret of the source
+```
+
+Pipelines go by id or name. A name the target already has is refused unless you pass `--overwrite`.
+Each copy is logged with who copied which names between which pipelines; values are never logged.
+Keep in mind that anyone who can change the target pipeline can read a copied value from its steps.
+
 ## Step 5 — Reconcile, then run
 
 The deploy poll checks the branch every 15 minutes. Don't wait — reconcile now:

@@ -35,6 +35,8 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(PipelineBindingStatus))]
 // Mutation request bodies
 [JsonSerializable(typeof(SetSecretRequest))]
+[JsonSerializable(typeof(CopySecretsRequest))]
+[JsonSerializable(typeof(CopySecretsResponse))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(UpdateBindingRequest))]
 [JsonSerializable(typeof(SetDeployTriggerRequest))]

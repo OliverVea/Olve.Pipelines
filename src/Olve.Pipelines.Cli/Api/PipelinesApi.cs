@@ -71,6 +71,10 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}", body: null, ct);
 
+    public Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(targetPipelineId)}/secrets/copy",
+            ApiTransport.JsonBody(request, CliJsonContext.Default.CopySecretsRequest), CliJsonContext.Default.CopySecretsResponse, ct);
+
     public Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
         string repo, string? branch, string? path, string? credentialsSecret,
         BindingDeployTrigger? deployTrigger, CancellationToken ct) =>

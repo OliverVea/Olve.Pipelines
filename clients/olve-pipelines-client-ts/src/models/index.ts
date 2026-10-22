@@ -200,6 +200,30 @@ export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
 }
 export interface ContinueRunRequest_input extends AdditionalDataHolder, Parsable {
 }
+export interface CopySecretsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The names property
+     */
+    names?: string[] | null;
+    /**
+     * The overwrite property
+     */
+    overwrite?: boolean | null;
+    /**
+     * The sourcePipelineId property
+     */
+    sourcePipelineId?: Guid | null;
+    /**
+     * The targetName property
+     */
+    targetName?: string | null;
+}
+export interface CopySecretsResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The copied property
+     */
+    copied?: string[] | null;
+}
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
@@ -366,6 +390,24 @@ export function createContinueRunRequest_inputFromDiscriminatorValue(parseNode: 
 // @ts-ignore
 export function createContinueRunRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoContinueRunRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CopySecretsRequest}
+ */
+// @ts-ignore
+export function createCopySecretsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopySecretsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CopySecretsResponse}
+ */
+// @ts-ignore
+export function createCopySecretsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopySecretsResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -986,6 +1028,31 @@ export function deserializeIntoContinueRunRequest(continueRunRequest: Partial<Co
 // @ts-ignore
 export function deserializeIntoContinueRunRequest_input(continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CopySecretsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCopySecretsRequest(copySecretsRequest: Partial<CopySecretsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "names": n => { copySecretsRequest.names = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "overwrite": n => { copySecretsRequest.overwrite = n.getBooleanValue() ?? false; },
+        "sourcePipelineId": n => { copySecretsRequest.sourcePipelineId = n.getGuidValue(); },
+        "targetName": n => { copySecretsRequest.targetName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CopySecretsResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCopySecretsResponse(copySecretsResponse: Partial<CopySecretsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "copied": n => { copySecretsResponse.copied = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -2575,6 +2642,33 @@ export function serializeContinueRunRequest(writer: SerializationWriter, continu
 export function serializeContinueRunRequest_input(writer: SerializationWriter, continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!continueRunRequest_input || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(continueRunRequest_input.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CopySecretsRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCopySecretsRequest(writer: SerializationWriter, copySecretsRequest: Partial<CopySecretsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copySecretsRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("names", copySecretsRequest.names);
+    writer.writeBooleanValue("overwrite", copySecretsRequest.overwrite ?? false);
+    writer.writeGuidValue("sourcePipelineId", copySecretsRequest.sourcePipelineId);
+    writer.writeStringValue("targetName", copySecretsRequest.targetName);
+    writer.writeAdditionalData(copySecretsRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CopySecretsResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCopySecretsResponse(writer: SerializationWriter, copySecretsResponse: Partial<CopySecretsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copySecretsResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("copied", copySecretsResponse.copied);
+    writer.writeAdditionalData(copySecretsResponse.additionalData);
 }
 /**
  * Serializes information the current object

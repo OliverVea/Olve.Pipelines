@@ -4,6 +4,8 @@
 // @ts-ignore
 import { createResultProblemFromDiscriminatorValue, type ResultProblem } from '../../../../models/index.js';
 // @ts-ignore
+import { CopyRequestBuilderRequestsMetadata, type CopyRequestBuilder } from './copy/index.js';
+// @ts-ignore
 import { type WithNameItemRequestBuilder, WithNameItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -12,6 +14,10 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /api/pipelines/{-id}/secrets
  */
 export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequestBuilder> {
+    /**
+     * The copy property
+     */
+    get copy(): CopyRequestBuilder;
     /**
      * Gets an item from the OlvePipelinesClient.api.pipelines.item.secrets.item collection
      * @param name Unique identifier of the item
@@ -41,6 +47,9 @@ export const SecretsRequestBuilderNavigationMetadata: Record<Exclude<keyof Secre
     byName: {
         requestsMetadata: WithNameItemRequestBuilderRequestsMetadata,
         pathParametersMappings: ["name"],
+    },
+    copy: {
+        requestsMetadata: CopyRequestBuilderRequestsMetadata,
     },
 };
 /**

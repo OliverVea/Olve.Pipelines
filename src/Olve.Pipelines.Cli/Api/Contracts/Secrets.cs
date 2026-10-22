@@ -5,3 +5,21 @@ public sealed class SetSecretRequest
 {
     public required string Value { get; init; }
 }
+
+/// <summary>
+/// Body for <c>POST /api/pipelines/{pipelineId}/secrets/copy</c> — copy secrets from another pipeline
+/// server-side. <see cref="Names"/> null copies all; <see cref="TargetName"/> renames a single copy.
+/// </summary>
+public sealed class CopySecretsRequest
+{
+    public required Guid SourcePipelineId { get; init; }
+    public string[]? Names { get; init; }
+    public string? TargetName { get; init; }
+    public bool Overwrite { get; init; }
+}
+
+/// <summary>Response of the copy: the target secret names written (never values).</summary>
+public sealed class CopySecretsResponse
+{
+    public string[] Copied { get; init; } = [];
+}

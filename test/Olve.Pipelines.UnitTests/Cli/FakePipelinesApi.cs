@@ -47,6 +47,10 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result? DeletePipelineResult { get; set; }
     public Result? SetSecretResult { get; set; }
     public Result? DeleteSecretResult { get; set; }
+    public Result<CopySecretsResponse>? CopySecretsResult { get; set; }
+
+    /// <summary>Arguments captured from the most recent <see cref="CopySecrets"/> call.</summary>
+    public (string Target, CopySecretsRequest Request)? LastCopySecrets { get; private set; }
 
     /// <summary>The value passed to the most recent <see cref="SetSecret"/> call (for assertions).</summary>
     public string? LastSecretValue { get; private set; }
@@ -125,6 +129,12 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Calls.Add($"{nameof(SetSecret)}({name})");
         return Task.FromResult(
             SetSecretResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(SetSecret)}' called but not configured."));
+    }
+
+    public Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct)
+    {
+        LastCopySecrets = (targetPipelineId, request);
+        return Record(CopySecretsResult, nameof(CopySecrets));
     }
 
     public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct)

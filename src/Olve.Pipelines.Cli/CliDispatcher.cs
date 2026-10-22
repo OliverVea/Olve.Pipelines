@@ -76,6 +76,7 @@ public sealed class CliDispatcher
         Register(new SecretListCommand());
         Register(new SecretSetCommand());
         Register(new SecretDeleteCommand());
+        Register(new SecretCopyCommand());
 
         // binding
         Register(new BindingCreateCommand());

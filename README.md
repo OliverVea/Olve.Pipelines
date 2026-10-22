@@ -182,6 +182,7 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | GET | `/api/pipelines/{pipelineId}/secrets` | Secret names (values are never returned) |
 | PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set a value |
 | DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete |
+| POST | `/api/pipelines/{pipelineId}/secrets/copy` | Copy secrets from another pipeline on this instance, server-side (`{ sourcePipelineId, names? (omit = all), targetName? (one name only), overwrite? }` → `{ copied }`, names only; refuses existing names without `overwrite`). Caveat: whoever can write the target pipeline can read the copied values from its steps |
 
 ### Other
 
@@ -255,6 +256,7 @@ pl job queue
 pl secret list <pipelineId>
 pl secret set <pipelineId> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
 pl secret delete <pipelineId> <name>
+pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger webhook|webhook-only|poll]
 pl binding get|status|reconcile <pipelineId>
 pl binding set-credentials <pipelineId> [key]

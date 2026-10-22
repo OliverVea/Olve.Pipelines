@@ -110,7 +110,7 @@ needs a bearer token. Errors are `400` with a `ResultProblem[]` body.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/pipelines` | List pipelines |
-| GET | `/api/pipelines/summary` | Pipelines with run health and per-step strip (list page) |
+| GET | `/api/pipelines/summary` | List-page cards: `{id, name, description, repo, health}` |
 | GET | `/api/pipelines/{id}` | Get a pipeline |
 | DELETE | `/api/pipelines/{id}` | Delete a pipeline (cascades to runs, versions, binding) |
 | GET | `/api/pipelines/{pipelineId}/health` | Run-based health: last run, running/held runs, gates, activation |
@@ -222,7 +222,7 @@ Global flags: `--json`, `--verbose`/`-v`, `--help`/`-h`. `pl help`, `pl <noun> -
 
 ```bash
 # pipelines — <pipeline> is an id or a name (quote names with spaces)
-pl pipeline list [--summaries]                         # status per pipeline (run-based)
+pl pipeline list [--summaries]                         # health, last run, active version, running/held, closed gates
 pl pipeline get <pipeline>
 pl pipeline delete <pipelineId>
 pl pipeline health <pipeline>

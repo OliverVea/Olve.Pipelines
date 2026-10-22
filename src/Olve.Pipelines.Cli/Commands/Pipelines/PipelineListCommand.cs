@@ -1,20 +1,22 @@
 using Olve.Pipelines.Cli.Api;
+using Olve.Pipelines.Cli.Api.Contracts;
+using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Output;
 
 namespace Olve.Pipelines.Cli.Commands.Pipelines;
 
-/// <summary><c>pl pipeline list [--summaries]</c> — list all pipelines (or richer summaries).</summary>
+/// <summary><c>pl pipeline list [--summaries]</c>.</summary>
 public sealed class PipelineListCommand : ICliCommand
 {
     public string Noun => "pipeline";
     public string Verb => "list";
     public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "summaries" };
-    public string HelpLine => "List pipelines with aggregate status (--summaries for repo + step health)";
+    public string HelpLine => "List pipelines with health, last run, active version, running/held runs and closed gates";
     public string? HelpDetail =>
         """
-        pl pipeline list [--summaries]   List pipelines with their aggregate status
+        pl pipeline list [--summaries]
 
-          --summaries   Also include repo binding + per-step health and last-changed time
+          --summaries   Also show the bound repo and description
 
         Status is computed over runs (cancelled/superseded runs ignored; skipped steps are not faults):
           Healthy              nothing running; the latest settled run succeeded
@@ -27,8 +29,6 @@ public sealed class PipelineListCommand : ICliCommand
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        // The summary endpoint carries the per-step strip the aggregate status is derived from,
-        // so both the default and --summaries views are backed by it (one call, no N+1 fan-out).
         if ((await ctx.Api.ListPipelineSummaries(ct)).TryPickProblems(out var problems, out var summaries))
             return problems;
 
@@ -36,25 +36,26 @@ public sealed class PipelineListCommand : ICliCommand
 
         ctx.Output.Emit(summaries, CliJsonContext.Default.PipelineSummaryArray, () =>
         {
-            if (detailed)
+            var rows = summaries.Select(s =>
             {
-                var rows = summaries
-                    .Select(s => (IReadOnlyList<string>)
-                        [s.Id.ToString(), s.Name, s.Repo ?? "-", s.Status, $"{s.Steps.Length} step(s)"])
-                    .ToList();
-                foreach (var line in Table.Render(["ID", "NAME", "REPO", "STATUS", "STEPS"], rows))
-                    ctx.Output.Line(line);
-            }
-            else
-            {
-                var rows = summaries
-                    .Select(s => (IReadOnlyList<string>)[s.Id.ToString(), s.Name, s.Status])
-                    .ToList();
-                foreach (var line in Table.Render(["ID", "NAME", "STATUS"], rows))
-                    ctx.Output.Line(line);
-            }
+                var h = s.Health;
+                IReadOnlyList<string> common =
+                [
+                    s.Id.ToString(), s.Name, h.Status, LastRun(h), h.Activation?.ToString() ?? "-",
+                    $"{h.RunningRuns}/{h.HeldRuns.Length}",
+                    h.BlockedSteps.Length == 0 ? "-" : string.Join(",", h.BlockedSteps),
+                ];
+                return detailed ? (IReadOnlyList<string>)[.. common, s.Repo ?? "-", s.Description ?? ""] : common;
+            }).ToList();
+
+            IReadOnlyList<string> headers = ["ID", "NAME", "STATUS", "LAST RUN", "VERSION", "RUNNING/HELD", "CLOSED GATES"];
+            foreach (var line in Table.Render(detailed ? [.. headers, "REPO", "DESCRIPTION"] : headers, rows))
+                ctx.Output.Line(line);
         });
 
         return Result.Success();
     }
+
+    private static string LastRun(PipelineHealth h)
+        => h.LastRun is { } r ? $"#{r.Number} {r.Status} {RunCommandSupport.Time(r.CreatedAt)}" : "-";
 }

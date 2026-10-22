@@ -12,19 +12,12 @@ public sealed class Pipeline
     public string Name { get; set; } = "";
 }
 
+/// <summary>One list-page card (<c>GET /api/pipelines/summary</c>).</summary>
 public sealed class PipelineSummary
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
+    public string? Description { get; set; }
     public string? Repo { get; set; }
-    public string Status { get; set; } = "";
-    public StepHealth[] Steps { get; set; } = [];
-    public DateTimeOffset? LastChangedAt { get; set; }
-}
-
-public sealed class StepHealth
-{
-    public string Name { get; set; } = "";
-    public string Status { get; set; } = "";
-    public DateTimeOffset? LastChangedAt { get; set; }
+    public PipelineHealth Health { get; set; } = new();
 }

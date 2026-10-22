@@ -40,7 +40,7 @@ public class PipelineListCommandTests
         var api = new FakePipelinesApi
         {
             ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
-                [new PipelineSummary { Id = Id1, Name = "alpha", Status = "Healthy" }]),
+                [new PipelineSummary { Id = Id1, Name = "alpha", Health = new PipelineHealth { Status = "Healthy" } }]),
         };
         var (ctx, stdout, cli) = Build(api, json: false, "pipeline", "list");
 
@@ -59,7 +59,7 @@ public class PipelineListCommandTests
         var api = new FakePipelinesApi
         {
             ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
-                [new PipelineSummary { Id = Id1, Name = "alpha", Status = "Healthy" }]),
+                [new PipelineSummary { Id = Id1, Name = "alpha", Health = new PipelineHealth { Status = "Healthy" } }]),
         };
         var (ctx, stdout, cli) = Build(api, json: true, "pipeline", "list", "--json");
 
@@ -77,7 +77,15 @@ public class PipelineListCommandTests
         var api = new FakePipelinesApi
         {
             ListPipelineSummariesResult = Result.Success<PipelineSummary[]>(
-                [new PipelineSummary { Id = Id1, Name = "alpha", Repo = "r", Status = "Unhealthy" }]),
+                [new PipelineSummary
+                {
+                    Id = Id1, Name = "alpha", Repo = "r",
+                    Health = new PipelineHealth
+                    {
+                        Status = "Unhealthy", BlockedSteps = ["deploy-prod"],
+                        LastRun = new RunSummary { Number = 41, Status = "Failed" },
+                    },
+                }]),
         };
         var (ctx, stdout, cli) = Build(api, json: false, "pipeline", "list", "--summaries");
 
@@ -86,6 +94,9 @@ public class PipelineListCommandTests
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("ListPipelineSummaries")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("Unhealthy");
+        await Assert.That(stdout.ToString()).Contains("#41 Failed");
+        await Assert.That(stdout.ToString()).Contains("deploy-prod");
+        await Assert.That(stdout.ToString()).Contains(Id1.ToString());
     }
 
     [Test]

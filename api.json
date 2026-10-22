@@ -3052,10 +3052,8 @@
         "required": [
           "id",
           "name",
+          "description",
           "repo",
-          "status",
-          "steps",
-          "lastChangedAt",
           "health"
         ],
         "type": "object",
@@ -3066,27 +3064,17 @@
           "name": {
             "type": "string"
           },
-          "repo": {
+          "description": {
             "type": [
               "null",
               "string"
             ]
           },
-          "status": {
-            "type": "string"
-          },
-          "steps": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StepHealth"
-            }
-          },
-          "lastChangedAt": {
+          "repo": {
             "type": [
               "null",
               "string"
-            ],
-            "format": "date-time"
+            ]
           },
           "health": {
             "$ref": "#/components/schemas/PipelineHealth"
@@ -3760,29 +3748,6 @@
         "properties": {
           "value": {
             "type": "string"
-          }
-        }
-      },
-      "StepHealth": {
-        "required": [
-          "name",
-          "status",
-          "lastChangedAt"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "lastChangedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
           }
         }
       },

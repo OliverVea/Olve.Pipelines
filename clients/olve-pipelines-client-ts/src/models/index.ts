@@ -805,15 +805,6 @@ export function createSetSecretRequestFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {StepHealth}
- */
-// @ts-ignore
-export function createStepHealthFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoStepHealth;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {StepHistoryItem}
  */
 // @ts-ignore
@@ -1317,13 +1308,11 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
 // @ts-ignore
 export function deserializeIntoPipelineSummary(pipelineSummary: Partial<PipelineSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "description": n => { pipelineSummary.description = n.getStringValue(); },
         "health": n => { pipelineSummary.health = n.getObjectValue<PipelineHealth>(createPipelineHealthFromDiscriminatorValue); },
         "id": n => { pipelineSummary.id = n.getGuidValue(); },
-        "lastChangedAt": n => { pipelineSummary.lastChangedAt = n.getDateValue(); },
         "name": n => { pipelineSummary.name = n.getStringValue(); },
         "repo": n => { pipelineSummary.repo = n.getStringValue(); },
-        "status": n => { pipelineSummary.status = n.getStringValue(); },
-        "steps": n => { pipelineSummary.steps = n.getCollectionOfObjectValues<StepHealth>(createStepHealthFromDiscriminatorValue); },
     }
 }
 /**
@@ -1623,19 +1612,6 @@ export function deserializeIntoSetDeployTriggerRequest(setDeployTriggerRequest: 
 export function deserializeIntoSetSecretRequest(setSecretRequest: Partial<SetSecretRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "value": n => { setSecretRequest.value = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param StepHealth The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoStepHealth(stepHealth: Partial<StepHealth> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "lastChangedAt": n => { stepHealth.lastChangedAt = n.getDateValue(); },
-        "name": n => { stepHealth.name = n.getStringValue(); },
-        "status": n => { stepHealth.status = n.getStringValue(); },
     }
 }
 /**
@@ -1992,6 +1968,10 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
 }
 export interface PipelineSummary extends AdditionalDataHolder, Parsable {
     /**
+     * The description property
+     */
+    description?: string | null;
+    /**
      * The health property
      */
     health?: PipelineHealth | null;
@@ -2000,10 +1980,6 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
-     * The lastChangedAt property
-     */
-    lastChangedAt?: Date | null;
-    /**
      * The name property
      */
     name?: string | null;
@@ -2011,14 +1987,6 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      * The repo property
      */
     repo?: string | null;
-    /**
-     * The status property
-     */
-    status?: string | null;
-    /**
-     * The steps property
-     */
-    steps?: StepHealth[] | null;
 }
 export interface PipelineVersion extends AdditionalDataHolder, Parsable {
     /**
@@ -2924,13 +2892,11 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
 // @ts-ignore
 export function serializePipelineSummary(writer: SerializationWriter, pipelineSummary: Partial<PipelineSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipelineSummary || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", pipelineSummary.description);
     writer.writeObjectValue<PipelineHealth>("health", pipelineSummary.health, serializePipelineHealth);
     writer.writeGuidValue("id", pipelineSummary.id);
-    writer.writeDateValue("lastChangedAt", pipelineSummary.lastChangedAt);
     writer.writeStringValue("name", pipelineSummary.name);
     writer.writeStringValue("repo", pipelineSummary.repo);
-    writer.writeStringValue("status", pipelineSummary.status);
-    writer.writeCollectionOfObjectValues<StepHealth>("steps", pipelineSummary.steps, serializeStepHealth);
     writer.writeAdditionalData(pipelineSummary.additionalData);
 }
 /**
@@ -3256,20 +3222,6 @@ export function serializeSetSecretRequest(writer: SerializationWriter, setSecret
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param StepHealth The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeStepHealth(writer: SerializationWriter, stepHealth: Partial<StepHealth> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!stepHealth || isSerializingDerivedType) { return; }
-    writer.writeDateValue("lastChangedAt", stepHealth.lastChangedAt);
-    writer.writeStringValue("name", stepHealth.name);
-    writer.writeStringValue("status", stepHealth.status);
-    writer.writeAdditionalData(stepHealth.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param StepHistoryItem The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3351,20 +3303,6 @@ export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: string | null;
-}
-export interface StepHealth extends AdditionalDataHolder, Parsable {
-    /**
-     * The lastChangedAt property
-     */
-    lastChangedAt?: Date | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The status property
-     */
-    status?: string | null;
 }
 export interface StepHistoryItem extends AdditionalDataHolder, Parsable {
     /**

@@ -1,3 +1,4 @@
+using Olve.Results.TUnit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
@@ -6,6 +7,7 @@ using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Streaming;
 using Olve.Pipelines.UnitTests.Manifests;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
@@ -75,5 +77,29 @@ public class ProductionWiringTests
             throw new InvalidOperationException("could not finish checkout");
         await Assert.That(attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()).Select(a => a.StepName).Order().ToList())
             .IsEquivalentTo(["build", "test"]);
+    }
+
+    [Test]
+    public async Task DomainChanges_ReachTheEventStream()
+    {
+        await using var provider = Build();
+        foreach (var startup in provider.GetServices<IRunOnStartup>())
+            await Assert.That(startup.Run()).Succeeded();
+        var pipeline = TestRunDomain.Pick(provider.GetRequiredService<PipelineService>().Create("p"));
+        using var subscription = provider.GetRequiredService<ChangeBroadcaster>().Subscribe(pipeline.Id, lastEventId: null);
+
+        var version = TestRunDomain.Pick(provider.GetRequiredService<PipelineVersionService>().Add(
+            pipeline.Id, ManifestFixture.Text, "sha256:x", null, new Dictionary<string, int>(), new Dictionary<string, int>()));
+        TestRunDomain.Pick(provider.GetRequiredService<SwitchService>().Switch(pipeline.Id, version.Id));
+        TestRunDomain.Pick(provider.GetRequiredService<RunStartService>().Start(pipeline.Id, SchedulerScenario.Input(), new RunTrigger(RunTriggerKind.Manual)));
+        await Assert.That(provider.GetRequiredService<StepBlockService>().Block(pipeline.Id, "deploy-beta")).Succeeded();
+
+        var types = new List<string>();
+        while (subscription.Reader.TryRead(out var item))
+            types.Add(item.EventType ?? "");
+        await Assert.That(types).Contains("version");
+        await Assert.That(types).Contains("run");
+        await Assert.That(types).Contains("attempt");
+        await Assert.That(types).Contains("blocked");
     }
 }

@@ -23,3 +23,12 @@ public sealed class CopySecretsResponse
 {
     public string[] Copied { get; init; } = [];
 }
+
+/// <summary>One entry of <c>GET /api/pipelines/{pipelineId}/secrets</c>. <see cref="IsSet"/> null = K8s unreadable.</summary>
+public sealed class PipelineSecretInfo
+{
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public string[] DeclaredBy { get; set; } = [];
+    public bool? IsSet { get; set; }
+}

@@ -1,35 +1,54 @@
 using Olve.Pipelines.Cli.Api;
+using Olve.Pipelines.Cli.Output;
+using static Olve.Pipelines.Cli.Commands.Runs.RunCommandSupport;
 
 namespace Olve.Pipelines.Cli.Commands.Secrets;
 
-/// <summary><c>pl secret list &lt;pipelineId&gt;</c> — list a pipeline's secret names (values never leave the cluster).</summary>
+/// <summary><c>pl secret list &lt;pipeline&gt;</c>.</summary>
 public sealed class SecretListCommand : ICliCommand
 {
     public string Noun => "secret";
     public string Verb => "list";
     public int RequiredOperands => 1;
-    public string HelpLine => "List a pipeline's secret names (values are never returned)";
-    public string? HelpDetail => "pl secret list <pipelineId>";
+    public string HelpLine => "List a pipeline's secrets: who declares each and whether it is set";
+    public string? HelpDetail =>
+        """
+        pl secret list <pipeline>
+
+          Every secret the active version declares (by step, onFailure handler or poll trigger) or
+          the binding uses, plus any set but unused. Values are never returned.
+        """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.ListSecrets(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var names))
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
+        if ((await ctx.Api.ListSecrets(pipelineId, ct)).TryPickProblems(out var problems, out var secrets))
             return problems;
 
-        ctx.Output.Emit(names, CliJsonContext.Default.StringArray, () =>
+        ctx.Output.Emit(secrets, CliJsonContext.Default.PipelineSecretInfoArray, () =>
         {
-            if (names.Length == 0)
+            if (secrets.Length == 0)
+            {
                 ctx.Output.Line("(no secrets)");
-            else
-                foreach (var name in names)
-                    ctx.Output.Line(name);
+                return;
+            }
+
+            var rows = secrets.Select(s => (IReadOnlyList<string>)
+            [
+                s.Name, s.IsSet switch { true => "set", false => "unset", null => "unknown" },
+                s.DeclaredBy.Length == 0 ? "(unused)" : string.Join(", ", s.DeclaredBy), s.Description ?? "",
+            ]).ToList();
+            foreach (var line in Table.Render(["NAME", "SET", "USED BY", "DESCRIPTION"], rows))
+                ctx.Output.Line(line);
         });
         return Result.Success();
     }
 }
 
 /// <summary>
-/// <c>pl secret set &lt;pipelineId&gt; &lt;name&gt;</c> — set a secret value. The value is read from stdin
+/// <c>pl secret set &lt;pipeline&gt; &lt;name&gt;</c> — set a secret value. The value is read from stdin
 /// by default (kept out of shell history and the process list); <c>--from-env</c> / <c>--from-file</c>
 /// select other sources. On an interactive terminal with no piped input, prompts without echo.
 /// </summary>
@@ -41,7 +60,7 @@ public sealed class SecretSetCommand : ICliCommand
     public string HelpLine => "Set a secret value (from stdin by default)";
     public string? HelpDetail =>
         """
-        pl secret set <pipelineId> <name> [options]
+        pl secret set <pipeline> <name> [options]
 
           Reads the value from stdin by default, so it stays out of shell history and
           the process list. The value is sent verbatim (no trailing-newline trimming),
@@ -51,14 +70,16 @@ public sealed class SecretSetCommand : ICliCommand
           --from-file <path>  Read the value from a file (verbatim)
 
           Examples:
-            echo -n "$TOKEN" | pl secret set <pipelineId> REGISTRY_TOKEN
-            pl secret set <pipelineId> REGISTRY_TOKEN --from-env TOKEN
-            pl secret set <pipelineId> DEPLOY_KEY --from-file ./id_ed25519
+            echo -n "$TOKEN" | pl secret set <pipeline> REGISTRY_TOKEN
+            pl secret set <pipeline> REGISTRY_TOKEN --from-env TOKEN
+            pl secret set <pipeline> DEPLOY_KEY --from-file ./id_ed25519
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var pipelineId = cli.Operand(0)!;
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
         var name = cli.Operand(1)!;
 
         if (ReadValue(cli, name).TryPickProblems(out var valueProblems, out var value))
@@ -68,7 +89,7 @@ public sealed class SecretSetCommand : ICliCommand
             return problems;
 
         if (!ctx.Output.IsJson)
-            ctx.Output.Line($"Set secret '{name}' for pipeline {pipelineId}.");
+            ctx.Output.Line($"Set secret '{name}' for pipeline {pipeline.Label}.");
         return Result.Success();
     }
 
@@ -135,25 +156,27 @@ public sealed class SecretSetCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl secret delete &lt;pipelineId&gt; &lt;name&gt;</c> — remove a secret from a pipeline.</summary>
+/// <summary><c>pl secret delete &lt;pipeline&gt; &lt;name&gt;</c> — remove a secret from a pipeline.</summary>
 public sealed class SecretDeleteCommand : ICliCommand
 {
     public string Noun => "secret";
     public string Verb => "delete";
     public int RequiredOperands => 2;
     public string HelpLine => "Delete a secret by name";
-    public string? HelpDetail => "pl secret delete <pipelineId> <name>";
+    public string? HelpDetail => "pl secret delete <pipeline> <name>";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var pipelineId = cli.Operand(0)!;
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
         var name = cli.Operand(1)!;
 
         if ((await ctx.Api.DeleteSecret(pipelineId, name, ct)).TryPickProblems(out var problems))
             return problems;
 
         if (!ctx.Output.IsJson)
-            ctx.Output.Line($"Deleted secret '{name}' from pipeline {pipelineId}.");
+            ctx.Output.Line($"Deleted secret '{name}' from pipeline {pipeline.Label}.");
         return Result.Success();
     }
 }

@@ -17,7 +17,7 @@ public class KubernetesPipelineSecretReader(IServiceProvider sp) : IPipelineSecr
         {
             var client = sp.GetRequiredService<KubernetesClient>();
             var options = sp.GetRequiredService<KubernetesOptions>();
-            var secretName = $"olve-pipeline-{pipelineId.Value.Value:N}";
+            var secretName = PipelineSecrets.Name(pipelineId);
             secrets = await client.GetSecretAsync(options.Namespace, secretName, ct);
         }
         catch (Exception ex)

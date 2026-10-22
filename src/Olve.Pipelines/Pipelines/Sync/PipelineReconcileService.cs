@@ -14,7 +14,6 @@ public sealed record ReconcileReport(
     PipelineVersion Version,
     bool Created,
     IReadOnlyList<string> Warnings,
-    IReadOnlyList<SecretDeclaration> Secrets,
     IReadOnlyList<string> ChangedSteps,
     IReadOnlyList<string> ChangedModels);
 
@@ -75,8 +74,6 @@ public class PipelineReconcileService(
         if (validation.Errors.Count > 0)
             return Result.Failure<ReconcileReport>(validation.Errors.Select(i => new ResultProblem("{0}", i.ToString())));
 
-        var secrets = manifest.Secrets.Select(s => new SecretDeclaration(s.Name, s.Description)).ToList();
-
         return schedulingLock.Run<Result<ReconcileReport>>(() =>
         {
             history.TryGet(pipelineId, out var previous);
@@ -111,7 +108,7 @@ public class PipelineReconcileService(
             if (pipelines.SetDefinition(pipelineId, manifest.Name, manifest.Description).TryPickProblems(out var nameProblems))
                 return Result.Failure<ReconcileReport>(nameProblems);
 
-            return new ReconcileReport(target, created, warnings, secrets,
+            return new ReconcileReport(target, created, warnings,
                 created ? computed.ChangedSteps : [], created ? computed.ChangedModels : []);
         });
     }

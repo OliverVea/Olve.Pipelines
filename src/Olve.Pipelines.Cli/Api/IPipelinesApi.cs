@@ -18,7 +18,7 @@ public interface IPipelinesApi
     Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct);
 
     // Secrets
-    Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct);
+    Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct);
 
     // Bindings (GitOps)
     Task<Result<PipelineConfigBinding>> GetPipelineBinding(string pipelineId, CancellationToken ct);

@@ -38,6 +38,8 @@ public static class ServiceConfiguration
         });
         services.AddSingleton<IPipelineSecretReader, KubernetesPipelineSecretReader>();
         services.AddTransient<PipelineSecretCopyService>();
+        services.AddTransient<PipelineSecretService>();
+        services.AddSingleton<IRunOnStartup, PipelineSecretEventRegistration>();
         services.AddSingleton<IGitHubClient, GitHubClient>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
         services.AddSingleton<PipelineConfigBindingService>();

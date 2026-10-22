@@ -585,6 +585,15 @@ export function createPipelineHealthFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineSecretInfo}
+ */
+// @ts-ignore
+export function createPipelineSecretInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineSecretInfo;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineSummary}
  */
 // @ts-ignore
@@ -765,24 +774,6 @@ export function createRunSummaryFromDiscriminatorValue(parseNode: ParseNode | un
 // @ts-ignore
 export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRunTrigger;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SecretDeclaration}
- */
-// @ts-ignore
-export function createSecretDeclarationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSecretDeclaration;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SecretStatus}
- */
-// @ts-ignore
-export function createSecretStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSecretStatus;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1245,18 +1236,19 @@ export function deserializeIntoPipelineActivationDraining(pipelineActivationDrai
 // @ts-ignore
 export function deserializeIntoPipelineBindingStatus(pipelineBindingStatus: Partial<PipelineBindingStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "activation": n => { pipelineBindingStatus.activation = n.getObjectValue<PipelineActivation>(createPipelineActivationFromDiscriminatorValue); },
         "branch": n => { pipelineBindingStatus.branch = n.getStringValue(); },
-        "lastDeployedSha": n => { pipelineBindingStatus.lastDeployedSha = n.getStringValue(); },
-        "lastSyncedSha": n => { pipelineBindingStatus.lastSyncedSha = n.getStringValue(); },
+        "lastPushSha": n => { pipelineBindingStatus.lastPushSha = n.getStringValue(); },
+        "lastReconciledSha": n => { pipelineBindingStatus.lastReconciledSha = n.getStringValue(); },
         "lastSyncTime": n => { pipelineBindingStatus.lastSyncTime = n.getDateValue(); },
         "path": n => { pipelineBindingStatus.path = n.getStringValue(); },
         "pipelineId": n => { pipelineBindingStatus.pipelineId = n.getGuidValue(); },
         "problems": n => { pipelineBindingStatus.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "reconciledVersion": n => { pipelineBindingStatus.reconciledVersion = n.getNumberValue(); },
         "reconcileInProgress": n => { pipelineBindingStatus.reconcileInProgress = n.getBooleanValue(); },
         "reconcileSha": n => { pipelineBindingStatus.reconcileSha = n.getStringValue(); },
         "repo": n => { pipelineBindingStatus.repo = n.getStringValue(); },
         "result": n => { pipelineBindingStatus.result = n.getNumberValue(); },
-        "secrets": n => { pipelineBindingStatus.secrets = n.getCollectionOfObjectValues<SecretStatus>(createSecretStatusFromDiscriminatorValue); },
         "warnings": n => { pipelineBindingStatus.warnings = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
@@ -1273,8 +1265,8 @@ export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Part
         "credentialsSecret": n => { pipelineConfigBinding.credentialsSecret = n.getStringValue(); },
         "deployTrigger": n => { pipelineConfigBinding.deployTrigger = n.getNumberValue() ?? 0; },
         "id": n => { pipelineConfigBinding.id = n.getGuidValue(); },
-        "lastDeployedSha": n => { pipelineConfigBinding.lastDeployedSha = n.getStringValue(); },
-        "lastSyncedSha": n => { pipelineConfigBinding.lastSyncedSha = n.getStringValue(); },
+        "lastPushSha": n => { pipelineConfigBinding.lastPushSha = n.getStringValue(); },
+        "lastReconciledSha": n => { pipelineConfigBinding.lastReconciledSha = n.getStringValue(); },
         "path": n => { pipelineConfigBinding.path = n.getStringValue(); },
         "pipelineId": n => { pipelineConfigBinding.pipelineId = n.getGuidValue(); },
         "repo": n => { pipelineConfigBinding.repo = n.getStringValue(); },
@@ -1298,6 +1290,20 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
         "lastSettledRun": n => { pipelineHealth.lastSettledRun = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
         "runningRuns": n => { pipelineHealth.runningRuns = n.getNumberValue(); },
         "status": n => { pipelineHealth.status = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineSecretInfo The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineSecretInfo(pipelineSecretInfo: Partial<PipelineSecretInfo> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "declaredBy": n => { pipelineSecretInfo.declaredBy = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "description": n => { pipelineSecretInfo.description = n.getStringValue(); },
+        "isSet": n => { pipelineSecretInfo.isSet = n.getBooleanValue(); },
+        "name": n => { pipelineSecretInfo.name = n.getStringValue(); },
     }
 }
 /**
@@ -1412,12 +1418,12 @@ export function deserializeIntoPipelineVersionSummary_stepVersions(pipelineVersi
 // @ts-ignore
 export function deserializeIntoReconcileStatus(reconcileStatus: Partial<ReconcileStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "declaredSecrets": n => { reconcileStatus.declaredSecrets = n.getCollectionOfObjectValues<SecretDeclaration>(createSecretDeclarationFromDiscriminatorValue); },
         "inProgress": n => { reconcileStatus.inProgress = n.getBooleanValue() ?? false; },
         "lastSyncTime": n => { reconcileStatus.lastSyncTime = n.getDateValue(); },
         "problems": n => { reconcileStatus.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
         "result": n => { reconcileStatus.result = n.getNumberValue(); },
         "sha": n => { reconcileStatus.sha = n.getStringValue(); },
+        "versionNumber": n => { reconcileStatus.versionNumber = n.getNumberValue(); },
         "warnings": n => { reconcileStatus.warnings = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
@@ -1565,31 +1571,6 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
     return {
         "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
         "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SecretDeclaration The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSecretDeclaration(secretDeclaration: Partial<SecretDeclaration> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "description": n => { secretDeclaration.description = n.getStringValue(); },
-        "name": n => { secretDeclaration.name = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SecretStatus The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSecretStatus(secretStatus: Partial<SecretStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "description": n => { secretStatus.description = n.getStringValue(); },
-        "isSet": n => { secretStatus.isSet = n.getBooleanValue(); },
-        "name": n => { secretStatus.name = n.getStringValue(); },
     }
 }
 /**
@@ -1830,17 +1811,21 @@ export interface PipelineActivationDraining extends Parsable, PipelineActivation
 }
 export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
     /**
+     * The activation property
+     */
+    activation?: PipelineActivation | null;
+    /**
      * The branch property
      */
     branch?: string | null;
     /**
-     * The lastDeployedSha property
+     * The lastPushSha property
      */
-    lastDeployedSha?: string | null;
+    lastPushSha?: string | null;
     /**
-     * The lastSyncedSha property
+     * The lastReconciledSha property
      */
-    lastSyncedSha?: string | null;
+    lastReconciledSha?: string | null;
     /**
      * The lastSyncTime property
      */
@@ -1858,6 +1843,10 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
      */
     problems?: string[] | null;
     /**
+     * The reconciledVersion property
+     */
+    reconciledVersion?: number | null;
+    /**
      * The reconcileInProgress property
      */
     reconcileInProgress?: boolean | null;
@@ -1873,10 +1862,6 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
      * The result property
      */
     result?: number | null;
-    /**
-     * The secrets property
-     */
-    secrets?: SecretStatus[] | null;
     /**
      * The warnings property
      */
@@ -1904,13 +1889,13 @@ export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
      */
     id?: Guid | null;
     /**
-     * The lastDeployedSha property
+     * The lastPushSha property
      */
-    lastDeployedSha?: string | null;
+    lastPushSha?: string | null;
     /**
-     * The lastSyncedSha property
+     * The lastReconciledSha property
      */
-    lastSyncedSha?: string | null;
+    lastReconciledSha?: string | null;
     /**
      * The path property
      */
@@ -1965,6 +1950,24 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: string | null;
+}
+export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
+    /**
+     * The declaredBy property
+     */
+    declaredBy?: string[] | null;
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The isSet property
+     */
+    isSet?: boolean | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
 }
 export interface PipelineSummary extends AdditionalDataHolder, Parsable {
     /**
@@ -2080,10 +2083,6 @@ export interface PipelineVersionSummary_stepVersions extends AdditionalDataHolde
 }
 export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
-     * The declaredSecrets property
-     */
-    declaredSecrets?: SecretDeclaration[] | null;
-    /**
      * The inProgress property
      */
     inProgress?: boolean | null;
@@ -2103,6 +2102,10 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
      * The sha property
      */
     sha?: string | null;
+    /**
+     * The versionNumber property
+     */
+    versionNumber?: number | null;
     /**
      * The warnings property
      */
@@ -2352,30 +2355,6 @@ export interface RunTrigger extends AdditionalDataHolder, Parsable {
     kind?: RunTriggerKind | null;
 }
 export type RunTriggerKind = (typeof RunTriggerKindObject)[keyof typeof RunTriggerKindObject];
-export interface SecretDeclaration extends AdditionalDataHolder, Parsable {
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-}
-export interface SecretStatus extends AdditionalDataHolder, Parsable {
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The isSet property
-     */
-    isSet?: boolean | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-}
 /**
  * Serializes information the current object
  * @param ActiveAttempt The instance to serialize from.
@@ -2826,18 +2805,19 @@ export function serializePipelineActivationDraining(writer: SerializationWriter,
 // @ts-ignore
 export function serializePipelineBindingStatus(writer: SerializationWriter, pipelineBindingStatus: Partial<PipelineBindingStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipelineBindingStatus || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<PipelineActivation>("activation", pipelineBindingStatus.activation, serializePipelineActivation);
     writer.writeStringValue("branch", pipelineBindingStatus.branch);
-    writer.writeStringValue("lastDeployedSha", pipelineBindingStatus.lastDeployedSha);
-    writer.writeStringValue("lastSyncedSha", pipelineBindingStatus.lastSyncedSha);
+    writer.writeStringValue("lastPushSha", pipelineBindingStatus.lastPushSha);
+    writer.writeStringValue("lastReconciledSha", pipelineBindingStatus.lastReconciledSha);
     writer.writeDateValue("lastSyncTime", pipelineBindingStatus.lastSyncTime);
     writer.writeStringValue("path", pipelineBindingStatus.path);
     writer.writeGuidValue("pipelineId", pipelineBindingStatus.pipelineId);
     writer.writeCollectionOfPrimitiveValues<string>("problems", pipelineBindingStatus.problems);
+    writer.writeNumberValue("reconciledVersion", pipelineBindingStatus.reconciledVersion);
     writer.writeBooleanValue("reconcileInProgress", pipelineBindingStatus.reconcileInProgress);
     writer.writeStringValue("reconcileSha", pipelineBindingStatus.reconcileSha);
     writer.writeStringValue("repo", pipelineBindingStatus.repo);
     writer.writeNumberValue("result", pipelineBindingStatus.result);
-    writer.writeCollectionOfObjectValues<SecretStatus>("secrets", pipelineBindingStatus.secrets, serializeSecretStatus);
     writer.writeCollectionOfPrimitiveValues<string>("warnings", pipelineBindingStatus.warnings);
     writer.writeAdditionalData(pipelineBindingStatus.additionalData);
 }
@@ -2855,8 +2835,8 @@ export function serializePipelineConfigBinding(writer: SerializationWriter, pipe
     writer.writeStringValue("credentialsSecret", pipelineConfigBinding.credentialsSecret);
     writer.writeNumberValue("deployTrigger", pipelineConfigBinding.deployTrigger ?? 0);
     writer.writeGuidValue("id", pipelineConfigBinding.id);
-    writer.writeStringValue("lastDeployedSha", pipelineConfigBinding.lastDeployedSha);
-    writer.writeStringValue("lastSyncedSha", pipelineConfigBinding.lastSyncedSha);
+    writer.writeStringValue("lastPushSha", pipelineConfigBinding.lastPushSha);
+    writer.writeStringValue("lastReconciledSha", pipelineConfigBinding.lastReconciledSha);
     writer.writeStringValue("path", pipelineConfigBinding.path);
     writer.writeGuidValue("pipelineId", pipelineConfigBinding.pipelineId);
     writer.writeStringValue("repo", pipelineConfigBinding.repo);
@@ -2882,6 +2862,21 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
     writer.writeNumberValue("runningRuns", pipelineHealth.runningRuns);
     writer.writeStringValue("status", pipelineHealth.status);
     writer.writeAdditionalData(pipelineHealth.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineSecretInfo The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineSecretInfo(writer: SerializationWriter, pipelineSecretInfo: Partial<PipelineSecretInfo> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineSecretInfo || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("declaredBy", pipelineSecretInfo.declaredBy);
+    writer.writeStringValue("description", pipelineSecretInfo.description);
+    writer.writeBooleanValue("isSet", pipelineSecretInfo.isSet);
+    writer.writeStringValue("name", pipelineSecretInfo.name);
+    writer.writeAdditionalData(pipelineSecretInfo.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3004,12 +2999,12 @@ export function serializePipelineVersionSummary_stepVersions(writer: Serializati
 // @ts-ignore
 export function serializeReconcileStatus(writer: SerializationWriter, reconcileStatus: Partial<ReconcileStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!reconcileStatus || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfObjectValues<SecretDeclaration>("declaredSecrets", reconcileStatus.declaredSecrets, serializeSecretDeclaration);
     writer.writeBooleanValue("inProgress", reconcileStatus.inProgress ?? false);
     writer.writeDateValue("lastSyncTime", reconcileStatus.lastSyncTime);
     writer.writeCollectionOfPrimitiveValues<string>("problems", reconcileStatus.problems);
     writer.writeNumberValue("result", reconcileStatus.result);
     writer.writeStringValue("sha", reconcileStatus.sha);
+    writer.writeNumberValue("versionNumber", reconcileStatus.versionNumber);
     writer.writeCollectionOfPrimitiveValues<string>("warnings", reconcileStatus.warnings);
     writer.writeAdditionalData(reconcileStatus.additionalData);
 }
@@ -3167,33 +3162,6 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
     writer.writeStringValue("dedupKey", runTrigger.dedupKey);
     writer.writeEnumValue<RunTriggerKind>("kind", runTrigger.kind);
     writer.writeAdditionalData(runTrigger.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SecretDeclaration The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeSecretDeclaration(writer: SerializationWriter, secretDeclaration: Partial<SecretDeclaration> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!secretDeclaration || isSerializingDerivedType) { return; }
-    writer.writeStringValue("description", secretDeclaration.description);
-    writer.writeStringValue("name", secretDeclaration.name);
-    writer.writeAdditionalData(secretDeclaration.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SecretStatus The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeSecretStatus(writer: SerializationWriter, secretStatus: Partial<SecretStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!secretStatus || isSerializingDerivedType) { return; }
-    writer.writeStringValue("description", secretStatus.description);
-    writer.writeBooleanValue("isSet", secretStatus.isSet);
-    writer.writeStringValue("name", secretStatus.name);
-    writer.writeAdditionalData(secretStatus.additionalData);
 }
 /**
  * Serializes information the current object

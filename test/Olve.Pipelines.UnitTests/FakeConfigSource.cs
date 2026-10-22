@@ -14,7 +14,6 @@ public sealed class FakeConfigSource : IConfigSource
     public string BranchHeadSha { get; set; } = "head-0";
     public string ConfigSha { get; set; } = "config-0";
     public string ConfigETag { get; set; } = "etag-0";
-    public Dictionary<string, string> Files { get; } = new(StringComparer.Ordinal);
 
     public Result<string>? BranchHeadOverride { get; set; }
 
@@ -26,7 +25,7 @@ public sealed class FakeConfigSource : IConfigSource
     {
         ConfigFetch fetch = etag == ConfigETag
             ? new ConfigFetch.NotModified(ConfigETag)
-            : new ConfigFetch.Changed(ConfigSha, ConfigETag, new Dictionary<string, string>(Files, StringComparer.Ordinal));
+            : new ConfigFetch.Changed(ConfigSha, ConfigETag);
 
         return Task.FromResult<Result<ConfigFetch>>(fetch);
     }

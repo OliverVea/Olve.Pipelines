@@ -24,7 +24,7 @@ public interface IPushTriggerHandler
 /// (<see cref="IConfigReconciler"/>: build/describe → validate → version → switch). A commit whose
 /// reconcile failed is not retried by the background loop (only by an explicit reconcile-now or a
 /// restart), and while the current config commit is unapplied the run step is held.</item>
-/// <item><b>Runs.</b> When the branch head advanced past <see cref="PipelineConfigBinding.LastDeployedSha"/>,
+/// <item><b>Runs.</b> When the branch head advanced past <see cref="PipelineConfigBinding.LastPushSha"/>,
 /// advance the cursor and fire the push trigger (<see cref="IPushTriggerHandler"/>). The first
 /// observation only seeds the cursor.</item>
 /// </list>
@@ -201,7 +201,7 @@ public class DeployPollService(
                 return false;
         }
 
-        if (binding.LastSyncedSha == sha && binding.Status.Result == ReconcileResult.Success)
+        if (binding.LastReconciledSha == sha && binding.Status.Result == ReconcileResult.Success)
             return true;
 
         if (!force && _failed.TryGetValue(binding.Id, out var failedSha) && failedSha == sha)
@@ -238,8 +238,8 @@ public class DeployPollService(
 
         _failed.TryRemove(binding.Id, out _);
         RecordStatus(bindingService, binding.Id, _ => new ReconcileStatus(
-            ReconcileResult.Success, DateTimeOffset.UtcNow, [], report.Secrets, report.Warnings, sha, InProgress: false));
-        bindingService.SetLastSyncedSha(binding.Id, sha).DiscardResult();
+            ReconcileResult.Success, DateTimeOffset.UtcNow, [], report.Warnings, sha, InProgress: false, report.Version.Number));
+        bindingService.SetLastReconciledSha(binding.Id, sha).DiscardResult();
         return true;
     }
 
@@ -268,21 +268,21 @@ public class DeployPollService(
             return;
         }
 
-        if (binding.LastDeployedSha == head)
+        if (binding.LastPushSha == head)
             return;
 
-        bindingService.SetLastDeployedSha(binding.Id, head).DiscardResult();
+        bindingService.SetLastPushSha(binding.Id, head).DiscardResult();
 
         // First observation seeds the cursor — restarts and freshly bound pipelines never treat
         // already-current code as a new push.
-        if (binding.LastDeployedSha is null)
+        if (binding.LastPushSha is null)
         {
             logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha}", binding.Repo, binding.Branch, head);
             return;
         }
 
         logger.LogInformation("Deploy poll: '{Repo}@{Branch}' advanced {Old} -> {New}; firing the push trigger",
-            binding.Repo, binding.Branch, binding.LastDeployedSha, head);
+            binding.Repo, binding.Branch, binding.LastPushSha, head);
 
         var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct);
         if (fired.TryPickProblems(out var fireProblems))
@@ -298,8 +298,8 @@ public class DeployPollService(
 
     public override void Dispose()
     {
+        base.Dispose(); // first: cancelling the stopping token runs a callback that cancels _lifetime
         _lifetime.Dispose();
-        base.Dispose();
         GC.SuppressFinalize(this);
     }
 }

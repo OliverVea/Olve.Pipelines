@@ -17,17 +17,17 @@ pipeline; every pipeline has exactly one.
 | `path` | pipeline directory in the repo (default `.pipelines`) |
 | `credentialsSecret` | the **key name** in the pipeline's Secret holding a GitHub token (omit for a public repo) — a reference, never the token |
 | `deployTrigger` | `webhook`, `webhook-only` or `poll` (see below) |
-| `lastSyncedSha` / `lastDeployedSha` | the config commit last reconciled / the branch head last turned into a push trigger |
-| `status` | last reconcile `result`, `lastSyncTime`, `problems`, `warnings` |
+| `lastReconciledSha` / `lastPushSha` | the config commit last reconciled / the branch head last turned into a push trigger |
+| `status` | last reconcile `result`, `lastSyncTime`, `problems`, `warnings`, `sha`, `inProgress`, `versionNumber` (the version it switched to) |
 
 | `pl` command | Purpose |
 |---|---|
 | `pl binding create <repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger <mode>]` | Create a pipeline bound to a repo. Rolls the pipeline back if the bind fails. |
-| `pl binding get <pipelineId>` | Show the binding |
-| `pl binding status <pipelineId>` | Reconcile result and problems, plus which declared secrets are set |
-| `pl binding set-credentials <pipelineId> [key]` | Set (or, with no key, clear) the token key |
-| `pl binding set-trigger <pipelineId> <mode>` | Change the deploy-trigger mode |
-| `pl binding reconcile <pipelineId>` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed) |
+| `pl binding get <pipeline>` | Show the binding |
+| `pl binding status <pipeline>` | Reconcile result, commit, in-progress flag, resulting and active version, problems and warnings |
+| `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
+| `pl binding set-trigger <pipeline> <mode>` | Change the deploy-trigger mode |
+| `pl binding reconcile <pipeline>` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed) |
 
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
 bind seeds a provisional name from the repo.
@@ -66,7 +66,7 @@ Per binding, the deploy poll (or a webhook, or `pl binding reconcile`) does, in 
       Errors fail the reconcile; warnings are reported.
    3. If the manifest matches the active (or latest) version, reuse it; otherwise add a **new
       version** (with step and model entity versions). Then **switch** to it.
-2. **Runs.** If the branch head moved past `lastDeployedSha`, record it and fire the `onPush`
+2. **Runs.** If the branch head moved past `lastPushSha`, record it and fire the `onPush`
    trigger. The first observation only records the head.
 
 Both steps run under one per-binding lock, so a run for a commit always starts after that commit's
@@ -133,18 +133,18 @@ pl binding status <pipelineId>
 ```
 
 ```text
-Pipeline:  <id>
-Repo:      OliverVea/Olve.Pipelines@v2 (.pipelines)
-Reconcile: Success (last sync 2026-10-22 08:10:00Z)
-Deployed:  <sha>
-Synced:    <sha>
-Secrets:
-  NAME             SET  DESCRIPTION
-  GITHUB_TOKEN     set  GitHub read token used to fetch the repo tarball.
-  SSH_PRIVATE_KEY  set  SSH key for importing the image and running helm on the homelab host.
+Pipeline:    <id>
+Repo:        OliverVea/Olve.Pipelines@v2 (.pipelines)
+Reconcile:   Success (last sync 2026-10-22 08:10:00Z)
+  commit:    <sha> (in progress)
+  version:   v14
+Active:      active v14
+Last push:   <sha>
+Reconciled:  <sha>
 ```
 
-`--json` adds `warnings`, `reconcileSha` (the commit of the last attempt) and `reconcileInProgress`.
+`commit` is the config commit of the last attempt, `version` the version it switched to. Which
+declared secrets are set: `pl secret list <pipeline>`.
 
 | Result | Meaning |
 |---|---|

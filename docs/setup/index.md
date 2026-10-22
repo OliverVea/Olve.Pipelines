@@ -98,7 +98,7 @@ Then:
 
 ```sh
 pl binding create you/my-app            # prints the binding, including the pipeline id
-pl binding status <pipelineId>          # reconcile result, problems, declared secrets
+pl binding status <pipeline>            # reconcile result, resulting version, problems
 ```
 
 Full walkthrough, including the `package.json` and the current SDK limitation for repos other

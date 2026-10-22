@@ -113,9 +113,9 @@ public sealed class PipelineSwitchCommand : ICliCommand
         """
         pl pipeline switch <pipeline> <version> [--cancel-running]
 
-          The current version drains (starts no new runs; in-flight jobs finish), then <version>
+          The current version drains (starts no new runs; in-flight attempts finish), then <version>
           becomes active. Triggers during draining are queued and start on <version>.
-          --cancel-running cancels the old version's in-flight jobs instead of waiting.
+          --cancel-running cancels the old version's in-flight attempts instead of waiting.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

@@ -90,13 +90,13 @@ public class MutationCommandTests
     public async Task PipelineDelete_CallsApi_AndConfirms()
     {
         var api = new FakePipelinesApi { DeletePipelineResult = Result.Success() };
-        var (ctx, stdout, cli) = Build(new PipelineDeleteCommand(), api, json: false, "pipeline", "delete", "pid");
+        var (ctx, stdout, cli) = Build(new PipelineDeleteCommand(), api, json: false, "pipeline", "delete", "11111111-2222-3333-4444-555555555555");
 
         var result = await new PipelineDeleteCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("DeletePipeline")).IsTrue();
-        await Assert.That(stdout.ToString()).Contains("pid");
+        await Assert.That(stdout.ToString()).Contains("11111111-2222-3333-4444-555555555555");
     }
 
     [Test]

@@ -22,8 +22,8 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.GetAsync("/api/attempts?status=active", CliJsonContext.Default.ActiveAttemptArray, ct);
 
     // Secrets
-    public Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
-        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/secrets", CliJsonContext.Default.StringArray, ct);
+    public Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/secrets", CliJsonContext.Default.PipelineSecretInfoArray, ct);
 
     // Bindings (GitOps)
     public Task<Result<PipelineConfigBinding>> GetPipelineBinding(string pipelineId, CancellationToken ct) =>

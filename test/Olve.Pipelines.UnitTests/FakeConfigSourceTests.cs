@@ -15,8 +15,8 @@ public class FakeConfigSourceTests
         "main",
         ".pipelines",
         CredentialsSecret: null,
-        LastDeployedSha: null,
-        LastSyncedSha: null,
+        LastPushSha: null,
+        LastReconciledSha: null,
         ReconcileStatus.NeverRun,
         DateTimeOffset.UnixEpoch);
 
@@ -30,7 +30,6 @@ public class FakeConfigSourceTests
     public async Task FetchConfig_WhenEtagMatches_ReturnsNotModified()
     {
         var source = new FakeConfigSource { ConfigETag = "etag-1" };
-        source.Files["config.yaml"] = "name: x";
 
         var fetch = Pick(await source.FetchConfigAsync(Binding(), etag: "etag-1"));
 
@@ -38,17 +37,15 @@ public class FakeConfigSourceTests
     }
 
     [Test]
-    public async Task FetchConfig_WhenEtagDiffers_ReturnsChangedWithFiles()
+    public async Task FetchConfig_WhenEtagDiffers_ReturnsChanged()
     {
         var source = new FakeConfigSource { ConfigETag = "etag-2", ConfigSha = "abc" };
-        source.Files["config.yaml"] = "name: x";
 
         var fetch = Pick(await source.FetchConfigAsync(Binding(), etag: "stale"));
 
         var changed = fetch as ConfigFetch.Changed;
         await Assert.That(changed).IsNotNull();
         await Assert.That(changed!.Sha).IsEqualTo("abc");
-        await Assert.That(changed.Files["config.yaml"]).IsEqualTo("name: x");
     }
 
     [Test]

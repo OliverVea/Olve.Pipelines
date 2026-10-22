@@ -12,7 +12,7 @@ public class PipelineSecretCopyServiceTests
 {
     private const string Ns = "runners";
 
-    private sealed class FakeSecrets : IKubernetesClient
+    internal sealed class FakeSecrets : IKubernetesClient
     {
         public Dictionary<string, Dictionary<string, string>> Secrets { get; } = [];
         public List<string> Writes { get; } = [];
@@ -34,7 +34,12 @@ public class PipelineSecretCopyServiceTests
             return Task.CompletedTask;
         }
 
-        public Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default)
+        {
+            Writes.Add($"delete {secretName}");
+            Secrets.Remove(secretName);
+            return Task.CompletedTask;
+        }
         public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
@@ -67,7 +72,7 @@ public class PipelineSecretCopyServiceTests
         pipelines.Create("source").TryPickValue(out var source, out _);
         pipelines.Create("target").TryPickValue(out var target, out _);
         var k8s = new FakeSecrets();
-        k8s.Secrets[PipelineSecretCopyService.SecretName(source!.Id)] = new() { ["GITHUB_TOKEN"] = "gh-value-1", ["REGISTRY"] = "reg-value-2" };
+        k8s.Secrets[PipelineSecrets.Name(source!.Id)] = new() { ["GITHUB_TOKEN"] = "gh-value-1", ["REGISTRY"] = "reg-value-2" };
         var log = new CapturingLogger();
         var service = new PipelineSecretCopyService(pipelines, k8s,
             new KubernetesOptions(Ns), log);
@@ -75,7 +80,7 @@ public class PipelineSecretCopyServiceTests
     }
 
     private static Dictionary<string, string>? TargetSecret(Fixture f) =>
-        f.K8s.Secrets.GetValueOrDefault(PipelineSecretCopyService.SecretName(f.Target.Id));
+        f.K8s.Secrets.GetValueOrDefault(PipelineSecrets.Name(f.Target.Id));
 
     [Test]
     public async Task CopyOne_CreatesTargetSecret_AndLogsNamesNotValues()
@@ -102,13 +107,13 @@ public class PipelineSecretCopyServiceTests
     public async Task CopyAll_WhenNoNames_CopiesEverySecret_InOneWrite_KeepingExisting()
     {
         var f = Build();
-        f.K8s.Secrets[PipelineSecretCopyService.SecretName(f.Target.Id)] = new() { ["OWN"] = "own" };
+        f.K8s.Secrets[PipelineSecrets.Name(f.Target.Id)] = new() { ["OWN"] = "own" };
 
         var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id), "oliver");
 
         await Assert.That(result).Succeeded();
         await Assert.That(TargetSecret(f)!.Keys.Order()).IsEquivalentTo(["GITHUB_TOKEN", "OWN", "REGISTRY"]);
-        await Assert.That(f.K8s.Writes).IsEquivalentTo([$"update {PipelineSecretCopyService.SecretName(f.Target.Id)}"]);
+        await Assert.That(f.K8s.Writes).IsEquivalentTo([$"update {PipelineSecrets.Name(f.Target.Id)}"]);
     }
 
     [Test]
@@ -127,7 +132,7 @@ public class PipelineSecretCopyServiceTests
     public async Task ExistingTarget_WithoutOverwrite_Fails_AndWritesNothing()
     {
         var f = Build();
-        f.K8s.Secrets[PipelineSecretCopyService.SecretName(f.Target.Id)] = new() { ["GITHUB_TOKEN"] = "old" };
+        f.K8s.Secrets[PipelineSecrets.Name(f.Target.Id)] = new() { ["GITHUB_TOKEN"] = "old" };
 
         var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id), "oliver");
 
@@ -140,7 +145,7 @@ public class PipelineSecretCopyServiceTests
     public async Task ExistingTarget_WithOverwrite_Replaces()
     {
         var f = Build();
-        f.K8s.Secrets[PipelineSecretCopyService.SecretName(f.Target.Id)] = new() { ["GITHUB_TOKEN"] = "old" };
+        f.K8s.Secrets[PipelineSecrets.Name(f.Target.Id)] = new() { ["GITHUB_TOKEN"] = "old" };
 
         var result = await f.Service.CopyAsync(f.Target.Id,
             new CopySecretsRequest(f.Source.Id, ["GITHUB_TOKEN"], Overwrite: true), "oliver");
@@ -201,6 +206,6 @@ public class PipelineSecretCopyServiceTests
 
         await Assert.That(onto).Failed();
         await Assert.That(renamed).Succeeded();
-        await Assert.That(f.K8s.Secrets[PipelineSecretCopyService.SecretName(f.Source.Id)]["GH2"]).IsEqualTo("gh-value-1");
+        await Assert.That(f.K8s.Secrets[PipelineSecrets.Name(f.Source.Id)]["GH2"]).IsEqualTo("gh-value-1");
     }
 }

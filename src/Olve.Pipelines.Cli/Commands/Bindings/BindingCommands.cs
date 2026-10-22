@@ -1,14 +1,11 @@
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Output;
+using static Olve.Pipelines.Cli.Commands.Runs.RunCommandSupport;
 
 namespace Olve.Pipelines.Cli.Commands.Bindings;
 
-/// <summary>
-/// <c>pl binding create &lt;repo&gt;</c> — create a pipeline already bound to a git repo (GitOps).
-/// One call composes pipeline + binding; the reconcile loop then builds the pipeline in the
-/// repo's binding path into a version. Mirrors the <c>setup-pipeline</c> bootstrap's bind step.
-/// </summary>
+/// <summary><c>pl binding create &lt;repo&gt;</c> — create a pipeline bound to a git repo.</summary>
 public sealed class BindingCreateCommand : ICliCommand
 {
     public string Noun => "binding";
@@ -58,18 +55,21 @@ public sealed class BindingCreateCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl binding get &lt;pipelineId&gt;</c> — show a pipeline's GitOps binding.</summary>
+/// <summary><c>pl binding get &lt;pipeline&gt;</c> — show a pipeline's GitOps binding.</summary>
 public sealed class BindingGetCommand : ICliCommand
 {
     public string Noun => "binding";
     public string Verb => "get";
     public int RequiredOperands => 1;
     public string HelpLine => "Get a pipeline's GitOps binding";
-    public string? HelpDetail => "pl binding get <pipelineId>";
+    public string? HelpDetail => "pl binding get <pipeline>";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.GetPipelineBinding(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var binding))
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
+        if ((await ctx.Api.GetPipelineBinding(pipelineId, ct)).TryPickProblems(out var problems, out var binding))
             return problems;
 
         ctx.Output.Emit(binding, CliJsonContext.Default.PipelineConfigBinding,
@@ -78,18 +78,21 @@ public sealed class BindingGetCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl binding status &lt;pipelineId&gt;</c> — reconcile result + declared-secret state.</summary>
+/// <summary><c>pl binding status &lt;pipeline&gt;</c>.</summary>
 public sealed class BindingStatusCommand : ICliCommand
 {
     public string Noun => "binding";
     public string Verb => "status";
     public int RequiredOperands => 1;
-    public string HelpLine => "Show binding reconcile status and declared-secret state";
-    public string? HelpDetail => "pl binding status <pipelineId>";
+    public string HelpLine => "Show the binding's reconcile status and the resulting version";
+    public string? HelpDetail => "pl binding status <pipeline>";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.GetPipelineBindingStatus(cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var status))
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
+        if ((await ctx.Api.GetPipelineBindingStatus(pipelineId, ct)).TryPickProblems(out var problems, out var status))
             return problems;
 
         ctx.Output.Emit(status, CliJsonContext.Default.PipelineBindingStatus,
@@ -98,10 +101,7 @@ public sealed class BindingStatusCommand : ICliCommand
     }
 }
 
-/// <summary>
-/// <c>pl binding set-credentials &lt;pipelineId&gt; [secretName]</c> — set (or, with no name, clear) the
-/// key in the pipeline's k8s secret holding the GitHub token used to fetch config.
-/// </summary>
+/// <summary><c>pl binding set-credentials &lt;pipeline&gt; [secretName]</c>.</summary>
 public sealed class BindingSetCredentialsCommand : ICliCommand
 {
     public string Noun => "binding";
@@ -110,16 +110,17 @@ public sealed class BindingSetCredentialsCommand : ICliCommand
     public string HelpLine => "Set or clear the binding's credentials secret key";
     public string? HelpDetail =>
         """
-        pl binding set-credentials <pipelineId> [secretName]
+        pl binding set-credentials <pipeline> [secretName]
 
-          Names the key in the pipeline's k8s secret that holds the GitHub token used to fetch
-          config (moves the fetch onto the authenticated GitHub bucket). Omit <secretName> to
-          clear it (revert to unauthenticated fetch).
+          Names the key in the pipeline's secrets that holds the GitHub token used to read the
+          repo (authenticated rate limit). Omit <secretName> to clear it.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var pipelineId = cli.Operand(0)!;
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
         var secretName = cli.Operand(1); // absent => clear
 
         if ((await ctx.Api.UpdatePipelineBindingCredentials(pipelineId, secretName, ct))
@@ -132,7 +133,7 @@ public sealed class BindingSetCredentialsCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl binding set-trigger &lt;pipelineId&gt; &lt;mode&gt;</c> — change how the bound pipeline deploys.</summary>
+/// <summary><c>pl binding set-trigger &lt;pipeline&gt; &lt;mode&gt;</c> — change how the bound pipeline deploys.</summary>
 public sealed class BindingSetTriggerCommand : ICliCommand
 {
     public string Noun => "binding";
@@ -141,7 +142,7 @@ public sealed class BindingSetTriggerCommand : ICliCommand
     public string HelpLine => "Set the binding's deploy trigger (webhook/webhook-only/poll)";
     public string? HelpDetail =>
         """
-        pl binding set-trigger <pipelineId> <mode>
+        pl binding set-trigger <pipeline> <mode>
 
           mode is one of:
             webhook       GitHub push hook drives deploys; poll runs as a slow safety net (default)
@@ -151,7 +152,9 @@ public sealed class BindingSetTriggerCommand : ICliCommand
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var pipelineId = cli.Operand(0)!;
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
         if (BindingTrigger.Parse(cli.Operand(1)!).TryPickProblems(out var parseProblems, out var trigger))
             return parseProblems;
 
@@ -165,25 +168,25 @@ public sealed class BindingSetTriggerCommand : ICliCommand
     }
 }
 
-/// <summary>
-/// <c>pl binding reconcile &lt;pipelineId&gt;</c> — apply the bound config now, off the poll schedule.
-/// </summary>
+/// <summary><c>pl binding reconcile &lt;pipeline&gt;</c>.</summary>
 public sealed class BindingReconcileCommand : ICliCommand
 {
     public string Noun => "binding";
     public string Verb => "reconcile";
     public int RequiredOperands => 1;
-    public string HelpLine => "Reconcile the bound config immediately (off the poll schedule)";
-    public string? HelpDetail => "pl binding reconcile <pipelineId>";
+    public string HelpLine => "Reconcile the bound config now (also retries a failed commit)";
+    public string? HelpDetail => "pl binding reconcile <pipeline>";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var pipelineId = cli.Operand(0)!;
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        var pipelineId = pipeline.Id.ToString();
         if ((await ctx.Api.ReconcilePipelineBinding(pipelineId, ct)).TryPickProblems(out var problems))
             return problems;
 
         if (!ctx.Output.IsJson)
-            ctx.Output.Line($"Reconciled binding for pipeline {pipelineId}.");
+            ctx.Output.Line($"Reconcile of {pipeline.Label} queued; follow it with `pl binding status {pipeline.Label}`.");
         return Result.Success();
     }
 }
@@ -218,20 +221,23 @@ internal static class BindingPrinter
         output.Line($"Repo:        {b.Repo}@{b.Branch} ({b.Path})");
         output.Line($"Trigger:     {BindingTrigger.Text(b.DeployTrigger)}");
         output.Line($"Credentials: {b.CredentialsSecret ?? "(none)"}");
-        output.Line($"Deployed:    {b.LastDeployedSha ?? "(none)"}");
-        output.Line($"Synced:      {b.LastSyncedSha ?? "(none)"}");
-        output.Line($"Reconcile:   {ReconcileText(b.Status.Result, b.Status.LastSyncTime)}");
+        output.Line($"Last push:   {b.LastPushSha ?? "(none)"}");
+        output.Line($"Reconciled:  {b.LastReconciledSha ?? "(none)"}");
+        output.Line($"Reconcile:   {ReconcileText(b.Status.Result, b.Status.LastSyncTime)}{(b.Status.InProgress ? " (in progress)" : "")}");
         foreach (var problem in b.Status.Problems)
             output.Line($"  problem: {problem}");
     }
 
     public static void PrintStatus(IOutputWriter output, PipelineBindingStatus s)
     {
-        output.Line($"Pipeline:  {s.PipelineId}");
-        output.Line($"Repo:      {s.Repo}@{s.Branch} ({s.Path})");
-        output.Line($"Reconcile: {ReconcileText(s.Result, s.LastSyncTime)}");
-        output.Line($"Deployed:  {s.LastDeployedSha ?? "(none)"}");
-        output.Line($"Synced:    {s.LastSyncedSha ?? "(none)"}");
+        output.Line($"Pipeline:    {s.PipelineId}");
+        output.Line($"Repo:        {s.Repo}@{s.Branch} ({s.Path})");
+        output.Line($"Reconcile:   {ReconcileText(s.Result, s.LastSyncTime)}");
+        output.Line($"  commit:    {s.ReconcileSha ?? "(none)"}{(s.ReconcileInProgress ? " (in progress)" : "")}");
+        output.Line($"  version:   {(s.ReconciledVersion is { } v ? $"v{v}" : "(none)")}");
+        output.Line($"Active:      {s.Activation?.ToString() ?? "(no version)"}");
+        output.Line($"Last push:   {s.LastPushSha ?? "(none)"}");
+        output.Line($"Reconciled:  {s.LastReconciledSha ?? "(none)"}");
 
         if (s.Problems.Length > 0)
         {
@@ -240,19 +246,12 @@ internal static class BindingPrinter
                 output.Line($"  - {problem}");
         }
 
-        output.Line("Secrets:");
-        if (s.Secrets.Length == 0)
+        if (s.Warnings.Length > 0)
         {
-            output.Line("  (none declared)");
-            return;
+            output.Line("Warnings:");
+            foreach (var warning in s.Warnings)
+                output.Line($"  - {warning}");
         }
-
-        var rows = s.Secrets
-            .Select(sec => (IReadOnlyList<string>)
-                [sec.Name, sec.IsSet switch { true => "set", false => "unset", null => "unknown" }, sec.Description ?? ""])
-            .ToList();
-        foreach (var line in Table.Render(["NAME", "SET", "DESCRIPTION"], rows))
-            output.Line($"  {line}");
     }
 
     private static string ReconcileText(ReconcileResult result, DateTimeOffset? at) =>

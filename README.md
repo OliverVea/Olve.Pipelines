@@ -121,7 +121,7 @@ needs a bearer token. Errors are `400` with a `ResultProblem[]` body.
 |--------|------|-------------|
 | POST | `/api/pipelines/with-repo` | Create a pipeline bound to a repo (`{ repo, branch?, path?, credentialsSecret?, deployTrigger? }`) — the only create |
 | GET | `/api/pipelines/{pipelineId}/binding` | Get the binding |
-| GET | `/api/pipelines/{pipelineId}/binding/status` | Reconcile result, problems, warnings, declared-secret state |
+| GET | `/api/pipelines/{pipelineId}/binding/status` | Reconcile result, commit, in-progress, resulting version, active version, problems, warnings |
 | PATCH | `/api/pipelines/{pipelineId}/binding` | Set/clear the credentials secret key |
 | PATCH | `/api/pipelines/{pipelineId}/binding/deploy-trigger` | `webhook` / `webhook-only` / `poll` |
 | POST | `/api/pipelines/{pipelineId}/binding/reconcile` | Reconcile now (returns at once; progress in status) |
@@ -176,7 +176,7 @@ All under `/api/pipelines/{pipelineId}/runs`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/secrets` | Secret names (values are never returned) |
+| GET | `/api/pipelines/{pipelineId}/secrets` | `[{name, description, declaredBy, isSet}]`: secrets the active version (steps, onFailure handlers, poll triggers) or the binding uses, plus set-but-unused ones; `isSet` null when K8s is unreadable. Values are never returned |
 | PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set a value |
 | DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete |
 | POST | `/api/pipelines/{pipelineId}/secrets/copy` | Copy secrets from another pipeline on this instance, server-side (`{ sourcePipelineId, names? (omit = all), targetName? (one name only), overwrite? }` → `{ copied }`, names only; refuses existing names without `overwrite`). Caveat: whoever can write the target pipeline can read the copied values from its steps |
@@ -224,7 +224,7 @@ Global flags: `--json`, `--verbose`/`-v`, `--help`/`-h`. `pl help`, `pl <noun> -
 # pipelines — <pipeline> is an id or a name (quote names with spaces)
 pl pipeline list [--summaries]                         # health, last run, active version, running/held, closed gates
 pl pipeline get <pipeline>
-pl pipeline delete <pipelineId>
+pl pipeline delete <pipeline>                          # also deletes its binding, runs and secrets
 pl pipeline health <pipeline>
 pl pipeline versions <pipeline>                        # > marks the version runs start on
 pl pipeline manifest <pipeline> [--version <n>] [--json]
@@ -255,15 +255,15 @@ pl gate unblock <pipeline>/<step>
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts
 
-# secrets and bindings (by pipeline id)
-pl secret list <pipelineId>
-pl secret set <pipelineId> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
-pl secret delete <pipelineId> <name>
+# secrets and bindings
+pl secret list <pipeline>                              # declared-by and set/unset per secret
+pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
+pl secret delete <pipeline> <name>
 pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger webhook|webhook-only|poll]
-pl binding get|status|reconcile <pipelineId>
-pl binding set-credentials <pipelineId> [key]
-pl binding set-trigger <pipelineId> <webhook|webhook-only|poll>
+pl binding get|status|reconcile <pipeline>
+pl binding set-credentials <pipeline> [key]
+pl binding set-trigger <pipeline> <webhook|webhook-only|poll>
 
 # local development (no service, except dev validate)
 pl dev describe [--dir <path>] [--json]

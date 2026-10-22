@@ -92,10 +92,8 @@ public class GitHubConfigSource(
             logger.LogDebug("Config cursor of '{Repo}@{Branch}' over {Paths}: {Sha}",
                 binding.Repo, binding.Branch, string.Join(", ", cursors.Select(c => $"{c.Path}@{c.Sha[..Math.Min(12, c.Sha.Length)]}")), state.Sha);
 
-        // v2 reconcile builds the pipeline from the repo tarball at this commit (build/describe Job), so the
-        // subtree's blobs are not fetched here — the commit sha is all reconcile needs (and it keeps
-        // unauthenticated bindings well inside GitHub's 60 requests/hour).
-        return new ConfigFetch.Changed(state.Sha, state.Encode(), new Dictionary<string, string>(StringComparer.Ordinal));
+        // Reconcile builds from the repo tarball, so no blobs are fetched (keeps unauthenticated bindings under 60 req/h).
+        return new ConfigFetch.Changed(state.Sha, state.Encode());
     }
 
     /// <summary>HTTP client for GitHub; a seam for tests.</summary>
@@ -172,7 +170,7 @@ public class GitHubConfigSource(
 
         try
         {
-            var secretName = $"olve-pipeline-{binding.PipelineId.Value.Value:N}";
+            var secretName = PipelineSecrets.Name(binding.PipelineId);
             var secrets = await kubernetes.GetSecretAsync(kubernetesOptions.Namespace, secretName, ct);
             if (secrets is not null && secrets.TryGetValue(binding.CredentialsSecret, out var token))
                 return token;

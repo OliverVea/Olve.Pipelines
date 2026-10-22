@@ -152,9 +152,9 @@ pl binding create you/my-app --trigger poll
   `pl binding set-credentials <pipelineId> GITHUB_TOKEN`. Until the key holds a value, fetches run
   without a token, which fails for a private repo.
 
-The command prints the binding, including the **pipeline id**. `pl secret` and `pl binding` take that
-id. The run commands (`pl trigger`, `pl run`, `pl step`, `pl gate`, `pl pipeline …`) also accept the
-pipeline's **name**, which comes from `pipeline({ name })` after the first reconcile. Quote names
+The command prints the binding, including the **pipeline id**. Every command that takes a pipeline
+accepts that id or the pipeline's **name**, which comes from `pipeline({ name })` after the first
+reconcile. Quote names
 that contain spaces.
 
 ## Step 4 — Set the secret values
@@ -167,14 +167,14 @@ A step gets only the secrets it declares, as env vars of the same name.
 and sends it verbatim:
 
 ```sh
-pl secret set <pipelineId> GITHUB_TOKEN --from-env GITHUB_TOKEN
-pl secret set <pipelineId> SSH_PRIVATE_KEY --from-file ./id_ed25519
-some-command-printing-the-value | pl secret set <pipelineId> API_KEY
+pl secret set <pipeline> GITHUB_TOKEN --from-env GITHUB_TOKEN
+pl secret set <pipeline> SSH_PRIVATE_KEY --from-file ./id_ed25519
+some-command-printing-the-value | pl secret set <pipeline> API_KEY
 ```
 
 Don't pass a value through `$(…)`: command substitution strips trailing newlines, which breaks SSH
-keys. `pl secret list <pipelineId>` lists the names that are set; `pl binding status <pipelineId>`
-shows which declared secrets are set.
+keys. `pl secret list <pipeline>` lists every secret the active version declares (and which step
+uses it) or that is set, and whether it is set.
 
 A value another pipeline on the same instance already has (a shared `GITHUB_TOKEN`, say) can be
 copied instead of set again. The service copies it; the value never reaches your machine:
@@ -199,14 +199,17 @@ pl binding status <pipelineId>
 ```
 
 ```text
-Pipeline:  <id>
-Repo:      you/my-app@main (.pipelines)
-Reconcile: Success (last sync 2026-10-21 12:00:00Z)
-Deployed:  <sha>
-Synced:    <sha>
-Secrets:
-  (none declared)
+Pipeline:    <id>
+Repo:        you/my-app@main (.pipelines)
+Reconcile:   Success (last sync 2026-10-21 12:00:00Z)
+  commit:    <sha>
+  version:   v1
+Active:      active v1
+Last push:   <sha>
+Reconciled:  <sha>
 ```
+
+`pl secret list my-app` shows which declared secrets are set.
 
 - **`Success`** — the pipeline compiled, passed every check and is now a version:
   `pl pipeline versions my-app` lists it, `pl pipeline manifest my-app` summarizes it.

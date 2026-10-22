@@ -86,7 +86,6 @@ public static class KubernetesConfiguration
         builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
 
-        builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
         builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
@@ -123,7 +122,6 @@ public static class KubernetesConfiguration
         builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
         builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
 
-        builder.Services.AddTransient<IPipelineSecretStore, KubernetesPipelineSecretStore>();
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
         builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();

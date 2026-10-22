@@ -18,8 +18,6 @@ public class PipelineSecretCopyService(
     KubernetesOptions options,
     ILogger<PipelineSecretCopyService> logger)
 {
-    public static string SecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
-
     public async Task<Result<CopySecretsResponse>> CopyAsync(
         Id<Pipeline> targetId, CopySecretsRequest request, string actor, CancellationToken ct = default)
     {
@@ -28,13 +26,13 @@ public class PipelineSecretCopyService(
         if (!pipelines.TryGet(request.SourcePipelineId, out var source))
             return new ResultProblem("Source pipeline '{0}' not found.", request.SourcePipelineId);
 
-        var sourceData = await kubernetes.GetSecretAsync(options.Namespace, SecretName(source.Id), ct);
+        var sourceData = await kubernetes.GetSecretAsync(options.Namespace, PipelineSecrets.Name(source.Id), ct);
         if (sourceData is null || sourceData.Count == 0)
             return new ResultProblem("Source pipeline '{0}' has no secrets.", source.Name);
 
         var targetData = source.Id == target.Id
             ? new Dictionary<string, string>(sourceData)
-            : await kubernetes.GetSecretAsync(options.Namespace, SecretName(target.Id), ct);
+            : await kubernetes.GetSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), ct);
 
         if (Plan(sourceData, targetData, request, source.Id == target.Id).TryPickProblems(out var problems, out var plan))
             return problems;
@@ -44,9 +42,9 @@ public class PipelineSecretCopyService(
             merged[to] = sourceData[from];
 
         if (targetData is null)
-            await kubernetes.CreateSecretAsync(options.Namespace, SecretName(target.Id), merged, ct);
+            await kubernetes.CreateSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), merged, ct);
         else
-            await kubernetes.UpdateSecretAsync(options.Namespace, SecretName(target.Id), merged, ct);
+            await kubernetes.UpdateSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), merged, ct);
 
         var copied = plan.Select(p => p.To).ToArray();
         logger.LogInformation(

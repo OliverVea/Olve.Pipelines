@@ -1,5 +1,6 @@
 using Olve.Pipelines.Cli.Addressing;
 using Olve.Pipelines.Cli.Api;
+using static Olve.Pipelines.Cli.Commands.Runs.RunCommandSupport;
 
 namespace Olve.Pipelines.Cli.Commands.Pipelines;
 
@@ -28,23 +29,24 @@ public sealed class PipelineGetCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl pipeline delete &lt;id&gt;</c> — delete a pipeline and cascade-cancel its jobs.</summary>
+/// <summary><c>pl pipeline delete &lt;pipeline&gt;</c>.</summary>
 public sealed class PipelineDeleteCommand : ICliCommand
 {
     public string Noun => "pipeline";
     public string Verb => "delete";
     public int RequiredOperands => 1;
-    public string HelpLine => "Delete a pipeline by id";
-    public string? HelpDetail => "pl pipeline delete <pipelineId>";
+    public string HelpLine => "Delete a pipeline (with its binding, runs and secrets)";
+    public string? HelpDetail => "pl pipeline delete <pipeline>";
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        var id = cli.Operand(0)!;
-        if ((await ctx.Api.DeletePipeline(id, ct)).TryPickProblems(out var problems))
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+        if ((await ctx.Api.DeletePipeline(pipeline.Id.ToString(), ct)).TryPickProblems(out var problems))
             return problems;
 
         if (!ctx.Output.IsJson)
-            ctx.Output.Line($"Deleted pipeline {id}.");
+            ctx.Output.Line($"Deleted pipeline {pipeline.Label} ({pipeline.Id}).");
         return Result.Success();
     }
 }

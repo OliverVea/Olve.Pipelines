@@ -6,6 +6,7 @@ import type {
   Pipeline,
   PipelineBindingStatus,
   PipelineHealth,
+  PipelineSecretInfo,
   PipelineVersionSummary,
   RunSummary,
 } from '@olve/olve-pipelines-client/src/models/index.js';
@@ -120,6 +121,7 @@ export class PipelineDetailView extends LitElement {
 
   @state() private declare _pipeline: Pipeline | null;
   @state() private declare _binding: PipelineBindingStatus | null;
+  @state() private declare _secrets: PipelineSecretInfo[];
   @state() private declare _health: PipelineHealth | null;
   @state() private declare _versions: PipelineVersionSummary[];
   @state() private declare _activation: Activation;
@@ -138,6 +140,7 @@ export class PipelineDetailView extends LitElement {
     this.pipelineId = '';
     this._pipeline = null;
     this._binding = null;
+    this._secrets = [];
     this._health = null;
     this._versions = [];
     this._activation = { kind: 'none' };
@@ -168,16 +171,18 @@ export class PipelineDetailView extends LitElement {
     }
     try {
       const p = client.api.pipelines.byId(this.pipelineId);
-      const [pipeline, binding, health, versions, runs] = await Promise.all([
+      const [pipeline, binding, health, versions, runs, secrets] = await Promise.all([
         p.get(),
         // Unbound (draft) pipelines have no binding — tolerate the 404.
         p.binding.status.get().catch(() => null),
         p.health.get().catch(() => null),
         p.versions.get().catch(() => null),
         p.runs.get({ queryParameters: { pageSize: 25 } }).catch(() => null),
+        p.secrets.get().catch(() => null), // needs auth
       ]);
       this._pipeline = pipeline ?? null;
       this._binding = binding ?? null;
+      this._secrets = secrets ?? [];
       this._health = health ?? null;
       this._versions = versions?.versions ?? [];
       this._activation = toActivation(versions?.activation ?? health?.activation);
@@ -276,7 +281,7 @@ export class PipelineDetailView extends LitElement {
     const a = this._activation;
     const result = b?.result ?? 0; // 0 NeverRun, 1 Success, 2 Error
     const problems = b?.problems ?? [];
-    const unset = (b?.secrets ?? []).filter((s) => s.isSet === false).map((s) => s.name);
+    const unset = (this._secrets ?? []).filter((s) => s.isSet === false && (s.declaredBy?.length ?? 0) > 0).map((s) => s.name);
     const held = h?.heldRuns ?? [];
     return html`
       <div class="strip">

@@ -91,7 +91,7 @@ public class BindingCommandTests
     public async Task BindingGet_PrintsRepoAndTrigger()
     {
         var api = new FakePipelinesApi { GetPipelineBindingResult = Result.Success(SampleBinding()) };
-        var (ctx, stdout, cli) = Build(new BindingGetCommand(), api, json: false, "binding", "get", "pid");
+        var (ctx, stdout, cli) = Build(new BindingGetCommand(), api, json: false, "binding", "get", "11111111-2222-3333-4444-555555555555");
 
         var result = await new BindingGetCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -102,7 +102,7 @@ public class BindingCommandTests
     }
 
     [Test]
-    public async Task BindingStatus_PrintsReconcileAndSecrets()
+    public async Task BindingStatus_PrintsReconcileVersionAndWarnings()
     {
         var status = new PipelineBindingStatus
         {
@@ -111,23 +111,24 @@ public class BindingCommandTests
             Branch = "main",
             Path = ".pipelines",
             Result = ReconcileResult.Success,
-            Secrets =
-            [
-                new SecretStatus { Name = "GITHUB_TOKEN", IsSet = true },
-                new SecretStatus { Name = "SSH_PRIVATE_KEY", IsSet = false },
-            ],
+            ReconcileSha = new string('c', 40),
+            ReconcileInProgress = true,
+            ReconciledVersion = 7,
+            Activation = new PipelineActivation { Type = "active", VersionNumber = 7 },
+            Warnings = ["[W] stages: unused output"],
         };
         var api = new FakePipelinesApi { GetPipelineBindingStatusResult = Result.Success(status) };
-        var (ctx, stdout, cli) = Build(new BindingStatusCommand(), api, json: false, "binding", "status", "pid");
+        var (ctx, stdout, cli) = Build(new BindingStatusCommand(), api, json: false, "binding", "status", "11111111-2222-3333-4444-555555555555");
 
         var result = await new BindingStatusCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("GetPipelineBindingStatus")).IsTrue();
         var output = stdout.ToString();
-        await Assert.That(output).Contains("GITHUB_TOKEN");
-        await Assert.That(output).Contains("set");
-        await Assert.That(output).Contains("unset");
+        await Assert.That(output).Contains("in progress");
+        await Assert.That(output).Contains("v7");
+        await Assert.That(output).Contains("active v7");
+        await Assert.That(output).Contains("unused output");
     }
 
     [Test]
@@ -135,7 +136,7 @@ public class BindingCommandTests
     {
         var api = new FakePipelinesApi { UpdatePipelineBindingCredentialsResult = Result.Success(SampleBinding()) };
         var (ctx, _, cli) = Build(new BindingSetCredentialsCommand(), api, json: false,
-            "binding", "set-credentials", "pid", "GITHUB_TOKEN");
+            "binding", "set-credentials", "11111111-2222-3333-4444-555555555555", "GITHUB_TOKEN");
 
         var result = await new BindingSetCredentialsCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -148,7 +149,7 @@ public class BindingCommandTests
     {
         var api = new FakePipelinesApi { UpdatePipelineBindingCredentialsResult = Result.Success(SampleBinding()) };
         var (ctx, _, cli) = Build(new BindingSetCredentialsCommand(), api, json: false,
-            "binding", "set-credentials", "pid");
+            "binding", "set-credentials", "11111111-2222-3333-4444-555555555555");
 
         var result = await new BindingSetCredentialsCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -162,7 +163,7 @@ public class BindingCommandTests
     {
         var api = new FakePipelinesApi { UpdatePipelineBindingDeployTriggerResult = Result.Success(SampleBinding()) };
         var (ctx, _, cli) = Build(new BindingSetTriggerCommand(), api, json: false,
-            "binding", "set-trigger", "pid", "webhook-only");
+            "binding", "set-trigger", "11111111-2222-3333-4444-555555555555", "webhook-only");
 
         var result = await new BindingSetTriggerCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -175,7 +176,7 @@ public class BindingCommandTests
     {
         var api = new FakePipelinesApi();
         var (ctx, _, cli) = Build(new BindingSetTriggerCommand(), api, json: false,
-            "binding", "set-trigger", "pid", "nonsense");
+            "binding", "set-trigger", "11111111-2222-3333-4444-555555555555", "nonsense");
 
         var result = await new BindingSetTriggerCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -188,12 +189,12 @@ public class BindingCommandTests
     {
         var api = new FakePipelinesApi { ReconcilePipelineBindingResult = Result.Success() };
         var (ctx, stdout, cli) = Build(new BindingReconcileCommand(), api, json: false,
-            "binding", "reconcile", "pid");
+            "binding", "reconcile", "11111111-2222-3333-4444-555555555555");
 
         var result = await new BindingReconcileCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("ReconcilePipelineBinding")).IsTrue();
-        await Assert.That(stdout.ToString()).Contains("pid");
+        await Assert.That(stdout.ToString()).Contains("11111111-2222-3333-4444-555555555555");
     }
 }

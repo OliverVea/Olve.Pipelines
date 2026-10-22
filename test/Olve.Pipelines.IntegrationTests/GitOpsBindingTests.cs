@@ -60,8 +60,7 @@ public class GitOpsBindingTests
             var status = await client.GetPipelineBindingStatus(pipelineId);
             await Assert.That(status.StatusCode).IsEqualTo(HttpStatusCode.OK);
             await Assert.That(status.Content!.PipelineId).IsEqualTo(bound.Content!.PipelineId);
-            // A repo with no config declares no secrets.
-            await Assert.That(status.Content!.Secrets).IsEmpty();
+            await Assert.That(status.Content!.ReconciledVersion).IsNull();
         }
         finally
         {

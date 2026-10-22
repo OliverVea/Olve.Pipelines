@@ -192,6 +192,39 @@ public class ConfigurationPersistenceServiceTests
         await Assert.That(loaded!.Name).IsEqualTo("v1-pipeline");
     }
 
+    [Test]
+    public async Task SnapshotWithPreRenameBindingShas_LoadsThemAsPushAndReconciledSha()
+    {
+        var pipelineId = Id.New<Pipeline>();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        string push = new('a', 40), reconciled = new('b', 40);
+        var json = $$"""
+            {"Pipelines": [{"Id": "{{pipelineId.Value.Value}}", "Name": "p"}],
+             "Bindings": [{"Id": "{{bindingId.Value.Value}}", "PipelineId": "{{pipelineId.Value.Value}}", "Repo": "o/r",
+               "Branch": "main", "Path": ".pipelines", "CredentialsSecret": null,
+               "LastDeployedSha": "{{push}}", "LastSyncedSha": "{{reconciled}}",
+               "Status": {"Result": 1, "LastSyncTime": null, "Problems": [], "DeclaredSecrets": [{"Name": "X", "Description": null}]},
+               "CreatedAt": "2026-10-01T00:00:00+00:00", "DeployTrigger": 0}]}
+            """;
+        var store = new FakeSnapshotStore { Data = System.Text.Encoding.UTF8.GetBytes(json) };
+        var bindings = new EntityStore<PipelineConfigBinding>([]);
+        var service = new ConfigurationPersistenceService(
+            new EntityStore<Pipeline>([]), bindings, new StorageOptions("test-bucket", Mode: StorageMode.Persistent),
+            new PersistenceReadiness(), NullLogger<ConfigurationPersistenceService>.Instance, store);
+
+        await service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(bindings.TryGet(bindingId, out var binding)).IsTrue();
+        await Assert.That(binding!.LastPushSha).IsEqualTo(push);
+        await Assert.That(binding.LastReconciledSha).IsEqualTo(reconciled);
+        await Assert.That(binding.Status.Result).IsEqualTo(ReconcileResult.Success);
+
+        await service.StoppingAsync(CancellationToken.None);
+        var written = System.Text.Encoding.UTF8.GetString(store.LastWritten!);
+        await Assert.That(written).Contains($"\"LastPushSha\":\"{push}\"");
+        await Assert.That(written).DoesNotContain("LastDeployedSha");
+    }
+
     // Reframed from the old AppFixture integration test CreatedPipeline_SurvivesRestart: state
     // written by one instance is reloaded by a fresh instance over the same store — the "survives
     // restart" guarantee, expressed in-process (a new service == a restarted process).

@@ -53,5 +53,6 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(CopySecretsRequest))]
 [JsonSerializable(typeof(CopySecretsResponse))]
 [JsonSerializable(typeof(Result<CopySecretsResponse>))]
+[JsonSerializable(typeof(Result<PipelineSecretInfo[]>))]
 [JsonSerializable(typeof(FrontendConfigEndpoints.FrontendConfig))]
 internal partial class AppJsonContext : JsonSerializerContext;

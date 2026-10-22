@@ -30,7 +30,7 @@ public class DeployPollServiceTests
         public static ReconcileReport Report() => new(
             new PipelineVersion(Id.New<PipelineVersion>(), Id.New<Pipeline>(), 1, "{}", "sha256:x", "c", "k",
                 new Dictionary<string, int>(), new Dictionary<string, int>(), DateTimeOffset.UnixEpoch),
-            Created: true, Warnings: ["[W] stages: unused output"], Secrets: [new SecretDeclaration("TOKEN", "a token")], [], []);
+            Created: true, Warnings: ["[W] stages: unused output"], [], []);
     }
 
     private sealed class FakePush : IPushTriggerHandler
@@ -83,10 +83,10 @@ public class DeployPollServiceTests
 
         await Assert.That(c.Reconciler.Calls).IsEquivalentTo(new[] { "cfg-1" });
         var binding = c.Current;
-        await Assert.That(binding.LastSyncedSha).IsEqualTo("cfg-1");
+        await Assert.That(binding.LastReconciledSha).IsEqualTo("cfg-1");
         await Assert.That(binding.Status.Result).IsEqualTo(ReconcileResult.Success);
         await Assert.That(binding.Status.Warnings!.Count).IsEqualTo(1);
-        await Assert.That(binding.Status.DeclaredSecrets.Single().Name).IsEqualTo("TOKEN");
+        await Assert.That(binding.Status.VersionNumber).IsEqualTo(1);
         await Assert.That(binding.Status.InProgress).IsFalse();
     }
 
@@ -115,7 +115,7 @@ public class DeployPollServiceTests
 
         await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Error);
         await Assert.That(c.Current.Status.Problems.Single()).Contains("broken");
-        await Assert.That(c.Current.LastDeployedSha).IsNull(); // runs held while the config commit is unapplied
+        await Assert.That(c.Current.LastPushSha).IsNull(); // runs held while the config commit is unapplied
         await Assert.That(c.Reconciler.Calls.Count).IsEqualTo(1);
 
         c.Reconciler.Outcome = null;
@@ -123,7 +123,7 @@ public class DeployPollServiceTests
 
         await Assert.That(c.Reconciler.Calls.Count).IsEqualTo(2);
         await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Success);
-        await Assert.That(c.Current.LastDeployedSha).IsEqualTo("head-1");
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-1");
     }
 
     [Test]
@@ -134,13 +134,13 @@ public class DeployPollServiceTests
 
         await c.Run();
         await Assert.That(c.Push.Fired).IsEmpty();
-        await Assert.That(c.Current.LastDeployedSha).IsEqualTo("head-0");
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-0");
 
         c.Source.BranchHeadSha = "head-1";
         await c.Run();
 
         await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
-        await Assert.That(c.Current.LastDeployedSha).IsEqualTo("head-1");
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-1");
     }
 
     /// <summary>

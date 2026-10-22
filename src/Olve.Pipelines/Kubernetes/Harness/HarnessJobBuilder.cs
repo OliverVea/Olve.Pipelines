@@ -50,7 +50,7 @@ public sealed record HarnessJobRequest(
         IReadOnlyList<string> secrets, HarnessUrls urls)
         => new(attempt.KubernetesJobName, attempt.Id, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
             attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
-            HarnessJobBuilder.PipelineSecretName(attempt.PipelineId), urls);
+            PipelineSecrets.Name(attempt.PipelineId), urls);
 }
 
 /// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
@@ -101,7 +101,6 @@ public static partial class HarnessJobBuilder
     private static partial Regex SecretNameRegex();
 
     /// <summary>The pipeline's K8s Secret name (same convention as v1 and the secret store).</summary>
-    public static string PipelineSecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
 
     public static Result<HarnessJobSpec> Build(HarnessJobRequest request, HarnessOptions options)
     {

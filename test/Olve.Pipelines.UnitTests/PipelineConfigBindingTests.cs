@@ -55,7 +55,7 @@ public class PipelineConfigBindingTests
         await Assert.That(binding.Repo).IsEqualTo("OliverVea/Olve.Pipelines");
         await Assert.That(binding.Branch).IsEqualTo("main");
         await Assert.That(binding.Path).IsEqualTo(".pipelines");
-        await Assert.That(binding.LastDeployedSha).IsNull();
+        await Assert.That(binding.LastPushSha).IsNull();
         await Assert.That(Pick(svc.Bindings.GetByPipelineId(pipeline.Id)).Id).IsEqualTo(binding.Id);
         await Assert.That(Pick(svc.Bindings.TryGet(binding.Id)).Id).IsEqualTo(binding.Id);
     }
@@ -115,16 +115,16 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
-    public async Task SetLastDeployedSha_AdvancesCursor()
+    public async Task SetLastPushSha_AdvancesCursor()
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
         var binding = Pick(Bind(svc.Bindings, pipeline.Id));
 
-        var updated = Pick(svc.Bindings.SetLastDeployedSha(binding.Id, "abc123"));
+        var updated = Pick(svc.Bindings.SetLastPushSha(binding.Id, "abc123"));
 
-        await Assert.That(updated.LastDeployedSha).IsEqualTo("abc123");
-        await Assert.That(Pick(svc.Bindings.TryGet(binding.Id)).LastDeployedSha).IsEqualTo("abc123");
+        await Assert.That(updated.LastPushSha).IsEqualTo("abc123");
+        await Assert.That(Pick(svc.Bindings.TryGet(binding.Id)).LastPushSha).IsEqualTo("abc123");
     }
 
     [Test]

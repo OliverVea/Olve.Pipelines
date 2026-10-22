@@ -173,7 +173,7 @@
     "/api/pipelines/with-repo": {
       "post": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "CreatePipelineWithRepo",
         "requestBody": {
@@ -216,7 +216,7 @@
     "/api/pipelines/{pipelineId}/binding/reconcile": {
       "post": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "ReconcilePipelineBinding",
         "parameters": [
@@ -252,7 +252,7 @@
     "/api/pipelines/{pipelineId}/binding": {
       "patch": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "UpdatePipelineBinding",
         "parameters": [
@@ -303,7 +303,7 @@
       },
       "get": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "GetPipelineBinding",
         "parameters": [
@@ -346,7 +346,7 @@
     "/api/pipelines/{pipelineId}/binding/deploy-trigger": {
       "patch": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "UpdatePipelineBindingDeployTrigger",
         "parameters": [
@@ -422,7 +422,7 @@
     "/api/pipelines/{pipelineId}/binding/status": {
       "get": {
         "tags": [
-          "beta"
+          "Olve.Pipelines"
         ],
         "operationId": "GetPipelineBindingStatus",
         "parameters": [
@@ -638,7 +638,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "$ref": "#/components/schemas/PipelineSecretInfo"
                   }
                 }
               }
@@ -2839,15 +2839,16 @@
           "repo",
           "branch",
           "path",
-          "lastDeployedSha",
-          "lastSyncedSha",
+          "lastPushSha",
+          "lastReconciledSha",
           "result",
           "lastSyncTime",
           "problems",
-          "secrets",
           "warnings",
           "reconcileSha",
-          "reconcileInProgress"
+          "reconcileInProgress",
+          "reconciledVersion",
+          "activation"
         ],
         "type": "object",
         "properties": {
@@ -2863,13 +2864,13 @@
           "path": {
             "type": "string"
           },
-          "lastDeployedSha": {
+          "lastPushSha": {
             "type": [
               "null",
               "string"
             ]
           },
-          "lastSyncedSha": {
+          "lastReconciledSha": {
             "type": [
               "null",
               "string"
@@ -2891,12 +2892,6 @@
               "type": "string"
             }
           },
-          "secrets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SecretStatus"
-            }
-          },
           "warnings": {
             "type": "array",
             "items": {
@@ -2911,6 +2906,24 @@
           },
           "reconcileInProgress": {
             "type": "boolean"
+          },
+          "reconciledVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "activation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PipelineActivation"
+              }
+            ]
           }
         }
       },
@@ -2922,8 +2935,8 @@
           "branch",
           "path",
           "credentialsSecret",
-          "lastDeployedSha",
-          "lastSyncedSha",
+          "lastPushSha",
+          "lastReconciledSha",
           "status",
           "createdAt"
         ],
@@ -2950,13 +2963,13 @@
               "string"
             ]
           },
-          "lastDeployedSha": {
+          "lastPushSha": {
             "type": [
               "null",
               "string"
             ]
           },
-          "lastSyncedSha": {
+          "lastReconciledSha": {
             "type": [
               "null",
               "string"
@@ -3045,6 +3058,38 @@
             "items": {
               "$ref": "#/components/schemas/RunSummary"
             }
+          }
+        }
+      },
+      "PipelineSecretInfo": {
+        "required": [
+          "name",
+          "description",
+          "declaredBy",
+          "isSet"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "declaredBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isSet": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -3239,8 +3284,7 @@
         "required": [
           "result",
           "lastSyncTime",
-          "problems",
-          "declaredSecrets"
+          "problems"
         ],
         "type": "object",
         "properties": {
@@ -3258,12 +3302,6 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
-          },
-          "declaredSecrets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SecretDeclaration"
             }
           },
           "warnings": {
@@ -3284,6 +3322,14 @@
           "inProgress": {
             "type": "boolean",
             "default": false
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -3686,49 +3732,6 @@
           "Manual"
         ]
       },
-      "SecretDeclaration": {
-        "required": [
-          "name",
-          "description"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "SecretStatus": {
-        "required": [
-          "name",
-          "description",
-          "isSet"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "isSet": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          }
-        }
-      },
       "SetDeployTriggerRequest": {
         "required": [
           "deployTrigger"
@@ -3894,9 +3897,6 @@
   "tags": [
     {
       "name": "Olve.Pipelines"
-    },
-    {
-      "name": "beta"
     }
   ]
 }

@@ -24,7 +24,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<ActiveAttempt[]>? ListActiveAttemptsResult { get; set; }
 
     // Secrets
-    public Result<string[]>? ListSecretsResult { get; set; }
+    public Result<PipelineSecretInfo[]>? ListSecretsResult { get; set; }
 
     // Bindings (GitOps)
     public Result<PipelineConfigBinding>? GetPipelineBindingResult { get; set; }
@@ -75,7 +75,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Record(ListActiveAttemptsResult, nameof(ListActiveAttempts));
 
     // Secrets
-    public Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
+    public Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
         Record(ListSecretsResult, nameof(ListSecrets));
 
     // Bindings (GitOps)

@@ -1,16 +1,12 @@
 using Olve.MinimalApi;
-using Olve.Pipelines.Kubernetes;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
-/// <summary>
-/// Web-layer composition of "create pipeline + bind to repo". The binding depends DOWN on the
-/// pipeline, so this composition lives here, not in <see cref="PipelineService"/>. Binding a
-/// pipeline to a repo is what configures the deploy poll by default — no manual poll-trigger
-/// authoring (the job <c>setup-pipeline</c> Option A used to do by hand).
-/// </summary>
+/// <summary>Binding API: create a pipeline bound to a repo, reconcile now, update credentials/trigger,
+/// status, and the inbound GitHub push webhook.</summary>
 public static class PipelineBindingEndpoints
 {
     private const string DefaultBranch = "main";
@@ -18,8 +14,7 @@ public static class PipelineBindingEndpoints
 
     public static void MapPipelineBindingEndpoints(this WebApplication app)
     {
-        // Create a pipeline already bound to a repo. Rolls the pipeline back if binding fails,
-        // so a failed bind never leaves an orphan draft.
+        // Rolls the pipeline back if binding fails, so a failed bind never leaves an orphan.
         app.MapPost("/api/pipelines/with-repo", Result<PipelineConfigBinding> (
                 PipelineService pipelines,
                 PipelineConfigBindingService bindings,
@@ -43,46 +38,35 @@ public static class PipelineBindingEndpoints
             })
             .WithResultMapping<PipelineConfigBinding>()
             .WithName("CreatePipelineWithRepo")
-            .WithTags("beta");
+;
 
-        // Reconcile the bound config immediately, off the poll schedule. The deploy poll only runs
-        // every ReconcileOptions.PollInterval (15 min in prod), so a just-bound pipeline would
-        // otherwise wait up to a full interval for its shape to materialize. This applies the
-        // current branch config now; the response returns after the reconcile completes.
-        // Returns at once; the reconcile (build/describe Job, a minute or so) runs in the background and
-        // its progress/outcome shows in GET .../binding/status. Retries a commit whose reconcile failed.
+        // Returns at once; the reconcile runs in the background (progress in GET .../binding/status).
+        // Also retries a commit whose reconcile failed, which the poll loop never does.
         app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", Result (
                 DeployPollService deployPoll, Id<Pipeline> pipelineId)
                 => deployPoll.RequestReconcile(pipelineId, force: true))
             .WithResultMapping()
             .WithName("ReconcilePipelineBinding")
-            .WithTags("beta");
+;
 
-        // Update an existing binding's credentials secret without re-binding. Setting it moves the
-        // config fetch onto the authenticated GitHub bucket (5000/hr vs the unauthenticated 60/hr);
-        // an empty value clears it. The named key must exist in the pipeline's k8s secret.
+        // The credentials key moves GitHub reads onto the authenticated rate limit; empty clears it.
         app.MapPatch("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, UpdateBindingRequest request)
                 => bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret))
             .WithResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
-            .WithTags("beta");
+;
 
-        // Change how the bound pipeline is triggered (webhook / webhook-only / poll) without
-        // re-binding. A dedicated route (not the credentials PATCH) so neither field clobbers the
-        // other. Switching into a webhook mode generates the HMAC secret if absent; the binding
-        // event then drives hook (de)registration.
+        // Separate from the credentials PATCH so neither field clobbers the other.
         app.MapPatch("/api/pipelines/{pipelineId}/binding/deploy-trigger", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetDeployTriggerRequest request)
                 => bindings.SetDeployTrigger(pipelineId, request.DeployTrigger))
             .WithResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBindingDeployTrigger")
-            .WithTags("beta");
+;
 
-        // Inbound GitHub push webhook for a binding (webhook-mode deploy). Authenticated by HMAC over
-        // the raw body (not Bearer), so it binds HttpRequest and returns raw status codes. A matching
-        // push runs the binding's reconcile-then-deploy cycle. Exposed on the public ingress like the
-        // per-pipeline GitHub receiver.
+        // Authenticated by HMAC over the raw body (not Bearer), so it binds HttpRequest and returns raw
+        // status codes. The only route on the public ingress.
         app.MapPost("/api/webhooks/binding/{bindingId}/github", async Task<IResult> (
                 BindingWebhookReceiver receiver,
                 DeployPollService deployPoll,
@@ -128,61 +112,28 @@ public static class PipelineBindingEndpoints
                 => bindings.GetByPipelineId(pipelineId))
             .WithResultMapping<PipelineConfigBinding>()
             .WithName("GetPipelineBinding")
-            .WithTags("beta")
             .AllowAnonymous();
 
-        // Reconcile status + live secret set/unset for the frontend badge.
-        app.MapGet("/api/pipelines/{pipelineId}/binding/status", async Task<Result<PipelineBindingStatus>> (
-                PipelineConfigBindingService bindings,
-                IServiceProvider services,
-                ILoggerFactory loggerFactory,
-                Id<Pipeline> pipelineId,
-                CancellationToken ct) =>
+        app.MapGet("/api/pipelines/{pipelineId}/binding/status", Result<PipelineBindingStatus> (
+                PipelineConfigBindingService bindings, PipelineActivationService activations, Id<Pipeline> pipelineId) =>
             {
                 if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
                     return problems;
 
-                // Compute set/unset live so a just-set secret reflects immediately. Resolve the k8s
-                // client lazily and guard it: when k8s is unconfigured/unreachable, report unknown
-                // (IsSet null) rather than a misleading "unset" — and never 500 the status read.
-                Dictionary<string, string>? secret = null;
-                var secretsKnown = true;
-                try
-                {
-                    var kubernetes = services.GetRequiredService<KubernetesClient>();
-                    var kubernetesOptions = services.GetRequiredService<KubernetesOptions>();
-                    secret = await kubernetes.GetSecretAsync(kubernetesOptions.Namespace, SecretName(pipelineId), ct);
-                }
-                catch (Exception ex)
-                {
-                    secretsKnown = false;
-                    loggerFactory.CreateLogger("BindingStatus")
-                        .LogWarning(ex, "Could not read secrets for pipeline '{PipelineId}'", pipelineId);
-                }
-
-                var secretStatuses = binding.Status.DeclaredSecrets
-                    .Select(s => new SecretStatus(
-                        s.Name, s.Description,
-                        IsSet: secretsKnown ? secret is not null && secret.ContainsKey(s.Name) : null))
-                    .ToArray();
-
+                var status = binding.Status;
                 return new PipelineBindingStatus(
                     binding.PipelineId, binding.Repo, binding.Branch, binding.Path,
-                    binding.LastDeployedSha, binding.LastSyncedSha,
-                    binding.Status.Result, binding.Status.LastSyncTime, binding.Status.Problems,
-                    secretStatuses, binding.Status.Warnings ?? [], binding.Status.Sha, binding.Status.InProgress);
+                    binding.LastPushSha, binding.LastReconciledSha,
+                    status.Result, status.LastSyncTime, status.Problems, status.Warnings ?? [],
+                    status.Sha, status.InProgress, status.VersionNumber,
+                    activations.TryGet(pipelineId, out var activation) ? activation : null);
             })
             .WithResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
-            .WithTags("beta")
             .AllowAnonymous();
     }
 
-    private static string SecretName(Id<Pipeline> pipelineId) => $"olve-pipeline-{pipelineId.Value.Value:N}";
-
-    // The pipeline name is GitOps config, not binding identity: the first reconcile reads it from
-    // .pipelines/config.yaml. Until then, seed a human-readable provisional from the repo's last
-    // path segment (e.g. "OliverVea/Olve.Pipelines" -> "Olve.Pipelines").
+    // Until the first reconcile sets the manifest's name: "OliverVea/Olve.Pipelines" -> "Olve.Pipelines".
     private static string ProvisionalName(string repo)
     {
         var trimmed = repo.TrimEnd('/');
@@ -203,20 +154,21 @@ public record UpdateBindingRequest(string? CredentialsSecret);
 
 public record SetDeployTriggerRequest(BindingDeployTrigger DeployTrigger);
 
+/// <param name="ReconcileSha">The config commit the last reconcile attempt was for.</param>
+/// <param name="ReconciledVersion">The version the last successful reconcile switched to.</param>
+/// <param name="Activation">The pipeline's active version, or the switch in progress.</param>
 public record PipelineBindingStatus(
     Id<Pipeline> PipelineId,
     string Repo,
     string Branch,
     string Path,
-    string? LastDeployedSha,
-    string? LastSyncedSha,
+    string? LastPushSha,
+    string? LastReconciledSha,
     ReconcileResult Result,
     DateTimeOffset? LastSyncTime,
     IReadOnlyList<string> Problems,
-    IReadOnlyList<SecretStatus> Secrets,
     IReadOnlyList<string> Warnings,
     string? ReconcileSha,
-    bool ReconcileInProgress);
-
-/// <summary><see cref="IsSet"/> is null when k8s could not be read (unknown), not false.</summary>
-public record SecretStatus(string Name, string? Description, bool? IsSet);
+    bool ReconcileInProgress,
+    int? ReconciledVersion,
+    PipelineActivation? Activation);

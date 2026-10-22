@@ -35,8 +35,8 @@ public class PipelineConfigBindingService(
             branch,
             path,
             credentialsSecret,
-            LastDeployedSha: null,
-            LastSyncedSha: null,
+            LastPushSha: null,
+            LastReconciledSha: null,
             ReconcileStatus.NeverRun,
             DateTimeOffset.UtcNow,
             deployTrigger,
@@ -70,15 +70,15 @@ public class PipelineConfigBindingService(
     /// Advances the deploy cursor after a production build has been enqueued for
     /// <paramref name="sha"/>. Idempotent: a no-op if the cursor already matches.
     /// </summary>
-    public Result<PipelineConfigBinding> SetLastDeployedSha(Id<PipelineConfigBinding> id, string sha)
+    public Result<PipelineConfigBinding> SetLastPushSha(Id<PipelineConfigBinding> id, string sha)
     {
         if (!store.TryGet(id, out var binding))
             return new ResultProblem($"Binding '{id}' not found.");
 
-        if (binding.LastDeployedSha == sha)
+        if (binding.LastPushSha == sha)
             return binding;
 
-        var updated = binding with { LastDeployedSha = sha };
+        var updated = binding with { LastPushSha = sha };
         store.Set(updated);
         return updated;
     }
@@ -87,15 +87,15 @@ public class PipelineConfigBindingService(
     /// Advances the config cursor after a fully successful reconcile applied <paramref name="sha"/>.
     /// Idempotent: a no-op if the cursor already matches.
     /// </summary>
-    public Result<PipelineConfigBinding> SetLastSyncedSha(Id<PipelineConfigBinding> id, string sha)
+    public Result<PipelineConfigBinding> SetLastReconciledSha(Id<PipelineConfigBinding> id, string sha)
     {
         if (!store.TryGet(id, out var binding))
             return new ResultProblem($"Binding '{id}' not found.");
 
-        if (binding.LastSyncedSha == sha)
+        if (binding.LastReconciledSha == sha)
             return binding;
 
-        var updated = binding with { LastSyncedSha = sha };
+        var updated = binding with { LastReconciledSha = sha };
         store.Set(updated);
         return updated;
     }

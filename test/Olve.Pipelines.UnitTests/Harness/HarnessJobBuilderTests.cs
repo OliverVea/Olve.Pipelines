@@ -33,7 +33,7 @@ public class HarnessJobBuilderTests
         StepImage: "alpine:3.22",
         TimeoutSeconds: timeout,
         Secrets: secrets ?? ["SSH_KEY", "KUBECONFIG"],
-        PipelineSecretName: HarnessJobBuilder.PipelineSecretName(PipelineId),
+        PipelineSecretName: PipelineSecrets.Name(PipelineId),
         Urls: new HarnessUrls("http://garage/step?sig", inputUrl, "http://garage/result?sig",
             fileUrls ?? new Dictionary<string, string> { ["412/build/1/chart/"] = "http://garage/chart.tar?sig" }));
 

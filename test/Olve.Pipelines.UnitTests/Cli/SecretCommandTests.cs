@@ -1,6 +1,7 @@
 using Olve.Results;
 using Olve.Pipelines.Cli;
 using Olve.Pipelines.Cli.Api;
+using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Secrets;
 using Olve.Pipelines.Cli.Diagnostics;
@@ -31,10 +32,17 @@ public class SecretCommandTests
     }
 
     [Test]
-    public async Task SecretList_PrintsNames()
+    public async Task SecretList_PrintsNamesUsersAndState()
     {
-        var api = new FakePipelinesApi { ListSecretsResult = Result.Success<string[]>(["REGISTRY_TOKEN", "DEPLOY_KEY"]) };
-        var (ctx, stdout, cli) = Build(new SecretListCommand(), api, json: false, "secret", "list", "pid");
+        var api = new FakePipelinesApi
+        {
+            ListSecretsResult = Result.Success<PipelineSecretInfo[]>(
+            [
+                new PipelineSecretInfo { Name = "REGISTRY_TOKEN", DeclaredBy = ["build"], IsSet = true },
+                new PipelineSecretInfo { Name = "DEPLOY_KEY", DeclaredBy = [], IsSet = false },
+            ]),
+        };
+        var (ctx, stdout, cli) = Build(new SecretListCommand(), api, json: false, "secret", "list", "11111111-2222-3333-4444-555555555555");
 
         var result = await new SecretListCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -42,6 +50,8 @@ public class SecretCommandTests
         await Assert.That(api.Invoked("ListSecrets")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("REGISTRY_TOKEN");
         await Assert.That(stdout.ToString()).Contains("DEPLOY_KEY");
+        await Assert.That(stdout.ToString()).Contains("build");
+        await Assert.That(stdout.ToString()).Contains("unset");
     }
 
     [Test]
@@ -53,7 +63,7 @@ public class SecretCommandTests
         {
             var api = new FakePipelinesApi { SetSecretResult = Result.Success() };
             var (ctx, stdout, cli) = Build(new SecretSetCommand(), api, json: false,
-                "secret", "set", "pid", "REGISTRY_TOKEN", "--from-env", envVar);
+                "secret", "set", "11111111-2222-3333-4444-555555555555", "REGISTRY_TOKEN", "--from-env", envVar);
 
             var result = await new SecretSetCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -73,7 +83,7 @@ public class SecretCommandTests
     {
         var api = new FakePipelinesApi(); // SetSecretResult intentionally unset — must not be called
         var (ctx, _, cli) = Build(new SecretSetCommand(), api, json: false,
-            "secret", "set", "pid", "TOKEN", "--from-env", "PL_TEST_SECRET_DEFINITELY_UNSET");
+            "secret", "set", "11111111-2222-3333-4444-555555555555", "TOKEN", "--from-env", "PL_TEST_SECRET_DEFINITELY_UNSET");
 
         var result = await new SecretSetCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -92,7 +102,7 @@ public class SecretCommandTests
         {
             var api = new FakePipelinesApi { SetSecretResult = Result.Success() };
             var (ctx, _, cli) = Build(new SecretSetCommand(), api, json: false,
-                "secret", "set", "pid", "DEPLOY_KEY", "--from-file", path);
+                "secret", "set", "11111111-2222-3333-4444-555555555555", "DEPLOY_KEY", "--from-file", path);
 
             var result = await new SecretSetCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -110,7 +120,7 @@ public class SecretCommandTests
     {
         var api = new FakePipelinesApi();
         var (ctx, _, cli) = Build(new SecretSetCommand(), api, json: false,
-            "secret", "set", "pid", "TOKEN", "--from-env", "X", "--from-file", "y");
+            "secret", "set", "11111111-2222-3333-4444-555555555555", "TOKEN", "--from-env", "X", "--from-file", "y");
 
         var result = await new SecretSetCommand().Execute(cli, ctx, CancellationToken.None);
 
@@ -123,7 +133,7 @@ public class SecretCommandTests
     {
         var api = new FakePipelinesApi { DeleteSecretResult = Result.Success() };
         var (ctx, stdout, cli) = Build(new SecretDeleteCommand(), api, json: false,
-            "secret", "delete", "pid", "REGISTRY_TOKEN");
+            "secret", "delete", "11111111-2222-3333-4444-555555555555", "REGISTRY_TOKEN");
 
         var result = await new SecretDeleteCommand().Execute(cli, ctx, CancellationToken.None);
 

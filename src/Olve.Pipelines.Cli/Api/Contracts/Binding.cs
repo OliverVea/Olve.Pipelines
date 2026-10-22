@@ -31,8 +31,8 @@ public sealed class PipelineConfigBinding
     public string Branch { get; set; } = "";
     public string Path { get; set; } = "";
     public string? CredentialsSecret { get; set; }
-    public string? LastDeployedSha { get; set; }
-    public string? LastSyncedSha { get; set; }
+    public string? LastPushSha { get; set; }
+    public string? LastReconciledSha { get; set; }
     public ReconcileStatus Status { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
     public BindingDeployTrigger DeployTrigger { get; set; }
@@ -43,13 +43,7 @@ public sealed class ReconcileStatus
     public ReconcileResult Result { get; set; }
     public DateTimeOffset? LastSyncTime { get; set; }
     public string[] Problems { get; set; } = [];
-    public SecretDeclaration[] DeclaredSecrets { get; set; } = [];
-}
-
-public sealed class SecretDeclaration
-{
-    public string Name { get; set; } = "";
-    public string? Description { get; set; }
+    public bool InProgress { get; set; }
 }
 
 /// <summary>CLI view of binding status (<c>GET /api/pipelines/{id}/binding/status</c>).</summary>
@@ -59,20 +53,16 @@ public sealed class PipelineBindingStatus
     public string Repo { get; set; } = "";
     public string Branch { get; set; } = "";
     public string Path { get; set; } = "";
-    public string? LastDeployedSha { get; set; }
-    public string? LastSyncedSha { get; set; }
+    public string? LastPushSha { get; set; }
+    public string? LastReconciledSha { get; set; }
     public ReconcileResult Result { get; set; }
     public DateTimeOffset? LastSyncTime { get; set; }
     public string[] Problems { get; set; } = [];
-    public SecretStatus[] Secrets { get; set; } = [];
-}
-
-/// <summary><see cref="IsSet"/> is null when k8s could not be read (unknown), not false.</summary>
-public sealed class SecretStatus
-{
-    public string Name { get; set; } = "";
-    public string? Description { get; set; }
-    public bool? IsSet { get; set; }
+    public string[] Warnings { get; set; } = [];
+    public string? ReconcileSha { get; set; }
+    public bool ReconcileInProgress { get; set; }
+    public int? ReconciledVersion { get; set; }
+    public PipelineActivation? Activation { get; set; }
 }
 
 /// <summary>Body for <c>POST /api/pipelines/with-repo</c> — create a pipeline already bound to a repo.</summary>

@@ -13,27 +13,6 @@ public class PipelineService(EntityStore<Pipeline> store, IdProvider idProvider)
         return pipeline;
     }
 
-    /// <summary>
-    /// Sets the pipeline's name. The name is GitOps config (driven by <c>.pipelines/config.yaml</c>
-    /// via reconcile), not binding identity — the bind only seeds a provisional name. A no-op when
-    /// the name already matches, so an idempotent reconcile fires no spurious update event.
-    /// </summary>
-    public Result<Pipeline> SetName(Id<Pipeline> id, string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return new ResultProblem("Pipeline name is required.");
-
-        if (!store.TryGet(id, out var pipeline))
-            return new ResultProblem($"Pipeline '{id}' not found.");
-
-        if (pipeline.Name == name)
-            return pipeline;
-
-        var renamed = pipeline with { Name = name };
-        store.Set(renamed);
-        return renamed;
-    }
-
     /// <summary>Sets name and description from the active version's manifest (no-op when unchanged).</summary>
     public Result<Pipeline> SetDefinition(Id<Pipeline> id, string name, string? description)
     {

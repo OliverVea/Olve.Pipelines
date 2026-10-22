@@ -32,7 +32,8 @@ export class PipelineListView extends LitElement {
       flex: 1;
     }
 
-    .docs-link {
+    .docs-link,
+    .add-btn {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
@@ -43,37 +44,36 @@ export class PipelineListView extends LitElement {
       color: var(--color-text);
       font-size: 0.85rem;
       text-decoration: none;
+      cursor: pointer;
       transition: background var(--transition), border-color var(--transition);
     }
 
-    .docs-link:hover {
+    .docs-link:hover,
+    .add-btn:hover {
       background: var(--color-surface-hover);
       border-color: var(--color-primary);
       text-decoration: none;
     }
 
-    .docs-link svg {
+    .docs-link svg,
+    .add-btn svg {
       width: 1rem;
       height: 1rem;
     }
 
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1rem;
-    }
-
-    @media (max-width: 720px) {
-      .card-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .pipeline-card {
+    .rows {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      padding: 1rem;
+      gap: 0.5rem;
+    }
+
+    .pipeline-row {
+      display: grid;
+      grid-template-columns: 18rem minmax(0, 1fr) auto;
+      grid-template-areas: 'status graph menu';
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 0.5rem 0.6rem 1rem;
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-lg);
@@ -82,19 +82,45 @@ export class PipelineListView extends LitElement {
       cursor: pointer;
     }
 
-    .pipeline-card:hover {
+    .pipeline-row:hover {
       border-color: var(--color-primary);
     }
 
-    .pc-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 0.5rem;
+    .pr-status {
+      grid-area: status;
+      min-width: 0;
+    }
+
+    .pr-graph {
+      grid-area: graph;
+      min-width: 0;
+    }
+
+    .pr-menu {
+      grid-area: menu;
+      position: relative;
+      align-self: center;
+    }
+
+    @media (max-width: 640px) {
+      .pipeline-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+          'status menu'
+          'graph graph';
+        gap: 0.6rem 0.5rem;
+        padding: 0.6rem 0.5rem 0.75rem 0.85rem;
+      }
+      .pr-menu {
+        align-self: start;
+      }
     }
 
     .pc-title {
       display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-weight: 600;
       font-size: 1rem;
       color: var(--color-text);
@@ -109,7 +135,8 @@ export class PipelineListView extends LitElement {
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
-      margin-top: 0.25rem;
+      max-width: 100%;
+      margin-top: 0.1rem;
       font-size: 0.78rem;
       color: var(--color-text-muted);
       text-decoration: none;
@@ -120,30 +147,81 @@ export class PipelineListView extends LitElement {
     }
 
     .pc-repo svg {
+      flex-shrink: 0;
       width: 0.85rem;
       height: 0.85rem;
     }
 
-    .btn-delete {
+    .pc-repo span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .menu-btn {
+      display: grid;
+      place-items: center;
+      width: 1.9rem;
+      height: 1.9rem;
+      padding: 0;
       background: none;
-      border: 1px solid var(--color-border);
-      color: var(--color-text-muted);
-      padding: 0.25rem 0.5rem;
+      border: 1px solid transparent;
       border-radius: var(--radius);
-      font-size: 0.8rem;
-      flex-shrink: 0;
+      color: var(--color-text-muted);
+      font-size: 1.1rem;
+      line-height: 1;
       transition: all var(--transition);
     }
 
-    .btn-delete:hover {
-      border-color: var(--color-danger);
+    .menu-btn:hover,
+    .menu-btn[aria-expanded='true'] {
+      border-color: var(--color-border);
+      background: var(--color-surface-hover);
+      color: var(--color-text);
+    }
+
+    .menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      z-index: 10;
+      min-width: 9rem;
+      padding: 0.25rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      cursor: default;
+    }
+
+    .menu button {
+      display: block;
+      width: 100%;
+      padding: 0.4rem 0.6rem;
+      background: none;
+      border: none;
+      border-radius: calc(var(--radius) - 2px);
+      color: var(--color-text);
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    .menu button.danger {
       color: var(--color-danger);
+    }
+
+    .menu button:hover,
+    .menu button:focus-visible {
+      background: var(--color-surface-hover);
     }
 
     .cubes {
       display: flex;
       align-items: center;
       gap: 4px;
+      width: max-content;
+      max-width: 100%;
+      padding: 3px;
       overflow-x: auto;
     }
     .col {
@@ -196,8 +274,8 @@ export class PipelineListView extends LitElement {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 0.3rem 0.6rem;
-      margin-top: auto;
+      gap: 0.2rem 0.6rem;
+      margin-top: 0.3rem;
       font-size: 0.78rem;
       color: var(--color-text-muted);
     }
@@ -226,36 +304,6 @@ export class PipelineListView extends LitElement {
       font-style: italic;
     }
 
-    /* ---- Add-pipeline card ---- */
-    .add-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      min-height: 7rem;
-      padding: 1rem;
-      border: 1px dashed var(--color-border);
-      border-radius: var(--radius-lg);
-      background: transparent;
-      color: var(--color-text-muted);
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition:
-        border-color var(--transition),
-        color var(--transition);
-    }
-
-    .add-card:hover {
-      border-color: var(--color-primary);
-      color: var(--color-primary);
-    }
-
-    .add-card svg {
-      width: 1.4rem;
-      height: 1.4rem;
-    }
-
     .empty {
       color: var(--color-text-muted);
       padding: 2rem;
@@ -273,6 +321,7 @@ export class PipelineListView extends LitElement {
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
   @state() declare private _deleting: PipelineSummary | null;
+  @state() declare private _menuFor: string | null;
   @query('confirm-delete-dialog') declare private _confirmDelete: ConfirmDeleteDialog;
 
   constructor() {
@@ -282,12 +331,21 @@ export class PipelineListView extends LitElement {
     this._error = null;
     this._loaded = false;
     this._deleting = null;
+    this._menuFor = null;
     new PollController(this, () => this._load(true));
   }
 
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener('click', this._closeMenuOutside);
+    window.addEventListener('keydown', this._closeMenuOnEscape);
     this._load();
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener('click', this._closeMenuOutside);
+    window.removeEventListener('keydown', this._closeMenuOnEscape);
   }
 
   private async _load(silent = false) {
@@ -316,27 +374,20 @@ export class PipelineListView extends LitElement {
           </svg>
           <span>Docs</span>
         </a>
+        <button class="add-btn" type="button" @click=${this._create}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          <span>Add pipeline</span>
+        </button>
       </div>
       ${this._error ? html`<p class="error">${this._error}</p>` : ''}
       ${!this._loaded
         ? ''
-        : html`<div class="card-grid">
-            ${this._pipelines.map((p) => this._renderCard(p))}
-            <button class="add-card" type="button" @click=${this._create}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              <span>Add pipeline</span>
-            </button>
-          </div>`}
+        : this._pipelines.length
+          ? html`<div class="rows">${this._pipelines.map((p) => this._renderRow(p))}</div>`
+          : html`<p class="empty">No pipelines yet. Add one to bind a repository.</p>`}
       <confirm-delete-dialog
         .name=${this._deleting?.name ?? ''}
         consequence="Its runs, versions, binding and secrets are deleted. This can't be undone."
@@ -345,33 +396,51 @@ export class PipelineListView extends LitElement {
     `;
   }
 
-  private _renderCard(p: PipelineSummary) {
+  private _renderRow(p: PipelineSummary) {
+    const menuOpen = this._menuFor === p.id;
     return html`
-      <div class="pipeline-card" @click=${(e: MouseEvent) => this._cardClick(e, p)}>
-        <div class="pc-top">
-          <div>
-            <a
-              class="pc-title"
-              href="/pipeline/${p.id}"
-              @click=${(e: Event) => this._navToPipeline(e, p.name ?? '')}
-              >${p.name}</a
-            >
-            ${p.repo
-              ? html`<a
-                  class="pc-repo"
-                  href=${this._repoUrl(p.repo)}
-                  target="_blank"
-                  rel="noopener"
-                  >${GITHUB_MARK}<span>${p.repo}</span></a
-                >`
-              : nothing}
-          </div>
-          <button class="btn-delete" @click=${() => this._askDelete(p)}>
-            Delete
-          </button>
+      <div class="pipeline-row" @click=${(e: MouseEvent) => this._cardClick(e, p)}>
+        <div class="pr-status">
+          <a
+            class="pc-title"
+            href="/pipeline/${p.id}"
+            title=${p.name ?? ''}
+            @click=${(e: Event) => this._navToPipeline(e, p.name ?? '')}
+            >${p.name}</a
+          >
+          ${p.repo
+            ? html`<a
+                class="pc-repo"
+                href=${this._repoUrl(p.repo)}
+                target="_blank"
+                rel="noopener"
+                >${GITHUB_MARK}<span>${p.repo}</span></a
+              >`
+            : nothing}
+          ${this._renderFoot(p)}
         </div>
-        ${p.stages?.length ? this._renderCubes(p) : html`<span class="pc-empty">No steps yet</span>`}
-        ${this._renderFoot(p)}
+        <div class="pr-graph">
+          ${p.stages?.length ? this._renderCubes(p) : html`<span class="pc-empty">No steps yet</span>`}
+        </div>
+        <div class="pr-menu">
+          <button
+            class="menu-btn"
+            type="button"
+            aria-label="Actions for ${p.name}"
+            aria-haspopup="menu"
+            aria-expanded=${menuOpen ? 'true' : 'false'}
+            @click=${() => (this._menuFor = menuOpen ? null : (p.id ?? null))}
+          >
+            ⋯
+          </button>
+          ${menuOpen
+            ? html`<div class="menu" role="menu">
+                <button class="danger" role="menuitem" type="button" @click=${() => this._askDelete(p)}>
+                  Delete…
+                </button>
+              </div>`
+            : nothing}
+        </div>
       </div>
     `;
   }
@@ -444,9 +513,9 @@ export class PipelineListView extends LitElement {
     navigate('/docs/index');
   }
 
-  // Links, cubes and buttons inside the card keep their own targets; text selection doesn't navigate.
+  // Links, cubes and the menu keep their own targets; text selection doesn't navigate.
   private _cardClick(e: MouseEvent, p: PipelineSummary) {
-    if (e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button'))) return;
+    if (e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button, .pr-menu'))) return;
     if (window.getSelection()?.toString()) return;
     const href = `/pipeline/${p.id}`;
     if (e.ctrlKey || e.metaKey) window.open(href, '_blank');
@@ -466,7 +535,18 @@ export class PipelineListView extends LitElement {
     await this._load();
   }
 
+  private _closeMenuOutside = (e: MouseEvent) => {
+    if (!this._menuFor) return;
+    if (e.composedPath().some((el) => el instanceof HTMLElement && el.classList.contains('pr-menu'))) return;
+    this._menuFor = null;
+  };
+
+  private _closeMenuOnEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') this._menuFor = null;
+  };
+
   private async _askDelete(p: PipelineSummary) {
+    this._menuFor = null;
     this._deleting = p;
     await this.updateComplete;
     this._confirmDelete.open();

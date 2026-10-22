@@ -79,6 +79,7 @@ export class PipelineListView extends LitElement {
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
       transition: border-color var(--transition);
+      cursor: pointer;
     }
 
     .pipeline-card:hover {
@@ -346,7 +347,7 @@ export class PipelineListView extends LitElement {
 
   private _renderCard(p: PipelineSummary) {
     return html`
-      <div class="pipeline-card">
+      <div class="pipeline-card" @click=${(e: MouseEvent) => this._cardClick(e, p)}>
         <div class="pc-top">
           <div>
             <a
@@ -441,6 +442,15 @@ export class PipelineListView extends LitElement {
   private _navToDocs(e: Event) {
     e.preventDefault();
     navigate('/docs/index');
+  }
+
+  // Links, cubes and buttons inside the card keep their own targets; text selection doesn't navigate.
+  private _cardClick(e: MouseEvent, p: PipelineSummary) {
+    if (e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button'))) return;
+    if (window.getSelection()?.toString()) return;
+    const href = `/pipeline/${p.id}`;
+    if (e.ctrlKey || e.metaKey) window.open(href, '_blank');
+    else navigate(href, { pipelineName: p.name ?? '' });
   }
 
   private _navToPipeline(e: Event, name: string) {

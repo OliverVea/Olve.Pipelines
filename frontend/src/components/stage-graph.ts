@@ -1,13 +1,14 @@
 import { LitElement, html, css, nothing, svg, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { type Manifest, type ManifestStep, type Stage, isWhen, formatWhen } from '../v2/manifest.js';
-import { sharedStyles, toneOf, statusLabel, formatDuration } from '../v2/ui.js';
+import { sharedStyles, toneOf, statusLabel, formatDuration, navClick } from '../v2/ui.js';
 import './relative-time.js';
 
 export type StepState = {
   status: string;
   reason?: string | null;
   runNumber?: number | null;
+  runHref?: string;
   attemptCount?: number;
   latestAttempt?: number | null;
   createdAt?: Date | string | null;
@@ -164,6 +165,12 @@ export class StageGraph extends LitElement {
         content: '·';
         margin-right: 0.35rem;
       }
+      .run {
+        color: inherit;
+      }
+      .run:hover {
+        color: var(--color-primary);
+      }
       .reason {
         margin-top: 0.2rem;
         font-size: 0.72rem;
@@ -298,7 +305,7 @@ export class StageGraph extends LitElement {
       </div>
       <div class="meta">
         ${st?.status === 'not-run' ? html`<span>never run</span>` : nothing}
-        ${st?.runNumber ? html`<span>#${st.runNumber}${(st.attemptCount ?? 0) > 1 ? `@${st.latestAttempt}` : ''}</span>` : nothing}
+        ${st?.runNumber ? this._run(st) : nothing}
         ${st?.runNumber && at ? html`<relative-time .value=${at}></relative-time>` : nothing}
         ${duration ? html`<span>${duration}</span>` : nothing}
         ${this.gateControls ? this._lock(step.name, blocked) : nothing}
@@ -306,6 +313,22 @@ export class StageGraph extends LitElement {
       ${st?.reason ? html`<div class="reason" title=${st.reason}>${st.reason}</div>` : nothing}
       ${blocked ? html`<div class="gate-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
     </div>`;
+  }
+
+  private _run(st: StepState) {
+    const label = `#${st.runNumber}${(st.attemptCount ?? 0) > 1 ? `@${st.latestAttempt}` : ''}`;
+    if (!st.runHref) return html`<span>${label}</span>`;
+    return html`<a
+      class="run"
+      href=${st.runHref}
+      title="Open run #${st.runNumber}"
+      @click=${(e: MouseEvent) => {
+        e.stopPropagation();
+        navClick(e);
+      }}
+      @keydown=${(e: KeyboardEvent) => e.stopPropagation()}
+      >${label}</a
+    >`;
   }
 
   private _lock(step: string, blocked: boolean) {

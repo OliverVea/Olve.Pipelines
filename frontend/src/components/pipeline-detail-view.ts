@@ -180,6 +180,7 @@ export class PipelineDetailView extends LitElement {
         status: a.status ?? '',
         reason: a.reason,
         runNumber: a.runNumber,
+        runHref: `${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(name)}&attempt=${a.attemptNumber}`,
         attemptCount: a.attemptNumber ?? 1,
         latestAttempt: a.attemptNumber,
         createdAt: a.createdAt,
@@ -301,9 +302,7 @@ export class PipelineDetailView extends LitElement {
   }
 
   private _open(step: string) {
-    const a = this._latest.get(step);
-    if (!a) return navigate(stepHistoryPath(this.pipelineId, step));
-    navigate(`${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(step)}&attempt=${a.attemptNumber}`);
+    navigate(stepHistoryPath(this.pipelineId, step));
   }
 
   private async _setGate(step: string, block: boolean) {

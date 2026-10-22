@@ -43,10 +43,13 @@ export interface ImageBuildDef<N extends string> {
   /**
    * Automatic retries of a failed attempt (a fresh pod: kaniko unpacks the base image over the
    * container root and does not clean up when killed, so retrying inside the same pod is unsafe).
-   * A `--no-push` build is idempotent.
+   * A `--no-push` build is idempotent, so the default is 2 (three tries).
    */
   retries?: number;
 }
+
+/** Default `retries`: a stalled or flaky build gets two fresh attempts before the run fails. */
+export const DEFAULT_RETRIES = 2;
 
 /** Default `stallTimeoutSeconds`: well above the longest silent phase of a normal build. */
 export const DEFAULT_STALL_TIMEOUT_SECONDS = 300;
@@ -77,7 +80,7 @@ export function qualifyRepository(repository: string): string {
 export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep {
   return makeStep(
     "imageBuild",
-    { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries },
+    { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
     {
       manifestConfig: () => ({ repository: def.repository, ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}) }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {

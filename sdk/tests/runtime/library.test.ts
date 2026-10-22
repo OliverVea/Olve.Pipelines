@@ -141,7 +141,7 @@ describe("steps.imageBuild", () => {
 
   test("kaniko build with layer cache: exact argv, BuiltImage output", async () => {
     const step = steps.imageBuild({ name: "build", repository: "olve-pipelines-v2", cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache", timeoutSeconds: 3600 });
-    expect(step).toMatchObject({ image: "gcr.io/kaniko-project/executor:debug", timeoutSeconds: 3600, secrets: [] });
+    expect(step).toMatchObject({ image: "gcr.io/kaniko-project/executor:debug", timeoutSeconds: 3600, retries: 2, secrets: [] });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files }, run: { version: "2026.10.21.412" } });
     expect(r.status).toBe("succeeded");
@@ -190,7 +190,8 @@ describe("steps.imageBuild", () => {
   test("stallTimeoutSeconds and retries: passed to kaniko's exec and into the step contract", async () => {
     const step = steps.imageBuild({ name: "build", repository: "x", stallTimeoutSeconds: 120, retries: 2 });
     expect(step).toMatchObject({ retries: 2 });
-    expect("retries" in steps.imageBuild({ name: "build", repository: "x" })).toBe(false);
+    expect(steps.imageBuild({ name: "build", repository: "x" })).toMatchObject({ retries: 2 }); // default
+    expect(steps.imageBuild({ name: "build", repository: "x", retries: 0 })).toMatchObject({ retries: 0 });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
     expect(r.status).toBe("succeeded");

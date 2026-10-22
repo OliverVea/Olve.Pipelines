@@ -96,7 +96,7 @@ Library steps carry their own implementation and image; they take typed config a
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (see above) |
 | `steps.gitHubSource` | `alpine:3.22` (work happens in the harness) | `{ repo: "owner/name", sha }` (plain schemas: needs a mapper) → `Source` | `token?: Secret` (sent as `Authorization: Bearer`; becomes the step's secret) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` (default 2) |
 | `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, image: BuiltImage }` → `HelmRelease { release, namespace, image }` | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `healthUrl?` |
 
 - `gitHubSource` downloads `https://api.github.com/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.

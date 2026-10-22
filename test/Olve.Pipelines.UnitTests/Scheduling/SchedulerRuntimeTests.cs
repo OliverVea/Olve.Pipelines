@@ -149,8 +149,8 @@ public class SchedulerRuntimeTests
         await Assert.That(spec.Environment["OLVE_PIPELINE"]).IsEqualTo(s.Pipeline.Id.Value.Value.ToString());
 
         // A scheduler-skipped attempt has nothing to launch.
-        s.Succeed(run, "deploy-beta");
-        await Assert.That(s.D.Launches.Get(s.Latest(run, "deploy-prod")!.Id)).Failed();
+        var skipped = s.D.AttemptService.RecordSkipped(run.Id, "summary", "input 'beta' needs deploy-beta (skipped: test)").Value!;
+        await Assert.That(s.D.Launches.Get(skipped.Id)).Failed();
     }
 
     private sealed class NullApplicationLifetime : IHostApplicationLifetime
@@ -192,7 +192,7 @@ public class SchedulerRuntimeTests
         }
 
         await WaitFor(() => s.Get(run).Status is RunStatus.Succeeded ? s.Get(run) : null);
-        await Assert.That(IsSchedulerSkip(s.Latest(run, "deploy-prod")!, out _)).IsTrue();
+        await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
         await cts.CancelAsync();
         await runner.StopAsync(CancellationToken.None);
     }

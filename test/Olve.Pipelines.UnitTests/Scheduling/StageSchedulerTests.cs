@@ -60,7 +60,7 @@ public class StageSchedulerTests
     }
 
     [Test]
-    public async Task Beta_SkipsProdBlock_WithWhenReason_AndLeavesOptionalInputsOut()
+    public async Task Beta_ExcludesProdBlock_WithoutAttempts_AndLeavesOptionalInputsOut()
     {
         var s = new SchedulerScenario();
         var run = s.Start(Input(deployTo: "beta"));
@@ -68,12 +68,7 @@ public class StageSchedulerTests
         s.SucceedThroughDeployBeta(run);
 
         foreach (var step in new[] { "deploy-prod", "publish-cli" })
-        {
-            var attempt = s.Latest(run, step)!;
-            await Assert.That(IsSchedulerSkip(attempt, out var reason)).IsTrue();
-            await Assert.That(reason).IsEqualTo("when deployTo ∉ [prod]");
-            await Assert.That(attempt.Input).IsNull();
-        }
+            await Assert.That(s.Latest(run, step)).IsNull();
 
         // summary runs with only its required input: optional prod/cli keys are absent, not null.
         var summary = s.Latest(run, "summary")!;
@@ -86,7 +81,7 @@ public class StageSchedulerTests
     }
 
     [Test]
-    public async Task NestedWhen_InnerConditionFails_SkipsOnlyInnerBlock()
+    public async Task NestedWhen_InnerConditionFails_ExcludesOnlyInnerBlock()
     {
         var s = new SchedulerScenario();
         var run = s.Start(Input(deployTo: "prod", publishCli: false));
@@ -94,14 +89,14 @@ public class StageSchedulerTests
         s.SucceedThroughDeployBeta(run);
         s.Succeed(run, "deploy-prod");
 
-        await Assert.That(IsSchedulerSkip(s.Latest(run, "publish-cli")!, out var reason)).IsTrue();
-        await Assert.That(reason).IsEqualTo("when publishCli ∉ [true]");
+        await Assert.That(s.Latest(run, "publish-cli")).IsNull();
+        await Assert.That(s.Latest(run, "deploy-prod")!.Status).IsTypeOf<Succeeded>();
         var summaryInput = JsonNode.Parse(s.Latest(run, "summary")!.Input!)!.AsObject();
         await Assert.That(summaryInput.Select(kv => kv.Key).Order().ToList()).IsEquivalentTo(["beta", "prod"]);
     }
 
     [Test]
-    public async Task SkipPropagation_RequiredInputFromSkippedStep_ChainsReasons()
+    public async Task SkipPropagation_RequiredInputFromExcludedStep_ChainsReasons()
     {
         // summary now *requires* prod and produces a TestReport; a new final step "notify" requires summary.
         var manifest = Mutated(root =>
@@ -121,10 +116,10 @@ public class StageSchedulerTests
         s.SucceedThroughDeployBeta(run);
 
         await Assert.That(IsSchedulerSkip(s.Latest(run, "summary")!, out var summaryReason)).IsTrue();
-        await Assert.That(summaryReason).IsEqualTo("input 'prod' needs deploy-prod (skipped: when deployTo ∉ [prod])");
+        await Assert.That(summaryReason).IsEqualTo("input 'prod' needs deploy-prod, which is not part of this run (when deployTo ∉ [prod])");
         await Assert.That(IsSchedulerSkip(s.Latest(run, "notify")!, out var notifyReason)).IsTrue();
         await Assert.That(notifyReason).IsEqualTo(
-            "input 'report' needs summary (skipped: input 'prod' needs deploy-prod (skipped: when deployTo ∉ [prod]))");
+            "input 'report' needs summary (skipped: input 'prod' needs deploy-prod, which is not part of this run (when deployTo ∉ [prod]))");
 
         // Skips are not failures: the run succeeds.
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);

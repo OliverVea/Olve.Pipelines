@@ -196,8 +196,8 @@ A declarative match on **literal-like fields of the pipeline input** (enums, boo
 a value or an array of values). Conditions are data, so the UI shows a run plan before a run starts.
 Blocks nest.
 
-- A step whose `when` doesn't match is **skipped** and produces no output; any later step that
-  needs that output is skipped too, with a chained reason.
+- A step whose `when` doesn't match is **not part of the run**: it gets no attempt and no output, and
+  shows as "not in run". A later step that requires that output is skipped, with a chained reason.
 - An output produced inside a `when` is only *maybe* available afterwards. A later step must declare
   it `optional(Model)` (the handler sees `T | undefined`), or it is a compile error. `optional` still
   needs an earlier producer of the model.

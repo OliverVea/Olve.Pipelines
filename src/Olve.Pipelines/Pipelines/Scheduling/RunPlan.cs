@@ -19,6 +19,10 @@ public sealed record RunPlan(Manifest Manifest, IReadOnlyList<PlanStage> Stages)
         return new RunPlan(manifest, stages);
     }
 
+    /// <summary>Why <paramref name="stepName"/> is not part of a run with <paramref name="runInput"/> (its <c>when</c>), or null.</summary>
+    public string? ExcludedReason(string stepName, JsonElement runInput) =>
+        TryGetStep(stepName, out var stage, out _) ? stage.EvaluateWhen(runInput) : null;
+
     public bool TryGetStep(string stepName, [NotNullWhen(true)] out PlanStage? stage, [NotNullWhen(true)] out StepDescriptor? step)
     {
         foreach (var s in Stages)

@@ -13,8 +13,8 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// stateless: it re-derives everything from the store, walking the flattened stages from the start.
 /// For each step of the first unfinished stage it decides:
 /// <list type="number">
-/// <item><b>when</b> — every enclosing condition must match the run input, else the step is skipped
-/// (<c>when deployTo ∉ [prod]</c>);</item>
+/// <item><b>when</b> — every enclosing condition must match the run input, else the step is
+/// <b>excluded</b>: not part of this run, with no attempt (<c>when deployTo ∉ [prod]</c>);</item>
 /// <item><b>inputs</b> — a required input referencing a skipped/unproduced output skips the step with a
 /// chained reason; optional ones are left out;</item>
 /// <item><b>gate</b> — a blocked step gets no attempt and holds the run (<see cref="Run.HeldAt"/>);</item>
@@ -54,7 +54,7 @@ public class StageScheduler(
     internal static StepDecision Decide(PlanStage stage, StepDescriptor step, IRunPool pool)
     {
         if (stage.EvaluateWhen(pool.Input) is { } whenReason)
-            return new StepDecision.Skip(whenReason);
+            return new StepDecision.Excluded(whenReason);
 
         return AttemptInputBuilder.Build(step, pool) switch
         {
@@ -91,7 +91,7 @@ public class StageScheduler(
         var canStartWork = activations.TryGet(run.PipelineId, out var activation)
                            && activation is PipelineActivation.Active active
                            && active.VersionId == run.VersionId;
-        var pool = new RunPool(run.Id, input, attempts);
+        var pool = new RunPool(run.Id, input, plan, attempts);
 
         foreach (var stage in plan.Stages)
         {
@@ -108,6 +108,8 @@ public class StageScheduler(
                 }
 
                 var decision = Decide(stage, step, pool);
+                if (decision is StepDecision.Excluded)
+                    continue;
                 if (IsSettled(latest, decision, run) && !RetryDue(run, step, decision))
                     continue;
 
@@ -298,13 +300,15 @@ public class StageScheduler(
 /// <summary>What the scheduler decides for a step.</summary>
 internal abstract record StepDecision
 {
+    /// <summary>The step's <c>when</c> does not match the run input: it is not part of the run.</summary>
+    public sealed record Excluded(string Reason) : StepDecision;
     public sealed record Skip(string Reason) : StepDecision;
     public sealed record Schedule(string Json, string Hash) : StepDecision;
     public sealed record Fail(string Reason, string Hash) : StepDecision;
 }
 
 /// <summary>A run's pool read live from the attempt store (skips recorded mid-walk are seen immediately).</summary>
-internal sealed class RunPool(Id<Run> runId, JsonElement input, AttemptService attempts) : IRunPool
+internal sealed class RunPool(Id<Run> runId, JsonElement input, RunPlan plan, AttemptService attempts) : IRunPool
 {
     private readonly Dictionary<Id<Attempt>, JsonElement?> _outputs = [];
 
@@ -312,6 +316,8 @@ internal sealed class RunPool(Id<Run> runId, JsonElement input, AttemptService a
 
     public PoolEntry Get(string stepName)
     {
+        if (plan.ExcludedReason(stepName, input) is { } excluded)
+            return new PoolEntry.Excluded(excluded);
         var latest = attempts.ListForStep(runId, stepName).LastOrDefault();
         if (latest?.Status is Skipped skipped)
             return new PoolEntry.Skipped(skipped.Reason);

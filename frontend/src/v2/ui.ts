@@ -44,6 +44,8 @@ export function statusLabel(status: string | null | undefined): string {
       return 'running';
     case 'not-run':
       return 'not run';
+    case 'excluded':
+      return 'not in run';
     case '':
       return 'unknown';
     default:

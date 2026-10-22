@@ -57,12 +57,12 @@ public class RunViewService(
 
         var stages = plans.Get(run.VersionId).TryPickProblems(out _, out var plan)
             ? []
-            : BuildStages(run, plan, version);
+            : BuildStages(run, input, plan, version);
 
         return new RunDetail(Summarize(run), run.VersionId, version?.CommitSha, input, continuable, stages);
     }
 
-    private RunStageView[] BuildStages(Run run, RunPlan plan, PipelineVersion? version)
+    private RunStageView[] BuildStages(Run run, JsonElement input, RunPlan plan, PipelineVersion? version)
     {
         var byStep = attempts.ListByRun(run.Id).GroupBy(a => a.StepName).ToDictionary(g => g.Key, g => g.OrderBy(a => a.Number).ToList());
         var blocked = gates.ListBlocked(run.PipelineId).ToHashSet(StringComparer.Ordinal);
@@ -76,6 +76,10 @@ public class RunViewService(
                 .ToArray(),
             stage.Steps.Select(step =>
             {
+                // Not part of the run: no attempt, whatever an older scheduler recorded for it.
+                if (stage.EvaluateWhen(input) is { } excluded)
+                    return new RunStepView(step.Name, StepVersion(version, step.Name), "excluded", excluded, 0, null, null, null, null, blocked.Contains(step.Name));
+
                 var list = byStep.TryGetValue(step.Name, out var l) ? l : [];
                 var latest = list.LastOrDefault();
                 var isBlocked = blocked.Contains(step.Name);
@@ -85,7 +89,7 @@ public class RunViewService(
                                  : run.Status is RunStatus.Running ? "pending" : "not-run");
                 return new RunStepView(
                     step.Name,
-                    version is not null && version.StepVersions.TryGetValue(step.Name, out var v) ? v : null,
+                    StepVersion(version, step.Name),
                     status,
                     latest is null ? null : Reason(latest.Status),
                     list.Count,
@@ -97,7 +101,13 @@ public class RunViewService(
             }).ToArray())).ToArray();
     }
 
-    /// <summary>History of one step identity across runs, newest first, with definition-change markers (spec §6.3).</summary>
+    private static int? StepVersion(PipelineVersion? version, string stepName) =>
+        version is not null && version.StepVersions.TryGetValue(stepName, out var v) ? v : null;
+
+    /// <summary>
+    /// History of one step identity across runs, newest first, with definition-change markers (spec §6.3).
+    /// Runs the step was not part of (its <c>when</c> did not match) are left out.
+    /// </summary>
     public IReadOnlyList<StepHistoryItem> History(Id<Pipeline> pipelineId, string stepName, int limit)
     {
         var rows = new List<StepHistoryItem>();
@@ -107,7 +117,7 @@ public class RunViewService(
         {
             if (rows.Count > limit)
                 break;
-            if (!runs.TryGet(attempt.RunId, out var run))
+            if (!runs.TryGet(attempt.RunId, out var run) || IsExcluded(run, stepName))
                 continue;
 
             if (!stepVersionsByVersion.TryGetValue(run.VersionId, out var stepVersion))
@@ -128,6 +138,13 @@ public class RunViewService(
         }
 
         return rows.Take(limit).ToList();
+    }
+
+    private bool IsExcluded(Run run, string stepName)
+    {
+        if (plans.Get(run.VersionId).TryPickProblems(out _, out var plan) || !StageScheduler.TryParseInput(run.Input, out var input))
+            return false;
+        return plan.ExcludedReason(stepName, input) is not null;
     }
 
     private static string? Reason(AttemptStatus status) => status switch

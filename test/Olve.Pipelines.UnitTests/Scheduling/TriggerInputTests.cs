@@ -124,7 +124,7 @@ public class ManualTriggerTests
     }
 
     [Test]
-    public async Task SkipLast_SkipsTheWhenBlock()
+    public async Task SkipLast_ExcludesTheWhenBlock()
     {
         var (s, inputs) = Build();
         var run = ((RunStartOutcome.Started)inputs.StartManual(s.Pipeline.Id, JsonNode.Parse("""{"sha":"abcdef1","mode":"skip-last"}""")).Value!).Run;
@@ -133,7 +133,7 @@ public class ManualTriggerTests
         s.Succeed(run, "count", """{"lines":3}""");
         s.Succeed(run, "echo");
 
-        await Assert.That(s.Latest(run, "last")!.Status).IsTypeOf<Skipped>();
+        await Assert.That(s.Latest(run, "last")).IsNull();
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
     }
 

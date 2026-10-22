@@ -57,8 +57,10 @@ public class RunContinuationService(
         if (!StageScheduler.TryParseInput(run.Input, out var input))
             return new ResultProblem("Run #{0} has malformed input.", run.Number);
 
-        switch (StageScheduler.Decide(stage, step, new RunPool(run.Id, input, attempts)))
+        switch (StageScheduler.Decide(stage, step, new RunPool(run.Id, input, plan, attempts)))
         {
+            case StepDecision.Excluded excluded:
+                return new ConflictProblem("Step '{0}' is not part of run #{1} ({2}).", stepName, run.Number, excluded.Reason);
             case StepDecision.Skip skip:
                 return new ConflictProblem("Step '{0}' cannot run in run #{1}: {2}.", stepName, run.Number, skip.Reason);
             case StepDecision.Fail fail:

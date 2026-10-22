@@ -47,7 +47,7 @@ public class RunContinuationTests
         await Assert.That(s.Get(run).FinishedAt).IsNull();
 
         s.Succeed(run, "deploy-beta");
-        await Assert.That(IsSchedulerSkip(s.Latest(run, "deploy-prod")!, out _)).IsTrue();
+        await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
         s.Succeed(run, "summary");
 
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
@@ -96,8 +96,8 @@ public class RunContinuationTests
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
         await Assert.That(s.All(run, "checkout")).Count().IsEqualTo(1);
         await Assert.That(s.All(run, "test")).Count().IsEqualTo(1);
-        // The when-skips were re-evaluated with the same reason: no new attempts.
-        await Assert.That(s.All(run, "deploy-prod")).Count().IsEqualTo(1);
+        // Steps outside the run's when stay excluded: no attempts.
+        await Assert.That(s.All(run, "deploy-prod")).Count().IsEqualTo(0);
     }
 
     [Test]
@@ -158,7 +158,7 @@ public class RunContinuationTests
         await Assert.That(continued.Status).IsEqualTo(RunStatus.Running);
         await Assert.That(JsonNode.Parse(continued.Input)!["deployTo"]!.GetValue<string>()).IsEqualTo("prod");
         await Assert.That(s.Active(run)).IsEquivalentTo(["deploy-prod"]);
-        await Assert.That(s.Latest(run, "deploy-prod")!.Number).IsEqualTo(2);
+        await Assert.That(s.Latest(run, "deploy-prod")!.Number).IsEqualTo(1);
 
         s.Succeed(run, "deploy-prod");
         s.Succeed(run, "publish-cli");

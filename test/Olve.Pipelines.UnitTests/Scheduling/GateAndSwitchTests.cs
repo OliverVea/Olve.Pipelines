@@ -35,7 +35,7 @@ public class GateAndSwitchTests
     }
 
     [Test]
-    public async Task BlockedStep_WhoseWhenFails_IsSkippedNotHeld()
+    public async Task BlockedStep_WhoseWhenFails_IsExcludedNotHeld()
     {
         var s = new SchedulerScenario();
         await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
@@ -44,7 +44,7 @@ public class GateAndSwitchTests
         s.SucceedThroughDeployBeta(run);
 
         await Assert.That(s.Get(run).HeldAt).IsNull();
-        await Assert.That(IsSchedulerSkip(s.Latest(run, "deploy-prod")!, out _)).IsTrue();
+        await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
     }
 
     [Test]

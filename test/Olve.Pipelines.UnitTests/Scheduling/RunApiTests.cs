@@ -343,4 +343,54 @@ public class JobLogNoteTests
         var starting = await new JobLogService(null!, null!, s.D.AttemptService, new FakeLive(null)).GetLogsAsync(attempt.Id, default);
         await Assert.That(TestRunDomain.Pick(starting)).Contains("is starting");
     }
+
+    [Test]
+    public async Task StepsOutsideTheRunsWhen_AreExcluded_EvenWithALegacySkipRecord()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input(deployTo: "beta"));
+        s.SucceedThroughDeployBeta(run);
+        // Runs scheduled before exclusion recorded a skipped attempt for the when; it still reads as excluded.
+        TestRunDomain.Pick(s.D.AttemptService.RecordSkipped(run.Id, "publish-cli", "when deployTo ∉ [prod]"));
+
+        var steps = TestRunDomain.Pick(s.D.Views.Get(s.Pipeline.Id, run.Number)).Stages.SelectMany(st => st.Steps).ToDictionary(x => x.Name);
+
+        foreach (var name in new[] { "deploy-prod", "publish-cli" })
+        {
+            await Assert.That(steps[name].Status).IsEqualTo("excluded");
+            await Assert.That(steps[name].Reason).IsEqualTo("when deployTo ∉ [prod]");
+            await Assert.That(steps[name].AttemptCount).IsEqualTo(0);
+        }
+        await Assert.That(steps["deploy-beta"].Status).IsEqualTo("succeeded");
+    }
+
+    [Test]
+    public async Task StepHistory_LeavesOutRunsTheStepWasExcludedFrom()
+    {
+        var s = new SchedulerScenario();
+        var beta = s.Start(Input(deployTo: "beta"));
+        s.SucceedThroughDeployBeta(beta);
+        TestRunDomain.Pick(s.D.AttemptService.RecordSkipped(beta.Id, "deploy-prod", "when deployTo ∉ [prod]"));
+        var prod = s.Start(Input(deployTo: "prod"));
+        s.SucceedThroughDeployBeta(prod);
+        s.Succeed(prod, "deploy-prod");
+
+        var history = s.D.Views.History(s.Pipeline.Id, "deploy-prod", limit: 10);
+
+        await Assert.That(history.Select(h => h.RunNumber)).IsEquivalentTo([prod.Number]);
+    }
+
+    [Test]
+    public async Task Rerun_OfAnExcludedStep_IsRefused()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input(deployTo: "beta"));
+        s.SucceedThroughDeployBeta(run);
+        s.Succeed(run, "summary");
+
+        var rerun = s.D.Continuations.RerunStep(run.Id, "deploy-prod", continueAfter: false);
+
+        await Assert.That(rerun).Failed();
+        await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
+    }
 }

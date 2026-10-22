@@ -13,6 +13,9 @@ public abstract record PoolEntry
     /// <summary>The step's latest attempt was skipped (by the scheduler or its handler).</summary>
     public sealed record Skipped(string Reason) : PoolEntry;
 
+    /// <summary>The step's <c>when</c> does not match the run input: it is not part of the run.</summary>
+    public sealed record Excluded(string Reason) : PoolEntry;
+
     /// <summary>The step has no successful attempt (and was not skipped).</summary>
     public sealed record Missing : PoolEntry;
 }
@@ -138,6 +141,7 @@ public static class AttemptInputBuilder
             PoolEntry.Produced { Output: { } output } => Walk(output, r.Path),
             PoolEntry.Produced => r.Path.Count == 0 ? new ElementValue(null) : new Absent(),
             PoolEntry.Skipped s => new Unavailable($"needs {r.Root} (skipped: {s.Reason})"),
+            PoolEntry.Excluded e => new Unavailable($"needs {r.Root}, which is not part of this run ({e.Reason})"),
             _ => new Unavailable($"needs {r.Root}, which has no successful attempt"),
         };
     }

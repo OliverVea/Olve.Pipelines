@@ -417,6 +417,31 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   unions per endpoint (a type per endpoint for what is a cross-cutting mapping).
 - Later: lift the problem types and the mapping into Olve.Results / Olve.MinimalApi.
 
+### v2.1 — SDK publishing (2026-10-22)
+
+- The SDK is published to npm as **`@olivervea/pipelines`** (`@olve` on npm is someone else's).
+  Pipelines keep importing `@olve/pipelines` via an alias:
+  `"@olve/pipelines": "npm:@olivervea/pipelines@<version>"`. The alias name is load-bearing
+  (`olve-build` generates `@olve/pipelines/harness` imports). In-repo `.pipelines`/`.pipelines-test`
+  stay on `file:../sdk`.
+- The package ships TS sources (`src/`, `manifest.schema.json`, README, LICENSE): Bun runs them, and
+  `harness.sdkHash` hashes `src/`, so npm and `file:` installs of one version hash identically
+  (checked: same `sdkHash` from the packed tarball and from `file:../sdk`).
+- **Version scheme**: `2.0.0-beta.N` on dist-tag `beta` (`publishConfig`) until v2 prod, then `latest`.
+  Release = bump `sdk/package.json` `version` and push.
+- **Publish step**: `publish-sdk` (`oven/bun:1.4.3-slim`, beside `publish-cli` in the beta `when`) skips
+  when `name@version` is on npm (registry GET; 404 = unpublished), or when `NPM_TOKEN` is unset/empty;
+  otherwise `bun install --frozen-lockfile`, `bun run check` (clean env) and `bun publish`
+  (token via `NPM_CONFIG_TOKEN` in the env only).
+- **Optional secret mounts**: declared step secrets are `secretKeyRef optional: true`. A missing key no
+  longer fails the pod with `CreateContainerConfigError`; the env var is unset and `ctx.secrets.X`
+  throws on access, so a handler can check `process.env.X` and skip.
+- **Build Job**: the hardcoded `sdk/` install is gone. The script reads the binding's `package.json`
+  and runs `bun install --frozen-lockfile --production` in each local `file:`/`link:` dependency
+  directory (exit 78 if one resolves outside the repo); registry deps need nothing extra.
+- Follow-up: switch to npm trusted publishing via GitHub Actions (OIDC, provenance, no token) once the
+  token path works. npm requires the package to exist before a trusted publisher can be configured.
+
 ### Promotion checklist (v2 → prod / `main`)
 
 - The first v2 deploy to prod removes prod's MinIO Deployment and Service (the v2 chart has no MinIO

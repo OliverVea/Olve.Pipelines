@@ -4,6 +4,7 @@ import * as M from "./models";
 
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing the image and running helm on the homelab host.");
+export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines; unset = publish-sdk skips.");
 
 export const source = steps.gitHubSource({
   name: "source",
@@ -60,9 +61,19 @@ export const publishCli = step({
   timeoutSeconds: 1800,
 });
 
+export const publishSdk = step({
+  name: "publish-sdk",
+  description: "Checks sdk/ and publishes it to npm as @olivervea/pipelines when its version is not on npm yet.",
+  image: "oven/bun:1.4.3-slim",
+  input: { source: Source },
+  output: M.SdkRelease,
+  secrets: [NPM_TOKEN],
+  timeoutSeconds: 1200,
+});
+
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm, and publish the pl CLI it serves.",
+  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm, and publish the pl CLI it serves and the SDK to npm.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
@@ -70,4 +81,4 @@ export default pipeline({
   .stage(build, test)
   .when({ deployTo: "beta" }, p => p
     .stage(deployBeta)
-    .stage(publishCli));
+    .stage(publishCli, publishSdk));

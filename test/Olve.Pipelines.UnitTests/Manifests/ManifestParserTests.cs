@@ -65,6 +65,16 @@ public class ManifestParserTests
     }
 
     [Test]
+    public async Task StepDescription_IsRead_AndMissingReadsAsEmpty()
+    {
+        var m = Mutate(r => Step(r, "build").Remove("description"));
+
+        var steps = ((StepsStage)m.Stages[0]).Steps.Concat(((StepsStage)m.Stages[1]).Steps).ToDictionary(s => s.Name);
+        await Assert.That(steps["checkout"].Description).IsEqualTo("Fetches the repository at the pushed commit.");
+        await Assert.That(steps["build"].Description).IsEqualTo("");
+    }
+
+    [Test]
     public async Task RefMapping_SplitsRootAndPath()
     {
         var r = new RefMapping("build.commit.sha");

@@ -42,6 +42,17 @@ public class ManifestVersioningTests
     }
 
     [Test]
+    public async Task DescriptionChange_BumpsNoStep()
+    {
+        var v1 = ManifestVersioning.Compute(null, Parse());
+
+        var v2 = ManifestVersioning.Compute(v1.History, Mutate(r => Step(r, "build")["description"] = "Something else."));
+
+        await Assert.That(v2.ChangedSteps).IsEmpty();
+        await Assert.That(v2.ManifestHash).IsNotEqualTo(v1.ManifestHash);
+    }
+
+    [Test]
     public async Task HandlerChange_BumpsOnlyThatStep()
     {
         var v1 = ManifestVersioning.Compute(null, Parse());

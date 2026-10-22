@@ -58,8 +58,10 @@ public sealed record WhenStage(
     IReadOnlyDictionary<string, IReadOnlyList<JsonElement>> When,
     IReadOnlyList<ManifestStage> Stages) : ManifestStage;
 
+/// <summary>A step. <see cref="Description"/> is display-only (not part of the step's content hash).</summary>
 public sealed record StepDescriptor(
     string Name,
+    string Description,
     string Kind,
     string Image,
     IReadOnlyDictionary<string, InputType> InputTypes,

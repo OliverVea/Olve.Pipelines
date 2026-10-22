@@ -60,7 +60,7 @@ public class CanonicalJsonTests
         var expected = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Bytes));
 
         await Assert.That(ManifestVersioning.ManifestHash(Parse())).IsEqualTo(expected);
-        await Assert.That(expected).IsEqualTo("sha256:907ab1b00cd090e79991b123b11ed083848bb828049bbe4ead996b51aba435cf");
+        await Assert.That(expected).IsEqualTo("sha256:1974a74b6a8d2eccdba3845fa029fd55b52249a33df6e2ae53d5ea966bf9f87c");
     }
 
     [Test]

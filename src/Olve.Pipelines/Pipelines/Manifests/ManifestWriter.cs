@@ -145,6 +145,7 @@ public static class ManifestWriter
     {
         w.WriteStartObject();
         w.WriteString("name", s.Name);
+        w.WriteString("description", s.Description);
         w.WriteString("kind", s.Kind);
         w.WriteString("image", s.Image);
         w.WriteStartObject("inputTypes");

@@ -249,9 +249,11 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["timeoutSeconds", "retries", "config"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config"]))
             return null;
         var name = ctx.String(e, "name", path);
+        // Optional only so versions built before step descriptions still load.
+        var description = e.TryGetProperty("description", out _) ? ctx.String(e, "description", path) : "";
         var kind = ctx.String(e, "kind", path);
         var image = ctx.String(e, "image", path);
         var inputTypes = ctx.Dictionary(e, "inputTypes", path, (v, ip) => ParseInputType(ctx, v, ip));
@@ -280,10 +282,10 @@ public static class ManifestParser
             config = c?.ToDictionary(kv => kv.Key, kv => kv.Value!.Value, StringComparer.Ordinal);
         }
 
-        if (name is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
+        if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
             || handlerHash is null || !timeoutOk || !retriesOk || !configOk)
             return null;
-        return new StepDescriptor(name, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config);
+        return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config);
     }
 
     private static InputType? ParseInputType(Ctx ctx, JsonElement e, string path)

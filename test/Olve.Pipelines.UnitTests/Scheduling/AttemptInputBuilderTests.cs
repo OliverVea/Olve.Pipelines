@@ -17,7 +17,7 @@ public class AttemptInputBuilderTests
     private static JsonElement El(string json) => JsonDocument.Parse(json).RootElement.Clone();
 
     private static StepDescriptor Step(Dictionary<string, Mapping> input, Dictionary<string, InputType>? types = null)
-        => new("s", StepKinds.Custom, "alpine", types ?? [], input, null, [], "sha256:x", null, null, null);
+        => new("s", "", StepKinds.Custom, "alpine", types ?? [], input, null, [], "sha256:x", null, null, null);
 
     [Test]
     public async Task Builds_RefsConstsAndNestedObjects_LeavingOutUnresolvedPaths()

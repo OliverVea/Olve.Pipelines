@@ -583,7 +583,7 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      step pods reach traefik through the `runner-jobs-lockdown` policy). `prod-test` maps both inputs
      (`{ source: from.source, release: from["deploy-prod"] }`). `mirror-base-images` is now in three
      pipelines (copied again, `nginx:1.29-alpine` only): make it a library step. v1 (`50282eaa…`)
-     is paused: `deploy` and `verify` gates blocked, `config.yaml` kept.
+     was paused (gates blocked), then deleted by the user; `config.yaml` kept, its Secret left in place.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

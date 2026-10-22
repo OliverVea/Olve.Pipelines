@@ -21,7 +21,7 @@ public class AttemptTests
     }
 
     [Test]
-    public async Task CancelStep_UnknownRun_ReturnsBadRequest()
+    public async Task CancelStep_UnknownRun_ReturnsNotFound()
     {
         BetaGuard.SkipIfNoBeta();
 
@@ -29,7 +29,7 @@ public class AttemptTests
 
         var response = await client.CancelStep(Guid.NewGuid().ToString(), 1, "build");
 
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 
     [Test]

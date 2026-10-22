@@ -83,6 +83,6 @@ public class GitOpsBindingTests
         await client.DeletePipeline(pipelineId);
 
         var afterDelete = await client.GetPipelineBinding(pipelineId);
-        await Assert.That(afterDelete.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(afterDelete.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 }

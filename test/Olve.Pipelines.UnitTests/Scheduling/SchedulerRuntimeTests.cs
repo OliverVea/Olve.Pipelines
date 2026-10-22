@@ -115,13 +115,14 @@ public class SchedulerRuntimeTests
     }
 
     [Test]
-    public async Task Startup_CompletesDrainThatFinishedWhileDown_AndStartsQueuedRun()
+    public async Task Startup_CompletesALeftoverDrain_AndStartsQueuedRun()
     {
         var s = new SchedulerScenario();
         var old = s.Start(Input());
         var checkout = s.MarkInProgress(old, "checkout");
         var v2 = s.AddVersion();
-        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+        // A drain persisted by an earlier release (switches complete at once now), with a queued request.
+        TestRunDomain.Pick(s.D.ActivationService.BeginSwitch(s.Pipeline.Id, v2.Id));
         await Assert.That(s.StartOutcome(Input(sha: OtherSha))).IsTypeOf<RunStartOutcome.Queued>();
 
         var restored = Restore(s.D, d =>

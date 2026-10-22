@@ -46,7 +46,7 @@ automatically (a new attempt in a fresh pod) until it has failed 1 + n times in 
 - **Explicit actions always create work.** `pl trigger`, the UI form, reruns and continues are never
   de-duplicated.
 - **Blocked steps.** A blocked step holds a run that reaches it — see [Blocking Steps](blocking-steps.md).
-- **Switching versions.** While a pipeline drains, new runs are queued and start on the new
+- **Switching versions.** Runs carry on with the version they pinned; new runs start on the active
   version — see [Switch and rollback](binding-and-reconcile.md#switch-and-rollback).
 
 ## Addresses

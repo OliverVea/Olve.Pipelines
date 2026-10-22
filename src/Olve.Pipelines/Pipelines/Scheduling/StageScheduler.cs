@@ -88,9 +88,8 @@ public class StageScheduler(
             return;
         }
 
-        var canStartWork = activations.TryGet(run.PipelineId, out var activation)
-                           && activation is PipelineActivation.Active active
-                           && active.VersionId == run.VersionId;
+        // Runs on any version carry on once a switch is complete; only a cancelling drain stops them.
+        var canStartWork = activations.TryGet(run.PipelineId, out var activation) && activation is PipelineActivation.Active;
         var pool = new RunPool(run.Id, input, plan, attempts);
 
         foreach (var stage in plan.Stages)

@@ -34,8 +34,8 @@ reconcile; `pl binding status --json` lists them.
   are never de-duplicated.
 - **The config commit failed to reconcile.** While the newest commit under the binding path is
   unapplied, runs are held. Check `pl binding status`.
-- **Queued behind a switch.** While the pipeline drains, new runs wait and start on the new version.
-  `pl pipeline health <pipeline>` shows the activation.
+- **Queued behind a `--cancel-running` switch.** For the moment it takes, new runs wait and start on
+  the new version. `pl pipeline health <pipeline>` shows the activation.
 
 ## My change didn't take effect
 

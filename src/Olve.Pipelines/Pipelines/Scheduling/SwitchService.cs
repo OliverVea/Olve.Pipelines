@@ -1,22 +1,18 @@
-using System.Text.Json.Nodes;
 using Olve.Pipelines.Pipelines.Runs;
-using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Drives a version switch (spec §6.2): <c>Active(7)</c> → <c>Draining(7 → 8)</c> → <c>Active(8)</c>.
+/// Drives a version switch (spec §6.2): <c>Active(7)</c> → <c>Active(8)</c>.
 /// <list type="bullet">
-/// <item>While draining, runs on other versions start no new attempts (the scheduler checks the active
-/// version) and new run requests queue (<see cref="RunStartService"/>).</item>
-/// <item>The drain completes when no attempt of a run pinned to another version than the target is
-/// Scheduled/InProgress. With <c>cancelRunning</c> those runs and attempts are cancelled instead of
-/// awaited. Paused/held runs have no active attempts, so they never block.</item>
-/// <item>On completion, Running runs left on other versions (paused, held, stopped mid-way by the
-/// drain) are cancelled — they are un-continuable on the new version — and the queued request, if any,
-/// starts on the new version (<see cref="OnSwitchCompleted"/>).</item>
+/// <item>A switch completes at once. Runs pinned to the old version carry on there; new runs start on
+/// the new version. Runs never overtake each other (<see cref="StageScheduler"/>), so an old-version
+/// run can't deploy after a newer one.</item>
+/// <item>With <c>cancelRunning</c> the switch drains instead (<c>Draining(7 → 8)</c>): in-flight attempts
+/// of other versions are cancelled, Running runs left on them are cancelled on completion, and run
+/// requests that arrive meanwhile queue and start on the new version (<see cref="OnSwitchCompleted"/>).</item>
 /// </list>
 /// <see cref="TryCompleteDrain"/> runs after every attempt finishes (under the scheduling lock, after
 /// that run was advanced) and at startup. Transient.
@@ -27,9 +23,7 @@ public class SwitchService(
     AttemptService attempts,
     AttachmentStore<Pipeline, PendingRunStart> pending,
     RunStartService starts,
-    RunPlanCache plans,
     RunSchedulingLock schedulingLock,
-    TimeProvider time,
     ILogger<SwitchService> logger)
 {
     /// <summary>Begins (or retargets/rolls back) a switch and completes it at once if nothing is in flight.</summary>
@@ -53,12 +47,9 @@ public class SwitchService(
         if (!activations.TryGet(pipelineId, out var state) || state is not PipelineActivation.Draining draining)
             return state is PipelineActivation.Active;
 
-        var inFlight = InFlightOffVersion(pipelineId, draining.ToVersionId);
+        var inFlight = draining.CancelRunning ? InFlightOffVersion(pipelineId, draining.ToVersionId) : [];
         if (inFlight.Count > 0)
         {
-            if (!draining.CancelRunning)
-                return false;
-
             CancelOffVersion(pipelineId, draining, inFlight);
 
             // Cancelling fires attempt events that may already have completed the switch (re-entrantly).
@@ -77,11 +68,8 @@ public class SwitchService(
         logger.LogInformation("Pipeline '{PipelineId}' switched from version {FromVersion} to {ToVersion}",
             pipelineId, draining.FromVersionNumber, draining.ToVersionNumber);
 
-        var activeVersionId = ((PipelineActivation.Active)completed).VersionId;
-        var orphan = draining.CancelRunning ? null : NewestAutomaticOffVersion(pipelineId, activeVersionId);
-        AbandonOffVersion(pipelineId, activeVersionId);
-        if (orphan is not null)
-            RequeueOnActive(pipelineId, orphan, activeVersionId);
+        if (draining.CancelRunning)
+            AbandonOffVersion(pipelineId, ((PipelineActivation.Active)completed).VersionId);
         OnSwitchCompleted(pipelineId);
         return true;
     });
@@ -124,33 +112,6 @@ public class SwitchService(
             if (attempts.Cancel(attempt.Id).TryPickProblems(out var problems))
                 logger.LogProblems(LogLevel.Debug, problems, "Could not cancel attempt '{AttemptId}' of step '{StepName}'", attempt.Id, attempt.StepName);
         }
-    }
-
-    private Run? NewestAutomaticOffVersion(Id<Pipeline> pipelineId, Id<PipelineVersion> activeVersionId) =>
-        runs.ListByPipeline(pipelineId)
-            .Where(r => r.Status is RunStatus.Running && r.VersionId != activeVersionId && r.Trigger.IsAutomatic)
-            .MaxBy(r => r.Number);
-
-    /// <summary>
-    /// An automatic run abandoned by the switch (its push or poll would otherwise be lost) is queued again on
-    /// the new version, unless a newer request is queued or the new version already has a newer run.
-    /// </summary>
-    private void RequeueOnActive(Id<Pipeline> pipelineId, Run abandoned, Id<PipelineVersion> activeVersionId)
-    {
-        if (pending.TryGet(pipelineId, out _)
-            || runs.ListByPipeline(pipelineId).Any(r => r.VersionId == activeVersionId && r.Number > abandoned.Number))
-            return;
-        if (plans.Get(activeVersionId).TryPickProblems(out var planProblems, out var plan)
-            || RunInputService.ValidateStored(plan.Manifest, JsonNode.Parse(abandoned.Input)).TryPickProblems(out planProblems, out var input))
-        {
-            logger.LogProblems(LogLevel.Warning, planProblems,
-                "Run #{RunNumber} of pipeline '{PipelineId}' was abandoned by the switch and can't start again on the new version", abandoned.Number, pipelineId);
-            return;
-        }
-
-        pending.Set(pipelineId, new PendingRunStart(input, new RunTrigger(abandoned.Trigger.Kind), time.GetUtcNow()));
-        logger.LogInformation("Run #{RunNumber} ({TriggerKind}) of pipeline '{PipelineId}' was abandoned by the switch; starting its input again on the new version",
-            abandoned.Number, abandoned.Trigger.Kind, pipelineId);
     }
 
     private void AbandonOffVersion(Id<Pipeline> pipelineId, Id<PipelineVersion> activeVersionId)

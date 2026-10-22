@@ -90,28 +90,25 @@ The UI's pipeline view shows the versions, a manifest diff between any two, and 
 
 ## Switch and rollback
 
-Only one version runs at a time. Changing it is one operation:
+One version is **active**: new runs start on it. Switching is immediate:
 
 ```
-Active(7)  ──switch 8──>  Draining(7 → 8)  ──no Scheduled/InProgress attempts on 7──>  Active(8)
+Active(7)  ──switch 8──>  Active(8)
 ```
 
 ```sh
 pl pipeline switch my-app 7                    # rollback = switch to an older version
-pl pipeline switch my-app 7 --cancel-running   # cancel the old version's in-flight work instead of waiting
+pl pipeline switch my-app 7 --cancel-running   # also cancel the runs still on other versions
 ```
 
 - Reconcile switches automatically. A manual `switch` (e.g. a rollback) holds until the next config
   commit is reconciled — that switches to the commit's version again, even if it is unchanged.
-- While draining, the old version starts no new attempts and in-flight attempts finish. New triggers
-  are **queued** (latest-wins collapses them) and start on the new version, mapped and validated
-  against *its* triggers and input model.
-- Runs paused on the old version (held at a blocked step, waiting to be continued) don't block the drain and
-  are cancelled when it completes. The newest *automatic* one (push, poll, webhook) then starts again
-  on the new version with the same input, unless a request queued during the drain or a newer run on
-  the new version already covers it; re-trigger manual ones yourself. A `--cancel-running` switch
-  starts nothing again.
-- There is no side-by-side canary of two definitions.
+- Runs already going carry on with the version they pinned; nothing is cancelled. Runs never
+  overtake each other: a run doesn't start a step a newer run already started, it is superseded
+  instead, so an old-version run can't deploy after a newer one.
+- Continue and step rerun need the run's version to be active; on an older version, trigger a new run.
+- `--cancel-running` cancels the runs still on other versions and their in-flight attempts; requests
+  that arrive in the moment it takes are queued and start on the new version.
 
 ## Git-only
 

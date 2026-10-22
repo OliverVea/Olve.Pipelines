@@ -32,7 +32,7 @@ export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
   (`pl trigger`, the UI form generated from the input model).
 - **Versions**: each config commit is compiled (in a sandboxed build Job) into a manifest + a single
   executable. A changed manifest becomes a new pipeline version; one version is active, and the
-  service `switch`es (drain, then activate) to new versions automatically.
+  service `switch`es to new versions automatically (runs already going finish on theirs).
 - **Runs** pin a version; each step execution is an **attempt** (one K8s Job). Runs flow on concurrently and
   meet only per step (one in progress, the newest waiting one wins); automatic triggers are de-duplicated by mapped input; operators rerun,
   continue (with changed input) and cancel runs, and can **block** a step (an operator hold, used

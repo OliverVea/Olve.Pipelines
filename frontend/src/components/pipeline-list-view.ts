@@ -1,8 +1,10 @@
 import { LitElement, html, css, nothing, svg } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, state, query } from 'lit/decorators.js';
 import { client, extractErrorMessage } from '../api.js';
 import { navigate } from '../router.js';
 import './relative-time.js';
+import './confirm-delete-dialog.js';
+import type { ConfirmDeleteDialog } from './confirm-delete-dialog.js';
 import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../v2/ui.js';
 import { toActivation } from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
@@ -300,6 +302,8 @@ export class PipelineListView extends LitElement {
   @state() declare private _loading: boolean;
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
+  @state() declare private _deleting: PipelineSummary | null;
+  @query('confirm-delete-dialog') declare private _confirmDelete: ConfirmDeleteDialog;
 
   constructor() {
     super();
@@ -307,6 +311,7 @@ export class PipelineListView extends LitElement {
     this._loading = true;
     this._error = null;
     this._loaded = false;
+    this._deleting = null;
     new PollController(this, () => this._load(true));
   }
 
@@ -362,6 +367,11 @@ export class PipelineListView extends LitElement {
               <span>Add pipeline</span>
             </button>
           </div>`}
+      <confirm-delete-dialog
+        .name=${this._deleting?.name ?? ''}
+        consequence="Its runs, versions, binding and secrets are deleted. This can't be undone."
+        .onConfirm=${this._delete}
+      ></confirm-delete-dialog>
     `;
   }
 
@@ -386,7 +396,7 @@ export class PipelineListView extends LitElement {
                 >`
               : nothing}
           </div>
-          <button class="btn-delete" @click=${() => this._delete(p.id ?? '')}>
+          <button class="btn-delete" @click=${() => this._askDelete(p)}>
             Delete
           </button>
         </div>
@@ -453,11 +463,23 @@ export class PipelineListView extends LitElement {
     await this._load();
   }
 
-  private async _delete(id: string) {
-    if (!id) return;
-    await client.api.pipelines.byId(id).delete();
-    await this._load();
+  private async _askDelete(p: PipelineSummary) {
+    this._deleting = p;
+    await this.updateComplete;
+    this._confirmDelete.open();
   }
+
+  private _delete = async () => {
+    const id = this._deleting?.id;
+    if (!id) return;
+    try {
+      await client.api.pipelines.byId(id).delete();
+    } catch (e) {
+      throw new Error(extractErrorMessage(e));
+    }
+    this._deleting = null;
+    await this._load();
+  };
 }
 
 declare global {

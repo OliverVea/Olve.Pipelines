@@ -165,7 +165,7 @@ export default implement(deployBeta, async ({ artifact }, ctx) => {
 
 | `ctx.` | |
 |---|---|
-| `sh(cmd \| script, { env, cwd, args })`, `sh.text(…)` | Runs a command string, or an embedded script, through the image's shell. The script is copied to `$OLVE_DIR/tmp/scripts/` first. The shell is the first of `/bin/sh`, `/busybox/sh`, `/bin/bash` that exists; a shell-less image gets a clear `ShellNotFoundError`. A script's shebang is honoured when its interpreter exists. A string counts as an embedded script when it is a `/$bunfs/…` path, or an absolute path to an existing `*.sh` or `*.bash` file. Pass `{ script }` to force script mode. A non-zero exit throws a `CommandError` that carries `exitCode`. |
+| `sh(cmd \| script, { env, cwd, args })`, `sh.text(…)` | Runs a command string, or an embedded script, through the image's shell. The script is copied to `$OLVE_DIR/tmp/scripts/` first. The shell is the first of `/bin/sh`, `/busybox/sh`, `/bin/bash` that exists; a shell-less image gets a clear `ShellNotFoundError`. A script's shebang is honoured when its interpreter exists. A string counts as an embedded script when it is a `/$bunfs/…` path, or an absolute path to an existing `*.sh` or `*.bash` file. Pass `{ script }` to force script mode. `args` are the script's arguments, or `$1`, `$2`… of a command string. A non-zero exit throws a `CommandError` that carries `exitCode`. |
 | `exec([argv…], { env, cwd, idleTimeoutSeconds })` | Runs a binary directly, with no shell (works on distroless). `idleTimeoutSeconds` (also on `sh`) is an inactivity watchdog: no stdout/stderr output for that long → SIGTERM, SIGKILL 10 s later, and a `CommandStalledError`. |
 | `readText(path)`, `readJson(path)` | Paths are relative to the cwd. |
 | `files.fetch(ref)` | Downloads a file reference and verifies its sha256. Directory refs are extracted. Returns a local path. |
@@ -235,7 +235,7 @@ This section is everything the C# side needs in order to run the binary.
 
 | Path | Who | What |
 |---|---|---|
-| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. **map-trigger push**: the GitHub push payload. **map-trigger poll**: `{"value": "<extracted value as string>"}`. |
+| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. **map-trigger push**: `{"ref": "refs/heads/<branch>", "after": "<sha>", "repository": {"full_name": "<owner>/<repo>"}}` (`PushEvent`). **map-trigger poll**: `{"value": "<extracted value as string>"}`. **map-trigger webhook**: `{"headers": {…}, "body": …}` (`WebhookEvent`). |
 | `work/output.json` | harness | The envelope. Any stale copy is deleted at start, and the new file is written atomically. |
 | `work/files/<object path>` | harness | Output files and directory tars (see "File references"). |
 | `tmp/` | harness | Scratch space. Point `TMPDIR` here. |

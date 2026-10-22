@@ -178,6 +178,11 @@ export function isPipeline(p: unknown): boolean {
 
 // ─── Pipeline builder ────────────────────────────────────────────────────────────────────────
 
+// Builder calls record into shared data and hand back a fresh handle; a handle that was already
+// extended no longer matches its type (it would claim fewer stages than the data has), so reuse is a problem.
+const extended = new WeakSet<object>();
+const ReusedProblem = "a pipeline value was extended twice: chain the calls (pipeline({...}).stage(a).stage(b)) instead of reusing an earlier value";
+
 export interface PipelineDef<In extends AnyModel> {
   /** Display name. */
   name: string;
@@ -203,10 +208,19 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     };
   }
 
+  private next(): never {
+    const data = this[PIPELINE];
+    if (extended.has(this) && !data.problems.includes(ReusedProblem)) data.problems.push(ReusedProblem);
+    extended.add(this);
+    const handle = Object.create(Object.getPrototypeOf(this)) as Pipeline<In, A>;
+    (handle as { [PIPELINE]: PipelineData })[PIPELINE] = data;
+    return handle as never;
+  }
+
   /** Map a GitHub push to the pipeline input (`z.input` view). Runs as code in a `map-trigger` Job per event. */
   onPush<R extends InferInput<In>>(map: (event: PushEvent) => Exact<R, InferInput<In>>): this {
     this[PIPELINE].triggers.push({ kind: "push", name: "push", map: map as (event: unknown) => unknown });
-    return this;
+    return this.next();
   }
 
   /**
@@ -235,7 +249,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
       intervalSeconds: cfg.intervalSeconds,
       map: map as (value: string) => unknown,
     });
-    return this;
+    return this.next();
   }
 
   /**
@@ -247,7 +261,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     map: (event: WebhookEvent) => Exact<R, InferInput<In>> | null,
   ): this {
     this[PIPELINE].triggers.push({ kind: "webhook", name: cfg.name, verify: cfg.verify, map: map as (event: WebhookEvent) => unknown });
-    return this;
+    return this.next();
   }
 
   /**
@@ -272,7 +286,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     });
     if (entries.length === 0) data.problems.push("empty stage");
     data.nodes.push({ kind: "stage", steps });
-    return this;
+    return this.next();
   }
 
   /** Declarative condition on literal-like pipeline-input fields. Outputs produced inside become maybe-available after. */
@@ -280,9 +294,10 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     const data = this[PIPELINE];
     const inner = new Pipeline<In, A>({ name: data.name, input: data.input as In }, data);
     const returned = block(inner);
-    if (returned !== (inner as unknown)) data.problems.push("a when block must return the pipeline it was given (p => p.stage(...))");
+    if (!isPipeline(returned) || pipelineData(returned) !== inner[PIPELINE])
+      data.problems.push("a when block must return the pipeline it was given (p => p.stage(...))");
     data.nodes.push({ kind: "when", cond: { ...(cond as object) }, nodes: inner[PIPELINE].nodes });
-    return this as never;
+    return this.next();
   }
 
   /** Run `handler` (a step whose inputs are all FailureContext) when one of `steps` (default: any) fails. Untracked, best-effort. */
@@ -295,7 +310,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     opts?: { steps?: readonly Step<StepNames<A>, any, any, any>[] },
   ): this {
     this[PIPELINE].failureHandlers.push({ step: handler as AnyStep, steps: opts?.steps ? [...(opts.steps as readonly AnyStep[])] : null });
-    return this;
+    return this.next();
   }
 }
 

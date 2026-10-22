@@ -111,6 +111,12 @@ describe("describe-time checks", () => {
     const s = step({ name: "s", image: "alpine" } as never);
     expectProblem(base().stage(s), /description must be a string/, ["s"]);
   });
+  test("reusing an extended pipeline value is a problem; chaining is not", () => {
+    const p = base().stage(make);
+    p.stage(use);
+    expectProblem(p.stage(use), /extended twice/);
+    expect(problems(base().stage(make).when({ env: "prod" }, (q) => q.stage(use)))).toEqual([]);
+  });
   test("custom step without handler", () => expectProblem(base().stage(make), /step 'make' has no handler/, []));
   test("handler file without step / for a library step", () => {
     expectProblem(base().stage(make), /handlers\/ghost.ts does not match any step/, ["make", "ghost"]);

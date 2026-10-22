@@ -85,7 +85,8 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
     const scriptPath = typeof cmd === "object" ? cmd.script : isEmbeddedScript(cmd) ? cmd : undefined;
     if (scriptPath === undefined) {
       const shell = detectShell(deps.shellCandidates);
-      return { argv: [shell, "-c", cmd as string], what: `command \`${truncate(cmd as string)}\`` };
+      // `sh -c cmd sh a b`: the args are $1, $2… of the command.
+      return { argv: [shell, "-c", cmd as string, "sh", ...args], what: `command \`${truncate(cmd as string)}\`` };
     }
     const file = materialize(scriptPath);
     const first = readFileSync(file, "utf8").split("\n", 1)[0] ?? "";

@@ -32,6 +32,11 @@ describe("ctx.sh / ctx.exec", () => {
     expect(r).toMatchObject({ status: "succeeded", output: { text: "hello world" } });
     expect(r.logs).toContain("failed code=3");
   });
+  test("a command string gets its args as $1, $2…, unquoted by the shell", async () => {
+    const impl = implement(plain, async ({ cmd }, ctx) => ({ text: await ctx.sh.text(cmd, { args: ["a b", "$HOME"] }) }));
+    const r = await testHandler(impl, { cmd: 'printf "%s|%s" "$1" "$2"' });
+    expect(r).toMatchObject({ status: "succeeded", output: { text: "a b|$HOME" } });
+  });
   test("embedded scripts are copied out and run with args; harness credentials are not inherited", async () => {
     const dir = tmp("script");
     const script = join(dir, "s.sh");

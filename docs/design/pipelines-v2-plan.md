@@ -252,7 +252,45 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   here): a shorter `MinRunAgeDays` for beta, dropping big file outputs (image tars) earlier than the
   run record, a bigger PVC, and flipping `Retention__DryRun=false`. (The `bulk` StorageClass may not
   enforce the 20 Gi size.)
-- **Gaps**: (1) the config cursor watches only `.pipelines/`, but `pipeline.ts` builds against
+- **Gaps (1) and (2) below fixed 2026-10-22** (df07a3c, d5ff772, b7ecabf):
+  - **kaniko stall → self-heals.** Design: fail fast + retry the *attempt*, not kaniko. (a) The
+    scheduler now honours the manifest's `retries: n` (spec §5.2; it was parsed/validated/versioned
+    but nothing read it): `StageScheduler` reschedules a failed step while the trailing streak of
+    failed attempts since the run was last resumed is ≤ n (cancelled/obsolete attempts and
+    scheduler-side failures such as an oversized input are never retried; a continue resets the
+    count; failure handlers still fire only when the run fails). (b) `ctx.exec`/`ctx.sh` gained an
+    `idleTimeoutSeconds` inactivity watchdog (child output is piped and forwarded; TERM, KILL 10 s
+    later; `CommandStalledError`). (c) `steps.imageBuild` runs kaniko under it by default
+    (`stallTimeoutSeconds` 300 — the longest silent phase of a normal build is the AOT "Generating
+    native code", ~2 min) and defaults to `retries: 2`. (d) `.pipelines` build `timeoutSeconds`
+    3600 → 900 as the backstop. **Why not retry inside the pod:** kaniko unpacks the base image over
+    the container root and only wipes it between stages, so a killed kaniko leaves a partial rootfs
+    that a second kaniko in the same container would snapshot as "base" (files silently missing from
+    layers). A fresh attempt is a fresh pod, and its image tag gets `-attempt<n>`. The watchdog
+    itself is compatible with kaniko: the harness runs from the `/olve` emptyDir mount, which kaniko
+    never touches, and the pipes survive kaniko rewriting `/`.
+  - **SDK changes reach the binary.** The GitHub config source's cursor is now the newest commit
+    across the bound directory **and** the `file:`/`link:` dependencies of its `package.json`
+    (dependencies/devDependencies/optionalDependencies, resolved relative to it, normalised; absolute
+    specs, paths escaping the repo and paths inside the bound directory are dropped). Each watched
+    path has its own conditional request (free 304s); `package.json` is re-read only when the bound
+    directory's own cursor moves; the per-path state rides in the opaque ETag
+    (`ConfigCursorState`). Direct dependencies only (an SDK's own `file:` deps are not followed).
+  - **Live, run #8** (push d5ff772; reconciled + run by the *old* backend, version 3 from df07a3c):
+    4m53s, build 4m23s, Succeeded, deployed `…:2026.10.22.8`, health 200 — the new backend.
+  - **Live, run #9** (b7ecabf, an `sdk/`-only commit: imageBuild's `retries` default): reconcile-now
+    moved the cursor to b7ecabf (`.pipelines/` was last touched by df07a3c) and built **version 4**
+    whose build step carries `retries: 2` — the SDK change reached the step binary. Push run #9 then
+    hit a **real MCR stall**: build attempt 1 printed "Unpacking rootfs …" at [0007] and nothing
+    else; the watchdog killed it at 300 s (`CommandStalledError`, attempt failed 01:22:10); the
+    scheduler started attempt 2 at once, which built in 4m28s (tag `2026.10.22.9-attempt2`);
+    deploy-beta 24 s; run Succeeded unattended, pod on `…:2026.10.22.9-attempt2`, health 200. A
+    stall now costs ~5 min instead of an hour plus a manual cancel/rerun.
+  - Left open: a step version bump on every SDK change (all step versions moved v3 → v4, gap 1's
+    `sdkHash` note); the stall source itself (MCR idle connection; mirroring base images into
+    registry.ovea.pro would remove it); the 10 s TERM→KILL grace is an SDK constant (the 300 s
+    window is `stallTimeoutSeconds`).
+- **Gaps** (as found on 2026-10-21; (1) and (2) fixed above): (1) the config cursor watches only `.pipelines/`, but `pipeline.ts` builds against
   `../sdk` — an SDK-only commit does not rebuild the step binary, and reconcile-now does not help (the
   build Job is per config commit, `olve-build-<p12>-<sha12>`, so it rebuilds the same old checkout).
   Proof: versions v1 (aeb5960) and v2 (69df341) differ only in `sdkHash` and handler hashes, i.e. runs

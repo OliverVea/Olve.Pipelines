@@ -76,6 +76,18 @@ public class JobRunnerTests
         }
     }
 
+    // The runner records results asynchronously; a fixed sleep raced it on slow CI nodes.
+    private static async Task WaitForFinishedAsync(TestHarness h, params Id<Attempt>[] jobIds)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
+        while (jobIds.Any(id => h.Store.TryGet(id, out var a) && a!.Status is Scheduled or InProgress))
+        {
+            if (DateTimeOffset.UtcNow > deadline)
+                throw new TimeoutException("Jobs did not finish within 5 s.");
+            await Task.Delay(10);
+        }
+    }
+
     [Test]
     public async Task Job_FinishSuccess_TransitionsToSucceeded()
     {
@@ -88,7 +100,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
         h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
@@ -107,7 +119,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
         h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
@@ -126,7 +138,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
         h.PendingStore.Finish(jobId, new NoOpJobResult.Failure("script exited with code 1"));
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
@@ -150,7 +162,7 @@ public class JobRunnerTests
         await Assert.That(job!.Status).IsTypeOf<InProgress>();
 
         h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
     }
 
@@ -206,7 +218,7 @@ public class JobRunnerTests
         h.PendingStore.Finish(job1, new NoOpJobResult.Success());
         h.PendingStore.Finish(job2, new NoOpJobResult.Success());
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, job1, job2);
         cts.Cancel();
 
         h.Store.TryGet(job1, out var j1);
@@ -234,7 +246,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
 
         h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         h.Store.TryGet(jobId, out var job);
@@ -267,7 +279,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, secondId);
 
         h.PendingStore.Finish(secondId, new NoOpJobResult.Success());
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, firstId, secondId);
         cts.Cancel();
 
         h.Store.TryGet(firstId, out var j1);
@@ -288,7 +300,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
         h.PendingStore.Finish(jobId, new NoOpJobResult.Success("""{"image":"registry/app:1"}"""));
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         var attempt = h.Domain.Get(jobId);
@@ -309,7 +321,7 @@ public class JobRunnerTests
         await WaitForPendingAsync(h.PendingStore, jobId);
         h.PendingStore.Finish(jobId, new NoOpJobResult.Skip("nothing changed"));
 
-        await Task.Delay(100);
+        await WaitForFinishedAsync(h, jobId);
         cts.Cancel();
 
         var status = h.Domain.Get(jobId).Status;

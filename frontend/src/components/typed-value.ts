@@ -112,7 +112,7 @@ export class TypedValue extends LitElement {
       if (!keys.length) return html`<span class="absent">{}</span>`;
       return html`<dl>
         ${keys.map(
-          (k) => html`<dt title=${s?.properties?.[k]?.description ?? ''}>${k}</dt>
+          (k) => html`<dt>${k}</dt>
             <dd>${this._render(o[k], s?.properties?.[k])}</dd>`,
         )}
       </dl>`;
@@ -132,7 +132,7 @@ export class TypedValue extends LitElement {
       >
         Download
       </button>
-      ${ref.sha256 ? html`<span class="src mono" title=${ref.sha256}>${ref.sha256.slice(0, 10)}</span>` : nothing}
+      ${ref.sha256 ? html`<span class="src mono">${ref.sha256.slice(0, 10)}</span>` : nothing}
     </span>`;
   }
 }

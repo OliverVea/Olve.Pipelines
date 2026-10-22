@@ -351,10 +351,8 @@ export class RunView extends LitElement {
             ${running
               ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel run</button>`
               : nothing}
-            <button class="btn" ?disabled=${this._busy} @click=${this._rerunRun}
-              title="Start a new run with the same input">Rerun run</button>
+            <button class="btn" ?disabled=${this._busy} @click=${this._rerunRun}>Rerun run</button>
             <button class="btn primary" ?disabled=${this._busy || !d.continuable} @click=${this._openContinue}
-              title=${d.continuable ? 'Keep completed stages and run the rest with changed input' : 'Only runs on the active version can be continued'}
               >Continue…</button>
           </div>
         </div>
@@ -362,7 +360,7 @@ export class RunView extends LitElement {
           <span>Version <b>v${r.versionNumber}</b></span>
           <span>Stamp <b class="mono">${r.versionStamp}</b></span>
           <span>Trigger <b>${(r.triggerKind ?? '').toLowerCase()}</b></span>
-          ${d.commitSha ? html`<span>Pipeline commit <b class="mono" title=${d.commitSha}>${shortSha(d.commitSha)}</b></span>` : nothing}
+          ${d.commitSha ? html`<span>Pipeline commit <b class="mono">${shortSha(d.commitSha)}</b></span>` : nothing}
           <span>Started <b><relative-time .value=${r.createdAt}></relative-time></b></span>
           <span>Duration <b>${formatDuration(r.createdAt, r.finishedAt)}</b></span>
           ${r.heldAt ? html`<span>Held at <b>${r.heldAt}</b></span>` : nothing}
@@ -425,17 +423,14 @@ export class RunView extends LitElement {
       <div class="step-head">
         <h3>${this._step}</h3>
         ${st ? html`<span class="st t-${toneOf(st.status)}"><span class="dot"></span>${statusLabel(st.status)}</span>` : nothing}
-        ${st?.blocked ? html`<span class="pill t-wait" title="This step's gate is closed">gate closed</span>` : nothing}
+        ${st?.blocked ? html`<span class="pill t-wait">gate closed</span>` : nothing}
         <a href=${stepPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step</a>
         <div class="actions">
           ${active
-            ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancelStep}
-                title="Stop this step's attempt; the run ends Cancelled once its stage settles">Cancel step</button>`
+            ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancelStep}>Cancel step</button>`
             : nothing}
-          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}
-            title="Add an attempt of this step only">Rerun step</button>
-          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}
-            title="Add an attempt, then continue the run from here">Rerun and continue</button>
+          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}>Rerun step</button>
+          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}>Rerun and continue</button>
         </div>
       </div>
       ${attempts.length
@@ -458,7 +453,7 @@ export class RunView extends LitElement {
             <div class="meta" style="margin:0 0 0.75rem">
               <span>Created <b><relative-time .value=${a.createdAt}></relative-time></b></span>
               ${as.startedAt ? html`<span>Ran <b>${formatDuration(as.startedAt, as.finishedAt ?? as.cancelledAt)}</b></span>` : nothing}
-              ${a.inputHash ? html`<span title=${a.inputHash}>Input hash <b class="mono">${a.inputHash.slice(7, 17)}</b></span>` : nothing}
+              ${a.inputHash ? html`<span>Input hash <b class="mono">${a.inputHash.slice(7, 17)}</b></span>` : nothing}
             </div>
             ${as.reason ? html`<p class="reason"><b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}</p>` : nothing}
             <div class="io">

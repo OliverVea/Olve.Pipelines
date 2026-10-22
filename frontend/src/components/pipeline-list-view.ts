@@ -334,7 +334,7 @@ export class PipelineListView extends LitElement {
     return html`
       <div class="header">
         <h2>Pipelines</h2>
-        <a class="docs-link" href="/docs/index" @click=${this._navToDocs} title="Setup &amp; usage guide">
+        <a class="docs-link" href="/docs/index" @click=${this._navToDocs}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
@@ -382,7 +382,6 @@ export class PipelineListView extends LitElement {
                   href=${this._repoUrl(p.repo)}
                   target="_blank"
                   rel="noopener"
-                  title="Open repository"
                   >${GITHUB_MARK}<span>${p.repo}</span></a
                 >`
               : nothing}
@@ -418,13 +417,13 @@ export class PipelineListView extends LitElement {
       </div>
       <div class="h-tags">
         ${a.kind === 'active'
-          ? html`<span class="tag" title="Active version">active v${a.version}</span>`
+          ? html`<span class="tag">active v${a.version}</span>`
           : a.kind === 'draining'
             ? html`<span class="tag warn">switching v${a.from} → v${a.to}</span>`
             : html`<span class="tag">no version</span>`}
         ${(h.runningRuns ?? 0) > 0 ? html`<span class="tag run">${h.runningRuns} running</span>` : nothing}
         ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
-        ${blocked.length ? html`<span class="tag warn" title=${blocked.join(', ')}>${blocked.length} gate${blocked.length > 1 ? 's' : ''} closed</span>` : nothing}
+        ${blocked.length ? html`<span class="tag warn">${blocked.length} gate${blocked.length > 1 ? 's' : ''} closed</span>` : nothing}
       </div>
     </div>`;
   }

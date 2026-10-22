@@ -169,14 +169,12 @@ export class StepView extends LitElement {
       <section>
         <div class="head">
           <h2>${this.step}</h2>
-          ${blocked ? html`<span class="pill t-wait" title="Runs hold before this step">blocked</span>` : nothing}
+          ${blocked ? html`<span class="pill t-wait">blocked</span>` : nothing}
           <span class="spacer"></span>
           ${this._retryable(blocked)
-            ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}
-                title="Run this step again in #${this._latest?.runNumber}, then continue the run">Retry</button>`
+            ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}>Retry</button>`
             : nothing}
-          <button class="btn" ?disabled=${this._busy} @click=${() => this._setGate(!blocked)}
-            title=${blocked ? 'Let held runs continue past this step' : 'Hold runs before this step'}>
+          <button class="btn" ?disabled=${this._busy} @click=${() => this._setGate(!blocked)}>
             ${blocked ? 'Unblock' : 'Block'}
           </button>
         </div>
@@ -212,8 +210,7 @@ export class StepView extends LitElement {
     if (!a) return html`<p class="muted">${this._loaded ? 'Never run.' : 'Loading…'}</p>`;
     const at = a.finishedAt ?? a.startedAt ?? a.createdAt;
     return html`<div class="latest">
-        <a class="st t-${toneOf(a.status)}" href=${stepLogsPath(this.pipelineId, a.runNumber, this.step, a.attemptNumber)} @click=${navClick}
-          title="Open the log"><span class="dot"></span>${statusLabel(a.status)}</a
+        <a class="st t-${toneOf(a.status)}" href=${stepLogsPath(this.pipelineId, a.runNumber, this.step, a.attemptNumber)} @click=${navClick}><span class="dot"></span>${statusLabel(a.status)}</a
         >
         <a href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(this.step)}&attempt=${a.attemptNumber}" @click=${navClick}
           >#${a.runNumber}${(a.attemptNumber ?? 1) > 1 ? `@${a.attemptNumber}` : ''}</a

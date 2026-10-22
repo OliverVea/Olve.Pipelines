@@ -290,7 +290,7 @@ export class PipelineDetailView extends LitElement {
           : b.result === 2
             ? html`<span class="bad">${where} reconcile failed at ${shortSha(b.reconcileSha)}</span>`
             : b.result === 1
-              ? html`<span title=${b.lastReconciledSha ?? ''}
+              ? html`<span
                   >${where} synced at <span class="mono">${shortSha(b.lastReconciledSha)}</span>
                   <relative-time .value=${b.lastSyncTime}></relative-time
                 ></span>`

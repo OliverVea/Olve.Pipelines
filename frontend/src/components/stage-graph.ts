@@ -320,7 +320,7 @@ export class StageGraph extends LitElement {
       if (i > 0) out.push(html`<div class="barrier" aria-hidden="true"></div>`);
       if (isWhen(stage)) {
         out.push(html`<div class="when">
-          <span class="when-label" title="Runs only when the pipeline input matches">when ${formatWhen(stage.when)}</span>
+          <span class="when-label">when ${formatWhen(stage.when)}</span>
           <div class="when-body">${this._stages(stage.stages, rel)}</div>
         </div>`);
       } else {
@@ -343,7 +343,6 @@ export class StageGraph extends LitElement {
       role="button"
       tabindex="0"
       aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}"
-      title="${step.name} (${step.kind}) — ${step.image}"
       @mouseenter=${() => (this._hover = step.name)}
       @mouseleave=${() => (this._hover = null)}
       @focus=${() => (this._hover = step.name)}
@@ -360,7 +359,7 @@ export class StageGraph extends LitElement {
         <span class="name">${step.name}</span>
         ${st && st.status !== 'not-run'
           ? st.logsHref
-            ? html`<a class="badge" href=${st.logsHref} title="Open the log" @click=${this._link} @keydown=${this._link}
+            ? html`<a class="badge" href=${st.logsHref} @click=${this._link} @keydown=${this._link}
                 >${statusLabel(st.status)}</a
               >`
             : html`<span class="badge">${statusLabel(st.status)}</span>`
@@ -374,7 +373,7 @@ export class StageGraph extends LitElement {
         ${this.gateControls ? this._retry(step.name, st) : nothing}
         ${this.gateControls ? this._lock(step.name, blocked) : nothing}
       </div>
-      ${st?.reason ? html`<div class="reason" title=${st.reason}>${st.reason}</div>` : nothing}
+      ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
       ${blocked ? html`<div class="gate-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
     </div>`;
   }
@@ -385,7 +384,6 @@ export class StageGraph extends LitElement {
     return html`<a
       class="run"
       href=${st.runHref}
-      title="Open run #${st.runNumber}"
       @click=${this._link}
       @keydown=${this._link}
       >${label}</a
@@ -402,7 +400,6 @@ export class StageGraph extends LitElement {
     if (!st?.retryable) return nothing;
     return html`<button
       class="icon retry"
-      title="Retry: run this step again in #${st.runNumber}, then continue the run"
       aria-label="Retry ${step}"
       @click=${(e: Event) => {
         e.stopPropagation();
@@ -416,7 +413,6 @@ export class StageGraph extends LitElement {
   private _lock(step: string, blocked: boolean) {
     return html`<button
       class="icon lock ${blocked ? 'closed' : ''}"
-      title=${blocked ? 'Blocked: runs hold before this step. Click to unblock.' : 'Block: hold runs before this step.'}
       aria-label=${blocked ? `Unblock ${step}` : `Block ${step}`}
       @click=${(e: Event) => {
         e.stopPropagation();

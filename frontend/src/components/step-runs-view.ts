@@ -125,7 +125,7 @@ export class StepRunsView extends LitElement {
           <a class="st t-${toneOf(r.status)}" href=${stepLogsPath(this.pipelineId, r.runNumber, this.step, r.attemptNumber)} @click=${navClick}
             ><span class="dot"></span>${statusLabel(r.status)}</a
           >
-          ${r.reason ? html`<div class="reason" title=${r.reason}>${r.reason}</div>` : nothing}
+          ${r.reason ? html`<div class="reason">${r.reason}</div>` : nothing}
         </td>
         <td>${r.startedAt ? html`<relative-time .value=${r.startedAt}></relative-time>` : html`<span class="muted">—</span>`}</td>
         <td class="num">${r.startedAt ? formatDuration(r.startedAt, r.finishedAt) : ''}</td>

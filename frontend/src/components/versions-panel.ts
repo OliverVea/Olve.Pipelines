@@ -232,7 +232,7 @@ export class VersionsPanel extends LitElement {
         ${isTarget ? html`<span class="draining-mark">switching to</span>` : nothing}
         ${isDraining ? html`<span class="draining-mark">draining</span>` : nothing}
       </td>
-      <td class="mono" title=${v.commitSha ?? ''}>${shortSha(v.commitSha) || '—'}</td>
+      <td class="mono">${shortSha(v.commitSha) || '—'}</td>
       <td><relative-time .value=${v.createdAt}></relative-time></td>
       <td class="chg">
         ${!prev

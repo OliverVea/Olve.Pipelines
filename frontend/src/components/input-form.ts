@@ -160,7 +160,7 @@ export class InputForm extends LitElement {
     const hint = constraintHint(f);
     return html`
       <label class="name ${changed ? 'changed' : ''}" for=${id}
-        >${f.name}${f.required ? html`<span class="req" title="Required">*</span>` : nothing}</label
+        >${f.name}${f.required ? html`<span class="req">*</span>` : nothing}</label
       >
       <div class="${showError ? 'invalid' : ''} ${changed ? 'changed' : ''}">
         ${this._control(f, id, text)}

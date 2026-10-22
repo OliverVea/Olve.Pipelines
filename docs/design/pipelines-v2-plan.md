@@ -659,8 +659,12 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      suite only). Dropped v1 secrets: `QB_BETA_OIDC_CLIENT_ID` (hardcoded) and
      `QB_PROD_ALLOW_DEFAULT_CUSTOMER` (was `0`, the chart default; the server no longer reads it). v1
      (`3f92aa4d…`) is paused, all four processing gates blocked; its three production steps, including
-     the heavy figures build, still run on every push. Follow-ups: a `context`/subdirectory option and
-     a registry-push mode for `imageBuild`; drop the `registryMap` once on beta.2.
+     the heavy figures build, still run on every push. **On SDK beta.3 the workarounds are gone**:
+     `build-figures` is `imageBuild` with `context: "services/figure-service"`, `push: true`,
+     `contentTag: true` (the same `src-<hash>` tag, so no rebuild), `deploy-figures-*` are
+     `helmDeployOverSsh` with `fromRegistry`, `rolloutTimeoutSeconds: 300` and a 6-attempt `healthUrl`;
+     the explicit `registryMap` and the local `PushedImage` model are dropped, and `handlers/lib/ssh.ts`
+     keeps only `applySecret` on top of `sshSession`.
    - **Migrated: Olve.SlimeRepublics** (2026-10-22). Pipeline `0e311e2d-de93-4677-a4af-c2d58009a6a4` on
      v2 prod (`main`, `.pipelines`, SDK `2.0.0-beta.2`, no `registryMap`); run #1 (push) green in 8m49s:
      source → web-source → build-server ∥ build-web ∥ test → deploy-beta → beta-test → deploy-prod →
@@ -679,7 +683,10 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      for 60 s, PASS, 20 snapshots/s), after a socket retry and a client/bundle check; the game has its
      own login, so no Authentik client. `prod-test`: the client, its bundle, and one socket until the
      first server message (it briefly spawns a slime). `test`: Biome, Vitest (36 passed), typecheck +
-     build. v1 (`092ba34d…`) is paused, all three processing gates blocked; v1's `aoe-triage` handler
+     build. **On SDK beta.3 the workarounds are gone**: `build-web` is `imageBuild` with
+     `context: "src/frontend"` (no `web-source`, so one `Source` producer and no mappers but the deploys'
+     image picks and `prod-test`'s), and `deploy-*` are `helmDeployOverSsh` with
+     `images: { server: "image", web: "web.image" }` and both rollouts in `deployments`. v1 (`092ba34d…`) is paused, all three processing gates blocked; v1's `aoe-triage` handler
      was dropped. Gotcha: v2 prod's Kubernetes token (Authentik client credentials) answered
      `invalid_grant` for a few minutes around 15:55 (secret set and reconcile answered 503); it cleared
      with the next v2 prod rollout, and the failed reconcile had to be re-run by hand.
@@ -694,7 +701,17 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      `sshSession` (the ssh plumbing `helmDeployOverSsh` uses), `serviceUrl(release)`, `checkSpa`.
      All config is opaque to the service: no C# change. **The `@olve/pipelines` alias is gone**: pipelines
      import and depend on `@olivervea/pipelines` (`olve-build`'s generated imports, the handler-hash
-     externals and `pl dev`'s SDK resolution use the real name).
+     externals and `pl dev`'s SDK resolution use the real name). Published by "Olve.Pipelines v2"
+     #37 (whose own deploys ran the new `helmDeployOverSsh` and `checkSpa`); all four app pipelines
+     moved to it the same day, green: SlimeRepublics #2 (10m43s), QuestionBank #2 (11m13s;
+     `build-figures` 9 s, the existing `src-6045a77ddf42` image), Olve.Template.Api #5,
+     homelab-dashboard #4. Template.Api and homelab-dashboard only drop their copies of `serviceUrl`
+     / `checkSpa` (Template.Api also states `slo.enabled=false` once). Still open: the `source`
+     mapper (`{repo, sha}` from the input) in every pipeline, which wants a default mapping on
+     `gitHubSource`; `prod-test`-style mappers wherever beta and prod both produce `HelmRelease`;
+     `slo.enabled=false` belongs in the charts' defaults (no sloth CRD); dotnet's
+     `MSBUILDDISABLENODEREUSE`/`UseSharedCompilation` env, mise setup and the client-credentials token
+     fetch each have one pipeline so far.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

@@ -55,7 +55,7 @@ function toDate(value: Date | string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatRelative(date: Date): string {
+export function formatRelative(date: Date): string {
   const sec = Math.round((Date.now() - date.getTime()) / 1000);
   const abs = Math.abs(sec);
   const suffix = sec >= 0 ? 'ago' : 'from now';

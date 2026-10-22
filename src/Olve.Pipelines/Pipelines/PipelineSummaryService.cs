@@ -1,4 +1,7 @@
+using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Pipelines;
 
@@ -6,13 +9,43 @@ namespace Olve.Pipelines.Pipelines;
 public class PipelineSummaryService(
     PipelineService pipelines,
     PipelineConfigBindingService bindings,
-    PipelineHealthService health)
+    PipelineHealthService health,
+    PipelineActivationService activations,
+    RunPlanCache plans,
+    RunViewService views)
 {
     public IReadOnlyList<PipelineSummary> List()
         => pipelines.List()
             .Select(p => new PipelineSummary(
                 p.Id, p.Name, p.Description,
                 bindings.GetByPipelineId(p.Id).TryPickProblems(out _, out var binding) ? null : binding.Repo,
-                health.Get(p.Id)))
+                health.Get(p.Id),
+                Stages(p.Id)))
             .ToList();
+
+    private PipelineStageSummary[] Stages(Id<Pipeline> pipelineId)
+    {
+        if (!activations.TryGet(pipelineId, out var activation))
+            return [];
+        var versionId = activation switch
+        {
+            PipelineActivation.Draining d => d.ToVersionId,
+            PipelineActivation.Active a => a.VersionId,
+            _ => throw new InvalidOperationException($"Unknown activation {activation.GetType().Name}."),
+        };
+        if (plans.Get(versionId).TryPickProblems(out _, out var plan))
+            return [];
+
+        return plan.Stages.Select(stage => new PipelineStageSummary(
+            stage.Conditions
+                .SelectMany(c => c.Fields.OrderBy(f => f.Key, StringComparer.Ordinal))
+                .Select(f => new RunStageCondition(f.Key, f.Value.ToArray()))
+                .ToArray(),
+            stage.Steps.Select(step =>
+            {
+                var latest = views.History(pipelineId, step.Name, 1).FirstOrDefault();
+                return new PipelineStepSummary(step.Name, latest?.Status, latest?.RunNumber,
+                    latest is null ? null : latest.FinishedAt ?? latest.StartedAt ?? latest.CreatedAt);
+            }).ToArray())).ToArray();
+    }
 }

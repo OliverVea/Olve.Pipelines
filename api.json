@@ -4579,13 +4579,70 @@
           }
         }
       },
+      "PipelineStageSummary": {
+        "required": [
+          "when",
+          "steps"
+        ],
+        "type": "object",
+        "properties": {
+          "when": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunStageCondition"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineStepSummary"
+            }
+          }
+        }
+      },
+      "PipelineStepSummary": {
+        "required": [
+          "name",
+          "status",
+          "runNumber",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "runNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "PipelineSummary": {
         "required": [
           "id",
           "name",
           "description",
           "repo",
-          "health"
+          "health",
+          "stages"
         ],
         "type": "object",
         "properties": {
@@ -4609,6 +4666,12 @@
           },
           "health": {
             "$ref": "#/components/schemas/PipelineHealth"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineStageSummary"
+            }
           }
         }
       },

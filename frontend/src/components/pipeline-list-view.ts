@@ -1,14 +1,20 @@
 import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import { client, extractErrorMessage } from '../api.js';
+import { client, extractErrorMessage, untypedToJson } from '../api.js';
 import { navigate } from '../router.js';
-import './relative-time.js';
+import { formatRelative } from './relative-time.js';
 import './confirm-delete-dialog.js';
 import type { ConfirmDeleteDialog } from './confirm-delete-dialog.js';
-import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../v2/ui.js';
+import { sharedStyles, toneOf, statusLabel, navClick, runPath, stepPath } from '../v2/ui.js';
 import { toActivation } from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
-import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/index.js';
+import { formatWhen } from '../v2/manifest.js';
+import type {
+  PipelineSummary,
+  PipelineStageSummary,
+  PipelineStepSummary,
+  RunStageCondition,
+} from '@olve/olve-pipelines-client/src/models/index.js';
 
 const GITHUB_MARK = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>`;
 
@@ -17,42 +23,6 @@ export class PipelineListView extends LitElement {
   static styles = [sharedStyles, css`
     :host {
       display: block;
-    }
-
-    .health {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-    .h-main {
-      display: flex;
-      align-items: baseline;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-    .h-last {
-      font-size: 0.78rem;
-      color: var(--color-text-muted);
-    }
-    .h-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .tag {
-      font-size: 0.72rem;
-      padding: 0 0.45rem;
-      border-radius: 999px;
-      border: 1px solid var(--color-border);
-      color: var(--color-text-muted);
-    }
-    .tag.warn {
-      color: var(--color-warning);
-      border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
-    }
-    .tag.run {
-      color: var(--color-primary);
-      border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
     }
 
     .header {
@@ -175,79 +145,105 @@ export class PipelineListView extends LitElement {
       color: var(--color-danger);
     }
 
-    /* ---- CI strip (per-step health boxes) ---- */
-    .ci-strip {
+    .cubes {
       display: flex;
-      align-items: center;
       flex-wrap: wrap;
-      gap: 0.3rem 0.4rem;
+      align-items: flex-start;
+      gap: 6px;
     }
-
-    .ci-time {
-      font-size: 0.6rem;
-      line-height: 1;
+    .col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .when {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .when-cols {
+      display: flex;
+      gap: 6px;
+      padding: 0 3px 3px;
+      border: 1px solid var(--color-border);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+    }
+    .when-label {
+      font-size: 0.65rem;
+      line-height: 1.1;
       color: var(--color-text-muted);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 9rem;
+    }
+    .cube {
+      display: block;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background: var(--tone);
+      border: 1.5px solid var(--tone);
+      transition: transform var(--transition);
+    }
+    .cube:hover,
+    .cube:focus-visible {
+      transform: scale(1.25);
+      text-decoration: none;
+    }
+    .cube.never {
+      --tone: var(--color-pending);
+      background: transparent;
+      border-style: dashed;
+    }
+    .cube.scheduled,
+    .cube.skipped {
+      background: color-mix(in srgb, var(--tone) 22%, transparent);
+    }
+    .cube.t-off {
+      background: color-mix(in srgb, var(--tone) 55%, transparent);
+      border-color: transparent;
+    }
+    .cube.blocked {
+      outline: 2px solid var(--color-warning);
+      outline-offset: 1px;
+    }
+    .cube.in-progress {
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cube.in-progress {
+        animation: none;
+      }
     }
 
-    /* ---- Card footer (pipeline last-run time) ---- */
     .pc-foot {
       display: flex;
       align-items: center;
-      gap: 0.3rem;
-      font-size: 0.72rem;
-      color: var(--color-text-muted);
+      flex-wrap: wrap;
+      gap: 0.3rem 0.6rem;
       margin-top: auto;
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
     }
-
-    .pc-foot .ci-time {
+    .pc-foot .st {
+      font-size: 0.78rem;
+      color: var(--color-text);
+    }
+    .tag {
       font-size: 0.72rem;
+      padding: 0 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
     }
-
-    .ci-box {
-      min-width: 1.4rem;
-      height: 1.4rem;
-      padding: 0 0.3rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius);
-      font-size: 0.7rem;
-      font-weight: 600;
-      border: 1px solid transparent;
-    }
-
-    .ci-box.idle {
-      color: var(--color-text-muted);
-      background: transparent;
-      border-color: var(--color-border);
-    }
-    .ci-box.scheduled {
+    .tag.warn {
       color: var(--color-warning);
-      background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+      border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
     }
-    .ci-box.running,
-    .ci-box.in-progress {
+    .tag.run {
       color: var(--color-primary);
-      background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-    }
-    .ci-box.succeeded {
-      color: var(--color-success);
-      background: color-mix(in srgb, var(--color-success) 18%, transparent);
-    }
-    .ci-box.skipped {
-      color: var(--color-success);
-      background: transparent;
-      border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
-    }
-    .ci-box.failed {
-      color: var(--color-danger);
-      background: color-mix(in srgb, var(--color-danger) 15%, transparent);
-    }
-    .ci-box.cancelled,
-    .ci-box.obsolete {
-      color: var(--color-text-muted);
-      background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+      border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
     }
 
     .pc-empty {
@@ -400,41 +396,79 @@ export class PipelineListView extends LitElement {
             Delete
           </button>
         </div>
-        ${this._renderHealth(p)}
+        ${p.stages?.length ? this._renderCubes(p) : html`<span class="pc-empty">No steps yet</span>`}
+        ${this._renderFoot(p)}
       </div>
     `;
   }
 
-  /** Run-level health: last run, active version / switch, running and held runs, blocked steps. */
-  private _renderHealth(p: PipelineSummary) {
+  /** Stages left to right, a stage's steps stacked; consecutive stages under the same `when` share a bracket. */
+  private _renderCubes(p: PipelineSummary) {
+    const held = new Set((p.health?.heldRuns ?? []).map((r) => r.heldAt).filter((x): x is string => !!x));
+    const blocked = new Set(p.health?.blockedSteps ?? []);
+    const groups: { when: string; stages: PipelineStageSummary[] }[] = [];
+    for (const stage of p.stages ?? []) {
+      const when = formatConditions(stage.when ?? []);
+      const last = groups[groups.length - 1];
+      if (last && last.when === when) last.stages.push(stage);
+      else groups.push({ when, stages: [stage] });
+    }
+    const cols = (stages: PipelineStageSummary[]) =>
+      stages.map((s) => html`<div class="col">${(s.steps ?? []).map((st) => this._cube(p.id ?? '', st, held, blocked))}</div>`);
+    return html`<div class="cubes">
+      ${groups.map((g) =>
+        g.when
+          ? html`<div class="when" title="when ${g.when}">
+              <div class="when-cols">${cols(g.stages)}</div>
+              <span class="when-label">${g.when}</span>
+            </div>`
+          : cols(g.stages),
+      )}
+    </div>`;
+  }
+
+  private _cube(pipelineId: string, step: PipelineStepSummary, held: Set<string>, blocked: Set<string>) {
+    const name = step.name ?? '';
+    const status = held.has(name) ? 'held' : (step.status ?? '');
+    const label = status ? statusLabel(status) : 'never run';
+    const tip = [
+      name,
+      label,
+      step.runNumber && !held.has(name) ? `#${step.runNumber}` : '',
+      step.at && !held.has(name) ? formatRelative(new Date(step.at)) : '',
+      blocked.has(name) ? 'blocked' : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return html`<a
+      class="cube t-${toneOf(status)} ${status || 'never'} ${blocked.has(name) ? 'blocked' : ''}"
+      href=${stepPath(pipelineId, name)}
+      @click=${navClick}
+      title=${tip}
+      aria-label=${tip}
+    ></a>`;
+  }
+
+  private _renderFoot(p: PipelineSummary) {
     const h = p.health;
     if (!h) return nothing;
     const a = toActivation(h.activation);
     const last = h.lastRun;
     const held = h.heldRuns ?? [];
     const blocked = h.blockedSteps ?? [];
-    return html`<div class="health">
-      <div class="h-main">
-        <span class="st t-${toneOf(h.status)}"><span class="dot"></span>${statusLabel(h.status)}</span>
-        ${last
-          ? html`<span class="h-last"
-              >last run
-              <a href=${runPath(p.id ?? '', last.number)} @click=${navClick}>#${last.number}</a>
-              ${statusLabel(last.status)}
-              <relative-time class="ci-time" .value=${last.finishedAt ?? last.createdAt}></relative-time
-            ></span>`
-          : html`<span class="h-last">never run</span>`}
-      </div>
-      <div class="h-tags">
-        ${a.kind === 'active'
-          ? html`<span class="tag">active v${a.version}</span>`
-          : a.kind === 'draining'
-            ? html`<span class="tag warn">switching v${a.from} → v${a.to}</span>`
-            : html`<span class="tag">no version</span>`}
-        ${(h.runningRuns ?? 0) > 0 ? html`<span class="tag run">${h.runningRuns} running</span>` : nothing}
-        ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
-        ${blocked.length ? html`<span class="tag warn">${blocked.length} step${blocked.length > 1 ? 's' : ''} blocked</span>` : nothing}
-      </div>
+    return html`<div class="pc-foot">
+      <span class="st t-${toneOf(h.status)}"><span class="dot"></span>${statusLabel(h.status)}</span>
+      ${last
+        ? html`<span
+            ><a href=${runPath(p.id ?? '', last.number)} @click=${navClick}>#${last.number}</a>
+            ${statusLabel(last.status)} <relative-time .value=${last.finishedAt ?? last.createdAt}></relative-time
+          ></span>`
+        : html`<span>never run</span>`}
+      ${a.kind === 'draining' ? html`<span class="tag warn">switching v${a.from} → v${a.to}</span>` : nothing}
+      ${a.kind === 'none' ? html`<span class="tag">no version</span>` : nothing}
+      ${(h.runningRuns ?? 0) > 1 ? html`<span class="tag run">${h.runningRuns} running</span>` : nothing}
+      ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
+      ${blocked.length ? html`<span class="tag warn">${blocked.length} blocked</span>` : nothing}
     </div>`;
   }
 
@@ -480,6 +514,11 @@ export class PipelineListView extends LitElement {
     this._deleting = null;
     await this._load();
   };
+}
+
+function formatConditions(when: RunStageCondition[]): string {
+  if (!when.length) return '';
+  return formatWhen(Object.fromEntries(when.map((c) => [c.field ?? '', (untypedToJson(c.values) as unknown[]) ?? []])));
 }
 
 declare global {

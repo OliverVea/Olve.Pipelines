@@ -641,6 +641,24 @@ export function createPipelineSecretInfoFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineStageSummary}
+ */
+// @ts-ignore
+export function createPipelineStageSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineStageSummary;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineStepSummary}
+ */
+// @ts-ignore
+export function createPipelineStepSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineStepSummary;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineSummary}
  */
 // @ts-ignore
@@ -1350,6 +1368,32 @@ export function deserializeIntoPipelineSecretInfo(pipelineSecretInfo: Partial<Pi
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineStageSummary The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineStageSummary(pipelineStageSummary: Partial<PipelineStageSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "steps": n => { pipelineStageSummary.steps = n.getCollectionOfObjectValues<PipelineStepSummary>(createPipelineStepSummaryFromDiscriminatorValue); },
+        "when": n => { pipelineStageSummary.when = n.getCollectionOfObjectValues<RunStageCondition>(createRunStageConditionFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PipelineStepSummary The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineStepSummary(pipelineStepSummary: Partial<PipelineStepSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "at": n => { pipelineStepSummary.at = n.getDateValue(); },
+        "name": n => { pipelineStepSummary.name = n.getStringValue(); },
+        "runNumber": n => { pipelineStepSummary.runNumber = n.getNumberValue(); },
+        "status": n => { pipelineStepSummary.status = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PipelineSummary The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1361,6 +1405,7 @@ export function deserializeIntoPipelineSummary(pipelineSummary: Partial<Pipeline
         "id": n => { pipelineSummary.id = n.getGuidValue(); },
         "name": n => { pipelineSummary.name = n.getStringValue(); },
         "repo": n => { pipelineSummary.repo = n.getStringValue(); },
+        "stages": n => { pipelineSummary.stages = n.getCollectionOfObjectValues<PipelineStageSummary>(createPipelineStageSummaryFromDiscriminatorValue); },
     }
 }
 /**
@@ -1980,6 +2025,34 @@ export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
 }
+export interface PipelineStageSummary extends AdditionalDataHolder, Parsable {
+    /**
+     * The steps property
+     */
+    steps?: PipelineStepSummary[] | null;
+    /**
+     * The when property
+     */
+    when?: RunStageCondition[] | null;
+}
+export interface PipelineStepSummary extends AdditionalDataHolder, Parsable {
+    /**
+     * The at property
+     */
+    at?: Date | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The runNumber property
+     */
+    runNumber?: number | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
+}
 export interface PipelineSummary extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -2001,6 +2074,10 @@ export interface PipelineSummary extends AdditionalDataHolder, Parsable {
      * The repo property
      */
     repo?: string | null;
+    /**
+     * The stages property
+     */
+    stages?: PipelineStageSummary[] | null;
 }
 export interface PipelineVersion extends AdditionalDataHolder, Parsable {
     /**
@@ -2884,6 +2961,34 @@ export function serializePipelineSecretInfo(writer: SerializationWriter, pipelin
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineStageSummary The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineStageSummary(writer: SerializationWriter, pipelineStageSummary: Partial<PipelineStageSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineStageSummary || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<PipelineStepSummary>("steps", pipelineStageSummary.steps, serializePipelineStepSummary);
+    writer.writeCollectionOfObjectValues<RunStageCondition>("when", pipelineStageSummary.when, serializeRunStageCondition);
+    writer.writeAdditionalData(pipelineStageSummary.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineStepSummary The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineStepSummary(writer: SerializationWriter, pipelineStepSummary: Partial<PipelineStepSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineStepSummary || isSerializingDerivedType) { return; }
+    writer.writeDateValue("at", pipelineStepSummary.at);
+    writer.writeStringValue("name", pipelineStepSummary.name);
+    writer.writeNumberValue("runNumber", pipelineStepSummary.runNumber);
+    writer.writeStringValue("status", pipelineStepSummary.status);
+    writer.writeAdditionalData(pipelineStepSummary.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PipelineSummary The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2895,6 +3000,7 @@ export function serializePipelineSummary(writer: SerializationWriter, pipelineSu
     writer.writeGuidValue("id", pipelineSummary.id);
     writer.writeStringValue("name", pipelineSummary.name);
     writer.writeStringValue("repo", pipelineSummary.repo);
+    writer.writeCollectionOfObjectValues<PipelineStageSummary>("stages", pipelineSummary.stages, serializePipelineStageSummary);
     writer.writeAdditionalData(pipelineSummary.additionalData);
 }
 /**

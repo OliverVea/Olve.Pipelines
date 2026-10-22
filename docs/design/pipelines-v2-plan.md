@@ -218,7 +218,8 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   ```
   (State check: `GET $V1/api/pipelines/c6f4abe1-4821-43d7-afd6-bd9f25414b75/processing/promotions`.)
 - **Self-deploy from a push** works end to end — poll → push trigger → (reconcile → version) → run →
-  self-restart → reattach — but **the build step has hung on every push run so far** (see gap 2):
+  self-restart → reattach. The first two push runs needed a manual rerun (kaniko hang, gap 2); the
+  third went green unattended:
   - 35faafc (API change below) → the deploy poll fired the push trigger → run #2; kaniko hung at
     "Unpacking rootfs" → cancelled → rerun #3: 4m34s, Succeeded, pod on `olve-pipelines-v2:2026.10.21.3`.
     The deployed binary binds the new bodies (fixture trigger #23 started; continue reaches the domain
@@ -227,6 +228,9 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     see gap 1) → push run #4 hung the same way → cancelled → rerun #5: 1m47s (build 1m18s, fully
     cached), Succeeded, pod on `…:2026.10.22.5`, new pod reattached and collected deploy-beta,
     `run.json` Succeeded, health 200.
+  - a1158df (docs only, no new version) → push run #6, **unattended**: 1m55s (build 1m24s), Succeeded,
+    pod on `…:2026.10.22.6`, reattached deploy-beta, health 200. Its build started ~8 min after v1's
+    production build of the same commit (consistent with the gap-2 hypothesis).
   - v1 meanwhile ran only production builds for both commits (bundles 5ef5ba20, …) and **never
     deployed** (last v1 deploy job still 23:07 / bundle ca936b0d).
 - **Track D follow-up (API)**: `TriggerRun`'s body is `TriggerRunRequest`, a free-form object
@@ -253,7 +257,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   build Job is per config commit, `olve-build-<p12>-<sha12>`, so it rebuilds the same old checkout).
   Proof: versions v1 (aeb5960) and v2 (69df341) differ only in `sdkHash` and handler hashes, i.e. runs
   #1–#3 ran the SDK from before b5b3f93. Only a `.pipelines/` commit picks up SDK changes. (2) **kaniko
-  hangs at "Unpacking rootfs"**: 2 of 5 builds (#2, #4 — both push runs); the stalled pod idles (3m
+  hangs at "Unpacking rootfs"**: 2 of 6 builds (#2, #4 — the first two push runs; push run #6 was fine); the stalled pod idles (3m
   CPU) with one ESTABLISHED, empty connection to 150.171.70.10:443 (Microsoft — the MCR base-image
   pull stalled and nothing times it out). Hypothesis (n=5): both hung builds started within ~2 min of
   v1's production build of the same commit (same base image, node, egress); the green ones started 6+

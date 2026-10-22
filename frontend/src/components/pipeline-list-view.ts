@@ -159,6 +159,7 @@ export class PipelineListView extends LitElement {
     .when {
       display: flex;
       flex-direction: column;
+      align-items: flex-start;
       gap: 2px;
     }
     .when-cols {

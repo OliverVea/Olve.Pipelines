@@ -3,6 +3,7 @@ import type { AnyModel, Infer, InferInput, Plain } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
 import type { AnyStep, OutputValue, Step } from "../core/steps.ts";
 import { isStep } from "../core/steps.ts";
+import type { WebhookEvent, WebhookVerify } from "../core/webhooks.ts";
 import type { IsUnion, OrError, Simplify } from "../core/types.ts";
 import type { Optional } from "../core/models.ts";
 import type { FailureContext } from "../library/models.ts";
@@ -146,7 +147,8 @@ export type TriggerNode =
       readonly valuePath: string;
       readonly intervalSeconds: number;
       readonly map: (value: string) => unknown;
-    };
+    }
+  | { readonly kind: "webhook"; readonly name: string; readonly verify: WebhookVerify; readonly map: (event: WebhookEvent) => unknown };
 
 export interface FailureHandlerNode {
   readonly step: AnyStep;
@@ -233,6 +235,18 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
       intervalSeconds: cfg.intervalSeconds,
       map: map as (value: string) => unknown,
     });
+    return this;
+  }
+
+  /**
+   * Start a run from a delivery to `/api/hooks/<pipeline id>/<name>`, authenticated by `verify`. Map it to the
+   * pipeline input (`z.input` view), or return `null` to ignore it. Runs as code in a `map-trigger` Job per delivery.
+   */
+  onWebhook<R extends InferInput<In>>(
+    cfg: { name: string; verify: WebhookVerify },
+    map: (event: WebhookEvent) => Exact<R, InferInput<In>> | null,
+  ): this {
+    this[PIPELINE].triggers.push({ kind: "webhook", name: cfg.name, verify: cfg.verify, map: map as (event: WebhookEvent) => unknown });
     return this;
   }
 

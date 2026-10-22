@@ -8,6 +8,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Streaming;
 
@@ -72,6 +73,7 @@ app.MapPipelineStepEndpoints();
 app.MapManifestEndpoints();
 app.MapPipelineVersionEndpoints();
 app.MapPipelineBindingEndpoints();
+app.MapWebhookTriggerEndpoints();
 app.MapEventStreamEndpoints();
 app.MapFallbackToFile("index.html").AllowAnonymous();
 

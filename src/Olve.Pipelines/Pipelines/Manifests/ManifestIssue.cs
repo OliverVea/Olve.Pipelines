@@ -89,6 +89,7 @@ public static class ManifestIssueCodes
     public const string SecretDuplicateInStep = "step-secret-duplicate";
     public const string PollSecretUndeclared = "poll-secret-undeclared";
     public const string PollHeaderSecretUndeclared = "poll-header-secret-undeclared";
+    public const string WebhookSecretUndeclared = "webhook-secret-undeclared";
 
     // ── triggers ──
     public const string TriggerPushDuplicate = "trigger-push-duplicate";

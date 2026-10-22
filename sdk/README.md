@@ -197,7 +197,7 @@ export default pipeline({ name: "Olve.Pipelines", description: "…", input: M.D
 - **Stage forms.** `.stage(a)`, `.stage(a, b)`, `.stage([a, from => ({…})])` and `.stage([a, mapA], [b, mapB])` are accepted, and tuples can be mixed with plain steps. The old `.stage(step, mapper)` form is a type error and a describe error.
 - **The `from` argument.** It is keyed by step name, plus `input` for the pipeline input. It holds `Ref<T>` values, so only property access and literals compile. Use `from["deploy-beta"].url` for names that contain hyphens.
 - **Describe checks the mapper twice.** It records the mapper with proxies, and it statically analyses the mapper's source. The source must be an object literal of member chains, literals, constant arrays and nested object literals. Ternaries, `&&`, `||`, `??`, `!`, comparisons, arithmetic, template strings, calls, spread and optional chaining are all rejected. Free identifiers such as module constants are allowed; they are recorded as `{const}`.
-- **Triggers.** A pipeline may call `onPush` at most once. Each `onPoll` needs a distinct `name` (default `"poll"`).
+- **Triggers.** A pipeline may call `onPush` at most once. Each `onPoll` and `onWebhook` needs a distinct `name` (`onPoll` defaults to `"poll"`). `onWebhook({ name, verify }, ({ headers, body }) => input | null)` maps a delivery to `/api/hooks/<pipeline id>/<name>`; `verify` is `hmacSha256({ secret, header, prefix? })`, `githubSignature(secret)` or `bearer(secret)`, and `null` ignores the delivery.
 - **Failure handlers.** `.onFailure(handler, { steps? })` takes a step whose inputs are all `FailureContext`. When a run fails, the service runs each handler whose scope (default: any step) contains a failed step, once per failure: `run <handler>` in the handler's image with its declared secrets, from the run's pinned binary. It is untracked and best-effort — not an attempt of the run, never retried, and its own failure triggers nothing; its log is kept at `runs/<p>/<run>/_failure/<handler>/<id>/log`. `FailureContext` carries `pipeline {id, name}`, `run {id, number, address, versionStamp, trigger, url}`, `version {number, commit}`, the run's `input`, a one-line `reason`, and `failedSteps[]` (`step, attempt, address, reason, logUrl`) — only the steps in the handler's scope, never empty.
 
 ### Testing handlers
@@ -335,9 +335,10 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
 - **`triggers`**:
   - `{kind: "push", name: "push"}`;
-  - `{kind: "poll", name, url, headers, secrets, valuePath, intervalSeconds}`, where header values may contain `$SECRET:NAME`.
+  - `{kind: "poll", name, url, headers, secrets, valuePath, intervalSeconds}`, where header values may contain `$SECRET:NAME`;
+  - `{kind: "webhook", name, verify: {scheme: "hmac-sha256", secret, header, prefix} | {scheme: "bearer", secret}}`. The `map-trigger` event is `{headers, body}`; a `null` mapping yields a `skipped` envelope (the delivery is ignored).
 - **`failureHandlers`** is a list of `{step: Step, steps: [names] | null}`. Each handler's inputs are all FailureContext (`{"ref": "failure"}`).
-- **`secrets`** lists every secret used by steps and polls, sorted, as `{name, description}`.
+- **`secrets`** lists every secret used by steps, polls and webhooks, sorted, as `{name, description}`.
 
 Describe runs these checks; reconcile should re-run the manifest-level ones:
 

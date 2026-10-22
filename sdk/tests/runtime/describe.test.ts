@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { model, optional, pipeline, secret, step, steps, z, Source } from "../../src/index.ts";
+import { bearer, hmacSha256, model, optional, pipeline, secret, step, steps, z, Source } from "../../src/index.ts";
 import { describePipeline, DescribeError } from "../../src/describe/describe.ts";
 import { Manifest, manifestJsonSchema } from "../../src/describe/manifest-schema.ts";
 import { canonicalJson } from "../../src/util/canonical.ts";
@@ -69,7 +69,12 @@ describe("example manifest", async () => {
     expect(summary.output).toBeNull();
     expect(m.failureHandlers[0]!.step.input).toEqual({ failure: { ref: "failure" } });
     expect(m.failureHandlers[0]!.steps).toEqual(["deploy-prod", "deploy-beta"]);
-    expect(m.triggers.map((t) => t.name)).toEqual(["push", "poll"]);
+    expect(m.triggers.map((t) => t.name)).toEqual(["push", "poll", "release"]);
+    expect(m.triggers[2]).toEqual({
+      kind: "webhook",
+      name: "release",
+      verify: { scheme: "hmac-sha256", secret: "RELEASE_HOOK_SECRET", header: "X-Hub-Signature-256", prefix: "sha256=" },
+    });
   });
   test("models: fileRef marker, strict output view, input view only where it differs", () => {
     const art = m.models.BuildArtifact! as any;
@@ -89,7 +94,7 @@ describe("example manifest", async () => {
     expect(JSON.stringify(m)).not.toMatch(/scripts\/|\$bunfs|\/home\//);
   });
   test("secrets sorted, harness included", () => {
-    expect(m.secrets.map((s) => s.name)).toEqual(["GITHUB_TOKEN", "SSH_PRIVATE_KEY"]);
+    expect(m.secrets.map((s) => s.name)).toEqual(["GITHUB_TOKEN", "RELEASE_HOOK_SECRET", "SSH_PRIVATE_KEY"]);
     expect(m.harness).toEqual(cfg.harness);
   });
 });
@@ -176,6 +181,12 @@ describe("describe-time checks", () => {
       /duplicate trigger 'poll'/,
     );
     expectProblem(base().onPoll({ url: "u", secrets: [T], headers: { A: "$SECRET:OTHER" } as any, valuePath: "sha", intervalSeconds: 60 }, (v) => ({ sha: v, n: 1 })), /references secret 'OTHER'/);
+    expectProblem(base().onWebhook({ name: "Bad", verify: bearer(T) }, () => null), /webhook trigger name 'Bad' must be lower-case kebab/);
+    expectProblem(base().onWebhook({ name: "h", verify: hmacSha256({ secret: T, header: "" }) }, () => null), /signature header must not be empty/);
+    expectProblem(
+      base().onPoll({ name: "x", url: "u", valuePath: "sha", intervalSeconds: 60 }, (v) => ({ sha: v, n: 1 })).onWebhook({ name: "x", verify: bearer(T) }, () => null),
+      /duplicate trigger 'x'/,
+    );
   });
   test("secrets: conflicting descriptions, name format", () => {
     const a = step({ name: "s", description: "", image: "alpine", secrets: [secret("X", "one")] });

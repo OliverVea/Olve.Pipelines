@@ -456,9 +456,13 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   over `IPollSourceProvider`s (`PollTriggerService` for manifest `onPoll`, `DeployPollService` for the
   gated config-then-push cycle per binding); `WebhookDelivery` + `WebhookVerification` (HMAC-SHA256
   with header/prefix, bearer) receive webhooks, GitHub's signature being an HMAC preset.
-- **Next**: phase 2 `onWebhook(cfg, map)` in the SDK + manifest, a generic `/api/hooks/{pipeline}/{trigger}`
-  endpoint (public ingress) with `null` = ignore; phase 3 `onPush` as an SDK preset over poll + webhook
-  (the binding keeps only config sync); phase 4 a Triggers page in the UI.
+- **Webhook triggers** (phase 2): `onWebhook({ name, verify }, ({ headers, body }) => input | null)`;
+  manifest kind `webhook` with `verify` `hmac-sha256` (header, prefix) or `bearer`, both on a declared
+  secret. `POST /api/hooks/{pipeline}/{trigger}` (public) verifies with the secret, answers 202 and maps
+  in the background; a `null` mapping is a `skipped` envelope and starts nothing. Runs are `Webhook`
+  (automatic: supersede + de-dup). The chart's public ingress routes `/api/hooks` too.
+- **Next**: phase 3 `onPush` as an SDK preset over poll + webhook (the binding keeps only config sync);
+  phase 4 a Triggers page in the UI.
 
 ### v2.2 — candidates
 

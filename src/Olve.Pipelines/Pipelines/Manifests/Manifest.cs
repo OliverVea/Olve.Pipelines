@@ -48,6 +48,18 @@ public sealed record PollTrigger(
     string ValuePath,
     long IntervalSeconds) : ManifestTrigger(Name);
 
+/// <summary>Inbound HTTP delivery to <c>/api/hooks/{pipeline}/{Name}</c>, authenticated by <see cref="Verify"/>.</summary>
+public sealed record WebhookTrigger(string Name, WebhookTriggerVerify Verify) : ManifestTrigger(Name);
+
+/// <summary>How a webhook trigger authenticates deliveries; <see cref="Secret"/> names a pipeline secret.</summary>
+public abstract record WebhookTriggerVerify(string Secret);
+
+/// <summary>HMAC-SHA256 of the raw body keyed by the secret, hex, in <see cref="Header"/> after <see cref="Prefix"/>.</summary>
+public sealed record HmacSha256TriggerVerify(string Secret, string Header, string Prefix) : WebhookTriggerVerify(Secret);
+
+/// <summary><c>Authorization: Bearer &lt;secret&gt;</c>.</summary>
+public sealed record BearerTriggerVerify(string Secret) : WebhookTriggerVerify(Secret);
+
 public abstract record ManifestStage;
 
 /// <summary>A barrier stage: its steps run in parallel.</summary>

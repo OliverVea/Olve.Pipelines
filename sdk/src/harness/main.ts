@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isImplementation } from "../core/handlers.ts";
 import type { AnyStep } from "../core/steps.ts";
+import type { WebhookEvent } from "../core/webhooks.ts";
 import { pipelineData, type PipelineData, type StageNode } from "../builder/pipeline.ts";
 import { createCtx, formatLog } from "../ctx/index.ts";
 import { DescribeError, describePipeline, manifestText } from "../describe/describe.ts";
@@ -162,6 +163,12 @@ async function runMode(cfg: HarnessConfig, name: string | undefined, io: Harness
   }
 }
 
+function isWebhookEvent(v: unknown): boolean {
+  if (typeof v !== "object" || v === null || Array.isArray(v) || !("body" in v)) return false;
+  const headers = (v as { headers?: unknown }).headers;
+  return typeof headers === "object" && headers !== null && !Array.isArray(headers);
+}
+
 async function mapTriggerMode(cfg: HarnessConfig, name: string | undefined, io: HarnessIO): Promise<number> {
   if (!name) return io.stderr(USAGE), EXIT.usage;
   const data = pipelineData(cfg.pipeline);
@@ -181,15 +188,21 @@ async function mapTriggerMode(cfg: HarnessConfig, name: string | undefined, io: 
     exec = fail("input", `poll trigger '${name}': the event must be {"value": "<string>"}`, EXIT.inputInvalid);
   else if (trigger.kind === "push" && (typeof raw.value !== "object" || raw.value === null || Array.isArray(raw.value)))
     exec = fail("input", `push trigger: the event must be the webhook payload object`, EXIT.inputInvalid);
+  else if (trigger.kind === "webhook" && !isWebhookEvent(raw.value))
+    exec = fail("input", `webhook trigger '${name}': the event must be {"headers": {...}, "body": ...}`, EXIT.inputInvalid);
   else {
     let mapped: unknown;
     let threw: unknown = undefined;
     try {
-      mapped = trigger.kind === "poll" ? await trigger.map((raw.value as { value: string }).value) : await trigger.map(raw.value);
+      mapped =
+        trigger.kind === "poll" ? await trigger.map((raw.value as { value: string }).value)
+        : trigger.kind === "webhook" ? await trigger.map(raw.value as WebhookEvent)
+        : await trigger.map(raw.value);
     } catch (e) {
       threw = e ?? new Error("undefined");
     }
     if (threw !== undefined) exec = fail("handler", `trigger '${name}' mapper threw: ${(threw as Error)?.message ?? String(threw)}`, EXIT.handlerFailed);
+    else if (mapped === null && trigger.kind === "webhook") exec = { envelope: { status: "skipped", reason: `trigger '${name}' ignored the delivery` }, exitCode: EXIT.ok };
     else {
       const r = parseStrict(data.input.schema, mapped, "input");
       exec = r.ok

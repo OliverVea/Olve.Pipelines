@@ -50,6 +50,7 @@ public enum RunTriggerKind
     Push,
     Poll,
     Manual,
+    Webhook,
 }
 
 /// <summary>
@@ -60,7 +61,7 @@ public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null)
 {
     /// <summary>Webhook/poll triggers: de-duplicated and superseding (spec §5.3). Explicit actions are neither.</summary>
     [JsonIgnore]
-    public bool IsAutomatic => Kind is RunTriggerKind.Push or RunTriggerKind.Poll;
+    public bool IsAutomatic => Kind is RunTriggerKind.Push or RunTriggerKind.Poll or RunTriggerKind.Webhook;
 }
 
 public static class RunStatusExtensions

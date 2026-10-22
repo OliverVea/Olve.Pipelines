@@ -110,6 +110,25 @@ public static class ManifestWriter
                 w.WriteString("valuePath", p.ValuePath);
                 w.WriteNumber("intervalSeconds", p.IntervalSeconds);
                 break;
+            case WebhookTrigger h:
+                w.WriteString("kind", "webhook");
+                w.WriteString("name", h.Name);
+                w.WriteStartObject("verify");
+                switch (h.Verify)
+                {
+                    case HmacSha256TriggerVerify hmac:
+                        w.WriteString("scheme", "hmac-sha256");
+                        w.WriteString("secret", hmac.Secret);
+                        w.WriteString("header", hmac.Header);
+                        w.WriteString("prefix", hmac.Prefix);
+                        break;
+                    case BearerTriggerVerify bearer:
+                        w.WriteString("scheme", "bearer");
+                        w.WriteString("secret", bearer.Secret);
+                        break;
+                }
+                w.WriteEndObject();
+                break;
         }
         w.WriteEndObject();
     }

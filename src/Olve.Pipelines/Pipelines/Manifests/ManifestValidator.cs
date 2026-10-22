@@ -137,6 +137,17 @@ public static partial class ManifestValidator
                     }
                 }
                 if (!names.Add(t.Name)) Error(ManifestIssueCodes.TriggerNameDuplicate, $"{path}.name", $"duplicate trigger name '{t.Name}'");
+                if (t is WebhookTrigger h)
+                {
+                    if (!StepNameRegex().IsMatch(h.Name))
+                        Error(ManifestIssueCodes.TriggerNameInvalid, $"{path}.name", $"webhook trigger name '{h.Name}' must be lower-case kebab (1-63 chars)");
+                    if (!_secrets.Contains(h.Verify.Secret))
+                        Error(ManifestIssueCodes.WebhookSecretUndeclared, $"{path}.verify.secret",
+                            $"webhook '{h.Name}' verifies with secret '{h.Verify.Secret}', which is not in the pipeline's secrets");
+                    if (h.Verify is HmacSha256TriggerVerify { Header.Length: 0 })
+                        Error(ManifestIssueCodes.InvalidValue, $"{path}.verify.header", $"webhook '{h.Name}': the signature header must not be empty");
+                    continue;
+                }
                 if (t is not PollTrigger p) continue;
                 if (!StepNameRegex().IsMatch(p.Name))
                     Error(ManifestIssueCodes.TriggerNameInvalid, $"{path}.name", $"poll trigger name '{p.Name}' must be lower-case kebab (1-63 chars)");

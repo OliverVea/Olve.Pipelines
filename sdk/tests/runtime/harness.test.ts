@@ -191,6 +191,14 @@ describe("map-trigger", () => {
     expect(r.envelope).toEqual({ status: "succeeded", output: { repo: "OliverVea/Olve.Pipelines", sha: SHA, deployTo: "prod", publishCli: true } });
     expect((await run(["map-trigger", "poll"], { other: 1 })).code).toBe(EXIT.inputInvalid);
   });
+  test("webhook: event is {headers, body}; null ignores the delivery (skipped, exit 0)", async () => {
+    const release = await run(["map-trigger", "release"], { headers: { "x-github-event": "release" }, body: { release: { target_commitish: SHA } } });
+    expect(release.envelope).toEqual({ status: "succeeded", output: { repo: "OliverVea/Olve.Pipelines", sha: SHA, deployTo: "prod", publishCli: true } });
+    const ping = await run(["map-trigger", "release"], { headers: { "x-github-event": "ping" }, body: {} });
+    expect(ping.code).toBe(0);
+    expect(ping.envelope).toEqual({ status: "skipped", reason: "trigger 'release' ignored the delivery" });
+    expect((await run(["map-trigger", "release"], { body: {} })).code).toBe(EXIT.inputInvalid);
+  });
   test("invalid mapped input → 66; mapper throws → 1; unknown trigger → 64", async () => {
     const bad = await run(["map-trigger", "push"], { ref: "refs/heads/main", after: "nope", repository: { full_name: "o/r" } });
     expect(bad.code).toBe(EXIT.outputInvalid);

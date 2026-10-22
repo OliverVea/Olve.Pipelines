@@ -3333,6 +3333,7 @@ export const RunTriggerKindObject = {
     Push: "Push",
     Poll: "Poll",
     Manual: "Manual",
+    Webhook: "Webhook",
 } as const;
 /* tslint:enable */
 /* eslint-enable */

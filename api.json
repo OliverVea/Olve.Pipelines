@@ -668,6 +668,37 @@
         }
       }
     },
+    "/api/hooks/{pipelineId}/{trigger}": {
+      "post": {
+        "tags": [
+          "Olve.Pipelines"
+        ],
+        "operationId": "ReceiveWebhookTrigger",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trigger",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/events": {
       "get": {
         "tags": [
@@ -5140,7 +5171,8 @@
         "enum": [
           "Push",
           "Poll",
-          "Manual"
+          "Manual",
+          "Webhook"
         ]
       },
       "SetSecretRequest": {

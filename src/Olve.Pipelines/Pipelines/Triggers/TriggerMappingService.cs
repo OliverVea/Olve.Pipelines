@@ -11,7 +11,8 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// binary of the version a run would bind to → the mapped input (from the result block in the pod log) →
 /// server-side validation → <see cref="RunStartService.Start"/> with the automatic trigger kind. De-dup
 /// uses the default key (the canonical hash of the mapped input), so the same commit arriving by push and
-/// by poll yields one run. Async I/O boundary; transient.
+/// by poll yields one run. A webhook mapper may ignore its event (returns null): nothing starts.
+/// Async I/O boundary; transient.
 /// </summary>
 public class TriggerMappingService(
     RunInputService inputs,
@@ -27,24 +28,31 @@ public class TriggerMappingService(
     public static string EventKey(Id<Pipeline> pipelineId, Guid eventId)
         => $"triggers/{pipelineId.Value.Value:N}/{eventId:N}/event.json";
 
-    public async Task<Result<RunStartOutcome>> MapAndStartAsync(
+    /// <returns>The run start outcome, or null when the trigger's mapper ignored the event.</returns>
+    public async Task<Result<RunStartOutcome?>> MapAndStartAsync(
         Id<Pipeline> pipelineId, string triggerName, RunTriggerKind kind, string eventJson, CancellationToken ct)
     {
         if (inputs.GetTarget(pipelineId).TryPickProblems(out var problems, out var target))
-            return Result.Failure<RunStartOutcome>(problems);
+            return Result.Failure<RunStartOutcome?>(problems);
         if (target.Manifest.Triggers.All(t => t.Name != triggerName))
             return new ResultProblem("Version {0} of pipeline '{1}' declares no trigger '{2}'.", target.Version.Number, pipelineId, triggerName);
 
         var mapped = await MapAsync(pipelineId, target.Version.BinaryKey, triggerName, eventJson, ct);
         if (mapped.TryPickProblems(out var mapProblems, out var output))
-            return Result.Failure<RunStartOutcome>(mapProblems);
+            return Result.Failure<RunStartOutcome?>(mapProblems);
+        if (output is null)
+        {
+            logger.LogInformation("Trigger '{TriggerName}' of pipeline '{PipelineId}' ({TriggerKind}) ignored its event on version {VersionNumber}",
+                triggerName, pipelineId, kind, target.Version.Number);
+            return (RunStartOutcome?)null;
+        }
 
         if (inputs.PrepareMapped(target.Manifest, JsonNode.Parse(output)).TryPickProblems(out var inputProblems, out var input))
-            return Result.Failure<RunStartOutcome>(inputProblems.Prepend("Trigger '{0}' produced invalid input.", triggerName));
+            return Result.Failure<RunStartOutcome?>(inputProblems.Prepend("Trigger '{0}' produced invalid input.", triggerName));
 
         var outcome = starts.Start(pipelineId, input, new RunTrigger(kind));
         if (outcome.TryPickProblems(out var startProblems, out var started))
-            return Result.Failure<RunStartOutcome>(startProblems);
+            return Result.Failure<RunStartOutcome?>(startProblems);
 
         logger.LogInformation("Trigger '{TriggerName}' of pipeline '{PipelineId}' ({TriggerKind}) mapped on version {VersionNumber}: {Outcome} (run #{RunNumber})",
             triggerName, pipelineId, kind, target.Version.Number, started.GetType().Name, RunNumber(started));
@@ -58,8 +66,8 @@ public class TriggerMappingService(
         _ => null,
     };
 
-    /// <summary>Runs the map-trigger Job; returns the envelope's output JSON.</summary>
-    private async Task<Result<string>> MapAsync(Id<Pipeline> pipelineId, string binaryKey, string triggerName, string eventJson, CancellationToken ct)
+    /// <summary>Runs the map-trigger Job; returns the envelope's output JSON, or null when the mapper ignored the event.</summary>
+    private async Task<Result<string?>> MapAsync(Id<Pipeline> pipelineId, string binaryKey, string triggerName, string eventJson, CancellationToken ct)
     {
         var eventId = Guid.NewGuid();
         var eventKey = EventKey(pipelineId, eventId);
@@ -68,7 +76,7 @@ public class TriggerMappingService(
         await storage.PutTextAsync(eventKey, eventJson, "application/json", ct);
         var spec = await factory.CreateMapTriggerJobAsync(jobName, pipelineId, binaryKey, triggerName, eventKey, ct);
         if (spec.TryPickProblems(out var specProblems, out var built))
-            return Result.Failure<string>(specProblems);
+            return Result.Failure<string?>(specProblems);
 
         try
         {
@@ -89,6 +97,8 @@ public class TriggerMappingService(
 
             if (envelope is HarnessEnvelope.Succeeded s && finished.State.Main is { ExitCode: 0 })
                 return s.OutputJson;
+            if (envelope is HarnessEnvelope.Skipped && finished.State.Main is { ExitCode: 0 })
+                return (string?)null;
 
             var detail = envelope is HarnessEnvelope.Failed f
                 ? f.Message

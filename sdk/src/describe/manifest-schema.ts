@@ -90,6 +90,21 @@ export const Trigger = z
         intervalSeconds: z.number().int().positive(),
       })
       .describe("Background poller."),
+    z
+      .strictObject({
+        kind: z.literal("webhook"),
+        name: z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/),
+        verify: z.discriminatedUnion("scheme", [
+          z.strictObject({
+            scheme: z.literal("hmac-sha256"),
+            secret: secretName,
+            header: z.string().min(1),
+            prefix: z.string().describe("Text before the hex digest in the header, e.g. 'sha256='."),
+          }),
+          z.strictObject({ scheme: z.literal("bearer"), secret: secretName }),
+        ]),
+      })
+      .describe("Inbound HTTP delivery to /api/hooks/<pipeline id>/<name>. Event = {headers, body}; a null mapping ignores it."),
   ])
   .meta({ id: "Trigger" });
 

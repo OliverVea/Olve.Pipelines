@@ -339,9 +339,16 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
   // ── triggers ──
   const triggerNames = new Set<string>();
   const triggers: TriggerT[] = data.triggers.map((t) => {
-    if (triggerNames.has(t.name)) problems.push(`duplicate trigger '${t.name}'${t.kind === "push" ? " (onPush may be used once)" : " (give each onPoll a distinct name)"}`);
+    if (triggerNames.has(t.name)) problems.push(`duplicate trigger '${t.name}'${t.kind === "push" ? " (onPush may be used once)" : " (give each onPoll and onWebhook a distinct name)"}`);
     triggerNames.add(t.name);
     if (t.kind === "push") return { kind: "push", name: "push" };
+    if (t.kind === "webhook") {
+      if (!STEP_NAME.test(t.name)) problems.push(`webhook trigger name '${t.name}' must be lower-case kebab`);
+      const secret = useSecret(t.verify.secret, `webhook '${t.name}'`);
+      if (t.verify.scheme === "bearer") return { kind: "webhook", name: t.name, verify: { scheme: "bearer", secret } };
+      if (!t.verify.header) problems.push(`webhook '${t.name}': the signature header must not be empty`);
+      return { kind: "webhook", name: t.name, verify: { scheme: "hmac-sha256", secret, header: t.verify.header, prefix: t.verify.prefix } };
+    }
     if (!STEP_NAME.test(t.name)) problems.push(`poll trigger name '${t.name}' must be lower-case kebab`);
     if (!(Number.isInteger(t.intervalSeconds) && t.intervalSeconds > 0)) problems.push(`poll '${t.name}': intervalSeconds must be a positive integer`);
     const declared = new Set(t.secrets.map((s) => useSecret(s, `poll '${t.name}'`)));

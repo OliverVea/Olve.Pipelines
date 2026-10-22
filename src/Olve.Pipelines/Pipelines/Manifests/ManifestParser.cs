@@ -164,7 +164,7 @@ public static class ManifestParser
         if (!ctx.Expect(e, JsonValueKind.Object, path, "an object")) return null;
         if (!e.TryGetProperty("kind", out var kindEl) || kindEl.ValueKind != JsonValueKind.String)
         {
-            ctx.Error(ManifestIssueCodes.MissingProperty, Ctx.Child(path, "kind"), "a trigger needs a string 'kind' ('push' or 'poll')");
+            ctx.Error(ManifestIssueCodes.MissingProperty, Ctx.Child(path, "kind"), "a trigger needs a string 'kind' ('push', 'poll' or 'webhook')");
             return null;
         }
         switch (kindEl.GetString())
@@ -185,8 +185,39 @@ public static class ManifestParser
                 var interval = ctx.Integer(e, "intervalSeconds", path);
                 if (name is null || url is null || headers is null || secrets is null || valuePath is null || interval is null) return null;
                 return new PollTrigger(name, url, headers!, secrets, valuePath, interval.Value);
+            case "webhook":
+                if (!ctx.Object(e, path, ["kind", "name", "verify"], [])) return null;
+                var hookName = ctx.String(e, "name", path);
+                var verify = ParseWebhookVerify(ctx, e.GetProperty("verify"), Ctx.Child(path, "verify"));
+                return hookName is null || verify is null ? null : new WebhookTrigger(hookName, verify);
             default:
-                ctx.Error(ManifestIssueCodes.InvalidValue, Ctx.Child(path, "kind"), $"unknown trigger kind '{kindEl.GetString()}' (expected 'push' or 'poll')");
+                ctx.Error(ManifestIssueCodes.InvalidValue, Ctx.Child(path, "kind"), $"unknown trigger kind '{kindEl.GetString()}' (expected 'push', 'poll' or 'webhook')");
+                return null;
+        }
+    }
+
+    private static WebhookTriggerVerify? ParseWebhookVerify(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Expect(e, JsonValueKind.Object, path, "an object")) return null;
+        if (!e.TryGetProperty("scheme", out var schemeEl) || schemeEl.ValueKind != JsonValueKind.String)
+        {
+            ctx.Error(ManifestIssueCodes.MissingProperty, Ctx.Child(path, "scheme"), "verify needs a string 'scheme' ('hmac-sha256' or 'bearer')");
+            return null;
+        }
+        switch (schemeEl.GetString())
+        {
+            case "hmac-sha256":
+                if (!ctx.Object(e, path, ["scheme", "secret", "header", "prefix"], [])) return null;
+                var secret = ctx.String(e, "secret", path);
+                var header = ctx.String(e, "header", path);
+                var prefix = ctx.String(e, "prefix", path);
+                return secret is null || header is null || prefix is null ? null : new HmacSha256TriggerVerify(secret, header, prefix);
+            case "bearer":
+                if (!ctx.Object(e, path, ["scheme", "secret"], [])) return null;
+                var token = ctx.String(e, "secret", path);
+                return token is null ? null : new BearerTriggerVerify(token);
+            default:
+                ctx.Error(ManifestIssueCodes.InvalidValue, Ctx.Child(path, "scheme"), $"unknown verify scheme '{schemeEl.GetString()}' (expected 'hmac-sha256' or 'bearer')");
                 return null;
         }
     }

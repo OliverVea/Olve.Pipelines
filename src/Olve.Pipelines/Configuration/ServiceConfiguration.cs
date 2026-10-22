@@ -68,6 +68,8 @@ public static class ServiceConfiguration
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PollTriggerService>());
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<DeployPollService>());
         services.AddHostedService<PollScheduler>();
+        services.AddSingleton<WebhookTriggerService>();
+        services.AddHostedService(sp => sp.GetRequiredService<WebhookTriggerService>());
         services.AddSingleton<IdProvider>();
 
         // v2 run domain: versions, activation (operational state), sequences, runs, attempts.

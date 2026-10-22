@@ -1,12 +1,13 @@
 // Fixture: the shape of Olve.Pipelines' own self-deploy (build → test → beta → prod → publish CLI).
 // Handlers are offline fakes so the SDK tests can build and run every step locally.
-import { pipeline, step, steps, secret, optional, z, Source, FailureContext } from "@olve/pipelines";
+import { pipeline, step, steps, secret, optional, z, Source, FailureContext, githubSignature } from "@olve/pipelines";
 import * as M from "./models";
 import testSh from "./scripts/test.sh" with { type: "file" };
 
 // ── secrets ───────────────────────────────────────────────────────────────────────────────────
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token (repo tarball, poll, CLI release).");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for image import + helm on the host.");
+export const RELEASE_HOOK_SECRET = secret("RELEASE_HOOK_SECRET", "HMAC key of the GitHub release webhook.");
 
 // ── steps (contracts) ─────────────────────────────────────────────────────────────────────────
 export const checkout = step({
@@ -98,6 +99,11 @@ export default pipeline({
       intervalSeconds: 300,
     },
     value => ({ sha: value }),                             // z.input view: repo/deployTo take their defaults
+  )
+  .onWebhook(
+    { name: "release", verify: githubSignature(RELEASE_HOOK_SECRET) },
+    ({ headers, body }) =>                                 // null ignores the delivery
+      headers["x-github-event"] === "release" ? { sha: (body as { release: { target_commitish: string } }).release.target_commitish } : null,
   )
   .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build, test)                                      // both matched by model (Source)

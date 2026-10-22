@@ -483,6 +483,78 @@
             "intervalSeconds"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Inbound HTTP delivery to /api/hooks/<pipeline id>/<name>. Event = {headers, body}; a null mapping ignores it.",
+          "properties": {
+            "kind": {
+              "const": "webhook",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+              "type": "string"
+            },
+            "verify": {
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "header": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "prefix": {
+                      "description": "Text before the hex digest in the header, e.g. 'sha256='.",
+                      "type": "string"
+                    },
+                    "scheme": {
+                      "const": "hmac-sha256",
+                      "type": "string"
+                    },
+                    "secret": {
+                      "description": "Secret name; also the env var name in the step container.",
+                      "pattern": "^[A-Z_][A-Z0-9_]*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "scheme",
+                    "secret",
+                    "header",
+                    "prefix"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "scheme": {
+                      "const": "bearer",
+                      "type": "string"
+                    },
+                    "secret": {
+                      "description": "Secret name; also the env var name in the step container.",
+                      "pattern": "^[A-Z_][A-Z0-9_]*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "scheme",
+                    "secret"
+                  ],
+                  "type": "object"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "verify"
+          ],
+          "type": "object"
         }
       ]
     },

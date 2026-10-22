@@ -10,6 +10,8 @@ import { EventsRequestBuilderRequestsMetadata, type EventsRequestBuilder } from 
 // @ts-ignore
 import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
 // @ts-ignore
+import { HooksRequestBuilderNavigationMetadata, type HooksRequestBuilder } from './hooks/index.js';
+// @ts-ignore
 import { ManifestsRequestBuilderNavigationMetadata, type ManifestsRequestBuilder } from './manifests/index.js';
 // @ts-ignore
 import { PipelinesRequestBuilderNavigationMetadata, PipelinesRequestBuilderRequestsMetadata, type PipelinesRequestBuilder } from './pipelines/index.js';
@@ -40,6 +42,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      * The health property
      */
     get health(): HealthRequestBuilder;
+    /**
+     * The hooks property
+     */
+    get hooks(): HooksRequestBuilder;
     /**
      * The manifests property
      */
@@ -76,6 +82,9 @@ export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiReques
     },
     health: {
         requestsMetadata: HealthRequestBuilderRequestsMetadata,
+    },
+    hooks: {
+        navigationMetadata: HooksRequestBuilderNavigationMetadata,
     },
     manifests: {
         navigationMetadata: ManifestsRequestBuilderNavigationMetadata,

@@ -127,6 +127,7 @@ needs a bearer token. Errors (any non-2xx but 401/403) are `application/problem+
 | PATCH | `/api/pipelines/{pipelineId}/binding` | Set/clear the credentials secret key |
 | POST | `/api/pipelines/{pipelineId}/binding/reconcile` | Reconcile now (returns at once; progress in status) |
 | POST | `/api/webhooks/binding/{bindingId}/github` | GitHub push webhook (HMAC-authenticated, anonymous) |
+| POST | `/api/hooks/{pipelineId}/{trigger}` | Manifest `onWebhook` trigger delivery (verified with the trigger's secret, anonymous; 202, mapped in the background) |
 
 ### Versions
 

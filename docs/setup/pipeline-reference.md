@@ -228,6 +228,29 @@ export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "Read token for the commits A
 - The last value is persisted, so a change during a restart still triggers. A new trigger or a
   changed URL only records the first value.
 
+**Webhook.** `.onWebhook(config, event => input | null)` starts a run from an HTTP delivery to
+`<public base>/api/hooks/<pipeline id>/<name>`, authenticated by a declared secret:
+
+```ts
+export const RELEASE_HOOK = secret("RELEASE_HOOK", "HMAC key of the GitHub release webhook.");
+
+.onWebhook({ name: "release", verify: githubSignature(RELEASE_HOOK) },
+           ({ headers, body }) => headers["x-github-event"] === "release"
+             ? { sha: (body as { release: { target_commitish: string } }).release.target_commitish }
+             : null)
+```
+
+- `verify` is `hmacSha256({ secret, header, prefix? })`, `githubSignature(secret)` (HMAC in
+  `X-Hub-Signature-256: sha256=…`) or `bearer(secret)` (`Authorization: Bearer …`). A bad signature
+  is a 401; nothing is mapped.
+- The event is `{ headers, body }`: header names lower-cased, without `authorization`, cookies and
+  the signature header; the body as parsed JSON, or the raw text. Return `null` to ignore a delivery.
+- The service answers `202` at once and maps in the background (a `map-trigger` Job), so senders with
+  short timeouts (GitHub: 10 s) are fine. Runs started this way are automatic: they supersede older
+  runs and are de-duplicated like push and poll runs.
+- `name` is unique among the pipeline's triggers. Point the sender at the URL above and give it the
+  secret's value (`pl secret set`). The path needs the instance's public ingress.
+
 **Manual.** `pl trigger <pipeline> --field k=v` or the UI's trigger form (generated from the input
 model). Input is validated before anything starts; invalid input is a 400, never a half-run.
 

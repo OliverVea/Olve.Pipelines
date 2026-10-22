@@ -7,7 +7,7 @@ const IMAGES = [
   "mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled",
   "docker.io/library/node:22-slim",
 ];
-const TRIES = 3;
+const TRIES = 2;
 
 export default implement(mirrorBaseImages, async (_input, ctx) => {
   for (const image of IMAGES) {

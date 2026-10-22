@@ -147,9 +147,9 @@ cd frontend && npm run build                                # Production build
 - Domain subnamespaces nest under their parent (e.g. `Pipelines.Runs`, `Pipelines.Scheduling`, `Pipelines.Versions`)
 - Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, step outputs/files/logs under `runs/<p>/<run>/<step>/<attempt>/`, binaries and manifests under `versions/` (see `StorageLayout`). Step pods only ever get pre-signed URLs, signed for `Storage:InClusterEndpoint`
 - New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
-- Regenerate both clients after any API change (`api.json` → Kiota TS client → Refitter C# client), or the frontend breaks at runtime rather than at build time
+- Regenerate the TypeScript client after any API change (`api.json` → Kiota), or the frontend breaks at runtime rather than at build time
 - TypeScript client generated from OpenAPI via Kiota
-- C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes). The `pl` CLI does not use it: it has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/`
+- The `pl` CLI has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/` (add each endpoint there by hand).
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 - **Tests assert results, never read `.Value!`**: `await Assert.That(result).Succeeded()` / `.Failed()` / `.SucceededAndValue(v => v.IsEqualTo(x))` (Olve.Results.TUnit); to unwrap a result for setup, `TestRunDomain.Pick(result)` (throws with the problems on failure).
@@ -170,5 +170,4 @@ cd frontend && npm run build                                # Production build
   - [Olve.Results.TUnit](https://olivervea.github.io/Olve.Utilities/src/Olve.Results.TUnit/README.html) — TUnit assertions for Result types (`Succeeded()`, `Failed()`, etc.)
 - [TUnit](https://tunit.dev/docs/intro) — test framework, uses `await Assert.That(...)` fluent syntax (not xUnit/NUnit)
 - [Rocks](https://raw.githubusercontent.com/JasonBock/Rocks/refs/heads/main/docs/Overview.md) — source-generated mocking (AOT-compatible)
-- [Refitter](https://refitter.github.io/articles/refitter-file-format.html) — C# client source gen from OpenAPI via Refit (.refitter file format)
 - [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview) — TypeScript client gen from OpenAPI

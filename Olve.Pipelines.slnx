@@ -7,6 +7,5 @@
     <Project Path="test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj" />
   </Folder>
   <Folder Name="/clients/">
-    <Project Path="clients/Olve.Pipelines.Client/Olve.Pipelines.Client.csproj" />
   </Folder>
 </Solution>

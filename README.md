@@ -91,7 +91,6 @@ sdk/                                @olve/pipelines: authoring API, harness, olv
 harness/                            harness-base init image + end-to-end validation
 frontend/                           Dashboard UI (Lit + Vite + TypeScript)
 clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
-clients/Olve.Pipelines.Client/      Generated C# client (Refitter source gen)
 helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
 .pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
@@ -416,11 +415,10 @@ Kiota is pinned in `.config/dotnet-tools.json` (1.36.1; 1.30 emits a `tsc` error
 polymorphic members). Error responses are a typed `ApiProblem`; the frontend still sends actions
 through `apiFetch` (see [frontend/README.md](frontend/README.md#api-usage)).
 
-### C# ([Refitter](https://refitter.github.io/))
+### C#
 
-`clients/Olve.Pipelines.Client/` generates a Refit interface from `api.json` at build time
-(`.refitter` with `returnIApiResponse: true`, so error responses don't throw). The `pl` CLI does not
-use it (Refit can't Native-AOT here); `pl` has a hand-rolled client in `src/Olve.Pipelines.Cli/Api/`.
+There is no generated C# client. `pl` has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/`
+(Refit can't Native-AOT here); add each new endpoint there.
 
 ## Versioning
 

@@ -57,9 +57,8 @@ internal static class PolymorphicSchemaRewriter
     }
 
     // ASP.NET emits int32 properties with a regex-validated string union as
-    // `type: ["integer", "string"]`. Refitter's NJsonSchema backend then emits
-    // a string default for an int C# property, which fails to compile. Drop
-    // the string half when we see the int32 format.
+    // `type: ["integer", "string"]`, which generated clients type as number-or-string.
+    // Drop the string half when we see the int32 format.
     public static void NormalizeIntegerFormats(OpenApiDocument document)
     {
         var schemas = document.Components?.Schemas;

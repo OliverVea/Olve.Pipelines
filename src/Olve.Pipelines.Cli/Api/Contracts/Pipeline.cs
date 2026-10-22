@@ -3,7 +3,7 @@ namespace Olve.Pipelines.Cli.Api.Contracts;
 /// <summary>
 /// CLI-side DTOs. These mirror the server's JSON shapes but model only the fields the CLI renders,
 /// so they stay AOT-friendly (registered in <see cref="CliJsonContext"/>) and free of the
-/// reflection-based polymorphic converter the generated Refit client carries. Unknown JSON
+/// reflection-based polymorphic converter a generated client would carry. Unknown JSON
 /// properties are ignored by System.Text.Json, so partial coverage is safe.
 /// </summary>
 public sealed class Pipeline

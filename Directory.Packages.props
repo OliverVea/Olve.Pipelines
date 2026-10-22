@@ -15,9 +15,6 @@
     <!-- Transitive pin: Microsoft.AspNetCore.OpenApi 10.0.9 pulls in Microsoft.OpenApi 2.0.0,
          which has GHSA-v5pm-xwqc-g5wc (stack-overflow DoS). Fixed in 2.7.5+. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
-    <!-- Transitive pin: Refitter.SourceGenerator 1.7.3 (held, see below) pulls in
-         Microsoft.OpenApi.Readers 1.6.22, which has GHSA-7pxr-59rr-hqj2 (YAML alias DoS). Fixed in 1.6.30+. -->
-    <PackageVersion Include="Microsoft.OpenApi.Readers" Version="1.6.31" />
     <PackageVersion Include="Net.Codecrete.QrCodeGenerator" Version="3.0.0" />
     <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.9" />
     <PackageVersion Include="Olve.MinimalApi" Version="0.55.0" />
@@ -28,9 +25,6 @@
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
-    <!-- Pinned: Refit 11+/Refitter 2+ break the generated client (AOT + duplicate-member codegen). Do not bump. -->
-    <PackageVersion Include="Refit" Version="10.1.6" />
-    <PackageVersion Include="Refitter.SourceGenerator" Version="1.7.3" />
     <PackageVersion Include="Rocks" Version="10.3.0" />
     <PackageVersion Include="AWSSDK.S3" Version="4.0.100.1" />
     <PackageVersion Include="TUnit" Version="1.58.0" />

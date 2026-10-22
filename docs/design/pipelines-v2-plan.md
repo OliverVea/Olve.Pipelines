@@ -12,7 +12,7 @@ that ran `.pipelines/config.yaml` is paused, not deleted — see the E2 notes fo
 - **Fully breaking.** v1 elements that conflict with the spec are deleted, not adapted for compat.
 - **Green after every commit**: `dotnet build`, unit tests, `bun test` + type-check in `sdk/`, and the
   Docker build (frontend included) must pass, so every push deploys to v2 beta.
-- **Regenerate clients on API changes** (`api.json` → Kiota TS client → Refitter C# client), or the
+- **Regenerate the TS client on API changes** (`api.json` → Kiota), or the
   frontend breaks at runtime rather than build time.
 - **AOT stays.** New C# types are registered in the source-gen JSON contexts; no reflection-based libs.
 - **Library grows from real use** (see memory/feedback): build the library steps v2's own deploy needs;
@@ -505,6 +505,12 @@ stage that decides whether a run goes on. The per-binding config-before-run lock
 
 ### v2.2 — candidates
 
+- **Spec-first API (TypeSpec)**, as in Olve.AgentRuntimeManager: the HTTP API is declared in `.tsp`
+  (one file per area), and OpenAPI, the backend's C# surface and a typed TS client are generated
+  from it. Today the API is code-first (minimal APIs → `api.json` → Kiota), and the frontend's
+  mutations bypass the generated types. Wanted by the user for readability; do it in a quiet period,
+  not alongside other work. Decide whether ARM's `typespec-arm-csharp` emitter fits (it assumes
+  ARM's error envelope; this API answers `ApiProblem`).
 - **Gating steps**: library steps that decide whether a run goes on, beyond the stage barrier on a
   test step: manual approval (the run waits for an approve/reject in the UI or `pl`, with who and
   when recorded), visual regression (baseline diff, approve to accept), external checks. Replaces

@@ -1,4 +1,4 @@
-// v2's own CD pipeline (beta). config.yaml beside it is the paused v1 deployer's rollback path.
+// v2's own CD pipeline: beta on push, prod on promotion. config.yaml beside it is the paused v1 deployer's rollback path.
 import { pipeline, secret, step, steps, Source } from "@olve/pipelines";
 import * as M from "./models";
 
@@ -52,6 +52,19 @@ export const deployBeta = steps.helmDeployOverSsh({
   timeoutSeconds: 900,
 });
 
+export const deployProd = steps.helmDeployOverSsh({
+  name: "deploy-prod",
+  description: "Deploys the image to apps (olve-pipelines-v2) with Helm and checks its health.",
+  host: "oliver@bulwark-m2",
+  sshKey: SSH_PRIVATE_KEY,
+  release: "olve-pipelines-v2",
+  namespace: "apps",
+  chart: "helm",
+  values: ["values-v2-prod.yaml"],
+  healthUrl: "http://olve-pipelines-v2.apps.svc.cluster.local/api/health",
+  timeoutSeconds: 900,
+});
+
 export const publishCli = step({
   name: "publish-cli",
   description: "Builds the pl CLI that this instance serves at /download and /install.sh.",
@@ -73,7 +86,7 @@ export const publishSdk = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests and deploy it to apps-beta (olve-pipelines-v2) with Helm. Promoting a run to prod publishes the pl CLI it serves and the SDK to npm.",
+  description: "Build the v2 branch with kaniko, run the unit tests and deploy it to apps-beta (olve-pipelines-v2) with Helm. Promoting a run to prod deploys the same image to apps, then publishes the pl CLI and the SDK to npm.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
@@ -81,4 +94,5 @@ export default pipeline({
   .stage(build, test)
   .stage(deployBeta)
   .when({ deployTo: "prod" }, p => p
+    .stage(deployProd)
     .stage(publishCli, publishSdk));

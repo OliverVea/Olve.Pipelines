@@ -94,7 +94,7 @@ the homelab deploy key out-of-band, the same way (stdin).
 pl binding reconcile "$PID"                 # returns at once; the build Job takes a minute or two
 pl binding status "$PID"                    # repeat until Reconcile: Success
 pl pipeline versions "$PID"                 # version 1, linked to the latest .pipelines/ commit
-pl pipeline manifest "$PID"                 # source → build, test → deploy-beta → when deployTo=prod: publish-cli, publish-sdk
+pl pipeline manifest "$PID"                 # source → build, test → deploy-beta → when deployTo=prod: deploy-prod → publish-cli, publish-sdk
 ```
 
 `Error` → read the problems (`pl dev validate` reproduces manifest problems). The first reconcile

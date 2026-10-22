@@ -42,11 +42,12 @@ If `deploy-beta` is blocked, someone paused the self-deploy on purpose — ask b
 
 ## 2. Trigger
 
-The input model requires a full 40-hex `sha`:
+The input model requires a full 40-hex `sha`. `deployTo` defaults to `prod` (deploy-prod, publish-cli,
+publish-sdk), so pass `beta` explicitly:
 
 ```bash
 git fetch origin v2
-pl trigger "$P" --field sha=$(git rev-parse origin/v2)       # prints "Olve.Pipelines v2#<n>"
+pl trigger "$P" --field sha=$(git rev-parse origin/v2) --field deployTo=beta   # prints "Olve.Pipelines v2#<n>"
 ```
 
 An explicit trigger is never de-duplicated; it does not supersede a running automatic run (both

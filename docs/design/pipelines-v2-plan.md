@@ -488,15 +488,28 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
 
 1. **v2 prod instance**: release `olve-pipelines-v2` in `apps`, runners in `olve-runners` (shared with
-   v1 prod), own Garage, `pipelines-v2.ovea.pro`. Needs `helm/values-v2-prod.yaml` overriding v1's
-   prod defaults (Garage endpoint/bucket, `Webhooks__PublicBaseUrl: ""` so it doesn't register hooks
-   at v1's URL, a smaller Garage volume, `Links__BaseUrl`), an Olve.Homelab route and an Authentik
-   prod redirect URI. Keep `Retention__DryRun` on until the leaked Job/Secret sweep is confirmed to
-   select only its own resources in the shared namespace.
-2. **`deploy-prod`** in the pipeline's `when deployTo: "prod"` block. Promotion = `pl run continue
-   <run> --field deployTo=prod` on a beta run, so prod gets the image beta ran. For now the pipeline
-   stays on v2 beta, which therefore deploys v2 prod; `/download` on v2 prod serves nothing until the
-   deployer moves there.
+   v1 prod), own Garage, `pipelines-v2-private.ovea.pro`. **Prepared 2026-10-22, not yet deployed**:
+   `helm/values-v2-prod.yaml` (own Garage + bucket `olve-pipelines-v2`, 100Gi on `bulk`;
+   `Webhooks__PublicBaseUrl: ""`; `Links__BaseUrl`; `Telemetry__ServiceName: olve-pipelines-v2`;
+   `slo.enabled: false`, no sloth CRD), the Olve.Homelab route (Tailscale-private, no hook route) and
+   the Authentik prod frontend redirect URI. No manual prerequisite: every referenced Secret
+   (`olve-pipelines-minio`, `olve-pipelines-oidc`, `authentik-oidc-secrets`) and the `authentik-ca`
+   ConfigMap already exist in `apps`, and Garage creates its key and bucket on first boot
+   (`--default-bucket`, credentials from `olve-pipelines-minio`). Retention stays in dry run. Its
+   Job sweep only selects Jobs with a v2 `olve-role` and one of this instance's pipelines, so v1
+   prod's Jobs are safe. The Secret sweep is matched by name only (`olve-urls-<attempt>`,
+   `olve-{map,fh,build}-…-urls`) and isn't instance-scoped, but v1 creates no such Secrets, and it
+   deletes one only when its Job is gone or finished and it's over 1 h old. Check the first dry-run
+   sweep logs (can v2 prod's OpenBao role list Secrets in `olve-runners`?) before
+   `Retention__DryRun: "false"`.
+2. **`deploy-prod`**: first stage of the pipeline's `when deployTo: "prod"` block, before
+   publish-cli/publish-sdk (**done 2026-10-22**). Promotion = `pl run continue <run> --field
+   deployTo=prod` on a succeeded beta push run of the active version, so prod gets the image beta ran.
+   `deployTo` defaults to `prod`, so a manual trigger without `--field deployTo=beta` deploys prod.
+   For now the pipeline stays on v2 beta, which therefore deploys v2 prod; `/download` on v2 prod
+   serves nothing until the deployer moves there. The first deploy (by the user): unblock
+   `deploy-prod` on v2 beta (blocked until then), then continue the newest green beta push run.
+   The continued run then also runs publish-cli and publish-sdk (npm publish if `sdk/`'s version is new).
 3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
    pipeline's gate before binding v2.
 4. **Cut over**: move the deployer pipeline onto v2 prod (deploy-beta → gate → deploy-prod, the v1

@@ -10,6 +10,7 @@ export type StepState = {
   runNumber?: number | null;
   runHref?: string;
   logsHref?: string;
+  retryable?: boolean;
   attemptCount?: number;
   latestAttempt?: number | null;
   createdAt?: Date | string | null;
@@ -19,11 +20,12 @@ export type StepState = {
   heldRuns?: number[];
 };
 
+const RETRY = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.55"/><path d="M13 2.5v3h-3"/></svg>`;
 const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>`;
 
 /**
  * Stages left to right (parallel steps stacked, `when` blocks bracketed); top to
- * bottom on narrow screens. Events: `step-select` {step}, `gate-toggle` {step, block}.
+ * bottom on narrow screens. Events: `step-select` {step}, `step-retry` {step}, `gate-toggle` {step, block}.
  */
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
@@ -162,7 +164,7 @@ export class StageGraph extends LitElement {
         white-space: nowrap;
         overflow: hidden;
       }
-      .meta > :not(.lock) + :not(.lock)::before {
+      .meta > :not(.icon) + :not(.icon)::before {
         content: '·';
         margin-right: 0.35rem;
       }
@@ -192,9 +194,8 @@ export class StageGraph extends LitElement {
         font-size: 0.72rem;
         color: var(--color-warning);
       }
-      .lock {
+      .icon {
         display: inline-flex;
-        margin-left: auto;
         visibility: hidden;
         padding: 0.15rem;
         border: 0;
@@ -203,12 +204,31 @@ export class StageGraph extends LitElement {
         color: var(--color-text-muted);
         opacity: 0.45;
       }
-      .tile:hover .lock,
-      .lock:focus-visible {
+      .icon.retry {
+        margin-left: auto;
+      }
+      .icon.retry + .lock {
+        margin-left: 0;
+      }
+      .lock {
+        margin-left: auto;
+      }
+      .tile:hover .icon,
+      .icon:focus-visible,
+      .t-fail .retry {
         visibility: visible;
       }
-      .lock:hover,
-      .lock:focus-visible {
+      .t-fail .retry {
+        opacity: 1;
+        color: var(--color-danger);
+      }
+      @media (hover: none) {
+        .icon {
+          visibility: visible;
+        }
+      }
+      .icon:hover,
+      .icon:focus-visible {
         opacity: 1;
         background: var(--color-surface-hover);
       }
@@ -217,7 +237,7 @@ export class StageGraph extends LitElement {
         opacity: 1;
         color: var(--color-warning);
       }
-      .lock svg {
+      .icon svg {
         width: 0.85rem;
         height: 0.85rem;
       }
@@ -321,6 +341,7 @@ export class StageGraph extends LitElement {
         ${st?.runNumber ? this._run(st) : nothing}
         ${st?.runNumber && at ? html`<relative-time .value=${at}></relative-time>` : nothing}
         ${duration ? html`<span>${duration}</span>` : nothing}
+        ${this.gateControls ? this._retry(step.name, st) : nothing}
         ${this.gateControls ? this._lock(step.name, blocked) : nothing}
       </div>
       ${st?.reason ? html`<div class="reason" title=${st.reason}>${st.reason}</div>` : nothing}
@@ -347,9 +368,24 @@ export class StageGraph extends LitElement {
     if (e instanceof MouseEvent) navClick(e);
   }
 
+  private _retry(step: string, st: StepState | undefined) {
+    if (!st?.retryable) return nothing;
+    return html`<button
+      class="icon retry"
+      title="Retry: run this step again in #${st.runNumber}, then continue the run"
+      aria-label="Retry ${step}"
+      @click=${(e: Event) => {
+        e.stopPropagation();
+        this.dispatchEvent(new CustomEvent('step-retry', { detail: { step } }));
+      }}
+    >
+      ${RETRY}
+    </button>`;
+  }
+
   private _lock(step: string, blocked: boolean) {
     return html`<button
-      class="lock ${blocked ? 'closed' : ''}"
+      class="icon lock ${blocked ? 'closed' : ''}"
       title=${blocked ? 'Blocked: runs hold before this step. Click to unblock.' : 'Block: hold runs before this step.'}
       aria-label=${blocked ? `Unblock ${step}` : `Block ${step}`}
       @click=${(e: Event) => {

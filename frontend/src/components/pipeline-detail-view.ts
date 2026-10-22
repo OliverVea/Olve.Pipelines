@@ -19,6 +19,7 @@ import {
   versionsPath,
   stepHistoryPath,
   stepLogsPath,
+  isActiveStatus,
   shortSha,
 } from '../v2/ui.js';
 import { allSteps } from '../v2/manifest.js';
@@ -99,6 +100,7 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _loaded: boolean;
   @state() private declare _error: string | null;
   @state() private declare _gateErrors: string[];
+  @state() private declare _retrying: Set<string>;
   @state() private declare _triggerOpen: boolean;
   @state() private declare _titleHint: string;
 
@@ -116,6 +118,7 @@ export class PipelineDetailView extends LitElement {
     this._loaded = false;
     this._error = null;
     this._gateErrors = [];
+    this._retrying = new Set();
     this._triggerOpen = new URLSearchParams(location.search).get('trigger') === '1';
     const st = history.state as { pipelineName?: string } | null;
     this._titleHint = st?.pipelineName ?? '';
@@ -190,6 +193,11 @@ export class PipelineDetailView extends LitElement {
         finishedAt: a.finishedAt,
         blocked: this._blocked.has(name),
         heldRuns: held.get(name),
+        retryable:
+          a.versionNumber === currentVersion(this._activation) &&
+          !isActiveStatus(a.status) &&
+          !this._blocked.has(name) &&
+          !this._retrying.has(name),
       });
     }
     return out;
@@ -235,6 +243,7 @@ export class PipelineDetailView extends LitElement {
               .blocked=${this._blocked}
               gateControls
               @gate-toggle=${(e: CustomEvent<{ step: string; block: boolean }>) => this._setGate(e.detail.step, e.detail.block)}
+              @step-retry=${(e: CustomEvent<{ step: string }>) => this._retry(e.detail.step)}
               @step-select=${(e: CustomEvent<{ step: string }>) => this._open(e.detail.step)}
             ></stage-graph>`
           : this._loaded
@@ -305,6 +314,21 @@ export class PipelineDetailView extends LitElement {
 
   private _open(step: string) {
     navigate(stepHistoryPath(this.pipelineId, step));
+  }
+
+  private async _retry(step: string) {
+    const run = this._latest.get(step)?.runNumber;
+    if (!run) return;
+    this._gateErrors = [];
+    this._retrying = new Set([...this._retrying, step]);
+    try {
+      await apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/rerun`, { continue: true });
+      await this.reload();
+    } catch (err) {
+      this._gateErrors = errorMessages(err);
+    } finally {
+      this._retrying = new Set([...this._retrying].filter((s) => s !== step));
+    }
   }
 
   private async _setGate(step: string, block: boolean) {

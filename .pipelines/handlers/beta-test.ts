@@ -15,8 +15,9 @@ export default implement(betaTest, async (_input, ctx) => {
 
   await httpHealthCheck(ctx, `${BETA_URL}/api/ready`, { attempts: 12, delaySeconds: 5 });
 
+  // ctx.run.pipeline comes without dashes.
   const pipelines = await ctx.http.getJson<{ id: string }[]>(`${BETA_URL}/api/pipelines`);
-  check(pipelines.some(p => p.id === pipeline), `/api/pipelines does not list this pipeline (${pipeline})`);
+  check(pipelines.some(p => p.id.replaceAll("-", "") === pipeline.replaceAll("-", "")), `/api/pipelines does not list this pipeline (${pipeline})`);
 
   // This run lives in the instance that just redeployed itself, so it proves persisted state reloaded.
   const view = await ctx.http.getJson<RunView>(`${BETA_URL}/api/pipelines/${pipeline}/runs/${number}`);

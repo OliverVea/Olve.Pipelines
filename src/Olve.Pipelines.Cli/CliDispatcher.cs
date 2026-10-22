@@ -6,6 +6,7 @@ using Olve.Pipelines.Cli.Commands.Bindings;
 using Olve.Pipelines.Cli.Commands.Dev;
 using Olve.Pipelines.Cli.Commands.Gates;
 using Olve.Pipelines.Cli.Commands.Pipelines;
+using Olve.Pipelines.Cli.Commands.Profiles;
 using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Commands.Secrets;
 using Olve.Pipelines.Cli.Commands.Steps;
@@ -35,6 +36,7 @@ public sealed class CliDispatcher
         Register(new BootstrapCommand(processRunner));
         Register(new TeardownCommand(processRunner));
         Register(new LoginCommand());
+        Register(new ProfileListCommand());
 
         // pipeline
         Register(new PipelineListCommand());
@@ -185,7 +187,7 @@ public sealed class CliDispatcher
         var verbose = cli.HasFlag("verbose");
         var log = new StderrLog(verbose);
 
-        if (CliConfigStore.Load().TryPickProblems(out var configProblems, out var config))
+        if (CliConfigStore.Load(CliConfigStore.ResolveProfile(cli)).TryPickProblems(out var configProblems, out var config))
             return Fail(configProblems);
 
         // Pre-flight refresh of the cached token so commands go out with a fresh bearer (best-effort).
@@ -236,6 +238,7 @@ public sealed class CliDispatcher
         Console.WriteLine("Global options (any command):");
         Console.WriteLine("  --json        Machine-readable JSON output on stdout");
         Console.WriteLine("  --verbose,-v  Diagnostic logging to stderr");
+        Console.WriteLine("  --profile <n> Use profile <n> of ~/.pl (or PIPELINES_PROFILE; default 'default')");
         Console.WriteLine("  --help,-h     Show help for the command");
         Console.WriteLine("  --version     Print the CLI version (alone: `pl --version`)");
         Console.WriteLine();

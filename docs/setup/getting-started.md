@@ -37,14 +37,17 @@ first.
   ```
   The `install.sh` in the repo (and on v1 prod) installs v1's `pl` instead. From source:
   `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
-- A session against the v2 instance. `pl`'s default URL is v1 prod, and `~/.pl` holds a single
-  session, so give v2 its own config file and name the instance:
+- A session against the v2 instance. `pl`'s built-in default URL is v1 prod, so name the instance
+  once; `pl login` stores it with the token in a **profile** of `~/.pl` (`default` unless you pass
+  `--profile`):
   ```sh
-  export PIPELINES_CONFIG=~/.pl-v2                        # keeps a v1 session in ~/.pl intact
-  pl login --api-url https://pipelines-v2-private.ovea.pro   # add --device over SSH
+  pl login --api-url https://pipelines-v2-private.ovea.pro                  # profile 'default'; add --device over SSH
+  pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro      # a second instance beside it
+  pl --profile beta pipeline list                                          # or PIPELINES_PROFILE=beta
+  pl profile list
   ```
-  `pl login` caches the token and the URL in that file. `PIPELINES_API_URL` and `--api-url` override
-  the URL per command.
+  `PIPELINES_API_URL` and `--api-url` still override the URL per command. v1's `pl` doesn't read
+  profiles: give it its own file (`PIPELINES_CONFIG=~/.pl-v1`).
 
 ## Step 1 — Add `.pipelines/` to your repo
 

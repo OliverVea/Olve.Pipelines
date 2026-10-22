@@ -228,10 +228,10 @@ The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every commit deplo
 prod serves it. Install it from there:
 
 ```bash
-curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
-export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2   # v2 pl first; keep its session apart from v1's ~/.pl
-pl --version                                                    # the publishing run's version stamp
-pl login --api-url https://pipelines-v2-private.ovea.pro        # add --device over SSH
+curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | sh   # to ~/.local/bin/pl (PL_INSTALL_DIR overrides)
+pl --version                                                       # the publishing run's version stamp
+pl login --api-url https://pipelines-v2-private.ovea.pro           # profile 'default'; add --device over SSH
+pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
 ```
 
 Windows: `irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex`. The binaries alone:
@@ -240,8 +240,11 @@ The scripts in the repo (and `install.sh` from raw GitHub) default to v1 prod, w
 `pl`; an instance serving them rewrites the default to itself. `PL_API_URL` / `PL_INSTALL_DIR`
 override. From source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
 
-`pl login` caches the token and the API URL in `~/.pl` (or `$PIPELINES_CONFIG`); `--api-url` /
-`PIPELINES_API_URL` override the URL per command, `--token` passes a bearer directly.
+`pl login` caches the token and the API URL in a **profile** of `~/.pl` (or `$PIPELINES_CONFIG`):
+`default`, or the one named by `--profile <name>` / `PIPELINES_PROFILE`. Every command uses the
+selected profile; `pl profile list` shows them. `--api-url` / `PIPELINES_API_URL` override the URL per
+command, `--token` passes a bearer directly. v1's `pl` doesn't read profiles: give it its own
+`PIPELINES_CONFIG`.
 
 ### Commands
 

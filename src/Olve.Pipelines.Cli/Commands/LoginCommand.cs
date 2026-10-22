@@ -39,9 +39,11 @@ public sealed class LoginCommand : ICliCommand
         scan the printed QR code (or open the URL on your phone) and approve — no local browser or
         port-forward needed. Force either flow with --device or --browser.
 
-        Use --api-url (or PIPELINES_API_URL) to log in to a specific environment, e.g.
-          pl login --api-url https://pipelines-beta.ovea.pro
-          pl login --device --api-url https://pipelines-beta.ovea.pro
+        Use --api-url (or PIPELINES_API_URL) to log in to a specific instance, and --profile to keep
+        several logins side by side (the profile is 'default' unless given), e.g.
+          pl login --api-url https://pipelines-v2-private.ovea.pro
+          pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
+        Then `pl --profile beta pipeline list`; `pl profile list` shows them.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -170,7 +172,7 @@ public sealed class LoginCommand : ICliCommand
         ctx.Output.Emit(result, CliJsonContext.Default.LoginResult, () =>
         {
             ctx.Output.Line($"Logged in to {apiUrl}.");
-            ctx.Output.Line($"Token saved to {CliConfigStore.ResolvePath()}.");
+            ctx.Output.Line($"Token saved to {CliConfigStore.ResolvePath()} (profile '{ctx.Config.Profile}').");
             if (result.ExpiresAt is { } expiresAt)
                 ctx.Output.Line($"Access token expires {expiresAt:u}.");
             if (!result.HasRefreshToken)

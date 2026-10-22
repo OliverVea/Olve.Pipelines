@@ -6,7 +6,7 @@ namespace Olve.Pipelines.Cli.Api;
 /// <summary>
 /// Builds the hand-rolled <see cref="IPipelinesApi"/> client, resolving the base URL and bearer
 /// token with precedence: flag (<c>--api-url</c>/<c>--token</c>) &gt; env (<c>PIPELINES_API_URL</c>/
-/// <c>PIPELINES_API_TOKEN</c>) &gt; <c>~/.pl</c> &gt; built-in default.
+/// <c>PIPELINES_API_TOKEN</c>) &gt; the selected <c>~/.pl</c> profile &gt; built-in default.
 /// </summary>
 public sealed class ApiClientFactory
 {
@@ -47,7 +47,7 @@ public sealed class ApiClientFactory
         if (Environment.GetEnvironmentVariable(ApiUrlEnvVar) is { Length: > 0 } env)
             return (env, ApiUrlEnvVar);
         if (config.ApiUrl is { Length: > 0 } file)
-            return (file, "~/.pl");
+            return (file, $"~/.pl profile '{config.Profile}'");
         return (DefaultApiUrl, "default");
     }
 
@@ -61,7 +61,7 @@ public sealed class ApiClientFactory
         if (Environment.GetEnvironmentVariable(TokenEnvVar) is { Length: > 0 } env)
             return (env, TokenEnvVar);
         if (config.Auth?.AccessToken is { Length: > 0 } file)
-            return (file, "~/.pl");
+            return (file, $"~/.pl profile '{config.Profile}'");
         return (null, "none");
     }
 }

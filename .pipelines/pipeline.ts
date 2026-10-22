@@ -1,14 +1,4 @@
-// In-repo CD pipeline for Olve.Pipelines v2 — v2 branch, beta only (docs/design/pipelines-v2.md §13).
-//
-// source → build ∥ test → deploy-beta → publish-cli: build the branch's image with kaniko (layer
-// cache in the in-cluster registry) while the unit tests run; deploy the Helm release
-// olve-pipelines-v2 into apps-beta over SSH once both succeeded (the stage barrier gates the deploy
-// on the tests), then health-check the in-cluster Service; then build the `pl` CLI of the same
-// commit, which the freshly deployed instance serves at /download.
-//
-// Bound on the v2 instance itself since plan milestone M4 (pipeline f26d19cf…, binding path .pipelines).
-// The v1-format config.yaml beside this file is the recovery path: the v1 pipeline that runs it is
-// paused, not deleted (docs/design/pipelines-v2-plan.md, E2 notes, for the rollback).
+// v2's own CD pipeline (beta). config.yaml beside it is the paused v1 deployer's rollback path.
 import { pipeline, secret, step, steps, Source } from "@olve/pipelines";
 import * as M from "./models";
 

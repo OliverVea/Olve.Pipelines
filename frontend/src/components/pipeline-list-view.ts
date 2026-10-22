@@ -62,14 +62,14 @@ export class PipelineListView extends LitElement {
     }
 
     .rows {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr));
+      gap: 0.75rem;
     }
 
     .pipeline-row {
       display: grid;
-      grid-template-columns: 18rem minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 13rem) minmax(0, 1fr) auto;
       grid-template-areas: 'status graph menu';
       align-items: center;
       gap: 1rem;
@@ -100,7 +100,6 @@ export class PipelineListView extends LitElement {
 
     .pr-menu {
       grid-area: menu;
-      position: relative;
       align-self: center;
     }
 
@@ -160,61 +159,19 @@ export class PipelineListView extends LitElement {
       white-space: nowrap;
     }
 
-    .menu-btn {
-      display: grid;
-      place-items: center;
-      width: 1.9rem;
-      height: 1.9rem;
-      padding: 0;
+    .btn-delete {
       background: none;
-      border: 1px solid transparent;
-      border-radius: var(--radius);
+      border: 1px solid var(--color-border);
       color: var(--color-text-muted);
-      font-size: 1.1rem;
-      line-height: 1;
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
       transition: all var(--transition);
     }
 
-    .menu-btn:hover,
-    .menu-btn[aria-expanded='true'] {
-      border-color: var(--color-border);
-      background: var(--color-surface-hover);
-      color: var(--color-text);
-    }
-
-    .menu {
-      position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
-      z-index: 10;
-      min-width: 9rem;
-      padding: 0.25rem;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      cursor: default;
-    }
-
-    .menu button {
-      display: block;
-      width: 100%;
-      padding: 0.4rem 0.6rem;
-      background: none;
-      border: none;
-      border-radius: calc(var(--radius) - 2px);
-      color: var(--color-text);
-      font-size: 0.85rem;
-      text-align: left;
-    }
-
-    .menu button.danger {
+    .btn-delete:hover {
+      border-color: var(--color-danger);
       color: var(--color-danger);
-    }
-
-    .menu button:hover,
-    .menu button:focus-visible {
-      background: var(--color-surface-hover);
     }
 
     .cubes {
@@ -323,7 +280,6 @@ export class PipelineListView extends LitElement {
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
   @state() declare private _deleting: PipelineSummary | null;
-  @state() declare private _menuFor: string | null;
   @query('confirm-delete-dialog') declare private _confirmDelete: ConfirmDeleteDialog;
 
   constructor() {
@@ -333,21 +289,12 @@ export class PipelineListView extends LitElement {
     this._error = null;
     this._loaded = false;
     this._deleting = null;
-    this._menuFor = null;
     new PollController(this, () => this._load(true));
   }
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener('click', this._closeMenuOutside);
-    window.addEventListener('keydown', this._closeMenuOnEscape);
     this._load();
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    window.removeEventListener('click', this._closeMenuOutside);
-    window.removeEventListener('keydown', this._closeMenuOnEscape);
   }
 
   private async _load(silent = false) {
@@ -399,7 +346,6 @@ export class PipelineListView extends LitElement {
   }
 
   private _renderRow(p: PipelineSummary) {
-    const menuOpen = this._menuFor === p.id;
     return html`
       <div class="pipeline-row" @click=${(e: MouseEvent) => this._cardClick(e, p)}>
         <div class="pr-status">
@@ -425,23 +371,7 @@ export class PipelineListView extends LitElement {
           ${p.stages?.length ? this._renderCubes(p) : html`<span class="pc-empty">No steps yet</span>`}
         </div>
         <div class="pr-menu">
-          <button
-            class="menu-btn"
-            type="button"
-            aria-label="Actions for ${p.name}"
-            aria-haspopup="menu"
-            aria-expanded=${menuOpen ? 'true' : 'false'}
-            @click=${() => (this._menuFor = menuOpen ? null : (p.id ?? null))}
-          >
-            ⋯
-          </button>
-          ${menuOpen
-            ? html`<div class="menu" role="menu">
-                <button class="danger" role="menuitem" type="button" @click=${() => this._askDelete(p)}>
-                  Delete…
-                </button>
-              </div>`
-            : nothing}
+          <button class="btn-delete" type="button" @click=${() => this._askDelete(p)}>Delete</button>
         </div>
       </div>
     `;
@@ -515,9 +445,9 @@ export class PipelineListView extends LitElement {
     navigate('/docs/index');
   }
 
-  // Links, cubes and the menu keep their own targets; text selection doesn't navigate.
+  // Links, cubes and buttons keep their own targets; text selection doesn't navigate.
   private _cardClick(e: MouseEvent, p: PipelineSummary) {
-    if (e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button, .pr-menu'))) return;
+    if (e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button'))) return;
     if (window.getSelection()?.toString()) return;
     const href = `/pipeline/${p.id}`;
     if (e.ctrlKey || e.metaKey) window.open(href, '_blank');
@@ -537,18 +467,7 @@ export class PipelineListView extends LitElement {
     await this._load();
   }
 
-  private _closeMenuOutside = (e: MouseEvent) => {
-    if (!this._menuFor) return;
-    if (e.composedPath().some((el) => el instanceof HTMLElement && el.classList.contains('pr-menu'))) return;
-    this._menuFor = null;
-  };
-
-  private _closeMenuOnEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') this._menuFor = null;
-  };
-
   private async _askDelete(p: PipelineSummary) {
-    this._menuFor = null;
     this._deleting = p;
     await this.updateComplete;
     this._confirmDelete.open();

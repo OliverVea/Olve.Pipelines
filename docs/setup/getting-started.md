@@ -257,7 +257,9 @@ values, the test command and the smoke checks.
 A repo without a beta environment gets one all the same (homelab-dashboard: the release in
 `apps-beta` with its ingress turned off by `set`), and a repo without a test suite gets checks that
 prove the deployment serves this commit (homelab-dashboard compares the served files with the
-source tree). Then:
+source tree). An image over a few hundred MB can't travel as `imageBuild`'s tarball (the step
+pod's scratch space is 1Gi): push it to `registry.ovea.pro` from a custom kaniko step and pull it on
+the node (QuestionBank's `build-figures` and `deploy-figures-*`). Then:
 
 1. Check the pipeline locally (`pl dev describe`, `pl dev validate`).
 2. Push `.pipelines/`, then `pl binding create <owner/repo> --branch <deploy branch>
@@ -268,10 +270,6 @@ source tree). Then:
    `pl secret set <pipeline> SSH_PRIVATE_KEY < key`.
 4. Push the next commit. That push starts the first run; `pl wait push <pipeline> <sha>` waits for
    it.
-
-Only one system should deploy a repo at a time: if something else deploys it today, stop that
-before step 2.
-
 
 Only one system should deploy a repo at a time: if something else deploys it today, stop that
 before step 2.

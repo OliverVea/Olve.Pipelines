@@ -626,6 +626,35 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      (`{ source: from.source, release: from["deploy-prod"] }`). `mirror-base-images` was then in three
      pipelines (copied again, `nginx:1.29-alpine` only); the pull-through caches replaced it. v1 (`50282eaa…`)
      was paused (gates blocked), then deleted by the user; `config.yaml` kept, its Secret left in place.
+   - **Migrated: QuestionBank** (2026-10-22). Pipeline `ea076c20-5efc-4066-a8d4-c32571eebb3f` on
+     v2 prod (`master`, `.pipelines`, SDK `2.0.0-beta.1` with the pull-through caches as `registryMap`);
+     run #1 (push) green in 15m49s, 14 steps: source → build ∥ build-figures ∥ test ∥ beta-secrets →
+     deploy-figures-beta ∥ deploy-beta → beta-test → prod-secrets → deploy-figures-prod ∥ deploy-prod →
+     prod-test ∥ deploy-demo → demo-test. New vs Template.Api: (1) **a second, 3.5 GB image** (the
+     Python figure service: torch, baked model weights). It can't go through `imageBuild`: the step
+     pod's `/olve` emptyDir is capped at `Harness:ScratchSizeLimit` (1Gi; enforced under gVisor, the
+     pod is evicted), and the tar is held twice plus `result.tar.gz`, then once more in Garage per run;
+     also `imageBuild` can only build `<tree>/Dockerfile` with the root as context. So `build-figures`
+     is a custom kaniko step that pushes to `registry.ovea.pro/questionbank/figure-service:src-<hash>`,
+     the tag being the sha256 of `ctx.output.dir(services/figure-service)` (a deterministic tar), and
+     skips kaniko when a manifest HEAD finds that tag (11 min when it builds, seconds otherwise;
+     unchanged since June). `deploy-figures-*` are custom: `nerdctl pull` on the node through the k3s
+     socket, helm with `pullPolicy=IfNotPresent`, a 300 s rollout. The QB image (125 MB) stays on
+     `imageBuild` + `helmDeployOverSsh`. (2) **Secrets written into app namespaces**
+     (`figure-service-auth`, prod's `questionbank-secrets`) by `beta-secrets`/`prod-secrets`, the value
+     piped over ssh stdin to `kubectl create secret --from-file=k=/dev/stdin | kubectl apply
+     --server-side` (v1 put it on the command line, and client-side apply copies it into
+     `last-applied-configuration`). (3) The public **demo** is a third `helmDeployOverSsh`
+     (`questionbank-demo`, `values-demo.yaml`; the image repository comes from `BuiltImage`, so v1's
+     workaround is gone); `demo-test` checks demo mode, the SPA and that the Deployment's env has no
+     credential names (ssh). `beta-test` runs the repo's `npm run test:beta` (8 passed, 0 skipped; it
+     mints its own token from the existing `questionbank-smoke` client with the `questionbank-aud`
+     scope and deletes its books); `test` runs typecheck and `npm test` (326 passed; v1 ran the server
+     suite only). Dropped v1 secrets: `QB_BETA_OIDC_CLIENT_ID` (hardcoded) and
+     `QB_PROD_ALLOW_DEFAULT_CUSTOMER` (was `0`, the chart default; the server no longer reads it). v1
+     (`3f92aa4d…`) is paused, all four processing gates blocked; its three production steps, including
+     the heavy figures build, still run on every push. Follow-ups: a `context`/subdirectory option and
+     a registry-push mode for `imageBuild`; drop the `registryMap` once on beta.2.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

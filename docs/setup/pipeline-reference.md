@@ -251,6 +251,9 @@ export const RELEASE_HOOK = secret("RELEASE_HOOK", "HMAC key of the GitHub relea
 - The service answers `202` at once and maps in the background (a `map-trigger` Job), so senders with
   short timeouts (GitHub: 10 s) are fine. Runs started this way are automatic: they are de-duplicated
   like push and poll runs.
+- At most 8 deliveries are mapped at once; beyond that the answer is `429` and the sender retries.
+  A GitHub redelivery (same `X-GitHub-Delivery`) is accepted and ignored. A rotated secret is picked
+  up within a minute.
 - `name` is unique among the pipeline's triggers. Point the sender at the URL above and give it the
   secret's value (`pl secret set`). The path needs the instance's public ingress.
 

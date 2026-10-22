@@ -21,8 +21,13 @@ public class WebhookTriggerTests
 
     private sealed class Secrets(string? value) : IPipelineSecretReader
     {
-        public Task<Result<string>> TryGetSecretAsync(Id<Pipeline> pipelineId, string key, CancellationToken ct = default) =>
-            Task.FromResult(value is null ? Result.Failure<string>(new ResultProblem("not set")) : Result.Success(value));
+        public int Reads { get; private set; }
+
+        public Task<Result<string>> TryGetSecretAsync(Id<Pipeline> pipelineId, string key, CancellationToken ct = default)
+        {
+            Reads++;
+            return Task.FromResult(value is null ? Result.Failure<string>(new ResultProblem("not set")) : Result.Success(value));
+        }
     }
 
     private static readonly JsonObject Hmac = new()
@@ -39,12 +44,15 @@ public class WebhookTriggerTests
             root["secrets"]!.AsArray().Add(new JsonObject { ["name"] = "HOOK", ["description"] = "h" });
     });
 
-    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(string? secretValue = Secret)
+    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(string? secretValue = Secret) =>
+        Receiver(new Secrets(secretValue));
+
+    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(Secrets secrets)
     {
         var s = new SchedulerScenario(WithTrigger(Hmac));
         var services = new ServiceCollection();
         services.AddSingleton(new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations));
-        services.AddSingleton<IPipelineSecretReader>(new Secrets(secretValue));
+        services.AddSingleton<IPipelineSecretReader>(secrets);
         return (new WebhookTriggerService(services.BuildServiceProvider(), NullLogger<WebhookTriggerService>.Instance), s);
     }
 
@@ -110,5 +118,21 @@ public class WebhookTriggerTests
 
         var (unset, s2) = Receiver(secretValue: null);
         await Assert.That(await unset.ReceiveAsync(s2.Pipeline.Id, "release", signed, CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Unavailable);
+    }
+
+    [Test]
+    public async Task Receive_CachesTheSecret_SoUnsignedFloodsStayOffKubernetes()
+    {
+        var secrets = new Secrets(Secret);
+        var (service, s) = Receiver(secrets);
+        const string body = """{"release":{}}""";
+
+        for (var i = 0; i < 20; i++)
+            await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Delivery(body, ("X-Hub-Signature-256", "sha256=00")), CancellationToken.None))
+                .IsEqualTo(WebhookTriggerReceipt.Unauthorized);
+        var signed = Delivery(body, ("X-Hub-Signature-256", GitHubWebhookSignature.Compute(Secret, Encoding.UTF8.GetBytes(body))));
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", signed, CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+
+        await Assert.That(secrets.Reads).IsEqualTo(1);
     }
 }

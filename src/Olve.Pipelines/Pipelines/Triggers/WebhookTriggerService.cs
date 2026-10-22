@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,6 +23,9 @@ public enum WebhookTriggerReceipt
 
     /// <summary>Verified; mapping (and maybe a run start) continues in the background.</summary>
     Accepted,
+
+    /// <summary>Verified, but too many deliveries are being mapped already; the sender should retry.</summary>
+    Busy,
 }
 
 /// <summary>
@@ -32,7 +36,19 @@ public enum WebhookTriggerReceipt
 /// </summary>
 public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerService> logger) : IHostedService, IDisposable
 {
+    internal const int MaxInFlight = 8;
+    private static readonly TimeSpan SecretTtl = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan SecretRecheckAfter = TimeSpan.FromSeconds(10);
+    private const int RememberedDeliveries = 256;
+
     private readonly CancellationTokenSource _lifetime = new();
+    private readonly TimeProvider _time = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+
+    // Unauthenticated requests reach this endpoint: a cached secret keeps them off the K8s API.
+    private readonly ConcurrentDictionary<(Id<Pipeline>, string), (string Value, DateTimeOffset At)> _secrets = new();
+    private readonly LinkedList<string> _deliveryOrder = new();
+    private readonly HashSet<string> _deliveries = new(StringComparer.Ordinal);
+    private int _inFlight;
 
     public async Task<WebhookTriggerReceipt> ReceiveAsync(Id<Pipeline> pipelineId, string triggerName, WebhookDelivery delivery, CancellationToken ct)
     {
@@ -42,23 +58,75 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
             || target.Manifest.Triggers.OfType<WebhookTrigger>().FirstOrDefault(t => t.Name == triggerName) is not { } trigger)
             return WebhookTriggerReceipt.NotFound;
 
-        var secret = await services.GetRequiredService<IPipelineSecretReader>().TryGetSecretAsync(pipelineId, trigger.Verify.Secret, ct);
-        if (secret.TryPickProblems(out var secretProblems, out var key))
+        var cacheKey = (pipelineId, trigger.Verify.Secret);
+        var now = _time.GetUtcNow();
+        var fresh = _secrets.TryGetValue(cacheKey, out var cached) && now - cached.At < SecretTtl;
+        var verified = fresh && Verification(trigger.Verify, cached.Value).Verify(delivery);
+        if (!verified && (!fresh || now - cached.At >= SecretRecheckAfter))
         {
-            logger.LogProblems(LogLevel.Warning, secretProblems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' cannot read secret '{SecretName}'",
-                triggerName, pipelineId, trigger.Verify.Secret);
-            return WebhookTriggerReceipt.Unavailable;
+            // Not cached, expired, or the secret may have just been rotated.
+            var secret = await services.GetRequiredService<IPipelineSecretReader>().TryGetSecretAsync(pipelineId, trigger.Verify.Secret, ct);
+            if (secret.TryPickProblems(out var secretProblems, out var key))
+            {
+                logger.LogProblems(LogLevel.Warning, secretProblems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' cannot read secret '{SecretName}'",
+                    triggerName, pipelineId, trigger.Verify.Secret);
+                return WebhookTriggerReceipt.Unavailable;
+            }
+
+            _secrets[cacheKey] = (key, now);
+            verified = Verification(trigger.Verify, key).Verify(delivery);
         }
 
-        if (!Verification(trigger.Verify, key).Verify(delivery))
+        if (!verified)
         {
             logger.LogWarning("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' rejected a delivery: verification failed", triggerName, pipelineId);
             return WebhookTriggerReceipt.Unauthorized;
         }
 
+        if (delivery.Headers.TryGetValue("X-GitHub-Delivery", out var deliveryId) && !Remember($"{pipelineId}/{triggerName}/{deliveryId}"))
+        {
+            logger.LogInformation("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' ignored redelivery {DeliveryId}", triggerName, pipelineId, deliveryId);
+            return WebhookTriggerReceipt.Accepted;
+        }
+
+        if (Interlocked.Increment(ref _inFlight) > MaxInFlight)
+        {
+            Interlocked.Decrement(ref _inFlight);
+            logger.LogWarning("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' turned a delivery away: {MaxInFlight} already being mapped",
+                triggerName, pipelineId, MaxInFlight);
+            return WebhookTriggerReceipt.Busy;
+        }
+
         var eventJson = EventJson(delivery, trigger.Verify);
-        _ = Task.Run(() => MapAsync(pipelineId, triggerName, eventJson), CancellationToken.None);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await MapAsync(pipelineId, triggerName, eventJson);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }, CancellationToken.None);
         return WebhookTriggerReceipt.Accepted;
+    }
+
+    /// <summary>False when <paramref name="id"/> was seen among the recent deliveries.</summary>
+    private bool Remember(string id)
+    {
+        lock (_deliveries)
+        {
+            if (!_deliveries.Add(id))
+                return false;
+            _deliveryOrder.AddLast(id);
+            if (_deliveryOrder.Count > RememberedDeliveries)
+            {
+                _deliveries.Remove(_deliveryOrder.First!.Value);
+                _deliveryOrder.RemoveFirst();
+            }
+            return true;
+        }
     }
 
     private async Task MapAsync(Id<Pipeline> pipelineId, string triggerName, string eventJson)

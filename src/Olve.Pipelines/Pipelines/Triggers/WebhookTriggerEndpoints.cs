@@ -19,6 +19,7 @@ public static class WebhookTriggerEndpoints
                     WebhookTriggerReceipt.NotFound => HttpResults.NotFound(),
                     WebhookTriggerReceipt.Unavailable => HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable),
                     WebhookTriggerReceipt.Unauthorized => HttpResults.Unauthorized(),
+                    WebhookTriggerReceipt.Busy => HttpResults.StatusCode(StatusCodes.Status429TooManyRequests),
                     _ => HttpResults.Accepted(),
                 };
             })

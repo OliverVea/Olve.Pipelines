@@ -290,6 +290,22 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     `sdkHash` note); the stall source itself (MCR idle connection; mirroring base images into
     registry.ovea.pro would remove it); the 10 s TERM→KILL grace is an SDK constant (the 300 s
     window is `stallTimeoutSeconds`).
+- **v2 beta serves the v2 `pl`** (2026-10-22, 0eca595). A custom `publish-cli` step (stage after
+  `deploy-beta`, same `when`; `dotnet/sdk:10.0-noble` + apt clang/zlib1g-dev) publishes linux-x64
+  AOT + win-x64 single-file stamped with the run version and returns them as **output files**
+  (`CliRelease`) — no storage credentials in the step pod. `GET|HEAD /download/{asset}` streams the
+  latest successful `publish-cli` attempt of `Distribution__CliPipeline` ("Olve.Pipelines v2"),
+  only allow-listed names, everything else under `/download/` a 404 (it used to fall through to the
+  SPA with 200 for HEAD and multi-segment paths). Retention pins that run (`RetentionInputs.PinnedRuns`,
+  same `CliReleaseQuery`), so beta's 14 days / latest 3 can't delete the served binary.
+  `/install.sh` / `/install.ps1` are served with the instance as the default. `pl --version` added.
+  The download route left the OpenAPI document (Kiota client regenerated). **Live, run #12**
+  (reconciled into version 5): build needed 3 attempts (kaniko stalls, self-healed), deploy-beta 21 s,
+  publish-cli 2m03s; `HEAD /download/pl-linux-x64` 200, 9.5 MB, `x-olve-pl-run: 12`; the served
+  binary's sha256 equals the output ref; `curl …/install.sh | sh` installed `pl 2026.10.22.12`, which
+  lists the v2 commands and ran `pl run list` against v2 beta. Open: v1 prod's `install.sh` (raw
+  GitHub, `main`) still installs v1's `pl`; the v2 `pl`'s built-in default URL is still v1 prod
+  (`pl login --api-url` needed, the scripts print it); macOS/arm builds were never published.
 - **Gaps** (as found on 2026-10-21; (1) and (2) fixed above): (1) the config cursor watches only `.pipelines/`, but `pipeline.ts` builds against
   `../sdk` — an SDK-only commit does not rebuild the step binary, and reconcile-now does not help (the
   build Job is per config commit, `olve-build-<p12>-<sha12>`, so it rebuilds the same old checkout).

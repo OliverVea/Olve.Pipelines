@@ -217,14 +217,18 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   kubectl -n apps-beta get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'
   ```
   (State check: `GET $V1/api/pipelines/c6f4abe1-4821-43d7-afd6-bd9f25414b75/processing/promotions`.)
-- **Self-deploy from a push**: commit 35faafc (typed TriggerRun/ContinueRun bodies, below) → the
-  binding's deploy poll fired the push trigger 11 min later → run #2. Its kaniko build hung at
-  "Unpacking rootfs" (3m CPU for 10 min — the same hang seen once before), so it was cancelled and rerun
-  as run #3: 4m34s, Succeeded, new pod on `olve-pipelines-v2:2026.10.21.3`, reattached and collected
-  deploy-beta again. The deployed binary binds the new bodies (fixture trigger #23 started; continue
-  reaches the domain checks; a non-object trigger body is now a framework 400). v1 meanwhile ran its
-  production build for 35faafc (bundle 5ef5ba20) and **did not deploy** (last v1 deploy job still
-  23:07 / bundle ca936b0d). The doc commit after it was the clean end-to-end push check (see below).
+- **Self-deploy from a push** works end to end — poll → push trigger → (reconcile → version) → run →
+  self-restart → reattach — but **the build step has hung on every push run so far** (see gap 2):
+  - 35faafc (API change below) → the deploy poll fired the push trigger → run #2; kaniko hung at
+    "Unpacking rootfs" → cancelled → rerun #3: 4m34s, Succeeded, pod on `olve-pipelines-v2:2026.10.21.3`.
+    The deployed binary binds the new bodies (fixture trigger #23 started; continue reaches the domain
+    checks; a non-object trigger body is now a framework 400).
+  - 69df341 (this doc + a `pipeline.ts` comment) → reconcile built version v2 (all step versions bumped,
+    see gap 1) → push run #4 hung the same way → cancelled → rerun #5: 1m47s (build 1m18s, fully
+    cached), Succeeded, pod on `…:2026.10.22.5`, new pod reattached and collected deploy-beta,
+    `run.json` Succeeded, health 200.
+  - v1 meanwhile ran only production builds for both commits (bundles 5ef5ba20, …) and **never
+    deployed** (last v1 deploy job still 23:07 / bundle ca936b0d).
 - **Track D follow-up (API)**: `TriggerRun`'s body is `TriggerRunRequest`, a free-form object
   (`[JsonExtensionData]`; the wire shape is still the input object itself) and `ContinueRunRequest.input`
   is an object of fields, so Kiota generates AdditionalDataHolder models and sends real object bodies
@@ -245,10 +249,22 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   run record, a bigger PVC, and flipping `Retention__DryRun=false`. (The `bulk` StorageClass may not
   enforce the 20 Gi size.)
 - **Gaps**: (1) the config cursor watches only `.pipelines/`, but `pipeline.ts` builds against
-  `../sdk` — an SDK-only commit does not rebuild the step binary (old harness/library code keeps
-  running until a `.pipelines/` commit or `pl binding reconcile`). (2) The kaniko "Unpacking rootfs"
-  hang recurred (1 of 3 builds); with `timeoutSeconds: 3600` a hung build holds the run for an hour —
-  cancel + `pl run rerun`. (3) A cancelled attempt can leave a `result.tar.gz` (retention's 24 h
+  `../sdk` — an SDK-only commit does not rebuild the step binary, and reconcile-now does not help (the
+  build Job is per config commit, `olve-build-<p12>-<sha12>`, so it rebuilds the same old checkout).
+  Proof: versions v1 (aeb5960) and v2 (69df341) differ only in `sdkHash` and handler hashes, i.e. runs
+  #1–#3 ran the SDK from before b5b3f93. Only a `.pipelines/` commit picks up SDK changes. (2) **kaniko
+  hangs at "Unpacking rootfs"**: 2 of 5 builds (#2, #4 — both push runs); the stalled pod idles (3m
+  CPU) with one ESTABLISHED, empty connection to 150.171.70.10:443 (Microsoft — the MCR base-image
+  pull stalled and nothing times it out). Hypothesis (n=5): both hung builds started within ~2 min of
+  v1's production build of the same commit (same base image, node, egress); the green ones started 6+
+  min clear — if so, stopping v1's (now useless) production builds would remove it. v1 itself
+  has had one 4120 s production job out of 41, so MCR stalls are not v2-only. Impact: one attempt per
+  (pipeline, step) may be InProgress (`JobRunner`), so a hung build also holds the next push's build
+  until `timeoutSeconds: 3600` expires. Recovery: `pl run cancel <p>#n && pl run rerun <p>#n`.
+  Mitigations to decide: a build timeout near the normal ~5 min (e.g. 900 s), an inactivity
+  watchdog/retry in `steps.imageBuild`, mirroring the base images in registry.ovea.pro, or stopping
+  v1's production builds (e.g. deleting its production steps from the v1 pipeline — not done: the
+  rollback relies on them). (3) A cancelled attempt can leave a `result.tar.gz` (retention's 24 h
   leftover sweep covers it once dry run is off).
 
 ## Milestones

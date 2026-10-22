@@ -1,4 +1,3 @@
-using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
 using HttpResults = Microsoft.AspNetCore.Http.Results;
@@ -36,7 +35,7 @@ public static class PipelineBindingEndpoints
 
                 return bindingResult;
             })
-            .WithResultMapping<PipelineConfigBinding>()
+            .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("CreatePipelineWithRepo")
 ;
 
@@ -45,7 +44,7 @@ public static class PipelineBindingEndpoints
         app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", Result (
                 DeployPollService deployPoll, Id<Pipeline> pipelineId)
                 => deployPoll.RequestReconcile(pipelineId, force: true))
-            .WithResultMapping()
+            .WithApiResultMapping()
             .WithName("ReconcilePipelineBinding")
 ;
 
@@ -53,7 +52,7 @@ public static class PipelineBindingEndpoints
         app.MapPatch("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, UpdateBindingRequest request)
                 => bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret))
-            .WithResultMapping<PipelineConfigBinding>()
+            .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
 ;
 
@@ -61,7 +60,7 @@ public static class PipelineBindingEndpoints
         app.MapPatch("/api/pipelines/{pipelineId}/binding/deploy-trigger", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetDeployTriggerRequest request)
                 => bindings.SetDeployTrigger(pipelineId, request.DeployTrigger))
-            .WithResultMapping<PipelineConfigBinding>()
+            .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBindingDeployTrigger")
 ;
 
@@ -110,7 +109,7 @@ public static class PipelineBindingEndpoints
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
                 => bindings.GetByPipelineId(pipelineId))
-            .WithResultMapping<PipelineConfigBinding>()
+            .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("GetPipelineBinding")
             .AllowAnonymous();
 
@@ -133,7 +132,7 @@ public static class PipelineBindingEndpoints
                         : null),
                     activations.TryGet(pipelineId, out var activation) ? activation : null);
             })
-            .WithResultMapping<PipelineBindingStatus>()
+            .WithApiResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
             .AllowAnonymous();
     }

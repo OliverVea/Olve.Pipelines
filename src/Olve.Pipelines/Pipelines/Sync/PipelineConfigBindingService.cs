@@ -19,14 +19,14 @@ public class PipelineConfigBindingService(
         BindingDeployTrigger deployTrigger = BindingDeployTrigger.Webhook)
     {
         if (string.IsNullOrWhiteSpace(repo))
-            return new ResultProblem("Binding requires a repository ('owner/name').");
+            return ValidationProblem.ForField("repo", "Binding requires a repository ('owner/name').");
         if (string.IsNullOrWhiteSpace(branch))
-            return new ResultProblem("Binding requires a branch.");
+            return ValidationProblem.ForField("branch", "Binding requires a branch.");
         if (string.IsNullOrWhiteSpace(path))
-            return new ResultProblem("Binding requires a config path (e.g. '.pipelines').");
+            return ValidationProblem.ForField("path", "Binding requires a config path (e.g. '.pipelines').");
 
         if (GetByPipelineId(pipelineId).Succeeded)
-            return new ResultProblem($"Pipeline '{pipelineId}' is already bound to a repository.");
+            return new ConflictProblem("Pipeline '{0}' is already bound to a repository.", pipelineId);
 
         var binding = new PipelineConfigBinding(
             idProvider.Create<PipelineConfigBinding>(),

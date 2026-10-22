@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Olve.MinimalApi;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
@@ -26,7 +25,7 @@ public static class RunEndpoints
         // Newest first, paged.
         group.MapGet("/", Result<Page<RunSummary>> (RunViewService views, Id<Pipeline> pipelineId, [AsParameters] ListRunsRequest request)
                 => views.List(pipelineId, request))
-            .WithResultMapping<Page<RunSummary>>()
+            .WithApiResultMapping<Page<RunSummary>>()
             .WithName("ListRuns")
             .AllowAnonymous();
 
@@ -35,26 +34,26 @@ public static class RunEndpoints
         group.MapPost("/", Result<TriggerRunResponse> (RunInputService inputs, Id<Pipeline> pipelineId, [FromBody] TriggerRunRequest input)
                 => inputs.StartManual(pipelineId, JsonFields.ToJsonObject(input.Fields))
                     .Map(ToResponse))
-            .WithResultMapping<TriggerRunResponse>()
+            .WithApiResultMapping<TriggerRunResponse>()
             .WithName("TriggerRun");
 
         // Input, pinned version, links, and the pinned manifest's stage layout with each step's latest attempt.
         group.MapGet("/{number:int}", Result<RunDetail> (RunViewService views, Id<Pipeline> pipelineId, int number)
                 => views.Get(pipelineId, number))
-            .WithResultMapping<RunDetail>()
+            .WithApiResultMapping<RunDetail>()
             .WithName("GetRun")
             .AllowAnonymous();
 
         // Cancels the run and its scheduled/in-progress attempts (their K8s Jobs are deleted).
         group.MapPost("/{number:int}/cancel", Result<Run> (RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Bind(run => cancellation.Cancel(run.Id)))
-            .WithResultMapping<Run>()
+            .WithApiResultMapping<Run>()
             .WithName("CancelRun");
 
         // Whole-run rerun: a new run with the same input on the active version, linked via rerunOf.
         group.MapPost("/{number:int}/rerun", Result<TriggerRunResponse> (RunService runs, RunInputService inputs, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Bind(run => inputs.RerunRun(run)).Map(ToResponse))
-            .WithResultMapping<TriggerRunResponse>()
+            .WithApiResultMapping<TriggerRunResponse>()
             .WithName("RerunRun");
 
         // Continue: keeps completed stages, re-evaluates the rest; optional input changes are merged over the
@@ -62,13 +61,13 @@ public static class RunEndpoints
         group.MapPost("/{number:int}/continue", Result<Run> (
                 RunService runs, RunInputService inputs, Id<Pipeline> pipelineId, int number, [FromBody] ContinueRunRequest? request)
                 => FindRun(runs, pipelineId, number).Bind(run => inputs.Continue(run, JsonFields.ToJsonObject(request?.Input))))
-            .WithResultMapping<Run>()
+            .WithApiResultMapping<Run>()
             .WithName("ContinueRun");
 
         group.MapGet("/{number:int}/steps/{step}/attempts", Result<Attempt[]> (
                 RunService runs, AttemptService attempts, Id<Pipeline> pipelineId, int number, string step)
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListForStep(run.Id, step).ToArray()))
-            .WithResultMapping<Attempt[]>()
+            .WithApiResultMapping<Attempt[]>()
             .WithName("ListStepAttempts")
             .AllowAnonymous();
 
@@ -77,7 +76,7 @@ public static class RunEndpoints
                 RunService runs, RunContinuationService continuations, Id<Pipeline> pipelineId, int number, string step,
                 [FromBody] RerunStepRequest? request)
                 => FindRun(runs, pipelineId, number).Bind(run => continuations.RerunStep(run.Id, step, request?.Continue ?? false)))
-            .WithResultMapping<Attempt>()
+            .WithApiResultMapping<Attempt>()
             .WithName("RerunStep");
 
         // Cancels the step's scheduled/in-progress attempt (its K8s Job is deleted). Like any cancelled attempt,
@@ -86,7 +85,7 @@ public static class RunEndpoints
         group.MapPost("/{number:int}/steps/{step}/cancel", Result<Attempt> (
                 RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number, string step)
                 => FindRun(runs, pipelineId, number).Bind(run => cancellation.CancelStep(run.Id, step)))
-            .WithResultMapping<Attempt>()
+            .WithApiResultMapping<Attempt>()
             .WithName("CancelStep");
 
         // The stored files of an attempt (without ?attempt= the latest successful one).
@@ -98,7 +97,7 @@ public static class RunEndpoints
                     return NoAttempt(number, step, attempt);
                 return await files.ListAsync(resolved, ct);
             })
-            .WithResultMapping<AttemptFilesResponse>()
+            .WithApiResultMapping<AttemptFilesResponse>()
             .WithName("ListStepFiles");
 
         // Downloads one file by its §5.5 address #run/step[@attempt]/path (a directory ref "dir/" yields dir.tar).
@@ -107,14 +106,14 @@ public static class RunEndpoints
                 string path, int? attempt, CancellationToken ct) =>
             {
                 if (AttemptFileService.ToObjectPath(path).TryPickProblems(out var pathProblems, out var objectPath))
-                    return Problems(pathProblems, StatusCodes.Status400BadRequest);
+                    return http.ToApiResult(pathProblems.ToArray());
                 if (!query.TryResolve(pipelineId, number, step, attempt, out var resolved))
-                    return Problems([NoAttempt(number, step, attempt)], StatusCodes.Status404NotFound);
+                    return http.ToApiResult([NoAttempt(number, step, attempt)]);
 
                 var download = await files.OpenAsync(resolved, objectPath, ct);
                 if (download is null)
-                    return Problems([new NotFoundProblem("Attempt {0} of step '{1}' in run #{2} has no file '{3}'.",
-                        resolved.Number, step, number, objectPath)], StatusCodes.Status404NotFound);
+                    return http.ToApiResult([new NotFoundProblem("Attempt {0} of step '{1}' in run #{2} has no file '{3}'.",
+                        resolved.Number, step, number, objectPath)]);
 
                 http.Response.RegisterForDispose(download);
                 if (download.Length is { } length)
@@ -122,13 +121,12 @@ public static class RunEndpoints
                 return Microsoft.AspNetCore.Http.Results.Stream(download.Content, download.ContentType, download.FileName);
             })
             .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
-            .Produces<ResultProblem[]>(StatusCodes.Status400BadRequest)
-            .Produces<ResultProblem[]>(StatusCodes.Status404NotFound)
+            .WithApiProblems()
             .WithName("GetStepFile");
 
         group.MapGet("/{number:int}/attempts", Result<Attempt[]> (RunService runs, AttemptService attempts, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListByRun(run.Id).ToArray()))
-            .WithResultMapping<Attempt[]>()
+            .WithApiResultMapping<Attempt[]>()
             .WithName("ListRunAttempts")
             .AllowAnonymous();
 
@@ -139,7 +137,7 @@ public static class RunEndpoints
                     ? new AttemptOutputResponse(number, step, resolved.Number, resolved.Status.Discriminator(),
                         resolved.Output is { } o ? JsonDocument.Parse(o.Json).RootElement.Clone() : null, resolved.Output?.Key)
                     : NoAttempt(number, step, attempt))
-            .WithResultMapping<AttemptOutputResponse>()
+            .WithApiResultMapping<AttemptOutputResponse>()
             .WithName("GetStepOutput")
             .AllowAnonymous();
 
@@ -157,7 +155,7 @@ public static class RunEndpoints
                     return new NotFoundProblem("Run #{0} has no such attempt of step '{1}'.", number, step);
                 return await logs.GetLogsAsync(target.Id, ct);
             })
-            .WithResultMapping<string>()
+            .WithApiResultMapping<string>()
             .WithName("GetStepLogs")
             .AllowAnonymous();
     }
@@ -177,7 +175,4 @@ public static class RunEndpoints
     private static NotFoundProblem NoAttempt(int number, string step, int? attempt) => new(attempt is null
         ? "Run #{0} has no successful attempt of step '{1}'."
         : "Run #{0} has no attempt {2} of step '{1}'.", number, step, attempt ?? 0);
-
-    private static IResult Problems(IEnumerable<ResultProblem> problems, int statusCode)
-        => Microsoft.AspNetCore.Http.Results.Json(problems.ToArray(), AppJsonContext.Default.ResultProblemArray, statusCode: statusCode);
 }

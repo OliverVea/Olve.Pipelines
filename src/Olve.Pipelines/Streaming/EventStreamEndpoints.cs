@@ -28,18 +28,18 @@ public static class EventStreamEndpoints
                 Id<Pipeline> pipelineId, int number, string step, int? attempt) =>
             {
                 if (!runs.TryGetByNumber(pipelineId, number, out var run))
-                    return NotFound(new ResultProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId));
+                    return http.ToApiResult([new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId)]);
                 var target = attempt is { } n
                     ? attempts.ListForStep(run.Id, step).FirstOrDefault(a => a.Number == n)
                     : attempts.ListForStep(run.Id, step).LastOrDefault();
                 if (target is null)
-                    return NotFound(new ResultProblem("Run #{0} has no such attempt of step '{1}'.", number, step));
+                    return http.ToApiResult([new NotFoundProblem("Run #{0} has no such attempt of step '{1}'.", number, step)]);
 
                 var ct = StreamToken(http, lifetime);
                 return TypedResults.ServerSentEvents(streamer.StreamAsync(target.Id, ct));
             })
             .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
-            .Produces<ResultProblem[]>(StatusCodes.Status404NotFound)
+            .WithApiProblems()
             .WithName("StreamStepLogs")
             .AllowAnonymous();
     }
@@ -52,7 +52,4 @@ public static class EventStreamEndpoints
         http.Response.RegisterForDispose(cts);
         return cts.Token;
     }
-
-    private static IResult NotFound(ResultProblem problem)
-        => Microsoft.AspNetCore.Http.Results.Json(new[] { problem }, AppJsonContext.Default.ResultProblemArray, statusCode: StatusCodes.Status404NotFound);
 }

@@ -175,7 +175,7 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"Failed to create K8s Secret '{secretName}': {response.StatusCode} {body}");
+            throw new HttpRequestException($"Failed to create K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
         }
     }
 
@@ -216,7 +216,7 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"Failed to update K8s Secret '{secretName}': {response.StatusCode} {body}");
+            throw new HttpRequestException($"Failed to update K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
         }
     }
 

@@ -38,6 +38,46 @@ export interface ActiveAttempt extends AdditionalDataHolder, Parsable {
      */
     step?: string | null;
 }
+export interface ApiProblem extends AdditionalDataHolder, ApiError, Parsable {
+    /**
+     * The detail property
+     */
+    detail?: string | null;
+    /**
+     * The errors property
+     */
+    errors?: ApiProblemError[] | null;
+    /**
+     * The status property
+     */
+    status?: number | null;
+    /**
+     * The title property
+     */
+    title?: string | null;
+    /**
+     * The traceId property
+     */
+    traceId?: string | null;
+    /**
+     * The type property
+     */
+    type?: string | null;
+}
+export interface ApiProblemError extends AdditionalDataHolder, Parsable {
+    /**
+     * The code property
+     */
+    code?: string | null;
+    /**
+     * The field property
+     */
+    field?: string | null;
+    /**
+     * The message property
+     */
+    message?: string | null;
+}
 export interface Attempt extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -266,6 +306,24 @@ export interface CopySecretsResponse extends AdditionalDataHolder, Parsable {
 // @ts-ignore
 export function createActiveAttemptFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoActiveAttempt;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApiProblemError}
+ */
+// @ts-ignore
+export function createApiProblemErrorFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApiProblemError;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ApiProblem}
+ */
+// @ts-ignore
+export function createApiProblemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoApiProblem;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -706,15 +764,6 @@ export function createRerunStepRequestFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ResultProblem}
- */
-// @ts-ignore
-export function createResultProblemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoResultProblem;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RunDetail}
  */
 // @ts-ignore
@@ -854,6 +903,35 @@ export function deserializeIntoActiveAttempt(activeAttempt: Partial<ActiveAttemp
         "startedAt": n => { activeAttempt.startedAt = n.getDateValue(); },
         "status": n => { activeAttempt.status = n.getStringValue(); },
         "step": n => { activeAttempt.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ApiProblem The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApiProblem(apiProblem: Partial<ApiProblem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "detail": n => { apiProblem.detail = n.getStringValue(); },
+        "errors": n => { apiProblem.errors = n.getCollectionOfObjectValues<ApiProblemError>(createApiProblemErrorFromDiscriminatorValue); },
+        "status": n => { apiProblem.status = n.getNumberValue(); },
+        "title": n => { apiProblem.title = n.getStringValue(); },
+        "traceId": n => { apiProblem.traceId = n.getStringValue(); },
+        "type": n => { apiProblem.type = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ApiProblemError The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoApiProblemError(apiProblemError: Partial<ApiProblemError> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "code": n => { apiProblemError.code = n.getStringValue(); },
+        "field": n => { apiProblemError.field = n.getStringValue(); },
+        "message": n => { apiProblemError.message = n.getStringValue(); },
     }
 }
 /**
@@ -1436,22 +1514,6 @@ export function deserializeIntoReconcileStatus(reconcileStatus: Partial<Reconcil
 export function deserializeIntoRerunStepRequest(rerunStepRequest: Partial<RerunStepRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "continue": n => { rerunStepRequest.continueEscaped = n.getBooleanValue() ?? false; },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param ResultProblem The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoResultProblem(resultProblem: Partial<ResultProblem> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "exceptionSummary": n => { resultProblem.exceptionSummary = n.getStringValue(); },
-        "isRetryable": n => { resultProblem.isRetryable = n.getBooleanValue(); },
-        "message": n => { resultProblem.messageEscaped = n.getStringValue(); },
-        "severity": n => { resultProblem.severity = n.getNumberValue(); },
-        "source": n => { resultProblem.source = n.getStringValue(); },
-        "tags": n => { resultProblem.tags = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -2117,32 +2179,6 @@ export interface RerunStepRequest extends AdditionalDataHolder, Parsable {
      */
     continueEscaped?: boolean | null;
 }
-export interface ResultProblem extends AdditionalDataHolder, ApiError, Parsable {
-    /**
-     * The exceptionSummary property
-     */
-    exceptionSummary?: string | null;
-    /**
-     * The isRetryable property
-     */
-    isRetryable?: boolean | null;
-    /**
-     * The message property
-     */
-    messageEscaped?: string | null;
-    /**
-     * The severity property
-     */
-    severity?: number | null;
-    /**
-     * The source property
-     */
-    source?: string | null;
-    /**
-     * The tags property
-     */
-    tags?: string[] | null;
-}
 export interface Run extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -2373,6 +2409,37 @@ export function serializeActiveAttempt(writer: SerializationWriter, activeAttemp
     writer.writeStringValue("status", activeAttempt.status);
     writer.writeStringValue("step", activeAttempt.step);
     writer.writeAdditionalData(activeAttempt.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ApiProblem The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApiProblem(writer: SerializationWriter, apiProblem: Partial<ApiProblem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!apiProblem || isSerializingDerivedType) { return; }
+    writer.writeStringValue("detail", apiProblem.detail);
+    writer.writeCollectionOfObjectValues<ApiProblemError>("errors", apiProblem.errors, serializeApiProblemError);
+    writer.writeNumberValue("status", apiProblem.status);
+    writer.writeStringValue("title", apiProblem.title);
+    writer.writeStringValue("traceId", apiProblem.traceId);
+    writer.writeStringValue("type", apiProblem.type);
+    writer.writeAdditionalData(apiProblem.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ApiProblemError The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeApiProblemError(writer: SerializationWriter, apiProblemError: Partial<ApiProblemError> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!apiProblemError || isSerializingDerivedType) { return; }
+    writer.writeStringValue("code", apiProblemError.code);
+    writer.writeStringValue("field", apiProblemError.field);
+    writer.writeStringValue("message", apiProblemError.message);
+    writer.writeAdditionalData(apiProblemError.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3019,23 +3086,6 @@ export function serializeRerunStepRequest(writer: SerializationWriter, rerunStep
     if (!rerunStepRequest || isSerializingDerivedType) { return; }
     writer.writeBooleanValue("continue", rerunStepRequest.continueEscaped ?? false);
     writer.writeAdditionalData(rerunStepRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param ResultProblem The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeResultProblem(writer: SerializationWriter, resultProblem: Partial<ResultProblem> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!resultProblem || isSerializingDerivedType) { return; }
-    writer.writeStringValue("exceptionSummary", resultProblem.exceptionSummary);
-    writer.writeBooleanValue("isRetryable", resultProblem.isRetryable);
-    writer.writeStringValue("message", resultProblem.messageEscaped);
-    writer.writeNumberValue("severity", resultProblem.severity);
-    writer.writeStringValue("source", resultProblem.source);
-    writer.writeCollectionOfPrimitiveValues<string>("tags", resultProblem.tags);
-    writer.writeAdditionalData(resultProblem.additionalData);
 }
 /**
  * Serializes information the current object

@@ -8,6 +8,7 @@ using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Shared.Problems;
 using Olve.Utilities.Paginations;
 
 namespace Olve.Pipelines;
@@ -15,7 +16,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Guid))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(Result))]
-[JsonSerializable(typeof(ResultProblem[]))]
+[JsonSerializable(typeof(ApiProblem))]
 [JsonSerializable(typeof(Result<Pipeline>))]
 [JsonSerializable(typeof(Result<Pipeline[]>))]
 [JsonSerializable(typeof(Result<PipelineSummary[]>))]

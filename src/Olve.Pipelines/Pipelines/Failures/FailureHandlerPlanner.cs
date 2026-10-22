@@ -71,7 +71,7 @@ public static class FailureHandlerPlanner
             var input = BuildInput(fh.Step, context, manifest);
             if (input.TryPickProblems(out var problems, out var inputJson))
             {
-                skipped.Add(new FailureHandlerSkip(fh.Step.Name, string.Join("; ", problems.Select(p => p.FormattedMessage))));
+                skipped.Add(new FailureHandlerSkip(fh.Step.Name, string.Join("; ", problems.Select(p => p.ToDisplayString()))));
                 continue;
             }
 

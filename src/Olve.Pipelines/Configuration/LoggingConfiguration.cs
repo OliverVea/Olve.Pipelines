@@ -34,6 +34,9 @@ public static class LoggingConfiguration
             if (configuration["Logging:Console:FormatterName"] is { Length: > 0 } name)
                 options.FormatterName = name;
         });
+        // Request log lines carry the hosting scope's TraceId, which error bodies return.
+        logging.Services.Configure<JsonConsoleFormatterOptions>(o => o.IncludeScopes = true);
+        logging.Services.Configure<SimpleConsoleFormatterOptions>(o => o.IncludeScopes = true);
         return logging;
     }
 }

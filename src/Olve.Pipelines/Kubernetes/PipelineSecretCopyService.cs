@@ -71,9 +71,9 @@ public class PipelineSecretCopyService(
         if (request.TargetName is not null)
         {
             if (names.Length != 1)
-                return new ResultProblem("targetName needs exactly one secret name to copy.");
+                return ValidationProblem.ForField("targetName", "targetName needs exactly one secret name to copy.");
             if (string.IsNullOrWhiteSpace(request.TargetName))
-                return new ResultProblem("targetName must not be empty.");
+                return ValidationProblem.ForField("targetName", "targetName must not be empty.");
         }
 
         var problems = new List<ResultProblem>();
@@ -86,7 +86,7 @@ public class PipelineSecretCopyService(
             else if (samePipeline && to == name)
                 problems.Add(new ResultProblem("Copying secret '{0}' onto itself does nothing; pass a different target name.", name));
             else if (target is not null && target.ContainsKey(to) && !request.Overwrite)
-                problems.Add(new ResultProblem("Target pipeline already has secret '{0}' (pass overwrite to replace it).", to));
+                problems.Add(new ConflictProblem("Target pipeline already has secret '{0}' (pass overwrite to replace it).", to));
             else
                 plan.Add((name, to));
         }

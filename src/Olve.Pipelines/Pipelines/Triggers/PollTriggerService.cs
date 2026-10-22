@@ -174,7 +174,7 @@ public partial class PollTriggerService(
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            return new ResultProblem("GET {0} failed: {1}", Redact(poll.Url), e.Message);
+            return new UnavailableProblem(e, "GET {0} failed.", Redact(poll.Url));
         }
 
         using (response)

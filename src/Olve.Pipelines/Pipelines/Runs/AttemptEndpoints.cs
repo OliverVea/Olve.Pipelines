@@ -1,4 +1,3 @@
-using Olve.MinimalApi;
 
 namespace Olve.Pipelines.Pipelines.Runs;
 
@@ -12,8 +11,8 @@ public static class AttemptEndpoints
         app.MapGet("/api/attempts", Result<ActiveAttempt[]> (ActiveAttemptQuery query, string? status)
                 => status is null or "active"
                     ? query.List().ToArray()
-                    : new ResultProblem("status must be 'active' (got '{0}').", status))
-            .WithResultMapping<ActiveAttempt[]>()
+                    : ValidationProblem.ForField("status", "status must be 'active' (got '{0}').", status))
+            .WithApiResultMapping<ActiveAttempt[]>()
             .WithName("ListActiveAttempts")
             .AllowAnonymous();
     }

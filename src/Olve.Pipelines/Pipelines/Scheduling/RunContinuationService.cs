@@ -42,17 +42,17 @@ public class RunContinuationService(
         if (!plan.TryGetStep(stepName, out var stage, out var step))
             return new NotFoundProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
         if (gates.IsBlocked(run.PipelineId, stepName))
-            return new ResultProblem("Step '{0}' is blocked by its promotion gate.", stepName);
+            return new ConflictProblem("Step '{0}' is blocked by its promotion gate.", stepName);
 
         var stepAttempts = attempts.ListForStep(run.Id, stepName);
         if (stepAttempts.Any(a => a.Status.IsActive()))
-            return new ResultProblem("Step '{0}' already has an active attempt in run #{1}.", stepName, run.Number);
+            return new ConflictProblem("Step '{0}' already has an active attempt in run #{1}.", stepName, run.Number);
 
         var latest = stepAttempts.LastOrDefault();
         if (run.Status is RunStatus.Running && latest?.Status is not (Failed or Cancelled))
-            return new ResultProblem("Step '{0}' can be rerun only once run #{1} has finished or the step's latest attempt failed.", stepName, run.Number);
+            return new ConflictProblem("Step '{0}' can be rerun only once run #{1} has finished or the step's latest attempt failed.", stepName, run.Number);
         if (continueAfter && run.Status is RunStatus.Superseded)
-            return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
+            return new ConflictProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
 
         if (!StageScheduler.TryParseInput(run.Input, out var input))
             return new ResultProblem("Run #{0} has malformed input.", run.Number);
@@ -60,9 +60,9 @@ public class RunContinuationService(
         switch (StageScheduler.Decide(stage, step, new RunPool(run.Id, input, attempts)))
         {
             case StepDecision.Skip skip:
-                return new ResultProblem("Step '{0}' cannot run in run #{1}: {2}.", stepName, run.Number, skip.Reason);
+                return new ConflictProblem("Step '{0}' cannot run in run #{1}: {2}.", stepName, run.Number, skip.Reason);
             case StepDecision.Fail fail:
-                return new ResultProblem("Step '{0}' cannot run in run #{1}: {2}.", stepName, run.Number, fail.Reason);
+                return new ConflictProblem("Step '{0}' cannot run in run #{1}: {2}.", stepName, run.Number, fail.Reason);
             case StepDecision.Schedule schedule:
                 if (continueAfter && run.Status.IsTerminal() && runs.Reopen(run.Id).TryPickProblems(out var reopenProblems))
                     return reopenProblems;
@@ -82,11 +82,11 @@ public class RunContinuationService(
         if (!runs.TryGet(runId, out var run))
             return new NotFoundProblem("Run '{0}' not found.", runId);
         if (run.Status is RunStatus.Superseded)
-            return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
+            return new ConflictProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
         if (RequireActiveVersion(run) is { } versionProblem)
             return versionProblem;
         if (attempts.HasActiveAttempts(run.Id))
-            return new ResultProblem("Run #{0} still has active attempts; continue it once they finish.", run.Number);
+            return new ConflictProblem("Run #{0} still has active attempts; continue it once they finish.", run.Number);
         if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
         if (!StageScheduler.TryParseInput(run.Input, out var oldInput))
@@ -102,7 +102,7 @@ public class RunContinuationService(
             if (consumers.TryGetValue(AttemptInputBuilder.WholeInput, out var whole))
                 by = [.. by, .. whole];
             if (by.Count > 0)
-                violations.Add(new ResultProblem("Field '{0}' cannot change: completed step(s) {1} consumed it.",
+                violations.Add(ConflictProblem.ForField($"input.{field}", "Field '{0}' cannot change: completed step(s) {1} consumed it.",
                     field, string.Join(", ", by.Distinct().Order(StringComparer.Ordinal))));
         }
 
@@ -159,14 +159,14 @@ public class RunContinuationService(
         }
     }
 
-    private ResultProblem? RequireActiveVersion(Run run)
+    private ConflictProblem? RequireActiveVersion(Run run)
     {
         if (activations.TryGet(run.PipelineId, out var activation)
             && activation is PipelineActivation.Active active
             && active.VersionId == run.VersionId)
             return null;
 
-        return new ResultProblem(
+        return new ConflictProblem(
             "Run #{0} is pinned to version {1}, which is not the pipeline's active version; re-trigger the pipeline instead.",
             run.Number, run.VersionNumber);
     }

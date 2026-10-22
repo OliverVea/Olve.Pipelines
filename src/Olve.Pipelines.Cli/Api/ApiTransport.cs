@@ -9,7 +9,7 @@ namespace Olve.Pipelines.Cli.Api;
 
 /// <summary>
 /// Thin, AOT-safe HTTP layer over <see cref="HttpClient"/>: serializes via source-generated
-/// <c>JsonTypeInfo</c> (no reflection), maps non-success statuses to <see cref="ResultProblem"/>
+/// <c>JsonTypeInfo</c> (no reflection), maps non-success statuses to <see cref="ResultProblem"/>s (one per error of the body)
 /// (401/403 → "run pl login"), and logs each request to stderr under <c>--verbose</c>.
 /// </summary>
 public sealed class ApiTransport(HttpClient http, IConsoleLog log)
@@ -128,22 +128,27 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
 
         var body = await SafeReadAsync(response, ct);
 
-        // The API reports request errors as a ResultProblem[]: one `error:` line per problem.
+        // One `error:` line per server error, prefixed by its field (`input.sha: must match …`).
         if (ParseProblems(body) is { Length: > 0 } serverProblems)
-            return new ResultProblemCollection(serverProblems.Select(p => new ResultProblem("{0}", p.Message)));
+            return new ResultProblemCollection(serverProblems.Select(p => p.Field is { Length: > 0 } field
+                ? new ResultProblem("{0}: {1}", field, p.Message)
+                : new ResultProblem("{0}", p.Message)));
 
         var detail = string.IsNullOrWhiteSpace(body) ? string.Empty : $" — {Snippet(body)}";
         return new ResultProblem("Request failed: {0} {1}{2}", code, response.ReasonPhrase ?? string.Empty, detail);
     }
 
+    /// <summary>The errors of an <c>ApiProblem</c> body; a <c>ResultProblem[]</c> from a pre-v2 server as fallback.</summary>
     private static ServerProblem[]? ParseProblems(string body)
     {
         var trimmed = body.TrimStart();
-        if (!trimmed.StartsWith('['))
-            return null;
         try
         {
-            var problems = JsonSerializer.Deserialize(trimmed, CliJsonContext.Default.ServerProblemArray);
+            var problems = trimmed.StartsWith('{')
+                ? JsonSerializer.Deserialize(trimmed, CliJsonContext.Default.ServerProblemBody)?.Errors
+                : trimmed.StartsWith('[')
+                    ? JsonSerializer.Deserialize(trimmed, CliJsonContext.Default.ServerProblemArray)
+                    : null;
             return problems?.Where(p => !string.IsNullOrEmpty(p.Message)).ToArray();
         }
         catch (JsonException)

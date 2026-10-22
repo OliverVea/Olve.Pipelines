@@ -103,7 +103,9 @@ tools/version.cs                    CalVer versioning script
 ## Endpoints
 
 Reads (`GET`) are anonymous except secret listing and step-file listing/downloads. Everything else
-needs a bearer token. Errors are `400` with a `ResultProblem[]` body.
+needs a bearer token. Errors (any non-2xx but 401/403) are `application/problem+json`
+`{type, title, status, detail, errors: [{code, message, field?}], traceId}`; codes `not-found` (404),
+`conflict` (409), `invalid` (400), `unavailable` (503, with `Retry-After`) and `internal` (500).
 
 ### Pipelines
 
@@ -403,7 +405,7 @@ cd clients/olve-pipelines-client-ts && npm install
 ```
 
 Kiota is pinned in `.config/dotnet-tools.json` (1.36.1; 1.30 emits a `tsc` error on nullable
-polymorphic members). Kiota maps a `400` to a single `ResultProblem`, so the frontend sends actions
+polymorphic members). Error responses are a typed `ApiProblem`; the frontend still sends actions
 through `apiFetch` (see [frontend/README.md](frontend/README.md#api-usage)).
 
 ### C# ([Refitter](https://refitter.github.io/))

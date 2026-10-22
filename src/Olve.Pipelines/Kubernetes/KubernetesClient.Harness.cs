@@ -46,7 +46,7 @@ public partial class KubernetesClient : IHarnessKubernetesClient
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             _logger?.LogError("Failed to create Job {JobName}: {StatusCode} {Body}", name, response.StatusCode, body);
-            throw new InvalidOperationException($"Failed to create K8s Job '{name}': {response.StatusCode}");
+            throw new HttpRequestException($"Failed to create K8s Job '{name}': {response.StatusCode}", null, response.StatusCode);
         }
 
         _logger?.LogInformation("K8s Job {JobName} created", name);
@@ -67,7 +67,7 @@ public partial class KubernetesClient : IHarnessKubernetesClient
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"Failed to create K8s Secret '{secretName}': {response.StatusCode} {body}");
+            throw new HttpRequestException($"Failed to create K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
         }
     }
 

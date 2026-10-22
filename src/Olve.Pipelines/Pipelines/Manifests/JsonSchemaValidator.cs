@@ -34,35 +34,35 @@ public static class JsonSchemaValidator
 
     /// <summary>
     /// Validates <paramref name="value"/> against <paramref name="schema"/>, filling defaults for absent
-    /// object properties. Returns the value with defaults applied, or one problem per violation
-    /// (<c>input.mode: must be one of …</c>).
+    /// object properties. Returns the value with defaults applied, or one <see cref="ValidationProblem"/> per violation
+    /// (field <c>input.mode</c>, message <c>must be one of …</c>).
     /// </summary>
     public static Result<JsonNode?> Validate(JsonElement schema, JsonNode? value, string root = "input")
     {
-        var errors = new List<string>();
+        var errors = new List<(string Path, string Message)>();
         var result = Check(schema, value?.DeepClone(), root, errors, 0);
         return errors.Count == 0
             ? Result.Success(result)
-            : Result.Failure<JsonNode?>(errors.Select(e => new ResultProblem("{0}", e)));
+            : Result.Failure<JsonNode?>(errors.Select(e => ValidationProblem.ForField(e.Path, "{0}", e.Message)));
     }
 
-    private static JsonNode? Check(JsonElement schema, JsonNode? value, string path, List<string> errors, int depth)
+    private static JsonNode? Check(JsonElement schema, JsonNode? value, string path, List<(string Path, string Message)> errors, int depth)
     {
         if (depth > MaxDepth)
         {
-            errors.Add($"{path}: schema nesting is too deep");
+            errors.Add((path, "schema nesting is too deep"));
             return value;
         }
 
         if (schema.ValueKind == JsonValueKind.True) return value;
         if (schema.ValueKind == JsonValueKind.False)
         {
-            errors.Add($"{path}: no value is allowed here");
+            errors.Add((path, "no value is allowed here"));
             return value;
         }
         if (schema.ValueKind != JsonValueKind.Object)
         {
-            errors.Add($"{path}: invalid schema (not an object)");
+            errors.Add((path, "invalid schema (not an object)"));
             return value;
         }
 
@@ -70,7 +70,7 @@ public static class JsonSchemaValidator
         {
             if (!Supported.Contains(keyword.Name) && !Annotations.Contains(keyword.Name))
             {
-                errors.Add($"{path}: the input schema uses '{keyword.Name}', which this service does not support");
+                errors.Add((path, $"the input schema uses '{keyword.Name}', which this service does not support"));
                 return value;
             }
         }
@@ -80,16 +80,16 @@ public static class JsonSchemaValidator
 
         if (schema.TryGetProperty("type", out var type) && !MatchesType(type, value))
         {
-            errors.Add($"{path}: expected {Describe(type)}, got {KindOf(value)}");
+            errors.Add((path, $"expected {Describe(type)}, got {KindOf(value)}"));
             return value;
         }
 
         if (schema.TryGetProperty("const", out var constant) && !JsonNode.DeepEquals(ToNode(constant), value))
-            errors.Add($"{path}: must be {ToNode(constant)?.ToJsonString() ?? "null"}");
+            errors.Add((path, $"must be {ToNode(constant)?.ToJsonString() ?? "null"}"));
 
         if (schema.TryGetProperty("enum", out var enumValues) && enumValues.ValueKind == JsonValueKind.Array
             && !enumValues.EnumerateArray().Any(e => JsonNode.DeepEquals(ToNode(e), value)))
-            errors.Add($"{path}: must be one of {ToNode(enumValues)?.ToJsonString()}");
+            errors.Add((path, $"must be one of {ToNode(enumValues)?.ToJsonString()}"));
 
         switch (value)
         {
@@ -115,18 +115,18 @@ public static class JsonSchemaValidator
         return value;
     }
 
-    private static JsonNode? CheckAnyOf(JsonElement schema, JsonElement anyOf, JsonNode? value, string path, List<string> errors, int depth)
+    private static JsonNode? CheckAnyOf(JsonElement schema, JsonElement anyOf, JsonNode? value, string path, List<(string Path, string Message)> errors, int depth)
     {
         if (anyOf.ValueKind != JsonValueKind.Array)
         {
-            errors.Add($"{path}: invalid schema ('anyOf' is not an array)");
+            errors.Add((path, "invalid schema ('anyOf' is not an array)"));
             return value;
         }
 
-        var branchErrors = new List<string>();
+        var branchErrors = new List<(string Path, string Message)>();
         foreach (var branch in anyOf.EnumerateArray())
         {
-            var attempt = new List<string>();
+            var attempt = new List<(string Path, string Message)>();
             var result = Check(branch, value?.DeepClone(), path, attempt, depth + 1);
             if (attempt.Count == 0)
             {
@@ -138,17 +138,17 @@ public static class JsonSchemaValidator
                     siblings.Add(keyword.Name);
                 }
                 if (siblings.Count > 0)
-                    errors.Add($"{path}: 'anyOf' combined with {string.Join(", ", siblings)} is not supported");
+                    errors.Add((path, $"'anyOf' combined with {string.Join(", ", siblings)} is not supported"));
                 return result;
             }
             branchErrors.AddRange(attempt);
         }
 
-        errors.Add($"{path}: matches none of the allowed shapes ({string.Join("; ", branchErrors.Distinct())})");
+        errors.Add((path, $"matches none of the allowed shapes ({string.Join("; ", branchErrors.Distinct().Select(e => $"{e.Path}: {e.Message}"))})"));
         return value;
     }
 
-    private static void CheckObject(JsonElement schema, JsonObject obj, string path, List<string> errors, int depth)
+    private static void CheckObject(JsonElement schema, JsonObject obj, string path, List<(string Path, string Message)> errors, int depth)
     {
         var properties = schema.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object
             ? props
@@ -169,7 +169,7 @@ public static class JsonSchemaValidator
             foreach (var r in required.EnumerateArray())
             {
                 if (r.ValueKind == JsonValueKind.String && !obj.ContainsKey(r.GetString()!))
-                    errors.Add($"{path}.{r.GetString()}: is required");
+                    errors.Add(($"{path}.{r.GetString()}", "is required"));
             }
         }
 
@@ -186,7 +186,7 @@ public static class JsonSchemaValidator
             }
             else if (additional is { ValueKind: JsonValueKind.False })
             {
-                errors.Add($"{childPath}: is not allowed (unknown property)");
+                errors.Add((childPath, "is not allowed (unknown property)"));
             }
             else if (additional is { ValueKind: JsonValueKind.Object } additionalSchema)
             {
@@ -195,42 +195,42 @@ public static class JsonSchemaValidator
         }
     }
 
-    private static void CheckString(JsonElement schema, string s, string path, List<string> errors)
+    private static void CheckString(JsonElement schema, string s, string path, List<(string Path, string Message)> errors)
     {
         var length = new StringInfo(s).LengthInTextElements;
         if (schema.TryGetProperty("minLength", out var min) && min.TryGetInt64(out var minLength) && length < minLength)
-            errors.Add($"{path}: must be at least {minLength} characters");
+            errors.Add((path, $"must be at least {minLength} characters"));
         if (schema.TryGetProperty("maxLength", out var max) && max.TryGetInt64(out var maxLength) && length > maxLength)
-            errors.Add($"{path}: must be at most {maxLength} characters");
+            errors.Add((path, $"must be at most {maxLength} characters"));
         if (schema.TryGetProperty("pattern", out var pattern) && pattern.ValueKind == JsonValueKind.String)
         {
             try
             {
                 if (!Regex.IsMatch(s, pattern.GetString()!, RegexOptions.None, RegexTimeout))
-                    errors.Add($"{path}: must match {pattern.GetString()}");
+                    errors.Add((path, $"must match {pattern.GetString()}"));
             }
             catch (ArgumentException)
             {
-                errors.Add($"{path}: the schema's pattern is not a supported regular expression");
+                errors.Add((path, "the schema's pattern is not a supported regular expression"));
             }
             catch (RegexMatchTimeoutException)
             {
-                errors.Add($"{path}: the schema's pattern took too long to evaluate");
+                errors.Add((path, "the schema's pattern took too long to evaluate"));
             }
         }
     }
 
-    private static void CheckNumber(JsonElement schema, JsonValue v, string path, List<string> errors)
+    private static void CheckNumber(JsonElement schema, JsonValue v, string path, List<(string Path, string Message)> errors)
     {
         var n = ToDouble(v);
         if (schema.TryGetProperty("minimum", out var min) && min.ValueKind == JsonValueKind.Number && n < min.GetDouble())
-            errors.Add($"{path}: must be ≥ {min.GetRawText()}");
+            errors.Add((path, $"must be ≥ {min.GetRawText()}"));
         if (schema.TryGetProperty("maximum", out var max) && max.ValueKind == JsonValueKind.Number && n > max.GetDouble())
-            errors.Add($"{path}: must be ≤ {max.GetRawText()}");
+            errors.Add((path, $"must be ≤ {max.GetRawText()}"));
         if (schema.TryGetProperty("exclusiveMinimum", out var xmin) && xmin.ValueKind == JsonValueKind.Number && n <= xmin.GetDouble())
-            errors.Add($"{path}: must be > {xmin.GetRawText()}");
+            errors.Add((path, $"must be > {xmin.GetRawText()}"));
         if (schema.TryGetProperty("exclusiveMaximum", out var xmax) && xmax.ValueKind == JsonValueKind.Number && n >= xmax.GetDouble())
-            errors.Add($"{path}: must be < {xmax.GetRawText()}");
+            errors.Add((path, $"must be < {xmax.GetRawText()}"));
     }
 
     private static bool MatchesType(JsonElement type, JsonNode? value) => type.ValueKind switch

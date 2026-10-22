@@ -135,7 +135,7 @@ public class RunService(
         if (!store.TryGet(id, out var current))
             return new NotFoundProblem("Run '{0}' not found.", id);
         if (current.Status is RunStatus.Superseded)
-            return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", current.Number);
+            return new ConflictProblem("Run #{0} was superseded by a newer run and cannot be continued.", current.Number);
 
         var now = timeProvider.GetUtcNow();
         var mutated = store.Mutate(id, r => r.Status is RunStatus.Superseded
@@ -146,7 +146,7 @@ public class RunService(
 
         return store.TryGet(id, out var after) && after.Status is RunStatus.Running
             ? after
-            : new ResultProblem("Run '{0}' changed concurrently.", id);
+            : new ConflictProblem("Run '{0}' changed concurrently.", id);
     }
 
     /// <summary>Sets (or clears, with null) the gate hold marker of a Running run. No-op when unchanged.</summary>
@@ -167,7 +167,7 @@ public class RunService(
         if (!store.TryGet(id, out var current))
             return new NotFoundProblem("Run '{0}' not found.", id);
         if (current.Status.IsTerminal())
-            return new ResultProblem("Run #{0} is already {1}.", current.Number, current.Status);
+            return new ConflictProblem("Run #{0} is already {1}.", current.Number, current.Status);
 
         var mutated = store.Mutate(id, r => r.Status.IsTerminal() ? r : fromRunning(r));
         if (mutated.TryPickProblems(out var problems))
@@ -175,7 +175,7 @@ public class RunService(
 
         return store.TryGet(id, out var after) && after.Status != RunStatus.Running
             ? after
-            : new ResultProblem("Run '{0}' changed concurrently.", id);
+            : new ConflictProblem("Run '{0}' changed concurrently.", id);
     }
 
     private int MaxNumber(Id<Pipeline> pipelineId)

@@ -151,7 +151,7 @@ public class PipelineReconcileService(
             // A failed build of this commit: rebuild from scratch (the operator asked for a retry).
             await control.DeleteJobAsync(jobName);
             if (!await WaitGoneAsync(jobName, ct))
-                return new ResultProblem("The previous build Job '{0}' of this commit is still being deleted; retry shortly.", jobName);
+                return new UnavailableProblem("The previous build Job '{0}' of this commit is still being deleted; retry shortly.", jobName);
             existing = null;
         }
 

@@ -1,4 +1,3 @@
-using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines.Scheduling;
 
 namespace Olve.Pipelines.Pipelines.Versions;
@@ -34,7 +33,7 @@ public static class PipelineVersionEndpoints
                 => new PipelineVersionsResponse(
                     activations.TryGet(pipelineId, out var activation) ? activation : null,
                     versions.ListByPipeline(pipelineId).Select(PipelineVersionSummary.From).ToArray()))
-            .WithResultMapping<PipelineVersionsResponse>()
+            .WithApiResultMapping<PipelineVersionsResponse>()
             .WithName("ListPipelineVersions")
             .AllowAnonymous();
 
@@ -43,7 +42,7 @@ public static class PipelineVersionEndpoints
                 => versions.TryGetByNumber(pipelineId, number, out var version)
                     ? version
                     : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
-            .WithResultMapping<PipelineVersion>()
+            .WithApiResultMapping<PipelineVersion>()
             .WithName("GetPipelineVersion")
             .AllowAnonymous();
 
@@ -53,7 +52,7 @@ public static class PipelineVersionEndpoints
                 => versions.TryGetByNumber(pipelineId, request.Version, out var version)
                     ? switches.Switch(pipelineId, version.Id, request.CancelRunning)
                     : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", request.Version, pipelineId))
-            .WithResultMapping<PipelineActivation>()
+            .WithApiResultMapping<PipelineActivation>()
             .WithName("SwitchPipelineVersion");
     }
 }

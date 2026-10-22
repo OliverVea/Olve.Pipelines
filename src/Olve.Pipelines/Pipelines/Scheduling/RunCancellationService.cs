@@ -28,7 +28,7 @@ public class RunCancellationService(
 
         var active = attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()).ToList();
         if (run.Status.IsTerminal() && active.Count == 0)
-            return new ResultProblem("Run #{0} is already {1}.", run.Number, run.Status);
+            return new ConflictProblem("Run #{0} is already {1}.", run.Number, run.Status);
 
         if (run.Status is RunStatus.Running && runs.Cancel(run.Id).TryPickProblems(out var problems))
             return problems;
@@ -61,7 +61,7 @@ public class RunCancellationService(
 
         var active = stepAttempts.LastOrDefault(a => a.Status.IsActive());
         if (active is null)
-            return new ResultProblem("Step '{0}' has no scheduled or in-progress attempt in run #{1} (latest is {2}).",
+            return new ConflictProblem("Step '{0}' has no scheduled or in-progress attempt in run #{1} (latest is {2}).",
                 stepName, run.Number, stepAttempts[^1].Status.Discriminator());
 
         if (attempts.Cancel(active.Id).TryPickProblems(out var problems))

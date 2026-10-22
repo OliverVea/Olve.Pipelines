@@ -64,7 +64,7 @@ public class PipelineSecretService(
         if (!pipelines.TryGet(pipelineId, out _))
             return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (TryKubernetes() is not { } k8s)
-            return new ResultProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
+            return new UnavailableProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;
 
         var secretName = PipelineSecrets.Name(pipelineId);
@@ -87,7 +87,7 @@ public class PipelineSecretService(
         if (!pipelines.TryGet(pipelineId, out _))
             return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (TryKubernetes() is not { } k8s)
-            return new ResultProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
+            return new UnavailableProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;
 
         var secretName = PipelineSecrets.Name(pipelineId);

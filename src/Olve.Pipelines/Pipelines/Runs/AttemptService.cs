@@ -138,7 +138,7 @@ public class AttemptService(
 
         return store.TryGet(id, out var after) && after.Status is InProgress ip
             ? ip.StartedAt
-            : new ResultProblem("Attempt '{0}' is not in progress.", id);
+            : new ConflictProblem("Attempt '{0}' is not in progress.", id);
     }
 
     /// <summary>
@@ -190,7 +190,7 @@ public class AttemptService(
 
         return store.TryGet(id, out var after) && after.Status is Scheduled scheduled
             ? scheduled.SubmissionAttempts
-            : new ResultProblem("Attempt '{0}' is no longer scheduled.", id);
+            : new ConflictProblem("Attempt '{0}' is no longer scheduled.", id);
     }
 
     public Result Cancel(Id<Attempt> id)
@@ -200,7 +200,7 @@ public class AttemptService(
 
         // Advisory pre-check for the message; the guarded Mutate is the atomic write.
         if (!attempt.Status.IsActive())
-            return new ResultProblem("Attempt '{0}' cannot be cancelled because it is {1}.", id, attempt.Status.Discriminator());
+            return new ConflictProblem("Attempt '{0}' cannot be cancelled because it is {1}.", id, attempt.Status.Discriminator());
 
         var now = timeProvider.GetUtcNow();
         return store.Mutate(id, a => a.Status switch

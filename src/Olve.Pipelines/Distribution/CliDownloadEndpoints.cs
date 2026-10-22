@@ -49,7 +49,8 @@ public static class CliDownloadEndpoints
             // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation /
             // no-storage profiles), so resolve optionally and degrade to 503 instead of a DI failure.
             if (services.GetService<IAmazonS3>() is null)
-                return HttpResults.Problem("Storage not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+                return ApiProblems.ToResult(ApiProblems.FromStatus(
+                    StatusCodes.Status503ServiceUnavailable, "Storage is not configured.", ApiProblems.TraceId(http)));
 
             // Not published yet (or Distribution:CliPipeline unset).
             if (!services.GetRequiredService<CliReleaseQuery>().TryGetLatest(out var attempt))

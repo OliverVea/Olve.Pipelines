@@ -1,4 +1,3 @@
-using Olve.MinimalApi;
 using Olve.Pipelines.Pipelines;
 
 namespace Olve.Pipelines.Kubernetes.Api;
@@ -12,17 +11,17 @@ public static class SecretEndpoints
         // Declared (active version + binding) and set secrets; values are never returned.
         group.MapGet("/", Task<Result<PipelineSecretInfo[]>> (PipelineSecretService secrets, Id<Pipeline> pipelineId, CancellationToken ct)
                 => secrets.ListAsync(pipelineId, ct))
-            .WithResultMapping<PipelineSecretInfo[]>()
+            .WithApiResultMapping<PipelineSecretInfo[]>()
             .WithName("ListSecrets");
 
         group.MapPut("/{name}", Task<Result> (PipelineSecretService secrets, Id<Pipeline> pipelineId, string name, SetSecretRequest request, CancellationToken ct)
                 => secrets.SetAsync(pipelineId, name, request.Value, ct))
-            .WithResultMapping()
+            .WithApiResultMapping()
             .WithName("SetSecret");
 
         group.MapDelete("/{name}", Task<Result> (PipelineSecretService secrets, Id<Pipeline> pipelineId, string name, CancellationToken ct)
                 => secrets.DeleteAsync(pipelineId, name, ct))
-            .WithResultMapping()
+            .WithApiResultMapping()
             .WithName("DeleteSecret");
 
         // Server-side copy from another pipeline on this instance; values are never returned or logged.
@@ -32,7 +31,7 @@ public static class SecretEndpoints
             Id<Pipeline> pipelineId,
             CopySecretsRequest request,
             CancellationToken ct) => copies.CopyAsync(pipelineId, request, Actor(http.User), ct))
-        .WithResultMapping<CopySecretsResponse>()
+        .WithApiResultMapping<CopySecretsResponse>()
         .WithName("CopySecrets");
     }
 

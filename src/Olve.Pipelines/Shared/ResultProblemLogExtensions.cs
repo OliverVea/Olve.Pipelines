@@ -31,7 +31,7 @@ public static class ResultProblemLogExtensions
         var list = problems as IReadOnlyList<ResultProblem> ?? problems.ToArray();
 
         var count = list.Count;
-        var messages = string.Join("; ", list.Select(p => p.ToBriefString()));
+        var messages = string.Join("; ", list.Select(Describe));
         var maxSeverity = count == 0 ? 0 : list.Max(p => p.Severity);
 
         var allArgs = new object?[args.Length + 3];
@@ -44,5 +44,12 @@ public static class ResultProblemLogExtensions
             level,
             message + " ProblemCount={ProblemCount} ProblemMessages={ProblemMessages} MaxSeverity={MaxSeverity}",
             allArgs);
+    }
+
+    private static string Describe(ResultProblem p)
+    {
+        var text = Olve.Pipelines.Shared.Problems.ProblemText.ToDisplayString(p);
+        return p.Exception is { } ex ? $"{text} ({ex.GetType().Name}: {ex.Message})"
+            : p.ExceptionSummary is { } summary ? $"{text} ({summary})" : text;
     }
 }

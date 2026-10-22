@@ -146,8 +146,17 @@ public sealed class RerunStepRequest
     public bool Continue { get; init; }
 }
 
-/// <summary>One problem from a 400 response (<c>ResultProblem[]</c>); only the message is rendered.</summary>
+/// <summary>An error body (<c>ApiProblem</c>): every non-2xx response but 401/403.</summary>
+public sealed class ServerProblemBody
+{
+    public int Status { get; set; }
+    public string? Title { get; set; }
+    public ServerProblem[]? Errors { get; set; }
+}
+
+/// <summary>One error of a <see cref="ServerProblemBody"/>, or of a pre-v2 server's <c>ResultProblem[]</c> body.</summary>
 public sealed class ServerProblem
 {
     public string Message { get; set; } = "";
+    public string? Field { get; set; }
 }

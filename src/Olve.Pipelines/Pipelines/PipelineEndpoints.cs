@@ -1,4 +1,3 @@
-using Olve.MinimalApi;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines;
@@ -17,19 +16,19 @@ public static class PipelineEndpoints
                 => service.TryGet(id, out var pipeline)
                     ? Result.Success(pipeline)
                     : Result.Failure<Pipeline>(new NotFoundProblem("Pipeline '{0}' not found.", id)))
-            .WithResultMapping<Pipeline>()
+            .WithApiResultMapping<Pipeline>()
             .WithName("GetPipeline")
             .AllowAnonymous();
 
         group.MapGet("/", Result<Pipeline[]> (PipelineService service)
                 => service.List().ToArray())
-            .WithResultMapping<Pipeline[]>()
+            .WithApiResultMapping<Pipeline[]>()
             .WithName("ListPipelines")
             .AllowAnonymous();
 
         group.MapGet("/summary", Result<PipelineSummary[]> (PipelineSummaryService service)
                 => service.List().ToArray())
-            .WithResultMapping<PipelineSummary[]>()
+            .WithApiResultMapping<PipelineSummary[]>()
             .WithName("ListPipelineSummaries")
             .AllowAnonymous();
 

@@ -22,11 +22,11 @@ public class KubernetesPipelineSecretReader(IServiceProvider sp) : IPipelineSecr
         }
         catch (Exception ex)
         {
-            return Result.Failure<string>(new ResultProblem($"Failed to read pipeline secret for '{pipelineId}': {ex.Message}"));
+            return Result.Failure<string>(new UnavailableProblem(ex, "Failed to read pipeline secret for '{0}'.", pipelineId));
         }
 
         if (secrets is null || !secrets.TryGetValue(key, out var value) || string.IsNullOrEmpty(value))
-            return Result.Failure<string>(new ResultProblem($"Pipeline '{pipelineId}' secret has no key '{key}'."));
+            return Result.Failure<string>(new NotFoundProblem("Pipeline '{0}' secret has no key '{1}'.", pipelineId, key));
 
         return value;
     }

@@ -65,7 +65,7 @@ public class PipelineActivationService(
         lock (_gate)
         {
             if (!activations.TryGet(pipelineId, out var current) || current is not Draining d)
-                return new ResultProblem("Pipeline '{0}' has no switch in progress.", pipelineId);
+                return new ConflictProblem("Pipeline '{0}' has no switch in progress.", pipelineId);
 
             var next = new Active(d.ToVersionId, d.ToVersionNumber, timeProvider.GetUtcNow());
             activations.Set(pipelineId, next);

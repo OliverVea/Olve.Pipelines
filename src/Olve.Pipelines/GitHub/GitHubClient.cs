@@ -57,7 +57,7 @@ public class GitHubClient : IGitHubClient, IDisposable
         catch (Exception ex)
         {
             _logger?.LogError(ex, "GitHub create-hook request failed for {Owner}/{Repo}", owner, repo);
-            return Result.Failure<long>(new ResultProblem($"GitHub create-hook request failed for '{owner}/{repo}': {ex.Message}"));
+            return Result.Failure<long>(new UnavailableProblem(ex, "GitHub create-hook request failed for '{0}/{1}'.", owner, repo));
         }
 
         if (!response.IsSuccessStatusCode)
@@ -89,7 +89,7 @@ public class GitHubClient : IGitHubClient, IDisposable
         catch (Exception ex)
         {
             _logger?.LogError(ex, "GitHub delete-hook request failed for {Owner}/{Repo} hook {HookId}", owner, repo, hookId);
-            return new ResultProblem($"GitHub delete-hook request failed for '{owner}/{repo}' hook {hookId}: {ex.Message}");
+            return new UnavailableProblem(ex, "GitHub delete-hook request failed for '{0}/{1}' hook {2}.", owner, repo, hookId);
         }
 
         if (response.StatusCode == HttpStatusCode.NotFound)

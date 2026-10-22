@@ -29,15 +29,15 @@ public class AttemptFileService(IAmazonS3 s3, StorageOptions storageOptions)
     public static Result<string> ToObjectPath(string? path)
     {
         if (string.IsNullOrEmpty(path))
-            return new ResultProblem("A file path is required.");
+            return ValidationProblem.ForField("path", "A file path is required.");
         if (path.StartsWith('/') || path.Contains('\\') || path.Contains('\0'))
-            return new ResultProblem("File path '{0}' must be relative, without '\\' or NUL.", path);
+            return ValidationProblem.ForField("path", "File path '{0}' must be relative, without '\\' or NUL.", path);
 
         var isDirectory = path.EndsWith('/');
         var trimmed = isDirectory ? path[..^1] : path;
         var segments = trimmed.Split('/');
         if (segments.Any(s => s is "" or "." or ".."))
-            return new ResultProblem("File path '{0}' has an empty, '.' or '..' segment.", path);
+            return ValidationProblem.ForField("path", "File path '{0}' has an empty, '.' or '..' segment.", path);
 
         return isDirectory ? trimmed + ".tar" : trimmed;
     }

@@ -82,7 +82,7 @@ public class RunStartService(
             trigger = trigger with { DedupKey = CanonicalJson.Hash(input) };
 
         if (!activations.TryGet(pipelineId, out var activation))
-            return new ResultProblem("Pipeline '{0}' has no active version.", pipelineId);
+            return new ConflictProblem("Pipeline '{0}' has no active version.", pipelineId);
 
         // De-dup only against runs of the version a new run would pin: during a drain the old
         // version's runs are about to be abandoned, so they must not swallow the trigger.
@@ -149,7 +149,7 @@ public class RunStartService(
             if (runs.Supersede(older.Id, newer.Id).TryPickProblems(out var problems))
             {
                 logger.LogDebug("Run #{RunNumber} ('{RunId}') was not superseded: {Reason}", older.Number, older.Id,
-                    string.Join("; ", problems.Select(p => p.FormattedMessage)));
+                    string.Join("; ", problems.Select(p => p.ToDisplayString())));
             }
             else
             {

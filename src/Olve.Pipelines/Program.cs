@@ -21,6 +21,7 @@ builder.ConfigureTelemetry();
 builder.ConfigureStorage();
 builder.ConfigureKubernetes();
 builder.Services.AddPipelineServices();
+builder.Services.AddApiErrors();
 
 var app = builder.Build();
 
@@ -33,14 +34,21 @@ EventDispatch.OnHandlerException = ex =>
 app.Use(async (context, next) =>
 {
     var sw = System.Diagnostics.Stopwatch.StartNew();
-    await next();
-    var path = context.Request.Path;
-    if (path.StartsWithSegments("/api"))
+    try
     {
-        app.Logger.LogInformation("{Method} {Path} {StatusCode} {Elapsed}ms",
-            context.Request.Method, path, context.Response.StatusCode, sw.ElapsedMilliseconds);
+        await next();
+    }
+    finally
+    {
+        var path = context.Request.Path;
+        if (path.StartsWithSegments("/api"))
+        {
+            app.Logger.LogInformation("{Method} {Path} {StatusCode} {Elapsed}ms",
+                context.Request.Method, path, context.Response.StatusCode, sw.ElapsedMilliseconds);
+        }
     }
 });
+app.UseApiErrors();
 
 app.UseDefaultFiles();
 

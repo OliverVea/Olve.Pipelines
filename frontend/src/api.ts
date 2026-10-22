@@ -45,7 +45,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Messages of an error body: `{ errors: [{ message, field? }] }` (also as a Kiota error), or a legacy problem array. */
 function problemsFromBody(body: unknown): string[] {
+  const errors = body && typeof body === 'object' ? (body as { errors?: unknown }).errors : undefined;
+  if (Array.isArray(errors)) {
+    return errors
+      .map((e) => {
+        const { message, field } = (e ?? {}) as { message?: unknown; field?: unknown };
+        if (typeof message !== 'string' || !message) return '';
+        return typeof field === 'string' && field ? `${field}: ${message}` : message;
+      })
+      .filter((m) => m.length > 0);
+  }
   const list = Array.isArray(body) ? body : body && typeof body === 'object' ? [body] : [];
   return list
     .map((p) => {
@@ -204,6 +215,8 @@ export function extractErrorMessage(err: unknown): string {
       additionalData?: Record<string, unknown>;
       responseStatusCode?: unknown;
     };
+    const fromBody = Array.isArray((err as { errors?: unknown }).errors) ? problemsFromBody(err) : [];
+    if (fromBody.length) return fromBody.join('\n');
     const fromArray = problemsFromBody(Object.values(p.additionalData ?? {}));
     if (fromArray.length) return fromArray.join('\n');
     if (p.responseStatusCode === 401) return 'Sign in to see this (HTTP 401).';

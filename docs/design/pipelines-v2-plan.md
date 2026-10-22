@@ -391,8 +391,30 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - Dead code removed: `IPipelineSecretStore`, `ConfigFetch.Changed.Files`, bare Jobs,
   `PipelineService.SetName`, the public `/api/webhooks/github` ingress path, `pl bootstrap`'s
   legacy-MinIO guard. The v2 chart no longer has MinIO templates or `minio:` values.
-- Deferred: typed problems / RFC 9457 error bodies (next change); renaming `JobQueueService` /
-  `JobLogService`.
+- Deferred: renaming `JobQueueService` / `JobLogService`.
+
+### Error model (2026-10-22)
+
+- **Typed problems** (`Shared/Problems`): Olve's `NotFoundProblem` (404, Olve.* 0.55), `ConflictProblem`
+  (409: inactive version, blocked step, active attempts, superseded, already bound/exists),
+  `ValidationProblem` (400) and `UnavailableProblem` (503: K8s/Garage/GitHub). Validation and conflict
+  problems carry an optional `Field` (`input.sha`; `JsonSchemaValidator` and the continue
+  consumed-field check set it). Plain `ResultProblem` stays 400.
+- **One body for every non-2xx** but 401/403 (empty: no auth code):
+  `application/problem+json` `{type, title, status, detail, errors: [{code, message, field?}], traceId}`,
+  codes `not-found | conflict | invalid | unavailable | internal`. `WithApiResultMapping` replaces
+  Olve's `WithResultMapping` and declares `ApiProblem` for 400/404/409/500/503 (Kiota generates a
+  typed error). **Status precedence**: 404 > 409 > 503 > 400 — a missing resource or a conflicting state
+  can't be fixed by retrying; prepended plain context never downgrades the status.
+- Severity, source, tags and exception summaries are never returned; the mapping logs them once
+  (`LogProblems`). `traceId` is the W3C trace id; console scopes are on, so it greps to the log lines.
+- `UseApiErrors`: unhandled exceptions → 503 + `Retry-After` for transient ones (`HttpRequestException`
+  5xx/429/no status, S3 5xx, timeouts, socket/IO), 500 otherwise, generic text, logged once with the
+  stack; binding failures (`ThrowOnBadRequest`) → 400; empty-bodied `/api` errors get the shape.
+- Rejected: array bodies (no place for status-level fields; Kiota maps them to one object), tag-string
+  codes on `ResultProblem` (stringly typed, easy to drop on `Prepend`), Olve's `[GenerateResult]`
+  unions per endpoint (a type per endpoint for what is a cross-cutting mapping).
+- Later: lift the problem types and the mapping into Olve.Results / Olve.MinimalApi.
 
 ### Promotion checklist (v2 → prod / `main`)
 

@@ -67,4 +67,39 @@ public class ApiTransportTests
         await Assert.That(problems?.Any(p => p.ToString()!.Contains("500")) ?? false).IsTrue();
         await Assert.That(problems?.Any(p => p.ToString()!.Contains("boom")) ?? false).IsTrue();
     }
+
+    // Catches: pl printing the raw ApiProblem JSON, or dropping the field path, instead of one line per error.
+    [Test]
+    public async Task Get_ApiProblemBody_OneProblemPerErrorWithField()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""
+                {"type":"urn:olve-pipelines:invalid","title":"Invalid request","status":400,"detail":"must match ^[0-9a-f]{7,40}$",
+                 "errors":[{"code":"invalid","message":"must match ^[0-9a-f]{7,40}$","field":"input.sha"},{"code":"invalid","message":"is required","field":"input.mode"}],
+                 "traceId":"abc"}
+                """),
+        });
+
+        var result = await Transport(handler).GetAsync("/api/pipelines/", CliJsonContext.Default.PipelineArray, CancellationToken.None);
+
+        result.TryPickProblems(out var problems);
+        await Assert.That(problems!.Select(p => p.ToString()).ToArray())
+            .IsEquivalentTo(["input.sha: must match ^[0-9a-f]{7,40}$", "input.mode: is required"]);
+    }
+
+    // Catches: losing messages from a pre-v2 server (v1 prod is still pl's default) that answers ResultProblem[].
+    [Test]
+    public async Task Get_LegacyProblemArray_StillParsed()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""[{"message":"Pipeline 'x' not found.","severity":0}]"""),
+        });
+
+        var result = await Transport(handler).GetAsync("/api/pipelines/", CliJsonContext.Default.PipelineArray, CancellationToken.None);
+
+        result.TryPickProblems(out var problems);
+        await Assert.That(problems!.Single().ToString()).IsEqualTo("Pipeline 'x' not found.");
+    }
 }

@@ -39,7 +39,7 @@ public class RunInputService(
     public Result<(PipelineVersion Version, Manifest Manifest)> GetTarget(Id<Pipeline> pipelineId)
     {
         if (!TryGetTargetVersion(pipelineId, out var version))
-            return new ResultProblem("Pipeline '{0}' has no active version yet (reconcile its binding first).", pipelineId);
+            return new ConflictProblem("Pipeline '{0}' has no active version yet (reconcile its binding first).", pipelineId);
         if (plans.Get(version.Id).TryPickProblems(out var problems, out var plan))
             return Result.Failure<(PipelineVersion, Manifest)>(problems);
         return (version, plan.Manifest);
@@ -64,7 +64,7 @@ public class RunInputService(
         if (JsonSchemaValidator.Validate(model.Output, input).TryPickProblems(out var problems, out var value))
             return Result.Failure<string>(problems);
         if (value is not JsonObject)
-            return new ResultProblem("Run input must be a JSON object.");
+            return ValidationProblem.ForField("input", "Run input must be a JSON object.");
         return value.ToJsonString();
     }
 
@@ -100,7 +100,7 @@ public class RunInputService(
     public Result<Run> Continue(Run run, JsonNode? changes)
     {
         if (changes is not null and not JsonObject)
-            return new ResultProblem("The input changes must be a JSON object.");
+            return ValidationProblem.ForField("input", "The input changes must be a JSON object.");
         if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
             return Result.Failure<Run>(planProblems);
         if (JsonNode.Parse(run.Input) is not JsonObject merged)

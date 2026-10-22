@@ -128,7 +128,7 @@ cd frontend && npm run build                                # Production build
 - **Two-tier events** — EntityStore fires low-level CRUD events, forwarded to domain event hubs. Subscribers subscribe to domain hubs, not the store.
 - **Explicit event registration** — each domain area has a `*EventRegistration` class implementing `IRunOnStartup`. Each line is one subscription. Handlers are resolved from `IServiceProvider` at dispatch time so services stay transient.
 - **Transient by default, singleton only for state** — don't cache what you can query. Keep derived state as queries until performance proves otherwise.
-- **Result error handling** — no exceptions, `Olve.Results` everywhere.
+- **Result error handling** — no exceptions, `Olve.Results` everywhere. The problem type decides the HTTP status (`NotFoundProblem` 404, `ConflictProblem` 409, `ValidationProblem` 400 with `Field`, `UnavailableProblem` 503; `Shared/Problems`); endpoints use `WithApiResultMapping`, which answers an `ApiProblem` body (see the error-model entry in the v2 plan).
 - **IRunOnStartup over IHostedService** — domain startup wiring uses `IRunOnStartup` (sync, returns `Result`). A single `StartupRunner` hosted service runs them all. Keeps `IHostedService` out of domain code.
 - **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store -> events -> subscribers explicitly in tests, no DI container needed.
 - **Named endpoints** — all endpoints use `.WithName()` to set `operationId` in the OpenAPI spec, giving clean generated client method names.

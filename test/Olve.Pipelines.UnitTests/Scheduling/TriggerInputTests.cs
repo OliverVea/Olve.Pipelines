@@ -41,7 +41,7 @@ public class JsonSchemaValidatorTests
 
         await Assert.That(result).Failed();
         result.TryPickProblems(out var problems);
-        await Assert.That(string.Join("\n", problems!.Select(p => p.FormattedMessage))).Contains(expected);
+        await Assert.That(string.Join("\n", problems!.Select(p => p.ToDisplayString()))).Contains(expected);
     }
 
     [Test]

@@ -9,7 +9,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 
 - .NET 10, Native-AOT published. Controller: `src/Olve.Pipelines`. Operator CLI:
   `src/Olve.Pipelines.Cli` (binary `pl`, a separate AOT project that shares ~no runtime code).
-- `dotnet build` / `dotnet test` (unit) / `dotnet test -p:RunIntegrationTests=true` (all).
+- `dotnet build` / `dotnet test`.
 - SDK (`sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
 - In the v2 pipeline (`.pipelines/pipeline.ts`), the container is built with **kaniko**
   (`steps.imageBuild`, layer cache in `registry.ovea.pro`) while the unit tests run in parallel

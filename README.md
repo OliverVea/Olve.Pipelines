@@ -98,7 +98,6 @@ helm/                               Helm chart (values.yaml, values-beta.yaml, v
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 test/Olve.Pipelines.UnitTests/      Unit tests (TUnit + Rocks)
-test/Olve.Pipelines.IntegrationTests/  Integration tests against the live beta instance
 tools/version.cs                    CalVer versioning script
 ```
 
@@ -324,18 +323,16 @@ pl bootstrap / pl teardown                             # cold install / remove (
 
 ```bash
 dotnet build                                                   # Build
-dotnet test                                                    # Unit tests only
-dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only
-dotnet test -p:RunIntegrationTests=true                        # All tests
+dotnet test                                                    # Tests
 dotnet run --project src/Olve.Pipelines                        # Run locally
 
 cd sdk && bun install && bunx tsc --noEmit -p . && bun test    # SDK: type-check + compile-fail cases + runtime tests
 cd frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```
 
-Integration tests run against the live v1 **beta** instance over authenticated HTTP; see
-`test/Olve.Pipelines.IntegrationTests/AppFixture.cs` for the env vars. They don't cover v2 yet; v2
-features were verified live on v2 beta against the `.pipelines-test/` fixture (see the plan).
+Every deploy checks the fresh v2 beta in the `beta-test` step (`.pipelines/handlers/beta-test.ts`):
+readiness, the API's reads and error shape, that an anonymous mutation is refused, the event stream,
+the frontend bundle and the install script.
 
 ## Configuration
 

@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <IsTestProject Condition="'$(RunUnitTests)' == 'false'">false</IsTestProject>
-    <IsTestingPlatformApplication Condition="'$(RunUnitTests)' == 'false'">false</IsTestingPlatformApplication>
     <!-- The CLI apphost is named 'pl'; without this, the testing platform's Polish ('pl')
          satellite-resource folder collides with it on copy. Keep English resources only. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

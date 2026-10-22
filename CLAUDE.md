@@ -79,9 +79,7 @@ When adding a new way to start work, go through `RunStartService` (runs) or `Run
 
 ```bash
 dotnet build                                                # Build
-dotnet test                                                 # Unit tests only
-dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only
-dotnet test -p:RunIntegrationTests=true                     # All tests
+dotnet test                                                 # Tests
 dotnet run --project src/Olve.Pipelines                     # Run locally
 ```
 

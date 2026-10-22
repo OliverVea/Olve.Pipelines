@@ -17,6 +17,12 @@ export default implement(betaTest, async (_input, ctx) => {
   const js = await ctx.http.expectOk(`${BETA_URL}${bundle}`);
   check(js.headers.get("content-type")?.includes("javascript") ?? false, `${bundle} is not served as JavaScript`);
 
+  const attempts = await ctx.http.getJson<unknown>(`${BETA_URL}/api/attempts?status=active`);
+  check(Array.isArray(attempts), "/api/attempts did not answer a list");
+
+  const anonymousTrigger = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`, { method: "POST", body: "{}" });
+  check(anonymousTrigger.status === 401, `an anonymous trigger answered ${anonymousTrigger.status}, expected 401`);
+
   const missing = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs/1`);
   check(missing.status === 404, `an unknown pipeline answered ${missing.status}, expected 404`);
   check(missing.headers.get("content-type")?.startsWith("application/problem+json") ?? false, "a 404 is not application/problem+json");

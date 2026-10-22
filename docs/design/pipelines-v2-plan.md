@@ -578,9 +578,14 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      deploy-prod → prod-test, green in 5m07s. `beta-test` runs the whole API test suite against the
      fresh beta, like v1's `test-after-beta`: `mise run api:remote` in the dotnet SDK image with
      `API_BASE_URL` = the in-cluster Service derived from `HelmRelease`, after the `/health` wait and
-     an SPA bundle check (run #2: 11 tests, 4 passed, 7 skipped, 1m05s). The 7 skipped need a token:
-     the suite mints HS256 tokens, and `Auth:SigningKey` replaces Authentik validation, so beta can't
-     accept them without an app change. `prod-test` is a read-only smoke test
+     an SPA bundle check. Authenticated tests use a real beta Authentik token (`API_TOKEN`, else the
+     suite mints HS256 tokens, which beta can't accept: `Auth:SigningKey` replaces Authentik
+     validation): `beta-test` gets one by client credentials from the beta-only machine client
+     `olve-template-api-tests` (Olve.Authentik blueprint; Authentik-generated secret held as the
+     pipeline secret `API_TEST_CLIENT_SECRET`, declared on `beta-test` only), whose requested
+     `olve-template-api-aud` scope rewrites `iss`/`aud` to the API's, like `questionbank-smoke`.
+     Run #3: 11 tests, 11 passed, 0 skipped (1m07s); message tests delete what they create.
+     `prod-test` is a read-only smoke test
      (`handlers/lib/smoke.ts`: `/health`, `/api/messages` page shape, `/api/auth-config`, the SPA
      bundle, an anonymous POST answering 401), since the suite writes data. No library steps added: the mirror step is a
      copy of this repo's (its own FROM list, the shared `olve-pipelines-v2/mirror` prefix, no

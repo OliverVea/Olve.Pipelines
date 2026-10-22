@@ -248,7 +248,9 @@ Copy the reference app pipeline,
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
 source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
-dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
+dotnet SDK image, the in-cluster Service as `API_BASE_URL`), authenticated with a token it fetches
+from a beta-only Authentik machine client (client credentials; the client secret is a pipeline
+secret declared on `beta-test` only); `prod-test` is a read-only smoke test
 (`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
 ## Starting from the reference pipeline
 
@@ -256,7 +258,9 @@ Copy the reference app pipeline,
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
 source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
-dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
+dotnet SDK image, the in-cluster Service as `API_BASE_URL`), authenticated with a token it fetches
+from a beta-only Authentik machine client (client credentials; the client secret is a pipeline
+secret declared on `beta-test` only); `prod-test` is a read-only smoke test
 (`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
 values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks.
 A repo without a beta environment gets one all the same (homelab-dashboard: the release in

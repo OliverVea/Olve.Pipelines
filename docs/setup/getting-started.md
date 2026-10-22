@@ -29,9 +29,9 @@ first.
 - A GitHub repository the server can read: public, or private with a token.
 - [Bun](https://bun.sh) on your machine, for `pl dev` and to create `bun.lock`.
 - The v2 **`pl` CLI**. The v2 instance serves the `pl` its own self-deploy built (Windows:
-  `irm https://pipelines-v2-beta.ovea.pro/install.ps1 | iex`):
+  `irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex`):
   ```sh
-  curl -fsSL https://pipelines-v2-beta.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
+  curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
   export PATH=~/.local/opt/pl-v2:$PATH                   # this shell: the v2 pl before a v1 pl on PATH
   pl --version
   ```
@@ -41,7 +41,7 @@ first.
   session, so give v2 its own config file and name the instance:
   ```sh
   export PIPELINES_CONFIG=~/.pl-v2                        # keeps a v1 session in ~/.pl intact
-  pl login --api-url https://pipelines-v2-beta.ovea.pro   # add --device over SSH
+  pl login --api-url https://pipelines-v2-private.ovea.pro   # add --device over SSH
   ```
   `pl login` caches the token and the URL in that file. `PIPELINES_API_URL` and `--api-url` override
   the URL per command.

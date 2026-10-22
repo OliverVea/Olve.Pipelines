@@ -51,7 +51,8 @@ v1's "promote" action is replaced by continuing a run:
 - **Manual approval for prod**: keep `deploy-prod` blocked; unblock when you want a held run to go
   out, then block again.
 - **Stop a self-deploy**: Olve.Pipelines' own v2 deploy can be paused with
-  `pl gate block <pipeline>/deploy-beta` against the v2 instance.
+  `pl gate block "Olve.Pipelines v2/deploy-beta"` against v2 prod; its `deploy-prod` gate holds
+  promotions.
 
 ## API
 

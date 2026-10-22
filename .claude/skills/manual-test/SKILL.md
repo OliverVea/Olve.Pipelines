@@ -1,6 +1,6 @@
 ---
 name: manual-test
-description: Run the app locally or target v2 beta, and make authenticated API calls (via pl or curl) for manual testing of the v2 run/version/gate API.
+description: Run the app locally or target v2 beta (or v2 prod), and make authenticated API calls (via pl or curl) for manual testing of the v2 run/version/gate API.
 allowed-tools: Bash Read Grep
 ---
 
@@ -12,9 +12,11 @@ allowed-tools: Bash Read Grep
 |---|---|---|---|
 | Local | `http://localhost:5000` | `auth-beta.ovea.pro` (or `Auth:Disable=true`) | as configured |
 | v2 beta | `https://pipelines-v2-beta.ovea.pro` | `auth-beta.ovea.pro` (shared with v1 beta) | `olve-runners-beta` |
+| v2 prod | `https://pipelines-v2-private.ovea.pro` | `auth.ovea.pro` (shared with v1 prod) | `olve-runners` |
 | v1 prod (main) | `https://pipelines-private.ovea.pro` | `auth.ovea.pro` | `olve-runners` |
 
-v1 instances run v1 code from `main`; the v2 API below exists only on v2 instances.
+v1 instances run v1 code from `main`; the v2 API below exists only on v2 instances. v2 beta is the
+place to experiment; v2 prod hosts the self-deploy pipeline (see the end of section 3).
 
 ## 1. Start the app locally (optional)
 
@@ -29,8 +31,9 @@ Use `Development` — Production mode rejects the beta Authentik cert. Local con
 
 ## 2. Authenticate
 
-**Preferred: `pl`.** Use a v2 `pl` (`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`)
-with its own config file so the v1 session in `~/.pl` survives:
+**Preferred: `pl`.** Use a v2 `pl` (`curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
+or `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`) with its own
+config file so the v1 session in `~/.pl` survives:
 
 ```bash
 export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
@@ -44,8 +47,8 @@ pl pipeline list >/dev/null && TOKEN=$(jq -r .auth.accessToken ~/.pl-v2)
 ```
 
 **Client credentials** (scripts, no browser): the client id and secret are in the Kubernetes Secret
-`olve-pipelines-oidc` (keys `client-id`, `client-secret`) — namespace `apps-beta` for beta/v2 beta,
-`apps` for prod. Read them from the cluster at the moment you need them; **never paste a client
+`olve-pipelines-oidc` (keys `client-id`, `client-secret`) — namespace `apps-beta` for beta/v2 beta
+(token endpoint on `auth-beta.ovea.pro`), `apps` for prod/v2 prod (`auth.ovea.pro`). Read them from the cluster at the moment you need them; **never paste a client
 secret into this file, a doc, a commit or a log.**
 
 ```bash
@@ -54,7 +57,7 @@ TOKEN=$(curl -sk -X POST "https://auth-beta.ovea.pro/application/o/token/" \
   --data-urlencode "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" | jq -r .access_token)
 ```
 
-Token fetch and API calls must run in the **same shell invocation** (Bash tool calls don't share
+`pl` accepts the token as `PIPELINES_API_TOKEN`. Token fetch and API calls must run in the **same shell invocation** (Bash tool calls don't share
 env vars) — chain with `&&`. Tokens expire after ~1 hour.
 
 ## 3. API call reference
@@ -111,7 +114,8 @@ trailing newline of SSH keys).
 
 The v2 fixture pipeline (`.pipelines-test/`, "v2 test fixture" on v2 beta) is the safe target for
 experiments: input `{ sha, mode: normal | skip-last | fail }` exercises `when` skips and `onFailure`.
-Don't experiment on "Olve.Pipelines v2" — its runs redeploy v2 beta.
+Don't experiment on "Olve.Pipelines v2" on v2 prod — its runs redeploy v2 beta, and promoted runs
+v2 prod.
 
 ## 4. Kubernetes
 
@@ -123,4 +127,5 @@ ssh oliver@bulwark-m2 "kubectl -n apps-beta logs deploy/olve-pipelines-v2 --sinc
 
 Job names: step attempts `olve-…` with labels `olve-role=step`, `olve-run`, `olve-step`,
 `olve-attempt`; build Jobs `olve-build-<p12>-<sha12>`; failure handlers `olve-fh-…`. The runner
-namespace is shared with v1 beta.
+namespace is shared with v1 beta (v2 prod's, `olve-runners`, with v1 prod; same commands with
+`-n olve-runners` / `-n apps`).

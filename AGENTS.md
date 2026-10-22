@@ -27,15 +27,17 @@ fixture), `frontend/` (Lit SPA), `docs/`.
 
 ## How it's deployed (self-deploy)
 
-Olve.Pipelines deploys itself. **v2 (this branch):** the v2 beta instance
-(`pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`) runs the pipeline
-"Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` → `build` ∥ `test` →
-`deploy-beta` (`steps.helmDeployOverSsh`, values `values-beta.yaml` + `values-v2-beta.yaml`) →
-`publish-cli` (the `pl` that v2 beta serves at `/download`, see below). The
-deploy poll (no public webhook on v2 beta) reconciles `.pipelines/` commits into versions and
-starts a run per push; `deploy-beta` restarts the pod running the run, and the new pod reattaches
-to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this branch is paused (blocked
-`deploy-beta` gate) and kept as the rollback — see the E2 notes in
+Olve.Pipelines deploys itself. **v2 (this branch):** the v2 prod instance
+(`pipelines-v2-private.ovea.pro`, release `olve-pipelines-v2` in `apps`, runners `olve-runners`)
+runs the pipeline "Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` ∥
+`mirror-base-images` → `build` ∥ `test` → `deploy-beta` (`steps.helmDeployOverSsh`, v2 beta in
+`apps-beta`, values `values-beta.yaml` + `values-v2-beta.yaml`) → `beta-test` → when
+`deployTo: "prod"`: `deploy-prod` (values `values-v2-prod.yaml`) → `publish-cli` (the `pl` that
+v2 prod serves at `/download`, see below) ∥ `publish-sdk`. The deploy poll (no public webhook on
+v2) reconciles `.pipelines/` commits into versions and starts a beta-only run per push; promotion
+is `pl run continue <run> --field deployTo=prod`. `deploy-prod` restarts the pod running the run,
+and the new pod reattaches to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this
+branch is paused (blocked `deploy-beta` gate) and kept as the rollback — see the E2 notes in
 `docs/design/pipelines-v2-plan.md`. **v1 (`main`):** `.pipelines/config.yaml` on `main` deploys
 v1 beta → prod → `publish-cli`. In both, the chart is `helm upgrade`d imperatively — **helm values
 are NOT GitOps-reconciled; only the pipeline definition is.** Skills: `/deploy`, `/setup-pipeline`.
@@ -69,17 +71,17 @@ The `pl` binaries are built and served by this repo's own pipeline — no GitHub
 
 **v2 (this branch):** the `publish-cli` step of `.pipelines/pipeline.ts` (custom step, handler
 `.pipelines/handlers/publish-cli.ts`, image `dotnet/sdk:10.0-noble`; its own stage after
-`deploy-beta`, inside the same `when`, so only real deploys publish) builds `linux-x64` (Native AOT;
+`deploy-prod`, inside the `deployTo: "prod"` `when`, so only prod promotions publish) builds `linux-x64` (Native AOT;
 the handler apt-installs clang + zlib1g-dev) + `win-x64` (self-contained single-file — AOT can't
 cross-compile to Windows from Linux), stamped `InformationalVersion` = the run's version stamp
 (`pl --version`), and returns them as **output files** (`pl-linux-x64`, `pl-win-x64.exe`; output
 model `CliRelease`). No storage credentials in the step pod: the files travel in the normal result
 upload into `runs/<p>/<run>/publish-cli/<attempt>/files/`. The app serves the latest successful
-`publish-cli` attempt of the pipeline named by `Distribution__CliPipeline` (`values-v2-beta.yaml`:
+`publish-cli` attempt of the pipeline named by `Distribution__CliPipeline` (`values-v2-prod.yaml`:
 "Olve.Pipelines v2"; unset → 404) anonymously at `GET|HEAD /download/{asset}`
 (`Distribution/CliDownloadEndpoints.cs`, `CliReleaseQuery`; allow-listed names, streamed from
 Garage, never buffered; anything else under `/download/` is a 404). Retention pins that run
-(`RetentionInputs.PinnedRuns`), so the served `pl` survives beta's 14 days / latest 3.
+(`RetentionInputs.PinnedRuns`), so the served `pl` survives retention.
 `GET /install.sh` / `/install.ps1` serve the repo's scripts with the default instance rewritten
 to this one (`Links:BaseUrl`, else the request origin).
 

@@ -6,8 +6,9 @@ they deploy (`.pipelines/pipeline.ts`): typed **models**, **steps** that consume
 The service compiles each definition into a versioned binary and runs every step as a Kubernetes
 Job.
 
-> **This is v2**, developed on the `v2` branch and deployed as a separate instance
-> (`https://pipelines-v2-beta.ovea.pro`) next to v1 until every pipeline has migrated. v2 is fully
+> **This is v2**, developed on the `v2` branch and deployed as separate instances (v2 prod
+> `https://pipelines-v2-private.ovea.pro`, v2 beta `https://pipelines-v2-beta.ovea.pro`) next to v1
+> until every pipeline has migrated. v2 is fully
 > breaking: v1's `config.yaml`, production/processing steps, ArtifactBundles and job groups don't
 > exist here. Design: [`docs/design/pipelines-v2.md`](docs/design/pipelines-v2.md); what was built
 > and the decisions taken: [`docs/design/pipelines-v2-plan.md`](docs/design/pipelines-v2-plan.md).
@@ -39,7 +40,8 @@ export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
   and a bundled glibc loader into it.
 
 This repo deploys itself with it: [`.pipelines/pipeline.ts`](.pipelines/pipeline.ts) builds the
-`v2` branch with kaniko, runs the unit tests in parallel, and Helm-deploys v2 beta. The v1-format
+`v2` branch with kaniko, runs the unit tests in parallel, and Helm-deploys v2 beta; a green beta run
+is promoted to v2 prod, which hosts the pipeline. The v1-format
 [`.pipelines/config.yaml`](.pipelines/config.yaml) beside it is the paused v1 deployer, kept as the
 rollback path (see the E2 notes in the plan). [`.pipelines-test/`](.pipelines-test) is the v2
 end-to-end fixture.
@@ -89,7 +91,7 @@ harness/                            harness-base init image + end-to-end validat
 frontend/                           Dashboard UI (Lit + Vite + TypeScript)
 clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
 clients/Olve.Pipelines.Client/      Generated C# client (Refitter source gen)
-helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-minimal.yaml)
+helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
 .pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs
@@ -222,17 +224,17 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 ### Installing
 
-The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every deployed commit, and v2 beta
-serves it. Install it from there:
+The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every commit promoted to prod, and v2
+prod serves it. Install it from there:
 
 ```bash
-curl -fsSL https://pipelines-v2-beta.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
+curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
 export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2   # v2 pl first; keep its session apart from v1's ~/.pl
 pl --version                                                    # the publishing run's version stamp
-pl login --api-url https://pipelines-v2-beta.ovea.pro           # add --device over SSH
+pl login --api-url https://pipelines-v2-private.ovea.pro        # add --device over SSH
 ```
 
-Windows: `irm https://pipelines-v2-beta.ovea.pro/install.ps1 | iex`. The binaries alone:
+Windows: `irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex`. The binaries alone:
 `/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
 The scripts in the repo (and `install.sh` from raw GitHub) default to v1 prod, which serves **v1's**
 `pl`; an instance serving them rewrites the default to itself. `PL_API_URL` / `PL_INSTALL_DIR`
@@ -359,7 +361,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `500m` / `512Mi` / `3Gi` | Build/describe Job resources |
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
-| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (v2 beta) |
+| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (both v2 instances) |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
 | `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this |
@@ -429,7 +431,8 @@ dotnet run --project src/Olve.Pipelines
 
 ```
 
-On Kubernetes the chart in `helm/` is deployed by the pipeline itself: v2 beta is the release
-`olve-pipelines-v2` in `apps-beta`, installed by the `deploy-beta` step (`steps.helmDeployOverSsh`,
-values `values-beta.yaml` then `values-v2-beta.yaml`). A cold install of a minimal controller is
+On Kubernetes the chart in `helm/` is deployed by the pipeline itself (`steps.helmDeployOverSsh`):
+v2 beta is the release `olve-pipelines-v2` in `apps-beta`, installed by `deploy-beta` (values
+`values-beta.yaml` then `values-v2-beta.yaml`); v2 prod is `olve-pipelines-v2` in `apps`, installed
+by `deploy-prod` (`values.yaml` then `values-v2-prod.yaml`). A cold install of a minimal controller is
 `pl bootstrap` (see [AGENTS.md](AGENTS.md)).

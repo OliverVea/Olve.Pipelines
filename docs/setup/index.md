@@ -7,8 +7,9 @@
 > (every `ctx` helper and the harness contract) is
 > [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md).
 
-> **This guide describes v2.** v2 is developed on the `v2` branch and runs as a separate instance
-> (`https://pipelines-v2-beta.ovea.pro`) next to v1 until every pipeline has migrated. v1's
+> **This guide describes v2.** v2 is developed on the `v2` branch and runs as separate instances
+> (`https://pipelines-v2-private.ovea.pro`, beta `https://pipelines-v2-beta.ovea.pro`) next to v1
+> until every pipeline has migrated. v1's
 > `config.yaml` format, production/processing steps and ArtifactBundles do not exist in v2.
 
 ## What this service does
@@ -107,9 +108,9 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 ## Real pipelines to copy from
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
-  deploys itself (v2 beta): `gitHubSource` ∥ custom `mirror-base-images` → `imageBuild` ∥ custom `test` →
-  `helmDeployOverSsh` → custom `beta-test` (smoke test of the new beta) → custom `publish-cli` ∥
-  custom `publish-sdk` (npm).
+  deploys itself: `gitHubSource` ∥ custom `mirror-base-images` → `imageBuild` ∥ custom `test` →
+  `helmDeployOverSsh` (beta) → custom `beta-test` (smoke test of the new beta) → when
+  `deployTo: "prod"`: `helmDeployOverSsh` (prod) → custom `publish-cli` ∥ custom `publish-sdk` (npm).
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

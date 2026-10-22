@@ -2,9 +2,10 @@
 
 Companion to [pipelines-v2.md](pipelines-v2.md) (the spec) and
 [pipelines-v2-spikes.md](pipelines-v2-spikes.md) (spike findings). Work happens on the `v2` branch;
-v2 beta (`pipelines-v2-beta.ovea.pro`) deploys itself from this branch's `.pipelines/pipeline.ts` since
-milestone M4 (2026-10-21); the v1 pipeline "Olve.Pipelines v2" that ran `.pipelines/config.yaml` is
-paused, not deleted — see the E2 notes for the rollback.
+v2 deploys itself from this branch's `.pipelines/pipeline.ts` since milestone M4 (2026-10-21): the
+pipeline lives on v2 prod (`pipelines-v2-private.ovea.pro`) since 2026-10-22, pushes deploy v2 beta
+(`pipelines-v2-beta.ovea.pro`) and promotion deploys v2 prod; the v1 pipeline "Olve.Pipelines v2"
+that ran `.pipelines/config.yaml` is paused, not deleted — see the E2 notes for the rollback.
 
 ## Ground rules
 
@@ -223,7 +224,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   The pipeline, its binding, its secrets and `config.yaml` + `scripts/` stay as the recovery path.
 - **Rollback (re-enable the v1 deployer)**, with a v1 prod token (`auth.ovea.pro`, client credentials
   from `apps/olve-pipelines-oidc`) — and first pause the v2 self-deploy so two deployers don't race
-  (`pl gate block f26d19cf-810a-4fb8-b5af-e61ca73b1bae deploy-beta` against v2 beta):
+  (`pl gate block "Olve.Pipelines v2/deploy-beta"` against v2 prod, where the deployer lives now):
   ```sh
   V1=https://pipelines-private.ovea.pro
   # unblock; this immediately promotes v1's latest completed production bundle if one is due,
@@ -504,7 +505,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
 
 1. **v2 prod instance**: release `olve-pipelines-v2` in `apps`, runners in `olve-runners` (shared with
-   v1 prod), own Garage, `pipelines-v2-private.ovea.pro`. **Prepared 2026-10-22, not yet deployed**:
+   v1 prod), own Garage, `pipelines-v2-private.ovea.pro`. **Live 2026-10-22**:
    `helm/values-v2-prod.yaml` (own Garage + bucket `olve-pipelines-v2`, 100Gi on `bulk`;
    `Webhooks__PublicBaseUrl: ""`; `Links__BaseUrl`; `Telemetry__ServiceName: olve-pipelines-v2`;
    `slo.enabled: false`, no sloth CRD), the Olve.Homelab route (Tailscale-private, no hook route) and
@@ -522,17 +523,19 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
    publish-cli/publish-sdk (**done 2026-10-22**). Promotion = `pl run continue <run> --field
    deployTo=prod` on a succeeded beta push run of the active version, so prod gets the image beta ran.
    Before it, the `beta-test` stage smoke-tests the freshly deployed beta (in-cluster URL: `/api/ready`,
-   this run in the run view, the frontend bundle, a `problem+json` 404, SSE `hello`, `/install.sh`);
+   `/api/pipelines`, the frontend bundle, a `problem+json` 404, SSE `hello`, `/install.sh`);
    a failed beta-test fails the run, so it can't be continued to prod.
    `deployTo` defaults to `prod`, so a manual trigger without `--field deployTo=beta` deploys prod.
-   For now the pipeline stays on v2 beta, which therefore deploys v2 prod; `/download` on v2 prod
-   serves nothing until the deployer moves there. The first deploy (by the user): unblock
-   `deploy-prod` on v2 beta (blocked until then), then continue the newest green beta push run.
    The continued run then also runs publish-cli and publish-sdk (npm publish if `sdk/`'s version is new).
+   **The deployer moved to v2 prod early** (2026-10-22, before any other pipeline): "Olve.Pipelines
+   v2" was recreated on prod (`6a395b72-3bb3-42a7-b01a-e28a6f138032`, same binding and secrets,
+   `GITHUB_TOKEN` as credentials key) and its run #1 was the first promotion; `deploy-prod` redeploys
+   prod itself (the executor reattaches after the restart), and prod's `/download` serves its
+   `publish-cli`. The v2 beta copy (`f26d19cf…`) was paused (both deploy gates blocked), then deleted;
+   v2 beta keeps the fixture. Open: the first retention dry-run sweep logs on prod (above).
 3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
    pipeline's gate before binding v2.
-4. **Cut over**: move the deployer pipeline onto v2 prod (deploy-beta → gate → deploy-prod, the v1
-   shape), point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
+4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC
    `olve-pipelines-minio-data` (`resource-policy: keep`) stays orphaned until deleted by hand. The

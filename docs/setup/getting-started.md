@@ -5,20 +5,24 @@
 The end-to-end path from a repo with no CD to a pipeline that runs on every push. It is GitOps
 only: you commit a `.pipelines/` directory and run one `pl binding create`.
 
-## Before you start: the SDK is not published yet
+## The SDK
 
-A pipeline imports `@olve/pipelines`. The SDK is not on a package registry yet (SDK publishing is
-deferred in the v2 design). The service's build Job does this, in order:
+A pipeline imports `@olve/pipelines`. The SDK is published to npm as
+[`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines) (`@olve` on npm belongs
+to someone else). A pipeline installs it under the name it imports through an npm alias:
 
-1. fetch the repo tarball at the commit;
-2. if the repo has `sdk/package.json` **at its root**, run `bun install --frozen-lockfile --production` in `sdk/`;
-3. in the binding path, run `bun install --frozen-lockfile`, then `bunx olve-build`.
+```json
+"dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" }
+```
 
-So today the only layout that builds is the one Olve.Pipelines itself uses: an `sdk/` directory at
-the repo root, and `"@olve/pipelines": "file:../sdk"` in `.pipelines/package.json`. Any other repo's
-`bun install` fails in the build Job until the SDK is published. Everything below applies once
-that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` and
-`.pipelines-test/` are set up.
+Keep the alias name `@olve/pipelines`: the build tool generates imports of `@olve/pipelines/harness`.
+Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
+
+The service's build Job fetches the repo tarball at the commit, runs `bun install --frozen-lockfile`
+in the binding path (which resolves the alias from npm), then `bunx olve-build`. A local
+`file:`/`link:` dependency inside the repo (Olve.Pipelines' own `.pipelines/` uses
+`"@olve/pipelines": "file:../sdk"`) is installed with `bun install --frozen-lockfile --production`
+first.
 
 ## Prerequisites
 
@@ -55,7 +59,7 @@ that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` an
   scripts/*.sh          embedded into the compiled binary
 ```
 
-`package.json` (as in this repo's `.pipelines/`):
+`package.json`:
 
 ```json
 {
@@ -63,7 +67,7 @@ that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` an
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olve/pipelines": "file:../sdk" },
+  "dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```
@@ -103,7 +107,7 @@ export default pipeline({ name: "my-app", input: M.Request })
 [`steps.script`](pipeline-reference.md#library-steps)). Then:
 
 ```sh
-cd .pipelines && bun install      # creates bun.lock — commit it
+cd .pipelines && bun install      # installs the SDK from npm and creates bun.lock — commit it
 ```
 
 Add `.pipelines/.olve/` and `.pipelines/node_modules/` to `.gitignore`.

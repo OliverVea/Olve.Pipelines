@@ -1,13 +1,13 @@
-# @olve/pipelines
+# @olivervea/pipelines
 
-The Olve.Pipelines v2 SDK. It has four parts:
+The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK, imported as `@olve/pipelines`. It has four parts:
 
 - the **authoring API**: models, steps, handlers and the typed pipeline builder;
 - the **step harness**: the runtime compiled into each pipeline's single executable (`describe`, `run`, `map-trigger`);
 - the **build tool** (`olve-build`), which turns a pipeline directory into `step.tar.gz` and `manifest.json`;
 - the **dev runner** (`olve-dev`), which runs the same harness path from source (used by `pl dev`).
 
-Design: [`docs/design/pipelines-v2.md`](../docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](../docs/design/pipelines-v2-spikes.md).
+Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2-spikes.md).
 The manifest format is in [`manifest.schema.json`](manifest.schema.json), generated from [`src/describe/manifest-schema.ts`](src/describe/manifest-schema.ts).
 
 ```
@@ -27,6 +27,38 @@ sdk/
   tests/compile-pass/     type-level assertions that must hold
   tests/runtime/          bun tests
 ```
+
+## Install
+
+The package is `@olivervea/pipelines` on npm; pipelines import it as `@olve/pipelines` through an alias
+in the pipeline directory's `package.json`:
+
+```json
+{
+  "type": "module",
+  "dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" },
+  "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
+}
+```
+
+```sh
+bun install                    # commit bun.lock: the build Job installs with --frozen-lockfile
+bunx olve-dev describe .
+bunx olve-build . --out .olve/out
+```
+
+- Keep the alias name: `olve-build` generates imports of `@olve/pipelines/harness`, so an unaliased
+  `@olivervea/pipelines` dependency does not build.
+- The package ships TypeScript sources (Bun runs them directly; `harness.sdkHash` hashes them), so the
+  same version gives the same `sdkHash` and handler hashes from npm or from `file:../sdk`.
+- Inside this repo, `.pipelines/` and `.pipelines-test/` use `"@olve/pipelines": "file:../sdk"`.
+
+### Releases
+
+Versions are `2.0.0-beta.N` on the `beta` dist-tag (`publishConfig`) until v2 reaches prod, then
+`latest`. To release, bump `version` in `package.json` and push to `v2`: the self-deploy's
+`publish-sdk` step runs `bun run check` and `bun publish` when that version is not on npm yet. It
+skips when the version exists, or when the pipeline secret `NPM_TOKEN` is unset.
 
 ## Authoring
 
@@ -344,7 +376,7 @@ bun install --frozen-lockfile
 bunx olve-build .pipelines --out /work/out --upload-url "$STEP_PUT_URL" --sentinels
 ```
 
-With an in-repo SDK (`"@olve/pipelines": "file:../sdk"`, as Olve.Pipelines' own `.pipelines/` does), Bun resolves `@olve/pipelines` to the SDK's **source directory**, not the copy in `node_modules`, so the SDK's own dependencies must be installed there too: run `bun install --frozen-lockfile --production` in `sdk/` before building.
+From npm (the alias), nothing else is needed. A local `file:`/`link:` dependency (`"@olve/pipelines": "file:../sdk"`, as Olve.Pipelines' own `.pipelines/` does) resolves to its **source directory**, not the copy in `node_modules`, so its own dependencies must be installed there too: the build Job runs `bun install --frozen-lockfile --production` in every local dependency of the binding's `package.json` that is inside the repo, before building.
 
 The repo depends on the SDK as a normal package. It resolves through `exports` (`@olve/pipelines`, `@olve/pipelines/harness`, `@olve/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
 

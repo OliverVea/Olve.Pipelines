@@ -45,7 +45,7 @@ public static partial class BuildJobBuilder
 
     /// <summary>
     /// The build recipe. Exit codes: olve-build's (0 ok, 1 build failure, 64 usage, 78 pipeline invalid),
-    /// plus 65 when the tarball cannot be fetched. The tarball has one top-level directory
+    /// plus 65 when the tarball cannot be fetched and 78 for an unreadable <c>package.json</c> or a local dependency outside the repo. The tarball has one top-level directory
     /// (<c>&lt;owner&gt;-&lt;repo&gt;-&lt;sha7&gt;/</c>), stripped on extract. oven/bun:*-slim has no curl/wget,
     /// so Bun itself downloads.
     /// </summary>
@@ -74,13 +74,29 @@ public static partial class BuildJobBuilder
         tar -xzf repo.tar.gz -C /work/src --strip-components=1
         rm -f repo.tar.gz
         cd /work/src
-        # An in-repo SDK ("@olve/pipelines": "file:../sdk", as Olve.Pipelines' own .pipelines/ does) resolves
-        # to the SDK's source directory, so its own dependencies must be installed there too.
-        # TODO(v2): repos without an in-repo sdk/ will get @olve/pipelines from a package registry; until
-        # then their bun install below fails unless the dependency resolves some other way.
-        if [ -f sdk/package.json ]; then
-          (cd sdk && bun install --frozen-lockfile --production)
-        fi
+        # A local file:/link: dependency (an in-repo SDK, "file:../sdk") resolves to its source directory, so
+        # its own dependencies are installed there. Registry dependencies (the npm alias) need nothing extra.
+        bun -e '(async () => {
+        const { resolve } = require("node:path"), { existsSync } = require("node:fs");
+        const dir = resolve("/work/src", process.env.OLVE_PIPELINE_PATH);
+        const pkg = await Bun.file(`${dir}/package.json`).json();
+        for (const deps of [pkg.dependencies, pkg.devDependencies, pkg.optionalDependencies]) {
+          for (const [name, spec] of Object.entries(deps ?? {})) {
+            const m = /^(?:file|link):(.+)$/.exec(String(spec));
+            if (!m) continue;
+            const target = resolve(dir, m[1]);
+            if (!existsSync(`${target}/package.json`)) continue;
+            if (target !== "/work/src" && !target.startsWith("/work/src/")) {
+              console.error(`olve-build-job: dependency ${name} (${spec}) points outside the repository`);
+              process.exit(78);
+            }
+            console.log(target);
+          }
+        }
+        })().catch((e) => { console.error(`olve-build-job: cannot read package.json: ${e}`); process.exit(78); });' > /work/local-deps
+        while IFS= read -r dep; do
+          (cd "$dep" && bun install --frozen-lockfile --production)
+        done < /work/local-deps
         cd "$OLVE_PIPELINE_PATH"
         bun install --frozen-lockfile
         exec bunx olve-build . --out /work/out --sentinels --upload-url "$OLVE_BINARY_URL"

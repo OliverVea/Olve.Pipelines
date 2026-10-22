@@ -81,12 +81,25 @@ public class BuildJobBuilderTests
     {
         var script = BuildJobBuilder.Script;
 
-        await Assert.That(script).Contains("(cd sdk && bun install --frozen-lockfile --production)");
+        await Assert.That(script).Contains("(cd \"$dep\" && bun install --frozen-lockfile --production)");
         await Assert.That(script).Contains("cd \"$OLVE_PIPELINE_PATH\"\nbun install --frozen-lockfile\n");
         await Assert.That(script).Contains("bunx olve-build . --out /work/out --sentinels --upload-url \"$OLVE_BINARY_URL\"");
         await Assert.That(script).Contains("--strip-components=1");
         // Inputs are env vars, never spliced into the script.
         await Assert.That(script).DoesNotContain(Sha);
+    }
+
+    [Test]
+    public async Task Script_InstallsOnlyLocalDependencies()
+    {
+        var script = BuildJobBuilder.Script;
+
+        // Local file:/link: deps of the binding's package.json, kept inside the repo; no hardcoded sdk/ dir.
+        await Assert.That(script).Contains("/^(?:file|link):(.+)$/");
+        await Assert.That(script).Contains("points outside the repository");
+        await Assert.That(script).Contains("done < /work/local-deps");
+        await Assert.That(script).DoesNotContain("cd sdk");
+        await Assert.That(script).DoesNotContain("TODO");
     }
 
     [Test]

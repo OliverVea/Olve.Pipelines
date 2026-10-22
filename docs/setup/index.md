@@ -108,7 +108,7 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
   deploys itself (v2 beta): `gitHubSource` ∥ custom `mirror-base-images` → `imageBuild` ∥ custom `test` →
-  `helmDeployOverSsh` → custom `publish-cli`.
+  `helmDeployOverSsh` → custom `publish-cli` ∥ custom `publish-sdk` (npm).
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

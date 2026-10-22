@@ -6,8 +6,12 @@
 push. It shells out to the SDK's `olve-dev` / `olve-build` through Bun.
 
 - **Bun** is found via `$OLVE_BUN`, then `PATH`, then `~/.bun/bin/bun`.
-- **The SDK** is the `@olve/pipelines` your pipeline resolves (run `bun install` in the pipeline
-  directory first); override with `$OLVE_SDK`.
+- **The SDK** is the `@olve/pipelines` your pipeline resolves: run `bun install` in the pipeline
+  directory first. In another repo that is the npm alias
+  `"@olve/pipelines": "npm:@olivervea/pipelines@<version>"` (see
+  [Getting Started](getting-started.md#the-sdk)); in this repo it is `file:../sdk`. Override with
+  `$OLVE_SDK`. Without `pl`, the same tools run as `bunx olve-dev describe .` and
+  `bunx olve-build . --out .olve/out` from the pipeline directory.
 - **The pipeline directory** defaults to `.pipelines`; `--dir <path>` picks another (e.g.
   `--dir .pipelines-test`).
 - Everything is written to `<dir>/.olve/` — keep it git-ignored.

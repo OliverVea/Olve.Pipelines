@@ -13,7 +13,7 @@ usually says which phase failed. Reproduce locally with `pl dev describe` and `p
 | Problem mentions | Cause | Fix |
 |---|---|---|
 | `cannot fetch <repo>@<sha>` | The build Job couldn't download the tarball. Private repos need a token; a token key that isn't set means no token. | `pl secret set <pipelineId> GITHUB_TOKEN`, then `pl binding set-credentials <pipelineId> GITHUB_TOKEN` |
-| `bun install` / lockfile errors | `bun.lock` missing or out of date, or `@olve/pipelines` can't be resolved | Run `bun install` in the pipeline directory and commit `bun.lock`. The SDK resolves only from an in-repo `sdk/` today (see [Getting Started](getting-started.md#before-you-start-the-sdk-is-not-published-yet)). |
+| `bun install` / lockfile errors | `bun.lock` missing or out of date, or `@olve/pipelines` can't be resolved | Run `bun install` in the pipeline directory and commit `bun.lock`. Use the npm alias `"@olve/pipelines": "npm:@olivervea/pipelines@<version>"` (see [Getting Started](getting-started.md#the-sdk)). |
 | exit `78`, describe problems | The pipeline is invalid: missing handler file, duplicate step name, bad mapper, two schemas for one model name, … | `pl dev describe` prints the same problems |
 | a manifest check (ambiguous producer, unavailable ref, unknown `when` field, undeclared secret, unknown mapper key, …) | A [reconcile check](pipeline-reference.md#checks-that-reject-a-pipeline) failed | `pl dev validate` runs the same checks |
 | `PT_INTERP` | The binary was built for musl | Never build on an alpine Bun image (the service uses `oven/bun:*-slim`) |

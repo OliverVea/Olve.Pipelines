@@ -1,10 +1,29 @@
 {
-  "name": "@olve/pipelines",
-  "version": "0.1.0",
+  "name": "@olivervea/pipelines",
+  "version": "2.0.0-beta.1",
   "description": "Olve.Pipelines v2 SDK: typed pipeline authoring, the step harness, and the build tool.",
   "type": "module",
-  "private": true,
   "license": "MIT",
+  "author": "Oliver Vea",
+  "homepage": "https://github.com/OliverVea/Olve.Pipelines/tree/v2/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OliverVea/Olve.Pipelines.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/OliverVea/Olve.Pipelines/issues"
+  },
+  "keywords": [
+    "pipelines",
+    "cd",
+    "gitops",
+    "kubernetes",
+    "bun"
+  ],
+  "engines": {
+    "bun": ">=1.4.3"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./harness": "./src/harness/index.ts",
@@ -16,7 +35,16 @@
     "olve-build": "./src/build/cli.ts",
     "olve-dev": "./src/dev/cli.ts"
   },
-  "files": ["src", "manifest.schema.json", "README.md"],
+  "files": [
+    "src",
+    "manifest.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",

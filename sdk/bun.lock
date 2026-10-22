@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@olve/pipelines",
+      "name": "@olivervea/pipelines",
       "dependencies": {
         "zod": "4.6.7",
       },

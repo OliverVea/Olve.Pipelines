@@ -1,168 +1,126 @@
 ---
 name: manual-test
-description: Run the app locally and make authenticated API calls against the beta environment for manual testing.
+description: Run the app locally or target v2 beta, and make authenticated API calls (via pl or curl) for manual testing of the v2 run/version/gate API.
 allowed-tools: Bash Read Grep
 ---
 
-# Manual Testing
+# Manual Testing (v2)
 
-## 1. Start the app locally
+## Environments
+
+| Environment | Base URL | Auth provider | Runner namespace |
+|---|---|---|---|
+| Local | `http://localhost:5000` | `auth-beta.ovea.pro` (or `Auth:Disable=true`) | as configured |
+| v2 beta | `https://pipelines-v2-beta.ovea.pro` | `auth-beta.ovea.pro` (shared with v1 beta) | `olve-runners-beta` |
+| v1 prod (main) | `https://pipelines-private.ovea.pro` | `auth.ovea.pro` | `olve-runners` |
+
+v1 instances run v1 code from `main`; the v2 API below exists only on v2 instances.
+
+## 1. Start the app locally (optional)
 
 ```bash
 export ASPNETCORE_ENVIRONMENT=Development
-dotnet run --project src/Olve.Pipelines
-# Listens on http://localhost:5000
+dotnet run --project src/Olve.Pipelines        # http://localhost:5000
 ```
 
-**Must** use `Development` environment for local testing — Production mode rejects the beta Authentik cert.
+Use `Development` — Production mode rejects the beta Authentik cert. Local config comes from
+`dotnet user-secrets` (`dotnet user-secrets list --project src/Olve.Pipelines`); with
+`Auth:Disable=true` no token is needed. Without Kubernetes/storage config, runs can't execute.
 
-## 2. Get a bearer token
+## 2. Authenticate
 
-The app requires JWT authentication from Authentik. Use the Storage OIDC credentials (they work for API auth too):
+**Preferred: `pl`.** Use a v2 `pl` (built from the `v2` branch) with its own config file so the v1
+session in `~/.pl` survives:
 
 ```bash
-# Read credentials from user-secrets
-dotnet user-secrets list --project src/Olve.Pipelines
-# Use Storage:ClientId and Storage:ClientSecret
+export PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+pl login                                    # --device over SSH
+```
 
-# Get token (use uv run python, not python3)
+For raw `curl`, reuse the token `pl` cached (it is refreshed by any `pl` command):
+
+```bash
+pl pipeline list >/dev/null && TOKEN=$(jq -r .auth.accessToken ~/.pl-v2)
+```
+
+**Client credentials** (scripts, no browser): the client id and secret are in the Kubernetes Secret
+`olve-pipelines-oidc` (keys `client-id`, `client-secret`) — namespace `apps-beta` for beta/v2 beta,
+`apps` for prod. Read them from the cluster at the moment you need them; **never paste a client
+secret into this file, a doc, a commit or a log.**
+
+```bash
 TOKEN=$(curl -sk -X POST "https://auth-beta.ovea.pro/application/o/token/" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=<Storage:ClientId>" \
-  -d "client_secret=<Storage:ClientSecret>" \
-  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')")
+  -d grant_type=client_credentials -d scope=openid \
+  --data-urlencode "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" | jq -r .access_token)
 ```
 
-For **production** (deployed instance):
-```bash
-TOKEN=$(curl -sk -X POST "https://auth.ovea.pro/application/o/token/" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=olve-pipelines" \
-  -d "client_secret=d178464f2442ec91434117c488e1f70706ed03458634c4cace376d998bc59020" \
-  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')")
-```
+Token fetch and API calls must run in the **same shell invocation** (Bash tool calls don't share
+env vars) — chain with `&&`. Tokens expire after ~1 hour.
 
-**Important:** Token fetch and API calls must happen in the **same shell invocation** (Bash tool calls don't share env vars). Chain with `&&`.
+## 3. API call reference
 
-## 3. API base URLs
-
-| Environment | Base URL | Auth provider |
-|---|---|---|
-| Local | `http://localhost:5000` | `auth-beta.ovea.pro` |
-| Production | `https://pipelines-private.ovea.pro` (use `-sk` with curl) | `auth.ovea.pro` |
-
-## 4. API call reference
-
-All mutating endpoints require `Authorization: Bearer $TOKEN`. GET list/get endpoints are anonymous.
-
-### Create pipeline
-Bare pipeline creation was removed (returns 405) — pipelines are created bound to a repo
-(GitOps) via `POST /api/pipelines/with-repo`, and reconcile materializes the steps from the
-repo's `.pipelines/config.yaml`. Easiest path: `pl binding create` (see `pl binding --help`).
-
-### Create production step
-```bash
-curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/production" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"my-step"}'
-```
-
-### Create processing step
-```bash
-curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/processing" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"my-step"}'
-```
-
-### Set step configuration
-```bash
-curl -s -X PUT "$BASE/api/production-steps/$STEP_ID/configuration" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"image":"alpine:latest","script":"echo hello","environmentVariables":{}}'
-# Same pattern for processing-steps
-```
-
-### Set pipeline secret (one at a time)
-```bash
-curl -s -X PUT "$BASE/api/pipelines/$PIPELINE_ID/secrets/MY_SECRET" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"value":"secret-value-here"}'
-```
-
-### Create webhook trigger
-```bash
-curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/triggers" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"my-trigger","target":{"$type":"production"}}'
-# Returns: {"id":"...","secret":"..."}
-```
-
-### Create poll trigger
-```bash
-curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/triggers" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{
-    "name":"my-poll",
-    "target":{
-      "$type":"poll",
-      "url":"https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main",
-      "headers":{
-        "Authorization":"Bearer $SECRET:GITHUB_TOKEN",
-        "User-Agent":"Olve.Pipelines",
-        "Accept":"application/vnd.github+json"
-      },
-      "valuePath":"sha",
-      "intervalSeconds":60
-    }
-  }'
-# Returns: {"id":"...","secret":"..."}
-# The poller starts automatically — no webhook call needed
-# Header values with $SECRET:NAME are resolved from pipeline K8s secrets at poll time
-```
-
-### Fire webhook trigger
-```bash
-curl -s -X POST "$BASE/api/webhooks/$TRIGGER_ID" \
-  -H "Authorization: Bearer $TRIGGER_SECRET"
-# No app-level auth — the trigger secret IS the auth
-```
-
-### Trigger production (direct, needs app auth)
-```bash
-curl -s -X POST "$BASE/api/pipelines/$PIPELINE_ID/trigger/production" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### List jobs
-```bash
-curl -s $BASE/api/jobs
-# Anonymous. Returns array of jobs with status.
-```
-
-### Get job logs
-```bash
-curl -s $BASE/api/jobs/$JOB_ID/logs
-# Anonymous. Returns log string. Only available after job completes.
-```
-
-## 5. Monitor K8s jobs
-
-Jobs execute on the remote K8s cluster via SSH:
+Reads (`GET`) are anonymous except secret listing and step-file listing/downloads. Mutations need
+`Authorization: Bearer $TOKEN`. Errors are `400` with a `ResultProblem[]` body. Most of these have a
+`pl` equivalent (`pl help`) — prefer it.
 
 ```bash
-# Production runners
-ssh oliver@bulwark-m2 "kubectl get jobs,pods -n olve-runners"
-# Beta runners
-ssh oliver@bulwark-m2 "kubectl get jobs,pods -n olve-runners-beta"
-# Pod logs
-ssh oliver@bulwark-m2 "kubectl logs <pod-name> -n olve-runners -c runner"
+BASE=https://pipelines-v2-beta.ovea.pro
+P=<pipelineId>          # pl pipeline list --json | jq -r '.[] | "\(.id) \(.name)"'
+
+# pipelines, versions, health
+curl -s $BASE/api/pipelines/summary
+curl -s $BASE/api/pipelines/$P/health
+curl -s $BASE/api/pipelines/$P/versions
+curl -s $BASE/api/pipelines/$P/versions/3 | jq -r .manifest
+
+# start a run: the body is the pipeline input (validated; defaults filled)
+curl -s -X POST $BASE/api/pipelines/$P/runs -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"sha":"<40 hex>","mode":"normal"}'
+
+# runs and steps
+curl -s "$BASE/api/pipelines/$P/runs?pageSize=5"
+curl -s $BASE/api/pipelines/$P/runs/12
+curl -s $BASE/api/pipelines/$P/runs/12/steps/hello/output
+curl -s "$BASE/api/pipelines/$P/runs/12/steps/hello/logs?attempt=1"
+curl -s $BASE/api/pipelines/$P/runs/12/steps/hello/files -H "Authorization: Bearer $TOKEN"
+
+# operate
+curl -s -X POST $BASE/api/pipelines/$P/runs/12/cancel -H "Authorization: Bearer $TOKEN"
+curl -s -X POST $BASE/api/pipelines/$P/runs/12/rerun -H "Authorization: Bearer $TOKEN"
+curl -s -X POST $BASE/api/pipelines/$P/runs/12/continue -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"input":{"mode":"normal"}}'
+curl -s -X POST $BASE/api/pipelines/$P/runs/12/steps/count/rerun -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"continue":true}'
+curl -s -X POST $BASE/api/pipelines/$P/steps/last/block -H "Authorization: Bearer $TOKEN"
+curl -s -X POST $BASE/api/pipelines/$P/steps/last/unblock -H "Authorization: Bearer $TOKEN"
+curl -s -X POST $BASE/api/pipelines/$P/switch -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{"version":3,"cancelRunning":false}'
+
+# bindings and reconcile
+curl -s $BASE/api/pipelines/$P/binding/status
+curl -s -X POST $BASE/api/pipelines/$P/binding/reconcile -H "Authorization: Bearer $TOKEN"
+
+# validate a manifest without pushing (what `pl dev validate` does)
+pl dev describe --dir .pipelines-test --json > /tmp/manifest.json
+curl -s -X POST $BASE/api/manifests/validate -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' --data-binary @/tmp/manifest.json
 ```
 
-## Notes
+Secrets: `pl secret set <pipelineId> <NAME>` (stdin, verbatim — don't use `$(…)`, it strips the
+trailing newline of SSH keys).
 
-- **Beta**: MinIO at `minio-beta.ovea.pro`, K8s via OpenBao at `openbao-beta.ovea.pro`, runners in `olve-runners-beta`
-- **Production**: MinIO at `minio.ovea.pro`, K8s via OpenBao at `openbao.ovea.pro`, runners in `olve-runners`
-- Tokens expire after 1 hour — re-run the token command if you get 401s
-- Pipeline creation takes `name` as a **query parameter**, not JSON body
-- Production/processing step creation takes `name` in a **JSON body**
-- Secrets endpoint is `PUT .../secrets/{name}` with `{"value":"..."}` — one secret at a time, not bulk
+The v2 fixture pipeline (`.pipelines-test/`, "v2 test fixture" on v2 beta) is the safe target for
+experiments: input `{ sha, mode: normal | skip-last | fail }` exercises `when` skips and `onFailure`.
+Don't experiment on "Olve.Pipelines v2" — its runs redeploy v2 beta.
+
+## 4. Kubernetes
+
+```bash
+ssh oliver@bulwark-m2 "kubectl -n olve-runners-beta get jobs,pods -l olve-pipeline=<id without dashes>"
+ssh oliver@bulwark-m2 "kubectl -n olve-runners-beta logs <pod> -c step"        # init container: -c olve-init
+ssh oliver@bulwark-m2 "kubectl -n apps-beta logs deploy/olve-pipelines-v2 --since=10m | grep -v health"
+```
+
+Job names: step attempts `olve-…` with labels `olve-role=step`, `olve-run`, `olve-step`,
+`olve-attempt`; build Jobs `olve-build-<p12>-<sha12>`; failure handlers `olve-fh-…`. The runner
+namespace is shared with v1 beta.

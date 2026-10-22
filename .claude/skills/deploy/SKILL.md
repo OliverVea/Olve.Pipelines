@@ -1,93 +1,91 @@
 ---
 name: deploy
-description: Trigger the self-deploy pipeline for Olve.Pipelines and monitor job progress until completion.
+description: Trigger the v2 self-deploy run of Olve.Pipelines (v2 beta, from the v2 branch's .pipelines/pipeline.ts) and monitor it until it finishes.
 allowed-tools: Bash Read
 ---
 
-# Deploy Olve.Pipelines
+# Deploy Olve.Pipelines (v2 beta)
 
-Triggers the self-deploy pipeline on the production instance and monitors until completion.
+v2 beta (`https://pipelines-v2-beta.ovea.pro`, Helm release `olve-pipelines-v2` in `apps-beta`)
+deploys itself: the v2 instance runs the pipeline **"Olve.Pipelines v2"**, bound to
+`OliverVea/Olve.Pipelines@v2`, path `.pipelines` (`pipeline.ts`: `source` → `build` ∥ `test` →
+`deploy-beta`). Every push to `v2` deploys automatically (deploy poll, up to 15 min); this skill
+starts a run by hand and watches it.
+
+(v1 prod/beta are deployed by v1 from `main`'s `.pipelines/config.yaml`; the v1 pipeline bound to
+the `v2` branch is **paused** by its blocked `deploy-beta` gate and must stay paused, or two
+deployers race. See the E2 notes in `docs/design/pipelines-v2-plan.md`.)
 
 ## Prerequisites
 
-The pipeline must already be configured on the running instance. If the app was restarted, run `/setup-pipeline` first.
+- A v2 `pl` (built from the `v2` branch: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o <dir>`;
+  the `pl` from `install.sh` is v1's).
+- A session against v2 beta. `~/.pl` holds one session, so keep v2's separate:
+  ```bash
+  export PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+  pl login            # --device over SSH
+  ```
+  Every command below assumes these two variables are exported in the same shell invocation.
+- If the pipeline doesn't exist (`pl pipeline list` shows no "Olve.Pipelines v2"), run `/setup-pipeline` first.
 
-## Steps
-
-### 1. Check if pipeline exists
-
-```bash
-curl -sk "https://pipelines-private.ovea.pro/api/pipelines"
-```
-
-If empty (`[]`), the app was restarted and pipeline config was lost. Tell the user to run `/setup-pipeline` first and stop.
-
-### 2. Get the webhook trigger
+## 1. Check the pipeline
 
 ```bash
-# Get the pipeline ID (should be only one pipeline named "olve-pipelines")
-PID=$(curl -sk "https://pipelines-private.ovea.pro/api/pipelines" | uv run python -c "import sys,json; ps=json.load(sys.stdin); print(ps[0]['id'], end='')")
-
-# Get the trigger
-TOKEN=$(curl -sk -X POST "https://auth.ovea.pro/application/o/token/" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=olve-pipelines" \
-  -d "client_secret=d178464f2442ec91434117c488e1f70706ed03458634c4cace376d998bc59020" \
-  -d "scope=openid" | uv run python -c "import sys,json; print(json.load(sys.stdin)['access_token'], end='')") && \
-TRIGGER=$(curl -sk "https://pipelines-private.ovea.pro/api/pipelines/$PID/triggers" \
-  -H "Authorization: Bearer $TOKEN") && \
-TRIGGER_ID=$(echo "$TRIGGER" | uv run python -c "import sys,json; ts=json.load(sys.stdin); print(ts[0]['id'], end='')") && \
-TRIGGER_SECRET=$(echo "$TRIGGER" | uv run python -c "import sys,json; ts=json.load(sys.stdin); print(ts[0]['secret'], end='')")
+P="Olve.Pipelines v2"
+pl pipeline health "$P"        # last run, running/held runs, blocked gates, active version
+pl gate list "$P"              # deploy-beta must NOT be listed, or the run will be held there
+pl run list "$P" --page-size 5
 ```
 
-### 3. Fire the trigger
+If `deploy-beta` is blocked, someone paused the self-deploy on purpose — ask before
+`pl gate unblock "$P/deploy-beta"`.
+
+## 2. Trigger
+
+The input model requires a full 40-hex `sha`:
 
 ```bash
-curl -sk -X POST "https://pipelines-private.ovea.pro/api/webhooks/$TRIGGER_ID" \
-  -H "Authorization: Bearer $TRIGGER_SECRET"
+git fetch origin v2
+pl trigger "$P" --field sha=$(git rev-parse origin/v2)       # prints "Olve.Pipelines v2#<n>"
 ```
 
-### 4. Monitor jobs
+An explicit trigger is never de-duplicated; it does not supersede a running automatic run (both
+run; the per-step slot serialises them).
 
-Poll every 30 seconds. The production step (Kaniko build) takes ~3-5 minutes. Each processing step (deploy-beta, then deploy-prod) takes ~1-2 minutes. If beta fails, prod is skipped.
+## 3. Monitor
 
 ```bash
-curl -sk "https://pipelines-private.ovea.pro/api/jobs" | uv run python -c "
-import sys, json
-jobs = json.load(sys.stdin)
-for j in sorted(jobs, key=lambda x: x['createdAt']):
-    pid = j['pipelineId']
-    print(f\"{j['id'][:8]}... | {j['\$type']} | {j['status']['\$type']}\")"
+R="Olve.Pipelines v2#<n>"
+pl run get "$R"                                  # stages + each step's status, attempt, reason
+pl step logs "$R/build" --follow                 # kaniko build
+pl step logs "$R/test" --follow                  # unit tests
+pl step logs "$R/deploy-beta" --follow
 ```
 
-Terminal statuses: `done`, `failed`, `cancelled`, `obsolete`.
+Expected: `source` ~5 s; `build` ~1.5 min cached, up to ~4.5 min cold; `test` ~1 min (parallel with
+build); `deploy-beta` ~20 s. `deploy-beta` replaces the pod that runs the service: the new pod logs
+`Reattaching to K8s Job … deploy-beta`, collects it and finishes the run — a short API blip during
+that is normal.
 
-### 5. On failure, check logs
+## 4. On failure
+
+- `pl run get "$R"` shows the failed step's reason (includes the harness exit code); `pl step logs "$R/<step>"`.
+- **kaniko hangs at "Unpacking rootfs"** (a stalled base-image pull; seen on some runs): the build
+  idles until its 3600 s timeout and blocks the next build. Recover:
+  ```bash
+  pl run cancel "$R" && pl run rerun "$R"
+  ```
+- Rerun just the failed step and continue downstream: `pl step rerun "$R/<step>" --continue`.
+- Service logs: `ssh oliver@bulwark-m2 "kubectl -n apps-beta logs deploy/olve-pipelines-v2 --since=10m | grep -v health"`.
+- Step pods: `ssh oliver@bulwark-m2 "kubectl -n olve-runners-beta get jobs,pods -l olve-run=<n>"`
+  (labels `olve-pipeline`, `olve-run`, `olve-step`, `olve-attempt`, `olve-role=step`; containers `olve-init`, `step`).
+
+## 5. Verify
 
 ```bash
-curl -sk "https://pipelines-private.ovea.pro/api/jobs/$JOB_ID/logs"
+curl -s https://pipelines-v2-beta.ovea.pro/api/health
+ssh oliver@bulwark-m2 "kubectl -n apps-beta get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'"
+# expect olve-pipelines-v2:<the run's version stamp, e.g. 2026.10.22.6>
 ```
 
-Also check app logs:
-```bash
-ssh oliver@bulwark-m2 "kubectl logs deploy/olve-pipelines -n apps --since=10m 2>&1 | grep -v health"
-```
-
-### 6. Verify deployment
-
-After all jobs reach `done`:
-```bash
-ssh oliver@bulwark-m2 "kubectl get pods -n apps"
-curl -sk "https://pipelines-private.ovea.pro/api/health"
-```
-
-## Expected flow
-
-```
-production (build-and-package) ~3-5 min
-  → processing (deploy-beta) ~1-2 min  — fails fast if beta rollout is unhealthy
-    → processing (deploy) ~1-2 min     — prod deploy, skipped on beta failure
-      → prod app restarts with new image
-```
-
-**Note:** Pipeline config is persisted to S3 and survives restarts. If using a poll trigger, deployments are also triggered automatically when the polled value changes (e.g. new commit on `main`).
+Report the run address, its duration, the deployed image tag and the health result.

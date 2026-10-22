@@ -10,26 +10,34 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 - .NET 10, Native-AOT published. Controller: `src/Olve.Pipelines`. Operator CLI:
   `src/Olve.Pipelines.Cli` (binary `pl`, a separate AOT project that shares ~no runtime code).
 - `dotnet build` / `dotnet test` (unit) / `dotnet test -p:RunIntegrationTests=true` (all).
-- In the pipeline, the container is built with **Kaniko** (`.pipelines/scripts/build.sh`) while
-  the test suite runs in parallel (`scripts/test.sh`). The build stamps a timestamp `VERSION`
-  (`YYYYMMDD-HHMMSS`) into `version.txt` in the bundle; the deploy and publish-cli steps read it
-  back so everything in a run shares one version. (It is a timestamp, not a semver — anything that
-  stamps a .NET `AssemblyVersion`/`FileVersion` from it will fail; use `InformationalVersion`.)
+- SDK (`sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
+- In the v2 pipeline (`.pipelines/pipeline.ts`), the container is built with **kaniko**
+  (`steps.imageBuild`, layer cache in `registry.ovea.pro`) while the unit tests run in parallel
+  (`handlers/test.ts`). The image tag is the run's version stamp (`yyyy.MM.dd.<run>`, e.g.
+  `2026.10.22.6`; `-attempt<n>` on reruns) — not a semver, so never stamp a .NET
+  `AssemblyVersion`/`FileVersion` from it; use `InformationalVersion`.
 
 ## Structure
 
 CLAUDE.md is the detailed map (service-layer architecture: EntityStore / AttachmentStore / event
 hubs / domain services, plus conventions). Top level: `src/Olve.Pipelines` (controller),
-`src/Olve.Pipelines.Cli` (`pl`), `helm/` (chart + per-env values), `.pipelines/` (this repo's own
-deploy config), `frontend/` (Lit SPA), `docs/`.
+`src/Olve.Pipelines.Cli` (`pl`), `sdk/` (`@olve/pipelines`), `harness/` (step-pod init image),
+`helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
+fixture), `frontend/` (Lit SPA), `docs/`.
 
 ## How it's deployed (self-deploy)
 
-Olve.Pipelines deploys itself. `.pipelines/config.yaml` is the source of truth; a reconcile loop
-polls `main` and a GitHub push webhook triggers a run. Flow: `build-and-package` + `code-test`
-(production, parallel) → `deploy-beta` → `deploy` (prod, gated on beta) → `publish-cli`. The deploy
-steps `helm upgrade` the chart (carried in the bundle) imperatively — **helm values are NOT
-GitOps-reconciled; only `.pipelines/config.yaml` is.** Pushing `main` self-deploys.
+Olve.Pipelines deploys itself. **v2 (this branch):** the v2 beta instance
+(`pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`) runs the pipeline
+"Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` → `build` ∥ `test` →
+`deploy-beta` (`steps.helmDeployOverSsh`, values `values-beta.yaml` + `values-v2-beta.yaml`). The
+deploy poll (no public webhook on v2 beta) reconciles `.pipelines/` commits into versions and
+starts a run per push; `deploy-beta` restarts the pod running the run, and the new pod reattaches
+to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this branch is paused (blocked
+`deploy-beta` gate) and kept as the rollback — see the E2 notes in
+`docs/design/pipelines-v2-plan.md`. **v1 (`main`):** `.pipelines/config.yaml` on `main` deploys
+v1 beta → prod → `publish-cli`. In both, the chart is `helm upgrade`d imperatively — **helm values
+are NOT GitOps-reconciled; only the pipeline definition is.** Skills: `/deploy`, `/setup-pipeline`.
 
 ### Two-tier model
 

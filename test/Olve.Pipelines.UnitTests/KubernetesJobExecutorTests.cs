@@ -41,10 +41,12 @@ public class KubernetesJobExecutorTests
         public List<string> DeletedJobs { get; } = [];
         public Dictionary<string, string> Logs { get; } = [];
         public Action? OnPoll { get; set; }
+        public Action? OnCreateJob { get; set; }
 
         public Task<bool> CreateJobAsync(string ns, K8sJobManifest manifest, CancellationToken ct = default)
         {
             CreateJobCalls++;
+            OnCreateJob?.Invoke();
             if (FailCreateJobTimes > 0)
             {
                 FailCreateJobTimes--;
@@ -308,6 +310,21 @@ public class KubernetesJobExecutorTests
         await RunWatcher(h, attempt.Id);
 
         await Assert.That(h.Hello.Status).IsTypeOf<Cancelled>();
+        await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
+        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+    }
+
+    [Test]
+    public async Task ObsoletedWhileSubmitting_DeletesTheJobInsteadOfRunningIt()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.K8s.States.Add(Running);
+        h.K8s.OnCreateJob = () => h.Attempts.Update(attempt.Id, a => a with { Status = new Obsolete(attempt.Id) }).DiscardResult();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Obsolete>();
         await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
         await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
     }

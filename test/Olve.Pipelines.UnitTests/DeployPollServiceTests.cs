@@ -38,11 +38,12 @@ public class DeployPollServiceTests
     private sealed class FakePush : IPushTriggerHandler
     {
         public List<string> Fired { get; } = [];
+        public bool Fail { get; set; }
 
         public Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct)
         {
             lock (Fired) Fired.Add(headSha);
-            return Task.FromResult(Result.Success());
+            return Task.FromResult(Fail ? Result.Failure(new ResultProblem("map-trigger Job failed")) : Result.Success());
         }
     }
 
@@ -144,6 +145,24 @@ public class DeployPollServiceTests
         await c.Run();
 
         await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-1");
+    }
+
+    [Test]
+    public async Task FailedFire_KeepsTheCursor_SoTheNextCheckFiresAgain()
+    {
+        await using var c = Build();
+        c.Source.BranchHeadSha = "head-0";
+        await c.Run();
+
+        c.Source.BranchHeadSha = "head-1";
+        c.Push.Fail = true;
+        await c.Run();
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-0");
+
+        c.Push.Fail = false;
+        await c.Run();
+        await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1", "head-1" });
         await Assert.That(c.Current.LastPushSha).IsEqualTo("head-1");
     }
 

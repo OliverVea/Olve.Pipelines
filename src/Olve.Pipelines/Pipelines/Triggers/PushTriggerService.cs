@@ -89,23 +89,35 @@ public class PushTriggerService(
         if (binding.LastPushSha == head)
             return;
 
-        bindingService.SetLastPushSha(binding.Id, head).DiscardResult();
-
         // First observation seeds the cursor — restarts and freshly bound pipelines never treat
         // already-current code as a new push.
         if (binding.LastPushSha is null)
         {
             logger.LogInformation("Push check: seeding cursor for '{Repo}@{Branch}' at {Sha}", binding.Repo, binding.Branch, head);
+            LogIfFailed(bindingService.SetLastPushSha(binding.Id, head), binding);
             return;
         }
 
         logger.LogInformation("Push check: '{Repo}@{Branch}' advanced {Old} -> {New}; firing the push trigger",
             binding.Repo, binding.Branch, binding.LastPushSha, head);
 
+        // The cursor moves only once the trigger fired, so a failed fire (mapping Job, K8s, a restart)
+        // is retried on the next check; de-dup makes a repeat harmless.
         var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct);
         if (fired.TryPickProblems(out var fireProblems))
-            logger.LogProblems(LogLevel.Warning, fireProblems, "Push trigger of pipeline '{PipelineId}' for {Sha} did not start a run",
-                binding.PipelineId, head);
+        {
+            logger.LogProblems(LogLevel.Warning, fireProblems,
+                "Push trigger of pipeline '{PipelineId}' for {Sha} did not start a run; retrying on the next check", binding.PipelineId, head);
+            return;
+        }
+
+        LogIfFailed(bindingService.SetLastPushSha(binding.Id, head), binding);
+    }
+
+    private void LogIfFailed(Result<PipelineConfigBinding> result, PipelineConfigBinding binding)
+    {
+        if (result.TryPickProblems(out var problems))
+            logger.LogProblems(LogLevel.Warning, problems, "Push check: could not record the push cursor of '{Repo}@{Branch}'", binding.Repo, binding.Branch);
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

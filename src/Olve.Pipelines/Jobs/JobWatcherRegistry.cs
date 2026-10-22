@@ -15,21 +15,31 @@ public class JobWatcherRegistry(ILogger<JobWatcherRegistry> logger) : IHostedLif
 
     public void EnsureRunning(Id<Attempt> id, Func<Task> work)
     {
-        _watchers.GetOrAdd(id, key => Task.Run(async () =>
+        // The watcher starts only once it is registered: removing itself in `finally` before
+        // being stored would leave a finished watcher in the registry for good (and count it
+        // against the concurrency limit).
+        var registered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var watcher = WatchAsync(id, registered.Task, work);
+        registered.SetResult(_watchers.TryAdd(id, watcher));
+    }
+
+    private async Task WatchAsync(Id<Attempt> key, Task<bool> registered, Func<Task> work)
+    {
+        if (!await registered)
+            return;
+
+        try
         {
-            try
-            {
-                await work();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Watcher for job '{JobId}' threw unhandled exception", key);
-            }
-            finally
-            {
-                _watchers.TryRemove(key, out _);
-            }
-        }));
+            await work();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Watcher for job '{JobId}' threw unhandled exception", key);
+        }
+        finally
+        {
+            _watchers.TryRemove(key, out _);
+        }
     }
 
     public Task StartingAsync(CancellationToken cancellationToken) => Task.CompletedTask;

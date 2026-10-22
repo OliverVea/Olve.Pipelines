@@ -34,7 +34,7 @@ public static class PipelineBindingEndpoints
                     return bindingProblems;
                 }
 
-                return bindingResult;
+                return Redacted(bindingResult);
             })
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("CreatePipelineWithRepo")
@@ -52,7 +52,7 @@ public static class PipelineBindingEndpoints
         // The credentials key moves GitHub reads onto the authenticated rate limit; empty clears it.
         app.MapPatch("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, UpdateBindingRequest request)
-                => bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret))
+                => Redacted(bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret)))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
 ;
@@ -98,7 +98,7 @@ public static class PipelineBindingEndpoints
 
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId)
-                => bindings.GetByPipelineId(pipelineId))
+                => Redacted(bindings.GetByPipelineId(pipelineId)))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("GetPipelineBinding")
             .AllowAnonymous();
@@ -138,6 +138,10 @@ public static class PipelineBindingEndpoints
 
     private static string Branch(string? branch) => string.IsNullOrWhiteSpace(branch) ? DefaultBranch : branch;
     private static string Path(string? path) => string.IsNullOrWhiteSpace(path) ? DefaultPath : path;
+
+    // The webhook HMAC key never leaves the service (the binding GET is anonymous).
+    internal static Result<PipelineConfigBinding> Redacted(Result<PipelineConfigBinding> binding) =>
+        binding.TryPickProblems(out var problems, out var value) ? problems : value with { WebhookSecret = null };
 }
 
 public record CreatePipelineWithRepoRequest(string Repo, string? Branch, string? Path, string? CredentialsSecret);

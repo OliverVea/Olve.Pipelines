@@ -20,3 +20,7 @@ steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, 
 
 // @ts-expect-error -- expect: No overload matches this call
 steps.imageBuild({ name: "b", description: "", repository: "registry.example/x", contentTag: true });
+
+const widened = { fromRegistry: true };
+// @ts-expect-error -- expect: DefaultImages, boolean>
+steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", ...widened });

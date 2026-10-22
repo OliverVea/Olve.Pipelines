@@ -66,7 +66,7 @@ export interface HelmDeployOverSshDef<N extends string, K extends string, Im ext
    * first, then `pullPolicy=IfNotPresent`. Default: `BuiltImage` tarballs, imported on the host, then
    * `pullPolicy=Never`.
    */
-  fromRegistry?: R;
+  fromRegistry?: R & (boolean extends R ? "❌ fromRegistry must be a literal true or false (use `as const` on a shared config object)" : unknown);
   /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name. */
   deployments?: readonly string[];
   /** Per rollout (`kubectl rollout status --timeout`). Default 120. */

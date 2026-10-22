@@ -53,7 +53,7 @@ first.
   tsconfig.json
   models.ts             data models          (contract file)
   pipeline.ts           steps + pipeline     (contract file)
-  handlers/<step>.ts    one per custom step  (not needed for library steps)
+  handlers/*.ts         one per custom step: implement(step, fn)  (not needed for library steps)
   scripts/*.sh          embedded into the compiled binary
 ```
 

@@ -1,7 +1,7 @@
 // olve-build: handler-hash behaviour, determinism, the compiled binary end to end.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeAll, describe, expect, test } from "bun:test";
-import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { build } from "../../src/build/build.ts";
@@ -26,7 +26,7 @@ const edit = (file: string, from: string | RegExp, to: string) => {
 describe("handler hashes (contract files and SDK external, function-level granularity)", () => {
   let baseline: Record<string, string>;
   const hashesOf = async (dir: string) =>
-    Object.fromEntries(Object.entries(await handlerHashes(loadProject(dir), harnessInfo())).map(([k, v]) => [k, v.handlerHash]));
+    Object.fromEntries(Object.entries(await handlerHashes(await loadProject(dir), harnessInfo())).map(([k, v]) => [k, v.handlerHash]));
   const changed = async (fn: (dir: string) => void) => {
     const dir = copyExample(join(tmp("hash"), "p"));
     fn(dir);
@@ -121,8 +121,24 @@ describe("compiled binary", () => {
     rmSync(join(dir, "handlers/summary.ts"));
     const err = await build(dir, { out: join(dir, "..", "out"), log: () => {} }).then(() => undefined, (e) => e);
     expect(err?.exitCode).toBe(EXIT.configInvalid);
-    expect(String(err?.message)).toMatch(/step 'summary' has no handler \(expected handlers\/summary.ts/);
+    expect(String(err?.message)).toMatch(/step 'summary' has no handler/);
   }, 60000);
+
+  test("handlers pair by the step they implement, not by file name", async () => {
+    const dir = copyExample(join(tmp("rename"), "pipeline"));
+    renameSync(join(dir, "handlers/summary.ts"), join(dir, "handlers/report.ts"));
+    const project = await loadProject(dir);
+    expect(project.handlers.find(([step]) => step === "summary")?.[1]).toBe(join(dir, "handlers/report.ts"));
+  });
+
+  test("a top-level handler file must implement a step, and only one file per step", async () => {
+    const dir = copyExample(join(tmp("badhandlers"), "pipeline"));
+    writeFileSync(join(dir, "handlers/helpers.ts"), "export const x = 1;\n");
+    await expect(loadProject(dir)).rejects.toThrow(/handlers\/helpers.ts must default-export implement/);
+    rmSync(join(dir, "handlers/helpers.ts"));
+    copyFileSync(join(dir, "handlers/summary.ts"), join(dir, "handlers/summary-copy.ts"));
+    await expect(loadProject(dir)).rejects.toThrow(/both implement step 'summary'/);
+  });
 });
 
 describe("as an installed dependency (package exports, no tsconfig paths)", () => {

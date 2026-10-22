@@ -77,17 +77,17 @@ export async function resolveStepFunction(step: AnyStep, handlers: HandlerRegist
     return step.builtin.run as StepFunction;
   }
   const load = handlers[step.name];
-  if (!load) return `step '${step.name}' has no handler (expected handlers/${step.name}.ts)`;
+  if (!load) return `step '${step.name}' has no handler`;
   let mod: { default: unknown };
   try {
     mod = await load();
   } catch (e) {
-    return `handlers/${step.name}.ts failed to load: ${(e as Error)?.stack ?? String(e)}`;
+    return `the handler of step '${step.name}' failed to load: ${(e as Error)?.stack ?? String(e)}`;
   }
   const impl = mod.default;
-  if (!isImplementation(impl)) return `handlers/${step.name}.ts must default-export implement(<step '${step.name}'>, …)`;
+  if (!isImplementation(impl)) return `the handler of step '${step.name}' must default-export implement(<step '${step.name}'>, …)`;
   if (impl.step !== step)
-    return `handlers/${step.name}.ts implements step '${(impl.step as AnyStep)?.name}', not '${step.name}' (the default export must be implement(<the '${step.name}' step from pipeline.ts>, …))`;
+    return `the handler of step '${step.name}' implements a different step object (it must be implement(<the '${step.name}' step from pipeline.ts>, …))`;
   return impl.handler as unknown as StepFunction;
 }
 

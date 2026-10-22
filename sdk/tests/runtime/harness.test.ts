@@ -88,7 +88,7 @@ describe("run", () => {
     const dir = tmp("cfg");
     writeFileSync(join(dir, "input.json"), "{}");
     expect(await withEnv({ OLVE_DIR: dir }, () => runHarness(broken, ["run", "checkout"], io))).toBe(EXIT.configInvalid);
-    expect(io.err.join("\n")).toMatch(/implements step 'build', not 'checkout'/);
+    expect(io.err.join("\n")).toMatch(/handler of step 'checkout' implements a different step/);
   });
   test("output validated strictly (unknown keys at any depth → 66)", async () => {
     const summaryOk = await run(["run", "summary"], { beta: { release: "r", version: "v", url: "https://x" } });

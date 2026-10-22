@@ -69,7 +69,7 @@ export async function build(dir: string, opts: BuildOptions): Promise<BuildResul
   const log = opts.log ?? ((l: string) => process.stderr.write(l + "\n"));
   const stdout = opts.stdout ?? (async (t: string) => void (await Bun.write(Bun.stdout, t)));
   const target = opts.target ?? "bun-linux-x64";
-  const project = loadProject(dir);
+  const project = await loadProject(dir);
   const out = resolve(opts.out);
   mkdirSync(out, { recursive: true });
   const harness = harnessInfo();

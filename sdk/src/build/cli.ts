@@ -32,7 +32,7 @@ async function main(): Promise<number> {
   const dir = positionals[0]!;
   try {
     if (values["hash-only"]) {
-      const h = await handlerHashes(loadProject(dir), harnessInfo());
+      const h = await handlerHashes(await loadProject(dir), harnessInfo());
       await Bun.write(Bun.stdout, canonicalJson({ harness: harnessInfo(), handlers: h }));
       return 0;
     }

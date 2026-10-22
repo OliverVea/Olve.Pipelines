@@ -14,7 +14,7 @@ The binding path (`.pipelines/` by default) is a Bun package:
 ```
 models.ts                 data models                           (contract file)
 pipeline.ts               steps + `export default pipeline(…)`  (contract file)
-handlers/<step-name>.ts   one per custom step: `export default implement(step, fn)`
+handlers/*.ts             one per custom step: `export default implement(step, fn)`
 handlers/lib/…            shared helpers (not handlers)
 scripts/*.sh              embedded: import s from "../scripts/x.sh" with { type: "file" }
 package.json, bun.lock, tsconfig.json
@@ -22,8 +22,10 @@ package.json, bun.lock, tsconfig.json
 
 - **Contract files** hold contracts only, never handler code. The service evaluates them alone to
   produce the manifest ("describe"), so they must be deterministic: no env, time or network.
-- **Handlers by convention**: `handlers/<step-name>.ts` default-exports `implement(step, fn)`. A
-  custom step without a handler file is a describe error; library steps need none.
+- **A handler names its step**: each top-level `handlers/*.ts` default-exports `implement(step, fn)`,
+  and that `step` reference is what pairs them; the file name is free (`handlers/deploy-prod.ts` by
+  habit). A custom step no handler implements, two handlers for one step, or a top-level file that
+  isn't a handler is a describe error; library steps need none. Shared code goes in a subfolder.
 - **Scripts are embedded** into the compiled binary. The repo is *not* in the step container — a
   step that needs the source gets it as a file reference (`Source.tree`).
 - Dependencies point one way: `models ← steps ← handlers`, `models ← pipeline`.

@@ -64,7 +64,7 @@ A pipeline directory (the binding path, `.pipelines/` by default) looks like thi
 ```
 models.ts                 data models                         (contract file)
 pipeline.ts               steps + `export default pipeline(…)` (contract file)
-handlers/<step-name>.ts   one per custom step: `export default implement(step, fn)`
+handlers/*.ts             one per custom step: `export default implement(step, fn)` (pairs by the step, not the file name)
 handlers/lib/…            shared helpers (not handlers)
 scripts/*.sh              embedded with `import s from "../scripts/x.sh" with { type: "file" }`
 ```
@@ -367,7 +367,7 @@ olve-build <pipelineDir> --out <dir> [--target bun-linux-x64|bun-linux-x64-musl]
 olve-build <pipelineDir> --hash-only          # print handler hashes (diagnostics)
 ```
 
-1. Hash every `handlers/*.ts` (see `handlerHash`).
+1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash it (see `handlerHash`).
 2. Generate `<pipelineDir>/.olve/gen/handlers.ts` (a registry of literal `import()` paths, plus hashes and harness info) and `entry.ts`. Add `.olve/` to `.gitignore`.
 3. Run `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig --bytecode --format=esm` → `<out>/step`. The output is never minified, because mapper source analysis needs real source.
 4. Check that `PT_INTERP` is `/lib64/ld-linux-x86-64.so.2`. On alpine, Bun silently produces a musl binary; the check fails it.

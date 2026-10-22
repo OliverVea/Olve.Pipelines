@@ -20,7 +20,7 @@ export class DescribeError extends Error {
 }
 
 export interface DescribeOptions {
-  /** Step names that have a handler file (`handlers/<name>.ts`). */
+  /** Step names that have a handler (a `handlers/*.ts` default-exporting `implement(step, …)`). */
   handlerNames: Iterable<string>;
   /** Step name → handler hash (from the build; includes the harness identity). */
   handlerHashes: Readonly<Record<string, string>>;
@@ -198,7 +198,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     let handlerHash: string;
     let config: Record<string, unknown> | undefined;
     if (s.kind === "custom") {
-      if (!handlerNames.has(s.name)) problems.push(`${at} has no handler (expected handlers/${s.name}.ts default-exporting implement(${camel(s.name)}, …))`);
+      if (!handlerNames.has(s.name)) problems.push(`${at} has no handler (add a handlers/*.ts default-exporting implement(${camel(s.name)}, …))`);
       handlerHash = opts.handlerHashes[s.name] ?? "";
       if (handlerNames.has(s.name) && !handlerHash) problems.push(`${at}: no handler hash was computed`);
     } else if (s.builtin) {
@@ -329,11 +329,11 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     return { step: describeStep({ step: fh.step }, new Map(), true), steps: scope };
   }).filter((x) => x !== undefined);
 
-  // ── handler files without a step ──
+  // ── handlers without a step ──
   for (const h of handlerNames) {
     const s = steps.get(h);
-    if (!s) problems.push(`handlers/${h}.ts does not match any step of the pipeline`);
-    else if (s.kind !== "custom") problems.push(`handlers/${h}.ts: '${h}' is a library step (${s.kind}) and must not have a handler file`);
+    if (!s) problems.push(`a handler implements step '${h}', which is not in the pipeline`);
+    else if (s.kind !== "custom") problems.push(`a handler implements '${h}', a library step (${s.kind}) that carries its own implementation`);
   }
 
   // ── triggers ──

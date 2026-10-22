@@ -17,7 +17,7 @@ const USAGE = `usage: olve-dev describe <dir> [--sentinels]
        olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]`;
 
 export async function devConfig(dir: string, withHashes: boolean): Promise<HarnessConfig> {
-  const project = loadProject(dir);
+  const project = await loadProject(dir);
   const mod = (await import(project.pipelineFile)) as { default?: unknown };
   if (!mod.default) throw new ProjectError(`${project.pipelineFile} has no default export (export default pipeline({...})...)`);
   const harness = harnessInfo();

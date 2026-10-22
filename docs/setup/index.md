@@ -28,7 +28,7 @@ source ──> build ∥ test ──> when(deployTo = beta): deploy-beta
 |---|---|
 | **Model** | A named zod schema (`BuildArtifact`). Nominal: two models with the same shape are not interchangeable. |
 | **Step** | A contract: name, image, inputs, output model, secrets. No behaviour. |
-| **Handler** | The implementation of one step, in `handlers/<step-name>.ts`. |
+| **Handler** | The implementation of one step: a `handlers/*.ts` default-exporting `implement(step, fn)`. |
 | **Library step** | An SDK step with a built-in handler and typed config (`steps.gitHubSource`, `steps.imageBuild`, …). |
 | **Pipeline** | Input model, triggers, stages, `when` blocks, failure handlers. |
 | **Version** | An immutable snapshot of the pipeline, added whenever the definition changes. One version is active at a time. |

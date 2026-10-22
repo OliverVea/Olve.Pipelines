@@ -119,9 +119,9 @@ describe("describe-time checks", () => {
   });
   test("custom step without handler", () => expectProblem(base().stage(make), /step 'make' has no handler/, []));
   test("handler file without step / for a library step", () => {
-    expectProblem(base().stage(make), /handlers\/ghost.ts does not match any step/, ["make", "ghost"]);
+    expectProblem(base().stage(make), /implements step 'ghost', which is not in the pipeline/, ["make", "ghost"]);
     const lib = steps.script({ name: "s", description: "", image: "alpine", script: join(EXAMPLE, "scripts/test.sh") });
-    expectProblem(base().stage(lib), /'s' is a library step/, ["s"]);
+    expectProblem(base().stage(lib), /implements 's', a library step/, ["s"]);
   });
   test("two schemas under one model name", () => {
     const Art2 = model("Art", z.object({ other: z.number() }));

@@ -145,6 +145,8 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         // After every event registration: the sweep's writes must reach cleanup/obsoletion/scheduling.
         services.AddSingleton<IRunOnStartup, RunSchedulingEventRegistration>();
+        services.AddTransient<RunSweep>();
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<RunSweep>());
         services.AddSingleton<IRunOnStartup, RunSchedulingStartup>();
         // /api/events and live log streams (SSE).
         services.TryAddSingleton(TimeProvider.System);

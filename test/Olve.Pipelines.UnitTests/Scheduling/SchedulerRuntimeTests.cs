@@ -33,9 +33,11 @@ public class SchedulerRuntimeTests
         return target.WireEvents(scheduler: true);
     }
 
+    private static RunSweep Sweep(TestRunDomain d) => new(d.Pipelines, d.Runs, d.Scheduler, d.Switches, d.SchedulingLock);
+
     private static void RunStartup(TestRunDomain d)
     {
-        var startup = new RunSchedulingStartup(d.Pipelines, d.Runs, d.RunService, d.AttemptService, d.Scheduler, d.Switches,
+        var startup = new RunSchedulingStartup(d.Pipelines, d.Runs, d.RunService, d.AttemptService, Sweep(d),
             d.SchedulingLock, NullLogger<RunSchedulingStartup>.Instance);
         if (startup.Run().TryPickProblems(out var problems))
             throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToString())));
@@ -62,6 +64,26 @@ public class SchedulerRuntimeTests
         var steps = restored.AttemptService.ListByRun(run.Id).GroupBy(a => a.StepName).ToDictionary(g => g.Key, g => g.Count());
         await Assert.That(steps).IsEquivalentTo(new Dictionary<string, int> { ["checkout"] = 1, ["build"] = 1, ["test"] = 1 });
         await Assert.That(restored.AttemptService.ListForStep(run.Id, "build")[0].Status).IsTypeOf<Scheduled>();
+    }
+
+    [Test]
+    public async Task Sweep_AdvancesARunWhoseAdvanceWasMissed()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        var checkout = s.MarkInProgress(run, "checkout");
+
+        // As if the completion's event handler threw: checkout is Succeeded but nothing advanced the run.
+        var missed = Restore(s.D, d =>
+        {
+            if (d.AttemptService.MarkSucceeded(checkout.Id, DefaultOutput(run.Number, "checkout", 1)).TryPickProblems(out _))
+                throw new InvalidOperationException("could not finish checkout");
+        });
+        await Assert.That(missed.AttemptService.ListForStep(run.Id, "build")).IsEmpty();
+
+        Sweep(missed).Sweep();
+
+        await Assert.That(missed.AttemptService.ListForStep(run.Id, "build")[0].Status).IsTypeOf<Scheduled>();
     }
 
     [Test]

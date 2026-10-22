@@ -1,3 +1,4 @@
+using Olve.Pipelines.Sources;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared;
 
@@ -54,8 +55,7 @@ public class RunSchedulingStartup(
     EntityStore<Run> runStore,
     RunService runs,
     AttemptService attempts,
-    StageScheduler scheduler,
-    SwitchService switches,
+    RunSweep sweep,
     RunSchedulingLock schedulingLock,
     ILogger<RunSchedulingStartup> logger) : IRunOnStartup
 {
@@ -77,16 +77,41 @@ public class RunSchedulingStartup(
                 _ = attempts.Delete(attempt.Id);
             }
 
-            foreach (var run in runStore.List().Where(r => r.Status is RunStatus.Running).OrderBy(r => r.Number))
-                scheduler.Advance(run.Id);
-
-            foreach (var pipeline in pipelines.List())
-            {
-                if (switches.TryCompleteDrain(pipeline.Id))
-                    switches.OnSwitchCompleted(pipeline.Id);
-            }
+            sweep.Sweep();
         });
 
         return Result.Success();
     }
+}
+
+/// <summary>
+/// Advances every Running run and completes finished drains. Idempotent: run at startup, and every
+/// minute as a safety net, so a run whose event handler threw (and so was never advanced) moves on.
+/// </summary>
+public class RunSweep(
+    EntityStore<Pipeline> pipelines,
+    EntityStore<Run> runStore,
+    StageScheduler scheduler,
+    SwitchService switches,
+    RunSchedulingLock schedulingLock) : IPollSourceProvider
+{
+    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+
+    public void Sweep() => schedulingLock.Run(() =>
+    {
+        foreach (var run in runStore.List().Where(r => r.Status is RunStatus.Running).OrderBy(r => r.Number))
+            scheduler.Advance(run.Id);
+
+        foreach (var pipeline in pipelines.List())
+        {
+            if (switches.TryCompleteDrain(pipeline.Id))
+                switches.OnSwitchCompleted(pipeline.Id);
+        }
+    });
+
+    public IEnumerable<PollSource> Sources() => [new("run-sweep", Interval, _ =>
+    {
+        Sweep();
+        return Task.CompletedTask;
+    })];
 }

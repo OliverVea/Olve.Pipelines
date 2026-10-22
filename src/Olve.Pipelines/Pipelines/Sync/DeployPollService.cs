@@ -211,13 +211,22 @@ public class DeployPollService(
         {
             result = await services.GetRequiredService<IConfigReconciler>().ReconcileAsync(binding, sha, ct);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException)
         {
+            RecordStatus(bindingService, binding.Id, s => s with { InProgress = false });
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Reconcile of config {Sha} of '{Repo}@{Branch}' (pipeline '{PipelineId}') threw",
+                sha, binding.Repo, binding.Branch, binding.PipelineId);
             result = Result.Failure<ReconcileReport>(new ResultProblem("Reconcile failed: {0}", ex.Message));
         }
 
         if (result.TryPickProblems(out var problems, out var report))
         {
+            logger.LogProblems(LogLevel.Warning, problems, "Reconcile of config {Sha} of '{Repo}@{Branch}' (pipeline '{PipelineId}') failed",
+                sha, binding.Repo, binding.Branch, binding.PipelineId);
             _failed[binding.Id] = sha;
             RecordStatus(bindingService, binding.Id, s => s with
             {

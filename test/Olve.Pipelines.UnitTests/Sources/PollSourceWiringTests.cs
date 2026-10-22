@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Scheduling;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
@@ -21,7 +22,8 @@ public class PollSourceWiringTests
 
         var providers = provider.GetServices<IPollSourceProvider>().ToList();
 
-        await Assert.That(providers.Count).IsEqualTo(3);
+        await Assert.That(providers.Count).IsEqualTo(4);
+        await Assert.That(providers.OfType<RunSweep>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<PushTriggerService>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<PollTriggerService>().Count()).IsEqualTo(1);
         await Assert.That(ReferenceEquals(providers.OfType<DeployPollService>().Single(), provider.GetRequiredService<DeployPollService>())).IsTrue();

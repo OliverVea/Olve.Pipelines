@@ -50,12 +50,8 @@ public class PipelineReconcileService(
             return Result.Failure<ReconcileReport>(buildProblems);
 
         var applied = Apply(binding.PipelineId, commitSha, manifestText);
-        if (applied.TryPickProblems(out var problems, out var report))
-        {
-            logger.LogProblems(LogLevel.Warning, problems, "Reconcile of '{Repo}@{Sha}' ({Path}) for pipeline '{PipelineId}' rejected the manifest",
-                binding.Repo, commitSha, binding.Path, binding.PipelineId);
-            return applied;
-        }
+        if (applied.TryPickProblems(out _, out var report))
+            return applied; // logged by the caller, like a failed build
 
         logger.LogInformation("Reconciled '{Repo}@{Sha}' ({Path}) for pipeline '{PipelineId}' in {ElapsedMs}ms: version {VersionNumber} ({Outcome}); changed steps {ChangedSteps}, models {ChangedModels}",
             binding.Repo, commitSha, binding.Path, binding.PipelineId, sw.ElapsedMilliseconds, report.Version.Number,

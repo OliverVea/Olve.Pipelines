@@ -142,6 +142,57 @@ public class BlockAndSwitchTests
     }
 
     [Test]
+    public async Task AutomaticRunAbandonedBySwitch_StartsAgainOnTheNewVersion()
+    {
+        var s = new SchedulerScenario();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
+        var push = s.Start(Input(deployTo: "prod"), RunTriggerKind.Push);
+        s.SucceedThroughDeployBeta(push);
+        var v2 = s.AddVersion();
+
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+
+        await Assert.That(s.Get(push).Status).IsEqualTo(RunStatus.Cancelled);
+        var again = s.D.Runs.List().Single(r => r.Number > push.Number);
+        await Assert.That(again.VersionId).IsEqualTo(v2.Id);
+        await Assert.That(again.Trigger.Kind).IsEqualTo(RunTriggerKind.Push);
+        await Assert.That(again.Input).IsEqualTo(push.Input);
+    }
+
+    [Test]
+    public async Task AbandonedManualRuns_AndCancelRunningSwitches_AreNotStartedAgain()
+    {
+        var s = new SchedulerScenario();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
+        var manual = s.Start(Input(deployTo: "prod"));
+        s.SucceedThroughDeployBeta(manual);
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, s.AddVersion().Id));
+        await Assert.That(s.D.Runs.List().Count()).IsEqualTo(1);
+
+        var push = s.Start(Input(sha: OtherSha), RunTriggerKind.Push);
+        s.MarkInProgress(push, "checkout");
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, s.AddVersion().Id, cancelRunning: true));
+        await Assert.That(s.D.Runs.List().Count()).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task RequestQueuedDuringTheDrain_WinsOverTheAbandonedRun()
+    {
+        var s = new SchedulerScenario();
+        var old = s.Start(Input(), RunTriggerKind.Push);
+        s.MarkInProgress(old, "checkout");
+        var v2 = s.AddVersion();
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+        await Assert.That(s.StartOutcome(Input(sha: OtherSha), RunTriggerKind.Push)).IsTypeOf<RunStartOutcome.Queued>();
+
+        s.Succeed(old, "checkout"); // the drain completes
+
+        var started = s.D.Runs.List().Where(r => r.VersionId == v2.Id).ToList();
+        await Assert.That(started.Count).IsEqualTo(1);
+        await Assert.That(started[0].Input).Contains(OtherSha);
+    }
+
+    [Test]
     public async Task Switch_CancelRunning_CancelsInFlightWorkAndCompletes()
     {
         var s = new SchedulerScenario();

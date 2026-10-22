@@ -107,7 +107,10 @@ pl pipeline switch my-app 7 --cancel-running   # cancel the old version's in-fli
   are **queued** (latest-wins collapses them) and start on the new version, mapped and validated
   against *its* triggers and input model.
 - Runs paused on the old version (held at a blocked step, waiting to be continued) don't block the drain and
-  can't be continued afterwards — re-trigger them on the new version.
+  are cancelled when it completes. The newest *automatic* one (push, poll, webhook) then starts again
+  on the new version with the same input, unless a request queued during the drain or a newer run on
+  the new version already covers it; re-trigger manual ones yourself. A `--cancel-running` switch
+  starts nothing again.
 - There is no side-by-side canary of two definitions.
 
 ## Git-only

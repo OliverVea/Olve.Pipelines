@@ -41,7 +41,8 @@ A held step shows as `held` in the run view (`pl run get` shows `held` / `blocke
 - While a step is blocked, every run that reaches it waits there. On unblock they all want the
   step at once, and latest-wins keeps the newest; the older held runs become `Superseded`.
 - A held run doesn't block a version switch. When the switch completes, runs left on the old
-  version, held ones included, are cancelled; re-trigger on the new version.
+  version, held ones included, are cancelled; the newest automatic one starts again on the new
+  version (see [Switch and rollback](binding-and-reconcile.md#switch-and-rollback)).
 
 ## Example
 

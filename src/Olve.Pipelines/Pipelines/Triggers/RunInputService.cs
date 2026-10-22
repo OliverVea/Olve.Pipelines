@@ -57,7 +57,10 @@ public class RunInputService(
     }
 
     /// <summary>Re-validates a trigger mapper's result (already the output view); returns the stored JSON.</summary>
-    public Result<string> PrepareMapped(Manifest manifest, JsonNode? input)
+    public Result<string> PrepareMapped(Manifest manifest, JsonNode? input) => ValidateStored(manifest, input);
+
+    /// <summary>Validates input in the stored (output) view against <paramref name="manifest"/>'s input model.</summary>
+    public static Result<string> ValidateStored(Manifest manifest, JsonNode? input)
     {
         if (!manifest.Models.TryGetValue(manifest.Input, out var model))
             return new ResultProblem("The input model '{0}' is missing from the manifest.", manifest.Input);

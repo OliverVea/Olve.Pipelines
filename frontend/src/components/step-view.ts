@@ -297,6 +297,9 @@ export class StepView extends LitElement {
         <h2>${this.step}</h2>
         ${blocked ? html`<span class="pill t-wait">blocked</span>` : nothing}
         <span class="spacer"></span>
+        ${isActiveStatus(this._history[0]?.status)
+          ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel</button>`
+          : nothing}
         ${this._retryable(blocked) ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}>Retry</button>` : nothing}
         <button class="btn" ?disabled=${this._busy} @click=${() => this._setGate(!blocked)}>${blocked ? 'Unblock' : 'Block'}</button>
       </div>
@@ -436,6 +439,12 @@ export class StepView extends LitElement {
         continue: true,
       }),
     );
+
+  private _cancel = () => {
+    const run = this._history[0]?.runNumber;
+    if (!run || !confirm(`Cancel ${this.step} in run #${run}? The run ends Cancelled once its stage settles.`)) return;
+    return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(this.step)}/cancel`));
+  };
 
   private _setGate(block: boolean) {
     return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(this.step)}/${block ? 'block' : 'unblock'}`));

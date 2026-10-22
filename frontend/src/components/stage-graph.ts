@@ -11,6 +11,7 @@ export type StepState = {
   runHref?: string;
   logsHref?: string;
   retryable?: boolean;
+  cancellable?: boolean;
   attemptCount?: number;
   latestAttempt?: number | null;
   createdAt?: Date | string | null;
@@ -22,12 +23,14 @@ export type StepState = {
 
 type Related = { src: Set<string>; dst: Set<string> };
 
+const STOP = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>`;
 const RETRY = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.55"/><path d="M13 2.5v3h-3"/></svg>`;
 const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>`;
 
 /**
  * Stages left to right (parallel steps stacked, `when` blocks bracketed); top to
- * bottom on narrow screens. Hovering a step outlines what it reads from and what reads it. Events: `step-select` {step}, `step-retry` {step}, `gate-toggle` {step, block}.
+ * bottom on narrow screens. Hovering a step outlines what it reads from and what reads it.
+ * Events: `step-select` {step}, `step-retry` {step}, `step-cancel` {step}, `gate-toggle` {step, block}.
  */
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
@@ -216,11 +219,18 @@ export class StageGraph extends LitElement {
         color: var(--color-text-muted);
         opacity: 0.45;
       }
+      .icon.stop,
       .icon.retry {
         margin-left: auto;
       }
+      .icon.stop + .icon,
       .icon.retry + .lock {
         margin-left: 0;
+      }
+      .icon.stop {
+        visibility: visible;
+        opacity: 0.8;
+        color: var(--color-danger);
       }
       .lock {
         margin-left: auto;
@@ -370,6 +380,7 @@ export class StageGraph extends LitElement {
         ${st?.runNumber ? this._run(st) : nothing}
         ${st?.runNumber && at ? html`<relative-time .value=${at}></relative-time>` : nothing}
         ${duration ? html`<span>${duration}</span>` : nothing}
+        ${this.gateControls ? this._cancel(step.name, st) : nothing}
         ${this.gateControls ? this._retry(step.name, st) : nothing}
         ${this.gateControls ? this._lock(step.name, blocked) : nothing}
       </div>
@@ -394,6 +405,20 @@ export class StageGraph extends LitElement {
   private _link(e: MouseEvent | KeyboardEvent) {
     e.stopPropagation();
     if (e instanceof MouseEvent) navClick(e);
+  }
+
+  private _cancel(step: string, st: StepState | undefined) {
+    if (!st?.cancellable) return nothing;
+    return html`<button
+      class="icon stop"
+      aria-label="Cancel ${step}"
+      @click=${(e: Event) => {
+        e.stopPropagation();
+        this.dispatchEvent(new CustomEvent('step-cancel', { detail: { step } }));
+      }}
+    >
+      ${STOP}
+    </button>`;
   }
 
   private _retry(step: string, st: StepState | undefined) {

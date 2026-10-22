@@ -200,6 +200,7 @@ export class PipelineDetailView extends LitElement {
           !isActiveStatus(a.status) &&
           !this._blocked.has(name) &&
           !this._retrying.has(name),
+        cancellable: isActiveStatus(a.status),
       });
     }
     return out;
@@ -246,6 +247,7 @@ export class PipelineDetailView extends LitElement {
               gateControls
               @gate-toggle=${(e: CustomEvent<{ step: string; block: boolean }>) => this._setGate(e.detail.step, e.detail.block)}
               @step-retry=${(e: CustomEvent<{ step: string }>) => this._retry(e.detail.step)}
+              @step-cancel=${(e: CustomEvent<{ step: string }>) => this._cancel(e.detail.step)}
               @step-select=${(e: CustomEvent<{ step: string }>) => this._open(e.detail.step)}
             ></stage-graph>`
           : this._loaded
@@ -320,6 +322,18 @@ export class PipelineDetailView extends LitElement {
 
   private _open(step: string) {
     navigate(stepPath(this.pipelineId, step));
+  }
+
+  private async _cancel(step: string) {
+    const run = this._latest.get(step)?.runNumber;
+    if (!run || !confirm(`Cancel ${step} in run #${run}? The run ends Cancelled once its stage settles.`)) return;
+    this._gateErrors = [];
+    try {
+      await apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/cancel`);
+      await this.reload();
+    } catch (err) {
+      this._gateErrors = errorMessages(err);
+    }
   }
 
   private async _retry(step: string) {

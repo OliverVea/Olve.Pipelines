@@ -94,6 +94,8 @@ export class PipelineListView extends LitElement {
     .pr-graph {
       grid-area: graph;
       min-width: 0;
+      display: flex;
+      justify-content: center;
     }
 
     .pr-menu {

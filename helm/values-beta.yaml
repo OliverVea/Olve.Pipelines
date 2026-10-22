@@ -27,8 +27,7 @@ secrets:
     envMap:
       Storage__ClientId: client-id
       Storage__ClientSecret: client-secret
-      Storage__RoleArn: role-arn
-  # Static MinIO creds (root = app creds for now). Created out-of-band; see
+  # Static Garage creds (root = app creds for now; the Secret name predates Garage). Created out-of-band; see
   # docs/operations/environment-setup.md.
   - name: olve-pipelines-minio
     envMap:

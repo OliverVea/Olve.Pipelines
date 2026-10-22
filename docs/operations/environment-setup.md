@@ -23,7 +23,7 @@ per-environment MinIO in 2026-09 (MinIO's open-source images were archived); see
 
 Storage is split across two PVCs: `olve-pipelines-garage-meta` (Garage's sqlite metadata, node
 key and layout; `local-path` SSD) and `olve-pipelines-garage-data` (object data: snapshots,
-bundles, job logs, `pl` binaries; the `bulk` HDD). Both carry `helm.sh/resource-policy: keep`.
+run outputs and files, job logs, step binaries, `pl` binaries; the `bulk` HDD). Both carry `helm.sh/resource-policy: keep`.
 
 ### 1. Create the storage credentials Secret (before the first deploy)
 
@@ -98,12 +98,12 @@ MinIO, scale up. Anything written only to Garage since the cutover is lost.
 ## Notes
 
 - **The Garage data PVC is the precious volume.** It holds snapshots (all pipeline config and
-  state) + bundles. Back up the host dir under the `bulk` storage (`/mnt/minio-data/bulk/...`).
+  state) + run outputs and step binaries. Back up the host dir under the `bulk` storage (`/mnt/minio-data/bulk/...`).
   The metadata PVC is needed too: without it Garage can't find its objects.
-- **STS storage auth is gone but the OIDC Secret stays.** `Storage__AuthUrl/ClientId/
-  ClientSecret` are still required because `KubernetesConfiguration` reuses them for OpenBao
-  auth to reach the cluster API. The static storage creds take precedence for storage.
+- **Storage auth is static creds only; the OIDC Secret stays.** The app reads
+  `Storage__AccessKey/SecretKey` (no STS). `Storage__AuthUrl/ClientId/ClientSecret` are still
+  required because `KubernetesConfiguration` reuses them for OpenBao auth to reach the cluster API.
 - **Pin the Garage image** (`garage.image` in `values.yaml`), currently `dxflrs/garage:v2.4.1`.
   Upgrades follow Garage's release notes; minor versions have been drop-in.
-- **Step pods move bundles with curl**, not `mc`: the `s3-download`/`s3-upload` helpers run
-  `S3SyncScript` on `Kubernetes__S3HelperImage` (`curlimages/curl`).
+- **Step pods never hold storage creds**: the `harness-base` init container fetches and PUTs
+  through pre-signed URLs (see `harness/README.md`).

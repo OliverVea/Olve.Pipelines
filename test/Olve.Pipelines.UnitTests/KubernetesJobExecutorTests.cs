@@ -180,7 +180,7 @@ public class KubernetesJobExecutorTests
             new PresignOptions(new Uri("http://garage.test:3900"), "bucket", "us-east-1", TimeSpan.FromHours(1)),
             new StubS3CredentialsProvider(), TimeProvider.System);
         var factory = new HarnessJobFactory(presigner, new HarnessOptions());
-        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners", "alpine", "curl", "bucket", "http://s3", false),
+        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"),
             TimeProvider.System, NullLogger<HarnessJobControl>.Instance) { FatalWaitingGrace = TimeSpan.Zero };
 
         KubernetesJobExecutor? executor = null;

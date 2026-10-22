@@ -28,45 +28,13 @@ public static class StorageConfiguration
 
         if (endpoint is null) return;
 
-        // Static credentials (integration tests, local dev with MinIO)
+        // Static credentials: the instance's Garage access key (local dev and tests: any S3 store).
         var accessKey = builder.Configuration["Storage:AccessKey"];
         var secretKey = builder.Configuration["Storage:SecretKey"];
+        if (accessKey is null || secretKey is null) return;
 
-        // OIDC → STS credentials (production with MinIO + Authentik)
-        var authUrl = builder.Configuration["Storage:AuthUrl"];
-        var clientId = builder.Configuration["Storage:ClientId"];
-        var clientSecret = builder.Configuration["Storage:ClientSecret"];
-        var roleArn = builder.Configuration["Storage:RoleArn"];
-
-        ICredentialsProvider<S3Credentials>? credentialsProvider;
-        if (accessKey is not null && secretKey is not null)
-        {
-            credentialsProvider = new DirectCredentialsProvider<S3Credentials>(
-                new S3Credentials(accessKey, secretKey));
-        }
-        else if (authUrl is not null && clientId is not null && clientSecret is not null && roleArn is not null)
-        {
-            var tokenProvider = new OAuth2TokenProvider(
-                authUrl, clientId, clientSecret,
-                scope: builder.Configuration["Storage:Scope"] ?? "openid profile email minio",
-                skipCertValidation: skipCertValidation);
-
-            credentialsProvider = new StsCredentialsProvider(
-                tokenProvider,
-                stsEndpoint: endpoint,
-                roleArn: roleArn,
-                skipCertValidation: skipCertValidation,
-                // Bind to the app's Logging config (not a bare AddConsole) so this SDK client honors the
-                // configured console formatter — emitting JSON in deployed envs instead of polluting the
-                // structured stdout stream with plain-text lines.
-                logger: LoggerFactory.Create(b => b
-                    .AddConfiguration(builder.Configuration.GetSection("Logging"))
-                    .AddConsole()).CreateLogger<StsCredentialsProvider>());
-        }
-        else
-        {
-            return;
-        }
+        ICredentialsProvider<S3Credentials> credentialsProvider =
+            new DirectCredentialsProvider<S3Credentials>(new S3Credentials(accessKey, secretKey));
 
         builder.Services.AddSingleton(credentialsProvider);
         builder.Services.AddStoragePresigning(builder.Configuration, endpoint, bucket);

@@ -32,6 +32,8 @@ export interface ImageBuildDef<N extends string> {
    * A registry without GC grows with every changed layer — prune it when needed.
    */
   cacheRepo?: string;
+  /** kaniko `--registry-map` (registry → mirror prefix); kaniko falls back to the original registry if the mirror lacks the image. */
+  registryMap?: Record<string, string>;
   timeoutSeconds?: number;
   /**
    * Kill kaniko when it writes no output for this long (default 300 s; 0 disables), failing the
@@ -82,7 +84,11 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
     "imageBuild",
     { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
     {
-      manifestConfig: () => ({ repository: def.repository, ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}) }),
+      manifestConfig: () => ({
+        repository: def.repository,
+        ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}),
+        ...(def.registryMap ? { registryMap: def.registryMap } : {}),
+      }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
         const tag = imageTag(ctx.run);
         const tree = await ctx.files.fetch(source.tree);
@@ -106,6 +112,7 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
           `--digest-file=${digestPath}`,
           `--destination=${def.repository}:${tag}`,
           ...(def.cacheRepo ? ["--cache=true", `--cache-repo=${def.cacheRepo}`] : []),
+          ...Object.entries(def.registryMap ?? {}).map(([from, to]) => `--registry-map=${from}=${to}`),
         ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
 
         let digest: string;

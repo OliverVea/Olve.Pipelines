@@ -7,10 +7,20 @@ export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing 
 
 export const source = steps.gitHubSource({ name: "source", token: GITHUB_TOKEN });
 
+export const MIRROR = "registry.ovea.pro/olve-pipelines-v2/mirror";
+
+// kaniko under gVisor stalls pulling from mcr.microsoft.com; build pulls the Dockerfile's FROMs from this mirror.
+export const mirrorBaseImages = step({
+  name: "mirror-base-images",
+  image: "gcr.io/go-containerregistry/crane:debug",
+  timeoutSeconds: 900,
+});
+
 export const build = steps.imageBuild({
   name: "build",
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
+  registryMap: { "mcr.microsoft.com": `${MIRROR}/mcr.microsoft.com`, "index.docker.io": `${MIRROR}/docker.io` },
   timeoutSeconds: 900,
 });
 
@@ -48,7 +58,7 @@ export default pipeline({
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
-  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })], mirrorBaseImages)
   .stage(build, test)
   .when({ deployTo: "beta" }, p => p
     .stage(deployBeta)

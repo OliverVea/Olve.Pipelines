@@ -185,6 +185,20 @@ describe("steps.imageBuild", () => {
     expect(r).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/app", tag: "2026.10.21.7-attempt2" } });
     expect(k.calls[2]).toContain("--destination=registry.ovea.pro/app:2026.10.21.7-attempt2");
     expect(k.calls[2]!.some((a) => a.startsWith("--cache"))).toBe(false);
+    expect(k.calls[2]!.some((a) => a.startsWith("--registry-map"))).toBe(false);
+  });
+
+  test("registryMap: one --registry-map per entry, recorded in the manifest config", async () => {
+    const registryMap = { "mcr.microsoft.com": "registry.example/mirror/mcr.microsoft.com", "index.docker.io": "registry.example/mirror/docker.io" };
+    const step = steps.imageBuild({ name: "build", repository: "x", registryMap });
+    const k = fakeKaniko();
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
+    expect(r.status).toBe("succeeded");
+    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual([
+      "--registry-map=mcr.microsoft.com=registry.example/mirror/mcr.microsoft.com",
+      "--registry-map=index.docker.io=registry.example/mirror/docker.io",
+    ]);
+    expect(step.builtin.manifestConfig()).toEqual({ repository: "x", registryMap });
   });
 
   test("stallTimeoutSeconds and retries: passed to kaniko's exec and into the step contract", async () => {

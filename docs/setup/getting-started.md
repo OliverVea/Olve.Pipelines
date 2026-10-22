@@ -27,15 +27,17 @@ that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` an
 - The v2 **`pl` CLI**. `install.sh` and `/download/pl-linux-x64` serve v1's `pl` from v1 prod; the v2
   self-deploy has no publish step yet. Build it from the `v2` branch:
   ```sh
-  dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin/pl-v2
+  dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # writes ~/.local/opt/pl-v2/pl (Native AOT)
+  export PATH=~/.local/opt/pl-v2:$PATH                   # this shell: the v2 pl before a v1 pl on PATH
   ```
-  (Native AOT, so it needs the usual AOT toolchain: `clang`, `zlib`.)
-- A session against the v2 instance. `pl`'s default URL is v1 prod, so name the instance:
+- A session against the v2 instance. `pl`'s default URL is v1 prod, and `~/.pl` holds a single
+  session, so give v2 its own config file and name the instance:
   ```sh
-  pl login --api-url https://pipelines-v2-beta.ovea.pro      # add --device over SSH
+  export PIPELINES_CONFIG=~/.pl-v2                        # keeps a v1 session in ~/.pl intact
+  pl login --api-url https://pipelines-v2-beta.ovea.pro   # add --device over SSH
   ```
-  `pl login` caches the token and the URL in `~/.pl`. `PIPELINES_API_URL` and `--api-url` override
-  it per command.
+  `pl login` caches the token and the URL in that file. `PIPELINES_API_URL` and `--api-url` override
+  the URL per command.
 
 ## Step 1 — Add `.pipelines/` to your repo
 

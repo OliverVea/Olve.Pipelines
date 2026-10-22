@@ -18,14 +18,14 @@ deployers race. See the E2 notes in `docs/design/pipelines-v2-plan.md`.)
 
 ## Prerequisites
 
-- A v2 `pl` (built from the `v2` branch: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o <dir>`;
-  the `pl` from `install.sh` is v1's).
+- A v2 `pl` (the `pl` from `install.sh` is v1's), built from the `v2` branch:
+  `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2` (writes `~/.local/opt/pl-v2/pl`).
 - A session against v2 beta. `~/.pl` holds one session, so keep v2's separate:
   ```bash
-  export PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+  export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
   pl login            # --device over SSH
   ```
-  Every command below assumes these two variables are exported in the same shell invocation.
+  Every command below assumes these variables are exported in the same shell invocation.
 - If the pipeline doesn't exist (`pl pipeline list` shows no "Olve.Pipelines v2"), run `/setup-pipeline` first.
 
 ## 1. Check the pipeline

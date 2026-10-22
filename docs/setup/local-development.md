@@ -54,7 +54,7 @@ Errors exit 78; warnings alone exit 0. Run it before pushing a pipeline change.
 pl dev run <step> --input sha=<40 hex>       # pipeline-input fields, typed by the input model
 pl dev run build                             # next step: inputs come from the local pool
 pl dev run checkout --input-file in.json     # use input.json verbatim
-pl dev run deploy-beta --secret SSH_PRIVATE_KEY="$(cat key)"
+pl dev run deploy-beta                       # declared secrets come from your environment (or --secret NAME=value)
 ```
 
 The step runs through the same harness path as in the cluster: validate input → handler → validate

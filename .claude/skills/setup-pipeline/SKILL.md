@@ -24,12 +24,12 @@ the E2 notes of `docs/design/pipelines-v2-plan.md` — and then the v2 self-depl
 ## Step 0: v2 `pl` and session
 
 ```bash
-dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin/pl-v2   # v2 pl (install.sh serves v1's)
-export PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # v2 pl (install.sh serves v1's)
+export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
 pl login                                    # --device over SSH; depends on the Authentik worker being healthy
 ```
 
-Keep both variables exported in every shell invocation below.
+Keep these variables exported in every shell invocation below.
 
 ## Step 1: Verify the app is running
 

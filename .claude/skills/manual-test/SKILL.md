@@ -29,11 +29,11 @@ Use `Development` — Production mode rejects the beta Authentik cert. Local con
 
 ## 2. Authenticate
 
-**Preferred: `pl`.** Use a v2 `pl` (built from the `v2` branch) with its own config file so the v1
-session in `~/.pl` survives:
+**Preferred: `pl`.** Use a v2 `pl` (`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`)
+with its own config file so the v1 session in `~/.pl` survives:
 
 ```bash
-export PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
 pl login                                    # --device over SSH
 ```
 

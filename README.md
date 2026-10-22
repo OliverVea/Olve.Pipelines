@@ -202,12 +202,13 @@ prod, which publishes **v1's** `pl`. The v2 self-deploy has no CLI publish step 
 `pl` from this branch:
 
 ```bash
-dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin/pl-v2   # Native AOT
-pl login --api-url https://pipelines-v2-beta.ovea.pro                                # add --device over SSH
+dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # writes ~/.local/opt/pl-v2/pl (Native AOT)
+export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2   # v2 pl first; keep its session apart from v1's ~/.pl
+pl login --api-url https://pipelines-v2-beta.ovea.pro           # add --device over SSH
 ```
 
-`pl login` caches the token and the API URL in `~/.pl`; `--api-url` / `PIPELINES_API_URL` override
-it per command, `--token` passes a bearer directly.
+`pl login` caches the token and the API URL in `~/.pl` (or `$PIPELINES_CONFIG`); `--api-url` /
+`PIPELINES_API_URL` override the URL per command, `--token` passes a bearer directly.
 
 ### Commands
 

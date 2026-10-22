@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { httpHealthCheck, model, pipeline, secret, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { reachableCaches, registryUp } from "../../src/library/image-build.ts";
 import { describePipeline } from "../../src/describe/describe.ts";
 import { Manifest } from "../../src/describe/manifest-schema.ts";
 import { testFileRef, testHandler } from "../../src/testing/index.ts";
@@ -121,7 +122,7 @@ describe("steps.gitHubSource", () => {
 });
 
 describe("steps.imageBuild", () => {
-  const fakeKaniko = (opts: { digest?: string } = {}) => {
+  const fakeKaniko = (opts: { digest?: string; down?: string[]; hang?: string[] } = {}) => {
     const tree = tmp("kaniko-tree");
     const calls: string[][] = [];
     const execOpts: (Parameters<Ctx["exec"]>[1] | undefined)[] = [];
@@ -136,14 +137,25 @@ describe("steps.imageBuild", () => {
     };
     const fetched: FileRef[] = [];
     const files = { fetch: async (ref: FileRef) => (fetched.push(ref), tree) };
-    return { tree, calls, execOpts, exec, files, fetched };
+    const probed: string[] = [];
+    const fetch = async (url: string, init?: RequestInit) => {
+      probed.push(url);
+      const host = new URL(url).host;
+      if (opts.hang?.includes(host)) {
+        return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason)));
+      }
+      if (opts.down?.includes(host)) throw new TypeError("fetch failed");
+      return new Response("{}", { status: host.startsWith("hub") ? 200 : 401 });
+    };
+    const http = { fetch } as unknown as Ctx["http"];
+    return { tree, calls, execOpts, exec, files, fetched, probed, http };
   };
 
   test("kaniko build with layer cache: exact argv, BuiltImage output", async () => {
     const step = steps.imageBuild({ name: "build", description: "", repository: "olve-pipelines-v2", cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache", timeoutSeconds: 3600 });
     expect(step).toMatchObject({ image: "gcr.io/kaniko-project/executor:debug", timeoutSeconds: 3600, retries: 2, secrets: [] });
     const k = fakeKaniko();
-    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files }, run: { version: "2026.10.21.412" } });
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http }, run: { version: "2026.10.21.412" } });
     expect(r.status).toBe("succeeded");
     expect(k.fetched).toEqual([sourceRef]);
     const out = join(r.dir, "tmp");
@@ -163,8 +175,12 @@ describe("steps.imageBuild", () => {
         "--destination=olve-pipelines-v2:2026.10.21.412",
         "--cache=true",
         "--cache-repo=registry.ovea.pro/olve-pipelines-v2/cache",
+        "--skip-push-permission-check",
+        "--registry-map=mcr.microsoft.com=mcr-cache.ovea.pro",
+        "--registry-map=index.docker.io=hub-cache.ovea.pro",
       ],
     ]);
+    expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://mcr-cache.ovea.pro/v2/", "https://registry.ovea.pro/v2/"]);
     expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 300 }); // stall watchdog on by default
     if (r.status !== "succeeded") return;
     expect(r.output).toMatchObject({
@@ -176,23 +192,67 @@ describe("steps.imageBuild", () => {
     expect(readFileSync(join(r.filesDir, "image.tar"), "utf8")).toBe("image tar");
   });
 
-  test("no cache flags without cacheRepo; reruns get a distinct tag", async () => {
+  test("no cache flags without cacheRepo, no mapping with registryMap: {}; reruns get a distinct tag", async () => {
     const k = fakeKaniko();
-    const r = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app" }), { source }, {
-      ctx: { exec: k.exec, files: k.files },
+    const step = steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app", registryMap: {} });
+    expect(step.builtin.manifestConfig()).toEqual({ repository: "registry.ovea.pro/app" });
+    const r = await testHandler(step, { source }, {
+      ctx: { exec: k.exec, files: k.files, http: k.http },
       run: { version: "2026.10.21.7", attempt: 2 },
     });
     expect(r).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/app", tag: "2026.10.21.7-attempt2" } });
     expect(k.calls[2]).toContain("--destination=registry.ovea.pro/app:2026.10.21.7-attempt2");
     expect(k.calls[2]!.some((a) => a.startsWith("--cache"))).toBe(false);
     expect(k.calls[2]!.some((a) => a.startsWith("--registry-map"))).toBe(false);
+    expect(k.probed).toEqual([]);
+  });
+
+  test("registryMap defaults to the pull-through caches, recorded in the manifest config", () => {
+    expect(steps.imageBuild({ name: "build", description: "", repository: "x" }).builtin.manifestConfig()).toEqual({
+      repository: "x",
+      registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" },
+    });
+  });
+
+  test("an unreachable cache never blocks the build: its mapping or the layer cache is dropped", async () => {
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x", cacheRepo: "registry.ovea.pro/x/cache" });
+    const k = fakeKaniko({ down: ["mcr-cache.ovea.pro", "registry.ovea.pro"] });
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
+    expect(r.status).toBe("succeeded");
+    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map=") || a.startsWith("--cache"))).toEqual(["--registry-map=index.docker.io=hub-cache.ovea.pro"]);
+    expect(k.calls[2]).not.toContain("--skip-push-permission-check");
+    const logs = r.logs.join("\n");
+    expect(logs).toContain("mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly");
+    expect(logs).toContain("registry.ovea.pro unreachable; building without the layer cache");
+  });
+
+  test("cache probe: 200/401 = up, other statuses, errors and timeouts = down; one probe per host", async () => {
+    const statusOf = (status: number) => ({ fetch: async () => new Response("", { status }) }) as unknown as Ctx["http"];
+    expect(await registryUp(statusOf(200), "h")).toBe(true);
+    expect(await registryUp(statusOf(401), "h")).toBe(true);
+    expect(await registryUp(statusOf(404), "h")).toBe(false);
+    expect(await registryUp(statusOf(503), "h")).toBe(false);
+    const hang = fakeKaniko({ hang: ["slow.example"] });
+    const t0 = Date.now();
+    expect(await registryUp(hang.http, "slow.example", undefined, 50)).toBe(false);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    const k = fakeKaniko({ down: ["registry.example"] });
+    const logs: string[] = [];
+    const ctx = { http: k.http, log: (m: string) => void logs.push(m), signal: new AbortController().signal } as unknown as Ctx;
+    const got = await reachableCaches(ctx, {
+      registryMap: { "mcr.microsoft.com": "registry.example/mirror/mcr", "index.docker.io": "registry.example/mirror/hub", "ghcr.io": "hub-cache.ovea.pro" },
+      cacheRepo: "hub-cache.ovea.pro/cache",
+    });
+    expect(got).toEqual({ registryMap: { "ghcr.io": "hub-cache.ovea.pro" }, cacheRepo: "hub-cache.ovea.pro/cache" });
+    expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://registry.example/v2/"]);
+    expect(logs).toEqual(["registry.example unreachable; pulling from mcr.microsoft.com directly", "registry.example unreachable; pulling from index.docker.io directly"]);
   });
 
   test("registryMap: one --registry-map per entry, recorded in the manifest config", async () => {
     const registryMap = { "mcr.microsoft.com": "registry.example/mirror/mcr.microsoft.com", "index.docker.io": "registry.example/mirror/docker.io" };
     const step = steps.imageBuild({ name: "build", description: "", repository: "x", registryMap });
     const k = fakeKaniko();
-    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
     expect(r.status).toBe("succeeded");
     expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual([
       "--registry-map=mcr.microsoft.com=registry.example/mirror/mcr.microsoft.com",
@@ -207,17 +267,17 @@ describe("steps.imageBuild", () => {
     expect(steps.imageBuild({ name: "build", description: "", repository: "x" })).toMatchObject({ retries: 2 }); // default
     expect(steps.imageBuild({ name: "build", description: "", repository: "x", retries: 0 })).toMatchObject({ retries: 0 });
     const k = fakeKaniko();
-    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
     expect(r.status).toBe("succeeded");
     expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 120 });
   });
 
   test("a missing digest file or an invalid tag fails the step", async () => {
     const k = fakeKaniko({ digest: "" });
-    const r = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: k.exec, files: k.files } });
+    const r = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
     expect(r).toMatchObject({ status: "failed", error: { kind: "handler" } });
     if (r.status === "failed") expect(r.error.message).toContain("did not write the image digest");
-    const bad = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: fakeKaniko().exec, files: k.files }, run: { version: "1+2" } });
+    const bad = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: fakeKaniko().exec, files: k.files, http: k.http }, run: { version: "1+2" } });
     if (bad.status === "failed") expect(bad.error.message).toContain("not a valid image tag");
     else throw new Error("expected failure");
   });
@@ -391,7 +451,7 @@ describe("library steps in the manifest", () => {
     const all = m.stages.flatMap((s) => ("steps" in s ? s.steps : []));
     expect(all.map((s) => [s.kind, s.image, s.secrets, s.config, s.input])).toEqual([
       ["gitHubSource", "alpine:3.22", ["GITHUB_TOKEN"], { token: "GITHUB_TOKEN" }, { repo: { ref: "input.repo" }, sha: { ref: "input.sha" } }],
-      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app", cacheRepo: "registry.example/app/cache" }, { source: { ref: "source" } }],
+      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app", cacheRepo: "registry.example/app/cache", registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" } }, { source: { ref: "source" } }],
       [
         "helmDeployOverSsh",
         "alpine:3.22",

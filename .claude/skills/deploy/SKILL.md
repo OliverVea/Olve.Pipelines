@@ -8,7 +8,7 @@ allowed-tools: Bash Read
 
 The pipeline **"Olve.Pipelines v2"** lives on **v2 prod** (`https://pipelines-v2-private.ovea.pro`,
 Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
-`OliverVea/Olve.Pipelines@v2`, path `.pipelines`. Stages: `source` ∥ `mirror-base-images` →
+`OliverVea/Olve.Pipelines@v2`, path `.pipelines`. Stages: `source` →
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`: `deploy-prod` →
 `publish-cli` ∥ `publish-sdk`.
 

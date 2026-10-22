@@ -9,8 +9,8 @@ allowed-tools: Bash Read
 The **bootstrap runbook** for v2 prod (`https://pipelines-v2-private.ovea.pro`, release
 `olve-pipelines-v2` in `apps`, runners `olve-runners`, prod Authentik): it creates the pipeline
 bound to `OliverVea/Olve.Pipelines@v2`, path `.pipelines`, and sets its secrets. Reconcile then
-compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` ∥
-`mirror-base-images` → `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`:
+compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` →
+`build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`:
 `deploy-prod` → `publish-cli` ∥ `publish-sdk`). How it works: `docs/setup/getting-started.md` and
 `docs/setup/binding-and-reconcile.md`.
 

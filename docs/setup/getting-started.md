@@ -247,13 +247,13 @@ create versions. A pipeline without `onPush` ignores pushes.
 
 Copy the reference app pipeline,
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
-source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
+source → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
 dotnet SDK image, the in-cluster Service as `API_BASE_URL`), authenticated with a token it fetches
 from a beta-only Authentik machine client (client credentials; the client secret is a pipeline
 secret declared on `beta-test` only); `prod-test` is a read-only smoke test
 (`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
-values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks.
+values, the test command and the smoke checks.
 A repo without a beta environment gets one all the same (homelab-dashboard: the release in
 `apps-beta` with its ingress turned off by `set`), and a repo without a test suite gets checks that
 prove the deployment serves this commit (homelab-dashboard compares the served files with the

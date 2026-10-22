@@ -106,7 +106,7 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 ## Real pipelines to copy from
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
-  deploys itself: `gitHubSource` ∥ custom `mirror-base-images` → `imageBuild` ∥ custom `test` →
+  deploys itself: `gitHubSource` → `imageBuild` ∥ custom `test` →
   `helmDeployOverSsh` (beta) → custom `beta-test` (smoke test of the new beta) → when
   `deployTo: "prod"`: `helmDeployOverSsh` (prod) → custom `publish-cli` ∥ custom `publish-sdk` (npm).
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the

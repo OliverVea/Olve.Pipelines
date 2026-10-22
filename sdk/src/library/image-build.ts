@@ -34,7 +34,11 @@ export interface ImageBuildDef<N extends string> {
    * A registry without GC grows with every changed layer — prune it when needed.
    */
   cacheRepo?: string;
-  /** kaniko `--registry-map` (registry → mirror prefix); kaniko falls back to the original registry if the mirror lacks the image. */
+  /**
+   * kaniko `--registry-map` (registry → mirror prefix); kaniko falls back to the original registry if
+   * the mirror lacks the image. Defaults to the homelab pull-through caches (`DEFAULT_REGISTRY_MAP`);
+   * a map replaces the default entirely, `{}` turns mapping off.
+   */
   registryMap?: Record<string, string>;
   timeoutSeconds?: number;
   /**
@@ -50,6 +54,57 @@ export interface ImageBuildDef<N extends string> {
    * A `--no-push` build is idempotent, so the default is 2 (three tries).
    */
   retries?: number;
+}
+
+/**
+ * Default `registryMap`: pull-through caches for mcr.microsoft.com and Docker Hub. kaniko under gVisor
+ * can stall forever pulling from mcr.microsoft.com directly.
+ */
+export const DEFAULT_REGISTRY_MAP: Readonly<Record<string, string>> = {
+  "mcr.microsoft.com": "mcr-cache.ovea.pro",
+  "index.docker.io": "hub-cache.ovea.pro",
+};
+
+/** How long a cache registry gets to answer `GET /v2/` before the build goes without it. */
+export const CACHE_PROBE_TIMEOUT_MS = 5000;
+
+/** The registry host of an image reference or mirror prefix (`registry.ovea.pro/a/b` → `registry.ovea.pro`). */
+export function registryHost(ref: string): string {
+  return ref.split("/")[0]!;
+}
+
+/** Whether a registry answers its API root: 200, or 401 (it wants a token). Never throws. */
+export async function registryUp(http: Ctx["http"], host: string, signal?: AbortSignal, timeoutMs = CACHE_PROBE_TIMEOUT_MS): Promise<boolean> {
+  try {
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const res = await http.fetch(`https://${host}/v2/`, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+    await res.body?.cancel().catch(() => {});
+    return res.status === 200 || res.status === 401;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Drops the caches that don't answer, so a cache outage (GC, maintenance) never blocks a build: an
+ * unreachable mirror is left out of the registry map, an unreachable `cacheRepo` means no layer cache.
+ */
+export async function reachableCaches(
+  ctx: Pick<Ctx, "http" | "log" | "signal">,
+  caches: { registryMap: Record<string, string>; cacheRepo?: string },
+): Promise<{ registryMap: Record<string, string>; cacheRepo?: string }> {
+  const hosts = new Set([...Object.values(caches.registryMap), ...(caches.cacheRepo ? [caches.cacheRepo] : [])].map(registryHost));
+  const up = new Map(await Promise.all([...hosts].map(async (h) => [h, await registryUp(ctx.http, h, ctx.signal)] as const)));
+  const registryMap: Record<string, string> = {};
+  for (const [from, to] of Object.entries(caches.registryMap)) {
+    if (up.get(registryHost(to))) registryMap[from] = to;
+    else ctx.log(`${registryHost(to)} unreachable; pulling from ${from} directly`);
+  }
+  if (caches.cacheRepo && !up.get(registryHost(caches.cacheRepo))) {
+    ctx.log(`${registryHost(caches.cacheRepo)} unreachable; building without the layer cache`);
+    return { registryMap };
+  }
+  return { registryMap, ...(caches.cacheRepo ? { cacheRepo: caches.cacheRepo } : {}) };
 }
 
 /** Default `retries`: a stalled or flaky build gets two fresh attempts before the run fails. */
@@ -82,6 +137,8 @@ export function qualifyRepository(repository: string): string {
  * Output: `BuiltImage { repository, tag, digest, tar }`.
  */
 export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep {
+  const registryMap = def.registryMap ?? DEFAULT_REGISTRY_MAP;
+  const mapped = Object.keys(registryMap).length > 0;
   return makeStep(
     "imageBuild",
     { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
@@ -89,10 +146,11 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
       manifestConfig: () => ({
         repository: def.repository,
         ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}),
-        ...(def.registryMap ? { registryMap: def.registryMap } : {}),
+        ...(mapped ? { registryMap: { ...registryMap } } : {}),
       }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
         const tag = imageTag(ctx.run);
+        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: def.cacheRepo });
         const tree = await ctx.files.fetch(source.tree);
         await ctx.exec(["mkdir", "-p", KANIKO_CONTEXT]);
         await ctx.exec(["cp", "-r", `${tree}/.`, KANIKO_CONTEXT]);
@@ -104,7 +162,9 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
         const tarPath = join(out, "image.tar");
         const digestPath = join(out, "digest");
         // No --single-snapshot: it is incompatible with multi-stage Dockerfiles whose later stages need
-        // the build context intact.
+        // the build context intact. --skip-push-permission-check: with --no-push kaniko otherwise checks
+        // the cache repo at startup and exits if it is down; later cache lookup and push errors are
+        // only warnings.
         await ctx.exec([
           "/kaniko/executor",
           `--context=${KANIKO_CONTEXT}`,
@@ -113,8 +173,8 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
           `--tar-path=${tarPath}`,
           `--digest-file=${digestPath}`,
           `--destination=${def.repository}:${tag}`,
-          ...(def.cacheRepo ? ["--cache=true", `--cache-repo=${def.cacheRepo}`] : []),
-          ...Object.entries(def.registryMap ?? {}).map(([from, to]) => `--registry-map=${from}=${to}`),
+          ...(caches.cacheRepo ? ["--cache=true", `--cache-repo=${caches.cacheRepo}`, "--skip-push-permission-check"] : []),
+          ...Object.entries(caches.registryMap).map(([from, to]) => `--registry-map=${from}=${to}`),
         ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
 
         let digest: string;

@@ -347,8 +347,16 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
     `--registry-map mcr.microsoft.com=mcr-cache.ovea.pro` pulled `dotnet/sdk:10.0-noble` in 41 s
     cold / 20 s warm (the mirror: 17 s); `node:24-alpine` via `index.docker.io=hub-cache.ovea.pro`
     10 s / 4 s. The registry now has nightly GC (`registry-gc`: `*/cache` tags > 3 d,
-    `*/mirror/*` > 14 d). **Follow-up:** make that `registryMap` the `imageBuild` default and
-    remove `mirror-base-images` from Olve.Pipelines, Olve.Template.Api and homelab-dashboard.
+    `*/mirror/*` > 14 d).
+  - **Done** (2026-10-22, SDK `2.0.0-beta.2`): the caches are `imageBuild`'s default `registryMap`
+    (`DEFAULT_REGISTRY_MAP`; a map replaces it, `{}` turns it off), and `mirror-base-images` is gone
+    from Olve.Pipelines, Olve.Template.Api and homelab-dashboard. Caches never block a build: before
+    kaniko starts, each mirror host and the `cacheRepo` registry gets a 5 s `GET /v2/` (200/401 =
+    up) and an unreachable one is dropped with a log line (nightly GC, maintenance).
+    `--skip-push-permission-check` keeps kaniko's startup check of the cache repo from exiting;
+    from kaniko's source, a mirror that can't serve a manifest falls back to the original registry,
+    a cache lookup error is a miss and a cache push error a warning. A cache dying mid-download
+    fails or stalls the attempt; `retries` covers it.
 - **v2 beta serves the v2 `pl`** (2026-10-22, 0eca595). A custom `publish-cli` step (stage after
   `deploy-beta`, same `when`; `dotnet/sdk:10.0-noble` + apt clang/zlib1g-dev) publishes linux-x64
   AOT + win-x64 single-file stamped with the run version and returns them as **output files**
@@ -615,8 +623,8 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      does the same against prod's Service and then through the ingress at its real hostname
      (`curl --resolve home-private.ovea.pro:443:192.168.11.8`, TLS verified: v1's `verify`;
      step pods reach traefik through the `runner-jobs-lockdown` policy). `prod-test` maps both inputs
-     (`{ source: from.source, release: from["deploy-prod"] }`). `mirror-base-images` is now in three
-     pipelines (copied again, `nginx:1.29-alpine` only): make it a library step. v1 (`50282eaa…`)
+     (`{ source: from.source, release: from["deploy-prod"] }`). `mirror-base-images` was then in three
+     pipelines (copied again, `nginx:1.29-alpine` only); the pull-through caches replaced it. v1 (`50282eaa…`)
      was paused (gates blocked), then deleted by the user; `config.yaml` kept, its Secret left in place.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.

@@ -12,21 +12,11 @@ export const source = steps.gitHubSource({
   token: GITHUB_TOKEN,
 });
 
-export const MIRROR = "registry.ovea.pro/olve-pipelines-v2/mirror";
-
-export const mirrorBaseImages = step({
-  name: "mirror-base-images",
-  description: "Copies the Dockerfile's base images into registry.ovea.pro; kaniko under gVisor stalls pulling from mcr.microsoft.com.",
-  image: "gcr.io/go-containerregistry/crane:debug",
-  timeoutSeconds: 900,
-});
-
 export const build = steps.imageBuild({
   name: "build",
   description: "Builds the Olve.Pipelines image with kaniko.",
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
-  registryMap: { "mcr.microsoft.com": `${MIRROR}/mcr.microsoft.com`, "index.docker.io": `${MIRROR}/docker.io` },
   timeoutSeconds: 900,
 });
 
@@ -100,7 +90,7 @@ export default pipeline({
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
-  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })], mirrorBaseImages)
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build, test)
   .stage(deployBeta)
   .stage(betaTest)

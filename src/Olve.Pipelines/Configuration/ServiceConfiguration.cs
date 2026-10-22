@@ -15,6 +15,7 @@ using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Streaming;
 
 namespace Olve.Pipelines.Configuration;
 
@@ -42,6 +43,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, PipelineSecretEventRegistration>();
         services.AddSingleton<IGitHubClient, GitHubClient>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
+        services.AddSingleton<PipelineConfigBindingEvents>();
         services.AddSingleton<PipelineConfigBindingService>();
         services.AddSingleton<PipelineConfigBindingCleanupService>();
         services.AddTransient<BindingWebhookReceiver>();
@@ -135,6 +137,11 @@ public static class ServiceConfiguration
         // After every event registration: the sweep's writes must reach cleanup/obsoletion/scheduling.
         services.AddSingleton<IRunOnStartup, RunSchedulingEventRegistration>();
         services.AddSingleton<IRunOnStartup, RunSchedulingStartup>();
+        // /api/events and live log streams (SSE).
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<ChangeBroadcaster>();
+        services.AddSingleton<IRunOnStartup, ChangeEventRegistration>();
+        services.AddTransient<AttemptLogStreamer>();
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();
         services.AddTransient<PipelineSummaryService>();

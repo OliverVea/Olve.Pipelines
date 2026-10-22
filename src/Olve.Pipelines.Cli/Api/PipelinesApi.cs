@@ -145,6 +145,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<string>> GetStepLogs(string pipelineId, int run, string step, int? attempt, CancellationToken ct) =>
         transport.GetAsync($"{StepPath(pipelineId, run, step)}/logs{AttemptQuery(attempt)}", CliJsonContext.Default.String, ct);
 
+    public Task<Result> WatchEvents(string? pipelineId, Func<string, string, Task> onEvent, CancellationToken ct) =>
+        transport.ReadEventsAsync(pipelineId is null ? "/api/events" : $"/api/events?pipeline={Enc(pipelineId)}", onEvent, ct);
+
     public Task<Result<StepHistoryItem[]>> GetStepHistory(string pipelineId, string step, int? limit, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/history{(limit is { } l ? $"?limit={l}" : "")}",
             CliJsonContext.Default.StepHistoryItemArray, ct);

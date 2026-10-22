@@ -172,6 +172,25 @@ markers. Keep shell, auth, docs, logs views.
 - Backend follow-ups: `TriggerRun`/`ContinueRun` bodies are typed now (E2 notes); 400 arrays still
   don't map to Kiota errors (open decision in the E2 notes).
 
+**For the UI: live events (2026-10-22)** — `GET /api/events[?pipeline=<id>]` (SSE, anonymous; use a
+plain `EventSource`, not the Kiota client). Event types and data (camelCase): `run`
+`{pipelineId, run, status}`, `attempt` `{pipelineId, run, step, attempt, status}`, `version`
+`{pipelineId, version, change: added|active|draining}`, `gate` `{pipelineId, blockedSteps}`,
+`binding` `{pipelineId, state: reconciling|Success|Error|NeverRun|removed}`, `pipeline`
+`{pipelineId, change: added|updated|removed}`; plus `hello` (every connect), `resync`, `ping`
+(15 s keep-alive). Contract:
+- Open the stream **before** the first fetch of a view; on a relevant event, `reload()` that view
+  (debounce a burst, e.g. 250 ms — a stage settling fires several `attempt`/`run` events at once).
+  Events are notices, never state: always re-fetch.
+- Relevance: list → any `run`/`pipeline`/`version`/`gate`; pipeline view → its `pipelineId`; run view
+  → `run`/`attempt` with its run number; step history → `attempt` with its step; binding badge →
+  `binding`.
+- `resync` → reload everything on screen. No replay; ids are `<boot>-<seq>`; the browser sends
+  `Last-Event-ID` itself on reconnect. A client 256 events behind is disconnected and reconnects.
+- Logs of a running attempt: `EventSource` on `…/runs/<n>/steps/<step>/logs/stream[?attempt=]` →
+  `log` `{text, reset}` (append, or replace when `reset`) and `end` `{status}`; close on `end` (else
+  the browser reconnects and replays the whole log).
+
 ### Track E — self-hosting and migration
 
 E1 v2's own `.pipelines/pipeline.ts` (+ handlers, using A6 library steps) beside `config.yaml`. E2 bind

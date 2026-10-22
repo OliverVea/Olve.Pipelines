@@ -114,6 +114,30 @@ Cancelled and superseded runs are ignored; skipped steps never count as unhealth
 What's running across all pipelines: `pl attempts` (`GET /api/attempts?status=active`) lists every
 scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`).
 
+## Live events
+
+`GET /api/events[?pipeline=<id>]` is a server-sent event stream (anonymous, like other reads) of
+small change notices: `run`, `attempt`, `version`, `gate`, `binding`, `pipeline`, each with the
+pipeline id and just enough to know what to reload (shapes in the repo README, "Live events").
+A UI or script re-fetches on each notice instead of polling:
+
+```bash
+curl -N "https://<instance>/api/events?pipeline=<id>"
+# event: attempt
+# data: {"pipelineId":"…","run":12,"step":"build","attempt":1,"status":"in-progress"}
+# id: 1761131820000-42
+```
+
+Every connection starts with `hello`; a reconnect whose `Last-Event-ID` is stale, or from before a
+restart, gets `resync` (refetch everything, nothing is replayed). `ping` arrives every 15 s while
+idle. Open the stream before loading the page's data, so nothing falls between the two.
+`pl watch [<pipeline>]` prints the events.
+
+A running attempt's log streams from `GET …/runs/<n>/steps/<step>/logs/stream[?attempt=]`: `log`
+events carry new text (`reset: true` means replace what you have, e.g. when the step container
+takes over from the init container), and `end` carries the final status. The server re-reads the
+pod log every 2 s, so this is "live" to within a couple of seconds.
+
 ## How a step runs
 
 Each attempt is a Kubernetes Job in the instance's runner namespace, under the runner hardening

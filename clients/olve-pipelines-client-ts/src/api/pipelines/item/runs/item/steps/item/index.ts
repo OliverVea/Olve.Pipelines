@@ -8,7 +8,7 @@ import { CancelRequestBuilderRequestsMetadata, type CancelRequestBuilder } from 
 // @ts-ignore
 import { FilesRequestBuilderNavigationMetadata, FilesRequestBuilderRequestsMetadata, type FilesRequestBuilder } from './files/index.js';
 // @ts-ignore
-import { LogsRequestBuilderRequestsMetadata, type LogsRequestBuilder } from './logs/index.js';
+import { LogsRequestBuilderNavigationMetadata, LogsRequestBuilderRequestsMetadata, type LogsRequestBuilder } from './logs/index.js';
 // @ts-ignore
 import { OutputRequestBuilderRequestsMetadata, type OutputRequestBuilder } from './output/index.js';
 // @ts-ignore
@@ -65,6 +65,7 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     },
     logs: {
         requestsMetadata: LogsRequestBuilderRequestsMetadata,
+        navigationMetadata: LogsRequestBuilderNavigationMetadata,
     },
     output: {
         requestsMetadata: OutputRequestBuilderRequestsMetadata,

@@ -156,6 +156,7 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | GET | `/{number}/steps/{step}/files` | Stored files of an attempt (authenticated) |
 | GET | `/{number}/steps/{step}/files/{*path}` | Download a file (authenticated; `dir/` → `dir.tar`) |
 | GET | `/{number}/steps/{step}/logs` | Attempt log (live pod log while running) |
+| GET | `/{number}/steps/{step}/logs/stream` | The attempt's log as SSE (`?attempt=`; default: latest): `log` `{text, reset}` chunks, then `end` `{status}` once terminal |
 
 ### Steps and gates
 
@@ -180,6 +181,29 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set a value |
 | DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete |
 | POST | `/api/pipelines/{pipelineId}/secrets/copy` | Copy secrets from another pipeline on this instance, server-side (`{ sourcePipelineId, names? (omit = all), targetName? (one name only), overwrite? }` → `{ copied }`, names only; refuses existing names without `overwrite`). Caveat: whoever can write the target pipeline can read the copied values from its steps |
+
+### Live events (SSE)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/events?pipeline=<id>` | `text/event-stream` of change notifications (omit `pipeline` for all). Anonymous |
+
+Each event is a small "something changed" notice (camelCase JSON); the client re-fetches the view it affects:
+
+| Event | Data | Fired when |
+|-------|------|------------|
+| `run` | `{pipelineId, run, status}` | A run is created, changes (status, held, resumed) or is deleted (`status: "Deleted"`) |
+| `attempt` | `{pipelineId, run, step, attempt, status}` | An attempt is created or changes status (`scheduled`, `in-progress`, `succeeded`, …) |
+| `version` | `{pipelineId, version, change}` | `added` (new version), `active` (switched / switch done), `draining` (switch to `version` started) |
+| `gate` | `{pipelineId, blockedSteps}` | A step is blocked or unblocked (the full blocked list) |
+| `binding` | `{pipelineId, state}` | The binding changes: `reconciling`, then `Success` / `Error`; also `removed` |
+| `pipeline` | `{pipelineId, change}` | `added`, `updated`, `removed` |
+| `hello` | `{lastEventId}` | First event of every connection; carries `retry: 5000` |
+| `resync` | `{reason}` | The client reconnected with a stale `Last-Event-ID` (or across a restart): refetch everything |
+| `ping` | (empty) | Keep-alive every 15 s while idle |
+
+Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behind is disconnected (its
+`EventSource` reconnects and gets `resync`). Streams end when the service shuts down.
 
 ### Other
 
@@ -254,6 +278,9 @@ pl gate unblock <pipeline>/<step>
 
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts
+
+# live change events (GET /api/events) until Ctrl+C
+pl watch [<pipeline>] [--json]
 
 # secrets and bindings
 pl secret list <pipeline>                              # declared-by and set/unset per secret

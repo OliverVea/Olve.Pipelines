@@ -258,6 +258,17 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(ListStepFilesResult, nameof(ListStepFiles));
     }
 
+    public List<(string Type, string Data)> WatchEventsScript { get; } = [];
+
+    public async Task<Result> WatchEvents(string? pipelineId, Func<string, string, Task> onEvent, CancellationToken ct)
+    {
+        LastPipelineId = pipelineId;
+        Calls.Add(nameof(WatchEvents));
+        foreach (var (type, data) in WatchEventsScript)
+            await onEvent(type, data);
+        return Result.Success();
+    }
+
     public async Task<Result<long>> DownloadStepFile(
         string pipelineId, int run, string step, string path, int? attempt, Stream destination, CancellationToken ct)
     {

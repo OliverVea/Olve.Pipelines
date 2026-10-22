@@ -54,6 +54,37 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
             return Result.Success(destination.CanSeek ? destination.Position - before : -1L);
         }, ct, HttpCompletionOption.ResponseHeadersRead);
 
+    /// <summary>Reads a server-sent event stream, calling <paramref name="onEvent"/>(type, data) per event, until it ends or <paramref name="ct"/> fires.</summary>
+    public async Task<Result> ReadEventsAsync(string path, Func<string, string, Task> onEvent, CancellationToken ct)
+    {
+        var result = await SendCoreAsync(HttpMethod.Get, path, body: null, async (resp, c) =>
+        {
+            using var reader = new StreamReader(await resp.Content.ReadAsStreamAsync(c));
+            var type = "message";
+            var data = new StringBuilder();
+            try
+            {
+                while (await reader.ReadLineAsync(c) is { } line)
+                {
+                    if (line.Length == 0)
+                    {
+                        await onEvent(type, data.ToString());
+                        (type, _) = ("message", data.Clear());
+                    }
+                    else if (line.StartsWith("event:", StringComparison.Ordinal))
+                        type = line[6..].Trim();
+                    else if (line.StartsWith("data:", StringComparison.Ordinal))
+                        data.Append(data.Length > 0 ? "\n" : "").Append(line[5..].TrimStart(' '));
+                }
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or HttpRequestException)
+            {
+            }
+            return Result.Success(true);
+        }, ct, HttpCompletionOption.ResponseHeadersRead);
+        return result.TryPickProblems(out var problems) ? problems : Result.Success();
+    }
+
     public static HttpContent JsonBody<T>(T value, JsonTypeInfo<T> typeInfo)
     {
         var json = JsonSerializer.Serialize(value, typeInfo);

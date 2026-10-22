@@ -6,6 +6,8 @@ import { AttemptsRequestBuilderRequestsMetadata, type AttemptsRequestBuilder } f
 // @ts-ignore
 import { ConfigRequestBuilderNavigationMetadata, type ConfigRequestBuilder } from './config/index.js';
 // @ts-ignore
+import { EventsRequestBuilderRequestsMetadata, type EventsRequestBuilder } from './events/index.js';
+// @ts-ignore
 import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
 // @ts-ignore
 import { ManifestsRequestBuilderNavigationMetadata, type ManifestsRequestBuilder } from './manifests/index.js';
@@ -30,6 +32,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      * The config property
      */
     get config(): ConfigRequestBuilder;
+    /**
+     * The events property
+     */
+    get events(): EventsRequestBuilder;
     /**
      * The health property
      */
@@ -64,6 +70,9 @@ export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiReques
     },
     config: {
         navigationMetadata: ConfigRequestBuilderNavigationMetadata,
+    },
+    events: {
+        requestsMetadata: EventsRequestBuilderRequestsMetadata,
     },
     health: {
         requestsMetadata: HealthRequestBuilderRequestsMetadata,

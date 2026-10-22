@@ -69,6 +69,7 @@ public sealed class CliDispatcher
 
         // attempts across pipelines (what's running)
         Register(new AttemptListCommand());
+        Register(new WatchCommand());
 
         // secret
         Register(new SecretListCommand());

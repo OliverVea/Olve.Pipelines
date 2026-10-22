@@ -4,12 +4,18 @@
 // @ts-ignore
 import { createResultProblemFromDiscriminatorValue, type ResultProblem } from '../../../../../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { StreamRequestBuilderRequestsMetadata, type StreamRequestBuilder } from './stream/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/logs
  */
 export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilder> {
+    /**
+     * The stream property
+     */
+    get stream(): StreamRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string>}
@@ -29,6 +35,14 @@ export interface LogsRequestBuilderGetQueryParameters {
  * Uri template for the request builder.
  */
 export const LogsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/logs{?attempt*}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const LogsRequestBuilderNavigationMetadata: Record<Exclude<keyof LogsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    stream: {
+        requestsMetadata: StreamRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

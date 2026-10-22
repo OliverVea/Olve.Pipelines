@@ -65,6 +65,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Distribution` | `CliDownloadEndpoints` (`/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
 | `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
 | `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
+| `Streaming` | `ChangeBroadcaster` (SSE fan-out, `/api/events`), `ChangeEventRegistration` (domain hubs → notices), `AttemptLogStreamer` |
 | `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IPersistenceReadiness` |
 
 When adding a new way to start work, go through `RunStartService` (runs) or `RunContinuationService` (attempts in an existing run) so supersede, de-dup, draining and gates apply; never create attempts directly.

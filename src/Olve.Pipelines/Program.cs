@@ -9,6 +9,7 @@ using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Streaming;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -63,6 +64,7 @@ app.MapPipelineStepEndpoints();
 app.MapManifestEndpoints();
 app.MapPipelineVersionEndpoints();
 app.MapPipelineBindingEndpoints();
+app.MapEventStreamEndpoints();
 app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();

@@ -17,7 +17,7 @@ import {
   runPath,
   runsPath,
   versionsPath,
-  stepHistoryPath,
+  stepPath,
   stepLogsPath,
   isActiveStatus,
   shortSha,
@@ -313,7 +313,7 @@ export class PipelineDetailView extends LitElement {
   }
 
   private _open(step: string) {
-    navigate(stepHistoryPath(this.pipelineId, step));
+    navigate(stepPath(this.pipelineId, step));
   }
 
   private async _retry(step: string) {

@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, svg, type TemplateResult } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { type Manifest, type ManifestStep, type Stage, isWhen, formatWhen } from '../v2/manifest.js';
+import { customElement, property, state } from 'lit/decorators.js';
+import { type Manifest, type ManifestStep, type Stage, isWhen, formatWhen, allSteps, producersOf } from '../v2/manifest.js';
 import { sharedStyles, toneOf, statusLabel, formatDuration, navClick } from '../v2/ui.js';
 import './relative-time.js';
 
@@ -20,12 +20,14 @@ export type StepState = {
   heldRuns?: number[];
 };
 
+type Related = { src: Set<string>; dst: Set<string> };
+
 const RETRY = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.55"/><path d="M13 2.5v3h-3"/></svg>`;
 const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>`;
 
 /**
  * Stages left to right (parallel steps stacked, `when` blocks bracketed); top to
- * bottom on narrow screens. Events: `step-select` {step}, `step-retry` {step}, `gate-toggle` {step, block}.
+ * bottom on narrow screens. Hovering a step outlines what it reads from and what reads it. Events: `step-select` {step}, `step-retry` {step}, `gate-toggle` {step, block}.
  */
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
@@ -99,7 +101,7 @@ export class StageGraph extends LitElement {
 
       .tile {
         position: relative;
-        width: 14.5rem;
+        width: 15.5rem;
         padding: 0.5rem 0.65rem;
         background: var(--color-surface);
         border: 1px solid var(--color-border);
@@ -107,7 +109,19 @@ export class StageGraph extends LitElement {
         border-radius: var(--radius);
         color: var(--color-text);
         cursor: pointer;
-        transition: border-color var(--transition);
+        transition:
+          opacity var(--transition),
+          border-color var(--transition),
+          box-shadow var(--transition);
+      }
+      .tile.dim {
+        opacity: 0.4;
+      }
+      .tile.src {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 55%, transparent);
+      }
+      .tile.dst {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-when) 60%, transparent);
       }
       .tile:hover {
         border-color: var(--color-primary);
@@ -121,7 +135,7 @@ export class StageGraph extends LitElement {
       }
       .head {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 0.4rem;
       }
       .name {
@@ -129,9 +143,7 @@ export class StageGraph extends LitElement {
         min-width: 0;
         font-weight: 600;
         font-size: 0.88rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow-wrap: anywhere;
       }
       .badge {
         font-size: 0.66rem;
@@ -273,6 +285,7 @@ export class StageGraph extends LitElement {
   @property({ attribute: false }) declare blocked: Set<string> | null;
   @property() declare selected: string;
   @property({ type: Boolean }) declare gateControls: boolean;
+  @state() private declare _hover: string | null;
 
   constructor() {
     super();
@@ -281,43 +294,60 @@ export class StageGraph extends LitElement {
     this.blocked = null;
     this.selected = '';
     this.gateControls = false;
+    this._hover = null;
   }
 
   render() {
     const m = this.manifest;
     if (!m) return html`<p class="muted">No manifest.</p>`;
-    return html`<div class="scroller"><div class="row">${this._stages(m.stages)}</div></div>`;
+    return html`<div class="scroller"><div class="row">${this._stages(m.stages, this._related(m))}</div></div>`;
   }
 
-  private _stages(stages: Stage[]): TemplateResult[] {
+  private _related(m: Manifest): Related | null {
+    if (!this._hover) return null;
+    const steps = allSteps(m.stages);
+    const hovered = steps.find((s) => s.name === this._hover);
+    if (!hovered) return null;
+    return {
+      src: producersOf(hovered),
+      dst: new Set(steps.filter((s) => producersOf(s).has(hovered.name)).map((s) => s.name)),
+    };
+  }
+
+  private _stages(stages: Stage[], rel: Related | null): TemplateResult[] {
     const out: TemplateResult[] = [];
     stages.forEach((stage, i) => {
       if (i > 0) out.push(html`<div class="barrier" aria-hidden="true"></div>`);
       if (isWhen(stage)) {
         out.push(html`<div class="when">
           <span class="when-label" title="Runs only when the pipeline input matches">when ${formatWhen(stage.when)}</span>
-          <div class="when-body">${this._stages(stage.stages)}</div>
+          <div class="when-body">${this._stages(stage.stages, rel)}</div>
         </div>`);
       } else {
-        out.push(html`<div class="col">${stage.steps.map((s) => this._tile(s))}</div>`);
+        out.push(html`<div class="col">${stage.steps.map((s) => this._tile(s, rel))}</div>`);
       }
     });
     return out;
   }
 
-  private _tile(step: ManifestStep) {
+  private _tile(step: ManifestStep, rel: Related | null) {
     const st = this.states?.get(step.name);
     const blocked = st?.blocked ?? this.blocked?.has(step.name) ?? false;
     const tone = st ? toneOf(st.status) : 'plain';
     const duration = st?.startedAt ? formatDuration(st.startedAt, st.finishedAt) : '';
     const at = st?.finishedAt ?? st?.startedAt ?? st?.createdAt;
     const held = st?.heldRuns ?? [];
+    const relation = !rel || this._hover === step.name ? '' : rel.src.has(step.name) ? 'src' : rel.dst.has(step.name) ? 'dst' : 'dim';
     return html`<div
-      class="tile t-${tone} ${tone === 'plain' ? 'plain' : ''} ${this.selected === step.name ? 'selected' : ''}"
+      class="tile t-${tone} ${tone === 'plain' ? 'plain' : ''} ${relation} ${this.selected === step.name ? 'selected' : ''}"
       role="button"
       tabindex="0"
       aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}"
       title="${step.name} (${step.kind}) — ${step.image}"
+      @mouseenter=${() => (this._hover = step.name)}
+      @mouseleave=${() => (this._hover = null)}
+      @focus=${() => (this._hover = step.name)}
+      @blur=${() => (this._hover = null)}
       @click=${() => this._select(step.name)}
       @keydown=${(e: KeyboardEvent) => {
         if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {

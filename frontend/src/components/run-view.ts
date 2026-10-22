@@ -13,7 +13,7 @@ import {
   navClick,
   pipelinePath,
   runPath,
-  stepHistoryPath,
+  stepPath,
   isActiveStatus,
 } from '../v2/ui.js';
 import { loadVersion, type LoadedVersion } from '../v2/versions.js';
@@ -426,7 +426,7 @@ export class RunView extends LitElement {
         <h3>${this._step}</h3>
         ${st ? html`<span class="st t-${toneOf(st.status)}"><span class="dot"></span>${statusLabel(st.status)}</span>` : nothing}
         ${st?.blocked ? html`<span class="pill t-wait" title="This step's gate is closed">gate closed</span>` : nothing}
-        <a href=${stepHistoryPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step history</a>
+        <a href=${stepPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step</a>
         <div class="actions">
           ${active
             ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancelStep}

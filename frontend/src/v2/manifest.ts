@@ -115,6 +115,19 @@ export function outputSchemaOf(m: Manifest, model: string | null | undefined): J
   return m.models[model]?.output ?? null;
 }
 
+function refRoots(mapping: Mapping): string[] {
+  if (!mapping || typeof mapping !== 'object') return [];
+  if ('ref' in mapping && typeof mapping.ref === 'string') return [mapping.ref.split('.')[0]];
+  if ('const' in mapping) return [];
+  return Object.values(mapping as Record<string, Mapping>).flatMap(refRoots);
+}
+
+/** Names of the steps a step reads from. */
+export function producersOf(step: ManifestStep): Set<string> {
+  const roots = Object.values(step.input ?? {}).flatMap(refRoots);
+  return new Set(roots.filter((r) => r !== 'input' && r !== 'failure'));
+}
+
 export function formatWhen(when: Record<string, unknown[]>): string {
   return Object.entries(when)
     .sort(([a], [b]) => a.localeCompare(b))

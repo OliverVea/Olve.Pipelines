@@ -189,11 +189,10 @@ export class AppShell extends LitElement {
           .run=${this._route.params.run}
           .step=${this._route.params.step}
         ></step-logs-view>`;
-      case 'step-history-view':
-        return html`<step-history-view
-          .pipelineId=${this._route.params.pipelineId}
-          .step=${this._route.params.step}
-        ></step-history-view>`;
+      case 'step-view':
+        return html`<step-view .pipelineId=${this._route.params.pipelineId} .step=${this._route.params.step}></step-view>`;
+      case 'step-runs-view':
+        return html`<step-runs-view .pipelineId=${this._route.params.pipelineId} .step=${this._route.params.step}></step-runs-view>`;
       case 'docs-view':
         return html`<docs-view .page=${this._route.params.page ?? 'index'}></docs-view>`;
       default:

@@ -157,6 +157,7 @@ cd frontend && npm run build                                # Production build
 - **User docs (`docs/setup`) describe the current system only**: no v1, no history, no "replaced by"/"no longer". Keep them up to date with every change; migration notes and history go in `docs/design`.
 - **Comments: few and short.** Comment only what the code can't say (a non-obvious why, a gotcha). No narrative headers, no restating the code, no plan/track/spec-section references or history in comments; that belongs in docs and commit messages. Pipeline definitions (`.pipelines/`) and SDK examples especially must read cleanly.
 - v2 development happens on the `v2` branch until v2 is promoted to `main`. The deployer pipeline (`.pipelines/pipeline.ts`) lives on v2 prod (`pipelines-v2-private.ovea.pro`): every push deploys v2 beta, smoke-tests it (`beta-test`), then deploys v2 prod; `deployTo=beta` stops after beta. Block `deploy-prod` (`pl step block`) only in special circumstances.
+- When reporting a pushed change to the user, give the run that deploys it (`pl wait push "Olve.Pipelines v2" <sha>` → `Olve.Pipelines v2#<n>`) and its state.
 
 ## References
 

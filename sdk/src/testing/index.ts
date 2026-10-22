@@ -1,4 +1,4 @@
-// @olve/pipelines/testing — run a handler under `bun test` through the real harness path
+// @olivervea/pipelines/testing — run a handler under `bun test` through the real harness path
 // (validate input → handler → strict output validation), with a real ctx you can override.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";

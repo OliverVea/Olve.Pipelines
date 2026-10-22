@@ -1,5 +1,5 @@
 /// <reference path="./assets.d.ts" />
-// @olve/pipelines — authoring API (contracts, handlers, pipeline builder).
+// @olivervea/pipelines — authoring API (contracts, handlers, pipeline builder).
 export { z } from "zod";
 export { model, fileRef, optional, type Model, type AnyModel, type Infer, type InferInput, type Plain, type FileRef, type Optional } from "./core/models.ts";
 export { secret, type Secret, type DeclaredSecrets } from "./core/secrets.ts";
@@ -9,4 +9,4 @@ export { implement, type Implementation, type Handler, type HandlerResult, type 
 export type { Ctx, RunInfo, Sh, ShOptions, ExecOptions, Http, HttpInit, RetryOptions, OutputFileOptions } from "./ctx/types.ts";
 export type { Ref, Mappable, MapperResult } from "./builder/refs.ts";
 export { pipeline, Pipeline, type PipelineDef, type InRefs, type InitialAvail, type WhenCond, type PushEvent, type StageEntry, type CheckStage, type MapperFn } from "./builder/pipeline.ts";
-export { steps, Source, BuiltImage, HelmRelease, FailureContext, type RunValue, type ScriptDef, type GitHubSourceDef, type ImageBuildDef, type HelmDeployOverSshDef, httpHealthCheck, type HttpHealthCheckOptions } from "./library/index.ts";
+export { steps, Source, BuiltImage, PushedImage, HelmRelease, FailureContext, type RunValue, type ScriptDef, type GitHubSourceDef, type ImageBuildDef, type ImageBuildTarballDef, type ImageBuildPushDef, type HelmDeployOverSshDef, httpHealthCheck, type HttpHealthCheckOptions, sshSession, shq, type SshSession, serviceUrl, checkSpa } from "./library/index.ts";

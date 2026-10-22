@@ -62,7 +62,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Retention | [runs-and-operations.md#retention](runs-and-operations.md#retention) |
 | Rollback (`pl pipeline switch`) | [binding-and-reconcile.md#switch-and-rollback](binding-and-reconcile.md#switch-and-rollback) |
 | Run plan (UI preview of `when`) | [pipeline-reference.md#when-blocks](pipeline-reference.md#when-blocks) |
-| SDK on npm (`@olivervea/pipelines`, alias) | [getting-started.md#the-sdk](getting-started.md#the-sdk) |
+| SDK on npm (`@olivervea/pipelines`) | [getting-started.md#the-sdk](getting-started.md#the-sdk) |
 | Secrets (declare, set, per-step mounting) | [pipeline-reference.md#secrets](pipeline-reference.md#secrets), [getting-started.md#step-4--set-the-secret-values](getting-started.md#step-4--set-the-secret-values) |
 | Secret state (`set` / `unset` / `unknown`) | [binding-and-reconcile.md#reading-the-status](binding-and-reconcile.md#reading-the-status) |
 | Stages and barriers | [pipeline-reference.md#stages](pipeline-reference.md#stages) |

@@ -54,7 +54,7 @@ pipeline; their types come from the step definition alone.
 ### 3.2 Models
 
 ```ts
-import { model, z, fileRef } from "@olve/pipelines";
+import { model, z, fileRef } from "@olivervea/pipelines";
 
 export const DeployRequest = model("DeployRequest", z.object({
   repo: z.string().default("OliverVea/Olve.Pipelines"),
@@ -90,7 +90,7 @@ export const ProdDeployment = model("ProdDeployment", z.object({ release: z.stri
 ### 3.3 Steps
 
 ```ts
-import { step, secret, Source } from "@olve/pipelines";
+import { step, secret, Source } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for image import + helm on the host.");
@@ -158,7 +158,7 @@ steps.imageBuild({ name: "image", dockerfile: "Dockerfile", context: ".", tag: "
 
 ```ts
 // handlers/deploy-beta.ts
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { deployBeta } from "../pipeline";
 import deployScript from "../scripts/deploy-beta.sh" with { type: "file" };
 
@@ -653,7 +653,7 @@ a promote/rerun would roll an environment back to an older build; describe deter
 - **Output caching** by (step version, input hash) — near future; store the input hash per attempt now.
 - **Environments / tags** (environment strip, promote-beta-to-prod, rollback warnings).
 - **Wait steps** (§3.8) — v2.1, including arbitrary-payload callback mapping.
-- **SDK publishing** (`@olve/pipelines` distribution and version compatibility with the service).
+- **SDK publishing** (`@olivervea/pipelines` distribution and version compatibility with the service).
 - **TypeSpec** (or other) model sources — possible later since JSON Schema is the interchange.
 
 ## 12. Spikes — done (2026-10-21)

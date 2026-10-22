@@ -54,9 +54,9 @@ end-to-end fixture.
 
 1. Add `.pipelines/` (`models.ts`, `pipeline.ts`, `handlers/`, `package.json`, `bun.lock`) — see
    [Getting Started](docs/setup/getting-started.md) and the
-   [Pipeline Reference](docs/setup/pipeline-reference.md). The SDK (`@olve/pipelines`, in
+   [Pipeline Reference](docs/setup/pipeline-reference.md). The SDK (`@olivervea/pipelines`, in
    [`sdk/`](sdk/README.md)) is not published to a registry yet, so the build Job can only resolve it
-   from an `sdk/` directory at the repo root (`"@olve/pipelines": "file:../sdk"`).
+   from an `sdk/` directory at the repo root (`"@olivervea/pipelines": "file:../sdk"`).
 2. Check it locally: `pl dev describe`, `pl dev validate`, `pl dev run <step>`.
 3. `pl binding create <owner/repo>` — the only way to create a pipeline.
 4. `pl secret set <pipelineId> <NAME>` for each declared secret.
@@ -87,7 +87,7 @@ src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 │   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints
 └── Shared/                         AttachmentStore, startup runner, persistence, S3 presigning
 src/Olve.Pipelines.Cli/             `pl` operator CLI (Native AOT, hand-rolled HTTP client)
-sdk/                                @olve/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
+sdk/                                @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 harness/                            harness-base init image + end-to-end validation
 frontend/                           Dashboard UI (Lit + Vite + TypeScript)
 clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)

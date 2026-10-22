@@ -1,6 +1,6 @@
 # @olivervea/pipelines
 
-The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK, imported as `@olve/pipelines`. It has four parts:
+The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK. It has four parts:
 
 - the **authoring API**: models, steps, handlers and the typed pipeline builder;
 - the **step harness**: the runtime compiled into each pipeline's single executable (`describe`, `run`, `map-trigger`);
@@ -12,14 +12,14 @@ The manifest format is in [`manifest.schema.json`](manifest.schema.json), genera
 
 ```
 sdk/
-  src/index.ts            authoring API (`@olve/pipelines`)
+  src/index.ts            authoring API (`@olivervea/pipelines`)
   src/core/               models, secrets, steps, implement()
   src/builder/            pipeline builder (types + runtime records), Ref<T>
   src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh), their exported helpers (httpHealthCheck) and SDK models
   src/describe/           describe: manifest, checks, mapper recording + source analysis, manifest schema
-  src/harness/            harness CLI modes, env contract, envelope, result upload (`@olve/pipelines/harness`)
+  src/harness/            harness CLI modes, env contract, envelope, result upload (`@olivervea/pipelines/harness`)
   src/ctx/                the ctx handed to handlers
-  src/testing/            testHandler (`@olve/pipelines/testing`)
+  src/testing/            testHandler (`@olivervea/pipelines/testing`)
   src/build/              olve-build
   src/dev/                olve-dev
   examples/self-deploy/   fixture pipeline (the self-deploy shape) used by the tests
@@ -30,13 +30,12 @@ sdk/
 
 ## Install
 
-The package is `@olivervea/pipelines` on npm; pipelines import it as `@olve/pipelines` through an alias
-in the pipeline directory's `package.json`:
+The package is `@olivervea/pipelines` on npm; a pipeline directory's `package.json` depends on it by that name:
 
 ```json
 {
   "type": "module",
-  "dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.3" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```
@@ -47,11 +46,9 @@ bunx olve-dev describe .
 bunx olve-build . --out .olve/out
 ```
 
-- Keep the alias name: `olve-build` generates imports of `@olve/pipelines/harness`, so an unaliased
-  `@olivervea/pipelines` dependency does not build.
 - The package ships TypeScript sources (Bun runs them directly; `harness.sdkHash` hashes them), so the
   same version gives the same `sdkHash` and handler hashes from npm or from `file:../sdk`.
-- Inside this repo, `.pipelines/` and `.pipelines-test/` use `"@olve/pipelines": "file:../sdk"`.
+- Inside this repo, `.pipelines/` and `.pipelines-test/` use `"@olivervea/pipelines": "file:../sdk"`.
 
 ### Releases
 
@@ -77,7 +74,7 @@ Contract files hold contracts only. Describe evaluates them without loading hand
 ### Models, secrets, steps
 
 ```ts
-import { model, z, fileRef, optional, secret, step, steps, Source } from "@olve/pipelines";
+import { model, z, fileRef, optional, secret, step, steps, Source } from "@olivervea/pipelines";
 
 export const BuildArtifact = model("BuildArtifact", z.object({
   version: z.string(),
@@ -123,28 +120,38 @@ In the output JSON, an object of the form `{"$file": "<path>"}` or `{"$dir": "<p
 
 ### Library steps
 
-Library steps carry their own implementation and image; they take typed config and use the SDK models `Source`, `BuiltImage` and `HelmRelease`. The set grows from real use: a step or an option exists because a pipeline uses it.
+Library steps carry their own implementation and image; they take typed config and use the SDK models `Source`, `BuiltImage`, `PushedImage` and `HelmRelease`. The set grows from real use: a step or an option exists because a pipeline uses it.
 
 | Step | Image | Input → output | Config |
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (see above) |
 | `steps.gitHubSource` | `alpine:3.22` (work happens in the harness) | `{ repo: "owner/name", sha }` (plain schemas: needs a mapper) → `Source` | `token?: Secret` (sent as `Authorization: Bearer`; becomes the step's secret) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache), `registryMap?` (kaniko `--registry-map`: registry → mirror prefix; default: the homelab pull-through caches, `{}` = off), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` (default 2) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, image: BuiltImage }` → `HelmRelease { release, namespace, image }` | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `healthUrl?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }`; with `push`: `PushedImage { repository, tag, digest }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `context?` (dir in the source tree; default the root), `dockerfile?` (relative to the context; default `Dockerfile`), `push?` (push to `repository` instead of a tarball), `contentTag?` (with `push`: tag `src-<context hash>`, skip when the registry has it), `cacheRepo?` (kaniko layer cache), `registryMap?` (kaniko `--registry-map`: registry → mirror prefix; default: the homelab pull-through caches, `{}` = off), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` (default 2) |
+| `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, <key>: BuiltImage }` per `images` (`PushedImage` with `fromRegistry`) → `HelmRelease { release, namespace, image }` (`image`: the first image) | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `images?` (input key → values prefix; default `{ image: "image" }`), `fromRegistry?`, `deployments?` (default `[release]`), `rolloutTimeoutSeconds?` (default 120), `healthUrl?` (URL or `{ url, attempts?, delaySeconds? }`) |
 
 - `gitHubSource` downloads `https://api.github.com/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.
-- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `Dockerfile` at the tree root with `--no-push --tar-path --digest-file`, and outputs the tarball. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`). A **stall watchdog** kills kaniko when it prints nothing for `stallTimeoutSeconds` (a base-image pull can stall on an idle connection at "Unpacking rootfs", and kaniko has no read timeout), failing the attempt; `retries` then starts a fresh attempt. The retry is deliberately a new pod, never a second kaniko in the same container: kaniko unpacks the base image over the container root and does not clean up when killed.
+- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `--context=/kaniko/build-context[/<context>] --dockerfile=<that>/<dockerfile>` with `--no-push --tar-path --digest-file`, and outputs the tarball. A missing context or Dockerfile fails the step before kaniko starts. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`). A **stall watchdog** kills kaniko when it prints nothing for `stallTimeoutSeconds` (a base-image pull can stall on an idle connection at "Unpacking rootfs", and kaniko has no read timeout), failing the attempt; `retries` then starts a fresh attempt. The retry is deliberately a new pod, never a second kaniko in the same container: kaniko unpacks the base image over the container root and does not clean up when killed.
 - **Caches never block a build.** `registryMap` defaults to the homelab pull-through caches (`DEFAULT_REGISTRY_MAP`: `mcr.microsoft.com` → `mcr-cache.ovea.pro`, `index.docker.io` → `hub-cache.ovea.pro`; kaniko under gVisor stalls pulling from mcr.microsoft.com directly). A map you pass replaces the default; `{}` turns mapping off. Before kaniko starts, every mirror host and the `cacheRepo` registry gets a 5 s `GET https://<host>/v2/` (200 or 401 = up); one that doesn't answer is dropped with a log line (`mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly`, or no `--cache` for the layer cache). After that, kaniko itself copes: it falls back to the original registry when a mirror can't serve an image's manifest (`RetrieveRemoteImage`; `--skip-default-registry-fallback` is never set), a layer-cache lookup error is a cache miss, a cache push error is a warning, and `--skip-push-permission-check` stops its startup check of the cache repo from exiting. A cache that dies mid-download (after the manifest came from it) fails or stalls the attempt; `retries` starts a fresh one, which probes again.
-- `helmDeployOverSsh` streams the image tar into the host's **k3s** containerd (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then `image.repository`/`image.tag`/`image.pullPolicy=Never`, which always win), waits for `kubectl rollout status deploy/<release>`, and with `healthUrl` polls it (5 × 5 s) from the harness.
+- **Registry mode** (`push: true`, for images too big for the step's ~1 GiB scratch space and Garage): kaniko runs without `--no-push`/`--tar-path`, pushes to `repository` (it must start with a registry host; pushes are anonymous) and the output is a `PushedImage` with the digest from `--digest-file`. With `contentTag`, the tag is `src-` + the first 12 hex of the sha256 of the context directory's deterministic tar (the bytes `ctx.output.dir` would write), computed from the fetched tree; an anonymous `HEAD https://<host>/v2/<path>/manifests/<tag>` that answers a `Docker-Content-Digest` skips kaniko and outputs that digest.
+- `helmDeployOverSsh` gets each image into the host's **k3s** containerd: a `BuiltImage` tar is streamed in (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), a `PushedImage` (`fromRegistry`) is pulled there (`… pull -q`, so the rollout doesn't wait on the pull). It copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then per image `<prefix>.repository`/`.tag`/`.pullPolicy` — `Never` for tarballs, `IfNotPresent` for registry images — which always win), waits for `kubectl rollout status` of each of `deployments` in order (`deploy/<name>` for a bare name), and with `healthUrl` polls it (5 × 5 s unless given) from the harness. Several images (one chart, two Deployments):
+
+  ```ts
+  steps.helmDeployOverSsh({ name: "deploy-beta", description: "", host: "oliver@bulwark-m2", sshKey: SSH_PRIVATE_KEY,
+    release: "olve-slimerepublics", namespace: "apps-beta", chart: "helm",
+    images: { server: "image", web: "web.image" }, deployments: ["olve-slimerepublics-server", "olve-slimerepublics-web"] });
+  ```
 
 **Helpers.** General functions the library steps are built on, exported for custom handlers:
 
 | Helper | What it does |
 |---|---|
 | `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })` | GETs `url` until it returns 2xx (redirects followed), retrying network errors and non-2xx statuses; defaults 5 attempts, 5 s apart (v1's deploy-beta loop). Throws the last error when the attempts run out. Runs in the harness, so the image needs no curl. `helmDeployOverSsh`'s `healthUrl` uses it. |
+| `serviceUrl(release)` | `http://<release>.<namespace>.svc.cluster.local` for a `HelmRelease` (charts that name the Service after the release). |
+| `checkSpa(ctx, url)` | `GET <url>/` must reference an `/assets/*.js` bundle (Vite's layout) and the bundle must be served as JavaScript; returns `{ html, bundle }` for app-specific checks. |
+| `sshSession(ctx, { host, key })` | Installs openssh-client (apk), writes the key to `<tmpDir>/ssh/id` (trailing newline, mode 600; host key not verified) and returns `{ run(remote), text(remote), copy(local, remote), shell(remote) }`; `shell` is the quoted ssh command for pipes (`ctx.sh(`printf '%s' "$V" \| ${s.shell("kubectl apply -f -")}`)`). `helmDeployOverSsh` uses it. `shq(s)` is the POSIX quoting it uses. |
 
 ```ts
-import { httpHealthCheck, implement } from "@olve/pipelines";
+import { httpHealthCheck, implement } from "@olivervea/pipelines";
 export default implement(smoke, async (_, ctx) => { await httpHealthCheck(ctx, "http://app.ns.svc.cluster.local/api/health", { attempts: 10 }); });
 ```
 
@@ -152,7 +159,7 @@ export default implement(smoke, async (_, ctx) => { await httpHealthCheck(ctx, "
 
 ```ts
 // handlers/deploy-beta.ts
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { deployBeta } from "../pipeline";
 import deployScript from "../scripts/deploy.sh" with { type: "file" };
 
@@ -204,7 +211,7 @@ export default pipeline({ name: "Olve.Pipelines", description: "…", input: M.D
 ### Testing handlers
 
 ```ts
-import { testHandler, testFileRef } from "@olve/pipelines/testing";
+import { testHandler, testFileRef } from "@olivervea/pipelines/testing";
 import deployBeta from "../handlers/deploy-beta";
 
 const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: { http: fakeHttp }, run: { number: 412 } });
@@ -330,7 +337,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
 - **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
-  - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olve/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
+  - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
   - Library steps: `sha256(canonical {library: kind, config, harness})`.
   - Because `harness` is part of both hashes, a Bun or SDK bump changes every handler.
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
@@ -378,9 +385,9 @@ bun install --frozen-lockfile
 bunx olve-build .pipelines --out /work/out --upload-url "$STEP_PUT_URL" --sentinels
 ```
 
-From npm (the alias), nothing else is needed. A local `file:`/`link:` dependency (`"@olve/pipelines": "file:../sdk"`, as Olve.Pipelines' own `.pipelines/` does) resolves to its **source directory**, not the copy in `node_modules`, so its own dependencies must be installed there too: the build Job runs `bun install --frozen-lockfile --production` in every local dependency of the binding's `package.json` that is inside the repo, before building.
+From npm, nothing else is needed. A local `file:`/`link:` dependency (`"@olivervea/pipelines": "file:../sdk"`, as Olve.Pipelines' own `.pipelines/` does) resolves to its **source directory**, not the copy in `node_modules`, so its own dependencies must be installed there too: the build Job runs `bun install --frozen-lockfile --production` in every local dependency of the binding's `package.json` that is inside the repo, before building.
 
-The repo depends on the SDK as a normal package. It resolves through `exports` (`@olve/pipelines`, `@olve/pipelines/harness`, `@olve/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
+The repo depends on the SDK as a normal package. It resolves through `exports` (`@olivervea/pipelines`, `@olivervea/pipelines/harness`, `@olivervea/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
 
 How the service runs it (reconcile, `BuildJobBuilder`): one Job per (pipeline, config commit), named `olve-build-<pipeline12>-<sha12>`. The repo tarball comes from `codeload.github.com/<repo>/tar.gz/<sha>` anonymously (public repos), or from the GitHub API tarball endpoint with the binding's credentials key from the pipeline Secret. The binary is PUT to `versions/<pipeline>/builds/<sha>/step.tar.gz`, and a version added from that build keeps this key as its `BinaryKey`. The in-repo fixture `.pipelines-test/` (bound on v2 beta) uses exactly this layout.
 

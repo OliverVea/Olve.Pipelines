@@ -1,4 +1,4 @@
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { test } from "../pipeline";
 
 const TESTS = "test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj";

@@ -7,7 +7,7 @@ namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 /// <summary>
 /// The paths whose commits make up a binding's config: the bound directory plus the local path
 /// dependencies (<c>file:</c> / <c>link:</c>) of its <c>package.json</c>. A TypeScript pipeline builds
-/// against those (e.g. <c>"@olve/pipelines": "file:../sdk"</c>), so a commit touching only them must
+/// against those (e.g. <c>"@olivervea/pipelines": "file:../sdk"</c>), so a commit touching only them must
 /// still rebuild the step binary.
 /// </summary>
 public static class LocalPathDependencies

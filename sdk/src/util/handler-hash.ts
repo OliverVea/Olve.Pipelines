@@ -5,7 +5,7 @@ import { sha256Hex } from "./hash.ts";
 export interface HarnessInfo {
   /** Bun version (runtime compiled into the binary). */
   bun: string;
-  /** @olve/pipelines package version. */
+  /** @olivervea/pipelines package version. */
   sdk: string;
   /** `sha256:` hash over the SDK runtime sources and the zod version. */
   sdkHash: string;

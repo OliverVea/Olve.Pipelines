@@ -14,6 +14,15 @@ export const BuiltImage = model(
   z.object({ repository: z.string(), tag: z.string(), digest: z.string(), tar: fileRef() }),
 );
 
+/**
+ * A container image pushed to a registry by a step (`imageBuild` with `push: true`), pulled from there
+ * by the deploy. `repository` includes the registry host.
+ */
+export const PushedImage = model(
+  "PushedImage",
+  z.object({ repository: z.string(), tag: z.string(), digest: z.string() }),
+);
+
 /** A Helm release that was installed or upgraded. */
 export const HelmRelease = model(
   "HelmRelease",

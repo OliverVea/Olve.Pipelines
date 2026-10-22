@@ -70,7 +70,7 @@ A pipeline that checks out the pushed commit and runs a script against it:
 
 ```ts
 // .pipelines/models.ts
-import { model, z } from "@olve/pipelines";
+import { model, z } from "@olivervea/pipelines";
 
 export const Request = model("Request", z.object({
   repo: z.string().default("you/my-app"),
@@ -80,7 +80,7 @@ export const Request = model("Request", z.object({
 
 ```ts
 // .pipelines/pipeline.ts
-import { pipeline, steps, Source } from "@olve/pipelines";
+import { pipeline, steps, Source } from "@olivervea/pipelines";
 import testSh from "./scripts/test.sh" with { type: "file" };
 import * as M from "./models";
 

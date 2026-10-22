@@ -31,7 +31,7 @@ package.json, bun.lock, tsconfig.json
 ## Models
 
 ```ts
-import { model, z, fileRef } from "@olve/pipelines";
+import { model, z, fileRef } from "@olivervea/pipelines";
 
 export const BuildArtifact = model("BuildArtifact", z.object({
   version: z.string(),
@@ -49,7 +49,8 @@ export const BuildArtifact = model("BuildArtifact", z.object({
 - **Two views**: trigger mappers and manual input produce `z.input` (fields with defaults may be
   left out); handlers, mapper refs and `when` see `z.output` (defaults applied).
 - SDK models shared by the library steps: `Source { repo, sha, tree }`, `BuiltImage { repository,
-  tag, digest, tar }`, `HelmRelease { release, namespace, image }`, `FailureContext`.
+  tag, digest, tar }` (an image tarball), `PushedImage { repository, tag, digest }` (an image in a
+  registry), `HelmRelease { release, namespace, image }`, `FailureContext`.
 
 ## Secrets
 
@@ -97,8 +98,8 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `healthUrl?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?` |
 
 All take `name`, `description` and `timeoutSeconds?`.
 
@@ -106,8 +107,8 @@ All take `name`, `description` and `timeoutSeconds?`.
   as JSON) and one `INPUT_<KEY>` env var per input key (`deployTo` → `INPUT_DEPLOY_TO`; strings raw,
   everything else JSON). With an output model it writes the output JSON to `$OLVE_OUTPUT`;
   `{"$file": "<path>"}` / `{"$dir": "<path>"}` become file references.
-- **`steps.imageBuild`** builds the `Dockerfile` at the source root with kaniko (`--no-push`) and
-  outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
+- **`steps.imageBuild`** builds `<context>/<dockerfile>` (default: `Dockerfile` at the source root,
+  with the root as context) with kaniko (`--no-push`) and outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
   `-attempt<n>` on reruns. A stall watchdog kills kaniko when it prints nothing for
   `stallTimeoutSeconds` (a base-image pull can hang at "Unpacking rootfs"), failing the attempt;
   with `retries` a fresh attempt follows. Base images come through the homelab pull-through caches
@@ -116,12 +117,40 @@ All take `name`, `description` and `timeoutSeconds?`.
   `registryMap` (kaniko `--registry-map`) replaces that default; `{}` turns it off. Caches never
   block a build: an unreachable cache (or `cacheRepo` registry) is skipped with a log line and
   kaniko pulls upstream, and kaniko falls back upstream when a mirror lacks an image.
-- **`steps.helmDeployOverSsh`** streams the image tar into the host's k3s containerd, runs
-  `helm upgrade --install` (your `values`, then `set`, then the image flags, which always win, with
-  `pullPolicy=Never`), waits for `rollout status deploy/<release>`, and with `healthUrl` GETs it until
-  2xx (5 × 5 s).
-- **`httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`** is exported for custom
-  handlers.
+  **`push: true`** is for images too big to travel as a file (the step's scratch space is ~1 GiB):
+  kaniko pushes to `repository` (which must name a registry host) and the output is a `PushedImage`.
+  With **`contentTag: true`** the tag is `src-<hash>` of the build context's content, and the build is
+  skipped when the registry already has that tag:
+
+  ```ts
+  export const buildFigures = steps.imageBuild({
+    name: "build-figures", description: "…", repository: "registry.ovea.pro/questionbank/figure-service",
+    context: "services/figure-service", push: true, contentTag: true,
+  });
+  ```
+- **`steps.helmDeployOverSsh`** streams each image tar into the host's k3s containerd (with
+  `fromRegistry`: pulls each `PushedImage` there), runs `helm upgrade --install` (your `values`, then
+  `set`, then per image `<prefix>.repository`/`.tag`/`.pullPolicy`, which always win: `Never` for
+  tarballs, `IfNotPresent` for registry images), waits for each rollout (`deployments`, default the
+  release; `rolloutTimeoutSeconds`, default 120), and with `healthUrl` GETs it until 2xx (5 × 5 s, or
+  `{ url, attempts, delaySeconds }`). `images` maps step input keys to values prefixes (default
+  `{ image: "image" }`); two images of one chart:
+
+  ```ts
+  export const deployBeta = steps.helmDeployOverSsh({
+    name: "deploy-beta", description: "…", host: "oliver@bulwark-m2", sshKey: SSH_PRIVATE_KEY,
+    release: "olve-slimerepublics", namespace: "apps-beta", chart: "helm",
+    images: { server: "image", web: "web.image" },
+    deployments: ["olve-slimerepublics-server", "olve-slimerepublics-web"],
+  });
+  // two BuiltImage producers, so a mapper picks them:
+  .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], web: from["build-web"] })])
+  ```
+- **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
+  `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
+  `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
+  `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
+  as `helmDeployOverSsh` uses it).
 
 Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#library-steps).
 
@@ -129,7 +158,7 @@ Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Ol
 
 ```ts
 // handlers/test.ts
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { test } from "../pipeline";
 
 export default implement(test, async ({ source }, ctx) => {
@@ -151,7 +180,7 @@ A handler returns a valid output (validated strictly against the output model) o
 | `retry({ attempts, delaySeconds }, fn)` | Retry a function. |
 | `secrets.NAME`, `log(msg, fields)`, `run` (`{ pipeline, id, number, attempt, step, version }`), `tmpDir`, `signal` | |
 
-Test handlers with `testHandler(step, input, { ctx })` from `@olve/pipelines/testing` under `bun test`.
+Test handlers with `testHandler(step, input, { ctx })` from `@olivervea/pipelines/testing` under `bun test`.
 
 ## The pipeline
 

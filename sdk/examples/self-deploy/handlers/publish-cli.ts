@@ -1,4 +1,4 @@
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { publishCli } from "../pipeline";
 
 export default implement(publishCli, async ({ artifact, prod }, ctx) => {

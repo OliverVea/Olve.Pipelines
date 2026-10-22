@@ -7,21 +7,19 @@ only: you commit a `.pipelines/` directory and run one `pl binding create`.
 
 ## The SDK
 
-A pipeline imports `@olve/pipelines`. The SDK is published to npm as
-[`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines) (`@olve` on npm belongs
-to someone else). A pipeline installs it under the name it imports through an npm alias:
+A pipeline imports the SDK, published to npm as
+[`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines):
 
 ```json
-"dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" }
+"dependencies": { "@olivervea/pipelines": "2.0.0-beta.3" }
 ```
 
-Keep the alias name `@olve/pipelines`: the build tool generates imports of `@olve/pipelines/harness`.
 Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
 
 The service's build Job fetches the repo tarball at the commit, runs `bun install --frozen-lockfile`
-in the binding path (which resolves the alias from npm), then `bunx olve-build`. A local
+in the binding path, then `bunx olve-build`. A local
 `file:`/`link:` dependency inside the repo (Olve.Pipelines' own `.pipelines/` uses
-`"@olve/pipelines": "file:../sdk"`) is installed with `bun install --frozen-lockfile --production`
+`"@olivervea/pipelines": "file:../sdk"`) is installed with `bun install --frozen-lockfile --production`
 first.
 
 ## Prerequisites
@@ -50,7 +48,7 @@ first.
 
 ```
 .pipelines/
-  package.json          dependencies: @olve/pipelines; devDependencies: typescript, @types/bun
+  package.json          dependencies: @olivervea/pipelines; devDependencies: typescript, @types/bun
   bun.lock              committed: the build Job runs `bun install --frozen-lockfile`
   tsconfig.json
   models.ts             data models          (contract file)
@@ -67,19 +65,19 @@ first.
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olve/pipelines": "npm:@olivervea/pipelines@2.0.0-beta.1" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.3" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```
 
 Copy `tsconfig.json` from [`.pipelines/tsconfig.json`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/.pipelines/tsconfig.json).
-It needs `"types": ["bun", "@olve/pipelines/assets"]` so that `import x from "./scripts/x.sh" with { type: "file" }`
+It needs `"types": ["bun", "@olivervea/pipelines/assets"]` so that `import x from "./scripts/x.sh" with { type: "file" }`
 type-checks, and it excludes `.olve` (the local work directory).
 
 `models.ts`:
 
 ```ts
-import { model, z } from "@olve/pipelines";
+import { model, z } from "@olivervea/pipelines";
 
 export const Request = model("Request", z.object({
   repo: z.string().default("you/my-app"),
@@ -90,7 +88,7 @@ export const Request = model("Request", z.object({
 `pipeline.ts`:
 
 ```ts
-import { pipeline, steps, Source } from "@olve/pipelines";
+import { pipeline, steps, Source } from "@olivervea/pipelines";
 import testSh from "./scripts/test.sh" with { type: "file" };
 import * as M from "./models";
 

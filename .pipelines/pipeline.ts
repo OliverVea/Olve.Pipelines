@@ -1,5 +1,5 @@
 // v2's own CD pipeline: every push goes beta, then prod. config.yaml beside it is the paused v1 deployer's rollback path.
-import { pipeline, secret, step, steps, HelmRelease, Source } from "@olve/pipelines";
+import { pipeline, secret, step, steps, HelmRelease, Source } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");

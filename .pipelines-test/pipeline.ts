@@ -6,7 +6,7 @@
 //                    ┘
 //   onFailure: log-failure (mode = fail makes echo throw)
 // Four images (alpine, debian, busybox) exercise the bundled loader; hello → count passes a file ref.
-import { FailureContext, pipeline, step } from "@olve/pipelines";
+import { FailureContext, pipeline, step } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const hello = step({

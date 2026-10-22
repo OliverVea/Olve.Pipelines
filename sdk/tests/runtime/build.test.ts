@@ -129,7 +129,7 @@ describe("as an installed dependency (package exports, no tsconfig paths)", () =
   test("bun install file:sdk → olve-build bin → same manifest as in-repo; binary runs", async () => {
     const root = mkdtempSync(join(tmpdir(), "olve-consumer-"));
     try {
-      writeFileSync(join(root, "package.json"), JSON.stringify({ name: "consumer", private: true, type: "module", dependencies: { "@olve/pipelines": `file:${SDK}` } }));
+      writeFileSync(join(root, "package.json"), JSON.stringify({ name: "consumer", private: true, type: "module", dependencies: { "@olivervea/pipelines": `file:${SDK}` } }));
       copyExample(join(root, ".pipelines"));
       const env = { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
       const inst = Bun.spawnSync([process.execPath, "install"], { cwd: root, env, stdout: "pipe", stderr: "pipe" });
@@ -154,12 +154,12 @@ describe("cancellation through the real loader", () => {
   test("SIGTERM to `ld-linux --library-path … step run` aborts ctx.signal, kills children, exits 143", async () => {
     const dir = join(tmp("sigterm"), "pipeline");
     mkdirSync(join(dir, "handlers"), { recursive: true });
-    writeFileSync(join(dir, "pipeline.ts"), `import { model, pipeline, step, z } from "@olve/pipelines";
+    writeFileSync(join(dir, "pipeline.ts"), `import { model, pipeline, step, z } from "@olivervea/pipelines";
 export const Req = model("Req", z.object({ x: z.string() }));
 export const slow = step({ name: "slow", description: "", image: "alpine" });
 export default pipeline({ name: "slow", input: Req }).stage(slow);
 `);
-    writeFileSync(join(dir, "handlers/slow.ts"), `import { implement } from "@olve/pipelines";
+    writeFileSync(join(dir, "handlers/slow.ts"), `import { implement } from "@olivervea/pipelines";
 import { slow } from "../pipeline";
 export default implement(slow, async (_i, ctx) => { await ctx.sh("sleep 30"); });
 `);

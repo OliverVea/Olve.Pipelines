@@ -7,7 +7,7 @@ export const EXAMPLE = join(SDK, "examples/self-deploy");
 export const TMP = join(SDK, "tests/.tmp");
 export const SHA = "0123456789abcdef0123456789abcdef01234567";
 
-/** A fresh directory inside the SDK (so `@olve/pipelines` resolves via tsconfig paths). */
+/** A fresh directory inside the SDK (so `@olivervea/pipelines` resolves via tsconfig paths). */
 export function tmp(prefix: string): string {
   mkdirSync(TMP, { recursive: true });
   return mkdtempSync(join(TMP, `${prefix}-`));

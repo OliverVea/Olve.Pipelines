@@ -1,4 +1,4 @@
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { deployBeta } from "../fixtures";
 
 // deploy-beta declares only SSH_PRIVATE_KEY.

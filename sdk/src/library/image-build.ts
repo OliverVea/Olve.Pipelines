@@ -1,13 +1,14 @@
-// steps.imageBuild — build a container image from a `Source` with kaniko, to an image tarball.
-//
-// No registry push: the tarball travels as a file ref and a deploy step imports it on the host.
+// steps.imageBuild — build a container image from a `Source` with kaniko: to an image tarball that
+// travels as a file ref (a deploy imports it on the host), or pushed to a registry (`push: true`).
 // Ported from v1's olve-lib.sh (olve_kaniko_build + build.sh's layer cache); footguns kept below.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx, RunInfo } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
-import { BuiltImage, Source } from "./models.ts";
+import { sha256File } from "../util/hash.ts";
+import { dirEntries, writeTar } from "../util/tar.ts";
+import { BuiltImage, PushedImage, Source } from "./models.ts";
 
 /** kaniko's debug image (it has a busybox shell for debugging; the executor itself needs none). */
 export const KANIKO_IMAGE = "gcr.io/kaniko-project/executor:debug";
@@ -26,8 +27,15 @@ export interface ImageBuildDef<N extends string> {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
-  /** Image name, e.g. `olve-pipelines-v2`. The tag is the run's version (see `imageTag`). */
+  /**
+   * Image name, e.g. `olve-pipelines-v2`; with `push`, the registry repository to push to
+   * (`registry.ovea.pro/app/api`). The tag is the run's version (see `imageTag`) unless `contentTag`.
+   */
   repository: string;
+  /** Build context: a directory of the source tree (default: the root). */
+  context?: string;
+  /** Dockerfile path, relative to the context (default `Dockerfile`). */
+  dockerfile?: string;
   /**
    * Registry repository for kaniko's layer cache (`--cache=true --cache-repo=…`), so unchanged
    * layers (restore, apt, npm, …) are reused. kaniko pushes cache layers even with `--no-push`.
@@ -54,6 +62,25 @@ export interface ImageBuildDef<N extends string> {
    * A `--no-push` build is idempotent, so the default is 2 (three tries).
    */
   retries?: number;
+}
+
+/** Tarball mode (default): output `BuiltImage` with the image tar as a file. */
+export interface ImageBuildTarballDef<N extends string> extends ImageBuildDef<N> {
+  push?: false;
+  contentTag?: never;
+}
+
+/**
+ * Registry mode: push to `repository` and output `PushedImage`, for images too big to travel as a
+ * tarball (the step's scratch space is ~1 GiB).
+ */
+export interface ImageBuildPushDef<N extends string> extends ImageBuildDef<N> {
+  push: true;
+  /**
+   * Tag the image `src-<hash>`, the hash of the build context's content, and skip the build when the
+   * registry already has that tag: the image is rebuilt only when its context changes.
+   */
+  contentTag?: boolean;
 }
 
 /**
@@ -132,28 +159,91 @@ export function qualifyRepository(repository: string): string {
   return `docker.io/${repository}`;
 }
 
+/** A relative path inside the source tree (no `..`, not absolute). */
+function checkRelative(what: string, path: string): string {
+  const clean = path.replace(/^\.\/+/, "").replace(/\/+$/, "");
+  if (clean.startsWith("/") || clean.split("/").includes("..")) throw new Error(`imageBuild ${what} '${path}' must be a relative path inside the source tree`);
+  return clean === "." ? "" : clean;
+}
+
+/** The `src-<12 hex>` tag of a directory: the sha256 of its deterministic tar (as `ctx.output.dir` writes it). */
+export function contentTagOf(dir: string, tmpDir: string): string {
+  mkdirSync(tmpDir, { recursive: true });
+  const work = mkdtempSync(join(tmpDir, "content-tag-"));
+  try {
+    const tar = join(work, "context.tar");
+    writeTar(tar, dirEntries(dir));
+    return `src-${sha256File(tar).slice(0, 12)}`;
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+const MANIFEST_TYPES = [
+  "application/vnd.oci.image.index.v1+json",
+  "application/vnd.oci.image.manifest.v1+json",
+  "application/vnd.docker.distribution.manifest.list.v2+json",
+  "application/vnd.docker.distribution.manifest.v2+json",
+].join(", ");
+
+/** The digest of `repository:tag` in its registry (anonymous `HEAD …/manifests/<tag>`), or undefined if it has none. */
+export async function registryDigest(http: Ctx["http"], repository: string, tag: string): Promise<string | undefined> {
+  const [host, ...path] = repository.split("/");
+  const res = await http.fetch(`https://${host}/v2/${path.join("/")}/manifests/${tag}`, { method: "HEAD", headers: { Accept: MANIFEST_TYPES } });
+  await res.body?.cancel().catch(() => {});
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`registry lookup of ${repository}:${tag} answered HTTP ${res.status}`);
+  const digest = res.headers.get("docker-content-digest") ?? "";
+  return /^sha256:[0-9a-f]{64}$/.test(digest) ? digest : undefined;
+}
+
 /**
- * Builds `<source>/Dockerfile` with the source root as context, using kaniko, into an image tarball.
- * Output: `BuiltImage { repository, tag, digest, tar }`.
+ * Builds an image with kaniko from `<context>/<dockerfile>` in the source tree (default: `Dockerfile`
+ * at the root). Default: into an image tarball, output `BuiltImage { repository, tag, digest, tar }`.
+ * With `push: true`: pushed to `repository`, output `PushedImage { repository, tag, digest }`.
  */
-export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep {
+export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep;
+export function imageBuild<const N extends string>(def: ImageBuildPushDef<N>): Step<N, ImageBuildInput, typeof PushedImage, never> & LibraryStep;
+export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> | ImageBuildPushDef<N>): AnyImageBuild {
   const registryMap = def.registryMap ?? DEFAULT_REGISTRY_MAP;
   const mapped = Object.keys(registryMap).length > 0;
+  const push = def.push === true;
+  const contentTag = push && def.contentTag === true;
+  const context = checkRelative("context", def.context ?? "");
+  const dockerfile = checkRelative("dockerfile", def.dockerfile ?? "Dockerfile");
+  if (push && !/[.:]|^localhost$/.test(def.repository.split("/")[0]!)) throw new Error(`imageBuild '${def.name}': push needs a repository with a registry host, got '${def.repository}'`);
   return makeStep(
     "imageBuild",
-    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
+    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: push ? PushedImage : BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
     {
       manifestConfig: () => ({
         repository: def.repository,
+        ...(context ? { context } : {}),
+        ...(dockerfile !== "Dockerfile" ? { dockerfile } : {}),
+        ...(push ? { push: true } : {}),
+        ...(contentTag ? { contentTag: true } : {}),
         ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}),
         ...(mapped ? { registryMap: { ...registryMap } } : {}),
       }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
-        const tag = imageTag(ctx.run);
-        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: def.cacheRepo });
         const tree = await ctx.files.fetch(source.tree);
+        const contextDir = context ? join(tree, context) : tree;
+        if (!existsSync(contextDir) || !statSync(contextDir).isDirectory()) throw new Error(`build context '${context}' not found in the source tree`);
+        if (!existsSync(join(contextDir, dockerfile))) throw new Error(`${dockerfile} not found in the build context${context ? ` '${context}'` : ""}`);
+
+        const tag = contentTag ? contentTagOf(contextDir, ctx.tmpDir) : imageTag(ctx.run);
+        if (contentTag) {
+          const digest = await registryDigest(ctx.http, def.repository, tag);
+          if (digest) {
+            ctx.log("image already in the registry", { image: `${def.repository}:${tag}`, digest });
+            return { repository: def.repository, tag, digest };
+          }
+        }
+
+        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: def.cacheRepo });
         await ctx.exec(["mkdir", "-p", KANIKO_CONTEXT]);
         await ctx.exec(["cp", "-r", `${tree}/.`, KANIKO_CONTEXT]);
+        const kanikoContext = context ? `${KANIKO_CONTEXT}/${context}` : KANIKO_CONTEXT;
 
         // Outputs go to the harness's scratch dir (/olve/tmp, an emptyDir mount kaniko leaves alone;
         // kaniko images have no /tmp), then into the step's files.
@@ -161,16 +251,16 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
         const out = mkdtempSync(join(ctx.tmpDir, "image-build-"));
         const tarPath = join(out, "image.tar");
         const digestPath = join(out, "digest");
+        const output = push ? [] : ["--no-push", `--tar-path=${tarPath}`];
         // No --single-snapshot: it is incompatible with multi-stage Dockerfiles whose later stages need
         // the build context intact. --skip-push-permission-check: with --no-push kaniko otherwise checks
         // the cache repo at startup and exits if it is down; later cache lookup and push errors are
         // only warnings.
         await ctx.exec([
           "/kaniko/executor",
-          `--context=${KANIKO_CONTEXT}`,
-          `--dockerfile=${KANIKO_CONTEXT}/Dockerfile`,
-          "--no-push",
-          `--tar-path=${tarPath}`,
+          `--context=${kanikoContext}`,
+          `--dockerfile=${kanikoContext}/${dockerfile}`,
+          ...output,
           `--digest-file=${digestPath}`,
           `--destination=${def.repository}:${tag}`,
           ...(caches.cacheRepo ? ["--cache=true", `--cache-repo=${caches.cacheRepo}`, "--skip-push-permission-check"] : []),
@@ -184,6 +274,10 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
           throw new Error(`kaniko did not write the image digest to ${digestPath}`);
         }
         if (!/^sha256:[0-9a-f]{64}$/.test(digest)) throw new Error(`kaniko wrote an unexpected digest: '${digest}'`);
+        if (push) {
+          ctx.log("image pushed", { image: `${def.repository}:${tag}`, digest });
+          return { repository: def.repository, tag, digest };
+        }
         const tar = await ctx.output.file(tarPath, { name: "image.tar" });
         rmSync(tarPath); // the copy in the step's files is the one that counts; don't hold the image twice in /olve
         ctx.log("image built", { image: `${def.repository}:${tag}`, digest });
@@ -192,3 +286,5 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
     },
   ) as never;
 }
+
+type AnyImageBuild = Step<string, ImageBuildInput, typeof BuiltImage | typeof PushedImage, never> & LibraryStep;

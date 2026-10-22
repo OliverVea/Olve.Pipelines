@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { publishSdk } from "../pipeline";
 
 export default implement(publishSdk, async ({ source }, ctx) => {

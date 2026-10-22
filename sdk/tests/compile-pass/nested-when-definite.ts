@@ -1,5 +1,5 @@
 import { base, checkout, build, test, deployBeta, deployProd, publishCli, M } from "../fixtures";
-import type { InRefs, Ref, Infer } from "@olve/pipelines";
+import type { InRefs, Ref, Infer } from "@olivervea/pipelines";
 import type { Equal, Expect, AvailOf } from "../type-assert";
 
 // Inside the block, outputs produced earlier in the same block are definite.

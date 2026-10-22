@@ -117,7 +117,7 @@ export const Manifest = z
     harness: z
       .strictObject({
         bun: z.string().describe("Bun runtime version compiled into the binary."),
-        sdk: z.string().describe("@olve/pipelines package version."),
+        sdk: z.string().describe("@olivervea/pipelines package version."),
         sdkHash: hash.describe("Hash of the SDK runtime sources + zod version."),
       })
       .describe("Harness identity. Already folded into every handlerHash."),

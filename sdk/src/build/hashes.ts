@@ -22,7 +22,7 @@ function externals(project: Project): BunPlugin {
   return {
     name: "olve-handler-hash-externals",
     setup(b) {
-      b.onResolve({ filter: /^@olve\/pipelines(\/.*)?$/ }, (args) => ({ path: args.path, external: true }));
+      b.onResolve({ filter: /^@olivervea\/pipelines(\/.*)?$/ }, (args) => ({ path: args.path, external: true }));
       b.onResolve({ filter: /^\.{1,2}\// }, (args) => {
         const base = resolve(dirname(args.importer), args.path);
         for (const cand of [base, `${base}.ts`, join(base, "index.ts")]) if (contracts.has(cand)) return { path: args.path, external: true };

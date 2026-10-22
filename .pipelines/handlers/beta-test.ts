@@ -1,4 +1,4 @@
-import { httpHealthCheck, implement } from "@olve/pipelines";
+import { checkSpa, httpHealthCheck, implement } from "@olivervea/pipelines";
 import { BETA_URL, betaTest } from "../pipeline";
 
 function check(ok: boolean, what: string): asserts ok {
@@ -11,11 +11,7 @@ export default implement(betaTest, async (_input, ctx) => {
   const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`);
   check(Array.isArray(pipelines), "/api/pipelines did not answer a list");
 
-  const html = await (await ctx.http.expectOk(`${BETA_URL}/`)).text();
-  const bundle = html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];
-  check(bundle !== undefined, "/ does not reference the frontend bundle");
-  const js = await ctx.http.expectOk(`${BETA_URL}${bundle}`);
-  check(js.headers.get("content-type")?.includes("javascript") ?? false, `${bundle} is not served as JavaScript`);
+  await checkSpa(ctx, BETA_URL);
 
   const attempts = await ctx.http.getJson<unknown>(`${BETA_URL}/api/attempts?status=active`);
   check(Array.isArray(attempts), "/api/attempts did not answer a list");

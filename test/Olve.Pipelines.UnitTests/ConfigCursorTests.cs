@@ -17,7 +17,7 @@ namespace Olve.Pipelines.UnitTests;
 public class ConfigCursorTests
 {
     [Test]
-    [Arguments(".pipelines", """{"dependencies":{"@olve/pipelines":"file:../sdk","zod":"4.6.7"}}""", "sdk")]
+    [Arguments(".pipelines", """{"dependencies":{"@olivervea/pipelines":"file:../sdk","zod":"4.6.7"}}""", "sdk")]
     [Arguments(".pipelines/", """{"devDependencies":{"a":"link:../tools/a/"}}""", "tools/a")]
     [Arguments("deploy/.pipelines", """{"optionalDependencies":{"a":"file:../../lib"}}""", "lib")]
     [Arguments("", """{"dependencies":{"a":"file:./sdk"}}""", "sdk")]
@@ -70,7 +70,7 @@ public class ConfigCursorTests
         var gh = new FakeGitHub();
         gh.Commit(".pipelines", "p1", "2026-10-21T10:00:00Z");
         gh.Commit("sdk", "s1", "2026-10-21T09:00:00Z");
-        gh.PackageJson[".pipelines/package.json@p1"] = """{"dependencies":{"@olve/pipelines":"file:../sdk"}}""";
+        gh.PackageJson[".pipelines/package.json@p1"] = """{"dependencies":{"@olivervea/pipelines":"file:../sdk"}}""";
         var source = new TestSource(gh);
 
         // First fetch: both paths, package.json read once; the directory's commit is newer.

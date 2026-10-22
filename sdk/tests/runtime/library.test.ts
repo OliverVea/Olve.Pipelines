@@ -3,8 +3,10 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { httpHealthCheck, model, pipeline, secret, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
-import { reachableCaches, registryUp } from "../../src/library/image-build.ts";
+import { checkSpa, httpHealthCheck, model, pipeline, secret, serviceUrl, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { contentTagOf, reachableCaches, registryUp } from "../../src/library/image-build.ts";
+import { sha256File } from "../../src/util/hash.ts";
+import { dirEntries, writeTar } from "../../src/util/tar.ts";
 import { describePipeline } from "../../src/describe/describe.ts";
 import { Manifest } from "../../src/describe/manifest-schema.ts";
 import { testFileRef, testHandler } from "../../src/testing/index.ts";
@@ -124,6 +126,7 @@ describe("steps.gitHubSource", () => {
 describe("steps.imageBuild", () => {
   const fakeKaniko = (opts: { digest?: string; down?: string[]; hang?: string[] } = {}) => {
     const tree = tmp("kaniko-tree");
+    writeFileSync(join(tree, "Dockerfile"), "FROM scratch\n");
     const calls: string[][] = [];
     const execOpts: (Parameters<Ctx["exec"]>[1] | undefined)[] = [];
     const exec: Ctx["exec"] = async (argv, o) => {
@@ -283,6 +286,93 @@ describe("steps.imageBuild", () => {
   });
 });
 
+describe("steps.imageBuild: context, dockerfile, push", () => {
+  const kaniko = (opts: { tagDigest?: string } = {}) => {
+    const tree = tmp("kaniko-ctx-tree");
+    mkdirSync(join(tree, "src/frontend"), { recursive: true });
+    writeFileSync(join(tree, "src/frontend/Dockerfile.web"), "FROM nginx\n");
+    writeFileSync(join(tree, "src/frontend/index.html"), "<html></html>\n");
+    writeFileSync(join(tree, "Dockerfile"), "FROM scratch\n");
+    const calls: string[][] = [];
+    const exec: Ctx["exec"] = async (argv) => {
+      calls.push([...argv]);
+      if (argv[0] === "/kaniko/executor") {
+        const flag = (n: string) => argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
+        const tarPath = flag("tar-path");
+        if (tarPath) writeFileSync(tarPath, "image tar");
+        writeFileSync(flag("digest-file")!, "sha256:" + "cd".repeat(32));
+      }
+    };
+    const heads: string[] = [];
+    const http = {
+      fetch: async (url: string, init?: RequestInit) => {
+        if (init?.method === "HEAD") {
+          heads.push(url);
+          return opts.tagDigest ? new Response(null, { status: 200, headers: { "Docker-Content-Digest": opts.tagDigest } }) : new Response(null, { status: 404 });
+        }
+        return new Response("{}", { status: 200 });
+      },
+    } as unknown as Ctx["http"];
+    return { tree, calls, exec, heads, ctx: { exec, http, files: { fetch: async () => tree } } };
+  };
+
+  test("context and dockerfile: kaniko builds the subdirectory, recorded in the manifest config", async () => {
+    const step = steps.imageBuild({ name: "build-web", description: "", repository: "web", context: "src/frontend", dockerfile: "Dockerfile.web", registryMap: {} });
+    expect(step.builtin.manifestConfig()).toEqual({ repository: "web", context: "src/frontend", dockerfile: "Dockerfile.web" });
+    const k = kaniko();
+    const r = await testHandler(step, { source }, { ctx: k.ctx, run: { version: "2026.10.22.3" } });
+    expect(r).toMatchObject({ status: "succeeded", output: { repository: "docker.io/library/web", tag: "2026.10.22.3" } });
+    expect(k.calls[1]).toEqual(["cp", "-r", `${k.tree}/.`, "/kaniko/build-context"]);
+    expect(k.calls[2]!.slice(1, 3)).toEqual(["--context=/kaniko/build-context/src/frontend", "--dockerfile=/kaniko/build-context/src/frontend/Dockerfile.web"]);
+  });
+
+  test("a missing context or Dockerfile fails the step; a path outside the tree is a definition error", async () => {
+    const missing = await testHandler(steps.imageBuild({ name: "b", description: "", repository: "x", context: "nope" }), { source }, { ctx: kaniko().ctx });
+    if (missing.status !== "failed") throw new Error("expected failure");
+    expect(missing.error.message).toContain("build context 'nope' not found");
+    const noFile = await testHandler(steps.imageBuild({ name: "b", description: "", repository: "x", context: "src", dockerfile: "Dockerfile" }), { source }, { ctx: kaniko().ctx });
+    if (noFile.status !== "failed") throw new Error("expected failure");
+    expect(noFile.error.message).toContain("Dockerfile not found in the build context 'src'");
+    expect(() => steps.imageBuild({ name: "b", description: "", repository: "x", context: "../up" })).toThrow("relative path inside the source tree");
+  });
+
+  test("push: kaniko pushes (no --no-push, no tarball) and the output is a PushedImage", async () => {
+    const step = steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app/api", push: true, registryMap: {} });
+    expect(step.output.name).toBe("PushedImage");
+    expect(step.builtin.manifestConfig()).toEqual({ repository: "registry.ovea.pro/app/api", push: true });
+    const k = kaniko();
+    const r = await testHandler(step, { source }, { ctx: k.ctx, run: { version: "2026.10.22.3" } });
+    expect(r).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/app/api", tag: "2026.10.22.3", digest: "sha256:" + "cd".repeat(32) } });
+    if (r.status === "succeeded") expect(Object.keys(r.output!)).toEqual(["repository", "tag", "digest"]);
+    const argv = k.calls[2]!;
+    expect(argv).toContain("--destination=registry.ovea.pro/app/api:2026.10.22.3");
+    expect(argv.some((a) => a === "--no-push" || a.startsWith("--tar-path"))).toBe(false);
+    expect(argv.some((a) => a.startsWith("--digest-file="))).toBe(true);
+    expect(k.heads).toEqual([]);
+    expect(() => steps.imageBuild({ name: "b", description: "", repository: "app", push: true })).toThrow("registry host");
+  });
+
+  test("contentTag: tag from the context's deterministic tar; an existing tag skips kaniko", async () => {
+    const def = { name: "build-figures", description: "", repository: "registry.ovea.pro/qb/figures", context: "src/frontend", dockerfile: "Dockerfile.web", push: true, contentTag: true, registryMap: {} } as const;
+    const k = kaniko();
+    const ref = join(tmp("content-tag-ref"), "ref.tar");
+    writeTar(ref, dirEntries(join(k.tree, "src/frontend")));
+    const tag = `src-${sha256File(ref).slice(0, 12)}`;
+    expect(contentTagOf(join(k.tree, "src/frontend"), tmp("content-tag"))).toBe(tag);
+
+    const built = await testHandler(steps.imageBuild(def), { source }, { ctx: k.ctx });
+    expect(built).toMatchObject({ status: "succeeded", output: { tag } });
+    expect(k.heads).toEqual([`https://registry.ovea.pro/v2/qb/figures/manifests/${tag}`]);
+    expect(k.calls[2]).toContain(`--destination=registry.ovea.pro/qb/figures:${tag}`);
+
+    const existing = "sha256:" + "ef".repeat(32);
+    const k2 = kaniko({ tagDigest: existing });
+    const skipped = await testHandler(steps.imageBuild(def), { source }, { ctx: k2.ctx });
+    expect(skipped).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/qb/figures", tag, digest: existing } });
+    expect(k2.calls).toEqual([]);
+  });
+});
+
 describe("steps.helmDeployOverSsh", () => {
   const def = {
     name: "deploy-beta",
@@ -392,6 +482,107 @@ describe("steps.helmDeployOverSsh", () => {
     const r = await testHandler(steps.helmDeployOverSsh(def), { source, image }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
     expect(r).toMatchObject({ status: "failed", error: { kind: "handler" } });
     expect(f.calls.some((c) => Array.isArray(c) && c.at(-1)!.includes("rollout status"))).toBe(false);
+  });
+});
+
+describe("steps.helmDeployOverSsh: several images, registry images, rollouts", () => {
+  const ref = (path: string) => testFileRef({ step: "x", path });
+  const built = (repository: string, path: string) => ({ repository, tag: "2026.10.22.3", digest: "sha256:" + "ab".repeat(32), tar: ref(path) });
+  const fakes = () => {
+    const tree = tmp("helm-multi-tree");
+    mkdirSync(join(tree, "helm"));
+    mkdirSync(join(tree, "services/figures/helm"), { recursive: true });
+    const tars = tmp("helm-multi-tars");
+    const calls: (string[] | string)[] = [];
+    const health: { url: string }[] = [];
+    const ctx: Partial<Ctx<"SSH_PRIVATE_KEY">> = {
+      files: { fetch: async (r: FileRef) => (r.path === "tree/" ? tree : join(tars, r.path)) },
+      exec: async (argv) => void calls.push([...argv]),
+      sh: Object.assign(async (cmd: string | { script: string }) => void calls.push(cmd as string), { text: async () => "" }),
+      http: { expectOk: async (url: string) => (health.push({ url }), new Response("ok")) } as unknown as Ctx["http"],
+      retry: (async (opts, fn) => (calls.push(`retry ${opts.attempts}x${opts.delaySeconds}`), fastRetry(opts, fn))) as Ctx["retry"],
+    };
+    return { tree, tars, calls, ctx };
+  };
+  const sshCmd = (calls: (string[] | string)[]) => calls.filter((c): c is string[] => Array.isArray(c) && c[0] === "ssh").map((c) => c.at(-1)!);
+
+  test("several images: each tar imported, one values prefix per image, every rollout waited on", async () => {
+    const step = steps.helmDeployOverSsh({
+      name: "deploy-beta", description: "", host: "u@h", sshKey: KEY, release: "slimes", namespace: "apps-beta", chart: "helm",
+      images: { server: "image", web: "web.image" }, deployments: ["slimes-server", "slimes-web"],
+    });
+    expect(Object.keys(step.input)).toEqual(["source", "server", "web"]);
+    expect(step.builtin.manifestConfig()).toMatchObject({ images: { server: "image", web: "web.image" }, deployments: ["slimes-server", "slimes-web"] });
+    const f = fakes();
+    const r = await testHandler(step, { source, server: built("docker.io/library/slimes", "server.tar"), web: built("docker.io/library/slimes-web", "web.tar") }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
+    expect(r).toMatchObject({ status: "succeeded", output: { release: "slimes", namespace: "apps-beta", image: "docker.io/library/slimes:2026.10.22.3" } });
+    const imports = f.calls.filter((c): c is string => typeof c === "string" && c.includes(" load' < "));
+    expect(imports.map((c) => c.split(" < ")[1])).toEqual([join(f.tars, "server.tar"), join(f.tars, "web.tar")]);
+    const remote = sshCmd(f.calls);
+    expect(remote[1]).toContain(
+      "--set image.repository=docker.io/library/slimes --set image.tag=2026.10.22.3 --set image.pullPolicy=Never " +
+        "--set web.image.repository=docker.io/library/slimes-web --set web.image.tag=2026.10.22.3 --set web.image.pullPolicy=Never",
+    );
+    expect(remote.slice(2)).toEqual([
+      "kubectl -n apps-beta rollout status deploy/slimes-server --timeout=120s",
+      "kubectl -n apps-beta rollout status deploy/slimes-web --timeout=120s",
+    ]);
+  });
+
+  test("fromRegistry: PushedImage inputs pulled on the host, pullPolicy=IfNotPresent; rollout timeout and health options", async () => {
+    const step = steps.helmDeployOverSsh({
+      name: "deploy-figures", description: "", host: "u@h", sshKey: KEY, release: "figures", namespace: "apps", chart: "services/figures/helm",
+      fromRegistry: true, rolloutTimeoutSeconds: 300, healthUrl: { url: "http://figures.apps.svc.cluster.local/health", attempts: 6 },
+    });
+    expect(step.input.image.name).toBe("PushedImage");
+    expect(step.builtin.manifestConfig()).toEqual({
+      host: "u@h", sshKey: "SSH_PRIVATE_KEY", release: "figures", namespace: "apps", chart: "services/figures/helm", values: [], set: {},
+      fromRegistry: true, rolloutTimeoutSeconds: 300, healthUrl: { url: "http://figures.apps.svc.cluster.local/health", attempts: 6 },
+    });
+    const f = fakes();
+    const image = { repository: "registry.ovea.pro/qb/figures", tag: "src-0123456789ab", digest: "sha256:" + "ab".repeat(32) };
+    const r = await testHandler(step, { source, image }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
+    expect(r).toMatchObject({ status: "succeeded", output: { image: "registry.ovea.pro/qb/figures:src-0123456789ab" } });
+    expect(f.calls.some((c) => typeof c === "string" && c.includes(" load"))).toBe(false);
+    const remote = sshCmd(f.calls);
+    expect(remote[0]).toBe("sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io pull -q registry.ovea.pro/qb/figures:src-0123456789ab");
+    expect(remote[2]).toContain("--set image.repository=registry.ovea.pro/qb/figures --set image.tag=src-0123456789ab --set image.pullPolicy=IfNotPresent");
+    expect(remote[3]).toBe("kubectl -n apps rollout status deploy/figures --timeout=300s");
+    expect(f.calls).toContain("retry 6x5");
+  });
+
+  test("bad image config is a definition error", () => {
+    expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", images: {} })).toThrow("images must not be empty");
+    expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", deployments: [] })).toThrow("deployments must not be empty");
+  });
+});
+
+describe("serviceUrl and checkSpa", () => {
+  const spa = (opts: { bundle?: boolean; type?: string } = {}) => {
+    const urls: string[] = [];
+    const ctx = {
+      http: {
+        expectOk: async (url: string) => {
+          urls.push(url);
+          if (url.endsWith("/")) return new Response(opts.bundle === false ? "<html></html>" : '<script type="module" src="/assets/index-abc.js"></script>');
+          return new Response("x", { headers: { "content-type": opts.type ?? "text/javascript" } });
+        },
+      } as unknown as Ctx["http"],
+      log: () => {},
+    };
+    return { ctx, urls };
+  };
+
+  test("serviceUrl is the release's in-cluster Service", () => {
+    expect(serviceUrl({ release: "app", namespace: "apps-beta" })).toBe("http://app.apps-beta.svc.cluster.local");
+  });
+
+  test("checkSpa: the page references an /assets bundle served as JavaScript", async () => {
+    const ok = spa();
+    expect(await checkSpa(ok.ctx, "http://app/")).toMatchObject({ bundle: "/assets/index-abc.js" });
+    expect(ok.urls).toEqual(["http://app/", "http://app/assets/index-abc.js"]);
+    expect(checkSpa(spa({ bundle: false }).ctx, "http://app")).rejects.toThrow("does not reference an /assets/*.js bundle");
+    expect(checkSpa(spa({ type: "text/html" }).ctx, "http://app")).rejects.toThrow("is not served as JavaScript");
   });
 });
 

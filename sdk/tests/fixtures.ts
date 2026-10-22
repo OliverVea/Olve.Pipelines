@@ -1,5 +1,5 @@
 // Shared models/steps for the compile tests (re-uses the example pipeline).
-import { pipeline, step, steps, Source, secret, z } from "@olve/pipelines";
+import { pipeline, step, steps, Source, secret, z } from "@olivervea/pipelines";
 import * as M from "../examples/self-deploy/models";
 export * from "../examples/self-deploy/pipeline";
 export { M };

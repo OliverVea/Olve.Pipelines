@@ -5,7 +5,7 @@
     "": {
       "name": "olve-pipelines-pipeline",
       "dependencies": {
-        "@olve/pipelines": "file:../sdk",
+        "@olivervea/pipelines": "file:../sdk",
       },
       "devDependencies": {
         "@types/bun": "1.4.3",
@@ -14,7 +14,7 @@
     },
   },
   "packages": {
-    "@olve/pipelines": ["@olve/pipelines@file:../sdk", { "dependencies": { "zod": "4.6.7" }, "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }, "bin": { "olve-build": "./src/build/cli.ts", "olve-dev": "./src/dev/cli.ts" } }],
+    "@olivervea/pipelines": ["@olivervea/pipelines@file:../sdk", { "dependencies": { "zod": "4.6.7" }, "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }, "bin": { "olve-build": "./src/build/cli.ts", "olve-dev": "./src/dev/cli.ts" } }],
 
     "@types/bun": ["@types/bun@1.4.3", "", { "dependencies": { "bun-types": "1.4.3" } }, "sha512-N67Pqy8JXbAY/j0tNraS3V5mubGvc6rrrNDmDCtZLlFzccbUJPDb0tvgUBC5q4m8ybkP93Jcn1QB+RYQ6PvBhw=="],
 

@@ -1,6 +1,6 @@
 // Fixture: the shape of Olve.Pipelines' own self-deploy (build → test → beta → prod → publish CLI).
 // Handlers are offline fakes so the SDK tests can build and run every step locally.
-import { pipeline, step, steps, secret, optional, z, Source, FailureContext, githubSignature } from "@olve/pipelines";
+import { pipeline, step, steps, secret, optional, z, Source, FailureContext, githubSignature } from "@olivervea/pipelines";
 import * as M from "./models";
 import testSh from "./scripts/test.sh" with { type: "file" };
 

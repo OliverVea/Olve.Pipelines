@@ -12,7 +12,7 @@ Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This br
 
 ### Pipeline model
 
-A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by default), written against the SDK `@olve/pipelines` (`sdk/`):
+A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by default), written against the SDK `@olivervea/pipelines` (`sdk/`):
 
 - **Model** — a named, nominal zod schema (`model("BuildArtifact", z.object(…))`), emitted as JSON Schema with an `input` view (`z.input`, defaults optional) and a strict `output` view. Files are references (`fileRef()` → `{run, step, attempt, path, sha256}`), never inline.
 - **Step** — a contract: name (the identity — history, scheduling, blocked steps and addresses are keyed on it), image (any x86-64 image), inputs (model, `optional(model)` or plain schema), output model, declared secrets, `timeoutSeconds`. No behaviour.

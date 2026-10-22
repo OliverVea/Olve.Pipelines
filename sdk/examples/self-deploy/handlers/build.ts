@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { build } from "../pipeline";
 import { versionFor } from "./lib/release";
 

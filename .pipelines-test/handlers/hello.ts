@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { hello } from "../pipeline";
 
 export default implement(hello, async ({ request }, ctx) => {

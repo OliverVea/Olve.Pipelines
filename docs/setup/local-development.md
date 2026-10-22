@@ -6,9 +6,8 @@
 push. It shells out to the SDK's `olve-dev` / `olve-build` through Bun.
 
 - **Bun** is found via `$OLVE_BUN`, then `PATH`, then `~/.bun/bin/bun`.
-- **The SDK** is the `@olve/pipelines` your pipeline resolves: run `bun install` in the pipeline
-  directory first. In another repo that is the npm alias
-  `"@olve/pipelines": "npm:@olivervea/pipelines@<version>"` (see
+- **The SDK** is the `@olivervea/pipelines` your pipeline resolves: run `bun install` in the pipeline
+  directory first. In another repo that is `"@olivervea/pipelines": "<version>"` from npm (see
   [Getting Started](getting-started.md#the-sdk)); in this repo it is `file:../sdk`. Override with
   `$OLVE_SDK`. Without `pl`, the same tools run as `bunx olve-dev describe .` and
   `bunx olve-build . --out .olve/out` from the pipeline directory.
@@ -123,7 +122,7 @@ result:
 ## Unit-testing handlers
 
 ```ts
-import { testHandler } from "@olve/pipelines/testing";
+import { testHandler } from "@olivervea/pipelines/testing";
 import deployBeta from "../handlers/deploy-beta";
 
 const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: { http: fakeHttp } });

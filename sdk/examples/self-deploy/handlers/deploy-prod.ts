@@ -1,4 +1,4 @@
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { deployProd } from "../pipeline";
 import deployScript from "../scripts/deploy.sh" with { type: "file" };
 import { releaseName } from "./lib/release";

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { publishCli } from "../pipeline";
 
 const CLI = "src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj";

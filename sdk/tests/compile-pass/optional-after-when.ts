@@ -1,5 +1,5 @@
 import { base, checkout, build, test, deployBeta, deployProd, summary, M } from "../fixtures";
-import { step, optional, type InRefs, type Ref, type Infer, type StepInput } from "@olve/pipelines";
+import { step, optional, type InRefs, type Ref, type Infer, type StepInput } from "@olivervea/pipelines";
 import type { Equal, Expect, AvailOf } from "../type-assert";
 
 // Outputs produced inside a when are maybe-available afterwards: optional() inputs accept them.

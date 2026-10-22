@@ -1,5 +1,5 @@
 // Models of the v2 test fixture pipeline (contract file: contracts only).
-import { fileRef, model, z } from "@olve/pipelines";
+import { fileRef, model, z } from "@olivervea/pipelines";
 
 export const TestInput = model("TestInput", z.object({
   sha: z.string().regex(/^[0-9a-f]{7,40}$/),

@@ -16,7 +16,7 @@ public sealed record DevToolchain(string Bun, string DevCli, string BuildCli)
     /// <summary>
     /// Resolves Bun (<c>$OLVE_BUN</c>, then PATH, then <c>~/.bun/bin/bun</c>) and the SDK the
     /// pipeline itself imports: <c>$OLVE_SDK</c>, else Bun's own resolution of
-    /// <c>@olve/pipelines</c> from the pipeline directory (so a <c>file:../sdk</c> dependency
+    /// <c>@olivervea/pipelines</c> from the pipeline directory (so a <c>file:../sdk</c> dependency
     /// runs the SDK source, the same copy <c>pipeline.ts</c> loads).
     /// </summary>
     public static async Task<Result<DevToolchain>> ResolveAsync(
@@ -35,7 +35,7 @@ public sealed record DevToolchain(string Bun, string DevCli, string BuildCli)
             var probe = await runner.RunAsync(new ProcessSpec(bun,
             [
                 "-e",
-                "process.stdout.write(Bun.resolveSync('@olve/pipelines', process.argv[1]))",
+                "process.stdout.write(Bun.resolveSync('@olivervea/pipelines', process.argv[1]))",
                 pipelineDir.TrimEnd('/') + "/",
             ]), ct);
             if (probe.TryPickProblems(out var probeProblems, out var resolved))
@@ -43,7 +43,7 @@ public sealed record DevToolchain(string Bun, string DevCli, string BuildCli)
             if (!resolved.Succeeded || string.IsNullOrWhiteSpace(resolved.StandardOutput))
             {
                 return new ResultProblem(
-                    "Cannot resolve @olve/pipelines from '{0}' (run `bun install` there, or set ${1} to the SDK directory): {2}",
+                    "Cannot resolve @olivervea/pipelines from '{0}' (run `bun install` there, or set ${1} to the SDK directory): {2}",
                     pipelineDir, SdkEnvVar, resolved.Diagnostic);
             }
 

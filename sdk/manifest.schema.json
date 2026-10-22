@@ -92,7 +92,7 @@
               "type": "string"
             },
             "sdk": {
-              "description": "@olve/pipelines package version.",
+              "description": "@olivervea/pipelines package version.",
               "type": "string"
             },
             "sdkHash": {

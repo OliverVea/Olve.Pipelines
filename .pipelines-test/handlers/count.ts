@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { count } from "../pipeline";
 
 export default implement(count, async ({ greeting }, ctx) => {

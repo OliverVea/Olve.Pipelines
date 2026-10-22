@@ -21,7 +21,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 
 CLAUDE.md is the detailed map (service-layer architecture: EntityStore / AttachmentStore / event
 hubs / domain services, plus conventions). Top level: `src/Olve.Pipelines` (controller),
-`src/Olve.Pipelines.Cli` (`pl`), `sdk/` (`@olve/pipelines`), `harness/` (step-pod init image),
+`src/Olve.Pipelines.Cli` (`pl`), `sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
 `helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
 fixture), `frontend/` (Lit SPA), `docs/`.
 

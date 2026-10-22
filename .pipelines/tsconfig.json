@@ -8,7 +8,7 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "types": ["bun", "@olve/pipelines/assets"],
+    "types": ["bun", "@olivervea/pipelines/assets"],
     "strict": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true

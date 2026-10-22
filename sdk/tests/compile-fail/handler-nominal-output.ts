@@ -1,4 +1,4 @@
-import { implement, type Infer } from "@olve/pipelines";
+import { implement, type Infer } from "@olivervea/pipelines";
 import { deployBeta, M } from "../fixtures";
 
 declare const prod: Infer<typeof M.ProdDeployment>;

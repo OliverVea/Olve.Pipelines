@@ -1,4 +1,4 @@
-// @olve/pipelines/harness — the runtime the build tool compiles into the step binary.
+// @olivervea/pipelines/harness — the runtime the build tool compiles into the step binary.
 export { runHarness, defaultIO, allSteps, resolveStepFunction, type HarnessConfig, type HandlerRegistry, type HarnessIO } from "./main.ts";
 export { EXIT } from "./exit.ts";
 export { ENV, paths, runInfoFromEnv } from "./env.ts";

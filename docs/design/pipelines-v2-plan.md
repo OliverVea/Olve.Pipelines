@@ -683,6 +683,18 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      was dropped. Gotcha: v2 prod's Kubernetes token (Authentik client credentials) answered
      `invalid_grant` for a few minutes around 15:55 (secret set and reconcile answered 503); it cleared
      with the next v2 prod rollout, and the failed reconcile had to be re-run by hand.
+   - **SDK `2.0.0-beta.3`** (2026-10-22) removes the migrations' workarounds: `imageBuild` takes
+     `context` (a source subdirectory) and `dockerfile` (relative to it), and a registry mode
+     (`push: true` → output `PushedImage { repository, tag, digest }`; `contentTag: true` tags
+     `src-<sha256 of the context's deterministic tar>` and skips kaniko when the registry has it, same
+     hash as QB's custom step); `helmDeployOverSsh` takes `images` (input key → values prefix, default
+     `{ image: "image" }`), `fromRegistry` (`PushedImage` inputs pulled on the node,
+     `pullPolicy=IfNotPresent`), `deployments` (rollouts to wait for, default the release),
+     `rolloutTimeoutSeconds` and `healthUrl: { url, attempts, delaySeconds }`. New helpers:
+     `sshSession` (the ssh plumbing `helmDeployOverSsh` uses), `serviceUrl(release)`, `checkSpa`.
+     All config is opaque to the service: no C# change. **The `@olve/pipelines` alias is gone**: pipelines
+     import and depend on `@olivervea/pipelines` (`olve-build`'s generated imports, the handler-hash
+     externals and `pl dev`'s SDK resolution use the real name).
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

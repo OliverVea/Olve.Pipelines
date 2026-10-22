@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { implement } from "@olve/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { checkout } from "../pipeline";
 
 // Fake checkout: materialises a tiny tree instead of downloading the repo tarball.

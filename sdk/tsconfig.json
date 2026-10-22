@@ -15,9 +15,9 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@olve/pipelines": ["./src/index.ts"],
-      "@olve/pipelines/harness": ["./src/harness/index.ts"],
-      "@olve/pipelines/testing": ["./src/testing/index.ts"]
+      "@olivervea/pipelines": ["./src/index.ts"],
+      "@olivervea/pipelines/harness": ["./src/harness/index.ts"],
+      "@olivervea/pipelines/testing": ["./src/testing/index.ts"]
     }
   },
   "include": ["src", "tests", "examples", "scripts"],

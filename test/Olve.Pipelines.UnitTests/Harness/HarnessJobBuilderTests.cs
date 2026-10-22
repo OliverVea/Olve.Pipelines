@@ -76,8 +76,8 @@ public class HarnessJobBuilderTests
                     "env": [
                       { "name": "OLVE_DIR", "value": "/olve" },
                       { "name": "TMPDIR", "value": "/olve/tmp" },
-                      { "name": "OLVE_PIPELINE", "value": "11111111222233334444555555555555" },
-                      { "name": "OLVE_RUN_ID", "value": "99999999888877776666555555555555" },
+                      { "name": "OLVE_PIPELINE", "value": "11111111-2222-3333-4444-555555555555" },
+                      { "name": "OLVE_RUN_ID", "value": "99999999-8888-7777-6666-555555555555" },
                       { "name": "OLVE_RUN", "value": "412" },
                       { "name": "OLVE_ATTEMPT", "value": "2" },
                       { "name": "OLVE_VERSION_STAMP", "value": "2026.10.21.412" },

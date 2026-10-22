@@ -142,8 +142,8 @@ public static partial class HarnessJobBuilder
         {
             new("OLVE_DIR", "/olve"),
             new("TMPDIR", "/olve/tmp"),
-            new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("N")),
-            new("OLVE_RUN_ID", request.RunId.Value.Value.ToString("N")),
+            new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("D", CultureInfo.InvariantCulture)),
+            new("OLVE_RUN_ID", request.RunId.Value.Value.ToString("D", CultureInfo.InvariantCulture)),
             new("OLVE_RUN", request.RunNumber.ToString(CultureInfo.InvariantCulture)),
             new("OLVE_ATTEMPT", request.AttemptNumber.ToString(CultureInfo.InvariantCulture)),
             new("OLVE_VERSION_STAMP", request.VersionStamp),
@@ -257,7 +257,7 @@ public static partial class HarnessJobBuilder
             [
                 new("OLVE_DIR", "/olve"),
                 new("TMPDIR", "/olve/tmp"),
-                new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("N")),
+                new("OLVE_PIPELINE", request.PipelineId.Value.Value.ToString("D", CultureInfo.InvariantCulture)),
             ],
             VolumeMounts: [new K8sVolumeMount(ScratchVolumeName, "/olve")],
             SecurityContext: HarnessSecurity.Container,

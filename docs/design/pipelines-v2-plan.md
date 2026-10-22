@@ -484,6 +484,9 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   `?manifest=<url>`, e.g. from `pl dev describe --json`) and renders the pipeline overview from it
   with every step pending, without API calls. It shows a pipeline as the app will before it is
   deployed. Build it once the overview redesign settles.
+- **Event stream filtering**: `/api/events` filters by pipeline only (`?pipeline=`). Add filters by
+  event type and by run (e.g. `?types=run,attempt&run=12`), so a run page or `pl wait` gets only what it
+  re-fetches on.
 - Environments/tags, problem types lifted into Olve.MinimalApi, metrics, a `pl` smoke step, Blazor
   revisit.
 

@@ -15,12 +15,16 @@ public static class TokenRefresh
 
     public static async Task EnsureFreshAsync(CliArgs cli, CliConfig config, IConsoleLog log, CancellationToken ct)
     {
-        // Only the config-stored token is ours to refresh; an explicit --token/env token is the user's.
-        if (cli.Option("token") is { Length: > 0 })
-            return;
-        if (Environment.GetEnvironmentVariable(ApiClientFactory.TokenEnvVar) is { Length: > 0 })
-            return;
+        if (OwnsToken(cli))
+            await RefreshIfExpiringAsync(config, log, ct);
+    }
 
+    /// <summary>Only the config-stored token is ours to refresh; an explicit --token/env token is the user's.</summary>
+    public static bool OwnsToken(CliArgs cli) =>
+        cli.Option("token") is not { Length: > 0 } && Environment.GetEnvironmentVariable(ApiClientFactory.TokenEnvVar) is not { Length: > 0 };
+
+    public static async Task RefreshIfExpiringAsync(CliConfig config, IConsoleLog log, CancellationToken ct)
+    {
         if (config.Auth is not { } auth)
             return;
         if (auth.RefreshToken is not { Length: > 0 } refreshToken)

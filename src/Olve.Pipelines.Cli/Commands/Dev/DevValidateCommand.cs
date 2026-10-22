@@ -9,6 +9,7 @@ namespace Olve.Pipelines.Cli.Commands.Dev;
 /// </summary>
 public sealed class DevValidateCommand(IProcessRunner runner, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir");
     /// <summary>Exit code for an invalid manifest — the same as describe-time problems.</summary>
     public const int InvalidExitCode = 78;
 

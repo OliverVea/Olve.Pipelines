@@ -25,6 +25,10 @@ public sealed class CliDispatcher
     private static readonly HashSet<string> GlobalFlags =
         new(StringComparer.Ordinal) { "json", "verbose", "help" };
 
+    // Global value options, read by the API client and the config store.
+    private static readonly HashSet<string> GlobalOptions =
+        new(StringComparer.Ordinal) { "api-url", "token", "profile" };
+
     private static readonly Dictionary<string, string> GlobalAliases =
         new(StringComparer.Ordinal) { ["h"] = "help", ["v"] = "verbose" };
 
@@ -175,8 +179,11 @@ public sealed class CliDispatcher
         foreach (var (k, v) in command.Aliases)
             aliases[k] = v;
 
+        if (UnknownOptions(args, command, booleanFlags, aliases) is { Count: > 0 } unknown)
+            return Usage(unknown);
+
         if (CliArgs.Parse(args, booleanFlags, aliases).TryPickProblems(out var parseProblems, out var cli))
-            return Fail(parseProblems);
+            return Usage(parseProblems);
 
         cli.OperandOffset = offset;
 
@@ -215,6 +222,65 @@ public sealed class CliDispatcher
     }
 
     private bool HasNoun(string noun) => _commands.Any(c => c.Noun == noun);
+
+    // Checked on the raw tokens, before parsing: a mistyped flag would otherwise take the next token as its value.
+    private static List<ResultProblem> UnknownOptions(
+        IReadOnlyList<string> args, ICliCommand command, IReadOnlySet<string> flags, IReadOnlyDictionary<string, string> aliases)
+    {
+        var known = new HashSet<string>(GlobalOptions, StringComparer.Ordinal);
+        known.UnionWith(command.ValueOptions);
+        var key = CliCommand.Key(command.Noun, command.Verb);
+        var problems = new List<ResultProblem>();
+        for (var i = 0; i < args.Count; i++)
+        {
+            if (!args[i].StartsWith('-') || args[i] == "-")
+                continue;
+            var name = args[i].TrimStart('-');
+            var inline = name.Contains('=');
+            if (inline)
+                name = name[..name.IndexOf('=')];
+            name = aliases.GetValueOrDefault(name, name);
+
+            if (flags.Contains(name))
+                continue;
+            if (known.Contains(name))
+            {
+                if (!inline)
+                    i++; // its value
+                continue;
+            }
+
+            problems.Add(Closest(name, known.Concat(flags)) is { } hint
+                ? new ResultProblem("Unknown option '--{0}' for `pl {1}` (did you mean '--{2}'?). Run `pl {1} --help`.", name, key, hint)
+                : new ResultProblem("Unknown option '--{0}' for `pl {1}`. Run `pl {1} --help`.", name, key));
+        }
+        return problems;
+    }
+
+    private static string? Closest(string name, IEnumerable<string> candidates) =>
+        candidates.Select(c => (c, d: Distance(name, c))).Where(x => x.d <= 2).OrderBy(x => x.d).Select(x => x.c).FirstOrDefault();
+
+    private static int Distance(string a, string b)
+    {
+        var d = new int[a.Length + 1, b.Length + 1];
+        for (var i = 0; i <= a.Length; i++) d[i, 0] = i;
+        for (var j = 0; j <= b.Length; j++) d[0, j] = j;
+        for (var i = 1; i <= a.Length; i++)
+        for (var j = 1; j <= b.Length; j++)
+        {
+            d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
+                d[i, j] = Math.Min(d[i, j], d[i - 2, j - 2] + 1);
+        }
+        return d[a.Length, b.Length];
+    }
+
+    /// <summary>Usage errors exit 2, like a bare <c>pl</c>.</summary>
+    private static int Usage(IEnumerable<ResultProblem> problems)
+    {
+        Fail(problems);
+        return 2;
+    }
 
     private static int Fail(IEnumerable<ResultProblem> problems)
     {

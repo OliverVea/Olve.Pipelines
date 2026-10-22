@@ -123,8 +123,10 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
     private static async Task<Result<T>> ErrorAsync<T>(HttpResponseMessage response, CancellationToken ct)
     {
         var code = (int)response.StatusCode;
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new ResultProblem("Not authenticated ({0}). Run `pl login`.", code);
+        if (response.StatusCode is HttpStatusCode.Forbidden)
+            return new ResultProblem("Forbidden ({0}): this account may not do that.", code);
 
         var body = await SafeReadAsync(response, ct);
 

@@ -70,22 +70,45 @@ public static class CliConfigStore
     /// <summary>Writes <paramref name="config"/> as its profile, keeping the other profiles.</summary>
     public static Result Save(CliConfig config)
     {
-        if (LoadProfiles().TryPickProblems(out var problems, out var profiles))
-            return problems;
-        profiles[config.Profile] = config;
-
         var path = ResolvePath();
         try
         {
+            // Parallel `pl` calls may each rotate the refresh token: serialise the read-modify-write,
+            // and replace the file atomically, created owner-only.
+            using var _ = AcquireLock(path + ".lock");
+            if (LoadProfiles().TryPickProblems(out var problems, out var profiles))
+                return problems;
+            profiles[config.Profile] = config;
+
             var json = JsonSerializer.Serialize(new CliConfigFile { Profiles = profiles }, CliJsonContext.Default.CliConfigFile);
-            File.WriteAllText(path, json);
+            var temp = $"{path}.{Environment.ProcessId}.tmp";
+            var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write };
             if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            using (var writer = new StreamWriter(temp, System.Text.Encoding.UTF8, options))
+                writer.Write(json);
+            File.Move(temp, path, overwrite: true);
             return Result.Success();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return new ResultProblem("Could not write config '{0}': {1}", path, ex.Message);
+        }
+    }
+
+    private static FileStream AcquireLock(string lockPath)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(50);
+            }
         }
     }
 }

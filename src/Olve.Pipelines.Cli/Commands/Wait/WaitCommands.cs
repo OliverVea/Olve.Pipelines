@@ -167,6 +167,7 @@ internal sealed class RunCursor(int value)
 /// <summary><c>pl wait run &lt;address&gt;</c> — wait for a run (or one step of it) to finish, start or be held.</summary>
 public sealed class WaitRunCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("until", "timeout");
     public string Noun => "wait";
     public string Verb => "run";
     public int RequiredOperands => 1;
@@ -253,6 +254,7 @@ public sealed class WaitRunCommand : ICliCommand
 /// <summary><c>pl wait push &lt;pipeline&gt; &lt;sha&gt;</c> — wait for a run of a commit to appear (and finish).</summary>
 public sealed class WaitPushCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("until", "timeout");
     private const int Window = 15;
 
     public string Noun => "wait";
@@ -334,6 +336,7 @@ public sealed class WaitPushCommand : ICliCommand
 /// <summary><c>pl wait reconcile &lt;pipeline&gt; &lt;sha&gt;</c> — wait for the binding to apply a config commit.</summary>
 public sealed class WaitReconcileCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("timeout");
     public string Noun => "wait";
     public string Verb => "reconcile";
     public int RequiredOperands => 2;

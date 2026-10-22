@@ -8,6 +8,7 @@ namespace Olve.Pipelines.Cli.Commands.Bindings;
 /// <summary><c>pl binding create &lt;repo&gt;</c> — create a pipeline bound to a git repo.</summary>
 public sealed class BindingCreateCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("branch", "credentials-secret", "path");
     public string Noun => "binding";
     public string Verb => "create";
     public int RequiredOperands => 1;

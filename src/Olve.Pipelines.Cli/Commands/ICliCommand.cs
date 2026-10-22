@@ -16,6 +16,9 @@ public interface ICliCommand
     /// <summary>Long names of boolean switches this command accepts (without leading dashes).</summary>
     IReadOnlySet<string> BooleanFlags => CliCommand.NoFlags;
 
+    /// <summary>Long names of the options this command reads a value from; any other option is rejected.</summary>
+    IReadOnlySet<string> ValueOptions => CliCommand.NoOptions;
+
     /// <summary>Short-to-long alias map for this command's options.</summary>
     IReadOnlyDictionary<string, string> Aliases => CliCommand.NoAliases;
 
@@ -41,6 +44,9 @@ public interface ICliCommand
 public static class CliCommand
 {
     public static readonly IReadOnlySet<string> NoFlags = new HashSet<string>(StringComparer.Ordinal);
+    public static readonly IReadOnlySet<string> NoOptions = new HashSet<string>(StringComparer.Ordinal);
+
+    public static IReadOnlySet<string> Options(params string[] names) => new HashSet<string>(names, StringComparer.Ordinal);
     public static readonly IReadOnlyDictionary<string, string> NoAliases =
         new Dictionary<string, string>(StringComparer.Ordinal);
 

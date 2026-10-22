@@ -8,5 +8,17 @@ Console.CancelKeyPress += (_, e) =>
     cts.Cancel();
 };
 
-var dispatcher = new CliDispatcher(new ProcessRunner());
-return await dispatcher.RunAsync(args, cts.Token);
+try
+{
+    var dispatcher = new CliDispatcher(new ProcessRunner());
+    return await dispatcher.RunAsync(args, cts.Token);
+}
+catch (OperationCanceledException) when (cts.IsCancellationRequested)
+{
+    return 130;
+}
+catch (Exception ex) when (!args.Contains("--verbose") && !args.Contains("-v"))
+{
+    Console.Error.WriteLine($"error: {ex.Message} (--verbose for details)");
+    return 1;
+}

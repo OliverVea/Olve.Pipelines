@@ -12,6 +12,7 @@ namespace Olve.Pipelines.Cli.Commands;
 /// </summary>
 public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("bucket", "chart", "image-pull-policy", "image-repository", "image-tag", "namespace", "ref", "release");
     public const string ProdNamespace = "apps";
     public const string DefaultRelease = "olve-pipelines";
     public const string DefaultBucket = "olve-pipelines";

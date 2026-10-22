@@ -48,6 +48,7 @@ public sealed class PipelineVersionsCommand : ICliCommand
 /// <summary><c>pl pipeline manifest &lt;pipeline&gt; [--version n]</c> — a version's manifest.</summary>
 public sealed class PipelineManifestCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("version");
     public string Noun => "pipeline";
     public string Verb => "manifest";
     public int RequiredOperands => 1;

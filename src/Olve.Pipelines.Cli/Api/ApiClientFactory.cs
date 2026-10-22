@@ -33,8 +33,10 @@ public sealed class ApiClientFactory
 
         log.Log($"api: {baseUrl} (from {urlSource}); token: {(token is null ? "none" : tokenSource)}");
 
-        var http = new HttpClient { BaseAddress = uri };
-        if (!string.IsNullOrEmpty(token))
+        var ownsToken = token is not null && TokenRefresh.OwnsToken(cli);
+        var http = ownsToken ? new HttpClient(new RefreshingAuthHandler(config, log)) : new HttpClient();
+        http.BaseAddress = uri;
+        if (!string.IsNullOrEmpty(token) && !ownsToken)
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         return Result.Success(new ApiTransport(http, log));

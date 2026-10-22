@@ -89,6 +89,7 @@ public sealed class StepFilesCommand : ICliCommand
 /// <summary><c>pl step file &lt;address&gt; &lt;path&gt; [-o out]</c> — download one stored file.</summary>
 public sealed class StepFileCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("output");
     public string Noun => "step";
     public string Verb => "file";
     public int RequiredOperands => 1;
@@ -153,6 +154,7 @@ public sealed class StepFileCommand : ICliCommand
 /// <summary><c>pl step logs &lt;address&gt; [--follow]</c>.</summary>
 public sealed class StepLogsCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("interval");
     public string Noun => "step";
     public string Verb => "logs";
     public int RequiredOperands => 1;
@@ -316,6 +318,7 @@ public sealed class StepCancelCommand : ICliCommand
 /// <summary><c>pl step history &lt;pipeline&gt;/&lt;step&gt;</c> — a step identity's attempts across runs.</summary>
 public sealed class StepHistoryCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("limit");
     public string Noun => "step";
     public string Verb => "history";
     public int RequiredOperands => 1;

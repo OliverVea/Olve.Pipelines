@@ -144,6 +144,7 @@ public sealed record DevContext(DevSession Session, DevManifest Manifest, DevPoo
 /// <summary><c>pl dev describe</c> — the manifest and describe-time checks, from source.</summary>
 public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir");
     public string Noun => "dev";
     public string Verb => "describe";
     public bool UsesApi => false;
@@ -255,6 +256,7 @@ public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? tool
 /// <summary><c>pl dev run &lt;step&gt;</c> — one step from source (or in its image with --docker).</summary>
 public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "from", "input", "input-file", "secret");
     public string Noun => "dev";
     public string Verb => "run";
     public bool UsesApi => false;
@@ -373,6 +375,7 @@ public sealed record PipelineStepResult(string Step, string Status, string? Deta
 public sealed class DevPipelineCommand(
     IProcessRunner runner, IConfirmPrompt prompt, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "input", "only", "secret", "until");
     public string Noun => "dev";
     public string Verb => "pipeline";
     public bool UsesApi => false;

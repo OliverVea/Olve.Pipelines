@@ -11,6 +11,7 @@ namespace Olve.Pipelines.Cli.Commands.Secrets;
 /// </summary>
 public sealed class SecretCopyCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("name");
     private static readonly HashSet<string> Flags = new(StringComparer.Ordinal) { "overwrite" };
 
     public string Noun => "secret";

@@ -54,6 +54,7 @@ public sealed class SecretListCommand : ICliCommand
 /// </summary>
 public sealed class SecretSetCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("from-env", "from-file");
     public string Noun => "secret";
     public string Verb => "set";
     public int RequiredOperands => 2;

@@ -1,5 +1,6 @@
 using Olve.Pipelines.Cli;
 using Olve.Pipelines.Cli.Api;
+using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
@@ -39,6 +40,26 @@ public class CliConfigStoreTests
             await Assert.That(text).Contains("\"profiles\"");
             await Assert.That(TestRunDomain.Pick(CliConfigStore.Load()).ApiUrl).IsEqualTo("https://old");
         });
+
+    [Test]
+    public async Task Save_WritesAnOwnerOnlyFile_WithoutLeftovers() => await WithConfigFile(null, async path =>
+    {
+        await Assert.That(CliConfigStore.Save(new CliConfig { ApiUrl = "https://x" })).Succeeded();
+
+        if (!OperatingSystem.IsWindows())
+            await Assert.That(File.GetUnixFileMode(path)).IsEqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        await Assert.That(string.Join(",", Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + "*").Where(f => f != path))).IsEqualTo("");
+    });
+
+    [Test]
+    public async Task ParallelSaves_OfDifferentProfiles_AllLand() => await WithConfigFile(null, async _ =>
+    {
+        var names = Enumerable.Range(0, 8).Select(i => $"p{i}").ToList();
+        await Task.WhenAll(names.Select(n => Task.Run(() => CliConfigStore.Save(new CliConfig { Profile = n, ApiUrl = $"https://{n}" }))));
+
+        foreach (var n in names)
+            await Assert.That(TestRunDomain.Pick(CliConfigStore.Load(n)).ApiUrl).IsEqualTo($"https://{n}");
+    });
 
     [Test]
     public async Task SavingOneProfile_KeepsTheOthers() => await WithConfigFile(null, async _ =>

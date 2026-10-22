@@ -8,6 +8,7 @@ namespace Olve.Pipelines.Cli.Commands;
 /// </summary>
 public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("namespace", "release");
     public string Noun => "teardown";
     public string Verb => "";
     public IReadOnlySet<string> BooleanFlags { get; } =

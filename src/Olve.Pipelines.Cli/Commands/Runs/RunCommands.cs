@@ -9,6 +9,7 @@ namespace Olve.Pipelines.Cli.Commands.Runs;
 /// <summary><c>pl trigger &lt;pipeline&gt; [--input json|@file] [--field k=v…]</c> — start a manual run.</summary>
 public sealed class TriggerCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("field", "input");
     public string Noun => "trigger";
     public string Verb => "";
     public int RequiredOperands => 1;
@@ -72,6 +73,7 @@ public sealed class TriggerCommand : ICliCommand
 /// <summary><c>pl run list &lt;pipeline&gt;</c> — runs, newest first.</summary>
 public sealed class RunListCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("page", "page-size");
     public string Noun => "run";
     public string Verb => "list";
     public int RequiredOperands => 1;
@@ -240,6 +242,7 @@ public sealed class RunRerunCommand : ICliCommand
 /// <summary><c>pl run continue &lt;pipeline&gt;#&lt;run&gt; [--field k=v…]</c> — keep completed stages, re-evaluate the rest.</summary>
 public sealed class RunContinueCommand : ICliCommand
 {
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("field", "input");
     public string Noun => "run";
     public string Verb => "continue";
     public int RequiredOperands => 1;

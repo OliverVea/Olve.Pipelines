@@ -341,6 +341,14 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   - Alternative (not applied, homelab infra): a separate `registry:2` instance in pull-through mode
     for mcr.microsoft.com (`REGISTRY_PROXY_REMOTEURL`; never on the existing registry, which would
     then refuse pushes), running under runc, would replace the mirror step.
+  - **Pull-through caches exist** (2026-10-22, Olve.Homelab 119c192): `registry:3` proxies under
+    runc on the `bulk` tier, 720h TTL — `mcr-cache.ovea.pro` (mcr.microsoft.com) and
+    `hub-cache.ovea.pro` (Docker Hub, anonymous). From a gVisor runner pod, kaniko with
+    `--registry-map mcr.microsoft.com=mcr-cache.ovea.pro` pulled `dotnet/sdk:10.0-noble` in 41 s
+    cold / 20 s warm (the mirror: 17 s); `node:24-alpine` via `index.docker.io=hub-cache.ovea.pro`
+    10 s / 4 s. The registry now has nightly GC (`registry-gc`: `*/cache` tags > 3 d,
+    `*/mirror/*` > 14 d). **Follow-up:** make that `registryMap` the `imageBuild` default and
+    remove `mirror-base-images` from Olve.Pipelines, Olve.Template.Api and homelab-dashboard.
 - **v2 beta serves the v2 `pl`** (2026-10-22, 0eca595). A custom `publish-cli` step (stage after
   `deploy-beta`, same `when`; `dotnet/sdk:10.0-noble` + apt clang/zlib1g-dev) publishes linux-x64
   AOT + win-x64 single-file stamped with the run version and returns them as **output files**

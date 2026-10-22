@@ -15,7 +15,7 @@ attempts, every step's output (the **pool**). Runs are numbered per pipeline —
 | number | monotonic per pipeline: `my-app#12` |
 | version | the pipeline version it pinned at start (never changes) |
 | version stamp | `yyyy.MM.dd.<number>` (UTC creation date), e.g. `2026.10.22.6`; `ctx.run.version`, the `imageBuild` tag |
-| trigger | `Push`, `Poll` or `Manual` |
+| trigger | `Push`, `Poll`, `Webhook` or `Manual` |
 | status | `Running`, `Succeeded`, `Failed`, `Cancelled`, `Superseded` |
 | links | `supersededBy`, `rerunOf` |
 
@@ -45,7 +45,7 @@ automatically (a new attempt in a fresh pod) until it has failed 1 + n times in 
   A → B → A deploys A again.)
 - **Explicit actions always create work.** `pl trigger`, the UI form, reruns and continues are never
   de-duplicated and never supersede anything.
-- **Gates.** A blocked step holds a run that reaches it — see [Promotion Gates](promotion-gate.md).
+- **Blocked steps.** A blocked step holds a run that reaches it — see [Blocking Steps](blocking-steps.md).
 - **Switching versions.** While a pipeline drains, new runs are queued and start on the new
   version — see [Switch and rollback](binding-and-reconcile.md#switch-and-rollback).
 
@@ -68,7 +68,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 |---|---|---|
 | Start a run | `pl trigger <pipeline> [--input json\|@file] [--field k=v …]` — prints `<pipeline>#<run>` | Pipeline view → trigger form (run plan preview) |
 | List runs | `pl run list <pipeline>` | Pipeline view → recent runs |
-| Inspect a run | `pl run get <pipeline>#<run>` — input, version, stages, each step's status/reason/gate | Run view |
+| Inspect a run | `pl run get <pipeline>#<run>` — input, version, stages, each step's status/reason, blocked/held | Run view |
 | Cancel | `pl run cancel <pipeline>#<run>` | Run view → Cancel |
 | Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Rerun |
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |
@@ -117,7 +117,7 @@ scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`
 ## Live events
 
 `GET /api/events[?pipeline=<id>]` is a server-sent event stream (anonymous, like other reads) of
-small change notices: `run`, `attempt`, `version`, `gate`, `binding`, `pipeline`, each with the
+small change notices: `run`, `attempt`, `version`, `blocked`, `binding`, `pipeline`, each with the
 pipeline id and just enough to know what to reload (shapes in the repo README, "Live events").
 A UI or script re-fetches on each notice instead of polling:
 
@@ -196,6 +196,6 @@ what it would delete. An operator turns it on with `Retention__DryRun=false`; ev
 
 ## See also
 
-- [Promotion Gates](promotion-gate.md) — hold runs at a step
+- [Blocking Steps](blocking-steps.md) — hold runs at a step
 - [Binding, Reconcile & Versions](binding-and-reconcile.md) — where versions come from
 - [Troubleshooting](troubleshooting.md)

@@ -7,8 +7,8 @@ using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
 
 namespace Olve.Pipelines.UnitTests.Scheduling;
 
-/// <summary>Promotion gates (hold/resume) and version switches (draining queue, completion, cancel).</summary>
-public class GateAndSwitchTests
+/// <summary>Blocked steps (hold/resume) and version switches (draining queue, completion, cancel).</summary>
+public class BlockAndSwitchTests
 {
     [Test]
     public async Task BlockedStep_HoldsRunAtItsStage_UnblockResumes()
@@ -136,7 +136,7 @@ public class GateAndSwitchTests
 
         await Assert.That(result).IsTypeOf<PipelineActivation.Active>();
         await Assert.That(s.Get(held).Status).IsEqualTo(RunStatus.Cancelled);
-        // The gate survives the switch (keyed on step name).
+        // The block survives the switch (keyed on step name).
         await Assert.That(s.D.GateService.IsBlocked(s.Pipeline.Id, "deploy-prod")).IsTrue();
         await Assert.That(s.D.Continuations.ContinueRun(held.Id, Input(deployTo: "prod"))).Failed();
     }

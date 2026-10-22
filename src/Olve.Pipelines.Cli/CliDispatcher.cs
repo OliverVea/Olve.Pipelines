@@ -4,7 +4,6 @@ using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Attempts;
 using Olve.Pipelines.Cli.Commands.Bindings;
 using Olve.Pipelines.Cli.Commands.Dev;
-using Olve.Pipelines.Cli.Commands.Gates;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Profiles;
 using Olve.Pipelines.Cli.Commands.Runs;
@@ -68,10 +67,10 @@ public sealed class CliDispatcher
         Register(new StepCancelCommand());
         Register(new StepHistoryCommand());
 
-        // promotion gates
-        Register(new GateListCommand());
-        Register(new GateBlockCommand());
-        Register(new GateUnblockCommand());
+        // blocked steps (pipeline-scoped, by step name)
+        Register(new StepBlockedCommand());
+        Register(new StepBlockCommand());
+        Register(new StepUnblockCommand());
 
         // attempts across pipelines (what's running)
         Register(new AttemptListCommand());

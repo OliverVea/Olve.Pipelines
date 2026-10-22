@@ -33,8 +33,8 @@ public sealed record ChangeEvent(string Type, Id<Pipeline> PipelineId, string Da
             _ => new VersionChanged(pipelineId, null, "none"),
         }, StreamingJsonContext.Default.VersionChanged);
 
-    public static ChangeEvent Gate(Id<Pipeline> pipelineId, IReadOnlyList<string> blockedSteps)
-        => Of("gate", pipelineId, new GateChanged(pipelineId, blockedSteps), StreamingJsonContext.Default.GateChanged);
+    public static ChangeEvent BlockedSteps(Id<Pipeline> pipelineId, IReadOnlyList<string> blockedSteps)
+        => Of("blocked", pipelineId, new BlockedStepsChanged(pipelineId, blockedSteps), StreamingJsonContext.Default.BlockedStepsChanged);
 
     public static ChangeEvent Binding(PipelineConfigBinding binding, bool deleted = false)
         => Of("binding", binding.PipelineId,
@@ -57,7 +57,7 @@ public record AttemptChanged(Id<Pipeline> PipelineId, int Run, string Step, int 
 /// <param name="Change">added (a new version), active (switched to / switch done) or draining (a switch to <paramref name="Version"/> started).</param>
 public record VersionChanged(Id<Pipeline> PipelineId, int? Version, string Change);
 
-public record GateChanged(Id<Pipeline> PipelineId, IReadOnlyList<string> BlockedSteps);
+public record BlockedStepsChanged(Id<Pipeline> PipelineId, IReadOnlyList<string> BlockedSteps);
 
 /// <param name="State">reconciling, Success, Error, NeverRun, or removed.</param>
 public record BindingChanged(Id<Pipeline> PipelineId, string State);

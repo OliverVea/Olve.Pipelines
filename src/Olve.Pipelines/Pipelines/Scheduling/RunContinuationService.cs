@@ -26,7 +26,7 @@ public class RunContinuationService(
     RunService runs,
     AttemptService attempts,
     RunPlanCache plans,
-    StepGateService gates,
+    StepBlockService blocks,
     PipelineActivationService activations,
     StageScheduler scheduler,
     RunSchedulingLock schedulingLock)
@@ -41,8 +41,8 @@ public class RunContinuationService(
             return planProblems;
         if (!plan.TryGetStep(stepName, out var stage, out var step))
             return new NotFoundProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
-        if (gates.IsBlocked(run.PipelineId, stepName))
-            return new ConflictProblem("Step '{0}' is blocked by its promotion gate.", stepName);
+        if (blocks.IsBlocked(run.PipelineId, stepName))
+            return new ConflictProblem("Step '{0}' is blocked; unblock it first.", stepName);
 
         var stepAttempts = attempts.ListForStep(run.Id, stepName);
         if (stepAttempts.Any(a => a.Status.IsActive()))

@@ -134,8 +134,8 @@ public sealed class RunGetCommand : ICliCommand
 
           Shows the run's input, pinned version + commit, links (superseded/rerun), whether it can
           still be continued, and the pinned plan's stages (with `when` conditions) listing each
-          step's latest attempt: status, attempt, duration, skip/failure reason, gate (blocked/held).
-          Step statuses without an attempt: held (a blocked gate holds the run here), pending
+          step's latest attempt: status, attempt, duration, skip/failure reason, blocked/held.
+          Step statuses without an attempt: held (the step is blocked and holds the run here), pending
           (not reached yet), not-run (the run finished without it).
         """;
 
@@ -186,7 +186,7 @@ public sealed class RunGetCommand : ICliCommand
     {
         var notes = new List<string>();
         if (s.Blocked)
-            notes.Add("gate blocked");
+            notes.Add("blocked");
         if (s.SucceededAttempt is { } ok && ok != s.LatestAttempt)
             notes.Add($"uses @{ok}");
         if (s.Reason is { Length: > 0 } reason)

@@ -12,7 +12,7 @@ namespace Olve.Pipelines.Pipelines;
 /// <param name="LastRun">The newest run, whatever its status.</param>
 /// <param name="LastSettledRun">The newest Succeeded or Failed run.</param>
 /// <param name="Activation">Active version or the switch in progress (null = no version yet).</param>
-/// <param name="HeldRuns">Running runs held at a promotion gate.</param>
+/// <param name="HeldRuns">Running runs held at a blocked step.</param>
 public record PipelineHealth(
     string Status,
     RunSummary? LastRun,
@@ -28,7 +28,7 @@ public class PipelineHealthService(
     RunService runs,
     RunViewService views,
     PipelineActivationService activations,
-    StepGateService gates)
+    StepBlockService blocks)
 {
     public PipelineHealth Get(Id<Pipeline> pipelineId)
     {
@@ -44,7 +44,7 @@ public class PipelineHealthService(
             running.Count,
             activation,
             activation is PipelineActivation.Draining,
-            gates.ListBlocked(pipelineId).ToArray(),
+            blocks.ListBlocked(pipelineId).ToArray(),
             running.Where(r => r.HeldAt is not null).Select(views.Summarize).ToArray());
     }
 

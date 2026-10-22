@@ -10,7 +10,7 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// Push detection for bound pipelines whose current version declares <c>onPush</c>: a
 /// <see cref="PollScheduler"/> source per such binding (every <see cref="ReconcileOptions.PollInterval"/>),
 /// nudged by the binding's GitHub webhook (<see cref="RequestCheck"/>). Each check runs through
-/// <see cref="IConfigGate"/> (the config commit is applied first), then compares the branch head with
+/// <see cref="IConfigLock"/> (the config commit is applied first), then compares the branch head with
 /// <see cref="PipelineConfigBinding.LastPushSha"/> and fires the push trigger when it advanced. The first
 /// observation only seeds the cursor. Hosted only so shutdown cancels requested checks.
 /// </summary>
@@ -47,7 +47,7 @@ public class PushTriggerService(
     {
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
-        await services.GetRequiredService<IConfigGate>().RunIfConfigCurrentAsync(pipelineId, () => DetectAsync(services, pipelineId, ct), ct, forceConfig);
+        await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId, () => DetectAsync(services, pipelineId, ct), ct, forceConfig);
     }
 
     /// <summary>Starts <see cref="CheckAsync"/> in the background (a webhook delivery must not wait for a build).</summary>

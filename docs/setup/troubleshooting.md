@@ -48,8 +48,8 @@ reconcile; `pl binding status --json` lists them.
 
 ## A run is stuck
 
-- **Held at a gate.** `pl run get` shows `held` on the step. `pl gate list <pipeline>`, then
-  `pl gate unblock <pipeline>/<step>` — see [Promotion Gates](promotion-gate.md).
+- **Held at a blocked step.** `pl run get` shows `held` on the step. `pl step blocked <pipeline>`,
+  then `pl step unblock <pipeline>/<step>` — see [Blocking Steps](blocking-steps.md).
 - **Waiting for another run.** Only one attempt per step name is in progress at a time; a newer
   run's attempt waits for the older one (including a superseded run's deploy finishing).
 - **A step hangs.** A hung step keeps its slot until its `timeoutSeconds` (plus grace) expires,

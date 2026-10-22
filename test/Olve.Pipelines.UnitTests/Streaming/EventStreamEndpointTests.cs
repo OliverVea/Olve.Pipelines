@@ -65,12 +65,12 @@ public class EventStreamEndpointTests
 
         var broadcaster = app.Services.GetRequiredService<ChangeBroadcaster>();
         broadcaster.Publish(ChangeEvent.Pipeline(Id.New<Pipeline>(), "added"));
-        broadcaster.Publish(ChangeEvent.Gate(pipelineId, ["deploy"]));
+        broadcaster.Publish(ChangeEvent.BlockedSteps(pipelineId, ["deploy"]));
 
-        var gate = await ReadEventAsync(reader);
-        await Assert.That(gate).Contains("event: gate");
-        await Assert.That(gate).Contains($$"""data: {"pipelineId":"{{pipelineId.Value.Value}}","blockedSteps":["deploy"]}""");
-        await Assert.That(gate.Any(l => l.StartsWith("id: ") && l.EndsWith("-2"))).IsTrue();
+        var blocked = await ReadEventAsync(reader);
+        await Assert.That(blocked).Contains("event: blocked");
+        await Assert.That(blocked).Contains($$"""data: {"pipelineId":"{{pipelineId.Value.Value}}","blockedSteps":["deploy"]}""");
+        await Assert.That(blocked.Any(l => l.StartsWith("id: ") && l.EndsWith("-2"))).IsTrue();
     }
 
     [Test]

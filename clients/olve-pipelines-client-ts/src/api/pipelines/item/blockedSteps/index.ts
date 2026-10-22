@@ -7,9 +7,9 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/gates
+ * Builds and executes requests for operations under /api/pipelines/{-id}/blocked-steps
  */
-export interface GatesRequestBuilder extends BaseRequestBuilder<GatesRequestBuilder> {
+export interface BlockedStepsRequestBuilder extends BaseRequestBuilder<BlockedStepsRequestBuilder> {
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string[]>}
@@ -29,13 +29,13 @@ export interface GatesRequestBuilder extends BaseRequestBuilder<GatesRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const GatesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/gates";
+export const BlockedStepsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/blocked-steps";
 /**
  * Metadata for all the requests in the request builder.
  */
-export const GatesRequestBuilderRequestsMetadata: RequestsMetadata = {
+export const BlockedStepsRequestBuilderRequestsMetadata: RequestsMetadata = {
     get: {
-        uriTemplate: GatesRequestBuilderUriTemplate,
+        uriTemplate: BlockedStepsRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

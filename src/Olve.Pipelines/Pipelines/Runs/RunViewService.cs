@@ -8,7 +8,7 @@ namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
 /// Read models of the run API (spec §5, §7): run list, run detail with the pinned stage layout, step
-/// history by identity. Stateless queries over runs, attempts, versions, gates and activation. Transient.
+/// history by identity. Stateless queries over runs, attempts, versions, blocked steps and activation. Transient.
 /// </summary>
 public class RunViewService(
     RunService runs,
@@ -16,7 +16,7 @@ public class RunViewService(
     PipelineVersionService versions,
     PipelineActivationService activations,
     RunPlanCache plans,
-    StepGateService gates)
+    StepBlockService blocks)
 {
     public Page<RunSummary> List(Id<Pipeline> pipelineId, ListRunsRequest request)
     {
@@ -65,7 +65,7 @@ public class RunViewService(
     private RunStageView[] BuildStages(Run run, JsonElement input, RunPlan plan, PipelineVersion? version)
     {
         var byStep = attempts.ListByRun(run.Id).GroupBy(a => a.StepName).ToDictionary(g => g.Key, g => g.OrderBy(a => a.Number).ToList());
-        var blocked = gates.ListBlocked(run.PipelineId).ToHashSet(StringComparer.Ordinal);
+        var blocked = blocks.ListBlocked(run.PipelineId).ToHashSet(StringComparer.Ordinal);
         int? heldStage = run.HeldAt is { } held && plan.TryGetStep(held, out var hs, out _) ? hs.Index : null;
 
         return plan.Stages.Select(stage => new RunStageView(

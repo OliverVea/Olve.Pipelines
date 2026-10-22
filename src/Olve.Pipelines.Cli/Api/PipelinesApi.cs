@@ -142,9 +142,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/history{(limit is { } l ? $"?limit={l}" : "")}",
             CliJsonContext.Default.StepHistoryItemArray, ct);
 
-    // Gates
+    // Blocked steps
     public Task<Result<string[]>> ListBlockedSteps(string pipelineId, CancellationToken ct) =>
-        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/gates", CliJsonContext.Default.StringArray, ct);
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/blocked-steps", CliJsonContext.Default.StringArray, ct);
 
     public Task<Result<string[]>> BlockStep(string pipelineId, string step, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/steps/{Enc(step)}/block", body: null,

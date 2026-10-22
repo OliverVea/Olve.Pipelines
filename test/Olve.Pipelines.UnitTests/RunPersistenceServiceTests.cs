@@ -57,7 +57,7 @@ public class RunPersistenceServiceTests
         var domain = new TestRunDomain();
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
-            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.Gates, domain.PendingStarts, domain.EntityVersions, domain.PollTriggers,
+            domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.BlockedSteps, domain.PendingStarts, domain.EntityVersions, domain.PollTriggers,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);
@@ -251,12 +251,12 @@ public class RunPersistenceServiceTests
     }
 
     [Test]
-    public async Task Restart_RestoresGatesAndQueuedRunStart()
+    public async Task Restart_RestoresBlockedStepsAndQueuedRunStart()
     {
         var store = new FakeObjectStore();
         var a = await StartNode(store);
         var pipeline = a.Domain.CreatePipeline();
-        a.Domain.Gates.Set(pipeline.Id, new PipelineStepGates(["deploy-prod"]));
+        a.Domain.BlockedSteps.Set(pipeline.Id, new PipelineBlockedSteps(["deploy-prod"]));
         var queued = new PendingRunStart("""{"sha":"aaa"}""", new RunTrigger(RunTriggerKind.Push, "sha:aaa"), DateTimeOffset.UnixEpoch);
         a.Domain.PendingStarts.Set(pipeline.Id, queued);
         await a.Service.StoppingAsync(CancellationToken.None);
@@ -265,8 +265,8 @@ public class RunPersistenceServiceTests
         var b = CreateNode(store);
         await b.Service.StartingAsync(CancellationToken.None);
 
-        await Assert.That(b.Domain.Gates.TryGet(pipeline.Id, out var gates)).IsTrue();
-        await Assert.That(gates!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
+        await Assert.That(b.Domain.BlockedSteps.TryGet(pipeline.Id, out var blocked)).IsTrue();
+        await Assert.That(blocked!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
         await Assert.That(b.Domain.PendingStarts.TryGet(pipeline.Id, out var pending)).IsTrue();
         await Assert.That(pending).IsEqualTo(queued);
     }
@@ -293,7 +293,7 @@ public class RunPersistenceServiceTests
     }
 
     [Test]
-    public async Task PipelineStateWrittenBeforeGatesExisted_Loads()
+    public async Task PipelineStateWrittenBeforeBlockedStepsExisted_Loads()
     {
         var store = new FakeObjectStore();
         store.Objects[RunPersistenceService.StateKey] = """{"Activations":[],"Sequences":[]}"""u8.ToArray();
@@ -302,8 +302,22 @@ public class RunPersistenceServiceTests
         await node.Service.StartingAsync(CancellationToken.None);
 
         await Assert.That(node.Readiness.IsReady).IsTrue();
-        await Assert.That(node.Domain.Gates.GetAll()).IsEmpty();
+        await Assert.That(node.Domain.BlockedSteps.GetAll()).IsEmpty();
         await Assert.That(node.Domain.PendingStarts.GetAll()).IsEmpty();
+    }
+
+    [Test]
+    public async Task PipelineStateWithBlockedStepsUnderTheirFormerName_Loads()
+    {
+        var store = new FakeObjectStore();
+        var pipelineId = Guid.NewGuid();
+        store.Objects[RunPersistenceService.StateKey] = System.Text.Encoding.UTF8.GetBytes(
+            $$$"""{"Activations":[],"Sequences":[],"Gates":[{"PipelineId":"{{{pipelineId}}}","Gates":{"BlockedSteps":["deploy-prod"]}}]}""");
+        var node = CreateNode(store);
+
+        await node.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(node.Domain.BlockedSteps.GetAll().Single().Value.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
     }
 
     // ---- incremental writes ----

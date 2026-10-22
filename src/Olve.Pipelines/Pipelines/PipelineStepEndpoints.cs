@@ -5,7 +5,7 @@ using Olve.Pipelines.Pipelines.Scheduling;
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Pipeline-scoped step and health endpoints: promotion gates (spec §5.3, keyed on step name and kept
+/// Pipeline-scoped step and health endpoints: blocked steps (keyed on step name and kept
 /// across versions), step history by identity (spec §6.3) and health over runs (spec §7).
 /// </summary>
 public static class PipelineStepEndpoints
@@ -22,20 +22,20 @@ public static class PipelineStepEndpoints
             .WithName("GetPipelineHealth")
             .AllowAnonymous();
 
-        group.MapGet("/gates", Result<string[]> (StepGateService gates, Id<Pipeline> pipelineId)
-                => gates.ListBlocked(pipelineId).ToArray())
+        group.MapGet("/blocked-steps", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId)
+                => blocks.ListBlocked(pipelineId).ToArray())
             .WithApiResultMapping<string[]>()
             .WithName("ListBlockedSteps")
             .AllowAnonymous();
 
         // Blocking holds runs at the step (no attempt is created); unblocking resumes held runs.
-        group.MapPost("/steps/{step}/block", Result<string[]> (StepGateService gates, Id<Pipeline> pipelineId, string step)
-                => ChangeGate(gates, pipelineId, step, block: true))
+        group.MapPost("/steps/{step}/block", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId, string step)
+                => ChangeBlock(blocks, pipelineId, step, block: true))
             .WithApiResultMapping<string[]>()
             .WithName("BlockStep");
 
-        group.MapPost("/steps/{step}/unblock", Result<string[]> (StepGateService gates, Id<Pipeline> pipelineId, string step)
-                => ChangeGate(gates, pipelineId, step, block: false))
+        group.MapPost("/steps/{step}/unblock", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId, string step)
+                => ChangeBlock(blocks, pipelineId, step, block: false))
             .WithApiResultMapping<string[]>()
             .WithName("UnblockStep");
 
@@ -46,14 +46,14 @@ public static class PipelineStepEndpoints
             .AllowAnonymous();
     }
 
-    private static Result<string[]> ChangeGate(StepGateService gates, Id<Pipeline> pipelineId, string step, bool block)
+    private static Result<string[]> ChangeBlock(StepBlockService blocks, Id<Pipeline> pipelineId, string step, bool block)
     {
         if (!ManifestValidator.IsValidStepName(step))
             return ValidationProblem.ForField("step", "'{0}' is not a valid step name.", step);
 
-        var changed = block ? gates.Block(pipelineId, step) : gates.Unblock(pipelineId, step);
+        var changed = block ? blocks.Block(pipelineId, step) : blocks.Unblock(pipelineId, step);
         return changed.TryPickProblems(out var problems)
             ? Result.Failure<string[]>(problems)
-            : gates.ListBlocked(pipelineId).ToArray();
+            : blocks.ListBlocked(pipelineId).ToArray();
     }
 }

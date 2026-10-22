@@ -61,13 +61,13 @@ public static class ServiceConfiguration
         services.AddTransient<RunInputService>();
         services.AddTransient<TriggerMappingService>();
         // One instance serves the scheduler, the reconcile-now endpoint and the webhook (it owns the
-        // per-binding config ETag cache and gates); hosted only so shutdown cancels background reconciles.
+        // per-binding config ETag cache and locks); hosted only so shutdown cancels background reconciles.
         services.AddSingleton<DeployPollService>();
         services.AddHostedService(sp => sp.GetRequiredService<DeployPollService>());
         services.AddSingleton<PollTriggerService>();
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PollTriggerService>());
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<DeployPollService>());
-        services.AddSingleton<IConfigGate>(sp => sp.GetRequiredService<DeployPollService>());
+        services.AddSingleton<IConfigLock>(sp => sp.GetRequiredService<DeployPollService>());
         services.AddSingleton<PushTriggerService>();
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PushTriggerService>());
         services.AddHostedService(sp => sp.GetRequiredService<PushTriggerService>());
@@ -101,13 +101,13 @@ public static class ServiceConfiguration
         services.AddSingleton<IRunOnStartup, RunEventRegistration>();
 
         // v2 scheduler: stage barriers, when/skip propagation, supersede, de-dup, reruns/continue,
-        // promotion gates, draining queue + switch completion. One lock serialises it.
+        // blocked steps, draining queue + switch completion. One lock serialises it.
         services.AddSingleton<RunSchedulingLock>();
         services.AddSingleton<RunPlanCache>();
-        services.AddSingleton<AttachmentStore<Pipeline, PipelineStepGates>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PipelineBlockedSteps>>();
         services.AddSingleton<AttachmentStore<Pipeline, PendingRunStart>>();
         services.AddSingleton<AttachmentStore<Pipeline, PollTriggerStates>>();
-        services.AddTransient<StepGateService>();
+        services.AddTransient<StepBlockService>();
         services.AddTransient<StageScheduler>();
         services.AddTransient<RunStartService>();
         services.AddTransient<SwitchService>();

@@ -3,11 +3,11 @@ using Olve.Pipelines.Pipelines.Runs;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Promotion gates of a pipeline (spec §5.3): the blocked step names. Operational state, not config —
+/// A pipeline's blocked steps (operator holds). Operational state, not config —
 /// keyed on step name (identity), so a braked step stays braked across version switches. Attached to
 /// the pipeline (absence = nothing blocked) and persisted in <c>pipeline-state.json</c>.
 /// </summary>
-public sealed record PipelineStepGates(IReadOnlyList<string> BlockedSteps)
+public sealed record PipelineBlockedSteps(IReadOnlyList<string> BlockedSteps)
 {
     public bool IsBlocked(string stepName) => BlockedSteps.Contains(stepName, StringComparer.Ordinal);
 }

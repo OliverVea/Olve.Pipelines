@@ -25,7 +25,7 @@ public class SchedulerRuntimeTests
         foreach (var v in source.Versions.List()) target.Versions.Set(v);
         foreach (var (id, a) in source.Activations.GetAll()) target.Activations.Set(id, a);
         foreach (var (id, seq) in source.Sequences.GetAll()) target.Sequences.Set(id, seq);
-        foreach (var (id, g) in source.Gates.GetAll()) target.Gates.Set(id, g);
+        foreach (var (id, g) in source.BlockedSteps.GetAll()) target.BlockedSteps.Set(id, g);
         foreach (var (id, p) in source.PendingStarts.GetAll()) target.PendingStarts.Set(id, p);
         foreach (var r in source.Runs.List()) target.Runs.Set(r);
         foreach (var a in source.Attempts.List()) target.Attempts.Set(a);

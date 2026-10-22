@@ -7,10 +7,8 @@
 > (every `ctx` helper and the harness contract) is
 > [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md).
 
-> **This guide describes v2.** v2 is developed on the `v2` branch and runs as separate instances
-> (`https://pipelines-v2-private.ovea.pro`, beta `https://pipelines-v2-beta.ovea.pro`) next to v1
-> until every pipeline has migrated. v1's
-> `config.yaml` format, production/processing steps and ArtifactBundles do not exist in v2.
+> **Instances:** `https://pipelines-v2-private.ovea.pro` (prod) and
+> `https://pipelines-v2-beta.ovea.pro` (beta), over Tailscale.
 
 ## What this service does
 
@@ -60,8 +58,8 @@ continuing, blocking a step, switching versions, setting secret values — go th
    modes, how a commit becomes a version, `switch` and rollback, reading the status.
 5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, supersede, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
-6. **[Promotion Gates](promotion-gate.md)** — hold runs at a step (`pl gate block`) and let them
-   resume.
+6. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
+   the pipeline or its target (`pl step block`), and let them resume.
 7. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
 **Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics to pages.

@@ -20,23 +20,23 @@ public class RunSchedulingHandler(
         switches.TryCompleteDrain(attempt.PipelineId);
     });
 
-    /// <summary>A gate was blocked/unblocked: unblocking resumes runs held at it.</summary>
-    public void HandleGatesChanged(Id<Pipeline> pipelineId) => scheduler.AdvanceRunning(pipelineId);
+    /// <summary>A step was blocked/unblocked: unblocking resumes runs held at it.</summary>
+    public void HandleBlockedStepsChanged(Id<Pipeline> pipelineId) => scheduler.AdvanceRunning(pipelineId);
 }
 
-/// <summary>Scheduler subscriptions (one line each): run creation, attempt completion, gate changes.</summary>
+/// <summary>Scheduler subscriptions (one line each): run creation, attempt completion, blocked-step changes.</summary>
 public class RunSchedulingEventRegistration(
     RunEvents runEvents,
     AttemptEvents attemptEvents,
-    AttachmentStore<Pipeline, PipelineStepGates> gates,
+    AttachmentStore<Pipeline, PipelineBlockedSteps> blocked,
     IServiceProvider sp) : IRunOnStartup
 {
     public Result Run()
     {
         runEvents.OnAdded.Subscribe(e => { if (e.Entity.Status is RunStatus.Running) Handler().HandleRunAdded(e.Id); });
         attemptEvents.OnUpdated.Subscribe(e => { if (e.Before.Status.IsActive() && e.After.Status.IsTerminal()) Handler().HandleAttemptFinished(e.After); });
-        gates.OnSet.Subscribe(id => Handler().HandleGatesChanged(id));
-        gates.OnRemoved.Subscribe(id => Handler().HandleGatesChanged(id));
+        blocked.OnSet.Subscribe(id => Handler().HandleBlockedStepsChanged(id));
+        blocked.OnRemoved.Subscribe(id => Handler().HandleBlockedStepsChanged(id));
 
         return Result.Success();
     }

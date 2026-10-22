@@ -20,7 +20,7 @@ edit `.pipelines/pipeline.ts` (+ `handlers/`) and push to `v2` — there are no 
 **Never have two deployers active.** Exactly one "Olve.Pipelines v2" may run this pipeline, on
 v2 prod. Don't create it on v2 beta. The v1 pipeline "Olve.Pipelines v2" on v1 prod
 (`pipelines-private.ovea.pro`, bound to the `v2` branch, running `.pipelines/config.yaml`) is
-paused by its blocked `deploy-beta` gate. Leave it blocked.
+paused by its blocked `deploy-beta` step. Leave it blocked.
 
 ## Step 0: v2 `pl` and session
 

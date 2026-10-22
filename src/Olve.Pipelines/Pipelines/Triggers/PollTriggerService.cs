@@ -73,12 +73,12 @@ public partial class PollTriggerService(
 
         // Config-before-run: the value is recorded only once the pipeline's config is current, so a change
         // seen while its config commit is unapplied is picked up again by a later poll.
-        if (services.GetService<IConfigGate>() is not { } gate)
+        if (services.GetService<IConfigLock>() is not { } configLock)
         {
             await ObserveAndStartAsync(services, pipeline, poll, value, ct);
             return;
         }
-        if (!await gate.RunIfConfigCurrentAsync(pipeline.Id, () => ObserveAndStartAsync(services, pipeline, poll, value, ct), ct))
+        if (!await configLock.RunIfConfigCurrentAsync(pipeline.Id, () => ObserveAndStartAsync(services, pipeline, poll, value, ct), ct))
             logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') waits: the pipeline's config commit is not applied",
                 poll.Name, pipeline.Name, pipeline.Id);
     }

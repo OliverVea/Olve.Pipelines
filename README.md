@@ -35,7 +35,8 @@ export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
   service `switch`es (drain, then activate) to new versions automatically.
 - **Runs** pin a version; each step execution is an **attempt** (one K8s Job). Newer automatic runs
   supersede older ones; automatic triggers are de-duplicated by mapped input; operators rerun,
-  continue (with changed input) and cancel runs, and block steps (**promotion gates**).
+  continue (with changed input) and cancel runs, and can **block** a step (an operator hold, used
+  sparingly while working on a pipeline).
 - **Harness**: a step's image can be any x86-64 image — an init container drops the compiled binary
   and a bundled glibc loader into it.
 
@@ -62,7 +63,7 @@ end-to-end fixture.
 5. `pl binding reconcile <pipelineId>`, then push. `pl binding status <pipelineId>` shows the result.
 
 **Git-only:** there are no endpoints that change pipeline shape. Operations — trigger, cancel,
-rerun, continue, gates, switch, secret values, binding trigger mode — are API-allowed.
+rerun, continue, blocking steps, switch, secret values, binding trigger mode — are API-allowed.
 
 ## Project structure
 
@@ -80,7 +81,7 @@ src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 │   ├── Manifests/                  manifest parser, validator (reconcile checks), entity versioning, JSON Schema
 │   ├── Retention/                  run/binary/leftover sweeps
 │   ├── Runs/                       Run, Attempt, run/attempt services, run endpoints, views
-│   ├── Scheduling/                 StageScheduler, run start (de-dup, supersede), continue/rerun, cancel, gates, switch
+│   ├── Scheduling/                 StageScheduler, run start (de-dup, supersede), continue/rerun, cancel, blocked steps, switch
 │   ├── Sync/                       bindings, deploy poll, reconcile, binding webhooks, config source
 │   ├── Triggers/                   push / poll / manual triggers, map-trigger, input validation
 │   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints
@@ -117,7 +118,7 @@ needs a bearer token. Errors (any non-2xx but 401/403) are `application/problem+
 | GET | `/api/pipelines/summary` | List-page cards: `{id, name, description, repo, health}` |
 | GET | `/api/pipelines/{id}` | Get a pipeline |
 | DELETE | `/api/pipelines/{id}` | Delete a pipeline (cascades to runs, versions, binding) |
-| GET | `/api/pipelines/{pipelineId}/health` | Run-based health: last run, running/held runs, gates, activation |
+| GET | `/api/pipelines/{pipelineId}/health` | Run-based health: last run, running/held runs, blocked steps, activation |
 
 ### Bindings (GitOps)
 
@@ -162,12 +163,12 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | GET | `/{number}/steps/{step}/logs` | Attempt log (live pod log while running) |
 | GET | `/{number}/steps/{step}/logs/stream` | The attempt's log as SSE (`?attempt=`; default: latest): `log` `{text, reset}` chunks, then `end` `{status}` once terminal |
 
-### Steps and gates
+### Steps and blocking
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/pipelines/{pipelineId}/steps/{step}/history` | A step's attempts across runs, with step-version change markers |
-| GET | `/api/pipelines/{pipelineId}/gates` | Blocked step names |
+| GET | `/api/pipelines/{pipelineId}/blocked-steps` | Blocked step names |
 | POST | `/api/pipelines/{pipelineId}/steps/{step}/block` | Block a step (runs reaching it are held) |
 | POST | `/api/pipelines/{pipelineId}/steps/{step}/unblock` | Unblock (held runs resume) |
 
@@ -199,7 +200,7 @@ Each event is a small "something changed" notice (camelCase JSON); the client re
 | `run` | `{pipelineId, run, status}` | A run is created, changes (status, held, resumed) or is deleted (`status: "Deleted"`) |
 | `attempt` | `{pipelineId, run, step, attempt, status}` | An attempt is created or changes status (`scheduled`, `in-progress`, `succeeded`, …) |
 | `version` | `{pipelineId, version, change}` | `added` (new version), `active` (switched / switch done), `draining` (switch to `version` started) |
-| `gate` | `{pipelineId, blockedSteps}` | A step is blocked or unblocked (the full blocked list) |
+| `blocked` | `{pipelineId, blockedSteps}` | A step is blocked or unblocked (the full blocked list) |
 | `binding` | `{pipelineId, state}` | The binding changes: `reconciling`, then `Success` / `Error`; also `removed` |
 | `pipeline` | `{pipelineId, change}` | `added`, `updated`, `removed` |
 | `hello` | `{lastEventId}` | First event of every connection; carries `retry: 5000` |
@@ -253,7 +254,7 @@ Global flags: `--json`, `--verbose`/`-v`, `--help`/`-h`. `pl help`, `pl <noun> -
 
 ```bash
 # pipelines — <pipeline> is an id or a name (quote names with spaces)
-pl pipeline list [--summaries]                         # health, last run, active version, running/held, closed gates
+pl pipeline list [--summaries]                         # health, last run, active version, running/held, blocked steps
 pl pipeline get <pipeline>
 pl pipeline delete <pipeline>                          # also deletes its binding, runs and secrets
 pl pipeline health <pipeline>
@@ -278,10 +279,10 @@ pl step rerun <pipeline>#<run>/<step> [--continue]
 pl step cancel <pipeline>#<run>/<step>                 # the run ends Cancelled once the stage settles
 pl step history <pipeline>/<step> [--limit <n>]
 
-# promotion gates
-pl gate list <pipeline>
-pl gate block <pipeline>/<step>
-pl gate unblock <pipeline>/<step>
+# blocking steps (an operator hold; use sparingly)
+pl step blocked <pipeline>
+pl step block <pipeline>/<step>
+pl step unblock <pipeline>/<step>
 
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts

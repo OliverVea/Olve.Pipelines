@@ -15,13 +15,13 @@ Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 - Every push to `v2` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
   (`https://pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
   then deploys **v2 prod**. No manual promotion; `deployTo: "beta"` stops after beta.
-- Gates are for special circumstances only (an incident, a change the user wants held). Never leave
+- Blocking a step is for special circumstances only (an incident, work on the pipeline, a change the user wants held). Never leave
   `deploy-prod` blocked as routine.
 - Claude Code's auto-mode classifier may refuse a trigger that deploys prod; then hand the command to
   the user.
 
 (v1 prod/beta are deployed by v1 from `main`'s `.pipelines/config.yaml`; the v1 pipeline bound to
-the `v2` branch is paused by its blocked `deploy-beta` gate and must stay paused, or two deployers
+the `v2` branch is paused by its blocked `deploy-beta` step and must stay paused, or two deployers
 race.)
 
 ## Prerequisites
@@ -40,12 +40,12 @@ race.)
 
 ```bash
 P="Olve.Pipelines v2"
-pl pipeline health "$P"        # last run, running/held runs, blocked gates, active version
-pl gate list "$P"              # normally empty; a listed step holds runs there
+pl pipeline health "$P"        # last run, running/held runs, blocked steps, active version
+pl step blocked "$P"           # normally empty; a listed step holds runs there
 pl run list "$P" --page-size 5
 ```
 
-A blocked gate means someone held the deploy on purpose — ask before `pl gate unblock`.
+A blocked step means someone held the deploy on purpose — ask before `pl step unblock`.
 
 ## 2. Trigger
 

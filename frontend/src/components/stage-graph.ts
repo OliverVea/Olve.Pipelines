@@ -30,7 +30,7 @@ const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stro
 /**
  * Stages left to right (parallel steps stacked, `when` blocks bracketed); top to
  * bottom on narrow screens. Hovering a step outlines what it reads from and what reads it.
- * Events: `step-select` {step}, `step-retry` {step}, `step-cancel` {step}, `gate-toggle` {step, block}.
+ * Events: `step-select` {step}, `step-retry` {step}, `step-cancel` {step}, `block-toggle` {step, block}.
  */
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
@@ -204,7 +204,7 @@ export class StageGraph extends LitElement {
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
-      .gate-note {
+      .block-note {
         margin-top: 0.2rem;
         font-size: 0.72rem;
         color: var(--color-warning);
@@ -294,7 +294,7 @@ export class StageGraph extends LitElement {
   @property({ attribute: false }) declare states: Map<string, StepState> | null;
   @property({ attribute: false }) declare blocked: Set<string> | null;
   @property() declare selected: string;
-  @property({ type: Boolean }) declare gateControls: boolean;
+  @property({ type: Boolean }) declare stepControls: boolean;
   @state() private declare _hover: string | null;
 
   constructor() {
@@ -303,7 +303,7 @@ export class StageGraph extends LitElement {
     this.states = null;
     this.blocked = null;
     this.selected = '';
-    this.gateControls = false;
+    this.stepControls = false;
     this._hover = null;
   }
 
@@ -380,12 +380,12 @@ export class StageGraph extends LitElement {
         ${st?.runNumber ? this._run(st) : nothing}
         ${st?.runNumber && at ? html`<relative-time .value=${at}></relative-time>` : nothing}
         ${duration ? html`<span>${duration}</span>` : nothing}
-        ${this.gateControls ? this._cancel(step.name, st) : nothing}
-        ${this.gateControls ? this._retry(step.name, st) : nothing}
-        ${this.gateControls ? this._lock(step.name, blocked) : nothing}
+        ${this.stepControls ? this._cancel(step.name, st) : nothing}
+        ${this.stepControls ? this._retry(step.name, st) : nothing}
+        ${this.stepControls ? this._lock(step.name, blocked) : nothing}
       </div>
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
-      ${blocked ? html`<div class="gate-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
+      ${blocked ? html`<div class="block-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
     </div>`;
   }
 
@@ -441,7 +441,7 @@ export class StageGraph extends LitElement {
       aria-label=${blocked ? `Unblock ${step}` : `Block ${step}`}
       @click=${(e: Event) => {
         e.stopPropagation();
-        this.dispatchEvent(new CustomEvent('gate-toggle', { detail: { step, block: !blocked } }));
+        this.dispatchEvent(new CustomEvent('block-toggle', { detail: { step, block: !blocked } }));
       }}
     >
       ${LOCK}

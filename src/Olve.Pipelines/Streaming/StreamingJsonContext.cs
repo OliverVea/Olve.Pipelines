@@ -7,7 +7,7 @@ namespace Olve.Pipelines.Streaming;
 [JsonSerializable(typeof(RunChanged))]
 [JsonSerializable(typeof(AttemptChanged))]
 [JsonSerializable(typeof(VersionChanged))]
-[JsonSerializable(typeof(GateChanged))]
+[JsonSerializable(typeof(BlockedStepsChanged))]
 [JsonSerializable(typeof(BindingChanged))]
 [JsonSerializable(typeof(PipelineChanged))]
 [JsonSerializable(typeof(LogChunk))]

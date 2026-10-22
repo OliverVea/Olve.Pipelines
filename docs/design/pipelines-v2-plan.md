@@ -470,7 +470,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - **Push as a trigger source** (phase 3b): the binding keeps only config sync (`DeployPollService`).
   `PushTriggerService` is a poll source per bound pipeline whose version declares `onPush`, nudged by the
   binding's GitHub hook (one hook per repo feeds config and push); each check applies the config
-  through `IConfigGate`, then compares the head with `LastPushSha` (first observation seeds). "Reconcile
+  through `IConfigLock`, then compares the head with `LastPushSha` (first observation seeds). "Reconcile
   now" is config only. Repo, branch and credentials stay binding data, so `onPush` takes no source
   config of its own.
 - **Next**: phase 4 a Triggers page in the UI.
@@ -478,7 +478,21 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   links to the deployed site. Likely an SDK step field or an output convention (a URL the step
   declares or returns), shown on the step card and step page.
 
+### Blocking, not gates (2026-10-22)
+
+The operator hold on a step was called a "promotion gate" (`pl gate`, `/gates`, event `gate`).
+Renamed to **blocking** (`pl step block|unblock|blocked`, `GET …/blocked-steps`, event `blocked`,
+`StepBlockService`, `PipelineBlockedSteps`; `pipeline-state.json` writes `BlockedSteps` and still
+reads the former `Gates`). Blocking is for working on a pipeline or its target and for incidents, used
+sparingly, not an approval mechanism. **Gate** is reserved for gating inside a pipeline: a step or
+stage that decides whether a run goes on. The per-binding config-before-run lock is `IConfigLock`.
+
 ### v2.2 — candidates
+
+- **Gating steps**: library steps that decide whether a run goes on, beyond the stage barrier on a
+  test step: manual approval (the run waits for an approve/reject in the UI or `pl`, with who and
+  when recorded), visual regression (baseline diff, approve to accept), external checks. Replaces
+  "keep `deploy-prod` blocked" as the way to approve a prod deploy.
 
 - **Manifest preview** (frontend): a `/preview` route that takes a manifest JSON (paste, file drop or
   `?manifest=<url>`, e.g. from `pl dev describe --json`) and renders the pipeline overview from it
@@ -549,7 +563,14 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
    `publish-cli`. The v2 beta copy (`f26d19cf…`) is paused (both deploy gates blocked) until the user deletes it;
    v2 beta keeps the fixture. Open: the first retention dry-run sweep logs on prod (above).
 3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
-   pipeline's gate before binding v2. Recipe: getting-started "Moving a repo from v1".
+   pipeline's deploy steps before binding v2. Recipe: getting-started "Starting from the reference
+   pipeline", plus, before binding: pause v1 by blocking its deploying processing steps with v1's `pl`
+   (`pl processing list <v1 pipeline>`, `pl processing block <step id>`; `config.yaml` and the v1
+   pipeline stay as the rollback path, unblocking is the rollback), and copy secret values from v1's
+   Secret by piping bytes: `kubectl -n olve-runners get secret olve-pipeline-<v1 id without dashes>
+   -o jsonpath='{.data.KEY}' | base64 -d | pl secret set <pipeline> KEY`. Check the copy by comparing the sha256 of both Secrets' decoded values. v1 keeps running its
+   production steps on every push until its pipeline is deleted; with its deploys blocked they deploy
+   nothing.
    - **Migrated: Olve.Template.Api** (2026-10-22), the reference app pipeline other repos copy.
      Pipeline `cc720357-1994-45f5-95a1-52e482009e17` on v2 prod (`main`, `.pipelines`, SDK
      `2.0.0-beta.1` from npm, `GITHUB_TOKEN` as credentials key); run #1 (push) went

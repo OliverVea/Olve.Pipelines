@@ -2982,7 +2982,7 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/gates": {
+    "/api/pipelines/{pipelineId}/blocked-steps": {
       "get": {
         "tags": [
           "Olve.Pipelines"

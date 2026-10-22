@@ -139,7 +139,7 @@ public sealed class PipelineHealthCommand : ICliCommand
     public string Noun => "pipeline";
     public string Verb => "health";
     public int RequiredOperands => 1;
-    public string HelpLine => "Run-based health: last run, running/held runs, gates, activation";
+    public string HelpLine => "Run-based health: last run, running/held runs, blocked steps, activation";
     public string? HelpDetail =>
         """
         pl pipeline health <pipeline>

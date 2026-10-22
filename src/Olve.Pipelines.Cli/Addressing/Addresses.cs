@@ -87,7 +87,7 @@ public sealed partial record RunAddress(string Pipeline, int Run, string? Step =
     }
 }
 
-/// <summary>A pipeline-scoped step reference <c>&lt;pipeline&gt;/&lt;step&gt;</c> (gates and history — keyed on step name, not a run).</summary>
+/// <summary>A pipeline-scoped step reference <c>&lt;pipeline&gt;/&lt;step&gt;</c> (blocking and history — keyed on step name, not a run).</summary>
 public sealed record StepRef(string Pipeline, string Step)
 {
     /// <summary>Splits on the last '/' (step names never contain one; pipeline names might).</summary>

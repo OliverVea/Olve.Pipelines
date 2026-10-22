@@ -14,7 +14,7 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// <param name="VersionStamp">Derived from the run: <c>yyyy.MM.dd.&lt;number&gt;</c> (UTC creation date), see <see cref="RunVersionStamp"/>.</param>
 /// <param name="SupersededBy">The newer automatic run that superseded this one (status <see cref="RunStatus.Superseded"/>).</param>
 /// <param name="RerunOf">The run this one re-runs as a whole (same input, new run).</param>
-/// <param name="HeldAt">While Running: the step a promotion gate holds the run at (no attempt created yet).</param>
+/// <param name="HeldAt">While Running: the blocked step the run is held at (no attempt created yet).</param>
 /// <param name="ResumedAt">When the run was last continued (rerun-and-continue / continue). Failed, cancelled
 /// and obsolete attempts created before this are stale and get retried by the scheduler.</param>
 public record Run(

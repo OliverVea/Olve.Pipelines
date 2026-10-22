@@ -9,7 +9,7 @@ public sealed class WatchCommand : ICliCommand
 {
     public string Noun => "watch";
     public string Verb => "";
-    public string HelpLine => "Print live change events (runs, attempts, versions, gates, bindings) until Ctrl+C";
+    public string HelpLine => "Print live change events (runs, attempts, versions, blocked steps, bindings) until Ctrl+C";
     public string? HelpDetail =>
         """
         pl watch [<pipeline>] [--json]

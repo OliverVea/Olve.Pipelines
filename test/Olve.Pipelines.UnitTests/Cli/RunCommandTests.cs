@@ -4,10 +4,9 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Dev;
-using Olve.Pipelines.Cli.Commands.Gates;
+using Olve.Pipelines.Cli.Commands.Steps;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Runs;
-using Olve.Pipelines.Cli.Commands.Steps;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 using Olve.Pipelines.UnitTests.Cli.Dev;
@@ -15,7 +14,7 @@ using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
-/// <summary>Plumbing of the v2 run/step/gate/version commands over <see cref="FakePipelinesApi"/>.</summary>
+/// <summary>Plumbing of the v2 run/step/version commands over <see cref="FakePipelinesApi"/>.</summary>
 public class RunCommandTests
 {
     private const string Id = "11111111-1111-1111-1111-111111111111";
@@ -143,7 +142,7 @@ public class RunCommandTests
         await Assert.That(output).Contains("v2 test fixture#15  Running");
         await Assert.That(output).Contains("held at last");
         await Assert.That(output).Contains("stage 2  when mode in [\"normal\"]");
-        await Assert.That(output).Contains("gate blocked");
+        await Assert.That(output).Contains("blocked");
         await Assert.That(output).Contains("uses @1");
         await Assert.That(output).Contains("commit dbdb4b0");
     }
@@ -327,13 +326,13 @@ public class RunCommandTests
         api.BlockStepResult = Result.Success<string[]>(["last"]);
         api.UnblockStepResult = Result.Success<string[]>([]);
 
-        var (blocked, blockedOut) = await Run(new GateBlockCommand(), api, "gate", "block", $"{Name}/last");
+        var (blocked, blockedOut) = await Run(new StepBlockCommand(), api, "step", "block", $"{Name}/last");
         await Assert.That(blocked.Succeeded).IsTrue();
         await Assert.That(api.LastPipelineId).IsEqualTo(Id);
         await Assert.That(api.LastStep).IsEqualTo("last");
         await Assert.That(blockedOut).Contains("blocked: last");
 
-        var (unblocked, unblockedOut) = await Run(new GateUnblockCommand(), api, "gate", "unblock", $"{Name}/last");
+        var (unblocked, unblockedOut) = await Run(new StepUnblockCommand(), api, "step", "unblock", $"{Name}/last");
         await Assert.That(unblocked.Succeeded).IsTrue();
         await Assert.That(unblockedOut).Contains("no blocked steps");
     }
@@ -426,7 +425,7 @@ public class RunCommandTests
     {
         // Unknown verbs on the new nouns are usage errors, and help for each noun lists its commands.
         var dispatcher = new CliDispatcher(new FakeHarness("{}"));
-        foreach (var noun in new[] { "run", "step", "gate" })
+        foreach (var noun in new[] { "run", "step" })
             await Assert.That(await dispatcher.RunAsync([noun, "--help"])).IsEqualTo(0);
         await Assert.That(await dispatcher.RunAsync(["trigger", "--help"])).IsEqualTo(0);
         await Assert.That(await dispatcher.RunAsync(["run", "get"])).IsEqualTo(1); // missing address

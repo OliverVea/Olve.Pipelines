@@ -149,7 +149,7 @@ public class DeployPollServiceTests
 
     /// <summary>
     /// #39 and v2 ordering: the webhook, the background loop and reconcile-now can poll one binding at
-    /// once. The per-binding gate serialises them: one reconcile, one push trigger.
+    /// once. The per-binding lock serialises them: one reconcile, one push trigger.
     /// </summary>
     [Test]
     public async Task ConcurrentPolls_ReconcileAndFireOnce()

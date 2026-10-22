@@ -2,20 +2,20 @@ using Olve.Pipelines.Cli.Addressing;
 using Olve.Pipelines.Cli.Api;
 using static Olve.Pipelines.Cli.Commands.Runs.RunCommandSupport;
 
-namespace Olve.Pipelines.Cli.Commands.Gates;
+namespace Olve.Pipelines.Cli.Commands.Steps;
 
-/// <summary><c>pl gate list &lt;pipeline&gt;</c> — the blocked steps.</summary>
-public sealed class GateListCommand : ICliCommand
+/// <summary><c>pl step blocked &lt;pipeline&gt;</c> — the blocked steps.</summary>
+public sealed class StepBlockedCommand : ICliCommand
 {
-    public string Noun => "gate";
-    public string Verb => "list";
+    public string Noun => "step";
+    public string Verb => "blocked";
     public int RequiredOperands => 1;
-    public string HelpLine => "List a pipeline's blocked steps (promotion gates)";
+    public string HelpLine => "List a pipeline's blocked steps";
     public string? HelpDetail =>
         """
-        pl gate list <pipeline>
+        pl step blocked <pipeline>
 
-          Gates are keyed on step name and survive version switches. A blocked step gets no
+          Blocks are keyed on step name and survive version switches. A blocked step gets no
           attempt: a run reaching it is held there until the step is unblocked.
         """;
 
@@ -26,38 +26,45 @@ public sealed class GateListCommand : ICliCommand
         if ((await ctx.Api.ListBlockedSteps(pipeline.Id.ToString(), ct)).TryPickProblems(out var listProblems, out var blocked))
             return listProblems;
 
-        ctx.Output.Emit(blocked, CliJsonContext.Default.StringArray, () => GateOutput.PrintBlocked(ctx, blocked));
+        ctx.Output.Emit(blocked, CliJsonContext.Default.StringArray, () => StepBlockOutput.PrintBlocked(ctx, blocked));
         return Result.Success();
     }
 }
 
-/// <summary><c>pl gate block &lt;pipeline&gt;/&lt;step&gt;</c>.</summary>
-public sealed class GateBlockCommand : ICliCommand
+/// <summary><c>pl step block &lt;pipeline&gt;/&lt;step&gt;</c>.</summary>
+public sealed class StepBlockCommand : ICliCommand
 {
-    public string Noun => "gate";
+    public string Noun => "step";
     public string Verb => "block";
     public int RequiredOperands => 1;
-    public string HelpLine => "Block a step: runs reaching it are held there";
-    public string? HelpDetail => "pl gate block <pipeline>/<step>   Prints the pipeline's blocked steps afterwards.";
+    public string HelpLine => "Block a step: runs reaching it are held there (while working on the pipeline)";
+    public string? HelpDetail =>
+        """
+        pl step block <pipeline>/<step>
+
+          Holds every run that reaches the step, however it started, until unblocked. Use it
+          sparingly (while working on the pipeline or its target), not as an approval step.
+          Prints the pipeline's blocked steps afterwards.
+        """;
 
     public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct) =>
-        GateOutput.ToggleAsync(cli, ctx, block: true, ct);
+        StepBlockOutput.ToggleAsync(cli, ctx, block: true, ct);
 }
 
-/// <summary><c>pl gate unblock &lt;pipeline&gt;/&lt;step&gt;</c>.</summary>
-public sealed class GateUnblockCommand : ICliCommand
+/// <summary><c>pl step unblock &lt;pipeline&gt;/&lt;step&gt;</c>.</summary>
+public sealed class StepUnblockCommand : ICliCommand
 {
-    public string Noun => "gate";
+    public string Noun => "step";
     public string Verb => "unblock";
     public int RequiredOperands => 1;
-    public string HelpLine => "Unblock a step: held runs resume (the due promotion starts)";
-    public string? HelpDetail => "pl gate unblock <pipeline>/<step>   Prints the pipeline's blocked steps afterwards.";
+    public string HelpLine => "Unblock a step: held runs resume";
+    public string? HelpDetail => "pl step unblock <pipeline>/<step>   Prints the pipeline's blocked steps afterwards.";
 
     public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct) =>
-        GateOutput.ToggleAsync(cli, ctx, block: false, ct);
+        StepBlockOutput.ToggleAsync(cli, ctx, block: false, ct);
 }
 
-internal static class GateOutput
+internal static class StepBlockOutput
 {
     public static async Task<Result> ToggleAsync(CliArgs cli, CommandContext ctx, bool block, CancellationToken ct)
     {

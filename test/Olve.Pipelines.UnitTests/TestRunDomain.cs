@@ -31,7 +31,7 @@ internal sealed class TestRunDomain
         Attempts = new EntityStore<Attempt>([]);
         Activations = new AttachmentStore<Pipeline, PipelineActivation>(Pipelines);
         Sequences = new AttachmentStore<Pipeline, PipelineSequences>(Pipelines);
-        Gates = new AttachmentStore<Pipeline, PipelineStepGates>(Pipelines);
+        BlockedSteps = new AttachmentStore<Pipeline, PipelineBlockedSteps>(Pipelines);
         PendingStarts = new AttachmentStore<Pipeline, PendingRunStart>(Pipelines);
         EntityVersions = new AttachmentStore<Pipeline, EntityVersionMap>(Pipelines);
         PollTriggers = new AttachmentStore<Pipeline, PollTriggerStates>(Pipelines);
@@ -47,7 +47,7 @@ internal sealed class TestRunDomain
         Plans = new RunPlanCache(VersionService);
     }
 
-    public AttachmentStore<Pipeline, PipelineStepGates> Gates { get; }
+    public AttachmentStore<Pipeline, PipelineBlockedSteps> BlockedSteps { get; }
     public AttachmentStore<Pipeline, PendingRunStart> PendingStarts { get; }
     public AttachmentStore<Pipeline, EntityVersionMap> EntityVersions { get; }
     public AttachmentStore<Pipeline, PollTriggerStates> PollTriggers { get; }
@@ -62,7 +62,7 @@ internal sealed class TestRunDomain
     public RunStartService Starts => Services.GetRequiredService<RunStartService>();
     public SwitchService Switches => Services.GetRequiredService<SwitchService>();
     public RunContinuationService Continuations => Services.GetRequiredService<RunContinuationService>();
-    public StepGateService GateService => Services.GetRequiredService<StepGateService>();
+    public StepBlockService GateService => Services.GetRequiredService<StepBlockService>();
     public AttemptLaunchService Launches => Services.GetRequiredService<AttemptLaunchService>();
 
     public TimeProvider Time { get; }
@@ -89,7 +89,7 @@ internal sealed class TestRunDomain
     /// <summary>
     /// Wires store → hub forwarding, cascade cleanup and obsoletion exactly as in production; with
     /// <paramref name="scheduler"/>, also the stage scheduler's subscriptions (run creation, attempt
-    /// completion, gate changes).
+    /// completion, blocked-step changes).
     /// </summary>
     public TestRunDomain WireEvents(bool scheduler = false)
     {
@@ -106,12 +106,12 @@ internal sealed class TestRunDomain
         services.AddSingleton(Pipelines);
         services.AddSingleton(Runs);
         services.AddSingleton(Attempts);
-        services.AddSingleton(Gates);
+        services.AddSingleton(BlockedSteps);
         services.AddSingleton(PendingStarts);
         services.AddSingleton(ActivationService);
         services.AddSingleton(SchedulingLock);
         services.AddSingleton(Plans);
-        services.AddTransient<StepGateService>();
+        services.AddTransient<StepBlockService>();
         services.AddTransient<StageScheduler>();
         services.AddTransient<RunStartService>();
         services.AddTransient<SwitchService>();
@@ -129,7 +129,7 @@ internal sealed class TestRunDomain
             new JobEventRegistration(AttemptEvents, sp),
         };
         if (scheduler)
-            registrations = [.. registrations, new RunSchedulingEventRegistration(RunEvents, AttemptEvents, Gates, sp)];
+            registrations = [.. registrations, new RunSchedulingEventRegistration(RunEvents, AttemptEvents, BlockedSteps, sp)];
         foreach (var registration in registrations)
         {
             if (registration.Run().TryPickProblems(out var problems))
@@ -141,9 +141,9 @@ internal sealed class TestRunDomain
 
     /// <summary>Read models over this domain (no event wiring needed).</summary>
     public RunViewService Views => new(RunService, AttemptService, VersionService, ActivationService, Plans,
-        new StepGateService(Gates, Pipelines, SchedulingLock));
+        new StepBlockService(BlockedSteps, Pipelines, SchedulingLock));
 
-    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepGateService(Gates, Pipelines, SchedulingLock));
+    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepBlockService(BlockedSteps, Pipelines, SchedulingLock));
 
     public Pipeline CreatePipeline(string name = "p") => Pick(PipelineService.Create(name));
 

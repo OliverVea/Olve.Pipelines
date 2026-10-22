@@ -15,7 +15,7 @@ public class ChangeEventRegistration(
     PipelineVersionEvents versionEvents,
     PipelineConfigBindingEvents bindingEvents,
     AttachmentStore<Pipeline, PipelineActivation> activations,
-    AttachmentStore<Pipeline, PipelineStepGates> gates,
+    AttachmentStore<Pipeline, PipelineBlockedSteps> blocked,
     ChangeBroadcaster broadcaster) : IRunOnStartup
 {
     public Result Run()
@@ -34,8 +34,8 @@ public class ChangeEventRegistration(
         versionEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.VersionAdded(e.Entity)));
         activations.OnSet.Subscribe(id => broadcaster.Publish(ChangeEvent.Activation(id, activations.TryGet(id, out var a) ? a : null)));
 
-        gates.OnSet.Subscribe(id => broadcaster.Publish(ChangeEvent.Gate(id, gates.TryGet(id, out var g) ? g.BlockedSteps : [])));
-        gates.OnRemoved.Subscribe(id => broadcaster.Publish(ChangeEvent.Gate(id, [])));
+        blocked.OnSet.Subscribe(id => broadcaster.Publish(ChangeEvent.BlockedSteps(id, blocked.TryGet(id, out var b) ? b.BlockedSteps : [])));
+        blocked.OnRemoved.Subscribe(id => broadcaster.Publish(ChangeEvent.BlockedSteps(id, [])));
 
         bindingEvents.OnAdded.Subscribe(e => broadcaster.Publish(ChangeEvent.Binding(e.Entity)));
         bindingEvents.OnUpdated.Subscribe(e => broadcaster.Publish(ChangeEvent.Binding(e.After)));

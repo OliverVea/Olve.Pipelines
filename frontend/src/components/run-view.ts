@@ -379,7 +379,7 @@ export class RunView extends LitElement {
           : nothing}
         ${r.heldAt && running
           ? html`<p class="note">
-              Held before <b>${r.heldAt}</b>: its gate is closed. Open the gate on the
+              Held before <b>${r.heldAt}</b>: the step is blocked. Unblock it on the
               <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>pipeline page</a> to let the run continue.
             </p>`
           : nothing}
@@ -423,7 +423,7 @@ export class RunView extends LitElement {
       <div class="step-head">
         <h3>${this._step}</h3>
         ${st ? html`<span class="st t-${toneOf(st.status)}"><span class="dot"></span>${statusLabel(st.status)}</span>` : nothing}
-        ${st?.blocked ? html`<span class="pill t-wait">gate closed</span>` : nothing}
+        ${st?.blocked ? html`<span class="pill t-wait">blocked</span>` : nothing}
         <a href=${stepPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step</a>
         <div class="actions">
           ${active

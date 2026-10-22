@@ -16,7 +16,7 @@ public sealed record ResolvedAddress(Guid PipelineId, string Label, RunAddress A
     public int? Attempt => Address.Attempt;
 }
 
-/// <summary>Shared plumbing for the run/step/gate/version commands: address resolution, input assembly, formatting.</summary>
+/// <summary>Shared plumbing for the run/step/version commands: address resolution, input assembly, formatting.</summary>
 public static class RunCommandSupport
 {
     public static async Task<Result<ResolvedAddress>> ResolveRunAsync(CommandContext ctx, string text, CancellationToken ct)

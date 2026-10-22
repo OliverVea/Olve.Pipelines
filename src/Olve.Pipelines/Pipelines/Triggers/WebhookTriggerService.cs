@@ -75,9 +75,9 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
                         triggerName, pipelineId);
             }
 
-            if (scope.ServiceProvider.GetService<IConfigGate>() is not { } gate)
+            if (scope.ServiceProvider.GetService<IConfigLock>() is not { } configLock)
                 await StartAsync();
-            else if (!await gate.RunIfConfigCurrentAsync(pipelineId, StartAsync, _lifetime.Token))
+            else if (!await configLock.RunIfConfigCurrentAsync(pipelineId, StartAsync, _lifetime.Token))
                 logger.LogWarning("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' dropped a delivery: the pipeline's config commit is not applied",
                     triggerName, pipelineId);
         }

@@ -15,7 +15,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [local-development.md](local-development.md) | `pl dev describe \| validate \| run \| pipeline`, `--docker`, the local pool, `testHandler` |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, supersede, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
-| [promotion-gate.md](promotion-gate.md) | Blocking a step, held runs, promoting by continuing a run |
+| [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
 
 ## Subjects A–Z
@@ -40,7 +40,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Failure handlers (`onFailure`, `FailureContext`) | [pipeline-reference.md#failure-handlers](pipeline-reference.md#failure-handlers) |
 | File references (`fileRef`) | [pipeline-reference.md#models](pipeline-reference.md#models) |
 | Files, outputs, logs of a step | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
-| Gates (block / unblock, held runs) | [promotion-gate.md](promotion-gate.md) |
+| Blocking a step (block / unblock, held runs) | [blocking-steps.md](blocking-steps.md) |
 | Git-only (no shape-mutation API) | [binding-and-reconcile.md#git-only](binding-and-reconcile.md#git-only) |
 | Handlers | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
 | Harness (how a step runs in any image) | [runs-and-operations.md#how-a-step-runs](runs-and-operations.md#how-a-step-runs) |

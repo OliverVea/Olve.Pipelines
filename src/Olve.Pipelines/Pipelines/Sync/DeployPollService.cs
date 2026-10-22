@@ -12,10 +12,10 @@ public interface IConfigReconciler
 }
 
 /// <summary>Holds automatic run starts on a bound pipeline to config-before-run.</summary>
-public interface IConfigGate
+public interface IConfigLock
 {
     /// <summary>
-    /// Runs <paramref name="action"/> under the binding's gate once its current config commit is applied
+    /// Runs <paramref name="action"/> under the binding's lock once its current config commit is applied
     /// (reconciling it first if needed; <paramref name="force"/> also retries a commit whose reconcile
     /// failed). Returns false without running it when that fails. Unbound pipelines run it at once.
     /// </summary>
@@ -35,8 +35,8 @@ public interface IPushTriggerHandler
 /// validate → version → switch). A commit whose reconcile failed is not retried by the poll (only by a
 /// forced reconcile or a restart). One <see cref="PollScheduler"/> source per binding, every
 /// <see cref="ReconcileOptions.PollInterval"/>.
-/// <para><b>Config-before-run.</b> Everything runs under a per-binding gate, and every automatic run start
-/// of a bound pipeline (push, poll and webhook triggers) goes through <see cref="IConfigGate"/>: it starts
+/// <para><b>Config-before-run.</b> Everything runs under a per-binding lock, and every automatic run start
+/// of a bound pipeline (push, poll and webhook triggers) goes through <see cref="IConfigLock"/>: it starts
 /// only once the current config commit is applied, so a run for a commit always follows that commit's
 /// reconcile + switch, and no commit is built twice.</para>
 /// </summary>
@@ -44,7 +44,7 @@ public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
     IServiceProvider sp,
-    ILogger<DeployPollService> logger) : IPollSourceProvider, IConfigGate, IHostedService, IDisposable
+    ILogger<DeployPollService> logger) : IPollSourceProvider, IConfigLock, IHostedService, IDisposable
 {
     // Per-binding config cursor cache (in-memory). The ETag is a rate-limit optimization; the sha is
     // the cursor it stands for (a 304 means "still this sha"). Losing it on restart costs one fetch.
@@ -53,7 +53,7 @@ public class DeployPollService(
     // The config commit whose reconcile last failed, per binding: not retried until forced.
     private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, string> _failed = new();
 
-    private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, SemaphoreSlim> _gates = new();
+    private readonly ConcurrentDictionary<Id<PipelineConfigBinding>, SemaphoreSlim> _locks = new();
 
     private readonly CancellationTokenSource _lifetime = new();
 
@@ -115,8 +115,8 @@ public class DeployPollService(
 
     private async Task SyncConfigAsync(Id<PipelineConfigBinding> bindingId, bool force, CancellationToken ct)
     {
-        var gate = _gates.GetOrAdd(bindingId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(ct);
+        var bindingLock = _locks.GetOrAdd(bindingId, _ => new SemaphoreSlim(1, 1));
+        await bindingLock.WaitAsync(ct);
         try
         {
             using var scope = sp.CreateScope();
@@ -128,7 +128,7 @@ public class DeployPollService(
         }
         finally
         {
-            gate.Release();
+            bindingLock.Release();
         }
     }
 
@@ -141,8 +141,8 @@ public class DeployPollService(
             return true;
         }
 
-        var gate = _gates.GetOrAdd(bindingId.Value, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync(ct);
+        var bindingLock = _locks.GetOrAdd(bindingId.Value, _ => new SemaphoreSlim(1, 1));
+        await bindingLock.WaitAsync(ct);
         try
         {
             using var scope = sp.CreateScope();
@@ -157,7 +157,7 @@ public class DeployPollService(
         }
         finally
         {
-            gate.Release();
+            bindingLock.Release();
         }
     }
 

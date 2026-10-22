@@ -28,26 +28,23 @@ first.
 
 - A GitHub repository the server can read: public, or private with a token.
 - [Bun](https://bun.sh) on your machine, for `pl dev` and to create `bun.lock`.
-- The v2 **`pl` CLI**. The v2 instance serves the `pl` its own self-deploy built (Windows:
-  `irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex`):
+- The **`pl` CLI**. Each instance serves the `pl` it was deployed with, set up to talk to that
+  instance (installs to `~/.local/bin`; `PL_INSTALL_DIR` overrides):
   ```sh
-  curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
-  export PATH=~/.local/opt/pl-v2:$PATH                   # this shell: the v2 pl before a v1 pl on PATH
+  curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | sh        # Linux
+  irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex             # Windows
   pl --version
   ```
-  The `install.sh` in the repo (and on v1 prod) installs v1's `pl` instead. From source:
-  `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
-- A session against the v2 instance. `pl`'s built-in default URL is v1 prod, so name the instance
-  once; `pl login` stores it with the token in a **profile** of `~/.pl` (`default` unless you pass
-  `--profile`):
+  From source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin`.
+- A session. `pl login` stores the instance URL with the token in a **profile** of `~/.pl`
+  (`default` unless you pass `--profile`), so name the instance once:
   ```sh
   pl login --api-url https://pipelines-v2-private.ovea.pro                  # profile 'default'; add --device over SSH
   pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro      # a second instance beside it
   pl pipeline list --profile beta                                          # or PIPELINES_PROFILE=beta
   pl profile list
   ```
-  `PIPELINES_API_URL` and `--api-url` still override the URL per command. v1's `pl` doesn't read
-  profiles: give it its own file (`PIPELINES_CONFIG=~/.pl-v1`).
+  `PIPELINES_API_URL` and `--api-url` override the URL per command.
 
 ## Step 1 — Add `.pipelines/` to your repo
 
@@ -118,7 +115,7 @@ Add `.pipelines/.olve/` and `.pipelines/node_modules/` to `.gitignore`.
 For a real build-and-deploy pipeline (kaniko image build, unit tests in parallel, Helm deploy over
 SSH, the API test suite against beta, a read-only smoke test of prod), copy from
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines),
-the reference app pipeline (see [Moving a repo from v1](#moving-a-repo-from-v1)).
+the reference app pipeline (see [Starting from the reference pipeline](#starting-from-the-reference-pipeline)).
 Every option is in the [Pipeline Reference](pipeline-reference.md).
 
 ## Step 2 — Check it locally
@@ -245,43 +242,49 @@ pl step logs my-app#1/test --follow
 Only commits that touch the binding path (or a local `file:` dependency of its `package.json`)
 create versions. A pipeline without `onPush` ignores pushes.
 
-## Moving a repo from v1
+## Starting from the reference pipeline
 
 Copy the reference app pipeline,
 [Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
-source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test,
+source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
 dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
 (`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
-values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks. A repo v1 deployed straight to prod gets a beta all the
-same (homelab-dashboard: the release in `apps-beta` with its ingress turned off by `set`), and a repo
-without a test suite gets checks that prove the deployment serves this commit (homelab-dashboard
-compares the served files with the source tree). Then, so only one instance
-deploys the repo at any time:
+## Starting from the reference pipeline
 
-1. Check the new pipeline locally (`pl dev describe`, `pl dev validate`).
-2. Pause v1: block the gate of its deploying processing steps with v1's `pl`
-   (`pl processing list <v1 pipeline>`, `pl processing block <step id>`). Keep `config.yaml` and the
-   v1 pipeline as the rollback path; unblocking them is the rollback.
-3. Push `.pipelines/`, then `pl binding create <owner/repo> --branch <deploy branch>` on v2. The
-   first reconcile builds it and only records the branch head.
-4. Copy the secret values from v1's Secret (`olve-pipeline-<v1 id without dashes>` in the runner
-   namespace) by piping bytes, never through `$(…)`:
-   `kubectl -n olve-runners get secret <v1 secret> -o jsonpath='{.data.SSH_PRIVATE_KEY}' | base64 -d | pl secret set <pipeline> SSH_PRIVATE_KEY`.
-   Name the token key with `pl binding set-credentials <pipeline> GITHUB_TOKEN`, or pass
-   `--credentials-secret GITHUB_TOKEN` to `binding create` (also for public repos: the anonymous
-   GitHub rate limit is shared by every binding). Check the copy by comparing the sha256 of both
-   Secrets' decoded values.
-5. Push the next commit (the README's deployment section, say). That push starts the first run;
-   `pl binding reconcile` picks it up without waiting for the poll.
+Copy the reference app pipeline,
+[Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
+source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test.
+`beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
+dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
+(`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
+values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks.
+A repo without a beta environment gets one all the same (homelab-dashboard: the release in
+`apps-beta` with its ingress turned off by `set`), and a repo without a test suite gets checks that
+prove the deployment serves this commit (homelab-dashboard compares the served files with the
+source tree). Then:
 
-v1 keeps running its production steps on every push until its pipeline is deleted; with the
-deploy gates blocked they deploy nothing.
+1. Check the pipeline locally (`pl dev describe`, `pl dev validate`).
+2. Push `.pipelines/`, then `pl binding create <owner/repo> --branch <deploy branch>
+   --credentials-secret GITHUB_TOKEN` (the token key also for public repos: the anonymous GitHub
+   rate limit is shared by every binding; `pl binding set-credentials` changes it later). The first
+   reconcile builds it and only records the branch head.
+3. Set the secrets the steps declare, piping bytes, never through `$(…)`:
+   `pl secret set <pipeline> SSH_PRIVATE_KEY < key`.
+4. Push the next commit. That push starts the first run; `pl wait push <pipeline> <sha>` waits for
+   it.
+
+Only one system should deploy a repo at a time: if something else deploys it today, stop that
+before step 2.
+
+
+Only one system should deploy a repo at a time: if something else deploys it today, stop that
+before step 2.
 
 ## Next
 
 - Write the real pipeline → **[Pipeline Reference](pipeline-reference.md)**
 - Iterate on a step without pushing → **[Local Development](local-development.md)**
 - Operate runs: rerun, continue, cancel, files, logs → **[Runs & Operations](runs-and-operations.md)**
-- Hold deploys at a step → **[Promotion Gates](promotion-gate.md)**
+- Hold a pipeline at a step while you work on it → **[Blocking Steps](blocking-steps.md)**
 - Something failed → **[Troubleshooting](troubleshooting.md)**

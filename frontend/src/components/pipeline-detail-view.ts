@@ -101,7 +101,7 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _blocked: Set<string>;
   @state() private declare _loaded: boolean;
   @state() private declare _error: string | null;
-  @state() private declare _gateErrors: string[];
+  @state() private declare _stepErrors: string[];
   @state() private declare _retrying: Set<string>;
   @state() private declare _triggerOpen: boolean;
   @state() private declare _titleHint: string;
@@ -119,7 +119,7 @@ export class PipelineDetailView extends LitElement {
     this._blocked = new Set();
     this._loaded = false;
     this._error = null;
-    this._gateErrors = [];
+    this._stepErrors = [];
     this._retrying = new Set();
     this._triggerOpen = new URLSearchParams(location.search).get('trigger') === '1';
     const st = history.state as { pipelineName?: string } | null;
@@ -244,8 +244,8 @@ export class PipelineDetailView extends LitElement {
               .manifest=${m}
               .states=${this._states()}
               .blocked=${this._blocked}
-              gateControls
-              @gate-toggle=${(e: CustomEvent<{ step: string; block: boolean }>) => this._setGate(e.detail.step, e.detail.block)}
+              stepControls
+              @block-toggle=${(e: CustomEvent<{ step: string; block: boolean }>) => this._setBlocked(e.detail.step, e.detail.block)}
               @step-retry=${(e: CustomEvent<{ step: string }>) => this._retry(e.detail.step)}
               @step-cancel=${(e: CustomEvent<{ step: string }>) => this._cancel(e.detail.step)}
               @step-select=${(e: CustomEvent<{ step: string }>) => this._open(e.detail.step)}
@@ -253,10 +253,10 @@ export class PipelineDetailView extends LitElement {
           : this._loaded
             ? html`<p class="muted">No active version yet. One appears once reconcile has described the pipeline.</p>`
             : html`<p class="muted">Loading…</p>`}
-        ${this._gateErrors.length
-          ? html`<div class="errors" role="alert">${this._gateErrors.map((e) => html`<p>${e}</p>`)}</div>`
+        ${this._stepErrors.length
+          ? html`<div class="errors" role="alert">${this._stepErrors.map((e) => html`<p>${e}</p>`)}</div>`
           : nothing}
-        ${this._renderRetiredGates()}
+        ${this._renderRetiredBlocks()}
       </section>
     `;
   }
@@ -308,7 +308,7 @@ export class PipelineDetailView extends LitElement {
       ${b.result === 2 && b.problems?.length ? html`<ul class="problems">${b.problems.map((x) => html`<li>${x}</li>`)}</ul>` : nothing}`;
   }
 
-  private _renderRetiredGates() {
+  private _renderRetiredBlocks() {
     const m = this._active?.manifest;
     if (!m) return nothing;
     const names = new Set(allSteps(m.stages).map((s) => s.name));
@@ -316,7 +316,7 @@ export class PipelineDetailView extends LitElement {
     if (!retired.length) return nothing;
     return html`<div class="retired">
       <span>Blocked steps not in this version:</span>
-      ${retired.map((s) => html`<button class="btn small" @click=${() => this._setGate(s, false)}>Unblock ${s}</button>`)}
+      ${retired.map((s) => html`<button class="btn small" @click=${() => this._setBlocked(s, false)}>Unblock ${s}</button>`)}
     </div>`;
   }
 
@@ -327,32 +327,32 @@ export class PipelineDetailView extends LitElement {
   private async _cancel(step: string) {
     const run = this._latest.get(step)?.runNumber;
     if (!run || !confirm(`Cancel ${step} in run #${run}? The run ends Cancelled once its stage settles.`)) return;
-    this._gateErrors = [];
+    this._stepErrors = [];
     try {
       await apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/cancel`);
       await this.reload();
     } catch (err) {
-      this._gateErrors = errorMessages(err);
+      this._stepErrors = errorMessages(err);
     }
   }
 
   private async _retry(step: string) {
     const run = this._latest.get(step)?.runNumber;
     if (!run) return;
-    this._gateErrors = [];
+    this._stepErrors = [];
     this._retrying = new Set([...this._retrying, step]);
     try {
       await apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/rerun`, { continue: true });
       await this.reload();
     } catch (err) {
-      this._gateErrors = errorMessages(err);
+      this._stepErrors = errorMessages(err);
     } finally {
       this._retrying = new Set([...this._retrying].filter((s) => s !== step));
     }
   }
 
-  private async _setGate(step: string, block: boolean) {
-    this._gateErrors = [];
+  private async _setBlocked(step: string, block: boolean) {
+    this._stepErrors = [];
     try {
       const list = await apiPost<string[]>(
         `/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(step)}/${block ? 'block' : 'unblock'}`,
@@ -360,7 +360,7 @@ export class PipelineDetailView extends LitElement {
       this._blocked = new Set(Array.isArray(list) ? list : []);
       this.reload();
     } catch (err) {
-      this._gateErrors = errorMessages(err);
+      this._stepErrors = errorMessages(err);
     }
   }
 }

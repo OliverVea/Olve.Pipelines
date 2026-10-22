@@ -34,7 +34,7 @@ public class ProductionWiringTests
     [Arguments(typeof(RunStartService))]
     [Arguments(typeof(RunContinuationService))]
     [Arguments(typeof(SwitchService))]
-    [Arguments(typeof(StepGateService))]
+    [Arguments(typeof(StepBlockService))]
     [Arguments(typeof(AttemptLaunchService))]
     public async Task SchedulerService_Resolves(Type serviceType)
     {

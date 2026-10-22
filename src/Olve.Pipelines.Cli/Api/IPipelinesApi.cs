@@ -61,7 +61,7 @@ public interface IPipelinesApi
     // Live change notifications (SSE): onEvent(type, data) until the stream ends
     Task<Result> WatchEvents(string? pipelineId, Func<string, string, Task> onEvent, CancellationToken ct);
 
-    // Promotion gates (keyed on step name)
+    // Blocked steps (keyed on step name)
     Task<Result<string[]>> ListBlockedSteps(string pipelineId, CancellationToken ct);
     Task<Result<string[]>> BlockStep(string pipelineId, string step, CancellationToken ct);
     Task<Result<string[]>> UnblockStep(string pipelineId, string step, CancellationToken ct);

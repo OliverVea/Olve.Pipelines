@@ -2,10 +2,10 @@
 
 > A small GitOps CD orchestration service for a homelab (v2). You bind a pipeline to your Git
 > repository; the pipeline is defined in TypeScript in `.pipelines/pipeline.ts` (typed models,
-> steps, handlers, sequential stages of parallel steps, `when` blocks, push/poll triggers). On each
+> steps, handlers, sequential stages of parallel steps, `when` blocks, push/poll/webhook triggers). On each
 > commit the service compiles the definition in a sandboxed Job into a new version, and runs each
 > step as a Kubernetes Job. You drive binding, secrets and operations (trigger, rerun, continue,
-> cancel, gates, version switch) with the `pl` CLI or the web UI.
+> cancel, blocking steps, version switch) with the `pl` CLI or the web UI.
 
 All documentation pages below are served as raw Markdown at the listed URLs. Fetch them
 directly (no auth, no repo clone needed) and parse the raw text.
@@ -18,7 +18,7 @@ directly (no auth, no repo clone needed) and parse the raw text.
 - [Local Development](/docs/local-development.md): `pl dev describe | validate | run | pipeline`, running a step in its real image, the local pool.
 - [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, how changes are noticed (poll + webhook), how a commit becomes a version, switch and rollback, reading the status.
 - [Runs & Operations](/docs/runs-and-operations.md): Runs, attempts, supersede, de-duplication, rerun/continue/cancel, outputs and files, how a step runs, storage, retention.
-- [Promotion Gates](/docs/promotion-gate.md): Blocking a step to hold runs, resuming them, promoting by continuing a run.
+- [Blocking Steps](/docs/blocking-steps.md): Holding a pipeline's runs at a step while working on the pipeline or its target, and resuming them.
 - [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.
 
 ## Reference

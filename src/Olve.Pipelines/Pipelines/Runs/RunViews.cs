@@ -42,12 +42,12 @@ public record RunStageCondition(string Field, JsonElement[] Values);
 
 /// <summary>
 /// One step of a run. <see cref="Status"/> is the latest attempt's status discriminator, or — without an
-/// attempt — <c>held</c> (its promotion gate holds the run here), <c>pending</c> (the run has not reached
+/// attempt — <c>held</c> (the step is blocked and holds the run here), <c>pending</c> (the run has not reached
 /// it) or <c>not-run</c> (the run finished without reaching it).
 /// </summary>
 /// <param name="Reason">The latest attempt's skip or failure reason.</param>
 /// <param name="SucceededAttempt">The latest successful attempt — what the address <c>#run/step</c> resolves to.</param>
-/// <param name="Blocked">The step's promotion gate is currently blocked.</param>
+/// <param name="Blocked">The step is currently blocked.</param>
 public record RunStepView(
     string Name,
     int? StepVersion,

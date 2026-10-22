@@ -301,7 +301,7 @@ export class StepView extends LitElement {
           ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel</button>`
           : nothing}
         ${this._retryable(blocked) ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}>Retry</button>` : nothing}
-        <button class="btn" ?disabled=${this._busy} @click=${() => this._setGate(!blocked)}>${blocked ? 'Unblock' : 'Block'}</button>
+        <button class="btn" ?disabled=${this._busy} @click=${() => this._setBlocked(!blocked)}>${blocked ? 'Unblock' : 'Block'}</button>
       </div>
       ${d ? html`<div class="source">${this._source(d)}</div>` : nothing}
       ${d?.description ? html`<p class="desc">${d.description}</p>` : nothing}
@@ -446,7 +446,7 @@ export class StepView extends LitElement {
     return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(this.step)}/cancel`));
   };
 
-  private _setGate(block: boolean) {
+  private _setBlocked(block: boolean) {
     return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(this.step)}/${block ? 'block' : 'unblock'}`));
   }
 

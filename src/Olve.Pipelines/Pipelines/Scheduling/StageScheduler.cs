@@ -17,7 +17,7 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// <b>excluded</b>: not part of this run, with no attempt (<c>when deployTo ∉ [prod]</c>);</item>
 /// <item><b>inputs</b> — a required input referencing a skipped/unproduced output skips the step with a
 /// chained reason; optional ones are left out;</item>
-/// <item><b>gate</b> — a blocked step gets no attempt and holds the run (<see cref="Run.HeldAt"/>);</item>
+/// <item><b>blocked</b> — a blocked step gets no attempt and holds the run (<see cref="Run.HeldAt"/>);</item>
 /// <item>otherwise it schedules an attempt carrying the assembled input and its hash.</item>
 /// </list>
 /// A step whose latest attempt already matches the decision is settled: a succeeded (or handler-skipped)
@@ -36,14 +36,14 @@ public class StageScheduler(
     RunService runs,
     AttemptService attempts,
     RunPlanCache plans,
-    StepGateService gates,
+    StepBlockService blocks,
     PipelineActivationService activations,
     RunSchedulingLock schedulingLock,
     ILogger<StageScheduler> logger)
 {
     public void Advance(Id<Run> runId) => schedulingLock.Advance(runId, () => AdvanceOnce(runId));
 
-    /// <summary>Advances every Running run of a pipeline, oldest first (gate changes, startup).</summary>
+    /// <summary>Advances every Running run of a pipeline, oldest first (blocked-step changes, startup).</summary>
     public void AdvanceRunning(Id<Pipeline> pipelineId) => schedulingLock.Run(() =>
     {
         foreach (var run in runs.ListByPipeline(pipelineId).Where(r => r.Status is RunStatus.Running).OrderBy(r => r.Number))
@@ -113,7 +113,7 @@ public class StageScheduler(
                 if (IsSettled(latest, decision, run) && !RetryDue(run, step, decision))
                     continue;
 
-                if (decision is StepDecision.Schedule && gates.IsBlocked(run.PipelineId, step.Name))
+                if (decision is StepDecision.Schedule && blocks.IsBlocked(run.PipelineId, step.Name))
                 {
                     heldAt ??= step.Name;
                     waiting = true;
@@ -267,7 +267,7 @@ public class StageScheduler(
         if (runs.TryGet(run.Id, out var current) && current.HeldAt != heldAt)
         {
             if (heldAt is not null)
-                logger.LogInformation("Run #{RunNumber} ('{RunId}') held at gated step '{StepName}'", run.Number, run.Id, heldAt);
+                logger.LogInformation("Run #{RunNumber} ('{RunId}') held at blocked step '{StepName}'", run.Number, run.Id, heldAt);
             if (runs.SetHeldAt(run.Id, heldAt).TryPickProblems(out var problems))
                 logger.LogProblems(LogLevel.Warning, problems, "Could not update the hold marker of run #{RunNumber} ('{RunId}')", run.Number, run.Id);
         }

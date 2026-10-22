@@ -1,6 +1,6 @@
 ---
 name: manual-test
-description: Run the app locally or target v2 beta (or v2 prod), and make authenticated API calls (via pl or curl) for manual testing of the v2 run/version/gate API.
+description: Run the app locally or target v2 beta (or v2 prod), and make authenticated API calls (via pl or curl) for manual testing of the v2 run/version/block API.
 allowed-tools: Bash Read Grep
 ---
 

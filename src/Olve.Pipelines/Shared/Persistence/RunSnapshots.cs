@@ -31,24 +31,27 @@ public record PipelineVersionMetadata(
 
 /// <summary>
 /// <c>pipeline-state.json</c>: per-pipeline operational state (active version/switch, number sequences,
-/// promotion gates, the run start queued during a drain, entity-version history, poll-trigger last values).
-/// <see cref="Gates"/> and <see cref="PendingStarts"/> were added in B4, <see cref="EntityVersions"/> in B6,
-/// <see cref="PollTriggers"/> in B9; older files lack them (null on load).
+/// blocked steps, the run start queued during a drain, entity-version history, poll-trigger last values).
+/// Optional members may be missing from older files (null on load); <see cref="Gates"/> is the former name
+/// of <see cref="BlockedSteps"/>, read but no longer written.
 /// </summary>
 public record PipelineStateSnapshot(
     PipelineActivationEntry[] Activations,
     PipelineSequencesEntry[] Sequences,
-    PipelineStepGatesEntry[]? Gates = null,
+    LegacyBlockedStepsEntry[]? Gates = null,
     PendingRunStartEntry[]? PendingStarts = null,
     EntityVersionHistoryEntry[]? EntityVersions = null,
-    PollTriggerStatesEntry[]? PollTriggers = null);
+    PollTriggerStatesEntry[]? PollTriggers = null,
+    PipelineBlockedStepsEntry[]? BlockedSteps = null);
 
 public record PollTriggerStatesEntry(Id<Pipeline> PipelineId, PollTriggerStates States);
 
 /// <summary>A pipeline's full model/step version history (<see cref="ManifestVersions.History"/>), fed to the next reconcile.</summary>
 public record EntityVersionHistoryEntry(Id<Pipeline> PipelineId, EntityVersionMap History);
 
-public record PipelineStepGatesEntry(Id<Pipeline> PipelineId, PipelineStepGates Gates);
+public record PipelineBlockedStepsEntry(Id<Pipeline> PipelineId, PipelineBlockedSteps Blocked);
+
+public record LegacyBlockedStepsEntry(Id<Pipeline> PipelineId, PipelineBlockedSteps Gates);
 
 public record PendingRunStartEntry(Id<Pipeline> PipelineId, PendingRunStart Pending);
 

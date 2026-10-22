@@ -169,7 +169,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<PipelineHealth>? GetPipelineHealthResult { get; set; }
     public Result<ManifestValidationResponse>? ValidateManifestResult { get; set; }
 
-    /// <summary>The pipeline id of the most recent run/step/gate/version call (the resolved id, never a name).</summary>
+    /// <summary>The pipeline id of the most recent run/step/version call (the resolved id, never a name).</summary>
     public string? LastPipelineId { get; private set; }
     public string? LastBody { get; private set; }
     public int? LastRun { get; private set; }

@@ -149,7 +149,7 @@ public class RunService(
             : new ConflictProblem("Run '{0}' changed concurrently.", id);
     }
 
-    /// <summary>Sets (or clears, with null) the gate hold marker of a Running run. No-op when unchanged.</summary>
+    /// <summary>Sets (or clears, with null) the hold marker (blocked step) of a Running run. No-op when unchanged.</summary>
     public Result SetHeldAt(Id<Run> id, string? stepName)
     {
         if (!store.TryGet(id, out var current))

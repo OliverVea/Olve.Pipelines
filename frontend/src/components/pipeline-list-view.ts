@@ -405,7 +405,7 @@ export class PipelineListView extends LitElement {
     `;
   }
 
-  /** Run-level health: last run, active version / switch, running and held runs, closed gates. */
+  /** Run-level health: last run, active version / switch, running and held runs, blocked steps. */
   private _renderHealth(p: PipelineSummary) {
     const h = p.health;
     if (!h) return nothing;
@@ -433,7 +433,7 @@ export class PipelineListView extends LitElement {
             : html`<span class="tag">no version</span>`}
         ${(h.runningRuns ?? 0) > 0 ? html`<span class="tag run">${h.runningRuns} running</span>` : nothing}
         ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
-        ${blocked.length ? html`<span class="tag warn">${blocked.length} gate${blocked.length > 1 ? 's' : ''} closed</span>` : nothing}
+        ${blocked.length ? html`<span class="tag warn">${blocked.length} step${blocked.length > 1 ? 's' : ''} blocked</span>` : nothing}
       </div>
     </div>`;
   }

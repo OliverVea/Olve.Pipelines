@@ -11,7 +11,7 @@ public sealed class PipelineListCommand : ICliCommand
     public string Noun => "pipeline";
     public string Verb => "list";
     public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "summaries" };
-    public string HelpLine => "List pipelines with health, last run, active version, running/held runs and closed gates";
+    public string HelpLine => "List pipelines with health, last run, active version, running/held runs and blocked steps";
     public string? HelpDetail =>
         """
         pl pipeline list [--summaries]
@@ -48,7 +48,7 @@ public sealed class PipelineListCommand : ICliCommand
                 return detailed ? (IReadOnlyList<string>)[.. common, s.Repo ?? "-", s.Description ?? ""] : common;
             }).ToList();
 
-            IReadOnlyList<string> headers = ["ID", "NAME", "STATUS", "LAST RUN", "VERSION", "RUNNING/HELD", "CLOSED GATES"];
+            IReadOnlyList<string> headers = ["ID", "NAME", "STATUS", "LAST RUN", "VERSION", "RUNNING/HELD", "BLOCKED"];
             foreach (var line in Table.Render(detailed ? [.. headers, "REPO", "DESCRIPTION"] : headers, rows))
                 ctx.Output.Line(line);
         });

@@ -79,7 +79,7 @@ public sealed class RunStageCondition
 }
 
 /// <summary>
-/// One step of a run. <see cref="Status"/> is the latest attempt's status, or <c>held</c> (a gate holds
+/// One step of a run. <see cref="Status"/> is the latest attempt's status, or <c>held</c> (a blocked step holds
 /// the run here), <c>pending</c> (not reached yet) or <c>not-run</c> (the run finished without it).
 /// </summary>
 public sealed class RunStepView

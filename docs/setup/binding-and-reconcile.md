@@ -106,7 +106,7 @@ pl pipeline switch my-app 7 --cancel-running   # cancel the old version's in-fli
 - While draining, the old version starts no new attempts and in-flight attempts finish. New triggers
   are **queued** (latest-wins collapses them) and start on the new version, mapped and validated
   against *its* triggers and input model.
-- Runs paused on the old version (held at a gate, waiting to be continued) don't block the drain and
+- Runs paused on the old version (held at a blocked step, waiting to be continued) don't block the drain and
   can't be continued afterwards — re-trigger them on the new version.
 - There is no side-by-side canary of two definitions.
 
@@ -114,7 +114,7 @@ pl pipeline switch my-app 7 --cancel-running   # cancel the old version's in-fli
 
 There are no API endpoints or `pl` commands that change pipeline shape. Steps, stages, triggers and
 secrets declarations come only from your committed pipeline. Operations are allowed on a bound
-pipeline: `pl trigger`, `pl run cancel|rerun|continue`, `pl step rerun`, `pl gate block|unblock`,
+pipeline: `pl trigger`, `pl run cancel|rerun|continue`, `pl step rerun`, `pl step block|unblock`,
 `pl pipeline switch`, `pl secret set`, `pl binding set-credentials|reconcile`.
 
 ## Reading the status

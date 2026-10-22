@@ -6,7 +6,7 @@ import { createApiProblemFromDiscriminatorValue, createPipelineFromDiscriminator
 // @ts-ignore
 import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsMetadata, type BindingRequestBuilder } from './binding/index.js';
 // @ts-ignore
-import { GatesRequestBuilderRequestsMetadata, type GatesRequestBuilder } from './gates/index.js';
+import { BlockedStepsRequestBuilderRequestsMetadata, type BlockedStepsRequestBuilder } from './blockedSteps/index.js';
 // @ts-ignore
 import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
 // @ts-ignore
@@ -31,9 +31,9 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
     get binding(): BindingRequestBuilder;
     /**
-     * The gates property
+     * The blockedSteps property
      */
-    get gates(): GatesRequestBuilder;
+    get blockedSteps(): BlockedStepsRequestBuilder;
     /**
      * The health property
      */
@@ -101,8 +101,8 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
         requestsMetadata: BindingRequestBuilderRequestsMetadata,
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
     },
-    gates: {
-        requestsMetadata: GatesRequestBuilderRequestsMetadata,
+    blockedSteps: {
+        requestsMetadata: BlockedStepsRequestBuilderRequestsMetadata,
     },
     health: {
         requestsMetadata: HealthRequestBuilderRequestsMetadata,

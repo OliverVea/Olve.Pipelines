@@ -158,7 +158,7 @@ public sealed class WaitRunCommand : ICliCommand
                             step: succeeded, skipped or excluded → 0; failed or cancelled, or the run
                             ended without running it → 1.
           --until started   the step has an attempt (or the run exists).
-          --until held      the run is held at a gate; exits 1 if it finishes first.
+          --until held      the run is held at a blocked step; exits 1 if it finishes first.
           --timeout <dur>   give up after 90s / 30m / 2h: exit 124.
 
           Progress goes to stderr, the result to stdout.

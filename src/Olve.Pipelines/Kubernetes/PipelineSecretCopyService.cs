@@ -22,9 +22,9 @@ public class PipelineSecretCopyService(
         Id<Pipeline> targetId, CopySecretsRequest request, string actor, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(targetId, out var target))
-            return new ResultProblem("Pipeline '{0}' not found.", targetId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", targetId);
         if (!pipelines.TryGet(request.SourcePipelineId, out var source))
-            return new ResultProblem("Source pipeline '{0}' not found.", request.SourcePipelineId);
+            return new NotFoundProblem("Source pipeline '{0}' not found.", request.SourcePipelineId);
 
         var sourceData = await kubernetes.GetSecretAsync(options.Namespace, PipelineSecrets.Name(source.Id), ct);
         if (sourceData is null || sourceData.Count == 0)

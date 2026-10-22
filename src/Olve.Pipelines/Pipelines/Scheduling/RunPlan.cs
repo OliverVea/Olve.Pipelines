@@ -118,7 +118,7 @@ public class RunPlanCache(PipelineVersionService versions)
             return cached;
 
         if (!versions.TryGet(versionId, out var version))
-            return new ResultProblem("Pipeline version '{0}' not found.", versionId);
+            return new NotFoundProblem("Pipeline version '{0}' not found.", versionId);
 
         var parsed = ManifestParser.Parse(version.Manifest);
         Result<RunPlan> plan = parsed.TryPickProblems(out var problems, out var manifest)

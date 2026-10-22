@@ -19,7 +19,7 @@ public class PipelineService(EntityStore<Pipeline> store, IdProvider idProvider)
         if (string.IsNullOrWhiteSpace(name))
             return new ResultProblem("Pipeline name is required.");
         if (!store.TryGet(id, out var pipeline))
-            return new ResultProblem("Pipeline '{0}' not found.", id);
+            return new NotFoundProblem("Pipeline '{0}' not found.", id);
         if (pipeline.Name == name && pipeline.Description == description)
             return pipeline;
 

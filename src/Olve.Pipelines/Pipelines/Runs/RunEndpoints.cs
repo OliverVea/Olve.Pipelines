@@ -113,7 +113,7 @@ public static class RunEndpoints
 
                 var download = await files.OpenAsync(resolved, objectPath, ct);
                 if (download is null)
-                    return Problems([new ResultProblem("Attempt {0} of step '{1}' in run #{2} has no file '{3}'.",
+                    return Problems([new NotFoundProblem("Attempt {0} of step '{1}' in run #{2} has no file '{3}'.",
                         resolved.Number, step, number, objectPath)], StatusCodes.Status404NotFound);
 
                 http.Response.RegisterForDispose(download);
@@ -138,9 +138,7 @@ public static class RunEndpoints
                 => query.TryResolve(pipelineId, number, step, attempt, out var resolved)
                     ? new AttemptOutputResponse(number, step, resolved.Number, resolved.Status.Discriminator(),
                         resolved.Output is { } o ? JsonDocument.Parse(o.Json).RootElement.Clone() : null, resolved.Output?.Key)
-                    : new ResultProblem(attempt is null
-                        ? "Run #{0} has no successful attempt of step '{1}'."
-                        : "Run #{0} has no attempt {2} of step '{1}'.", number, step, attempt ?? 0))
+                    : NoAttempt(number, step, attempt))
             .WithResultMapping<AttemptOutputResponse>()
             .WithName("GetStepOutput")
             .AllowAnonymous();
@@ -151,12 +149,12 @@ public static class RunEndpoints
                 CancellationToken ct) =>
             {
                 if (!runs.TryGetByNumber(pipelineId, number, out var run))
-                    return new ResultProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
+                    return new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
                 var target = attempt is { } n
                     ? attempts.ListForStep(run.Id, step).FirstOrDefault(a => a.Number == n)
                     : attempts.ListForStep(run.Id, step).LastOrDefault();
                 if (target is null)
-                    return new ResultProblem("Run #{0} has no such attempt of step '{1}'.", number, step);
+                    return new NotFoundProblem("Run #{0} has no such attempt of step '{1}'.", number, step);
                 return await logs.GetLogsAsync(target.Id, ct);
             })
             .WithResultMapping<string>()
@@ -167,7 +165,7 @@ public static class RunEndpoints
     private static Result<Run> FindRun(RunService runs, Id<Pipeline> pipelineId, int number)
         => runs.TryGetByNumber(pipelineId, number, out var run)
             ? run
-            : new ResultProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
+            : new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
 
     private static TriggerRunResponse ToResponse(RunStartOutcome outcome) => outcome switch
     {
@@ -176,7 +174,7 @@ public static class RunEndpoints
         _ => new TriggerRunResponse("queued", null),
     };
 
-    private static ResultProblem NoAttempt(int number, string step, int? attempt) => new(attempt is null
+    private static NotFoundProblem NoAttempt(int number, string step, int? attempt) => new(attempt is null
         ? "Run #{0} has no successful attempt of step '{1}'."
         : "Run #{0} has no attempt {2} of step '{1}'.", number, step, attempt ?? 0);
 

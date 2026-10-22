@@ -18,7 +18,7 @@ public static class PipelineStepEndpoints
         group.MapGet("/health", Result<PipelineHealth> (PipelineService pipelines, PipelineHealthService health, Id<Pipeline> pipelineId)
                 => pipelines.TryGet(pipelineId, out _)
                     ? health.Get(pipelineId)
-                    : new ResultProblem("Pipeline '{0}' not found.", pipelineId))
+                    : new NotFoundProblem("Pipeline '{0}' not found.", pipelineId))
             .WithResultMapping<PipelineHealth>()
             .WithName("GetPipelineHealth")
             .AllowAnonymous();

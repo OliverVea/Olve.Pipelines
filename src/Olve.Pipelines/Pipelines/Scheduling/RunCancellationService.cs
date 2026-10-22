@@ -24,7 +24,7 @@ public class RunCancellationService(
     public Result<Run> Cancel(Id<Run> runId) => schedulingLock.Run<Result<Run>>(() =>
     {
         if (!runs.TryGet(runId, out var run))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
 
         var active = attempts.ListByRun(run.Id).Where(a => a.Status.IsActive()).ToList();
         if (run.Status.IsTerminal() && active.Count == 0)
@@ -53,11 +53,11 @@ public class RunCancellationService(
     public Result<Attempt> CancelStep(Id<Run> runId, string stepName) => schedulingLock.Run<Result<Attempt>>(() =>
     {
         if (!runs.TryGet(runId, out var run))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
 
         var stepAttempts = attempts.ListForStep(run.Id, stepName);
         if (stepAttempts.Count == 0)
-            return new ResultProblem("Run #{0} has no attempt of step '{1}'.", run.Number, stepName);
+            return new NotFoundProblem("Run #{0} has no attempt of step '{1}'.", run.Number, stepName);
 
         var active = stepAttempts.LastOrDefault(a => a.Status.IsActive());
         if (active is null)

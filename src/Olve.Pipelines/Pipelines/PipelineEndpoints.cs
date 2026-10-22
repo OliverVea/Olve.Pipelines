@@ -16,7 +16,7 @@ public static class PipelineEndpoints
         group.MapGet("/{id}", Result<Pipeline> (PipelineService service, Id<Pipeline> id)
                 => service.TryGet(id, out var pipeline)
                     ? Result.Success(pipeline)
-                    : Result.Failure<Pipeline>(new ResultProblem($"Pipeline '{id}' not found.")))
+                    : Result.Failure<Pipeline>(new NotFoundProblem("Pipeline '{0}' not found.", id)))
             .WithResultMapping<Pipeline>()
             .WithName("GetPipeline")
             .AllowAnonymous();

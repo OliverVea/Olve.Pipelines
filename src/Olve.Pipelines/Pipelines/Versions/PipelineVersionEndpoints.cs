@@ -42,7 +42,7 @@ public static class PipelineVersionEndpoints
         group.MapGet("/{number:int}", Result<PipelineVersion> (PipelineVersionService versions, Id<Pipeline> pipelineId, int number)
                 => versions.TryGetByNumber(pipelineId, number, out var version)
                     ? version
-                    : new ResultProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
+                    : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
             .WithResultMapping<PipelineVersion>()
             .WithName("GetPipelineVersion")
             .AllowAnonymous();
@@ -52,7 +52,7 @@ public static class PipelineVersionEndpoints
                 PipelineVersionService versions, SwitchService switches, Id<Pipeline> pipelineId, SwitchVersionRequest request)
                 => versions.TryGetByNumber(pipelineId, request.Version, out var version)
                     ? switches.Switch(pipelineId, version.Id, request.CancelRunning)
-                    : new ResultProblem("Version {0} of pipeline '{1}' not found.", request.Version, pipelineId))
+                    : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", request.Version, pipelineId))
             .WithResultMapping<PipelineActivation>()
             .WithName("SwitchPipelineVersion");
     }

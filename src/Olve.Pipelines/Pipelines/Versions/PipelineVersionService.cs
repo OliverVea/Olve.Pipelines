@@ -35,7 +35,7 @@ public class PipelineVersionService(
         string? binaryKey = null)
     {
         if (!pipelines.Contains(pipelineId))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (string.IsNullOrWhiteSpace(manifestHash))
             return new ResultProblem("Manifest hash is required.");
         if (!JsonText.IsWellFormed(manifest))

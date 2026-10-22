@@ -124,7 +124,7 @@ public class AttemptService(
     public Result Update(Id<Attempt> id, Func<Attempt, Attempt> update)
     {
         if (!store.Contains(id))
-            return new ResultProblem("Attempt '{0}' not found.", id);
+            return new NotFoundProblem("Attempt '{0}' not found.", id);
 
         return store.Mutate(id, update);
     }
@@ -196,7 +196,7 @@ public class AttemptService(
     public Result Cancel(Id<Attempt> id)
     {
         if (!store.TryGet(id, out var attempt))
-            return new ResultProblem("Attempt '{0}' not found.", id);
+            return new NotFoundProblem("Attempt '{0}' not found.", id);
 
         // Advisory pre-check for the message; the guarded Mutate is the atomic write.
         if (!attempt.Status.IsActive())
@@ -220,7 +220,7 @@ public class AttemptService(
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
         if (!runs.TryGet(runId, out var run))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
 
         lock (_createGate)
         {

@@ -43,7 +43,7 @@ public class RunViewService(
     public Result<RunDetail> Get(Id<Pipeline> pipelineId, int number)
     {
         if (!runs.TryGetByNumber(pipelineId, number, out var run))
-            return new ResultProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
+            return new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
 
         versions.TryGet(run.VersionId, out var version);
         var continuable = run.Status is not RunStatus.Superseded

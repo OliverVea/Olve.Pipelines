@@ -34,13 +34,13 @@ public class RunContinuationService(
     public Result<Attempt> RerunStep(Id<Run> runId, string stepName, bool continueAfter) => schedulingLock.Run<Result<Attempt>>(() =>
     {
         if (!runs.TryGet(runId, out var run))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
         if (RequireActiveVersion(run) is { } versionProblem)
             return versionProblem;
         if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
         if (!plan.TryGetStep(stepName, out var stage, out var step))
-            return new ResultProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
+            return new NotFoundProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
         if (gates.IsBlocked(run.PipelineId, stepName))
             return new ResultProblem("Step '{0}' is blocked by its promotion gate.", stepName);
 
@@ -80,7 +80,7 @@ public class RunContinuationService(
     public Result<Run> ContinueRun(Id<Run> runId, string newInputJson) => schedulingLock.Run<Result<Run>>(() =>
     {
         if (!runs.TryGet(runId, out var run))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
         if (run.Status is RunStatus.Superseded)
             return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
         if (RequireActiveVersion(run) is { } versionProblem)

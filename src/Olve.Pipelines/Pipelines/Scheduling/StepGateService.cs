@@ -28,7 +28,7 @@ public class StepGateService(
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
         if (!pipelines.Contains(pipelineId))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
 
         schedulingLock.Run(() =>
         {

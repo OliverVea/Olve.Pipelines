@@ -22,7 +22,7 @@ public class JobLogService(
     public async Task<Result<string>> GetLogsAsync(Id<Attempt> attemptId, CancellationToken ct)
     {
         if (!attempts.TryGet(attemptId, out var attempt))
-            return new ResultProblem("Attempt '{0}' not found.", attemptId);
+            return new NotFoundProblem("Attempt '{0}' not found.", attemptId);
 
         switch (attempt.Status)
         {

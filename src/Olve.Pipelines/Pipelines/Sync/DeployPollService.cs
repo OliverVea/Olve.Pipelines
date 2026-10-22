@@ -109,7 +109,7 @@ public class DeployPollService(
     {
         var binding = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId);
         if (binding is null)
-            return new ResultProblem("Pipeline '{0}' has no config binding.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
         await PollBindingAsync(binding.Id, force, ct);
         return Result.Success();
@@ -122,7 +122,7 @@ public class DeployPollService(
     public Result RequestReconcile(Id<Pipeline> pipelineId, bool force)
     {
         if (bindings.List().All(b => b.PipelineId != pipelineId))
-            return new ResultProblem("Pipeline '{0}' has no config binding.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
         _ = Task.Run(async () =>
         {

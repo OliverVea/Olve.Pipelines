@@ -34,7 +34,7 @@ public class PipelineSecretService(
     public async Task<Result<PipelineSecretInfo[]>> ListAsync(Id<Pipeline> pipelineId, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(pipelineId, out _))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
 
         var declared = Declared(pipelineId);
         Dictionary<string, string>? values = null;
@@ -62,7 +62,7 @@ public class PipelineSecretService(
     public async Task<Result> SetAsync(Id<Pipeline> pipelineId, string name, string value, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(pipelineId, out _))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (TryKubernetes() is not { } k8s)
             return new ResultProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;
@@ -85,7 +85,7 @@ public class PipelineSecretService(
     public async Task<Result> DeleteAsync(Id<Pipeline> pipelineId, string name, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(pipelineId, out _))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (TryKubernetes() is not { } k8s)
             return new ResultProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;

@@ -36,11 +36,11 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
     public Result<AttemptLaunchSpec> Get(Id<Attempt> attemptId)
     {
         if (!attempts.TryGet(attemptId, out var attempt))
-            return new ResultProblem("Attempt '{0}' not found.", attemptId);
+            return new NotFoundProblem("Attempt '{0}' not found.", attemptId);
         if (!runs.TryGet(attempt.RunId, out var run))
-            return new ResultProblem("Run '{0}' of attempt '{1}' not found.", attempt.RunId, attemptId);
+            return new NotFoundProblem("Run '{0}' of attempt '{1}' not found.", attempt.RunId, attemptId);
         if (!versions.TryGet(run.VersionId, out var version))
-            return new ResultProblem("Version {0} of run #{1} not found.", run.VersionNumber, run.Number);
+            return new NotFoundProblem("Version {0} of run #{1} not found.", run.VersionNumber, run.Number);
         if (plans.Get(run.VersionId).TryPickProblems(out var problems, out var plan))
             return problems;
         if (!plan.TryGetStep(attempt.StepName, out _, out var step))

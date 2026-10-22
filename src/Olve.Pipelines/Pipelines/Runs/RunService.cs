@@ -38,7 +38,7 @@ public class RunService(
         if (!JsonText.IsWellFormed(input))
             return new ResultProblem("Run input must be well-formed JSON.");
         if (rerunOf is { } original && (!store.TryGet(original, out var originalRun) || originalRun.PipelineId != pipelineId))
-            return new ResultProblem("Run '{0}' to re-run was not found in pipeline '{1}'.", original, pipelineId);
+            return new NotFoundProblem("Run '{0}' to re-run was not found in pipeline '{1}'.", original, pipelineId);
 
         lock (_createGate)
         {
@@ -133,7 +133,7 @@ public class RunService(
         if (input is not null && !JsonText.IsWellFormed(input))
             return new ResultProblem("Run input must be well-formed JSON.");
         if (!store.TryGet(id, out var current))
-            return new ResultProblem("Run '{0}' not found.", id);
+            return new NotFoundProblem("Run '{0}' not found.", id);
         if (current.Status is RunStatus.Superseded)
             return new ResultProblem("Run #{0} was superseded by a newer run and cannot be continued.", current.Number);
 
@@ -153,7 +153,7 @@ public class RunService(
     public Result SetHeldAt(Id<Run> id, string? stepName)
     {
         if (!store.TryGet(id, out var current))
-            return new ResultProblem("Run '{0}' not found.", id);
+            return new NotFoundProblem("Run '{0}' not found.", id);
         if (current.HeldAt == stepName || current.Status is not RunStatus.Running)
             return Result.Success();
 
@@ -165,7 +165,7 @@ public class RunService(
     private Result<Run> Transition(Id<Run> id, Func<Run, Run> fromRunning)
     {
         if (!store.TryGet(id, out var current))
-            return new ResultProblem("Run '{0}' not found.", id);
+            return new NotFoundProblem("Run '{0}' not found.", id);
         if (current.Status.IsTerminal())
             return new ResultProblem("Run #{0} is already {1}.", current.Number, current.Status);
 

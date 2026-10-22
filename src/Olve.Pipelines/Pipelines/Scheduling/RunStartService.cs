@@ -61,7 +61,7 @@ public class RunStartService(
     public Result<RunStartOutcome> RerunRun(Id<Run> runId, string? inputJson = null) => schedulingLock.Run(() =>
     {
         if (!runs.TryGet(runId, out var original))
-            return new ResultProblem("Run '{0}' not found.", runId);
+            return new NotFoundProblem("Run '{0}' not found.", runId);
 
         return StartCore(original.PipelineId, inputJson ?? original.Input, new RunTrigger(RunTriggerKind.Manual), original.Id);
     });
@@ -74,7 +74,7 @@ public class RunStartService(
         => schedulingLock.Run<Result<RunStartOutcome>>(() =>
     {
         if (!pipelines.Contains(pipelineId))
-            return new ResultProblem("Pipeline '{0}' not found.", pipelineId);
+            return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
         if (!StageScheduler.TryParseInput(inputJson, out var input))
             return new ResultProblem("Run input must be a JSON object.");
 

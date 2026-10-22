@@ -72,7 +72,7 @@ public class PipelineConfigBindingService(
     public Result<PipelineConfigBinding> SetLastPushSha(Id<PipelineConfigBinding> id, string sha)
     {
         if (!store.TryGet(id, out var binding))
-            return new ResultProblem($"Binding '{id}' not found.");
+            return new NotFoundProblem("Binding '{0}' not found.", id);
 
         if (binding.LastPushSha == sha)
             return binding;
@@ -89,7 +89,7 @@ public class PipelineConfigBindingService(
     public Result<PipelineConfigBinding> SetLastReconciledSha(Id<PipelineConfigBinding> id, string sha)
     {
         if (!store.TryGet(id, out var binding))
-            return new ResultProblem($"Binding '{id}' not found.");
+            return new NotFoundProblem("Binding '{0}' not found.", id);
 
         if (binding.LastReconciledSha == sha)
             return binding;
@@ -119,7 +119,7 @@ public class PipelineConfigBindingService(
     public Result<PipelineConfigBinding> SetReconcileStatus(Id<PipelineConfigBinding> id, ReconcileStatus status)
     {
         if (!store.TryGet(id, out var binding))
-            return new ResultProblem($"Binding '{id}' not found.");
+            return new NotFoundProblem("Binding '{0}' not found.", id);
 
         var updated = binding with { Status = status };
         store.Set(updated);
@@ -129,7 +129,7 @@ public class PipelineConfigBindingService(
     public Result<PipelineConfigBinding> TryGet(Id<PipelineConfigBinding> id)
         => store.TryGet(id, out var binding)
             ? binding
-            : Result.Failure<PipelineConfigBinding>(new ResultProblem($"Binding '{id}' not found."));
+            : Result.Failure<PipelineConfigBinding>(new NotFoundProblem("Binding '{0}' not found.", id));
 
     public Result<PipelineConfigBinding> GetByPipelineId(Id<Pipeline> pipelineId)
     {
@@ -140,7 +140,7 @@ public class PipelineConfigBindingService(
                 return binding;
         }
 
-        return Result.Failure<PipelineConfigBinding>(new ResultProblem($"Pipeline '{pipelineId}' has no config binding."));
+        return Result.Failure<PipelineConfigBinding>(new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId));
     }
 
     public DeletionResult Delete(Id<PipelineConfigBinding> id) => store.Delete(id);

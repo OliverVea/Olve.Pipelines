@@ -1,5 +1,6 @@
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands.Wait;
+using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
@@ -11,14 +12,14 @@ public class WaitCommandTests
     [Arguments("2h", 7200)]
     [Arguments("45", 45)]
     public async Task Timeout_ParsesUnits(string text, int seconds) =>
-        await Assert.That(Waiter.ParseTimeout(text).Value).IsEqualTo(TimeSpan.FromSeconds(seconds));
+        await Assert.That(Waiter.ParseTimeout(text)).SucceededAndValue(v => v.IsEqualTo(TimeSpan.FromSeconds(seconds)));
 
     [Test]
     public async Task Timeout_RejectsNonsense_AndAbsentMeansNone()
     {
         await Assert.That(Waiter.ParseTimeout("soon").Succeeded).IsFalse();
         await Assert.That(Waiter.ParseTimeout("-5m").Succeeded).IsFalse();
-        await Assert.That(Waiter.ParseTimeout(null).Value).IsNull();
+        await Assert.That(Waiter.ParseTimeout(null)).SucceededAndValue(v => v.IsNull());
     }
 
     [Test]

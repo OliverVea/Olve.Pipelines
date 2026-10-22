@@ -63,20 +63,20 @@ public class WebhookTriggerTests
         })));
 
         await Assert.That(manifest).Succeeded();
-        var hooks = manifest.Value!.Triggers.OfType<WebhookTrigger>().ToList();
+        var hooks = TestRunDomain.Pick(manifest).Triggers.OfType<WebhookTrigger>().ToList();
         await Assert.That(hooks[0].Verify).IsEqualTo(new HmacSha256TriggerVerify("HOOK", "X-Hub-Signature-256", "sha256="));
         await Assert.That(hooks[1].Verify).IsEqualTo(new BearerTriggerVerify("HOOK"));
-        var written = JsonNode.Parse(ManifestWriter.ToCanonicalJson(manifest.Value!))!["triggers"]!.AsArray();
+        var written = JsonNode.Parse(ManifestWriter.ToCanonicalJson(TestRunDomain.Pick(manifest)))!["triggers"]!.AsArray();
         await Assert.That(JsonNode.DeepEquals(written.First(t => t!["name"]!.GetValue<string>() == "release"), Hmac)).IsTrue();
     }
 
     [Test]
     public async Task Validator_RejectsUndeclaredSecret_AndBadName()
     {
-        var undeclared = ManifestValidator.Validate(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(Hmac, declareSecret: false))).Value!);
+        var undeclared = ManifestValidator.Validate(TestRunDomain.Pick(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(Hmac, declareSecret: false)))));
         var badName = Hmac.DeepClone().AsObject();
         badName["name"] = "Bad_Name";
-        var named = ManifestValidator.Validate(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(badName))).Value!);
+        var named = ManifestValidator.Validate(TestRunDomain.Pick(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(badName)))));
 
         await Assert.That(undeclared.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.WebhookSecretUndeclared);
         await Assert.That(named.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.TriggerNameInvalid);

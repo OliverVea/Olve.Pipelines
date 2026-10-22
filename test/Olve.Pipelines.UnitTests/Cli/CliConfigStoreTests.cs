@@ -29,7 +29,7 @@ public class CliConfigStoreTests
         """{ "apiUrl": "https://old", "auth": { "accessToken": "t" } }""",
         async path =>
         {
-            var config = CliConfigStore.Load().Value!;
+            var config = TestRunDomain.Pick(CliConfigStore.Load());
             await Assert.That(config.Profile).IsEqualTo("default");
             await Assert.That(config.ApiUrl).IsEqualTo("https://old");
             await Assert.That(config.Auth!.AccessToken).IsEqualTo("t");
@@ -37,7 +37,7 @@ public class CliConfigStoreTests
             await Assert.That(CliConfigStore.Save(config).Succeeded).IsTrue();
             var text = await File.ReadAllTextAsync(path);
             await Assert.That(text).Contains("\"profiles\"");
-            await Assert.That(CliConfigStore.Load().Value!.ApiUrl).IsEqualTo("https://old");
+            await Assert.That(TestRunDomain.Pick(CliConfigStore.Load()).ApiUrl).IsEqualTo("https://old");
         });
 
     [Test]
@@ -46,18 +46,18 @@ public class CliConfigStoreTests
         await Assert.That(CliConfigStore.Save(new CliConfig { ApiUrl = "https://prod" }).Succeeded).IsTrue();
         await Assert.That(CliConfigStore.Save(new CliConfig { Profile = "beta", ApiUrl = "https://beta" }).Succeeded).IsTrue();
 
-        var profiles = CliConfigStore.LoadProfiles().Value!;
+        var profiles = TestRunDomain.Pick(CliConfigStore.LoadProfiles());
         await Assert.That(profiles.Keys).IsEquivalentTo(["default", "beta"]);
-        await Assert.That(CliConfigStore.Load("beta").Value!.ApiUrl).IsEqualTo("https://beta");
-        await Assert.That(CliConfigStore.Load().Value!.ApiUrl).IsEqualTo("https://prod");
-        await Assert.That(CliConfigStore.Load("missing").Value!.ApiUrl).IsNull();
+        await Assert.That(TestRunDomain.Pick(CliConfigStore.Load("beta")).ApiUrl).IsEqualTo("https://beta");
+        await Assert.That(TestRunDomain.Pick(CliConfigStore.Load()).ApiUrl).IsEqualTo("https://prod");
+        await Assert.That(TestRunDomain.Pick(CliConfigStore.Load("missing")).ApiUrl).IsNull();
     });
 
     [Test]
     public async Task Profile_FlagBeatsEnv_EnvBeatsDefault() => await WithConfigFile(null, async _ =>
     {
         static CliArgs Args(params string[] args) =>
-            CliArgs.Parse(args, new HashSet<string>(), new Dictionary<string, string>()).Value!;
+            TestRunDomain.Pick(CliArgs.Parse(args, new HashSet<string>(), new Dictionary<string, string>()));
 
         await Assert.That(CliConfigStore.ResolveProfile(Args("pipeline", "list"))).IsEqualTo("default");
         Environment.SetEnvironmentVariable(CliConfigStore.ProfileEnvVar, "beta");

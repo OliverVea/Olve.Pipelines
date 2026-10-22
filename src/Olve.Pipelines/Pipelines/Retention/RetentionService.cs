@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Distribution;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -82,7 +83,8 @@ public class RetentionService(
             sp.GetRequiredService<EntityStore<Attempt>>().List(),
             sp.GetRequiredService<EntityStore<PipelineVersion>>().List(),
             sp.GetRequiredService<AttachmentStore<Pipeline, PipelineActivation>>().GetAll(),
-            objects, jobs, secrets);
+            objects, jobs, secrets,
+            PinnedRuns(sp));
 
         var plan = RetentionPlanner.Plan(inputs, options);
         var names = pipelines.List().ToDictionary(p => p.Id, p => p.Name);
@@ -94,6 +96,12 @@ public class RetentionService(
         LogSummary(plan, objects is null, jobs is null, secrets is null);
         return plan;
     }
+
+    /// <summary>The run whose <c>pl</c> binaries <c>/download</c> serves — the same query the endpoint uses.</summary>
+    private static IReadOnlySet<Id<Run>> PinnedRuns(IServiceProvider sp) =>
+        sp.GetService<CliReleaseQuery>() is { } cli && cli.TryGetLatest(out var attempt)
+            ? new HashSet<Id<Run>> { attempt.RunId }
+            : new HashSet<Id<Run>>();
 
     private async Task ApplyAsync(IServiceProvider sp, RetentionPlan plan, IRetentionObjectStore? objectStore, string ns, CancellationToken ct)
     {

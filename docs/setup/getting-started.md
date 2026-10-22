@@ -24,12 +24,15 @@ that is solved; until then it describes how Olve.Pipelines' own `.pipelines/` an
 
 - A GitHub repository the server can read: public, or private with a token.
 - [Bun](https://bun.sh) on your machine, for `pl dev` and to create `bun.lock`.
-- The v2 **`pl` CLI**. `install.sh` and `/download/pl-linux-x64` serve v1's `pl` from v1 prod; the v2
-  self-deploy has no publish step yet. Build it from the `v2` branch:
+- The v2 **`pl` CLI**. The v2 instance serves the `pl` its own self-deploy built (Windows:
+  `irm https://pipelines-v2-beta.ovea.pro/install.ps1 | iex`):
   ```sh
-  dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # writes ~/.local/opt/pl-v2/pl (Native AOT)
+  curl -fsSL https://pipelines-v2-beta.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
   export PATH=~/.local/opt/pl-v2:$PATH                   # this shell: the v2 pl before a v1 pl on PATH
+  pl --version
   ```
+  The `install.sh` in the repo (and on v1 prod) installs v1's `pl` instead. From source:
+  `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
 - A session against the v2 instance. `pl`'s default URL is v1 prod, and `~/.pl` holds a single
   session, so give v2 its own config file and name the instance:
   ```sh

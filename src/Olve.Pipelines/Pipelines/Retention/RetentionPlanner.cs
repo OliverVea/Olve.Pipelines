@@ -14,6 +14,8 @@ public sealed record ClusterJob(string Name, IReadOnlyDictionary<string, string>
 public sealed record ClusterSecret(string Name, DateTimeOffset Created);
 
 /// <summary>A snapshot of everything retention decides over. A null listing means "unavailable": that part is skipped.</summary>
+/// <param name="PinnedRuns">Runs never expired whatever their age or rank — the run whose <c>publish-cli</c>
+/// files <c>/download</c> serves (<see cref="Distribution.CliReleaseQuery"/>).</param>
 public sealed record RetentionInputs(
     DateTimeOffset Now,
     IReadOnlySet<Id<Pipeline>> Pipelines,
@@ -23,7 +25,8 @@ public sealed record RetentionInputs(
     IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> Activations,
     IReadOnlyList<StoredObject>? Objects,
     IReadOnlyList<ClusterJob>? Jobs,
-    IReadOnlyList<ClusterSecret>? Secrets);
+    IReadOnlyList<ClusterSecret>? Secrets,
+    IReadOnlySet<Id<Run>>? PinnedRuns = null);
 
 public enum RetentionCategory
 {
@@ -72,7 +75,7 @@ public static class RetentionPlanner
 
     public static RetentionPlan Plan(RetentionInputs inputs, RetentionOptions options)
     {
-        var (expired, kept) = SelectExpiredRuns(inputs.Runs, inputs.Now, options.KeepLatestRuns, options.MinRunAge);
+        var (expired, kept) = SelectExpiredRuns(inputs.Runs, inputs.Now, options.KeepLatestRuns, options.MinRunAge, inputs.PinnedRuns);
         var expiredIds = expired.Select(r => r.Id).ToHashSet();
         var retainedRuns = inputs.Runs.Where(r => !expiredIds.Contains(r.Id)).ToList();
         var retainedAttempts = inputs.Attempts.Where(a => !expiredIds.Contains(a.RunId)).ToList();
@@ -100,16 +103,17 @@ public static class RetentionPlanner
 
     /// <summary>
     /// Per pipeline, newest first: the first <paramref name="keepLatest"/> are kept; of the rest, a finished run
-    /// whose last activity (finish, else creation) is older than <paramref name="minAge"/> expires.
+    /// whose last activity (finish, else creation) is older than <paramref name="minAge"/> expires, unless pinned.
     /// </summary>
     public static (IReadOnlyList<Run> Expired, int Kept) SelectExpiredRuns(
-        IEnumerable<Run> runs, DateTimeOffset now, int keepLatest, TimeSpan minAge)
+        IEnumerable<Run> runs, DateTimeOffset now, int keepLatest, TimeSpan minAge, IReadOnlySet<Id<Run>>? pinned = null)
     {
         var all = runs.ToList();
         var expired = all
             .GroupBy(r => r.PipelineId)
             .SelectMany(g => g.OrderByDescending(r => r.Number).Skip(Math.Max(0, keepLatest)))
             .Where(r => r.Status.IsTerminal() && now - (r.FinishedAt ?? r.CreatedAt) > minAge)
+            .Where(r => pinned is null || !pinned.Contains(r.Id))
             .OrderBy(r => r.PipelineId).ThenBy(r => r.Number)
             .ToList();
         return (expired, all.Count - expired.Count);

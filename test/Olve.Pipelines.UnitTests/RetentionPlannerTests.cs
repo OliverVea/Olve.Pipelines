@@ -69,6 +69,27 @@ public class RetentionPlannerTests
     }
 
     [Test]
+    public async Task PinnedRun_NeverExpires_AndKeepsItsObjects()
+    {
+        // The run whose publish-cli files /download serves (CliReleaseQuery) is old and beyond the latest 3.
+        var runs = Enumerable.Range(1, 6).Select(n => Run(P, n, 300)).ToList();
+        var pinned = runs[1];
+        var objects = new[]
+        {
+            Obj($"runs/{Hex(P)}/1/publish-cli/1/files/pl-linux-x64", 300),
+            Obj($"runs/{Hex(P)}/2/publish-cli/1/files/pl-linux-x64", 300),
+        };
+
+        var plan = RetentionPlanner.Plan(
+            Inputs(runs, objects: objects) with { PinnedRuns = new HashSet<Id<Run>> { pinned.Id } },
+            Options with { KeepLatestRuns = 3, MinRunAge = TimeSpan.FromDays(14) });
+
+        await Assert.That(plan.ExpiredRuns.Select(r => r.Number)).IsEquivalentTo(new[] { 1, 3 });
+        await Assert.That(plan.Objects.Select(o => o.Object.Key))
+            .IsEquivalentTo(new[] { $"runs/{Hex(P)}/1/publish-cli/1/files/pl-linux-x64" });
+    }
+
+    [Test]
     public async Task ExpiredRun_ObjectsGo_ButNeverRunJson_RetainedRunsUntouched()
     {
         var runs = Enumerable.Range(1, 21).Select(n => Run(P, n, 300)).ToList();

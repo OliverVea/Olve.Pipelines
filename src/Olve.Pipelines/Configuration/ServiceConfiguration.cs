@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Olve.Pipelines.Distribution;
 using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
@@ -152,5 +153,10 @@ public static class ServiceConfiguration
         // Retention (Retention:*): expired runs, unused binaries, leftovers, orphaned URL Secrets / Jobs.
         services.AddSingleton(sp => RetentionOptions.From(sp.GetRequiredService<IConfiguration>()));
         services.AddHostedService<RetentionService>();
+
+        // pl CLI distribution (Distribution:*): /download serves the configured pipeline's latest publish-cli
+        // files; retention keeps that run.
+        services.AddSingleton(sp => DistributionOptions.From(sp.GetRequiredService<IConfiguration>()));
+        services.AddTransient<CliReleaseQuery>();
     }
 }

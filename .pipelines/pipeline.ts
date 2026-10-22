@@ -1,9 +1,10 @@
 // In-repo CD pipeline for Olve.Pipelines v2 — v2 branch, beta only (docs/design/pipelines-v2.md §13).
 //
-// source → build ∥ test → deploy-beta: build the branch's image with kaniko (layer cache in the
-// in-cluster registry) while the unit tests run; deploy the Helm release olve-pipelines-v2 into
-// apps-beta over SSH once both succeeded (the stage barrier gates the deploy on the tests), then
-// health-check the in-cluster Service.
+// source → build ∥ test → deploy-beta → publish-cli: build the branch's image with kaniko (layer
+// cache in the in-cluster registry) while the unit tests run; deploy the Helm release
+// olve-pipelines-v2 into apps-beta over SSH once both succeeded (the stage barrier gates the deploy
+// on the tests), then health-check the in-cluster Service; then build the `pl` CLI of the same
+// commit, which the freshly deployed instance serves at /download.
 //
 // Bound on the v2 instance itself since plan milestone M4 (pipeline f26d19cf…, binding path .pipelines).
 // The v1-format config.yaml beside this file is the recovery path: the v1 pipeline that runs it is
@@ -50,12 +51,29 @@ export const deployBeta = steps.helmDeployOverSsh({
   timeoutSeconds: 900,
 });
 
+/**
+ * Build the `pl` operator CLI (linux-x64 Native AOT, win-x64 self-contained single-file) from the
+ * deployed commit. Its output files are what the instance serves at GET /download/<asset>
+ * (`Distribution__CliPipeline` names this pipeline; retention keeps the served run). Runs after
+ * deploy-beta, so a published pl always matches a backend that actually deployed, and is not a third
+ * MSBuild beside kaniko and the tests. Handler: handlers/publish-cli.ts.
+ */
+export const publishCli = step({
+  name: "publish-cli",
+  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",   // glibc + the SDK; the handler apt-installs clang for the AOT link
+  input: { source: Source },
+  output: M.CliRelease,
+  timeoutSeconds: 1800,
+});
+
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests, and deploy it to apps-beta (olve-pipelines-v2) with Helm.",
+  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm, and publish the pl CLI it serves.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build, test)                                     // both take the Source (matched by model)
-  .when({ deployTo: "beta" }, p => p.stage(deployBeta));   // Source + BuiltImage, matched by model
+  .when({ deployTo: "beta" }, p => p
+    .stage(deployBeta)                                    // Source + BuiltImage, matched by model
+    .stage(publishCli));                                  // only real deploys publish a pl

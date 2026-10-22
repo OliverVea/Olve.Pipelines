@@ -66,6 +66,24 @@ public class AttemptFileService(IAmazonS3 s3, StorageOptions storageOptions)
             files.OrderBy(f => f.Path, StringComparer.Ordinal).ToArray());
     }
 
+    /// <summary>The size of a stored object (a HEAD, no body); null when it does not exist.</summary>
+    public async Task<long?> GetSizeAsync(Attempt attempt, string objectPath, CancellationToken ct)
+    {
+        try
+        {
+            var response = await s3.GetObjectMetadataAsync(new GetObjectMetadataRequest
+            {
+                BucketName = storageOptions.Bucket,
+                Key = StorageLayout.AttemptFileKey(attempt.PipelineId, attempt.RunNumber, attempt.StepName, attempt.Number, objectPath),
+            }, ct);
+            return response.ContentLength;
+        }
+        catch (AmazonS3Exception e) when (e.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Opens a stored object for streaming; null when it does not exist.</summary>
     public async Task<AttemptFileDownload?> OpenAsync(Attempt attempt, string objectPath, CancellationToken ct)
     {

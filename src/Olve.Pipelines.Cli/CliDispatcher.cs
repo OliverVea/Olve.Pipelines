@@ -1,3 +1,4 @@
+using System.Reflection;
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Bindings;
@@ -108,6 +109,13 @@ public sealed class CliDispatcher
             return 2; // no command supplied — usage error
         }
 
+        // `pl --version`: the InformationalVersion the build stamped (the publishing run's version stamp).
+        if (args is ["--version"])
+        {
+            Console.WriteLine($"pl {Version}");
+            return 0;
+        }
+
         var helpRequested = args.Any(a => a is "--help" or "-h");
         var peek0 = args[0].StartsWith('-') ? null : args[0];
         var peek1 = args.Count > 1 && !args[1].StartsWith('-') ? args[1] : null;
@@ -213,6 +221,10 @@ public sealed class CliDispatcher
         return 1;
     }
 
+    /// <summary>The assembly's InformationalVersion (set with <c>-p:InformationalVersion=…</c> when published).</summary>
+    public static string Version { get; } =
+        typeof(CliDispatcher).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+
     private void PrintUsage()
     {
         Console.WriteLine("pl — Olve.Pipelines operator + API CLI");
@@ -228,6 +240,7 @@ public sealed class CliDispatcher
         Console.WriteLine("  --json        Machine-readable JSON output on stdout");
         Console.WriteLine("  --verbose,-v  Diagnostic logging to stderr");
         Console.WriteLine("  --help,-h     Show help for the command");
+        Console.WriteLine("  --version     Print the CLI version (alone: `pl --version`)");
         Console.WriteLine();
         Console.WriteLine("Run `pl <command> --help` for command-specific options.");
     }

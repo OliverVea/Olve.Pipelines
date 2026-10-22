@@ -1,7 +1,5 @@
-using System.Net;
 using Amazon.S3;
-using Amazon.S3.Model;
-using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Pipelines.Runs;
 
 // `Results` alone resolves to the Olve.Results namespace (global using), so alias the ASP.NET one.
 using HttpResults = Microsoft.AspNetCore.Http.Results;
@@ -9,68 +7,112 @@ using HttpResults = Microsoft.AspNetCore.Http.Results;
 namespace Olve.Pipelines.Distribution;
 
 /// <summary>
-/// Anonymous download endpoints for the <c>pl</c> operator CLI binaries. The pipeline's
-/// <c>publish-cli</c> step builds the binaries and uploads them to this instance's MinIO under
-/// <c>cli/latest/&lt;file&gt;</c>; this streams them straight back so an operator can bootstrap the
-/// CLI with a single <c>curl</c> — before they have a token to authenticate with (hence anonymous).
+/// Anonymous downloads of the <c>pl</c> operator CLI, so an operator can bootstrap the CLI with a single
+/// <c>curl</c> — before they have a token (hence anonymous).
+/// <list type="bullet">
+/// <item><c>GET|HEAD /download/{asset}</c>: an output file of the latest successful <c>publish-cli</c> attempt
+/// of the configured pipeline (<see cref="CliReleaseQuery"/>), streamed from this instance's Garage (run file
+/// storage, <c>runs/&lt;p&gt;/&lt;run&gt;/publish-cli/&lt;attempt&gt;/files/&lt;asset&gt;</c>). Anything else under
+/// <c>/download/</c> is a 404, never the SPA.</item>
+/// <item><c>GET /install.sh</c>, <c>GET /install.ps1</c>: the repo's install scripts with their default
+/// instance replaced by this one (<c>Links:BaseUrl</c>, else the request's origin), so
+/// <c>curl -fsSL &lt;instance&gt;/install.sh | sh</c> installs this instance's <c>pl</c>.</item>
+/// </list>
+/// None of these are API operations, so they are kept out of the OpenAPI document.
 /// </summary>
 public static class CliDownloadEndpoints
 {
-    // Public download name -> object key. The allow-list is the security boundary: only these
-    // names resolve, so the route can never be used to read arbitrary keys out of the bucket.
-    private static readonly Dictionary<string, string> Assets = new(StringComparer.Ordinal)
+    /// <summary>
+    /// The allow-list is the security boundary: only these names resolve, so the route can never read other
+    /// files of the attempt, let alone arbitrary keys of the bucket.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> Assets = new HashSet<string>(StringComparer.Ordinal)
     {
-        ["pl-linux-x64"] = "cli/latest/pl-linux-x64",
-        ["pl-win-x64.exe"] = "cli/latest/pl-win-x64.exe",
+        "pl-linux-x64",
+        "pl-win-x64.exe",
     };
+
+    /// <summary>The default instance written in <c>install.sh</c> / <c>install.ps1</c> (v1 prod over Tailscale).</summary>
+    internal const string ScriptDefaultBaseUrl = "https://pipelines-private.ovea.pro";
 
     public static void MapCliDownloadEndpoints(this WebApplication app)
     {
-        app.MapGet("/download/{asset}", async Task<IResult> (
-            string asset,
+        app.MapMethods("/download/{**asset}", [HttpMethods.Get, HttpMethods.Head], async Task<IResult> (
+            string? asset,
             HttpContext http,
             IServiceProvider services,
             CancellationToken ct) =>
         {
-            if (!Assets.TryGetValue(asset, out var key))
+            if (asset is null || !Assets.Contains(asset))
                 return HttpResults.NotFound();
 
-            // IAmazonS3 is only registered when storage is configured (it is not in the ephemeral
-            // doc-generation / no-storage profiles) — resolve it optionally so the route degrades
-            // to 503 instead of a DI resolution failure.
-            if (services.GetService<IAmazonS3>() is not { } s3)
+            // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation /
+            // no-storage profiles), so resolve optionally and degrade to 503 instead of a DI failure.
+            if (services.GetService<IAmazonS3>() is null)
                 return HttpResults.Problem("Storage not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
 
-            var storage = services.GetRequiredService<StorageOptions>();
-
-            GetObjectResponse response;
-            try
-            {
-                response = await s3.GetObjectAsync(new GetObjectRequest
-                {
-                    BucketName = storage.Bucket,
-                    Key = key,
-                }, ct);
-            }
-            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-            {
-                // Binary not published yet (or wrong key) — surface as 404, not 500.
+            // Not published yet (or Distribution:CliPipeline unset).
+            if (!services.GetRequiredService<CliReleaseQuery>().TryGetLatest(out var attempt))
                 return HttpResults.NotFound();
+
+            var files = services.GetRequiredService<AttemptFileService>();
+            http.Response.Headers.ContentDisposition = $"attachment; filename=\"{asset}\"";
+            http.Response.Headers["X-Olve-Pl-Run"] = attempt.RunNumber.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            if (HttpMethods.IsHead(http.Request.Method))
+            {
+                if (await files.GetSizeAsync(attempt, asset, ct) is not { } size)
+                    return HttpResults.NotFound();
+                http.Response.ContentType = "application/octet-stream";
+                http.Response.ContentLength = size;
+                return HttpResults.Empty;
             }
+
+            using var download = await files.OpenAsync(attempt, asset, ct);
+            if (download is null)
+                return HttpResults.NotFound();
 
             http.Response.ContentType = "application/octet-stream";
-            http.Response.ContentLength = response.ContentLength >= 0 ? response.ContentLength : null;
-            http.Response.Headers.ContentDisposition = $"attachment; filename=\"{asset}\"";
-
-            // Stream straight from MinIO to the client — never buffer the (~70 MB) binary in the pod.
-            using (response)
-            {
-                await response.ResponseStream.CopyToAsync(http.Response.Body, ct);
-            }
-
+            http.Response.ContentLength = download.Length;
+            // Stream straight from Garage to the client — never buffer the (~70 MB) binary in the pod.
+            await download.Content.CopyToAsync(http.Response.Body, ct);
             return HttpResults.Empty;
         })
         .AllowAnonymous()
+        .ExcludeFromDescription()
         .WithName("DownloadCli");
+
+        app.MapGet("/install.sh", (HttpContext http, IConfiguration config) => InstallScript(http, config, "install.sh", "text/x-shellscript; charset=utf-8"))
+            .AllowAnonymous()
+            .ExcludeFromDescription()
+            .WithName("CliInstallScript");
+
+        app.MapGet("/install.ps1", (HttpContext http, IConfiguration config) => InstallScript(http, config, "install.ps1", "text/plain; charset=utf-8"))
+            .AllowAnonymous()
+            .ExcludeFromDescription()
+            .WithName("CliInstallScriptWindows");
     }
+
+    private static IResult InstallScript(HttpContext http, IConfiguration config, string name, string contentType)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, name);
+        if (!File.Exists(path))
+            return HttpResults.NotFound();
+
+        var script = RewriteDefaultBaseUrl(File.ReadAllText(path), InstanceBaseUrl(http, config));
+        return HttpResults.Text(script, contentType);
+    }
+
+    /// <summary><c>Links:BaseUrl</c> (the public URL), else the request's own origin.</summary>
+    internal static string InstanceBaseUrl(HttpContext http, IConfiguration config)
+    {
+        var configured = config["Links:BaseUrl"];
+        return string.IsNullOrWhiteSpace(configured)
+            ? $"{http.Request.Scheme}://{http.Request.Host}"
+            : configured.TrimEnd('/');
+    }
+
+    /// <summary>Replaces the script's default instance; an <c>PL_API_URL</c> override still wins.</summary>
+    internal static string RewriteDefaultBaseUrl(string script, string baseUrl) =>
+        script.Replace(ScriptDefaultBaseUrl, baseUrl, StringComparison.Ordinal);
 }

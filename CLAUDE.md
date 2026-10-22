@@ -62,6 +62,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Scheduling` | `RunStartService`, `StageScheduler`, `RunPlan`, `AttemptInputBuilder`, `RunContinuationService`, `RunCancellationService`, `StepGateService`, `SwitchService`, `AttemptLaunchService` |
 | `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `AttemptFileService`, `RunCleanupService` |
 | `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
+| `Distribution` | `CliDownloadEndpoints` (`/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
 | `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
 | `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
 | `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IPersistenceReadiness` |

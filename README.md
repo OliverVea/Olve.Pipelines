@@ -67,7 +67,7 @@ rerun, continue, gates, switch, secret values, binding trigger mode — are API-
 ```
 src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 ├── Configuration/                  Auth, telemetry, JSON, host, storage, DI wiring
-├── Distribution/                   /download/{asset} (pl binaries from Garage)
+├── Distribution/                   /download/{asset} (latest publish-cli files), /install.sh|.ps1
 ├── GitHub/                         GitHub client, push webhook payload + signature
 ├── Health/                         /api/health, /api/ready
 ├── Jobs/                           JobRunner, K8s executor, obsoletion, job (attempt) endpoints
@@ -191,22 +191,29 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | GET | `/api/health` | Liveness |
 | GET | `/api/ready` | Readiness (persisted state loaded) |
 | GET | `/api/config/frontend` | OIDC authority + client id for the UI and `pl login` |
-| GET | `/download/{asset}` | `pl` binary (`pl-linux-x64`, `pl-win-x64.exe`) from the instance's Garage, if published there |
+| GET, HEAD | `/download/{asset}` | `pl` binary (`pl-linux-x64`, `pl-win-x64.exe`): an output file of the latest successful `publish-cli` attempt of the pipeline named by `Distribution:CliPipeline` (404 until one exists). Anonymous; retention keeps that run |
+| GET | `/install.sh`, `/install.ps1` | The `pl` install scripts, defaulting to this instance (`Links:BaseUrl`, else the request origin) |
 | GET | `/docs/<page>.md` | The setup guide (raw Markdown), `/docs/llms.txt` |
 
 ## The `pl` CLI
 
 ### Installing
 
-`install.sh` / `install.ps1` download `pl` from an instance's `/download/<asset>`; by default from v1
-prod, which publishes **v1's** `pl`. The v2 self-deploy has no CLI publish step yet, so build the v2
-`pl` from this branch:
+The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every deployed commit, and v2 beta
+serves it. Install it from there:
 
 ```bash
-dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # writes ~/.local/opt/pl-v2/pl (Native AOT)
+curl -fsSL https://pipelines-v2-beta.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh
 export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2   # v2 pl first; keep its session apart from v1's ~/.pl
+pl --version                                                    # the publishing run's version stamp
 pl login --api-url https://pipelines-v2-beta.ovea.pro           # add --device over SSH
 ```
+
+Windows: `irm https://pipelines-v2-beta.ovea.pro/install.ps1 | iex`. The binaries alone:
+`/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
+The scripts in the repo (and `install.sh` from raw GitHub) default to v1 prod, which serves **v1's**
+`pl`; an instance serving them rewrites the default to itself. `PL_API_URL` / `PL_INSTALL_DIR`
+override. From source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
 
 `pl login` caches the token and the API URL in `~/.pl` (or `$PIPELINES_CONFIG`); `--api-url` /
 `PIPELINES_API_URL` override the URL per command, `--token` passes a bearer directly.
@@ -336,6 +343,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Retention:OrphanGraceDays` / `ResultArchiveGraceHours` | `7` / `24` | Leftover objects of deleted runs / stale `result.tar.gz` |
 | `Retention:ClusterGraceMinutes` / `FinishedJobMaxAgeDays` | `60` / `7` | URL Secrets and leaked step Jobs / TTL-less finished Jobs |
 | `Retention:IntervalHours` / `StartupDelayMinutes` | `24` / `2` | Sweep schedule |
+| `Distribution:CliPipeline` / `Distribution:CliStep` | — / `publish-cli` | Pipeline (name or id) whose latest successful `CliStep` attempt `/download` serves; unset = nothing served. Retention keeps that run |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
 | `Logging:Console:Json:UseUtcTimestamp` | `false` | UTC timestamps with the `json` formatter |

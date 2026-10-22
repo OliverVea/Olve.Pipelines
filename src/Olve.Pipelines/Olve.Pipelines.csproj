@@ -23,6 +23,13 @@
              Link="wwwroot\llms.txt"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
+    <!-- The pl install scripts, served at /install.sh and /install.ps1 with this instance as their
+         default (Distribution/CliDownloadEndpoints.cs). Next to the binary, not in wwwroot: they are
+         rewritten per request, never served raw. -->
+    <Content Include="$(MSBuildThisFileDirectory)..\..\install.sh;$(MSBuildThisFileDirectory)..\..\install.ps1"
+             Link="%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

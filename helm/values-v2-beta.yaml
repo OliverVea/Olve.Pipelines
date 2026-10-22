@@ -19,6 +19,9 @@ config:
   Retention__DryRun: "false"
   Retention__MinRunAgeDays: "14"
   Retention__KeepLatestRuns: "3"
+  # /download serves the pl binaries of this pipeline's latest successful publish-cli attempt (the
+  # self-deploy's own .pipelines/pipeline.ts); retention keeps that run whatever its age or rank.
+  Distribution__CliPipeline: "Olve.Pipelines v2"
 
 # MinIO is archived (images 401); v2 never had one.
 minio:

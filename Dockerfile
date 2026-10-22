@@ -11,6 +11,8 @@ COPY src/Olve.Pipelines/ src/Olve.Pipelines/
 COPY src/Olve.Pipelines.Cli/ src/Olve.Pipelines.Cli/
 # The setup guide is served at /docs; the csproj globs docs/setup/*.md into wwwroot on publish.
 COPY docs/setup/ docs/setup/
+# The pl install scripts, served at /install.sh and /install.ps1 (the csproj copies them next to the binary).
+COPY install.sh install.ps1 ./
 # Tests are NOT run in the image build — they run in the `code-test` production step in
 # .pipelines/config.yaml, in parallel with this build rather than serialized inside it.
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -o /app

@@ -30,7 +30,8 @@ fixture), `frontend/` (Lit SPA), `docs/`.
 Olve.Pipelines deploys itself. **v2 (this branch):** the v2 beta instance
 (`pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`) runs the pipeline
 "Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` → `build` ∥ `test` →
-`deploy-beta` (`steps.helmDeployOverSsh`, values `values-beta.yaml` + `values-v2-beta.yaml`). The
+`deploy-beta` (`steps.helmDeployOverSsh`, values `values-beta.yaml` + `values-v2-beta.yaml`) →
+`publish-cli` (the `pl` that v2 beta serves at `/download`, see below). The
 deploy poll (no public webhook on v2 beta) reconciles `.pipelines/` commits into versions and
 starts a run per push; `deploy-beta` restarts the pod running the run, and the new pod reattaches
 to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this branch is paused (blocked
@@ -64,11 +65,24 @@ specs under `docs/superpowers/specs/` (`pl-cli-self-installation`, `self-bootstr
 
 ## `pl` CLI distribution
 
-The `pl` binaries are built and served by this repo's own pipeline — no GitHub Releases. The
-`publish-cli` processing step (last; `.pipelines/scripts/publish-cli.sh`) builds `linux-x64`
-(Native AOT) + `win-x64` (self-contained single-file — AOT can't cross-compile to Windows from a
-Linux runner) and `mc cp`s both to the instance's MinIO under `cli/{latest,<version>}/`. The app
-serves them anonymously from `GET /download/{asset}` (`Distribution/CliDownloadEndpoints.cs`,
-allow-listed asset names, streamed from S3, never buffered). `install.sh` / `install.ps1` fetch
-from there. **Operator prereq:** set `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` on the pipeline secret
-to the app's MinIO root creds (k8s secret `olve-pipelines-minio`, keys `root-user`/`root-password`).
+The `pl` binaries are built and served by this repo's own pipeline — no GitHub Releases.
+
+**v2 (this branch):** the `publish-cli` step of `.pipelines/pipeline.ts` (custom step, handler
+`.pipelines/handlers/publish-cli.ts`, image `dotnet/sdk:10.0-noble`; its own stage after
+`deploy-beta`, inside the same `when`, so only real deploys publish) builds `linux-x64` (Native AOT;
+the handler apt-installs clang + zlib1g-dev) + `win-x64` (self-contained single-file — AOT can't
+cross-compile to Windows from Linux), stamped `InformationalVersion` = the run's version stamp
+(`pl --version`), and returns them as **output files** (`pl-linux-x64`, `pl-win-x64.exe`; output
+model `CliRelease`). No storage credentials in the step pod: the files travel in the normal result
+upload into `runs/<p>/<run>/publish-cli/<attempt>/files/`. The app serves the latest successful
+`publish-cli` attempt of the pipeline named by `Distribution__CliPipeline` (`values-v2-beta.yaml`:
+"Olve.Pipelines v2"; unset → 404) anonymously at `GET|HEAD /download/{asset}`
+(`Distribution/CliDownloadEndpoints.cs`, `CliReleaseQuery`; allow-listed names, streamed from
+Garage, never buffered; anything else under `/download/` is a 404). Retention pins that run
+(`RetentionInputs.PinnedRuns`), so the served `pl` survives beta's 14 days / latest 3.
+`GET /install.sh` / `/install.ps1` serve the repo's scripts with the default instance rewritten
+to this one (`Links:BaseUrl`, else the request origin).
+
+**v1 (`main`):** the `publish-cli` processing step (`.pipelines/scripts/publish-cli.sh`, left
+untouched on this branch as the rollback) uploads to `cli/{latest,<version>}/` with the
+`MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` pipeline secrets; v2's endpoint no longer reads those keys.

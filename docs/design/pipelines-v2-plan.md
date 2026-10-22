@@ -454,12 +454,42 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - Environments/tags, problem types lifted into Olve.MinimalApi, metrics, a `pl` smoke step, Blazor
   revisit.
 
-### Promotion checklist (v2 → prod / `main`)
+### v2.3 — output caching
 
-- The first v2 deploy to prod removes prod's MinIO Deployment and Service (the v2 chart has no MinIO
-  templates). Its PVC `olve-pipelines-minio-data` has `resource-policy: keep`, so it stays behind,
-  orphaned; delete it by hand once the data is confirmed unneeded. Confirm with the user before
-  promoting. The `olve-pipelines-minio` Secret stays: it holds the Garage credentials.
+- Opt-in per step: `cache: true` keys on the whole input; `cache: { key: { cli: [source, s => s.hashes.cli] } }`
+  keys on a mapped subset, recorded as tagged mappings so the service computes it without TypeScript.
+  Off by default (deploys must always run).
+- `gitHubSource` option `hashes: { cli: ["src/Olve.Pipelines.Cli", …] }` adds content hashes of path
+  sets to `Source.hashes`; whole-input keys never hit for source-based steps because `sha`/`tree`
+  change every commit.
+- A succeeded attempt with the same step name, step version (includes the handler hash) and key is
+  reused: a succeeded attempt with `cachedFrom`, output by reference, no Job. Retention keeps runs
+  whose files are still referenced; `/download` pinning follows the refs.
+- Motivating case: `publish-cli` (~3.5 min of a ~8 min run) on commits that don't touch the CLI.
+  Groundwork exists: attempts store `InputHash`.
+
+### Road to prod (four instances, then cut over)
+
+v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
+
+1. **v2 prod instance**: release `olve-pipelines-v2` in `apps`, runners in `olve-runners` (shared with
+   v1 prod), own Garage, `pipelines-v2.ovea.pro`. Needs `helm/values-v2-prod.yaml` overriding v1's
+   prod defaults (Garage endpoint/bucket, `Webhooks__PublicBaseUrl: ""` so it doesn't register hooks
+   at v1's URL, a smaller Garage volume, `Links__BaseUrl`), an Olve.Homelab route and an Authentik
+   prod redirect URI. Keep `Retention__DryRun` on until the leaked Job/Secret sweep is confirmed to
+   select only its own resources in the shared namespace.
+2. **`deploy-prod`** in the pipeline's `when deployTo: "prod"` block. Promotion = `pl run continue
+   <run> --field deployTo=prod` on a beta run, so prod gets the image beta ran. For now the pipeline
+   stays on v2 beta, which therefore deploys v2 prod; `/download` on v2 prod serves nothing until the
+   deployer moves there.
+3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
+   pipeline's gate before binding v2.
+4. **Cut over**: move the deployer pipeline onto v2 prod (deploy-beta → gate → deploy-prod, the v1
+   shape), point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
+   to `main`, remove the v1 releases.
+5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC
+   `olve-pipelines-minio-data` (`resource-policy: keep`) stays orphaned until deleted by hand. The
+   `olve-pipelines-minio` Secret stays: it holds the Garage credentials.
 
 ## Milestones
 

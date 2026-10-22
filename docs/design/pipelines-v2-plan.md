@@ -483,6 +483,18 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - Motivating case: `publish-cli` (~3.5 min of a ~8 min run) on commits that don't touch the CLI.
   Groundwork exists: attempts store `InputHash`.
 
+### v2.3 — rollback monitoring
+
+- A deploy step declares what healthy means and for how long, in the SDK:
+  `monitor: { forSeconds: 900, checks: [httpCheck(url, { expect: 200 }), …], onBreach: "rollback" }`.
+  Checks are typed library pieces (HTTP status/body, later metrics queries), recorded in the manifest
+  like other step config.
+- After the step succeeds, the service runs the checks for the window. The step's attempt shows
+  "monitoring"; a later stage can wait for the window to pass (prod after a quiet beta).
+- On breach: rollback reruns the same deploy step with the previous healthy deployment's input (from
+  the run that last passed its window on that step), then notifies through `onFailure`. Builds on
+  environments (v2.2), which record what is deployed where.
+
 ### Road to prod (four instances, then cut over)
 
 v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.

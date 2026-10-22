@@ -7,36 +7,28 @@ using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
 
 namespace Olve.Pipelines.UnitTests.Scheduling;
 
-/// <summary>Run starts: supersede, automatic-trigger de-dup, latest-wins across runs, whole-run reruns.</summary>
+/// <summary>Run starts: concurrent runs, automatic-trigger de-dup, latest-wins across runs, whole-run reruns.</summary>
 public class RunStartTests
 {
     [Test]
-    public async Task AutomaticRun_SupersedesOlderRunningRuns_CancelsScheduled_LetsInProgressFinish()
+    public async Task AutomaticRun_LeavesOlderRunningRunsRunning_TheyFlowOnConcurrently()
     {
         var s = new SchedulerScenario();
         var older = s.Start(Input(sha: Sha), RunTriggerKind.Push);
         s.Succeed(older, "checkout");
-        s.MarkInProgress(older, "build"); // in flight; test stays Scheduled
+        s.MarkInProgress(older, "build");
 
         var newer = s.Start(Input(sha: OtherSha), RunTriggerKind.Push);
 
-        var superseded = s.Get(older);
-        await Assert.That(superseded.Status).IsEqualTo(RunStatus.Superseded);
-        await Assert.That(superseded.SupersededBy).IsEqualTo(newer.Id);
-        await Assert.That(s.Latest(older, "build")!.Status).IsTypeOf<InProgress>();
-        await Assert.That(s.Latest(older, "test")!.Status).IsTypeOf<Cancelled>();
-
-        // The in-flight attempt finishes normally but the superseded run never advances.
-        s.Succeed(older, "build");
-        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
-
-        // The newer run is unaffected by the older run's cancelled/obsoleted attempts and completes.
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Running);
+        await Assert.That(s.Latest(older, "test")!.Status).IsTypeOf<Scheduled>();
         await Assert.That(s.Active(newer)).IsEquivalentTo(["checkout"]);
-        s.SucceedThroughDeployBeta(newer);
-        s.Succeed(newer, "summary");
-        await Assert.That(s.Get(newer).Status).IsEqualTo(RunStatus.Succeeded);
-        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
-        await Assert.That(s.Latest(older, "deploy-beta")).IsNull();
+
+        // The older run moves on to its next stage while the newer one is still behind it.
+        s.Succeed(older, "build");
+        s.Succeed(older, "test");
+        await Assert.That(s.Active(older)).IsEquivalentTo(["deploy-beta"]);
+        await Assert.That(s.Get(newer).Status).IsEqualTo(RunStatus.Running);
     }
 
     [Test]
@@ -47,7 +39,7 @@ public class RunStartTests
 
         var newer = s.Start(Input(sha: OtherSha), RunTriggerKind.Push);
 
-        // Latest-wins obsoleted the older checkout; supersede marked the run. Neither touches the newer run.
+        // Both checkouts waited: latest-wins obsoleted the older one, which supersedes its run.
         await Assert.That(s.Latest(older, "checkout")!.Status).IsTypeOf<Obsolete>();
         await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
         await Assert.That(s.Get(older).SupersededBy).IsEqualTo(newer.Id);

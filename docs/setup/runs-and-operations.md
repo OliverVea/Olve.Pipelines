@@ -32,19 +32,19 @@ automatically (a new attempt in a fresh pod) until it has failed 1 + n times in 
 
 - **One in progress per step.** Across all runs of a pipeline, at most one attempt per step name is
   `InProgress`. A newer run's attempt of the same step waits for it.
-- **Latest-wins.** Among `Scheduled` attempts of one step, only the newest runs; older ones become
-  `Obsolete`.
-- **Supersede.** A new *automatic* run (push or poll) supersedes every older running run of the
-  pipeline: the older run becomes `Superseded` (linked to the new one), its scheduled attempts are
-  cancelled, and its in-progress attempts finish (a half-done deploy is never killed) but the run
-  never advances.
+- **Latest-wins.** When attempts of one step are waiting (`Scheduled`), only the newest run's
+  runs; the older ones become `Obsolete` and their runs `Superseded` (linked to the newer run).
+- **Runs flow on concurrently.** Starting a run leaves older runs running. Under a stream of pushes
+  an older run keeps moving through the later stages (deploy-beta, then prod) while newer ones build
+  behind it; runs only meet at a step, under the two rules above. A run past a step is never
+  stopped by a newer one.
 - **De-duplication (automatic triggers only).** The key is the mapped input. A push and a poll for
   the same commit make one run. An automatic trigger is dropped when a running run on the same
   version has the same input, or when the most recent automatic run has the same input, wasn't
   cancelled and started less than **1 hour** ago. (Comparing with the latest run only means
   A → B → A deploys A again.)
 - **Explicit actions always create work.** `pl trigger`, the UI form, reruns and continues are never
-  de-duplicated and never supersede anything.
+  de-duplicated.
 - **Blocked steps.** A blocked step holds a run that reaches it — see [Blocking Steps](blocking-steps.md).
 - **Switching versions.** While a pipeline drains, new runs are queued and start on the new
   version — see [Switch and rollback](binding-and-reconcile.md#switch-and-rollback).
@@ -81,8 +81,7 @@ shows the latest attempt whatever its status; output and files use the latest su
   input model (`sha=0123` stays a string); the model's defaults fill the rest. Invalid input is
   rejected with every problem listed and nothing starts. The response says whether the run
   `started` or was `queued` behind a version switch.
-- **Cancel** cancels the run and its scheduled *and in-progress* attempts (their Jobs are deleted) —
-  unlike supersede. On a run that already finished but still has active attempts (e.g. a superseded
+- **Cancel** cancels the run and its scheduled *and in-progress* attempts (their Jobs are deleted). On a run that already finished but still has active attempts (e.g. a superseded
   run's deploy), only those attempts are cancelled.
 - **Rerun run** creates a new run with the same input on the version a run started now would use,
   linked via `rerunOf`. The input is re-validated against that version.

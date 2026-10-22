@@ -56,7 +56,7 @@ continuing, blocking a step, switching versions, setting secret values — go th
    run steps from source before you push.
 4. **[Binding, Reconcile & Versions](binding-and-reconcile.md)** — the binding, how changes are noticed
    modes, how a commit becomes a version, `switch` and rollback, reading the status.
-5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, supersede, de-duplication,
+5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
 6. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
    the pipeline or its target (`pl step block`), and let them resume.

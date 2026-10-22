@@ -237,7 +237,8 @@ pl step logs my-app#1/test --follow
    checks → a new version if the manifest changed → `switch` to it. A run never starts on a
    definition older than its commit.
 3. The pipeline's `onPush` mapper turns the push into a run input (in a short `map-trigger` Job),
-   and a run starts on the active version. A newer automatic run **supersedes** an older running one.
+   and a run starts on the active version. Older runs keep going; runs meet only at a step (see
+   [Scheduling rules](runs-and-operations.md#scheduling-rules)).
 
 Only commits that touch the binding path (or a local `file:` dependency of its `package.json`)
 create versions. A pipeline without `onPush` ignores pushes.

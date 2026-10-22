@@ -14,7 +14,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [pipeline-reference.md](pipeline-reference.md) | Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, checks, versioning |
 | [local-development.md](local-development.md) | `pl dev describe \| validate \| run \| pipeline`, `--docker`, the local pool, `testHandler` |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
-| [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, supersede, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
+| [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, latest-wins, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
 | [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
 
@@ -68,7 +68,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Stages and barriers | [pipeline-reference.md#stages](pipeline-reference.md#stages) |
 | Status output (`pl binding status`) | [binding-and-reconcile.md#reading-the-status](binding-and-reconcile.md#reading-the-status) |
 | Storage layout (Garage) | [runs-and-operations.md#storage](runs-and-operations.md#storage) |
-| Supersede | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
+| Supersede, latest-wins | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
 | Switch (version) | [binding-and-reconcile.md#switch-and-rollback](binding-and-reconcile.md#switch-and-rollback) |
 | Timeouts (`timeoutSeconds`) | [pipeline-reference.md#steps](pipeline-reference.md#steps) |
 | Trigger a run manually (`pl trigger`) | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |

@@ -246,8 +246,8 @@ export const RELEASE_HOOK = secret("RELEASE_HOOK", "HMAC key of the GitHub relea
 - The event is `{ headers, body }`: header names lower-cased, without `authorization`, cookies and
   the signature header; the body as parsed JSON, or the raw text. Return `null` to ignore a delivery.
 - The service answers `202` at once and maps in the background (a `map-trigger` Job), so senders with
-  short timeouts (GitHub: 10 s) are fine. Runs started this way are automatic: they supersede older
-  runs and are de-duplicated like push and poll runs.
+  short timeouts (GitHub: 10 s) are fine. Runs started this way are automatic: they are de-duplicated
+  like push and poll runs.
 - `name` is unique among the pipeline's triggers. Point the sender at the URL above and give it the
   secret's value (`pl secret set`). The path needs the instance's public ingress.
 

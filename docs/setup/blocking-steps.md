@@ -38,8 +38,8 @@ A held step shows as `held` in the run view (`pl run get` shows `held` / `blocke
 
 ## Held runs and newer runs
 
-- A newer automatic run supersedes a held one, as with any running run. So while a step is
-  blocked, pushes keep running up to it, and unblocking resumes only the newest run.
+- While a step is blocked, every run that reaches it waits there. On unblock they all want the
+  step at once, and latest-wins keeps the newest; the older held runs become `Superseded`.
 - A held run doesn't block a version switch. When the switch completes, runs left on the old
   version, held ones included, are cancelled; re-trigger on the new version.
 
@@ -65,5 +65,5 @@ The `blocked` event on `/api/events` carries the pipeline's full blocked list on
 
 ## See also
 
-- [Runs & Operations](runs-and-operations.md) — continue, rerun, supersede
+- [Runs & Operations](runs-and-operations.md) — continue, rerun, latest-wins
 - [Binding, Reconcile & Versions](binding-and-reconcile.md) — switches

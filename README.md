@@ -33,8 +33,8 @@ export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
 - **Versions**: each config commit is compiled (in a sandboxed build Job) into a manifest + a single
   executable. A changed manifest becomes a new pipeline version; one version is active, and the
   service `switch`es (drain, then activate) to new versions automatically.
-- **Runs** pin a version; each step execution is an **attempt** (one K8s Job). Newer automatic runs
-  supersede older ones; automatic triggers are de-duplicated by mapped input; operators rerun,
+- **Runs** pin a version; each step execution is an **attempt** (one K8s Job). Runs flow on concurrently and
+  meet only per step (one in progress, the newest waiting one wins); automatic triggers are de-duplicated by mapped input; operators rerun,
   continue (with changed input) and cancel runs, and can **block** a step (an operator hold, used
   sparingly while working on a pipeline).
 - **Harness**: a step's image can be any x86-64 image — an init container drops the compiled binary
@@ -81,7 +81,7 @@ src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 │   ├── Manifests/                  manifest parser, validator (reconcile checks), entity versioning, JSON Schema
 │   ├── Retention/                  run/binary/leftover sweeps
 │   ├── Runs/                       Run, Attempt, run/attempt services, run endpoints, views
-│   ├── Scheduling/                 StageScheduler, run start (de-dup, supersede), continue/rerun, cancel, blocked steps, switch
+│   ├── Scheduling/                 StageScheduler, run start (de-dup), continue/rerun, cancel, blocked steps, switch
 │   ├── Sync/                       bindings, deploy poll, reconcile, binding webhooks, config source
 │   ├── Triggers/                   push / poll / manual triggers, map-trigger, input validation
 │   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints

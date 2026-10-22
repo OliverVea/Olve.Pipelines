@@ -51,7 +51,7 @@ reconcile; `pl binding status --json` lists them.
 - **Held at a blocked step.** `pl run get` shows `held` on the step. `pl step blocked <pipeline>`,
   then `pl step unblock <pipeline>/<step>` — see [Blocking Steps](blocking-steps.md).
 - **Waiting for another run.** Only one attempt per step name is in progress at a time; a newer
-  run's attempt waits for the older one (including a superseded run's deploy finishing).
+  run's attempt waits for the older one (an older run's deploy finishing, say).
 - **A step hangs.** A hung step keeps its slot until its `timeoutSeconds` (plus grace) expires,
   and the next push's attempt of that step waits behind it. Give long-running commands an
   `idleTimeoutSeconds` (`ctx.exec`/`ctx.sh`) and the step `retries`. Kaniko can hang at "Unpacking
@@ -62,8 +62,9 @@ reconcile; `pl binding status --json` lists them.
 
 ## A run is `Superseded`
 
-A newer automatic run (push or poll) superseded it. Its in-progress attempts finished, but it never
-advanced. Follow `supersededBy` in `pl run get`. Manual runs never supersede anything.
+Its attempt of some step was waiting at the same time as a newer run's attempt of that step, and
+the newest wins. The newer run carries on from there; follow `supersededBy` in `pl run get`
+(`pl wait` follows it for you).
 
 ## A step failed
 

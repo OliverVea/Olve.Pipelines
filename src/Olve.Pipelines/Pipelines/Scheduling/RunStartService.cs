@@ -30,19 +30,15 @@ public abstract record RunStartOutcome
 /// is a duplicate when such a Running run has the same key, or when the most recent such automatic run
 /// has the same key, was not cancelled and was created within <see cref="DedupWindow"/>. Comparing with
 /// the latest automatic run only (not any older one) keeps A → B → A deploying A again.</item>
-/// <item><b>Supersede.</b> A new automatic run supersedes every older Running run of the pipeline as a
-/// whole: the older run is marked Superseded (linked to the new one) and its scheduled attempts are
-/// cancelled. In-progress attempts are left to finish (killing a half-done deploy is worse than letting
-/// it complete); the superseded run never advances, and the per-step slot makes the newer run's attempt
-/// of the same step wait for it. Explicit (manual) runs and whole-run reruns never supersede and are never
-/// de-duplicated.</item>
+/// <item><b>Concurrent runs.</b> Starting a run leaves older runs running; they meet only per step
+/// (one InProgress attempt per step, latest-wins among Scheduled ones, see <see cref="Jobs.JobObsoletionService"/>).
+/// Explicit (manual) runs and whole-run reruns are never de-duplicated.</item>
 /// </list>
 /// Input is assumed validated against the input model already (B7); it is stored verbatim.
 /// </summary>
 public class RunStartService(
     EntityStore<Pipeline> pipelines,
     RunService runs,
-    AttemptService attempts,
     PipelineActivationService activations,
     AttachmentStore<Pipeline, PendingRunStart> pending,
     RunSchedulingLock schedulingLock,
@@ -117,9 +113,6 @@ public class RunStartService(
         logger.LogInformation("Started run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}' on version {VersionNumber} ({TriggerKind})",
             run.Number, run.Id, pipelineId, active.VersionNumber, trigger.Kind);
 
-        if (trigger.IsAutomatic && rerunOf is null)
-            SupersedeOlder(run);
-
         return new RunStartOutcome.Started(runs.TryGet(run.Id, out var current) ? current : run);
     });
 
@@ -136,34 +129,5 @@ public class RunStartService(
                && latestAutomatic.CreatedAt >= timeProvider.GetUtcNow() - DedupWindow
             ? latestAutomatic
             : null;
-    }
-
-    private void SupersedeOlder(Run newer)
-    {
-        foreach (var older in runs.ListByPipeline(newer.PipelineId))
-        {
-            if (older.Id == newer.Id || older.Number > newer.Number || older.Status is not RunStatus.Running)
-                continue;
-
-            // Mark the run first: once it is terminal, its cancelled attempts no longer move it.
-            if (runs.Supersede(older.Id, newer.Id).TryPickProblems(out var problems))
-            {
-                logger.LogDebug("Run #{RunNumber} ('{RunId}') was not superseded: {Reason}", older.Number, older.Id,
-                    string.Join("; ", problems.Select(p => p.ToDisplayString())));
-            }
-            else
-            {
-                logger.LogInformation("Run #{RunNumber} ('{RunId}') superseded by run #{NewRunNumber} ('{NewRunId}')",
-                    older.Number, older.Id, newer.Number, newer.Id);
-            }
-
-            foreach (var attempt in attempts.ListByRun(older.Id).Where(a => a.Status is AttemptStatus.Scheduled))
-            {
-                if (attempts.Cancel(attempt.Id).TryPickProblems(out var cancelProblems))
-                    logger.LogProblems(LogLevel.Debug, cancelProblems,
-                        "Could not cancel attempt {AttemptNumber} of step '{StepName}' in superseded run #{RunNumber}",
-                        attempt.Number, attempt.StepName, older.Number);
-            }
-        }
     }
 }

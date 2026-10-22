@@ -49,8 +49,9 @@ public enum BindingDeployTrigger
 /// repo needing no auth.</item>
 /// <item><see cref="LastDeployedSha"/> — the deploy cursor; the branch-head SHA the last
 /// production build ran for. <c>null</c> until the first build.</item>
-/// <item><see cref="LastSyncedSha"/> — the config cursor; the <c>.pipelines/</c> commit SHA the
-/// last successful reconcile applied. Advances only on a fully successful apply. <c>null</c> until
+/// <item><see cref="LastSyncedSha"/> — the config cursor; the commit SHA the last successful
+/// reconcile applied: the newest commit touching <see cref="Path"/> or one of the local path
+/// dependencies (<c>file:</c>/<c>link:</c>) of its <c>package.json</c>, e.g. <c>../sdk</c>. Advances only on a fully successful apply. <c>null</c> until
 /// the first reconcile.</item>
 /// <item><see cref="DeployTrigger"/> — webhook (default), webhook-only, or poll. Mutable after
 /// binding. See <see cref="BindingDeployTrigger"/>.</item>

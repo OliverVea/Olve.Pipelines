@@ -20,7 +20,7 @@ public interface IPushTriggerHandler
 /// The binding-derived poll, sequenced <b>config-before-run</b> per binding:
 /// <list type="number">
 /// <item><b>Config.</b> A conditional fetch of the config subtree's cursor (the newest commit touching
-/// <see cref="PipelineConfigBinding.Path"/>). When that commit is not yet applied, reconcile it
+/// <see cref="PipelineConfigBinding.Path"/> or a local path dependency of its <c>package.json</c>). When that commit is not yet applied, reconcile it
 /// (<see cref="IConfigReconciler"/>: build/describe → validate → version → switch). A commit whose
 /// reconcile failed is not retried by the background loop (only by an explicit reconcile-now or a
 /// restart), and while the current config commit is unapplied the run step is held.</item>

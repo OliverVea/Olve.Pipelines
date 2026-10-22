@@ -4,7 +4,11 @@ namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 
 internal record GitHubCommitRef(string Sha);
 
-internal record GitHubCommitListItem(string Sha);
+internal record GitHubCommitListItem(string Sha, GitHubCommitDetail? Commit);
+
+internal record GitHubCommitDetail(GitHubCommitPerson? Committer);
+
+internal record GitHubCommitPerson(DateTimeOffset? Date);
 
 internal record GitHubTree(GitHubTreeEntry[] Tree, bool Truncated);
 

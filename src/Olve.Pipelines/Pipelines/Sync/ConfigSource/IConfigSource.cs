@@ -15,7 +15,9 @@ public interface IConfigSource
 
     /// <summary>
     /// Fetches the config files under the binding's path together with the head commit SHA
-    /// touching that path. A conditional request keyed on <paramref name="etag"/> returns
+    /// touching that path (or, for GitHub, a local path dependency of its <c>package.json</c>).
+    /// <paramref name="etag"/> is opaque: whatever a previous <see cref="ConfigFetch"/> returned.
+    /// A conditional request keyed on <paramref name="etag"/> returns
     /// <see cref="ConfigFetch.NotModified"/> (no body, no rate-limit cost) when the config
     /// subtree is unchanged. Consumed by the Phase 4 reconcile loop.
     /// </summary>

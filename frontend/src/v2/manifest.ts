@@ -115,59 +115,6 @@ export function outputSchemaOf(m: Manifest, model: string | null | undefined): J
   return m.models[model]?.output ?? null;
 }
 
-export type MappingLeaf = { path: string[]; kind: 'ref'; ref: string } | { path: string[]; kind: 'const'; value: unknown };
-
-/**
- * Flatten a tagged mapping into leaves: `{ref}` and `{const}` are leaves (an
- * object whose only key is `ref` with a string value, or only key `const`);
- * anything else is a nested object built field by field.
- */
-export function mappingLeaves(mapping: Mapping, path: string[] = []): MappingLeaf[] {
-  if (mapping && typeof mapping === 'object') {
-    const keys = Object.keys(mapping);
-    if (keys.length === 1 && keys[0] === 'ref' && typeof (mapping as { ref: unknown }).ref === 'string')
-      return [{ path, kind: 'ref', ref: (mapping as { ref: string }).ref }];
-    if (keys.length === 1 && keys[0] === 'const')
-      return [{ path, kind: 'const', value: (mapping as { const: unknown }).const }];
-    return keys.flatMap((k) => mappingLeaves((mapping as Record<string, Mapping>)[k], [...path, k]));
-  }
-  return [];
-}
-
-/** All leaves of a step's input mapping, paths prefixed with the input entry name. */
-export function stepWiring(step: ManifestStep): MappingLeaf[] {
-  return Object.entries(step.input ?? {}).flatMap(([name, m]) => mappingLeaves(m, [name]));
-}
-
-/** Root of a ref (`input`, `failure` or a step name). */
-export function refRoot(ref: string): string {
-  const i = ref.indexOf('.');
-  return i < 0 ? ref : ref.slice(0, i);
-}
-
-/** Step names a step reads from (its producers). */
-export function producersOf(step: ManifestStep): Set<string> {
-  const out = new Set<string>();
-  for (const leaf of stepWiring(step)) {
-    if (leaf.kind === 'ref') {
-      const root = refRoot(leaf.ref);
-      if (root !== 'input' && root !== 'failure') out.add(root);
-    }
-  }
-  return out;
-}
-
-export function readsInput(step: ManifestStep): boolean {
-  return stepWiring(step).some((l) => l.kind === 'ref' && refRoot(l.ref) === 'input');
-}
-
-/** A `when` block matches if every field's value is one of the listed values. */
-export function whenMatches(when: Record<string, unknown[]>, input: Record<string, unknown>): boolean {
-  return Object.entries(when).every(([field, values]) =>
-    values.some((v) => JSON.stringify(v) === JSON.stringify(input[field])),
-  );
-}
-
 export function formatWhen(when: Record<string, unknown[]>): string {
   return Object.entries(when)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -201,19 +148,4 @@ export function stepInputSchema(m: Manifest, step: ManifestStep): JsonSchema {
     properties[name] = 'model' in t ? (m.models[t.model]?.output ?? {}) : (t.schema.output ?? {});
   }
   return { type: 'object', properties };
-}
-
-/** Fill schema defaults into a (partial) input object, for plan previews. */
-export function withDefaults(schema: JsonSchema | null, value: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...value };
-  for (const [k, s] of Object.entries(schema?.properties ?? {})) {
-    if (out[k] === undefined && s.default !== undefined) out[k] = s.default;
-  }
-  return out;
-}
-
-export function inputTypeLabel(t: InputType | undefined): string {
-  if (!t) return '';
-  if ('model' in t) return t.optional ? `${t.model}?` : t.model;
-  return 'schema';
 }

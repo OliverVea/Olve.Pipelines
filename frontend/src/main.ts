@@ -4,3 +4,5 @@ import './components/pipeline-detail-view.js';
 import './components/docs-view.js';
 import './components/run-view.js';
 import './components/step-history-view.js';
+import './components/pipeline-runs-view.js';
+import './components/pipeline-versions-view.js';

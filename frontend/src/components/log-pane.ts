@@ -109,10 +109,7 @@ export class LogPane extends LitElement {
 
   render() {
     return html`
-      <div class="bar">
-        ${this.live ? html`<span>Live — refreshing every 3s</span>` : ''}
-        <button class="btn small" @click=${() => this._load()} ?disabled=${this._loading}>Reload</button>
-      </div>
+      ${this.live ? html`<div class="bar"><span>Live</span></div>` : ''}
       ${this._error
         ? html`<p class="error">${this._error}</p>`
         : html`<pre>${this._text ? unsafeHTML(ansi.ansi_to_html(this._text)) : this._loading ? 'Loading…' : 'No output.'}</pre>`}

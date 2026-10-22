@@ -208,8 +208,12 @@ export class RunView extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._timer = setInterval(() => {
-      if (this._detail?.run?.status === 'Running') this._load();
+      if (this._detail?.run?.status === 'Running') this.reload();
     }, 3000);
+  }
+
+  reload() {
+    return this._load();
   }
 
   disconnectedCallback(): void {
@@ -397,7 +401,6 @@ export class RunView extends LitElement {
           ? html`<stage-graph
               .manifest=${m}
               .states=${states}
-              .stepVersions=${this._version?.stepVersions ?? null}
               .selected=${this._step}
               @step-select=${(e: CustomEvent<{ step: string }>) => this._selectStep(e.detail.step)}
             ></stage-graph>`

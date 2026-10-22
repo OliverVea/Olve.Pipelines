@@ -31,6 +31,7 @@ export class AppShell extends LitElement {
 
     header h1 {
       margin: 0;
+      white-space: nowrap;
       font-size: 1.25rem;
       font-weight: 600;
     }
@@ -58,6 +59,15 @@ export class AppShell extends LitElement {
 
     .user-name {
       color: var(--color-text);
+    }
+
+    @media (max-width: 640px) {
+      :host {
+        padding: 1rem;
+      }
+      .user-name {
+        display: none;
+      }
     }
 
     .auth-btn {
@@ -164,6 +174,10 @@ export class AppShell extends LitElement {
         return html`<pipeline-detail-view
           .pipelineId=${this._route.params.pipelineId}
         ></pipeline-detail-view>`;
+      case 'pipeline-runs-view':
+        return html`<pipeline-runs-view .pipelineId=${this._route.params.pipelineId}></pipeline-runs-view>`;
+      case 'pipeline-versions-view':
+        return html`<pipeline-versions-view .pipelineId=${this._route.params.pipelineId}></pipeline-versions-view>`;
       case 'run-view':
         return html`<run-view
           .pipelineId=${this._route.params.pipelineId}

@@ -98,6 +98,8 @@ export function navClick(e: MouseEvent): void {
 
 export const pipelinePath = (id: string) => `/pipeline/${id}`;
 export const runPath = (id: string, n: number | null | undefined) => `/pipeline/${id}/run/${n ?? ''}`;
+export const runsPath = (id: string) => `/pipeline/${id}/runs`;
+export const versionsPath = (id: string) => `/pipeline/${id}/versions`;
 export const stepHistoryPath = (id: string, step: string) => `/pipeline/${id}/step/${encodeURIComponent(step)}`;
 
 /** Shared styles for the v2 views (buttons, pills, status dots, panels). */

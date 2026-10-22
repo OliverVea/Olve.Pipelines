@@ -523,8 +523,16 @@ stage that decides whether a run goes on. The per-binding config-before-run lock
 - **Event stream filtering**: `/api/events` filters by pipeline only (`?pipeline=`). Add filters by
   event type and by run (e.g. `?types=run,attempt&run=12`), so a run page or `pl wait` gets only what it
   re-fetches on.
-- Environments/tags, problem types lifted into Olve.MinimalApi, metrics, a `pl` smoke step, Blazor
-  revisit.
+- **Observability in OpenObserve**: export metrics (OTLP to the homelab OpenObserve; logs already
+  ship there via the node collector) and build Olve.Pipelines dashboards. Also clean up
+  OpenObserve's own log noise. What to watch (the user is still deciding; start with these):
+  - Service: requests, 4xx and 5xx rates, latency percentiles per endpoint; SSE connections.
+  - Async work: running and scheduled attempts, time waiting in Scheduled, the per-step concurrency
+    limit, step and run durations per pipeline/step, retries and failures, reconcile and build Job
+    durations, poll/webhook lag from push to run start.
+  - System: free space on the Garage and registry volumes, memory, CPU, pod restarts, and the
+    runner namespace's pod count.
+- Environments/tags, problem types lifted into Olve.MinimalApi, a `pl` smoke step, Blazor revisit.
 
 ### v2.3 — output caching
 

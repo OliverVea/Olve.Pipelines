@@ -467,8 +467,16 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   secret. `POST /api/hooks/{pipeline}/{trigger}` (public) verifies with the secret, answers 202 and maps
   in the background; a `null` mapping is a `skipped` envelope and starts nothing. Runs are `Webhook`
   (automatic: supersede + de-dup). The chart's public ingress routes `/api/hooks` too.
-- **Next**: phase 3 `onPush` as an SDK preset over poll + webhook (the binding keeps only config sync);
-  phase 4 a Triggers page in the UI.
+- **Push as a trigger source** (phase 3b): the binding keeps only config sync (`DeployPollService`).
+  `PushTriggerService` is a poll source per bound pipeline whose version declares `onPush`, nudged by the
+  binding's GitHub hook (one hook per repo feeds config and push); each check applies the config
+  through `IConfigGate`, then compares the head with `LastPushSha` (first observation seeds). "Reconcile
+  now" is config only. Repo, branch and credentials stay binding data, so `onPush` takes no source
+  config of its own.
+- **Next**: phase 4 a Triggers page in the UI.
+- **2.1 candidate (asked for)**: a step's destination as a link on the overview, e.g. a deploy step
+  links to the deployed site. Likely an SDK step field or an output convention (a URL the step
+  declares or returns), shown on the step card and step page.
 
 ### v2.2 — candidates
 

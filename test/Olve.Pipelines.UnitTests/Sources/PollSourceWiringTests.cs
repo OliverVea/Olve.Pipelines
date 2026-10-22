@@ -10,7 +10,7 @@ namespace Olve.Pipelines.UnitTests.Sources;
 public class PollSourceWiringTests
 {
     [Test]
-    public async Task Container_RegistersBothProviders_AndTheBindingProviderIsTheDeployPollSingleton()
+    public async Task Container_RegistersTheProviders_AndTheBindingProviderIsTheDeployPollSingleton()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -21,7 +21,8 @@ public class PollSourceWiringTests
 
         var providers = provider.GetServices<IPollSourceProvider>().ToList();
 
-        await Assert.That(providers.Count).IsEqualTo(2);
+        await Assert.That(providers.Count).IsEqualTo(3);
+        await Assert.That(providers.OfType<PushTriggerService>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<PollTriggerService>().Count()).IsEqualTo(1);
         await Assert.That(ReferenceEquals(providers.OfType<DeployPollService>().Single(), provider.GetRequiredService<DeployPollService>())).IsTrue();
     }

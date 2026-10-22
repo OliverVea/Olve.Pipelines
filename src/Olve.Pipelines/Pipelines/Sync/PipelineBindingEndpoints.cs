@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Sources;
@@ -57,10 +58,10 @@ public static class PipelineBindingEndpoints
 ;
 
         // Authenticated by HMAC over the raw body (not Bearer), so it binds HttpRequest and returns raw
-        // status codes. The only route on the public ingress.
+        // status codes. On the public ingress, with /api/hooks.
         app.MapPost("/api/webhooks/binding/{bindingId}/github", async Task<IResult> (
                 BindingWebhookReceiver receiver,
-                DeployPollService deployPoll,
+                PushTriggerService pushTriggers,
                 ILoggerFactory loggerFactory,
                 Id<PipelineConfigBinding> bindingId,
                 HttpRequest httpRequest,
@@ -81,15 +82,15 @@ public static class PipelineBindingEndpoints
                         return HttpResults.NoContent();
                 }
 
-                // GitHub gives a delivery 10 s: queue the reconcile + push trigger and acknowledge.
+                // GitHub gives a delivery 10 s: queue the push check (config first) and acknowledge.
                 var logger = loggerFactory.CreateLogger("BindingWebhook");
-                if (deployPoll.RequestReconcile(pipelineId, force: false).TryPickProblems(out var problems))
+                if (pushTriggers.RequestCheck(pipelineId).TryPickProblems(out var problems))
                 {
-                    logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' could not queue a reconcile", bindingId);
+                    logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' could not queue a push check", bindingId);
                     return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
                 }
 
-                logger.LogInformation("Binding webhook for '{BindingId}' queued reconcile + push trigger", bindingId);
+                logger.LogInformation("Binding webhook for '{BindingId}' queued a push check (config first)", bindingId);
                 return HttpResults.Accepted();
             })
             .WithName("ExecuteBindingGitHubWebhook")

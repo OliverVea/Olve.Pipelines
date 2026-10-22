@@ -68,6 +68,9 @@ public static class ServiceConfiguration
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PollTriggerService>());
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<DeployPollService>());
         services.AddSingleton<IConfigGate>(sp => sp.GetRequiredService<DeployPollService>());
+        services.AddSingleton<PushTriggerService>();
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PushTriggerService>());
+        services.AddHostedService(sp => sp.GetRequiredService<PushTriggerService>());
         services.AddHostedService<PollScheduler>();
         services.AddSingleton<WebhookTriggerService>();
         services.AddHostedService(sp => sp.GetRequiredService<WebhookTriggerService>());

@@ -16,10 +16,10 @@ public interface IConfigGate
 {
     /// <summary>
     /// Runs <paramref name="action"/> under the binding's gate once its current config commit is applied
-    /// (reconciling it first if needed). Returns false without running it when that fails. Unbound
-    /// pipelines run it at once.
+    /// (reconciling it first if needed; <paramref name="force"/> also retries a commit whose reconcile
+    /// failed). Returns false without running it when that fails. Unbound pipelines run it at once.
     /// </summary>
-    Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct);
+    Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct, bool force = false);
 }
 
 /// <summary>Fires the pipeline's push trigger for a new branch head (seam over the trigger layer).</summary>
@@ -29,22 +29,16 @@ public interface IPushTriggerHandler
 }
 
 /// <summary>
-/// The binding-derived poll, sequenced <b>config-before-run</b> per binding:
-/// <list type="number">
-/// <item><b>Config.</b> A conditional fetch of the config subtree's cursor (the newest commit touching
-/// <see cref="PipelineConfigBinding.Path"/> or a local path dependency of its <c>package.json</c>). When that commit is not yet applied, reconcile it
-/// (<see cref="IConfigReconciler"/>: build/describe → validate → version → switch). A commit whose
-/// reconcile failed is not retried by the background loop (only by an explicit reconcile-now or a
-/// restart), and while the current config commit is unapplied the run step is held.</item>
-/// <item><b>Runs.</b> When the branch head advanced past <see cref="PipelineConfigBinding.LastPushSha"/>,
-/// advance the cursor and fire the push trigger (<see cref="IPushTriggerHandler"/>). The first
-/// observation only seeds the cursor.</item>
-/// </list>
-/// Both steps run under a per-binding async gate, so the poll, the binding webhook and reconcile-now
-/// never build or trigger the same commit twice, and a run for a commit always starts after that
-/// commit's reconcile + switch. The poll is one <see cref="PollScheduler"/> source per binding, every
-/// <see cref="ReconcileOptions.PollInterval"/>. Poll and webhook triggers start their runs under the same
-/// gate (<see cref="IConfigGate"/>).
+/// Config sync of a binding: a conditional fetch of the config subtree's cursor (the newest commit
+/// touching <see cref="PipelineConfigBinding.Path"/> or a local path dependency of its <c>package.json</c>);
+/// when that commit is not yet applied, reconcile it (<see cref="IConfigReconciler"/>: build/describe →
+/// validate → version → switch). A commit whose reconcile failed is not retried by the poll (only by a
+/// forced reconcile or a restart). One <see cref="PollScheduler"/> source per binding, every
+/// <see cref="ReconcileOptions.PollInterval"/>.
+/// <para><b>Config-before-run.</b> Everything runs under a per-binding gate, and every automatic run start
+/// of a bound pipeline (push, poll and webhook triggers) goes through <see cref="IConfigGate"/>: it starts
+/// only once the current config commit is applied, so a run for a commit always follows that commit's
+/// reconcile + switch, and no commit is built twice.</para>
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
@@ -70,18 +64,18 @@ public class DeployPollService(
         {
             try
             {
-                await PollBindingAsync(binding.Id, force: false, ct);
+                await SyncConfigAsync(binding.Id, force: false, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "Deploy poll failed for binding '{BindingId}' ({Repo}@{Branch})",
+                logger.LogWarning(ex, "Config sync failed for binding '{BindingId}' ({Repo}@{Branch})",
                     binding.Id, binding.Repo, binding.Branch);
             }
         }));
 
     /// <summary>
-    /// Runs one config + runs cycle for a pipeline's binding now and waits for it. <paramref name="force"/>
-    /// bypasses the ETag cache and retries a config commit whose reconcile failed.
+    /// Syncs a pipeline's config now and waits for it. <paramref name="force"/> bypasses the ETag cache and
+    /// retries a config commit whose reconcile failed.
     /// </summary>
     public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool force = true)
     {
@@ -89,7 +83,7 @@ public class DeployPollService(
         if (binding is null)
             return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
-        await PollBindingAsync(binding.Id, force, ct);
+        await SyncConfigAsync(binding.Id, force, ct);
         return Result.Success();
     }
 
@@ -119,24 +113,18 @@ public class DeployPollService(
         return Result.Success();
     }
 
-    private async Task PollBindingAsync(Id<PipelineConfigBinding> bindingId, bool force, CancellationToken ct)
+    private async Task SyncConfigAsync(Id<PipelineConfigBinding> bindingId, bool force, CancellationToken ct)
     {
         var gate = _gates.GetOrAdd(bindingId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
         try
         {
             using var scope = sp.CreateScope();
-            var source = scope.ServiceProvider.GetRequiredService<IConfigSource>();
             var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
-
             if (bindingService.TryGet(bindingId).TryPickProblems(out _, out var binding))
                 return; // unbound meanwhile
 
-            // Config before runs: while the current config commit is not applied, no run starts.
-            if (!await ReconcileConfigAsync(scope.ServiceProvider, source, bindingService, binding, force, ct))
-                return;
-
-            await DeployAsync(scope.ServiceProvider, source, bindingService, bindingId, ct);
+            await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, ct);
         }
         finally
         {
@@ -144,7 +132,7 @@ public class DeployPollService(
         }
     }
 
-    public async Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct)
+    public async Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct, bool force = false)
     {
         var bindingId = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId)?.Id;
         if (bindingId is null)
@@ -161,7 +149,7 @@ public class DeployPollService(
             var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
             if (bindingService.TryGet(bindingId.Value).TryPickProblems(out _, out var binding))
                 return false;
-            if (!await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force: false, ct))
+            if (!await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, ct))
                 return false;
 
             await action();
@@ -258,43 +246,6 @@ public class DeployPollService(
         var next = update(current.Status);
         if (next != current.Status)
             bindingService.SetReconcileStatus(id, next).DiscardResult();
-    }
-
-    private async Task DeployAsync(
-        IServiceProvider services, IConfigSource source, PipelineConfigBindingService bindingService,
-        Id<PipelineConfigBinding> bindingId, CancellationToken ct)
-    {
-        if (bindingService.TryGet(bindingId).TryPickProblems(out _, out var binding))
-            return;
-
-        var headResult = await source.GetBranchHeadShaAsync(binding, ct);
-        if (headResult.TryPickProblems(out var problems, out var head))
-        {
-            logger.LogProblems(LogLevel.Warning, problems, "Deploy poll: could not read branch head for '{Repo}@{Branch}'",
-                binding.Repo, binding.Branch);
-            return;
-        }
-
-        if (binding.LastPushSha == head)
-            return;
-
-        bindingService.SetLastPushSha(binding.Id, head).DiscardResult();
-
-        // First observation seeds the cursor — restarts and freshly bound pipelines never treat
-        // already-current code as a new push.
-        if (binding.LastPushSha is null)
-        {
-            logger.LogInformation("Deploy poll: seeding cursor for '{Repo}@{Branch}' at {Sha}", binding.Repo, binding.Branch, head);
-            return;
-        }
-
-        logger.LogInformation("Deploy poll: '{Repo}@{Branch}' advanced {Old} -> {New}; firing the push trigger",
-            binding.Repo, binding.Branch, binding.LastPushSha, head);
-
-        var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct);
-        if (fired.TryPickProblems(out var fireProblems))
-            logger.LogProblems(LogLevel.Warning, fireProblems, "Push trigger of pipeline '{PipelineId}' for {Sha} did not start a run",
-                binding.PipelineId, head);
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

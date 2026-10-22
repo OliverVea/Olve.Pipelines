@@ -4,8 +4,10 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -45,10 +47,11 @@ public class DeployPollServiceTests
     }
 
     private sealed record Ctx(ServiceProvider Provider, FakeConfigSource Source, FakeReconciler Reconciler, FakePush Push,
-        PipelineConfigBindingService Bindings, PipelineConfigBinding Binding, DeployPollService Poll) : IAsyncDisposable
+        PipelineConfigBindingService Bindings, PipelineConfigBinding Binding, DeployPollService Poll, PushTriggerService Pushes) : IAsyncDisposable
     {
         public PipelineConfigBinding Current => Pick(Bindings.TryGet(Binding.Id));
-        public Task Run(bool force = false) => Poll.ReconcileNowAsync(Binding.PipelineId, CancellationToken.None, force);
+        /// <summary>One config-then-push check, as the push source and the binding webhook run it.</summary>
+        public Task Run(bool force = false) => Pushes.CheckAsync(Binding.PipelineId, CancellationToken.None, force);
         public ValueTask DisposeAsync() => Provider.DisposeAsync();
     }
 
@@ -70,7 +73,8 @@ public class DeployPollServiceTests
         var pipeline = Pick(provider.GetRequiredService<PipelineService>().Create("widgets"));
         var bindings = provider.GetRequiredService<PipelineConfigBindingService>();
         var binding = Pick(bindings.Create(pipeline.Id, "acme/widgets", "main", ".pipelines", null));
-        return new Ctx(provider, source, reconciler, push, bindings, binding, provider.GetRequiredService<DeployPollService>());
+        return new Ctx(provider, source, reconciler, push, bindings, binding,
+            provider.GetRequiredService<DeployPollService>(), provider.GetRequiredService<PushTriggerService>());
     }
 
     [Test]
@@ -203,5 +207,22 @@ public class DeployPollServiceTests
         await Assert.That(result).IsTrue();
         await Assert.That(ran).IsTrue();
         await Assert.That(c.Reconciler.Calls).IsEmpty();
+    }
+
+    [Test]
+    public async Task ConfigSync_AppliesTheConfig_ButNeverFiresThePushTrigger()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        c.Source.BranchHeadSha = "head-0";
+        await c.Run(); // seeds the push cursor
+        c.Source.ConfigSha = "cfg-2";
+        c.Source.BranchHeadSha = "head-1";
+
+        await Assert.That(await c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None)).Succeeded();
+
+        await Assert.That(c.Current.LastReconciledSha).IsEqualTo("cfg-2");
+        await Assert.That(c.Current.LastPushSha).IsEqualTo("head-0");
+        await Assert.That(c.Push.Fired).IsEmpty();
     }
 }

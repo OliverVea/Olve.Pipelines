@@ -520,18 +520,17 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
    sweep logs (can v2 prod's OpenBao role list Secrets in `olve-runners`?) before
    `Retention__DryRun: "false"`.
 2. **`deploy-prod`**: first stage of the pipeline's `when deployTo: "prod"` block, before
-   publish-cli/publish-sdk (**done 2026-10-22**). Promotion = `pl run continue <run> --field
-   deployTo=prod` on a succeeded beta push run of the active version, so prod gets the image beta ran.
-   Before it, the `beta-test` stage smoke-tests the freshly deployed beta (in-cluster URL: `/api/ready`,
-   `/api/pipelines`, the frontend bundle, a `problem+json` 404, SSE `hello`, `/install.sh`);
-   a failed beta-test fails the run, so it can't be continued to prod.
-   `deployTo` defaults to `prod`, so a manual trigger without `--field deployTo=beta` deploys prod.
-   The continued run then also runs publish-cli and publish-sdk (npm publish if `sdk/`'s version is new).
+   publish-cli/publish-sdk (**done 2026-10-22**). Since 2026-10-22 every push goes all the way:
+   deploy-beta → `beta-test` (smoke test of the fresh beta, in-cluster: `/api/ready`, `/api/pipelines`,
+   the frontend bundle, a `problem+json` 404, SSE `hello`, `/install.sh`) → deploy-prod → publish-cli
+   ∥ publish-sdk. A failed beta-test fails the run before prod. No manual promotion (user: aim for
+   zero manual actions); `deploy-prod` is blocked only in special circumstances. `deployTo: "beta"`
+   stops after beta; such a run can go to prod later with `pl run continue … --field deployTo=prod`.
    **The deployer moved to v2 prod early** (2026-10-22, before any other pipeline): "Olve.Pipelines
    v2" was recreated on prod (`6a395b72-3bb3-42a7-b01a-e28a6f138032`, same binding and secrets,
-   `GITHUB_TOKEN` as credentials key) and its run #1 was the first promotion; `deploy-prod` redeploys
+   `GITHUB_TOKEN` as credentials key) and its run #1 was the first prod deploy from it; `deploy-prod` redeploys
    prod itself (the executor reattaches after the restart), and prod's `/download` serves its
-   `publish-cli`. The v2 beta copy (`f26d19cf…`) was paused (both deploy gates blocked), then deleted;
+   `publish-cli`. The v2 beta copy (`f26d19cf…`) is paused (both deploy gates blocked) until the user deletes it;
    v2 beta keeps the fixture. Open: the first retention dry-run sweep logs on prod (above).
 3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
    pipeline's gate before binding v2.

@@ -56,8 +56,8 @@ bunx olve-build . --out .olve/out
 ### Releases
 
 Versions are `2.0.0-beta.N` on the `beta` dist-tag (`publishConfig`) until v2 reaches prod, then
-`latest`. To release, bump `version` in `package.json`, push to `v2` and promote the run to prod: the
-self-deploy's `publish-sdk` step (prod promotions only) runs `bun run check` and `bun publish` when that version is not on npm yet. It
+`latest`. To release, bump `version` in `package.json`, push to `v2`: once the run reaches prod, the
+self-deploy's `publish-sdk` step runs `bun run check` and `bun publish` when that version is not on npm yet. It
 skips when the version exists, or when the pipeline secret `NPM_TOKEN` is unset. Published versions: `npm view @olivervea/pipelines versions`.
 
 ## Authoring

@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Trigger the v2 self-deploy run of Olve.Pipelines (on v2 prod, from the v2 branch's .pipelines/pipeline.ts), monitor it, and hand the promotion to prod to the user.
+description: Trigger the v2 self-deploy run of Olve.Pipelines (on v2 prod, from the v2 branch's .pipelines/pipeline.ts), and monitor it through beta and prod.
 allowed-tools: Bash Read
 ---
 
@@ -12,10 +12,13 @@ Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`: `deploy-prod` →
 `publish-cli` ∥ `publish-sdk`.
 
-- Every push to `v2` starts a run with `deployTo: "beta"` (deploy poll, up to 15 min): it deploys
-  **v2 beta** (`https://pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`) only.
-- **Promotion** to v2 prod is `pl run continue … --field deployTo=prod` on a green beta run. Claude
-  doesn't start prod deploys: the user runs (or approves) the promotion.
+- Every push to `v2` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
+  (`https://pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
+  then deploys **v2 prod**. No manual promotion; `deployTo: "beta"` stops after beta.
+- Gates are for special circumstances only (an incident, a change the user wants held). Never leave
+  `deploy-prod` blocked as routine.
+- Claude Code's auto-mode classifier may refuse a trigger that deploys prod; then hand the command to
+  the user.
 
 (v1 prod/beta are deployed by v1 from `main`'s `.pipelines/config.yaml`; the v1 pipeline bound to
 the `v2` branch is paused by its blocked `deploy-beta` gate and must stay paused, or two deployers
@@ -38,21 +41,20 @@ race.)
 ```bash
 P="Olve.Pipelines v2"
 pl pipeline health "$P"        # last run, running/held runs, blocked gates, active version
-pl gate list "$P"              # deploy-beta must NOT be listed, or the run will be held there
+pl gate list "$P"              # normally empty; a listed step holds runs there
 pl run list "$P" --page-size 5
 ```
 
-If `deploy-beta` is blocked, someone paused the self-deploy on purpose — ask before
-`pl gate unblock "$P/deploy-beta"`. A blocked `deploy-prod` is normal between promotions.
+A blocked gate means someone held the deploy on purpose — ask before `pl gate unblock`.
 
-## 2. Trigger (beta)
+## 2. Trigger
 
-The input model requires a full 40-hex `sha`. `deployTo` defaults to `prod`, so pass `beta`
-explicitly:
+The input model requires a full 40-hex `sha`. `deployTo` defaults to `prod` (beta, then prod); add
+`--field deployTo=beta` to stop after beta:
 
 ```bash
 git fetch origin v2
-pl trigger "$P" --field sha=$(git rev-parse origin/v2) --field deployTo=beta   # prints "Olve.Pipelines v2#<n>"
+pl trigger "$P" --field sha=$(git rev-parse origin/v2)   # prints "Olve.Pipelines v2#<n>"
 ```
 
 An explicit trigger is never de-duplicated; it does not supersede a running automatic run (both
@@ -67,27 +69,20 @@ pl step logs "$R/build" --follow                 # kaniko build
 pl step logs "$R/test" --follow                  # unit tests
 pl step logs "$R/deploy-beta" --follow
 pl step logs "$R/beta-test" --follow             # smoke test of the new beta
+pl step logs "$R/deploy-prod" --follow
 ```
 
 Expected: `source` ~5 s; `build` ~1.5 min cached, up to ~4.5 min cold; `test` ~1 min (parallel with
-build); `deploy-beta` ~20 s; `beta-test` a few seconds. If `beta-test` fails, the run fails and
-can't be promoted.
+build); `deploy-beta` ~20 s; `beta-test` a few seconds; `deploy-prod` ~45 s; `publish-cli` ~3.5 min. If `beta-test` fails, the
+run fails before prod.
 
-## 4. Promote to prod (the user)
-
-On a succeeded beta run, tell the user the command; they run or approve it:
-
-```bash
-pl gate list "$P"                                       # if deploy-prod is blocked: pl gate unblock "$P/deploy-prod"
-pl run continue "$R" --field deployTo=prod             # deploy-prod → publish-cli ∥ publish-sdk
-pl step logs "$R/deploy-prod" --follow
-```
+## 4. Prod
 
 `deploy-prod` replaces the pod that runs the service: the new pod logs `Reattaching to K8s Job …
 deploy-prod`, collects it and finishes the run — a short API blip during that is normal.
 `publish-cli` then publishes the `pl` that prod serves at `/download`; `publish-sdk` runs `npm
-publish` if `sdk/`'s version is new. The user may block `deploy-prod` again afterwards
-(`pl gate block "$P/deploy-prod"`).
+publish` if `sdk/`'s version is new. A beta-only run can still go to prod later with
+`pl run continue "$R" --field deployTo=prod`.
 
 ## 5. On failure
 
@@ -109,7 +104,7 @@ publish` if `sdk/`'s version is new. The user may block `deploy-prod` again afte
 ```bash
 curl -s https://pipelines-v2-beta.ovea.pro/api/health
 ssh oliver@bulwark-m2 "kubectl -n apps-beta get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'"
-# after a promotion, the same against prod:
+# and prod:
 curl -s https://pipelines-v2-private.ovea.pro/api/health
 ssh oliver@bulwark-m2 "kubectl -n apps get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'"
 # expect olve-pipelines-v2:<the run's version stamp, e.g. 2026.10.22.6>

@@ -151,7 +151,7 @@ cd frontend && npm run build                                # Production build
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 - **Comments: few and short.** Comment only what the code can't say (a non-obvious why, a gotcha). No narrative headers, no restating the code, no plan/track/spec-section references or history in comments; that belongs in docs and commit messages. Pipeline definitions (`.pipelines/`) and SDK examples especially must read cleanly.
-- v2 development happens on the `v2` branch (every push self-deploys v2 beta from `.pipelines/pipeline.ts`) until v2 is promoted to `main`.
+- v2 development happens on the `v2` branch until v2 is promoted to `main`. The deployer pipeline (`.pipelines/pipeline.ts`) lives on v2 prod (`pipelines-v2-private.ovea.pro`): every push deploys v2 beta, smoke-tests it (`beta-test`), then deploys v2 prod; `deployTo=beta` stops after beta. Block the `deploy-prod` gate only in special circumstances.
 
 ## References
 

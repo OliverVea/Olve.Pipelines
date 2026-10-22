@@ -1,4 +1,4 @@
-// v2's own CD pipeline: beta on push, prod on promotion. config.yaml beside it is the paused v1 deployer's rollback path.
+// v2's own CD pipeline: every push goes beta, then prod. config.yaml beside it is the paused v1 deployer's rollback path.
 import { pipeline, secret, step, steps, HelmRelease, Source } from "@olve/pipelines";
 import * as M from "./models";
 
@@ -96,10 +96,10 @@ export const publishSdk = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it. Promoting a run to prod deploys the same image to apps, then publishes the pl CLI and the SDK to npm.",
+  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it, then deploy the same image to apps and publish the pl CLI and the SDK to npm. deployTo=beta stops after beta.",
   input: M.DeployRequest,
 })
-  .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
+  .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })], mirrorBaseImages)
   .stage(build, test)
   .stage(deployBeta)

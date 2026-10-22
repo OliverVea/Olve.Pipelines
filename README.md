@@ -40,8 +40,8 @@ export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
   and a bundled glibc loader into it.
 
 This repo deploys itself with it: [`.pipelines/pipeline.ts`](.pipelines/pipeline.ts) builds the
-`v2` branch with kaniko, runs the unit tests in parallel, and Helm-deploys v2 beta; a green beta run
-is promoted to v2 prod, which hosts the pipeline. The v1-format
+`v2` branch with kaniko, runs the unit tests in parallel, Helm-deploys v2 beta, smoke-tests it and then
+deploys v2 prod, which hosts the pipeline. The v1-format
 [`.pipelines/config.yaml`](.pipelines/config.yaml) beside it is the paused v1 deployer, kept as the
 rollback path (see the E2 notes in the plan). [`.pipelines-test/`](.pipelines-test) is the v2
 end-to-end fixture.
@@ -224,7 +224,7 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 ### Installing
 
-The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every commit promoted to prod, and v2
+The v2 self-deploy's `publish-cli` step builds the v2 `pl` of every commit deployed to prod, and v2
 prod serves it. Install it from there:
 
 ```bash

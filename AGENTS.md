@@ -34,8 +34,8 @@ runs the pipeline "Olve.Pipelines v2", bound to the `v2` branch, path `.pipeline
 `apps-beta`, values `values-beta.yaml` + `values-v2-beta.yaml`) → `beta-test` → when
 `deployTo: "prod"`: `deploy-prod` (values `values-v2-prod.yaml`) → `publish-cli` (the `pl` that
 v2 prod serves at `/download`, see below) ∥ `publish-sdk`. The deploy poll (no public webhook on
-v2) reconciles `.pipelines/` commits into versions and starts a beta-only run per push; promotion
-is `pl run continue <run> --field deployTo=prod`. `deploy-prod` restarts the pod running the run,
+v2) reconciles `.pipelines/` commits into versions and starts a run per push that goes beta, then
+prod (no manual promotion; block the `deploy-prod` gate only in special circumstances). `deploy-prod` restarts the pod running the run,
 and the new pod reattaches to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this
 branch is paused (blocked `deploy-beta` gate) and kept as the rollback — see the E2 notes in
 `docs/design/pipelines-v2-plan.md`. **v1 (`main`):** `.pipelines/config.yaml` on `main` deploys
@@ -71,7 +71,7 @@ The `pl` binaries are built and served by this repo's own pipeline — no GitHub
 
 **v2 (this branch):** the `publish-cli` step of `.pipelines/pipeline.ts` (custom step, handler
 `.pipelines/handlers/publish-cli.ts`, image `dotnet/sdk:10.0-noble`; its own stage after
-`deploy-prod`, inside the `deployTo: "prod"` `when`, so only prod promotions publish) builds `linux-x64` (Native AOT;
+`deploy-prod`, inside the `deployTo: "prod"` `when`, so only runs that reach prod publish) builds `linux-x64` (Native AOT;
 the handler apt-installs clang + zlib1g-dev) + `win-x64` (self-contained single-file — AOT can't
 cross-compile to Windows from Linux), stamped `InformationalVersion` = the run's version stamp
 (`pl --version`), and returns them as **output files** (`pl-linux-x64`, `pl-win-x64.exe`; output

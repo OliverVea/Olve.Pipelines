@@ -114,8 +114,7 @@ trailing newline of SSH keys).
 
 The v2 fixture pipeline (`.pipelines-test/`, "v2 test fixture" on v2 beta) is the safe target for
 experiments: input `{ sha, mode: normal | skip-last | fail }` exercises `when` skips and `onFailure`.
-Don't experiment on "Olve.Pipelines v2" on v2 prod — its runs redeploy v2 beta, and promoted runs
-v2 prod.
+Don't experiment on "Olve.Pipelines v2" on v2 prod — its runs redeploy v2 beta and v2 prod.
 
 ## 4. Kubernetes
 

@@ -105,13 +105,12 @@ only records the branch head; it does not deploy.
 
 ## Step 7: Verify a deploy
 
-Run `/deploy` (manual beta-only trigger with the current `v2` head), or push to `v2` and wait for
-the deploy poll (up to 15 min). The first promotion to prod is the user's (see `/deploy`); until
-`publish-cli` has succeeded once, prod's `/download` and `/install.sh` serve no `pl`.
+Run `/deploy` (manual trigger with the current `v2` head), or push to `v2` and wait for the deploy
+poll (up to 15 min). Until `publish-cli` has succeeded once, prod's `/download` and `/install.sh`
+serve no `pl`.
 
 ## After setup
 
 Tell the user: the pipeline id, the binding (repo@branch, path, trigger), the reconcile result and
-the secrets' state; that pushes to `v2` now deploy v2 beta automatically and promotion to prod is
-`pl run continue … --field deployTo=prod`; that pipeline changes go through
+the secrets' state; that pushes to `v2` now deploy v2 beta and then v2 prod automatically; that pipeline changes go through
 `.pipelines/pipeline.ts`; and that `/deploy` starts a run by hand.

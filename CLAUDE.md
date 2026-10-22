@@ -1,74 +1,73 @@
 # CLAUDE.md
 
-See [README.md](README.md) for project structure, endpoints, configuration, CI examples, and client generation.
+See [README.md](README.md) for project structure, endpoints, configuration, the `pl` CLI and client generation. The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
 
 ## Design
 
-Olve.Pipelines is a lightweight CD pipeline configuration and orchestration service for a homelab.
+Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This branch is **v2** (typed pipelines in TypeScript); it is fully breaking — v1's production/processing steps, ArtifactBundles, job groups, `config.yaml` and `StepConfiguration` are gone, not adapted.
 
-### Pipeline Flow
+### Pipeline model
 
-A pipeline has two phases:
+A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by default), written against the SDK `@olve/pipelines` (`sdk/`):
 
-```
-Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N [sequential]
-```
+- **Model** — a named, nominal zod schema (`model("BuildArtifact", z.object(…))`), emitted as JSON Schema with an `input` view (`z.input`, defaults optional) and a strict `output` view. Files are references (`fileRef()` → `{run, step, attempt, path, sha256}`), never inline.
+- **Step** — a contract: name (the identity — history, scheduling, gates and addresses are keyed on it), image (any x86-64 image), inputs (model, `optional(model)` or plain schema), output model, declared secrets, `timeoutSeconds`. No behaviour.
+- **Handler** — `handlers/<step-name>.ts` default-exports `implement(step, (input, ctx) => output)`. **Library steps** (`steps.script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`) carry their own handler; the service validates step kinds against `StepKinds.Known`, so a new library step also needs the C# side.
+- **Pipeline** — input model, triggers, ordered **stages** (steps in a stage run in parallel; a stage is a barrier), nested **`when`** blocks (declarative matches on literal-like input fields), and `onFailure` handlers. Inputs are matched by model, or wired with a `[step, mapper]` tuple; mappers are recorded as tagged mappings (`{ref}`/`{const}`), so the service builds `input.json` without running TypeScript.
+- **Triggers** — `onPush` (the binding saw the branch head move: webhook or deploy poll; the service sends `{ref, after, repository: {full_name}}`), `onPoll` (GET a URL, extract a value by dot-path, per-trigger secrets with `$SECRET:NAME` headers), manual (`POST …/runs`, input validated against the input model). Automatic trigger mappers are code: each event runs a short `map-trigger` Job, then the service re-validates the result.
 
-Each production step runs in parallel and writes output to `bundle/<step-name>/`. The combined output is an **ArtifactBundle**. Processing steps run sequentially, each receiving the full ArtifactBundle.
+The SDK compiles the pipeline into **one executable** (`bun build --compile`) with three modes: `describe` (→ the canonical **manifest**, `sdk/manifest.schema.json`), `run <step>`, `map-trigger <trigger>`. **The service never executes repo TypeScript** — describe, handlers and mappers run only in sandboxed Jobs.
 
-### Entities
+### Reconcile, versions, switch
 
-- **Pipeline** — top-level entity grouping all configuration for a single CD workflow.
-- **ProductionStep** — a parallel build/source step. A pipeline has many production steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment. Combined output of all production steps is an **ArtifactBundle**.
-- **ProcessingStep** — a sequential post-build action (e.g. deploy to staging). A pipeline has an ordered list of processing steps. Each is configured with `(image, script, env)` via a **StepConfiguration** attachment.
-- **Trigger** — a named trigger attached to a pipeline. Three target types:
-  - `ProductionTriggerTarget` — fires all production steps (used by webhooks).
-  - `ProcessingTriggerTarget(ProcessingStepId)` — fires a specific processing step with an artifact bundle.
-  - `PollTriggerTarget(Url, Headers, ValuePath, IntervalSeconds)` — background poller that GETs a URL, extracts a JSON value via dot-path, and triggers production when the value changes. Header values can reference pipeline K8s secrets via `$SECRET:NAME`.
-- **ArtifactBundle** — the collected outputs as a zipped directory in S3: `bundle/<step-name>/<files>`. Produced by production, consumed by processing steps.
-- **Job** — a scheduled unit of work. Two types: `ProductionJob` and `ProcessingJob`.
+- `DeployPollService` runs per binding, **config-before-run**: the newest commit touching the binding path is reconciled first (`PipelineReconcileService`: build/describe Job `olve-build-<p12>-<sha12>` → manifest from the pod log sentinels → `ManifestParser` + `ManifestValidator` (every reconcile check) → `ManifestVersioning` (entity versions) → a new `PipelineVersion` if the manifest differs → `SwitchService.Switch`), then a moved branch head fires the push trigger. A failed reconcile is not retried by the loop (only by reconcile-now or restart). Only commits under the binding path build a binary (an in-repo SDK change needs a `.pipelines/` commit to take effect).
+- **Versions** are immutable: pipeline version = monotonic integer per pipeline (manifest + commit + binary key); steps and models have `<id>.<version>` bumped only when that entity's content changes (a step's hash includes its handler bundle hash).
+- **Single active version.** `PipelineActivation` is `Active(v)` or `Draining(from → to)`: while draining, old runs start no new attempts and new run requests queue (latest-wins, `PendingRunStart`); when nothing on the old version is Scheduled/InProgress the switch completes, runs left on old versions (held, paused) are cancelled, and the queued request starts on the new version. Rollback = `switch` to an older version.
 
-### Step Configuration
+### Runs, attempts, scheduling
 
-Every step (production or processing) shares the same configuration shape: `StepConfiguration(Image, Script, EnvironmentVariables)`. Configuration is attached via `AttachmentStore<TStep, StepConfiguration>` (composition, not inheritance). Future typed templates (e.g. DotNetBuild, HelmDeploy) will be additional attachment types that pre-populate image/script/env.
+- A **Run** pins one version and stores its input; its attempts' outputs form the pool. Numbered per pipeline; version stamp `yyyy.MM.dd.<number>`. Statuses: Running, Succeeded, Failed, Cancelled, Superseded. Addressed as `<pipeline>#<run>/<step>[@<attempt>]` (no attempt = latest successful attempt).
+- An **Attempt** is one execution of one step = one K8s Job. Statuses: Scheduled, InProgress, Succeeded, Failed, Skipped (scheduler skip with chained reason, or a handler `ctx.skip`), Cancelled, Obsolete.
+- `StageScheduler.Advance` is idempotent and stateless (re-derives everything from the stores): for the first unfinished stage, per step — `when` → input availability (skip propagation) → gate (held) → schedule with `input.json` built by `AttemptInputBuilder` from the tagged mappings over the pool. A failed step fails the run at the barrier. Scheduling mutations run under `RunSchedulingLock`.
+- **Keyed on step name, not version**: `JobRunner` allows one InProgress attempt per (pipeline, step); `JobObsoletionService` makes older Scheduled attempts of the same key Obsolete (latest-wins) and supersedes their run.
+- `RunStartService`: **supersede** — a new automatic run marks older Running runs Superseded (scheduled attempts cancelled, in-progress ones finish, the run never advances); **de-dup** — automatic triggers only, keyed on the canonical hash of the mapped input, against a Running run or the latest automatic run within 1 h on the same version. Explicit actions (manual trigger, rerun, continue) always create work.
+- `RunContinuationService`: **rerun step** (a new attempt, same pinned version + pool; *rerun only* or *rerun and continue*) and **continue** (merged input validated against the pinned model; fields consumed by completed steps can't change). Both need the run's version to be active. `RunCancellationService`: explicit cancel also cancels in-progress attempts (Jobs deleted). No automatic retries (the SDK's `retries` field is not acted on by the service).
+- **Promotion gates** (`StepGateService`, `PipelineStepGates` attachment on the pipeline, persisted in `pipeline-state.json`): operational state, not config — keyed on step name, survives switches and reconcile. A blocked step gets no attempt and holds its run (`Run.HeldAt`); unblocking resumes held runs; an explicit step rerun of a blocked step is refused. Promote = continue / rerun-and-continue.
 
-### Configuration vs Execution
+### Execution (harness)
 
-Configuration defines *what* each step does. Execution is triggered via `POST /api/pipelines/{id}/trigger/production`. Processing step triggering will propagate the artifact bundle through the pipeline automatically.
+`AttemptLaunchService` derives everything for one attempt; `HarnessJobFactory`/`HarnessJobBuilder` build the K8s Job: one init container (`harness-base`: static busybox + a bundled glibc loader under `/olve/lib`) fetches the version's `step.tar.gz` and the attempt's `input.json` via pre-signed GETs into the `/olve` emptyDir; the step container (the step's image) runs `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>` with `TMPDIR=/olve/tmp`, only the step's declared secrets (`secretKeyRef`, same names), `activeDeadlineSeconds` from `timeoutSeconds`, runtime class / labels. The harness PUTs `result.tar.gz` (envelope `output.json` + files); `HarnessResultCollector` streams it into `runs/<p>/<run>/<step>/<attempt>/` (memory-safe for big files; output JSON capped at 64 KB). Exit codes and the envelope are specified in `sdk/README.md`. After a restart the executor reattaches to Jobs by name (v2 survives redeploying itself mid-run).
 
-### Promotion Gate (operational state, not config)
+**Failure handlers**: a run going Running → Failed makes `FailureHandlerService` launch each in-scope `onFailure` handler of the *pinned* manifest as an untracked, best-effort harness Job (`olve-fh-…`, role `on-failure`) with a typed `FailureContext` (validated against the pinned schema first; links from `Links:BaseUrl`). No attempt, no retry, no API/UI visibility.
 
-Each processing step has a **promotion gate**: a `blocked` flag (the brake) plus a **promote** action that runs the step with the bundle that last succeeded at the step before it (first step: the latest completed production run). Unblocking a blocked step starts that promotion when it is due. The decision is one pure function, `PromotionPolicy.Decide` (table-tested in `PromotionPolicyTests`); `PromotionService` gathers its facts from the persisted job history (`PromotionHistory` — not the in-memory `ArtifactBundle` records, which a restart wipes) and takes it under the pipeline's `PromotionLocks` lock, which the cascade also holds around its gate check + create. This is operational **state, not GitOps config** — it lives in an `AttachmentStore<ProcessingStep, ProcessingStepPromotion>` keyed on the step Id (absence = enabled), **not** on the `ProcessingStep` record, so reconcile never erases an operator's gate. It is API-mutable even on a git-bound pipeline (the config-vs-operations dividing line) and persisted separately to `promotion-state.json` so a braked step survives a restart.
+**Retention** (`RetentionService`, `Retention:*`, **dry run by default**): a run goes only when beyond the latest 20 **and** older than 183 days; binaries are kept for active/draining versions and retained runs' versions; leftovers and leaked URL Secrets / Jobs are swept.
 
-`PromotionGateService.IsBlocked` is the short-circuit every path that creates a `ProcessingJob` consults — the automatic cascade (`DownstreamTriggerService`, which halts the chain without skipping ahead), the manual `trigger/processing` endpoint, the trigger-entity path (`TriggerExecutionService`), and `PromotionService` (promote + the unblock check). All of them funnel through `JobService.CreateProcessingRun` (group + job), the single creation point. When adding a new way to start a processing job, route it through `CreateProcessingRun` and gate it on `IsBlocked`.
+### Pipeline secrets
 
-### Execution
+Each pipeline has a K8s Secret `olve-pipeline-{id:N}` in the runner namespace. Values are set via the API (`pl secret set`) and injected from K8s into Jobs — a step gets only the secrets it declares; they never pass through the app at runtime.
 
-All pipeline steps execute as **Kubernetes Jobs**. Each Job gets:
-- A container image
-- A script to run
-- Environment variables from step configuration
-- Pipeline secrets (stored as K8s Secrets, auto-mounted)
-- Input/output bundle references (S3 keys)
+### Persistence
 
-### Job Scheduling
+State survives restarts (notably v2's own self-deploy). Garage objects: `configuration.json` (pipelines + bindings), `binding-hooks.json`, and from `RunPersistenceService` `pipeline-versions.json`, `versions/<p>/<n>/manifest.json`, `pipeline-state.json` (activations, sequences, gates, queued run starts, poll values), `runs.json`, `runs/<p>/<n>/run.json` (a run + all its attempts). Binaries: `versions/<p>/builds/<sha>/step.tar.gz`. Layout helpers: `StorageLayout`. `/api/ready` reports when persisted state is loaded.
 
-Jobs are first-class persisted entities managed by a **JobQueue**. The queue controls when and how jobs are submitted to Kubernetes.
+### Service map
 
-**Job types:**
-- `ProductionJob` — runs all production steps, produces an ArtifactBundle
-- `ProcessingJob` — runs a single processing step with a given ArtifactBundle
+| Area | Key types |
+|---|---|
+| `Pipelines` | `Pipeline`, `PipelineService`, `PipelineSummaryService`, `PipelineHealthService`, `StorageLayout` |
+| `Pipelines.Sync` | `PipelineConfigBinding(Service)`, `DeployPollService`, `PipelineReconcileService`, `BindingWebhookReceiver`, `BindingHook*`, `GitHubConfigSource` |
+| `Pipelines.Manifests` | `Manifest`, `ManifestParser`, `ManifestValidator`, `ManifestVersioning`, `JsonSchemaValidator`, `CanonicalJson` |
+| `Pipelines.Versions` | `PipelineVersion(Service)`, `PipelineActivationService` |
+| `Pipelines.Triggers` | `PushTriggerHandler`, `PollTriggerService`, `TriggerMappingService`, `RunInputService` |
+| `Pipelines.Scheduling` | `RunStartService`, `StageScheduler`, `RunPlan`, `AttemptInputBuilder`, `RunContinuationService`, `RunCancellationService`, `StepGateService`, `SwitchService`, `AttemptLaunchService` |
+| `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `AttemptFileService`, `RunCleanupService` |
+| `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
+| `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
+| `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
+| `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IPersistenceReadiness` |
 
-**Job statuses:** `Scheduled`, `InProgress`, `Done`, `Obsolete`, `Cancelled`
+When adding a new way to start work, go through `RunStartService` (runs) or `RunContinuationService` (attempts in an existing run) so supersede, de-dup, draining and gates apply; never create attempts directly.
 
-**Scheduling rules:**
-- **Keyed on (pipeline, step)** — each step can have at most one `InProgress` job at a time.
-- **Latest-wins** — when a new job is scheduled for a key that already has `Scheduled` jobs, those become `Obsolete`. Only the newest scheduled job will run.
-- **Cascade on pipeline delete** — all scheduled/in-progress jobs are cancelled.
-
-### Pipeline Secrets
-
-Each pipeline has a K8s Secret (e.g. `olve-pipeline-{id}`) containing credentials needed by its steps (registry tokens, deploy keys, API keys). Secrets are managed via the API but injected directly from K8s into Jobs — they never pass through the app at runtime.
 
 ## Commands
 
@@ -80,6 +79,20 @@ dotnet test -p:RunIntegrationTests=true                     # All tests
 dotnet run --project src/Olve.Pipelines                     # Run locally
 ```
 
+### SDK and pipelines (Bun)
+
+See [sdk/README.md](sdk/README.md) (authoring API, harness contract, manifest, `olve-build`, `olve-dev`) and [harness/README.md](harness/README.md) (the `harness-base` init image).
+
+```bash
+cd sdk && bun install                                       # Install
+cd sdk && bunx tsc --noEmit -p .                            # Type-check (TS 7)
+cd sdk && bun test                                          # Runtime, build/e2e and compile-fail tests
+cd sdk && bun scripts/gen-manifest-schema.ts                # After changing src/describe/manifest-schema.ts
+pl dev describe [--dir .pipelines-test]                     # Describe a pipeline from source (see docs/setup/local-development.md)
+```
+
+Keep the compile-fail checker green on both TypeScript lines (TS 7 and 5.9; `TSC=… bun scripts/check-compile-fail.ts`).
+
 ### Frontend
 
 See [frontend/README.md](frontend/README.md) for full details.
@@ -88,6 +101,7 @@ See [frontend/README.md](frontend/README.md) for full details.
 cd frontend && npm install                                  # Install
 cd frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
 cd frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
+cd frontend && VITE_DEV_AUTH=bypass npm run dev:v2beta      # Dev server against v2 beta (dev-only auth bypass)
 cd frontend && npm run build                                # Production build
 ```
 
@@ -99,13 +113,13 @@ cd frontend && npm run build                                # Production build
 ### Architecture Patterns
 
 **Service layers (per domain area):**
-- **EntityStore\<T\>** — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `OnAdded`/`OnUpdated`/`OnDeleted` after each write, carrying the committed entity: `EntityAdded`, `EntityUpdated` (`Before`/`After`), `EntityDeleted`)
+- **EntityStore\<T\>** (from `Olve.Utilities.Stores`) — generic in-memory CRUD with ConcurrentDictionary (singleton, holds state, fires `OnAdded`/`OnUpdated`/`OnDeleted` after each write, carrying the committed entity: `EntityAdded`, `EntityUpdated` (`Before`/`After`), `EntityDeleted`)
 - **AttachmentStore\<TParent, TAttachment\>** — parallel store for optional attachments, auto-cleanup on parent deletion (singleton)
-- **Domain event hubs** (e.g. `JobEvents`) — hold `Event<T>` properties, receive forwarded store events (singleton)
-- **Domain CRUD services** (e.g. `JobService`) — typed create/read/update/delete over the store, no event awareness (transient)
+- **Domain event hubs** (e.g. `RunEvents`) — hold `Event<T>` properties, receive forwarded store events (singleton)
+- **Domain CRUD services** (e.g. `PipelineService`) — typed create/read/update/delete over the store, no event awareness (transient; `RunService`, `AttemptService` and `PipelineVersionService` are singletons because they own lookup indexes and the lock that keeps numbers unique)
 - **Domain rule services** (e.g. `JobObsoletionService`) — implement business rules, event-driven (transient)
-- **Domain query services** (e.g. `JobQueueService`) — stateless queries over the store (transient)
-- **Cleanup services** (e.g. `ProductionStepCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
+- **Domain query services** (e.g. `JobQueueService`, `RunViewService`) — stateless queries over the store (transient)
+- **Cleanup services** (e.g. `RunCleanupService`, `PipelineVersionCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
 
 **Key principles:**
 - **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).
@@ -116,7 +130,7 @@ cd frontend && npm run build                                # Production build
 - **IRunOnStartup over IHostedService** — domain startup wiring uses `IRunOnStartup` (sync, returns `Result`). A single `StartupRunner` hosted service runs them all. Keeps `IHostedService` out of domain code.
 - **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store -> events -> subscribers explicitly in tests, no DI container needed.
 - **Named endpoints** — all endpoints use `.WithName()` to set `operationId` in the OpenAPI spec, giving clean generated client method names.
-- **Split routes for nested resources** — pipeline-scoped operations (create, list) use `/api/pipelines/{pipelineId}/...`, step-scoped operations (get, delete, config) use `/api/production-steps/{stepId}/...` to avoid Refit parameter mismatch.
+- **Routes** — pipeline-scoped resources live under `/api/pipelines/{pipelineId}/...`, addressed the way users address them: runs by number, steps by name (`/runs/{number}/steps/{step}/...`, `/steps/{step}/block`). Only things addressed by their own id are top-level (`/api/jobs/{id}`).
 
 ## Conventions
 
@@ -126,15 +140,20 @@ cd frontend && npm run build                                # Production build
 - OpenAPI spec `api.json` is generated on build by `Microsoft.Extensions.ApiDescription.Server`
 - AOT publishing enabled — do not add AOT-incompatible libraries (e.g. EF Core)
 - Namespaces are always plural/more general than contained types (e.g. `Pipeline` type in `Pipelines` namespace)
-- Domain subnamespaces nest under their parent (e.g. `Pipelines.Production`, `Pipelines.Processing`, `Pipelines.Building`)
-- Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, bundle directories under `bundles/`
+- Domain subnamespaces nest under their parent (e.g. `Pipelines.Runs`, `Pipelines.Scheduling`, `Pipelines.Versions`)
+- Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, step outputs/files/logs under `runs/<p>/<run>/<step>/<attempt>/`, binaries and manifests under `versions/` (see `StorageLayout`). Step pods only ever get pre-signed URLs, signed for `Storage:InClusterEndpoint`
+- New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
+- Regenerate both clients after any API change (`api.json` → Kiota TS client → Refitter C# client), or the frontend breaks at runtime rather than at build time
 - TypeScript client generated from OpenAPI via Kiota
-- C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes)
+- C# client generated from OpenAPI via Refitter with `returnIApiResponse: true` (no exceptions on error status codes). The `pl` CLI does not use it: it has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/`
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
+- v2 development happens on the `v2` branch (every push self-deploys v2 beta from `.pipelines/pipeline.ts`) until v2 is promoted to `main`.
 
 ## References
 
+- [Zod](https://zod.dev) (v4) — model schemas in the SDK; JSON Schema via `z.toJSONSchema`
+- [Bun](https://bun.sh/docs) — SDK runtime, test runner and `bun build --compile` for the step binary
 - [Olve.* packages](https://olivervea.github.io/Olve.Utilities/) — index of all Olve packages
   - [Olve.Results](https://olivervea.github.io/Olve.Utilities/src/Olve.Results/README.html) — non-throwing result types for error handling
   - [Olve.Validation](https://olivervea.github.io/Olve.Utilities/src/Olve.Validation/README.html) — input validation built on Olve.Results

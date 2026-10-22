@@ -1,413 +1,341 @@
 # Olve.Pipelines
 
-A lightweight CD pipeline configuration and orchestration service for a homelab. Manages pipeline definitions with production steps (parallel builds) and processing steps (sequential deployments), executed as Kubernetes Jobs.
+A small CD orchestration service for a homelab. Pipelines are defined in TypeScript in the repo
+they deploy (`.pipelines/pipeline.ts`): typed **models**, **steps** that consume and produce them,
+**handlers** that implement the steps, and a pipeline of sequential **stages** of parallel steps.
+The service compiles each definition into a versioned binary and runs every step as a Kubernetes
+Job.
 
-## Pipeline Model
+> **This is v2**, developed on the `v2` branch and deployed as a separate instance
+> (`https://pipelines-v2-beta.ovea.pro`) next to v1 until every pipeline has migrated. v2 is fully
+> breaking: v1's `config.yaml`, production/processing steps, ArtifactBundles and job groups don't
+> exist here. Design: [`docs/design/pipelines-v2.md`](docs/design/pipelines-v2.md); what was built
+> and the decisions taken: [`docs/design/pipelines-v2-plan.md`](docs/design/pipelines-v2-plan.md).
 
-```
-Production [N steps, parallel] ──(ArtifactBundle)──> Processing 1 ──> ... ──> Processing N [sequential]
-```
+## Pipeline model
 
-- **Production steps** run in parallel. Each produces output to `bundle/<step-name>/`. Combined output = ArtifactBundle.
-- **Processing steps** run sequentially. Each receives the full ArtifactBundle.
-- Every step is configured as `(image, script, env)` and executed as a Kubernetes Job.
-
-### Promotion gate (state, not config)
-
-A **promotion** is the ArtifactBundle advancing *into* a processing step. Each processing step
-has a gate that can **block** promotion (the bundle stops at that step instead of cascading on) and
-a **promote** action that runs the step with the bundle that **last succeeded at the step before
-it** (for the first step, the latest completed production run). **Unblocking** a blocked step
-starts that promotion if it is due (never an older build than the step last ran). The API, the
-`pl` CLI and the UI all show which build Promote or unblock would use before you act — see
-[docs/setup/promotion-gate.md](docs/setup/promotion-gate.md) for the full rules. This is
-operational **state, not GitOps config**: it is API-mutable and stays available even on a
-git-bound pipeline (configuration is git-only, but operations like blocking/unblocking and
-promoting are allowed). The blocked set is persisted separately (`promotion-state.json`) so a
-braked step stays braked across a restart. `blocked` is orthogonal to job status — a step can be
-`Done` *and* have its promotion blocked. (`re-promote`, which re-ran a step with its own last
-bundle, was removed. Note for existing API callers: `PUT …/promotion` with `{ "blocked": false }`
-on a blocked step now also starts the due promotion.)
-
-## GitOps Configuration
-
-> **Adding CD to your own repo?** This is the section for you. You don't deploy or modify this
-> service — you add one file to *your* repository and bind a pipeline to it.
->
-> A fuller, agent-friendly **setup guide is served by the running instance at
-> [`/docs`](docs/setup/index.md)** (raw Markdown, with a [subject index](docs/setup/subjects.md)).
-> This README is the in-code reference; `/docs` is the operator/setup view.
-
-A pipeline is **always bound to a Git repository** — that binding is the only way to create one.
-*Your* repo is the single source of truth for the pipeline's shape: a background reconcile loop
-polls your branch head (~5 min), and whenever `<your-repo>/.pipelines/config.yaml` changes it
-materializes the production steps, processing steps, and triggers to match — then runs the build.
-Binding also configures the deploy poll, so pushing a commit deploys automatically; you never
-author a trigger by hand.
-
-### Adding CD to your repo
-
-1. Add `.pipelines/config.yaml` (+ optional `.pipelines/scripts/*.sh`) to your repository — see
-   the schema below. [`Olve.Template.Api`](https://github.com/OliverVea/Olve.Template.Api) ships a
-   copy-me [`.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines)
-   starter (Kaniko build + Helm deploy).
-2. Create a pipeline bound to your repo: `POST /api/pipelines/with-repo` with
-   `{ repo, branch?, path?, credentialsSecret }` (see [GitOps Binding](#gitops-binding)).
-   This is the **only** way to create a pipeline — there is no unbound/draft create. The
-   pipeline's name comes from `config.yaml`'s `name` (the bind seeds a provisional name from
-   the repo until the first reconcile).
-3. Set the secret *values* your config declares: `PUT /api/pipelines/{id}/secrets/{name}`.
-4. Push. The first reconcile builds your pipeline from the file; check
-   `GET /api/pipelines/{id}/binding/status` for the result.
-
-**Git-only:** the API has **no config-mutation endpoints** — there is no way to create, delete,
-reconfigure, or reorder steps or to create/delete triggers over HTTP. Pipeline shape comes solely
-from your repo via reconcile. Operational endpoints stay open: manual production trigger, job
-cancel, setting secret *values*, and the promotion gate. The dividing line: **shape is
-git-owned; operations are API-allowed.**
-
-### `config.yaml` schema
-
-`<path>` defaults to `.pipelines`. Steps may be inlined or extracted: `$ref: steps/<name>.yaml`
-pulls a step from its own file, and `scriptFile: scripts/<name>.sh` keeps a script out-of-line
-(mutually exclusive with `script:`). Secrets are declared by **name only** — values live in the
-pipeline's own k8s secret (`olve-pipeline-{id}`), never in the repo — and are referenced as
-`$SECRET:NAME` (in env values / poll headers) or as ordinary env vars mounted into every job.
-
-```yaml
-apiVersion: "0.0"                 # major must match the server (currently 0.x)
-name: my-app
-description: Build and deploy.    # optional
-version: "1"                      # optional, free-form
-
-secrets:                          # declared by NAME ONLY (values never in repo)
-  - name: GITHUB_TOKEN
-    description: Read token to fetch the repo tarball.
-
-productionSteps:                  # run in parallel → bundle/<step-name>/
-  - name: build
-    configuration:
-      image: gcr.io/kaniko-project/executor:debug
-      scriptFile: scripts/build.sh        # or inline: script: |
-
-processingSteps:                  # run sequentially (order = list position)
-  - name: deploy
-    configuration:
-      image: alpine:latest
-      script: |
-        echo deploying...
-
-triggers:                         # OPTIONAL & additive (the deploy poll is implicit)
-  - name: redeploy
-    target: { type: processing, processingStepName: deploy }
+```ts
+export default pipeline({ name: "Olve.Pipelines v2", input: M.DeployRequest })
+  .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(build, test)                                      // parallel; inputs matched by model
+  .when({ deployTo: "beta" }, p => p.stage(deployBeta));
 ```
 
-Validation rejects the whole reconcile on: incompatible `apiVersion`, duplicate step names, a
-trigger referencing an unknown processing step, both `script` and `scriptFile` set, or a
-`$SECRET:NAME` that isn't declared in `secrets:`. A broken or unfetchable config **holds off the
-build** for that cycle (config-before-build), so bad config never ships on stale code.
+- **Stages** run in order; the steps of a stage run in parallel; a stage is a barrier (the deploy
+  waits for the tests).
+- **Inputs** are matched by model from the pipeline input and earlier outputs, or wired explicitly
+  with a mapper. Mappers and `when` conditions are recorded as data in a **manifest**, so the UI
+  and `pl` can render wiring and run plans without running user code.
+- **Triggers**: `onPush` (the bound branch moved), `onPoll` (a polled value changed), manual
+  (`pl trigger`, the UI form generated from the input model).
+- **Versions**: each config commit is compiled (in a sandboxed build Job) into a manifest + a single
+  executable. A changed manifest becomes a new pipeline version; one version is active, and the
+  service `switch`es (drain, then activate) to new versions automatically.
+- **Runs** pin a version; each step execution is an **attempt** (one K8s Job). Newer automatic runs
+  supersede older ones; automatic triggers are de-duplicated by mapped input; operators rerun,
+  continue (with changed input) and cancel runs, and block steps (**promotion gates**).
+- **Harness**: a step's image can be any x86-64 image — an init container drops the compiled binary
+  and a bundled glibc loader into it.
 
-This repo dogfoods the feature: see [`.pipelines/config.yaml`](.pipelines/config.yaml). To
-bootstrap or recreate the bound pipeline, use the `setup-pipeline` skill.
+This repo deploys itself with it: [`.pipelines/pipeline.ts`](.pipelines/pipeline.ts) builds the
+`v2` branch with kaniko, runs the unit tests in parallel, and Helm-deploys v2 beta. The v1-format
+[`.pipelines/config.yaml`](.pipelines/config.yaml) beside it is the paused v1 deployer, kept as the
+rollback path (see the E2 notes in the plan). [`.pipelines-test/`](.pipelines-test) is the v2
+end-to-end fixture.
 
-## Project Structure
+## Adding CD to your repo
+
+> The setup guide is **served by the running instance at [`/docs`](docs/setup/index.md)** (raw
+> Markdown, with a [subject index](docs/setup/subjects.md)). This README is the codebase view.
+
+1. Add `.pipelines/` (`models.ts`, `pipeline.ts`, `handlers/`, `package.json`, `bun.lock`) — see
+   [Getting Started](docs/setup/getting-started.md) and the
+   [Pipeline Reference](docs/setup/pipeline-reference.md). The SDK (`@olve/pipelines`, in
+   [`sdk/`](sdk/README.md)) is not published to a registry yet, so the build Job can only resolve it
+   from an `sdk/` directory at the repo root (`"@olve/pipelines": "file:../sdk"`).
+2. Check it locally: `pl dev describe`, `pl dev validate`, `pl dev run <step>`.
+3. `pl binding create <owner/repo> --trigger poll` — the only way to create a pipeline.
+4. `pl secret set <pipelineId> <NAME>` for each declared secret.
+5. `pl binding reconcile <pipelineId>`, then push. `pl binding status <pipelineId>` shows the result.
+
+**Git-only:** there are no endpoints that change pipeline shape. Operations — trigger, cancel,
+rerun, continue, gates, switch, secret values, binding trigger mode — are API-allowed.
+
+## Project structure
 
 ```
-src/Olve.Pipelines/                             # API application (minimal API, AOT)
-├── Configuration/                               # Auth, telemetry, JSON, host, storage config
-├── Health/                                      # Health check endpoint
-├── Jobs/                                        # Job scheduling, obsoletion, cancellation
-├── Kubernetes/                                  # K8s client, secrets, job specs
-├── Pipelines/                                   # Pipeline CRUD, events
-│   ├── Building/                                # ArtifactBundle entity and endpoints
-│   ├── Polling/                                 # Poll trigger background service
-│   ├── Processing/                              # ProcessingStep entity, service, endpoints
-│   └── Production/                              # ProductionStep entity, service, endpoints
-├── Shared/                                      # EntityStore, AttachmentStore, events, persistence
-└── Dockerfile                                   # Multi-stage build (AOT, chiseled)
-test/Olve.Pipelines.UnitTests/                   # Unit tests (TUnit + Rocks)
-test/Olve.Pipelines.IntegrationTests/            # Integration tests (TUnit + Testcontainers)
-frontend/                                        # Dashboard UI (Lit + Vite + TypeScript)
-clients/Olve.Pipelines.Client/                   # Generated C# client (Refitter source gen)
-clients/olve-pipelines-client-ts/                # Generated TypeScript client (Kiota)
-helm/                                            # Helm chart for Kubernetes
-tools/version.cs                                 # CalVer versioning script
+src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
+├── Configuration/                  Auth, telemetry, JSON, host, storage, DI wiring
+├── Distribution/                   /download/{asset} (pl binaries from Garage)
+├── GitHub/                         GitHub client, push webhook payload + signature
+├── Health/                         /api/health, /api/ready
+├── Jobs/                           JobRunner, K8s executor, obsoletion, job (attempt) endpoints
+├── Kubernetes/                     K8s client, pipeline Secrets, OpenBao / in-cluster credentials
+│   └── Harness/                    step / build / map-trigger / failure-handler Job specs, result collection
+├── Pipelines/                      Pipeline entity, summaries, health, storage layout
+│   ├── Failures/                   onFailure dispatch, FailureContext
+│   ├── Manifests/                  manifest parser, validator (reconcile checks), entity versioning, JSON Schema
+│   ├── Retention/                  run/binary/leftover sweeps
+│   ├── Runs/                       Run, Attempt, run/attempt services, run endpoints, views
+│   ├── Scheduling/                 StageScheduler, run start (de-dup, supersede), continue/rerun, cancel, gates, switch
+│   ├── Sync/                       bindings, deploy poll, reconcile, binding webhooks, config source
+│   ├── Triggers/                   push / poll / manual triggers, map-trigger, input validation
+│   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints
+└── Shared/                         AttachmentStore, startup runner, persistence, S3 presigning
+src/Olve.Pipelines.Cli/             `pl` operator CLI (Native AOT, hand-rolled HTTP client)
+sdk/                                @olve/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
+harness/                            harness-base init image + end-to-end validation
+frontend/                           Dashboard UI (Lit + Vite + TypeScript)
+clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
+clients/Olve.Pipelines.Client/      Generated C# client (Refitter source gen)
+helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-minimal.yaml)
+.pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
+.pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
+docs/setup/                         Setup guide, served at /docs
+docs/design/                        v2 spec, plan, spike findings
+spikes/                             v2 spike code
+test/Olve.Pipelines.UnitTests/      Unit tests (TUnit + Rocks)
+test/Olve.Pipelines.IntegrationTests/  Integration tests against the live beta instance
+tools/version.cs                    CalVer versioning script
 ```
 
 ## Endpoints
 
-### Pipelines
+Reads (`GET`) are anonymous except secret listing and step-file listing/downloads. Everything else
+needs a bearer token. Errors are `400` with a `ResultProblem[]` body.
 
-Pipelines are created only via `POST /api/pipelines/with-repo` (see [GitOps Binding](#gitops-binding)) — there is no unbound create.
+### Pipelines
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/pipelines` | List pipelines |
-| GET | `/api/pipelines/summary` | List pipelines with per-step health (for the list page; one round-trip) |
-| GET | `/api/pipelines/{id}` | Get pipeline |
-| DELETE | `/api/pipelines/{id}` | Delete pipeline (cascades) |
-| POST | `/api/pipelines/{id}/trigger/production` | Trigger production jobs |
-| GET | `/api/pipelines/{id}/processing/promotions` | List per-step promotion state: gate, and what Promote / unblock would use |
+| GET | `/api/pipelines/summary` | Pipelines with run health and per-step strip (list page) |
+| GET | `/api/pipelines/{id}` | Get a pipeline |
+| DELETE | `/api/pipelines/{id}` | Delete a pipeline (cascades to runs, versions, binding) |
+| GET | `/api/pipelines/{pipelineId}/health` | Run-based health: last run, running/held runs, gates, activation |
 
-### Production Steps
-
-Steps are defined in `.pipelines/config.yaml` and materialized by reconcile — they are not API-writable (read-only over HTTP).
+### Bindings (GitOps)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/production` | List production steps |
-| GET | `/api/production-steps/{stepId}` | Get production step |
-| GET | `/api/production-steps/{stepId}/configuration` | Get step configuration |
+| POST | `/api/pipelines/with-repo` | Create a pipeline bound to a repo (`{ repo, branch?, path?, credentialsSecret?, deployTrigger? }`) — the only create |
+| GET | `/api/pipelines/{pipelineId}/binding` | Get the binding |
+| GET | `/api/pipelines/{pipelineId}/binding/status` | Reconcile result, problems, warnings, declared-secret state |
+| PATCH | `/api/pipelines/{pipelineId}/binding` | Set/clear the credentials secret key |
+| PATCH | `/api/pipelines/{pipelineId}/binding/deploy-trigger` | `webhook` / `webhook-only` / `poll` |
+| POST | `/api/pipelines/{pipelineId}/binding/reconcile` | Reconcile now (returns at once; progress in status) |
+| POST | `/api/webhooks/binding/{bindingId}/github` | GitHub push webhook (HMAC-authenticated, anonymous) |
 
-### Processing Steps
-
-Steps and their order are defined in `.pipelines/config.yaml` and materialized by reconcile — not API-writable. The promotion gate is operational state and stays API-mutable.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/processing` | List processing steps (ordered) |
-| GET | `/api/processing-steps/{stepId}` | Get processing step |
-| GET | `/api/processing-steps/{stepId}/configuration` | Get step configuration |
-| GET | `/api/processing-steps/{stepId}/promotion` | Get promotion gate and what Promote / unblock would use (`{ blocked, source, sourceLastSuccess, lastSuccess, promote, onUnblock }`) |
-| PUT | `/api/processing-steps/{stepId}/promotion` | Block/unblock promotion (operational). Unblocking a blocked step starts the due promotion; `promotion` in the response says whether and with which bundle. Optional `expectedPromotion` (bundle id or `"none"`): refused, still blocked, if unblocking would start something else |
-| POST | `/api/processing-steps/{stepId}/promote` | Run the step with the bundle that last succeeded at the previous step (`?expectedArtifactBundleId=` to refuse if it changed). Refused while blocked, while a job for the step is active, or if it would go backwards |
-| POST | `/api/processing-steps/{stepId}/re-promote` | Removed — always fails with a pointer to `promote` (kept one release for old `pl` binaries; not in `api.json`) |
-
-### Artifact Bundles
+### Versions
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/artifact-bundles` | List artifact bundles |
-| GET | `/api/artifact-bundles/{bundleId}` | Get artifact bundle |
+| GET | `/api/pipelines/{pipelineId}/versions` | Versions (commit, step/model versions) + activation |
+| GET | `/api/pipelines/{pipelineId}/versions/{number}` | One version, including its canonical manifest |
+| POST | `/api/pipelines/{pipelineId}/switch` | Switch the active version (`{ version, cancelRunning? }`) |
+| POST | `/api/manifests/validate` | Run the reconcile checks on a manifest (`pl dev validate`); always 200 with `{ valid, manifestHash, errors, warnings }` |
 
-### Jobs
+### Runs
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/jobs` | List all jobs |
-| GET | `/api/jobs/{id}` | Get job |
-| GET | `/api/jobs/queue` | Get scheduled job queue |
-| POST | `/api/jobs/{id}/cancel` | Cancel job |
-| DELETE | `/api/jobs/{id}` | Delete job |
-
-### Triggers
-
-Triggers are defined in `.pipelines/config.yaml` and materialized by reconcile — not API-writable. Firing a webhook is operational and stays open.
+All under `/api/pipelines/{pipelineId}/runs`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/triggers` | List triggers |
-| GET | `/api/triggers/{triggerId}` | Get trigger |
-| POST | `/api/webhooks/{triggerId}` | Fire webhook trigger |
+| GET | `/` | Runs, newest first (paged) |
+| POST | `/` | Start a manual run; the body is the pipeline input. `{ outcome: started \| queued, run }` |
+| GET | `/{number}` | Run detail: input, pinned version + commit, links, `continuable`, stages with per-step status |
+| POST | `/{number}/cancel` | Cancel the run and its scheduled + in-progress attempts |
+| POST | `/{number}/rerun` | New run with the same input (`rerunOf`) |
+| POST | `/{number}/continue` | Continue, `{ input: { field: value } }` merged over the stored input |
+| GET | `/{number}/attempts` | All attempts of the run |
+| GET | `/{number}/steps/{step}/attempts` | One step's attempts |
+| POST | `/{number}/steps/{step}/rerun` | New attempt of a step (`{ continue }`) |
+| GET | `/{number}/steps/{step}/output` | Output JSON (`?attempt=`; default: latest successful) |
+| GET | `/{number}/steps/{step}/files` | Stored files of an attempt (authenticated) |
+| GET | `/{number}/steps/{step}/files/{*path}` | Download a file (authenticated; `dir/` → `dir.tar`) |
+| GET | `/{number}/steps/{step}/logs` | Attempt log (live pod log while running) |
 
-Trigger types:
-- **production** — triggers all production steps
-- **processing** — triggers a specific processing step with an artifact bundle
-- **poll** — periodically GETs a URL, extracts a JSON value via dot-path, and triggers production when the value changes. Supports `$SECRET:NAME` references in headers resolved from pipeline K8s secrets.
+### Steps and gates
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/pipelines/{pipelineId}/steps/{step}/history` | A step's attempts across runs, with step-version change markers |
+| GET | `/api/pipelines/{pipelineId}/gates` | Blocked step names |
+| POST | `/api/pipelines/{pipelineId}/steps/{step}/block` | Block a step (runs reaching it are held) |
+| POST | `/api/pipelines/{pipelineId}/steps/{step}/unblock` | Unblock (held runs resume) |
+
+### Jobs (attempts by id)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/jobs` | Attempts across runs (paged, `?pipelineId=`) |
+| GET | `/api/jobs/{id}` | One attempt |
+| GET | `/api/jobs/{id}/logs` | Its log |
+| GET | `/api/jobs/queue` | Scheduled attempt ids |
+| POST | `/api/jobs/{id}/cancel` | Cancel an attempt |
 
 ### Secrets
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/pipelines/{pipelineId}/secrets` | List secret names |
-| PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set secret |
-| DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete secret |
-
-### GitOps Binding
-
-See [GitOps Configuration](#gitops-configuration). `branch` defaults to `main`, `path` to
-`.pipelines`; `credentialsSecret` names the key in the pipeline's k8s secret holding the repo
-read token.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/pipelines/with-repo` | Create a pipeline already bound to a repo (the only way to create a pipeline) |
-| GET | `/api/pipelines/{id}/binding` | Get the binding |
-| GET | `/api/pipelines/{id}/binding/status` | Reconcile result/problems + live secret set/unset |
+| GET | `/api/pipelines/{pipelineId}/secrets` | Secret names (values are never returned) |
+| PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set a value |
+| DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete |
 
 ### Other
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/download/{asset}` | Anonymous download of a `pl` CLI binary (`pl-linux-x64`, `pl-win-x64.exe`) — served from the instance's Garage store, published by the `publish-cli` pipeline step |
+| GET | `/api/health` | Liveness |
+| GET | `/api/ready` | Readiness (persisted state loaded) |
+| GET | `/api/config/frontend` | OIDC authority + client id for the UI and `pl login` |
+| GET | `/download/{asset}` | `pl` binary (`pl-linux-x64`, `pl-win-x64.exe`) from the instance's Garage, if published there |
+| GET | `/docs/<page>.md` | The setup guide (raw Markdown), `/docs/llms.txt` |
 
-## Installing the `pl` CLI
+## The `pl` CLI
 
-The `pl` operator CLI is built and published by this repo's own pipeline (the `publish-cli`
-step) to the instance's Garage store, and served back from `GET /download/<asset>`. Because the CLI
-already defaults its API URL to the same (Tailscale-reachable) host, anyone who can use `pl`
-can install it from there — no GitHub release or public CDN involved.
+### Installing
 
-```bash
-# Linux
-curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh
-```
-
-```powershell
-# Windows
-irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex
-```
-
-Override the source instance with `PL_API_URL` (e.g. `https://pipelines-beta.ovea.pro`) and the
-install dir with `PL_INSTALL_DIR`. linux-x64 is a Native-AOT binary; win-x64 is a self-contained
-single-file `.exe` (Native AOT cannot cross-compile to Windows from the Linux build runner).
-
-### `pl` commands
-
-Every command accepts the global flags `--json` (machine-readable output on stdout),
-`--verbose`/`-v` (diagnostics to stderr), and `--help`/`-h`. Run `pl help` for the full list or
-`pl <command> --help` for one command. A few of note:
+`install.sh` / `install.ps1` download `pl` from an instance's `/download/<asset>`; by default from v1
+prod, which publishes **v1's** `pl`. The v2 self-deploy has no CLI publish step yet, so build the v2
+`pl` from this branch:
 
 ```bash
-pl pipeline list                 # ID, NAME, and aggregate STATUS for every pipeline
-pl pipeline list --summaries     # adds bound repo + per-step health strip
-pl pipeline get <pipeline>       # show one pipeline (id or name)
-pl pipeline delete <id>          # delete a pipeline (cascade-cancels its scheduled/in-progress jobs)
-pl pipeline health <pipeline>    # run-based health: last run, running/held runs, blocked gates, activation
-pl pipeline versions <pipeline>  # versions (commit, step versions) and which one is active
-pl pipeline manifest <pipeline> [--version n]          # a version's manifest (--json: the canonical JSON)
-pl pipeline switch <pipeline> <n> [--cancel-running]   # make version n active (rollback = an older n)
-
-# v2 runs. Addresses: <pipeline>#<run>[/<step>[@<attempt>]] — pipeline by id or name (quote names
-# with spaces); without @attempt a step means its latest successful attempt (logs: the latest).
-pl trigger <pipeline> [--input json|@file] [--field k=v ...]   # start a run; prints <pipeline>#<run>
-pl run list <pipeline>                       # runs, newest first
-pl run get <pipeline>#<run>                  # input, version, stages with per-step status/reason/held/blocked
-pl run cancel|rerun <pipeline>#<run>         # cancel; or a new run with the same input
-pl run continue <pipeline>#<run> [--field k=v ...]   # continue, changing not-yet-consumed input fields
-pl step output <pipeline>#<run>/<step>[@n]   # the attempt's output JSON
-pl step files <address>                      # stored files; pl step file <address> <path> [-o out]
-pl step logs <address> [--follow]            # logs (follow polls until the attempt finishes)
-pl step rerun <pipeline>#<run>/<step> [--continue]    # a new attempt; --continue re-opens downstream
-pl step history <pipeline>/<step>            # the step's attempts across runs, with definition changes
-pl gate list <pipeline>                      # blocked steps (promotion gates, keyed on step name)
-pl gate block|unblock <pipeline>/<step>      # hold runs at a step / let held runs resume
-
-pl job list [--pipeline <id>]    # attempt-level view: every attempt (one K8s Job each), paginated
-pl job get|logs|cancel <id>      # one attempt by its id
-
-pl binding create <repo>         # create a pipeline bound to a repo (GitOps); --credentials-secret, --branch, --path, --trigger
-pl binding get <pipelineId>      # show a pipeline's binding (repo@branch, trigger, deploy/sync cursors)
-pl binding status <pipelineId>   # reconcile result + declared-secret set/unset state
-pl binding set-credentials <pipelineId> [key]   # set (or, with no key, clear) the GitHub-token secret key
-pl binding set-trigger <pipelineId> <mode>      # webhook | webhook-only | poll
-pl binding reconcile <pipelineId>               # apply the bound config now, off the poll schedule
+dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin/pl-v2   # Native AOT
+pl login --api-url https://pipelines-v2-beta.ovea.pro                                # add --device over SSH
 ```
 
-`pl pipeline list` reports a **status** per pipeline, computed over its runs (cancelled and
-superseded runs are ignored; skipped steps never count as faults):
+`pl login` caches the token and the API URL in `~/.pl`; `--api-url` / `PIPELINES_API_URL` override
+it per command, `--token` passes a bearer directly.
 
-| Status | Meaning |
-|--------|---------|
-| `Healthy` | nothing running; the latest settled run succeeded |
-| `Running (Healthy)` | a run is running; the latest settled run did not fail |
-| `Running (Unhealthy)` | a run is running; the latest settled run failed |
-| `Unhealthy` | nothing running; the latest settled run failed |
-| `Idle` | no settled run and nothing running |
+### Commands
 
-Each **attempt** of a step runs as one K8s Job; `pl job list` lists attempts across runs with their
-run number, step name and attempt number.
-
-#### `pl dev` (v2 local development)
-
-`pl dev` runs a v2 TypeScript pipeline from the repo, with no service and no login. It calls the
-SDK's `olve-dev`/`olve-build` through Bun. Bun is looked up in this order: `$OLVE_BUN`, then
-`PATH`, then `~/.bun/bin/bun`. The SDK is the `@olve/pipelines` that the pipeline itself resolves;
-override it with `$OLVE_SDK`. The pipeline directory defaults to `.pipelines` (`--dir` overrides
-it). Everything is written to `<dir>/.olve/`, which is already git-ignored.
+Global flags: `--json`, `--verbose`/`-v`, `--help`/`-h`. `pl help`, `pl <noun> --help` and
+`pl <command> --help` print the details.
 
 ```bash
-pl dev describe [--json]                         # manifest summary + describe-time checks (exit 78 on problems)
-pl dev validate [--json]                         # describe, then the service's reconcile checks (needs a session; exit 78 if invalid)
-pl dev run <step> --input sha=<40 hex>           # one step from source -> <dir>/.olve/work/; exit code = harness's
-pl dev run build                                 # next step: inputs come from the local pool
-pl dev run checkout --input-file in.json         # use input.json verbatim
-pl dev run deploy-beta --secret SSH_PRIVATE_KEY="$(cat key)"   # secrets: --secret, else the environment
-pl dev run build --docker                        # olve-build, then run the binary in the step's image like the pod
-pl dev run build --from olve-pipelines#412       # parsed, but needs the v2 run API (not available yet)
-pl dev pipeline --input sha=<sha> --input deployTo=beta [--until <step>] [--only a,b] [--yes]
+# pipelines — <pipeline> is an id or a name (quote names with spaces)
+pl pipeline list [--summaries]                         # status per pipeline (run-based)
+pl pipeline get <pipeline>
+pl pipeline delete <pipelineId>
+pl pipeline health <pipeline>
+pl pipeline versions <pipeline>                        # > marks the version runs start on
+pl pipeline manifest <pipeline> [--version <n>] [--json]
+pl pipeline switch <pipeline> <version> [--cancel-running]   # rollback = an older version
+
+# runs. Addresses: <pipeline>#<run>[/<step>[@<attempt>]]
+pl trigger <pipeline> [--input <json|@file|@->] [--field k=v ...]   # prints <pipeline>#<run>
+pl run list <pipeline> [--page <n>] [--page-size <n>]
+pl run get <pipeline>#<run>
+pl run cancel <pipeline>#<run>
+pl run rerun <pipeline>#<run>
+pl run continue <pipeline>#<run> [--field k=v ...] [--input <json|@file|@->]
+
+# steps of a run (without @attempt: the latest successful attempt; logs: the latest attempt)
+pl step output <pipeline>#<run>/<step>[@<attempt>]
+pl step files <pipeline>#<run>/<step>[@<attempt>]
+pl step file <pipeline>#<run>/<step>[@<attempt>] <path> [-o <file>]
+pl step logs <pipeline>#<run>/<step>[@<attempt>] [--follow] [--interval <seconds>]
+pl step rerun <pipeline>#<run>/<step> [--continue]
+pl step history <pipeline>/<step> [--limit <n>]
+
+# promotion gates
+pl gate list <pipeline>
+pl gate block <pipeline>/<step>
+pl gate unblock <pipeline>/<step>
+
+# attempts by id
+pl job list [--pipeline <id>] [--page <n>] [--page-size <n>] [--sort created-desc|created-asc]
+pl job get|logs|cancel <jobId>
+pl job queue
+
+# secrets and bindings (by pipeline id)
+pl secret list <pipelineId>
+pl secret set <pipelineId> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
+pl secret delete <pipelineId> <name>
+pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger webhook|webhook-only|poll]
+pl binding get|status|reconcile <pipelineId>
+pl binding set-credentials <pipelineId> [key]
+pl binding set-trigger <pipelineId> <webhook|webhook-only|poll>
+
+# local development (no service, except dev validate)
+pl dev describe [--dir <path>] [--json]
+pl dev validate [--dir <path>] [--json]
+pl dev run <step> [--input k=v ...] [--input-file <f>] [--secret NAME=value ...] [--docker] [--json]
+pl dev pipeline [--input k=v ...] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
+
+# installation
+pl bootstrap / pl teardown                             # cold install / remove (see AGENTS.md)
 ```
 
-How `pl dev run` and `pl dev pipeline` work:
+`pl dev` calls the SDK's `olve-dev` / `olve-build` through Bun (`$OLVE_BUN`, then `PATH`, then
+`~/.bun/bin/bun`; SDK override `$OLVE_SDK`) and writes to `<dir>/.olve/`. `pl dev run --from
+<pipeline>#<run>` is parsed but not implemented yet. Details:
+[docs/setup/local-development.md](docs/setup/local-development.md).
 
-- **Local pool.** `<dir>/.olve/pool.json` holds the pipeline input and each step's latest local
-  outcome. A step's `input.json` is built from its manifest mappings, the same way the service
-  builds it:
-  - `input.*` refs read the pipeline input. That is the `--input k=v` values, typed by the input
-    model, layered over the pool's previous input, with the model's defaults filling the rest.
-  - Step refs read earlier steps' outputs.
-
-  Output files are copied to `<dir>/.olve/files/0/<step>/1/files/`, which is passed to the harness
-  as `OLVE_FILES_DIR`. So running steps one after another chains them, file refs included.
-- **Missing inputs.** If a required input's step never ran, `pl dev run` fails with a hint to run
-  that step first. If that step was skipped, an optional input is left out.
-- **Secrets.** Only the step's declared secrets reach it, from `--secret` or the environment. Other
-  pipeline secrets are removed from the child's environment. A declared secret that isn't set only
-  produces a warning, because the handler fails only if it reads that secret.
-- **`pl dev pipeline`.**
-  - It runs the stages in order. Steps within a stage run one after another.
-  - It evaluates `when` blocks against the input and propagates skips.
-  - A failed step stops the run.
-  - Before each step that declares secrets it asks for confirmation. Without a terminal it refuses
-    unless you pass `--yes`.
-  - A full run starts a fresh pool. `--only` reuses the pool for everything it doesn't run.
-  - Failure handlers are not run.
-- **`--docker`.**
-  - It compiles into `<dir>/.olve/build`.
-  - It extracts the glibc loader libs from the `harness-base` image once, into `<dir>/.olve/lib/<tag>/`.
-  - It stages `/olve` (`step`, `lib/`, `input.json`, and `work/` and `tmp/` at mode 1777) and copies
-    it into a container of the step's image.
-  - The container runs `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>`
-    with `OLVE_DIR=/olve` and `TMPDIR=/olve/tmp`. The pool's files are mounted read-only.
-  - It copies `/olve/work` back into `<dir>/.olve/work`.
-
-## Build & Test
+## Build & test
 
 ```bash
 dotnet build                                                   # Build
 dotnet test                                                    # Unit tests only
-dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only (requires Docker)
+dotnet test -p:RunIntegrationTests=true -p:RunUnitTests=false  # Integration tests only
 dotnet test -p:RunIntegrationTests=true                        # All tests
 dotnet run --project src/Olve.Pipelines                        # Run locally
+
+cd sdk && bun install && bunx tsc --noEmit -p . && bun test    # SDK: type-check + compile-fail cases + runtime tests
+cd frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```
 
-Integration tests run against the live **beta** instance over authenticated HTTP (no Docker or Testcontainers); see `test/Olve.Pipelines.IntegrationTests/AppFixture.cs` for the env vars.
+Integration tests run against the live v1 **beta** instance over authenticated HTTP; see
+`test/Olve.Pipelines.IntegrationTests/AppFixture.cs` for the env vars. They don't cover v2 yet; v2
+features were verified live on v2 beta against the `.pipelines-test/` fixture (see the plan).
 
 ## Configuration
 
-Sources in priority order (highest wins):
-
-1. CLI args (`--Port 9090`)
-2. User secrets (`dotnet user-secrets set "Key" "value"`)
-3. Environment variables
-4. `appsettings.json`
+Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
+(`dotnet user-secrets set "Key" "value"`), environment variables (`Storage__Bucket`),
+`appsettings.json`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `Host` | `localhost` | Listen address |
-| `Port` | `5000` | Listen port |
+| `Host` / `Port` | `localhost` / `5000` | Listen address |
 | `Auth:Authority` | — | OIDC authority |
 | `Auth:Audience` | `olve-pipelines` | JWT audience |
 | `Auth:SigningKey` | — | Local HS256 key (bypasses OIDC, for dev) |
-| `Storage:Endpoint` | — | S3-compatible endpoint (the instance's Garage) |
-| `Storage:AccessKey` | — | S3 access key |
-| `Storage:SecretKey` | — | S3 secret key |
-| `Storage:Bucket` | — | S3 bucket name |
+| `Auth:Disable` | `false` | Disable auth (local dev, minimal install) |
+| `Auth:FrontendAuthority` / `Auth:FrontendAudience` | — | OIDC authority and client id served to the UI and `pl login` |
+| `Storage:Mode` | `Persistent` | `Ephemeral` = in-memory only |
+| `Storage:Endpoint` | — | The instance's Garage (S3-compatible) endpoint |
+| `Storage:AccessKey` / `Storage:SecretKey` | — | S3 credentials |
+| `Storage:Bucket` | `olve-pipelines` | Bucket |
 | `Storage:InClusterEndpoint` | `Storage:Endpoint` | Garage endpoint as step pods reach it; pre-signed URLs are signed for this host (`Host` is in the SigV4 signature) |
 | `Storage:Region` | `us-east-1` | SigV4 region for pre-signed URLs (Garage's `s3_region`) |
-| `Storage:PresignExpirySeconds` | `3600` | Default pre-signed URL expiry (result PUT / file GETs get the step deadline + grace) |
-| `Harness:HarnessBaseImage` | `registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf` | v2 step-pod init image (pinned, never `latest`) |
-| `Harness:BunImage` | `oven/bun:1.4.3-slim` | v2 build/describe Job image (glibc, never alpine) |
+| `Storage:PresignExpirySeconds` | `3600` | Default pre-signed URL expiry (step URLs get the step deadline + grace) |
+| `Kubernetes:Namespace` | — | Runner namespace for step Jobs and pipeline Secrets |
+| `Kubernetes:AuthMode` | OpenBao | `InCluster` = the pod's ServiceAccount; otherwise OpenBao (`Kubernetes:OpenBaoUrl`) |
+| `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
+| `Harness:HarnessBaseImage` | `registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf` | Step-pod init image (pinned, never `latest`) |
+| `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
 | `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
-| `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `olve` emptyDir |
+| `Harness:UrlExpiryGraceSeconds` | `600` | Added to the deadline for step pre-signed URLs |
+| `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `/olve` emptyDir |
 | `Harness:StepCpuRequest` / `StepMemoryRequest` / `StepMemoryLimit` | — | Optional step container resources |
 | `Harness:BuildTimeoutSeconds` / `BuildScratchSizeLimit` | `900` / `4Gi` | Build/describe Job deadline and scratch size |
-| `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used (optionally) to fetch the repo tarball in build Jobs |
-| `Kubernetes:Namespace` | — | K8s namespace for jobs and secrets |
+| `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `500m` / `512Mi` / `3Gi` | Build/describe Job resources |
+| `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
+| `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
+| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (v2 beta) |
+| `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
+| `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
+| `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this |
+| `Retention:BuildGraceDays` | `7` | Unused compiled binaries are deleted after this |
+| `Retention:OrphanGraceDays` / `ResultArchiveGraceHours` | `7` / `24` | Leftover objects of deleted runs / stale `result.tar.gz` |
+| `Retention:ClusterGraceMinutes` / `FinishedJobMaxAgeDays` | `60` / `7` | URL Secrets and leaked step Jobs / TTL-less finished Jobs |
+| `Retention:IntervalHours` / `StartupDelayMinutes` | `24` / `2` | Sweep schedule |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
-| `Logging:Console:FormatterName` | `simple` | Console formatter. Set to `json` in deployed envs for structured logs (see below) |
-| `Logging:Console:Json:UseUtcTimestamp` | `false` | Emit log timestamps in UTC when using the `json` formatter |
+| `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
+| `Logging:Console:Json:UseUtcTimestamp` | `false` | UTC timestamps with the `json` formatter |
 
 ### Logging
 
@@ -417,30 +345,38 @@ stack. The app names no log endpoint, token, or stream. (The separate OTLP *push
 `OpenTelemetry:*` is a legacy traces/metrics path and unrelated to log shipping.)
 
 - **Format.** Deployed environments set `Logging__Console__FormatterName=json` (in `helm/values.yaml`,
-  inherited by beta) so every line is structured JSON and message args (`{JobId}`, `{ElapsedMs}`, …)
-  become individually queryable fields. Local `dotnet run` omits it and gets the pretty `simple`
-  formatter. No application code selects the formatter — it is pure configuration.
-- **Levels.** `Information` = operator-facing audit milestones (job created/completed, trigger fired,
-  reconcile done); `Warning` = recoverable/degraded + **always-logged security events** (webhook
+  inherited by beta) so every line is structured JSON and message args (`{RunNumber}`, `{StepName}`, …)
+  become individually queryable fields. Local `dotnet run` gets the pretty `simple` formatter. No
+  application code selects the formatter — it is pure configuration.
+- **Levels.** `Information` = operator-facing audit milestones (run started, attempt finished, trigger
+  fired, reconcile done); `Warning` = recoverable/degraded + **always-logged security events** (webhook
   signature mismatch, auth rejection); `Error` = an operation failed / unhandled background exception;
   `Debug`/`Trace` = loop iterations and wire detail, off in prod.
 - **Result problems.** Failures are logged with `ILogger.LogProblems(...)` (in
   `src/Olve.Pipelines/Shared/ResultProblemLogExtensions.cs`), which flattens a `ResultProblem` set into
   the scalar fields `ProblemCount` / `ProblemMessages` / `MaxSeverity` instead of one opaque blob.
-  Route new failure logs through it rather than a `{Problems}` placeholder.
 
-## Client Generation
+## Client generation
 
-### C# ([Refitter](https://refitter.github.io/))
-
-The `clients/Olve.Pipelines.Client/` project uses the Refitter source generator to produce a typed Refit interface from `api.json` at build time. The `.refitter` config uses `returnIApiResponse: true` so error responses don't throw exceptions.
+`api.json` is regenerated on every `dotnet build`. After an API change, regenerate both clients.
 
 ### TypeScript ([Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview))
 
 ```bash
 dotnet tool restore
-dotnet kiota generate -l typescript -d api.json -c ApiClient -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient
+dotnet kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
+cd clients/olve-pipelines-client-ts && npm install
 ```
+
+Kiota is pinned in `.config/dotnet-tools.json` (1.36.1; 1.30 emits a `tsc` error on nullable
+polymorphic members). Kiota maps a `400` to a single `ResultProblem`, so the frontend sends actions
+through `apiFetch` (see [frontend/README.md](frontend/README.md#api-usage)).
+
+### C# ([Refitter](https://refitter.github.io/))
+
+`clients/Olve.Pipelines.Client/` generates a Refit interface from `api.json` at build time
+(`.refitter` with `returnIApiResponse: true`, so error responses don't throw). The `pl` CLI does not
+use it (Refit can't Native-AOT here); `pl` has a hand-rolled client in `src/Olve.Pipelines.Cli/Api/`.
 
 ## Versioning
 
@@ -456,6 +392,9 @@ dotnet run tools/version.cs -- --ci --run-number 42 --rid linux-x64  # artifact 
 # Local
 dotnet run --project src/Olve.Pipelines
 
-# Kubernetes
-helm install olve-pipelines helm/
 ```
+
+On Kubernetes the chart in `helm/` is deployed by the pipeline itself: v2 beta is the release
+`olve-pipelines-v2` in `apps-beta`, installed by the `deploy-beta` step (`steps.helmDeployOverSsh`,
+values `values-beta.yaml` then `values-v2-beta.yaml`). A cold install of a minimal controller is
+`pl bootstrap` (see [AGENTS.md](AGENTS.md)).

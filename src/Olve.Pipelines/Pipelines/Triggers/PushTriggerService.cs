@@ -9,10 +9,12 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// <summary>
 /// Push detection for bound pipelines whose current version declares <c>onPush</c>: a
 /// <see cref="PollScheduler"/> source per such binding (every <see cref="ReconcileOptions.PollInterval"/>),
-/// nudged by the binding's GitHub webhook (<see cref="RequestCheck"/>). Each check runs through
-/// <see cref="IConfigLock"/> (the config commit is applied first), then compares the branch head with
-/// <see cref="PipelineConfigBinding.LastPushSha"/> and fires the push trigger when it advanced. The first
-/// observation only seeds the cursor. Hosted only so shutdown cancels requested checks.
+/// nudged by the binding's GitHub webhook (<see cref="RequestCheck"/>). Each check reads the branch head,
+/// then runs through <see cref="IConfigLock"/> (the config commit is applied first), compares that head
+/// with <see cref="PipelineConfigBinding.LastPushSha"/> and fires the push trigger when it advanced. The
+/// head is read before the config, so a commit pushed while the config builds waits for the next check
+/// instead of starting on a version without its config. The first observation only seeds the cursor.
+/// Hosted only so shutdown cancels requested checks.
 /// </summary>
 public class PushTriggerService(
     EntityStore<PipelineConfigBinding> bindings,
@@ -47,7 +49,17 @@ public class PushTriggerService(
     {
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
-        await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId, () => DetectAsync(services, pipelineId, ct), ct, forceConfig);
+        if (services.GetRequiredService<PipelineConfigBindingService>().GetByPipelineId(pipelineId).TryPickProblems(out _, out var binding))
+            return;
+
+        var headResult = await services.GetRequiredService<IConfigSource>().GetBranchHeadShaAsync(binding, ct);
+        if (headResult.TryPickProblems(out var problems, out var head))
+        {
+            logger.LogProblems(LogLevel.Warning, problems, "Push check: could not read branch head for '{Repo}@{Branch}'", binding.Repo, binding.Branch);
+            return;
+        }
+
+        await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId, () => DetectAsync(services, pipelineId, head, ct), ct, forceConfig);
     }
 
     /// <summary>Starts <see cref="CheckAsync"/> in the background (a webhook delivery must not wait for a build).</summary>
@@ -73,18 +85,11 @@ public class PushTriggerService(
         return Result.Success();
     }
 
-    private async Task DetectAsync(IServiceProvider services, Id<Pipeline> pipelineId, CancellationToken ct)
+    private async Task DetectAsync(IServiceProvider services, Id<Pipeline> pipelineId, string head, CancellationToken ct)
     {
         var bindingService = services.GetRequiredService<PipelineConfigBindingService>();
         if (bindingService.GetByPipelineId(pipelineId).TryPickProblems(out _, out var binding))
             return;
-
-        var headResult = await services.GetRequiredService<IConfigSource>().GetBranchHeadShaAsync(binding, ct);
-        if (headResult.TryPickProblems(out var problems, out var head))
-        {
-            logger.LogProblems(LogLevel.Warning, problems, "Push check: could not read branch head for '{Repo}@{Branch}'", binding.Repo, binding.Branch);
-            return;
-        }
 
         if (binding.LastPushSha == head)
             return;

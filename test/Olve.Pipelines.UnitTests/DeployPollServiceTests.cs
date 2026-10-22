@@ -149,6 +149,36 @@ public class DeployPollServiceTests
     }
 
     [Test]
+    public async Task CommitPushedWhileTheConfigBuilds_WaitsForItsOwnConfig()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-0";
+        c.Source.BranchHeadSha = "head-0";
+        await c.Run();
+
+        c.Source.ConfigSha = "head-1";
+        c.Source.ConfigETag = "etag-1";
+        c.Source.BranchHeadSha = "head-1";
+        c.Reconciler.Outcome = sha =>
+        {
+            if (sha == "head-1")
+            {
+                // head-2, with config of its own, lands while head-1's config builds.
+                c.Source.ConfigSha = "head-2";
+                c.Source.ConfigETag = "etag-2";
+                c.Source.BranchHeadSha = "head-2";
+            }
+            return FakeReconciler.Report();
+        };
+        await c.Run();
+        await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
+
+        await c.Run();
+        await Assert.That(c.Reconciler.Calls).IsEquivalentTo(new[] { "cfg-0", "head-1", "head-2" });
+        await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1", "head-2" });
+    }
+
+    [Test]
     public async Task FailedFire_KeepsTheCursor_SoTheNextCheckFiresAgain()
     {
         await using var c = Build();

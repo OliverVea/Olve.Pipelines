@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Sources;
 
@@ -67,6 +68,23 @@ public partial class PollTriggerService(
             return;
         }
 
+        if (IsUnchanged(pipeline.Id, poll.Name, poll.Url, value))
+            return;
+
+        // Config-before-run: the value is recorded only once the pipeline's config is current, so a change
+        // seen while its config commit is unapplied is picked up again by a later poll.
+        if (services.GetService<IConfigGate>() is not { } gate)
+        {
+            await ObserveAndStartAsync(services, pipeline, poll, value, ct);
+            return;
+        }
+        if (!await gate.RunIfConfigCurrentAsync(pipeline.Id, () => ObserveAndStartAsync(services, pipeline, poll, value, ct), ct))
+            logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') waits: the pipeline's config commit is not applied",
+                poll.Name, pipeline.Name, pipeline.Id);
+    }
+
+    private async Task ObserveAndStartAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, string value, CancellationToken ct)
+    {
         switch (Observe(pipeline.Id, poll.Name, poll.Url, value))
         {
             case PollObservation.Seeded:
@@ -87,6 +105,11 @@ public partial class PollTriggerService(
             logger.LogProblems(LogLevel.Warning, startProblems, "Poll trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
                 poll.Name, pipeline.Id);
     }
+
+    private bool IsUnchanged(Id<Pipeline> pipelineId, string triggerName, string url, string value) =>
+        persisted.TryGet(pipelineId, out var states)
+        && states.Triggers.TryGetValue(triggerName, out var previous)
+        && previous.Url == url && previous.LastValue == value;
 
     /// <summary>
     /// Records <paramref name="value"/> as the trigger's last value and says what it means: the first value

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Sources;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
@@ -65,10 +66,19 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
         try
         {
             using var scope = sp.CreateScope();
-            var outcome = await scope.ServiceProvider.GetRequiredService<TriggerMappingService>()
-                .MapAndStartAsync(pipelineId, triggerName, RunTriggerKind.Webhook, eventJson, _lifetime.Token);
-            if (outcome.TryPickProblems(out var problems))
-                logger.LogProblems(LogLevel.Warning, problems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
+            async Task StartAsync()
+            {
+                var outcome = await scope.ServiceProvider.GetRequiredService<TriggerMappingService>()
+                    .MapAndStartAsync(pipelineId, triggerName, RunTriggerKind.Webhook, eventJson, _lifetime.Token);
+                if (outcome.TryPickProblems(out var problems))
+                    logger.LogProblems(LogLevel.Warning, problems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
+                        triggerName, pipelineId);
+            }
+
+            if (scope.ServiceProvider.GetService<IConfigGate>() is not { } gate)
+                await StartAsync();
+            else if (!await gate.RunIfConfigCurrentAsync(pipelineId, StartAsync, _lifetime.Token))
+                logger.LogWarning("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' dropped a delivery: the pipeline's config commit is not applied",
                     triggerName, pipelineId);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

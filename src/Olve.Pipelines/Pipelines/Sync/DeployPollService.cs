@@ -11,6 +11,17 @@ public interface IConfigReconciler
     Task<Result<ReconcileReport>> ReconcileAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct);
 }
 
+/// <summary>Holds automatic run starts on a bound pipeline to config-before-run.</summary>
+public interface IConfigGate
+{
+    /// <summary>
+    /// Runs <paramref name="action"/> under the binding's gate once its current config commit is applied
+    /// (reconciling it first if needed). Returns false without running it when that fails. Unbound
+    /// pipelines run it at once.
+    /// </summary>
+    Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct);
+}
+
 /// <summary>Fires the pipeline's push trigger for a new branch head (seam over the trigger layer).</summary>
 public interface IPushTriggerHandler
 {
@@ -32,13 +43,14 @@ public interface IPushTriggerHandler
 /// Both steps run under a per-binding async gate, so the poll, the binding webhook and reconcile-now
 /// never build or trigger the same commit twice, and a run for a commit always starts after that
 /// commit's reconcile + switch. The poll is one <see cref="PollScheduler"/> source per binding, every
-/// <see cref="ReconcileOptions.PollInterval"/>.
+/// <see cref="ReconcileOptions.PollInterval"/>. Poll and webhook triggers start their runs under the same
+/// gate (<see cref="IConfigGate"/>).
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
     IServiceProvider sp,
-    ILogger<DeployPollService> logger) : IPollSourceProvider, IHostedService, IDisposable
+    ILogger<DeployPollService> logger) : IPollSourceProvider, IConfigGate, IHostedService, IDisposable
 {
     // Per-binding config cursor cache (in-memory). The ETag is a rate-limit optimization; the sha is
     // the cursor it stands for (a 304 means "still this sha"). Losing it on restart costs one fetch.
@@ -125,6 +137,35 @@ public class DeployPollService(
                 return;
 
             await DeployAsync(scope.ServiceProvider, source, bindingService, bindingId, ct);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    public async Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct)
+    {
+        var bindingId = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId)?.Id;
+        if (bindingId is null)
+        {
+            await action();
+            return true;
+        }
+
+        var gate = _gates.GetOrAdd(bindingId.Value, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        try
+        {
+            using var scope = sp.CreateScope();
+            var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
+            if (bindingService.TryGet(bindingId.Value).TryPickProblems(out _, out var binding))
+                return false;
+            if (!await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force: false, ct))
+                return false;
+
+            await action();
+            return true;
         }
         finally
         {

@@ -457,6 +457,11 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   over `IPollSourceProvider`s (`PollTriggerService` for manifest `onPoll`, `DeployPollService` for the
   gated config-then-push cycle per binding); `WebhookDelivery` + `WebhookVerification` (HMAC-SHA256
   with header/prefix, bearer) receive webhooks, GitHub's signature being an HMAC preset.
+- **Config-before-run for every automatic trigger** (phase 3a): on a bound pipeline, poll and webhook
+  trigger runs start under the binding's gate once its current config commit is applied
+  (`IConfigGate`, reconciling it first). A poll value is recorded only then (a change seen while the
+  config is unapplied is picked up by a later poll); a webhook delivery in that state is dropped and
+  logged. Push already ran under the gate.
 - **Webhook triggers** (phase 2): `onWebhook({ name, verify }, ({ headers, body }) => input | null)`;
   manifest kind `webhook` with `verify` `hmac-sha256` (header, prefix) or `bearer`, both on a declared
   secret. `POST /api/hooks/{pipeline}/{trigger}` (public) verifies with the secret, answers 202 and maps

@@ -162,4 +162,46 @@ public class DeployPollServiceTests
         await Assert.That(c.Reconciler.Calls.Count(s => s == "cfg-1")).IsEqualTo(1);
         await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
     }
+
+    [Test]
+    public async Task ConfigGate_ReconcilesAPendingConfigCommit_BeforeRunningTheAction()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        var order = new List<string>();
+        c.Reconciler.Outcome = sha => { order.Add($"reconcile {sha}"); return FakeReconciler.Report(); };
+
+        var ran = await c.Poll.RunIfConfigCurrentAsync(c.Binding.PipelineId, () => { order.Add("action"); return Task.CompletedTask; }, CancellationToken.None);
+
+        await Assert.That(ran).IsTrue();
+        await Assert.That(order).IsEquivalentTo(new[] { "reconcile cfg-1", "action" });
+        await Assert.That(c.Current.LastReconciledSha).IsEqualTo("cfg-1");
+    }
+
+    [Test]
+    public async Task ConfigGate_FailedReconcile_DoesNotRunTheAction()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-bad";
+        c.Reconciler.Outcome = _ => Result.Failure<ReconcileReport>(new ResultProblem("broken"));
+        var ran = false;
+
+        var result = await c.Poll.RunIfConfigCurrentAsync(c.Binding.PipelineId, () => { ran = true; return Task.CompletedTask; }, CancellationToken.None);
+
+        await Assert.That(result).IsFalse();
+        await Assert.That(ran).IsFalse();
+    }
+
+    [Test]
+    public async Task ConfigGate_UnboundPipeline_RunsTheActionAtOnce()
+    {
+        await using var c = Build();
+        var ran = false;
+
+        var result = await c.Poll.RunIfConfigCurrentAsync(Id.New<Pipeline>(), () => { ran = true; return Task.CompletedTask; }, CancellationToken.None);
+
+        await Assert.That(result).IsTrue();
+        await Assert.That(ran).IsTrue();
+        await Assert.That(c.Reconciler.Calls).IsEmpty();
+    }
 }

@@ -151,8 +151,9 @@ public static partial class HarnessJobBuilder
         if (secretData.ContainsKey(ResultUrlKey)) stepEnv.Add(Url(ResultUrlKey));
         if (secretData.ContainsKey(FileUrlsKey)) stepEnv.Add(Url(FileUrlsKey));
         // Declared secrets only, one secretKeyRef each (key = name) — never envFrom of the whole Secret.
+        // Optional: an unset secret leaves the variable unset, and ctx.secrets fails on access (a handler can check first).
         foreach (var secret in request.Secrets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
-            stepEnv.Add(K8sEnvVar.FromSecret(secret, request.PipelineSecretName, secret));
+            stepEnv.Add(K8sEnvVar.FromSecret(secret, request.PipelineSecretName, secret, optional: true));
 
         var labels = new Dictionary<string, string>
         {

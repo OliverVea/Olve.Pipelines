@@ -219,7 +219,7 @@ This section is everything the C# side needs in order to run the binary.
 | `OLVE_RUN` | run | Run number (integer ≥ 0). Written into produced file refs. Default 0. |
 | `OLVE_ATTEMPT` | run | Attempt number (integer ≥ 1). Written into produced file refs. Default 1. |
 | `OLVE_VERSION_STAMP` | run | Derived version, e.g. `2026.10.21.412` → `ctx.run.version`. |
-| `<SECRET_NAME>` | per step | Each declared secret as an env var of the **same name**: `secretKeyRef` key = name. Mount only the step's `secrets` (for poll triggers, the poll's `secrets`). Child processes inherit them. |
+| `<SECRET_NAME>` | per step | Each declared secret as an env var of the **same name**: `secretKeyRef` key = name. Mount only the step's `secrets` (for poll triggers, the poll's `secrets`). Child processes inherit them. The mount is optional: an unset secret leaves the variable unset and `ctx.secrets.<NAME>` throws on access, so a handler can check `process.env.<NAME>` first and skip. |
 | `OLVE_RESULT_URL` | optional | Pre-signed **PUT** for `result.tar.gz` (see below). Unset means no upload. |
 | `OLVE_FILE_URLS` | optional | JSON object mapping file key → pre-signed **GET** URL, one entry per file ref in the input. The key is `<run>/<step>/<attempt>/<path>` (`path` exactly as in the ref, including a trailing `/` for directories). The URL points at the stored object (see the storage rule). |
 | `OLVE_FILES_BASE_URL` (+ `OLVE_FILES_TOKEN`) | optional | Fallback: `GET <base>/<run>/<step>/<attempt>/<object path>` with an optional `Authorization: Bearer <token>`. |

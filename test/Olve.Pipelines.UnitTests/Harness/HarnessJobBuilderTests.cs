@@ -83,8 +83,8 @@ public class HarnessJobBuilderTests
                       { "name": "OLVE_VERSION_STAMP", "value": "2026.10.21.412" },
                       { "name": "OLVE_RESULT_URL", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_RESULT_URL", "optional": false } } },
                       { "name": "OLVE_FILE_URLS", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_FILE_URLS", "optional": false } } },
-                      { "name": "KUBECONFIG", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "KUBECONFIG", "optional": false } } },
-                      { "name": "SSH_KEY", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "SSH_KEY", "optional": false } } }
+                      { "name": "KUBECONFIG", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "KUBECONFIG", "optional": true } } },
+                      { "name": "SSH_KEY", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "SSH_KEY", "optional": true } } }
                     ],
                     "volumeMounts": [{ "name": "olve", "mountPath": "/olve" }],
                     "securityContext": { "allowPrivilegeEscalation": false }

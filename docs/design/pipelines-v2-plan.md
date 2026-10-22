@@ -655,6 +655,28 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      (`3f92aa4d…`) is paused, all four processing gates blocked; its three production steps, including
      the heavy figures build, still run on every push. Follow-ups: a `context`/subdirectory option and
      a registry-push mode for `imageBuild`; drop the `registryMap` once on beta.2.
+   - **Migrated: Olve.SlimeRepublics** (2026-10-22). Pipeline `0e311e2d-de93-4677-a4af-c2d58009a6a4` on
+     v2 prod (`main`, `.pipelines`, SDK `2.0.0-beta.2`, no `registryMap`); run #1 (push) green in 8m49s:
+     source → web-source → build-server ∥ build-web ∥ test → deploy-beta → beta-test → deploy-prod →
+     prod-test (build-server 5m58s: vcpkg and the C++ build from scratch, Catch2 inside the image build).
+     New: (1) **two images in one chart.** The web image's context is `src/frontend`, so a 7 s
+     `web-source` step outputs a `Source` whose `tree` is `ctx.output.dir(<tree>/src/frontend)` and a
+     second `imageBuild` builds it, which keeps the cache mapping, stall watchdog and retries (until
+     `imageBuild` gets a context option). `helmDeployOverSsh` takes one image and waits on
+     `deploy/<release>`, but the chart has `<release>-server` and `<release>-web`, so `deploy-*` are
+     custom (`handlers/lib/deploy.ts`: load both tars, `image.*` and `web.image.*` with
+     `pullPolicy=Never`, wait on both rollouts). Two `Source` and two `BuiltImage` producers mean every
+     step after `web-source` needs a mapper. (2) **The app's NetworkPolicy admits only Traefik** to the
+     web pod, so the tests can't use the in-cluster Service: `beta-test` goes through
+     `slimes-beta.ovea.pro` (runner policy 3b) and `prod-test` through public `slimes.ovea.pro`.
+     `beta-test` is the repo's deployed-instance suite, the bot smoke test (`npm run smoke`: 3 bots
+     for 60 s, PASS, 20 snapshots/s), after a socket retry and a client/bundle check; the game has its
+     own login, so no Authentik client. `prod-test`: the client, its bundle, and one socket until the
+     first server message (it briefly spawns a slime). `test`: Biome, Vitest (36 passed), typecheck +
+     build. v1 (`092ba34d…`) is paused, all three processing gates blocked; v1's `aoe-triage` handler
+     was dropped. Gotcha: v2 prod's Kubernetes token (Authentik client credentials) answered
+     `invalid_grant` for a few minutes around 15:55 (secret set and reconcile answered 503); it cleared
+     with the next v2 prod rollout, and the failed reconcile had to be re-run by hand.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

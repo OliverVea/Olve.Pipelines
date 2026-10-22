@@ -67,8 +67,7 @@ public class PipelineConfigBindingService(
     }
 
     /// <summary>
-    /// Advances the deploy cursor after a production build has been enqueued for
-    /// <paramref name="sha"/>. Idempotent: a no-op if the cursor already matches.
+    /// Records the branch head the push trigger fired for. Idempotent.
     /// </summary>
     public Result<PipelineConfigBinding> SetLastPushSha(Id<PipelineConfigBinding> id, string sha)
     {

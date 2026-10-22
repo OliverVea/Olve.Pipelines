@@ -115,7 +115,8 @@ public static class PipelineBindingEndpoints
             .AllowAnonymous();
 
         app.MapGet("/api/pipelines/{pipelineId}/binding/status", Result<PipelineBindingStatus> (
-                PipelineConfigBindingService bindings, PipelineActivationService activations, Id<Pipeline> pipelineId) =>
+                PipelineConfigBindingService bindings, PipelineActivationService activations, PipelineVersionService versions,
+                Id<Pipeline> pipelineId) =>
             {
                 if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
                     return problems;
@@ -125,7 +126,11 @@ public static class PipelineBindingEndpoints
                     binding.PipelineId, binding.Repo, binding.Branch, binding.Path,
                     binding.LastPushSha, binding.LastReconciledSha,
                     status.Result, status.LastSyncTime, status.Problems, status.Warnings ?? [],
-                    status.Sha, status.InProgress, status.VersionNumber,
+                    status.Sha, status.InProgress,
+                    // Snapshots from before VersionNumber existed: the version built from the reconciled commit.
+                    status.VersionNumber ?? (status.Result == ReconcileResult.Success
+                        ? versions.ListByPipeline(pipelineId).FirstOrDefault(v => v.CommitSha == status.Sha)?.Number
+                        : null),
                     activations.TryGet(pipelineId, out var activation) ? activation : null);
             })
             .WithResultMapping<PipelineBindingStatus>()

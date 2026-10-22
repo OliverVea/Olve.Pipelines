@@ -223,9 +223,13 @@ internal static class BindingPrinter
         output.Line($"Credentials: {b.CredentialsSecret ?? "(none)"}");
         output.Line($"Last push:   {b.LastPushSha ?? "(none)"}");
         output.Line($"Reconciled:  {b.LastReconciledSha ?? "(none)"}");
-        output.Line($"Reconcile:   {ReconcileText(b.Status.Result, b.Status.LastSyncTime)}{(b.Status.InProgress ? " (in progress)" : "")}");
+        output.Line($"Reconcile:   {ReconcileText(b.Status.Result, b.Status.LastSyncTime)}");
+        output.Line($"  commit:    {b.Status.Sha ?? "(none)"}{(b.Status.InProgress ? " (in progress)" : "")}");
+        output.Line($"  version:   {(b.Status.VersionNumber is { } v ? $"v{v}" : "(none)")}");
         foreach (var problem in b.Status.Problems)
             output.Line($"  problem: {problem}");
+        foreach (var warning in b.Status.Warnings ?? [])
+            output.Line($"  warning: {warning}");
     }
 
     public static void PrintStatus(IOutputWriter output, PipelineBindingStatus s)

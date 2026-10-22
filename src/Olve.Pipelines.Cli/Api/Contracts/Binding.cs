@@ -43,7 +43,10 @@ public sealed class ReconcileStatus
     public ReconcileResult Result { get; set; }
     public DateTimeOffset? LastSyncTime { get; set; }
     public string[] Problems { get; set; } = [];
+    public string[]? Warnings { get; set; }
+    public string? Sha { get; set; }
     public bool InProgress { get; set; }
+    public int? VersionNumber { get; set; }
 }
 
 /// <summary>CLI view of binding status (<c>GET /api/pipelines/{id}/binding/status</c>).</summary>

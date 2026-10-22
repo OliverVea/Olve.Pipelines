@@ -40,7 +40,7 @@ public class BindingCommandTests
         Path = ".pipelines",
         CredentialsSecret = "GITHUB_TOKEN",
         DeployTrigger = BindingDeployTrigger.Webhook,
-        Status = new ReconcileStatus { Result = ReconcileResult.Success },
+        Status = new ReconcileStatus { Result = ReconcileResult.Success, Sha = new string('d', 40), VersionNumber = 4, Warnings = ["[W] w1"] },
     };
 
     [Test]
@@ -99,6 +99,8 @@ public class BindingCommandTests
         await Assert.That(api.Invoked("GetPipelineBinding")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("OliverVea/Olve.Pipelines");
         await Assert.That(stdout.ToString()).Contains("webhook");
+        await Assert.That(stdout.ToString()).Contains("v4");
+        await Assert.That(stdout.ToString()).Contains("[W] w1");
     }
 
     [Test]

@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 
 namespace Olve.Pipelines.Pipelines.Runs;
 
@@ -14,6 +15,6 @@ public static class AttemptEndpoints
                     : ValidationProblem.ForField("status", "status must be 'active' (got '{0}').", status))
             .WithApiResultMapping<ActiveAttempt[]>()
             .WithName("ListActiveAttempts")
-            .AllowAnonymous();
+            .RequireRead();
     }
 }

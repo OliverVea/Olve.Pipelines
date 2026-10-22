@@ -6,14 +6,21 @@ namespace Olve.Pipelines.Configuration;
 
 public static class AuthenticationConfiguration
 {
+    /// <summary>Policy of the API's reads: a signed-in user, unless <c>Auth:AnonymousReads</c> opens them (beta).</summary>
+    public const string ReadPolicy = "read";
+
+    /// <summary>Reads of pipeline state (pipelines, runs, logs, outputs, events) require <see cref="ReadPolicy"/>.</summary>
+    public static RouteHandlerBuilder RequireRead(this RouteHandlerBuilder endpoint) => endpoint.RequireAuthorization(ReadPolicy);
+
     public static void ConfigureAuthentication(this WebApplicationBuilder builder)
     {
         var disableAuth = builder.Configuration.GetValue<bool>("Auth:Disable");
+        var anonymousReads = disableAuth || builder.Configuration.GetValue<bool>("Auth:AnonymousReads");
 
         if (disableAuth)
         {
             builder.Services.AddAuthentication().AddJwtBearer();
-            builder.Services.AddAuthorization();
+            builder.Services.AddAuthorizationBuilder().AddPolicy(ReadPolicy, p => p.RequireAssertion(_ => true));
             return;
         }
 
@@ -72,7 +79,14 @@ public static class AuthenticationConfiguration
             .SetFallbackPolicy(
                 new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
-                    .Build());
+                    .Build())
+            .AddPolicy(ReadPolicy, p =>
+            {
+                if (anonymousReads)
+                    p.RequireAssertion(_ => true);
+                else
+                    p.RequireAuthenticatedUser();
+            });
     }
 
     public static void MapAuthentication(this WebApplication app)

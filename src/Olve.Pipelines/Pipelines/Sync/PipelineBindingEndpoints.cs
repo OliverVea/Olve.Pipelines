@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
@@ -101,7 +102,7 @@ public static class PipelineBindingEndpoints
                 => Redacted(bindings.GetByPipelineId(pipelineId)))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("GetPipelineBinding")
-            .AllowAnonymous();
+            .RequireRead();
 
         app.MapGet("/api/pipelines/{pipelineId}/binding/status", Result<PipelineBindingStatus> (
                 PipelineConfigBindingService bindings, PipelineActivationService activations, PipelineVersionService versions,
@@ -124,7 +125,7 @@ public static class PipelineBindingEndpoints
             })
             .WithApiResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
-            .AllowAnonymous();
+            .RequireRead();
     }
 
     // Until the first reconcile sets the manifest's name: "OliverVea/Olve.Pipelines" -> "Olve.Pipelines".

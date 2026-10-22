@@ -14,6 +14,8 @@ config:
   Webhooks__PublicBaseUrl: "https://pipelines-v2-beta-hooks.ovea.pro"
   # Base of the run/log links in a failure handler's FailureContext.
   Links__BaseUrl: "https://pipelines-v2-beta.ovea.pro"
+  # Beta only: reads without a session, for beta-test's smoke check and the dev server's auth bypass.
+  Auth__AnonymousReads: "true"
   # Beta keeps little: a run goes once it is older than 14 days and outside its pipeline's latest 3
   # (~55 MB per self-deploy run would fill the 20Gi Garage in weeks under the 183-day default).
   Retention__DryRun: "false"

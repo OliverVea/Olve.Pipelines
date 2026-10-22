@@ -114,9 +114,10 @@ log are in storage under `runs/<pipelineId>/<run>/_failure/`. A handler only run
 steps in its scope (`onFailure(handler, { steps })`), and is skipped (with a log line in the
 service) when its `FailureContext` model is from an older SDK than the service's.
 
-## Downloading a file returns 401
+## A request returns 401
 
-Reads are anonymous, except listing and downloading step files, which need a session (`pl login`).
+Everything except the docs, `/download` and the install scripts needs a session: `pl login` (or the
+web UI's sign-in). On v2 beta, reads work without one, except listing and downloading step files.
 
 ## See also
 

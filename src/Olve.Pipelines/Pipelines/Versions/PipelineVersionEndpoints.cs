@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Scheduling;
 
 namespace Olve.Pipelines.Pipelines.Versions;
@@ -35,7 +36,7 @@ public static class PipelineVersionEndpoints
                     versions.ListByPipeline(pipelineId).Select(PipelineVersionSummary.From).ToArray()))
             .WithApiResultMapping<PipelineVersionsResponse>()
             .WithName("ListPipelineVersions")
-            .AllowAnonymous();
+            .RequireRead();
 
         // The version including its canonical manifest (JSON text, as described by the build Job).
         group.MapGet("/{number:int}", Result<PipelineVersion> (PipelineVersionService versions, Id<Pipeline> pipelineId, int number)
@@ -44,7 +45,7 @@ public static class PipelineVersionEndpoints
                     : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
             .WithApiResultMapping<PipelineVersion>()
             .WithName("GetPipelineVersion")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b).
         app.MapPost("/api/pipelines/{pipelineId}/switch", Result<PipelineActivation> (

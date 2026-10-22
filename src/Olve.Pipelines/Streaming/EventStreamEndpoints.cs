@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using System.Net.ServerSentEvents;
 using Microsoft.AspNetCore.Mvc;
 using Olve.Pipelines.Pipelines;
@@ -20,7 +21,7 @@ public static class EventStreamEndpoints
             })
             .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
             .WithName("StreamEvents")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Without ?attempt= the latest attempt. Ends with `end` once the attempt is terminal.
         app.MapGet("/api/pipelines/{pipelineId}/runs/{number:int}/steps/{step}/logs/stream", IResult (
@@ -41,7 +42,7 @@ public static class EventStreamEndpoints
             .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
             .WithApiProblems()
             .WithName("StreamStepLogs")
-            .AllowAnonymous();
+            .RequireRead();
     }
 
     /// <summary>Unbuffered through proxies, and ended on shutdown so a long-lived stream never holds up a redeploy.</summary>

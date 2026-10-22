@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Olve.Pipelines.Jobs;
@@ -27,7 +28,7 @@ public static class RunEndpoints
                 => views.List(pipelineId, request))
             .WithApiResultMapping<Page<RunSummary>>()
             .WithName("ListRuns")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Manual trigger: the body is the pipeline input (the input model's z.input view; defaults are
         // filled in). Invalid input is a 400 listing every problem — never a half-started run.
@@ -42,7 +43,7 @@ public static class RunEndpoints
                 => views.Get(pipelineId, number))
             .WithApiResultMapping<RunDetail>()
             .WithName("GetRun")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Cancels the run and its scheduled/in-progress attempts (their K8s Jobs are deleted).
         group.MapPost("/{number:int}/cancel", Result<Run> (RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number)
@@ -69,7 +70,7 @@ public static class RunEndpoints
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListForStep(run.Id, step).ToArray()))
             .WithApiResultMapping<Attempt[]>()
             .WithName("ListStepAttempts")
-            .AllowAnonymous();
+            .RequireRead();
 
         // A new attempt of one step (same pinned version, current pool input); continue=true re-opens the run downstream.
         group.MapPost("/{number:int}/steps/{step}/rerun", Result<Attempt> (
@@ -128,7 +129,7 @@ public static class RunEndpoints
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListByRun(run.Id).ToArray()))
             .WithApiResultMapping<Attempt[]>()
             .WithName("ListRunAttempts")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Without ?attempt= the output of the latest successful attempt (what later stages consumed).
         group.MapGet("/{number:int}/steps/{step}/output", Result<AttemptOutputResponse> (
@@ -139,7 +140,7 @@ public static class RunEndpoints
                     : NoAttempt(number, step, attempt))
             .WithApiResultMapping<AttemptOutputResponse>()
             .WithName("GetStepOutput")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Without ?attempt= the latest attempt (whatever its status).
         group.MapGet("/{number:int}/steps/{step}/logs", async Task<Result<string>> (
@@ -157,7 +158,7 @@ public static class RunEndpoints
             })
             .WithApiResultMapping<string>()
             .WithName("GetStepLogs")
-            .AllowAnonymous();
+            .RequireRead();
     }
 
     private static Result<Run> FindRun(RunService runs, Id<Pipeline> pipelineId, int number)

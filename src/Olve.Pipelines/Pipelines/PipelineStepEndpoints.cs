@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -20,13 +21,13 @@ public static class PipelineStepEndpoints
                     : new NotFoundProblem("Pipeline '{0}' not found.", pipelineId))
             .WithApiResultMapping<PipelineHealth>()
             .WithName("GetPipelineHealth")
-            .AllowAnonymous();
+            .RequireRead();
 
         group.MapGet("/blocked-steps", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId)
                 => blocks.ListBlocked(pipelineId).ToArray())
             .WithApiResultMapping<string[]>()
             .WithName("ListBlockedSteps")
-            .AllowAnonymous();
+            .RequireRead();
 
         // Blocking holds runs at the step (no attempt is created); unblocking resumes held runs.
         group.MapPost("/steps/{step}/block", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId, string step)
@@ -43,7 +44,7 @@ public static class PipelineStepEndpoints
                 => views.History(pipelineId, step, Math.Clamp(limit ?? 50, 1, 500)).ToArray())
             .WithApiResultMapping<StepHistoryItem[]>()
             .WithName("GetStepHistory")
-            .AllowAnonymous();
+            .RequireRead();
     }
 
     private static Result<string[]> ChangeBlock(StepBlockService blocks, Id<Pipeline> pipelineId, string step, bool block)

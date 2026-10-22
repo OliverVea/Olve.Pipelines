@@ -27,7 +27,10 @@ public class EventStreamEndpointTests
         builder.Services.RemoveAll<IHostedLifecycleService>();
         builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client(new AnonymousAWSCredentials(), new AmazonS3Config { ServiceURL = "http://127.0.0.1:1" }));
         builder.Services.AddSingleton(new StorageOptions("unused"));
+        builder.Configuration["Auth:Disable"] = "true";
+        builder.ConfigureAuthentication();
         var app = builder.Build();
+        app.MapAuthentication();
         app.MapEventStreamEndpoints();
         await app.StartAsync();
         var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();

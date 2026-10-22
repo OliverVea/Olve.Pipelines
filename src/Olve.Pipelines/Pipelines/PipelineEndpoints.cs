@@ -1,3 +1,4 @@
+using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines;
@@ -18,19 +19,19 @@ public static class PipelineEndpoints
                     : Result.Failure<Pipeline>(new NotFoundProblem("Pipeline '{0}' not found.", id)))
             .WithApiResultMapping<Pipeline>()
             .WithName("GetPipeline")
-            .AllowAnonymous();
+            .RequireRead();
 
         group.MapGet("/", Result<Pipeline[]> (PipelineService service)
                 => service.List().ToArray())
             .WithApiResultMapping<Pipeline[]>()
             .WithName("ListPipelines")
-            .AllowAnonymous();
+            .RequireRead();
 
         group.MapGet("/summary", Result<PipelineSummary[]> (PipelineSummaryService service)
                 => service.List().ToArray())
             .WithApiResultMapping<PipelineSummary[]>()
             .WithName("ListPipelineSummaries")
-            .AllowAnonymous();
+            .RequireRead();
 
         group.MapDelete("/{id}", DeletionResult (PipelineService service, Id<Pipeline> id)
                 => service.Delete(id))

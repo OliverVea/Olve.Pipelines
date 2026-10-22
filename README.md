@@ -104,8 +104,10 @@ tools/version.cs                    CalVer versioning script
 
 ## Endpoints
 
-Reads (`GET`) are anonymous except secret listing and step-file listing/downloads. Everything else
-needs a bearer token. Errors (any non-2xx but 401/403) are `application/problem+json`
+Everything needs a bearer token except health/ready, `/api/config` (frontend OIDC settings), `/download`
+and the install scripts, the docs, and the webhook receivers (HMAC or trigger-secret verified).
+`Auth__AnonymousReads=true` (v2 beta only) opens the reads (`GET`), except secret listing and step-file
+listing/downloads. Errors (any non-2xx but 401/403) are `application/problem+json`
 `{type, title, status, detail, errors: [{code, message, field?}], traceId}`; codes `not-found` (404),
 `conflict` (409), `invalid` (400), `unavailable` (503, with `Retry-After`) and `internal` (500).
 
@@ -190,7 +192,7 @@ All under `/api/pipelines/{pipelineId}/runs`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/events?pipeline=<id>` | `text/event-stream` of change notifications (omit `pipeline` for all). Anonymous |
+| GET | `/api/events?pipeline=<id>` | `text/event-stream` of change notifications (omit `pipeline` for all). Needs a session |
 
 Each event is a small "something changed" notice (camelCase JSON); the client re-fetches the view it affects:
 

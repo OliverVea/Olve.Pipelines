@@ -108,12 +108,11 @@ export type WhenCond<In extends AnyModel> = {
     : never;
 };
 
-/** The subset of a GitHub push webhook payload that trigger mappers may rely on. */
+/** The push event the service sends a push trigger mapper: exactly these fields, nothing more. */
 export interface PushEvent {
   readonly ref: string;
-  readonly before: string;
   readonly after: string;
-  readonly repository: { readonly full_name: string; readonly clone_url: string };
+  readonly repository: { readonly full_name: string };
 }
 
 type CheckHeader<V, Allowed extends string> = V extends `$SECRET:${infer X}`

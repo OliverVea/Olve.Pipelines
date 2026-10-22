@@ -200,9 +200,8 @@ Blocks nest.
 ### Triggers
 
 **Push.** `.onPush(e => input)` maps a push of the bound branch to the pipeline input (the model's
-`z.input` view, type-checked). The service sends `{ ref, after, repository: { full_name } }` — use
-only those fields (the SDK's `PushEvent` type also lists `before` and `repository.clone_url`, but the
-service does not send them). A pipeline calls `onPush` at most once; without it, pushes are ignored.
+`z.input` view, type-checked). The event is `{ ref, after, repository: { full_name } }` (the SDK's
+`PushEvent`): the branch ref, the new head sha and the `owner/repo` name. A pipeline calls `onPush` at most once; without it, pushes are ignored.
 Pushes come from the binding (webhook or deploy poll), see
 [Binding & Reconcile](binding-and-reconcile.md#deploy-trigger-mode).
 

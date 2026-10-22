@@ -142,6 +142,41 @@ public class BlockAndSwitchTests
     }
 
     [Test]
+    public async Task OlderRun_NeverStartsAStepANewerRunAlreadyStarted()
+    {
+        var s = new SchedulerScenario();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
+        var older = s.Start(Input(deployTo: "prod"), RunTriggerKind.Push);
+        s.SucceedThroughDeployBeta(older);
+        var newer = s.Start(Input(deployTo: "prod", sha: OtherSha), RunTriggerKind.Push);
+        TestRunDomain.Pick(s.D.AttemptService.Schedule(newer.Id, "deploy-prod")); // the newer run got there first
+
+        await Assert.That(s.D.GateService.Unblock(s.Pipeline.Id, "deploy-prod")).Succeeded();
+
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
+        await Assert.That(s.Get(older).SupersededBy).IsEqualTo(newer.Id);
+        await Assert.That(s.Latest(older, "deploy-prod")).IsNull();
+    }
+
+    [Test]
+    public async Task ContinuingAnOlderRun_StillRunsAStepANewerRunStartedBefore()
+    {
+        var s = new SchedulerScenario();
+        var older = s.Start(Input(deployTo: "beta"));
+        s.SucceedThroughDeployBeta(older);
+        s.Succeed(older, "summary");
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Succeeded);
+        var newer = s.Start(Input(deployTo: "prod", sha: OtherSha), RunTriggerKind.Push);
+        TestRunDomain.Pick(s.D.AttemptService.Schedule(newer.Id, "deploy-prod"));
+        s.Succeed(newer, "deploy-prod"); // the newer run already deployed prod
+
+        await Assert.That(s.D.Continuations.ContinueRun(older.Id, Input(deployTo: "prod"))).Succeeded();
+
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Running);
+        await Assert.That(s.Latest(older, "deploy-prod")).IsNotNull();
+    }
+
+    [Test]
     public async Task AutomaticRunAbandonedBySwitch_StartsAgainOnTheNewVersion()
     {
         var s = new SchedulerScenario();

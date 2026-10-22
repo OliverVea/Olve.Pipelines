@@ -126,6 +126,12 @@ public class StageScheduler(
                     continue;
                 }
 
+                if (decision is StepDecision.Schedule && OvertakenBy(run, step.Name) is { } newer)
+                {
+                    SupersedeOvertaken(run, newer, step.Name);
+                    return;
+                }
+
                 Act(run, step, decision);
                 if (Latest(run.Id, step.Name) is { } created && created.Status.IsActive())
                     waiting = true;
@@ -143,6 +149,31 @@ public class StageScheduler(
             logger.LogProblems(LogLevel.Warning, problems, "Could not complete run #{RunNumber} ('{RunId}')", run.Number, run.Id);
         else
             logger.LogInformation("Run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}' succeeded", run.Number, run.Id, run.PipelineId);
+    }
+
+    /// <summary>
+    /// The newest run that already started <paramref name="stepName"/> although it is newer than
+    /// <paramref name="run"/>: running the step now would put older work after newer work (e.g. deploy
+    /// an older build over a newer one). Attempts from before an explicit resume of <paramref name="run"/>
+    /// don't count: the operator asked for this run to go on.
+    /// </summary>
+    private Run? OvertakenBy(Run run, string stepName) =>
+        runs.ListByPipeline(run.PipelineId)
+            .Where(r => r.Number > run.Number)
+            .Where(r => attempts.ListForStep(r.Id, stepName)
+                .Any(a => a.Status is not Obsolete && !(run.ResumedAt is { } resumed && a.CreatedAt < resumed)))
+            .MaxBy(r => r.Number);
+
+    private void SupersedeOvertaken(Run run, Run newer, string stepName)
+    {
+        logger.LogInformation("Run #{RunNumber} ('{RunId}') superseded by run #{NewerRunNumber}: the newer run already started step '{StepName}'",
+            run.Number, run.Id, newer.Number, stepName);
+        LogIfFailed(runs.Supersede(run.Id, newer.Id), run, "supersede");
+        foreach (var waiting in attempts.ListByRun(run.Id).Where(a => a.Status is Scheduled))
+        {
+            if (attempts.Cancel(waiting.Id).TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems, "Could not cancel step '{StepName}' of superseded run #{RunNumber}", waiting.StepName, run.Number);
+        }
     }
 
     private static bool IsSettled(Attempt? latest, StepDecision decision, Run run)

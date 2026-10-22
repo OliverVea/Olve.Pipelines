@@ -429,8 +429,9 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   (checked: same `sdkHash` from the packed tarball and from `file:../sdk`).
 - **Version scheme**: `2.0.0-beta.N` on dist-tag `beta` (`publishConfig`) until v2 prod, then `latest`.
   Release = bump `sdk/package.json` `version` and push.
-- **Publish step**: `publish-sdk` (`oven/bun:1.4.3-slim`, beside `publish-cli` in the beta `when`) skips
-  when `name@version` is on npm (registry GET; 404 = unpublished), or when `NPM_TOKEN` is unset/empty;
+- **Publish step**: `publish-sdk` (`oven/bun:1.4.3-slim`, beside `publish-cli` in the `when deployTo = prod`
+  block: publishing is a prod action, promoted by continuing a tested run with `deployTo=prod`) skips
+  when `name@version` is on npm (registry GET; 404 = unpublished) and fails when `NPM_TOKEN` is unset;
   otherwise `bun install --frozen-lockfile`, `bun run check` (clean env) and `bun publish`
   (token via `NPM_CONFIG_TOKEN` in the env only).
 - **Optional secret mounts**: declared step secrets are `secretKeyRef optional: true`. A missing key no
@@ -444,6 +445,20 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - Follow-up: switch to npm trusted publishing via GitHub Actions (OIDC, provenance, no token) now that
   the token path works and the package exists (npm configures a trusted publisher only on an existing
   package: npm ≥ 11.5.1, Node ≥ 22.14, `id-token: write`).
+
+### Trigger sources (2026-10-22)
+
+- **No per-binding deploy trigger.** The webhook / webhook-only / poll choice was dropped: every binding
+  is polled (an unchanged branch is a free 304) and gets a GitHub push hook when the instance has
+  `Webhooks:PublicBaseUrl` and the binding has credentials. Whether a push starts a run is the
+  manifest's `onPush`.
+- **Two primitives** (`Sources/`, phase 1, no behaviour change): `PollScheduler` is the one polling loop
+  over `IPollSourceProvider`s (`PollTriggerService` for manifest `onPoll`, `DeployPollService` for the
+  gated config-then-push cycle per binding); `WebhookDelivery` + `WebhookVerification` (HMAC-SHA256
+  with header/prefix, bearer) receive webhooks, GitHub's signature being an HMAC preset.
+- **Next**: phase 2 `onWebhook(cfg, map)` in the SDK + manifest, a generic `/api/hooks/{pipeline}/{trigger}`
+  endpoint (public ingress) with `null` = ignore; phase 3 `onPush` as an SDK preset over poll + webhook
+  (the binding keeps only config sync); phase 4 a Triggers page in the UI.
 
 ### v2.2 — candidates
 

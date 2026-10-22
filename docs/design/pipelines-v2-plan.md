@@ -445,6 +445,15 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   the token path works and the package exists (npm configures a trusted publisher only on an existing
   package: npm ≥ 11.5.1, Node ≥ 22.14, `id-token: write`).
 
+### v2.2 — candidates
+
+- **Manifest preview** (frontend): a `/preview` route that takes a manifest JSON (paste, file drop or
+  `?manifest=<url>`, e.g. from `pl dev describe --json`) and renders the pipeline overview from it
+  with every step pending, without API calls. It shows a pipeline as the app will before it is
+  deployed. Build it once the overview redesign settles.
+- Environments/tags, problem types lifted into Olve.MinimalApi, metrics, a `pl` smoke step, Blazor
+  revisit.
+
 ### Promotion checklist (v2 → prod / `main`)
 
 - The first v2 deploy to prod removes prod's MinIO Deployment and Service (the v2 chart has no MinIO

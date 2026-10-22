@@ -27,7 +27,7 @@ export class LogPane extends LitElement {
       }
       pre {
         margin: 0;
-        max-height: 28rem;
+        max-height: var(--log-max-height, 28rem);
         overflow: auto;
         padding: 0.6rem 0.75rem;
         background: var(--color-code-bg);

@@ -9,6 +9,7 @@ export type StepState = {
   reason?: string | null;
   runNumber?: number | null;
   runHref?: string;
+  logsHref?: string;
   attemptCount?: number;
   latestAttempt?: number | null;
   createdAt?: Date | string | null;
@@ -168,6 +169,12 @@ export class StageGraph extends LitElement {
       .run {
         color: inherit;
       }
+      a.badge {
+        text-decoration: none;
+      }
+      a.badge:hover {
+        text-decoration: underline;
+      }
       .run:hover {
         color: var(--color-primary);
       }
@@ -301,7 +308,13 @@ export class StageGraph extends LitElement {
     >
       <div class="head">
         <span class="name">${step.name}</span>
-        ${st && st.status !== 'not-run' ? html`<span class="badge">${statusLabel(st.status)}</span>` : nothing}
+        ${st && st.status !== 'not-run'
+          ? st.logsHref
+            ? html`<a class="badge" href=${st.logsHref} title="Open the log" @click=${this._link} @keydown=${this._link}
+                >${statusLabel(st.status)}</a
+              >`
+            : html`<span class="badge">${statusLabel(st.status)}</span>`
+          : nothing}
       </div>
       <div class="meta">
         ${st?.status === 'not-run' ? html`<span>never run</span>` : nothing}
@@ -322,13 +335,16 @@ export class StageGraph extends LitElement {
       class="run"
       href=${st.runHref}
       title="Open run #${st.runNumber}"
-      @click=${(e: MouseEvent) => {
-        e.stopPropagation();
-        navClick(e);
-      }}
-      @keydown=${(e: KeyboardEvent) => e.stopPropagation()}
+      @click=${this._link}
+      @keydown=${this._link}
       >${label}</a
     >`;
+  }
+
+  /** Links inside a tile must not also trigger the tile's own navigation. */
+  private _link(e: MouseEvent | KeyboardEvent) {
+    e.stopPropagation();
+    if (e instanceof MouseEvent) navClick(e);
   }
 
   private _lock(step: string, blocked: boolean) {

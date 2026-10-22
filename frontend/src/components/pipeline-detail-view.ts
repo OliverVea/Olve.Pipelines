@@ -18,6 +18,7 @@ import {
   runsPath,
   versionsPath,
   stepHistoryPath,
+  stepLogsPath,
   shortSha,
 } from '../v2/ui.js';
 import { allSteps } from '../v2/manifest.js';
@@ -181,6 +182,7 @@ export class PipelineDetailView extends LitElement {
         reason: a.reason,
         runNumber: a.runNumber,
         runHref: `${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(name)}&attempt=${a.attemptNumber}`,
+        logsHref: stepLogsPath(this.pipelineId, a.runNumber, name, a.attemptNumber),
         attemptCount: a.attemptNumber ?? 1,
         latestAttempt: a.attemptNumber,
         createdAt: a.createdAt,

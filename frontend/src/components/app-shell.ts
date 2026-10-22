@@ -183,6 +183,12 @@ export class AppShell extends LitElement {
           .pipelineId=${this._route.params.pipelineId}
           .run=${this._route.params.run}
         ></run-view>`;
+      case 'step-logs-view':
+        return html`<step-logs-view
+          .pipelineId=${this._route.params.pipelineId}
+          .run=${this._route.params.run}
+          .step=${this._route.params.step}
+        ></step-logs-view>`;
       case 'step-history-view':
         return html`<step-history-view
           .pipelineId=${this._route.params.pipelineId}

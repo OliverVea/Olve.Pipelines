@@ -1,10 +1,11 @@
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
+using Olve.Pipelines.Sources;
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
-/// <summary>Binding API: create a pipeline bound to a repo, reconcile now, update credentials/trigger,
+/// <summary>Binding API: create a pipeline bound to a repo, reconcile now, update credentials,
 /// status, and the inbound GitHub push webhook.</summary>
 public static class PipelineBindingEndpoints
 {
@@ -65,14 +66,11 @@ public static class PipelineBindingEndpoints
                 HttpRequest httpRequest,
                 CancellationToken ct) =>
             {
-                using var buffer = new MemoryStream();
-                await httpRequest.Body.CopyToAsync(buffer, ct);
-                var body = buffer.ToArray();
+                if ((await WebhookDelivery.ReadAsync(httpRequest, ct)).TryPickProblems(out _, out var delivery))
+                    return HttpResults.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
-                var signature = httpRequest.Headers[GitHubWebhookSignature.HeaderName].ToString();
-                var eventType = httpRequest.Headers["X-GitHub-Event"].ToString();
-
-                var (action, pipelineId) = receiver.Evaluate(bindingId, body, signature, eventType);
+                var (action, pipelineId) = receiver.Evaluate(
+                    bindingId, delivery.Body, delivery.Header(GitHubWebhookSignature.HeaderName), delivery.Header("X-GitHub-Event"));
                 switch (action)
                 {
                     case BindingWebhookAction.NotFound:

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Sources;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
@@ -28,15 +29,16 @@ public interface IPushTriggerHandler
 /// advance the cursor and fire the push trigger (<see cref="IPushTriggerHandler"/>). The first
 /// observation only seeds the cursor.</item>
 /// </list>
-/// Both steps run under a per-binding async gate, so the background loop, the binding webhook and
-/// reconcile-now never build or trigger the same commit twice, and a run for a commit always starts
-/// after that commit's reconcile + switch.
+/// Both steps run under a per-binding async gate, so the poll, the binding webhook and reconcile-now
+/// never build or trigger the same commit twice, and a run for a commit always starts after that
+/// commit's reconcile + switch. The poll is one <see cref="PollScheduler"/> source per binding, every
+/// <see cref="ReconcileOptions.PollInterval"/>.
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
     IServiceProvider sp,
-    ILogger<DeployPollService> logger) : BackgroundService
+    ILogger<DeployPollService> logger) : IPollSourceProvider, IHostedService, IDisposable
 {
     // Per-binding config cursor cache (in-memory). The ETag is a rate-limit optimization; the sha is
     // the cursor it stands for (a 304 means "still this sha"). Losing it on restart costs one fetch.
@@ -49,33 +51,10 @@ public class DeployPollService(
 
     private readonly CancellationTokenSource _lifetime = new();
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
-    {
-        logger.LogInformation("Deploy poll service started");
-        await using var _ = ct.Register(_lifetime.Cancel);
-
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await PollCycleAsync(ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unhandled exception in deploy poll cycle");
-            }
-
-            await Task.Delay(options.PollInterval, ct);
-        }
-    }
-
-    private async Task PollCycleAsync(CancellationToken ct)
-    {
-        foreach (var binding in bindings.List())
+    public IEnumerable<PollSource> Sources() => bindings.List().Select(binding => new PollSource(
+        $"binding:{binding.Id}",
+        options.PollInterval,
+        async ct =>
         {
             try
             {
@@ -86,8 +65,7 @@ public class DeployPollService(
                 logger.LogWarning(ex, "Deploy poll failed for binding '{BindingId}' ({Repo}@{Branch})",
                     binding.Id, binding.Repo, binding.Branch);
             }
-        }
-    }
+        }));
 
     /// <summary>
     /// Runs one config + runs cycle for a pipeline's binding now and waits for it. <paramref name="force"/>
@@ -278,15 +256,13 @@ public class DeployPollService(
                 binding.PipelineId, head);
     }
 
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        await _lifetime.CancelAsync();
-        await base.StopAsync(cancellationToken);
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public override void Dispose()
+    /// <summary>Cancels background reconciles started by <see cref="RequestReconcile"/>.</summary>
+    public Task StopAsync(CancellationToken cancellationToken) => _lifetime.CancelAsync();
+
+    public void Dispose()
     {
-        base.Dispose(); // first: cancelling the stopping token runs a callback that cancels _lifetime
         _lifetime.Dispose();
         GC.SuppressFinalize(this);
     }

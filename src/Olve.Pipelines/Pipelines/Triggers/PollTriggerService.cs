@@ -5,85 +5,60 @@ using System.Text.RegularExpressions;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Sources;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
 
 /// <summary>
-/// Runs the <c>poll</c> triggers declared by each pipeline's current version (spec §3.6): every
+/// The <c>poll</c> triggers declared by each pipeline's current version, as sources of the
+/// <see cref="PollScheduler"/>: every
 /// <c>intervalSeconds</c> GET the URL (header values may reference <c>$SECRET:NAME</c>, resolved from the
 /// pipeline's K8s Secret — only names the poll declares), extract the value at <c>valuePath</c>, and when it
 /// changed run <c>map-trigger &lt;name&gt;</c> with <c>{"value": "…"}</c> and start a Poll run. The very first
 /// observation of a trigger (or the first after its URL changed) only seeds the value. The last value is
 /// persisted (<see cref="PollTriggerStates"/>, in <c>pipeline-state.json</c>), so after a restart the first
 /// fetch is compared against the value seen before it — a change made while the service was down triggers a
-/// run. The schedule (next poll time) stays in memory. De-dup on the mapped input covers the overlap with push.
+/// run. The schedule lives in the scheduler (memory). De-dup on the mapped input covers the overlap with push.
 /// </summary>
 public partial class PollTriggerService(
     EntityStore<Pipeline> pipelines,
     AttachmentStore<Pipeline, PollTriggerStates> persisted,
     IServiceProvider sp,
     TimeProvider timeProvider,
-    ILogger<PollTriggerService> logger) : BackgroundService
+    ILogger<PollTriggerService> logger) : IPollSourceProvider
 {
-    private static readonly TimeSpan Tick = TimeSpan.FromSeconds(15);
     private const long MinIntervalSeconds = 30;
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
-
-    private readonly Dictionary<(Id<Pipeline> Pipeline, string Trigger), (string Url, DateTimeOffset NextAt)> _schedule = [];
 
     [GeneratedRegex(@"\$SECRET:([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex SecretRefRegex();
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    public IEnumerable<PollSource> Sources()
     {
-        // Let startup finish first (persistence change tracking subscribes once every host has started).
-        try { await Task.Delay(Tick, timeProvider, ct); }
-        catch (OperationCanceledException) { return; }
-
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await TickAsync(ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unhandled exception in the poll trigger loop");
-            }
-
-            await Task.Delay(Tick, timeProvider, ct);
-        }
-    }
-
-    private async Task TickAsync(CancellationToken ct)
-    {
+        using var scope = sp.CreateScope();
+        var inputs = scope.ServiceProvider.GetRequiredService<RunInputService>();
+        var sources = new List<PollSource>();
         foreach (var pipeline in pipelines.List())
         {
-            using var scope = sp.CreateScope();
-            var inputs = scope.ServiceProvider.GetRequiredService<RunInputService>();
             // No runnable version right now (e.g. mid-switch): keep its state, poll it again later.
             if (inputs.GetTarget(pipeline.Id).TryPickProblems(out _, out var target))
                 continue;
 
             var polls = target.Manifest.Triggers.OfType<PollTrigger>().ToList();
             Prune(pipeline.Id, polls.Select(p => p.Name).ToHashSet(StringComparer.Ordinal));
-            foreach (var poll in polls)
-                await PollOneAsync(scope.ServiceProvider, pipeline, poll, ct);
+            // The URL is part of the key, so a changed URL is polled at once.
+            sources.AddRange(polls.Select(poll => new PollSource(
+                $"poll:{pipeline.Id}:{poll.Name}:{poll.Url}",
+                TimeSpan.FromSeconds(Math.Max(poll.IntervalSeconds, MinIntervalSeconds)),
+                ct => PollOneAsync(pipeline, poll, ct))));
         }
+        return sources;
     }
 
-    private async Task PollOneAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, CancellationToken ct)
+    private async Task PollOneAsync(Pipeline pipeline, PollTrigger poll, CancellationToken ct)
     {
-        var key = (pipeline.Id, poll.Name);
-        var now = timeProvider.GetUtcNow();
-        if (_schedule.TryGetValue(key, out var scheduled) && scheduled.Url == poll.Url && now < scheduled.NextAt)
-            return;
-
-        _schedule[key] = (poll.Url, now + TimeSpan.FromSeconds(Math.Max(poll.IntervalSeconds, MinIntervalSeconds)));
+        using var scope = sp.CreateScope();
+        var services = scope.ServiceProvider;
         var fetched = await FetchValueAsync(services, pipeline.Id, poll, ct);
         if (fetched.TryPickProblems(out var problems, out var value))
         {
@@ -138,12 +113,9 @@ public partial class PollTriggerService(
             : new PollObservation.Changed(previous.LastValue);
     }
 
-    /// <summary>Forgets triggers the pipeline's current version no longer declares.</summary>
+    /// <summary>Forgets the persisted values of triggers the pipeline's current version no longer declares.</summary>
     internal void Prune(Id<Pipeline> pipelineId, IReadOnlySet<string> declared)
     {
-        foreach (var key in _schedule.Keys.Where(k => k.Pipeline == pipelineId && !declared.Contains(k.Trigger)).ToList())
-            _schedule.Remove(key);
-
         if (!persisted.TryGet(pipelineId, out var states) || states.Triggers.Keys.All(declared.Contains))
             return;
 

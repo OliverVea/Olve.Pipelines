@@ -15,6 +15,7 @@ using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Sources;
 using Olve.Pipelines.Streaming;
 
 namespace Olve.Pipelines.Configuration;
@@ -59,12 +60,14 @@ public static class ServiceConfiguration
         services.AddTransient<IPushTriggerHandler, PushTriggerHandler>();
         services.AddTransient<RunInputService>();
         services.AddTransient<TriggerMappingService>();
-        services.AddHostedService<PollTriggerService>();
-        // Register as a singleton AND as the hosted service so the reconcile-now endpoint can
-        // resolve the same instance (which owns the per-binding config ETag cache) to run an
-        // off-schedule reconcile.
+        // One instance serves the scheduler, the reconcile-now endpoint and the webhook (it owns the
+        // per-binding config ETag cache and gates); hosted only so shutdown cancels background reconciles.
         services.AddSingleton<DeployPollService>();
         services.AddHostedService(sp => sp.GetRequiredService<DeployPollService>());
+        services.AddSingleton<PollTriggerService>();
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PollTriggerService>());
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<DeployPollService>());
+        services.AddHostedService<PollScheduler>();
         services.AddSingleton<IdProvider>();
 
         // v2 run domain: versions, activation (operational state), sequences, runs, attempts.

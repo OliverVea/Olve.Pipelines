@@ -391,6 +391,9 @@ stack. The app names no log endpoint, token, or stream. (The separate OTLP *push
   inherited by beta) so every line is structured JSON and message args (`{RunNumber}`, `{StepName}`, …)
   become individually queryable fields. Local `dotnet run` gets the pretty `simple` formatter. No
   application code selects the formatter — it is pure configuration.
+- **Requests.** Every `/api` request logs one line, `{Method} {Path} {StatusCode} {Elapsed}ms by {User}`
+  (the token's `preferred_username`, else its subject, else `anonymous`), so a cancel or switch
+  can be traced to who sent it.
 - **Levels.** `Information` = operator-facing audit milestones (run started, attempt finished, trigger
   fired, reconcile done); `Warning` = recoverable/degraded + **always-logged security events** (webhook
   signature mismatch, auth rejection); `Error` = an operation failed / unhandled background exception;

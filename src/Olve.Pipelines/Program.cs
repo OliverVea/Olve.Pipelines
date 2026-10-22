@@ -44,8 +44,11 @@ app.Use(async (context, next) =>
         var path = context.Request.Path;
         if (path.StartsWithSegments("/api"))
         {
-            app.Logger.LogInformation("{Method} {Path} {StatusCode} {Elapsed}ms",
-                context.Request.Method, path, context.Response.StatusCode, sw.ElapsedMilliseconds);
+            // Who did it: authentication has run by now, so the user is known.
+            var user = context.User.FindFirst("preferred_username")?.Value
+                ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
+            app.Logger.LogInformation("{Method} {Path} {StatusCode} {Elapsed}ms by {User}",
+                context.Request.Method, path, context.Response.StatusCode, sw.ElapsedMilliseconds, user);
         }
     }
 });

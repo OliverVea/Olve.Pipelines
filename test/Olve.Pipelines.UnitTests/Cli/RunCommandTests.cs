@@ -5,12 +5,14 @@ using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Dev;
 using Olve.Pipelines.Cli.Commands.Steps;
+using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 using Olve.Pipelines.UnitTests.Cli.Dev;
 using Olve.Results;
+using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
@@ -51,6 +53,28 @@ public class RunCommandTests
         var (ctx, stdout, cli) = Build(command, api, args);
         var result = await command.Execute(cli, ctx, CancellationToken.None);
         return (result, stdout.ToString());
+    }
+
+    [Test]
+    [Arguments(false, "#16  Succeeded", 0)]
+    [Arguments(true, "#14  Superseded", 1)]
+    public async Task WaitRun_FollowsSupersededRuns_UnlessNoFollow(bool noFollow, string expected, int exitCode)
+    {
+        static RunDetail Detail(int number, string status, int? next) =>
+            new() { Run = new RunSummary { Number = number, Status = status, SupersededByNumber = next } };
+        var api = Api();
+        api.GetRunByNumber = n => n switch
+        {
+            14 => Detail(14, "Superseded", 15),
+            15 => Detail(15, "Superseded", 16),
+            _ => Detail(16, "Succeeded", null),
+        };
+        string[] args = noFollow ? ["wait", "run", $"{Name}#14", "--no-follow"] : ["wait", "run", $"{Name}#14"];
+        var (ctx, stdout, cli) = Build(new WaitRunCommand(), api, args);
+
+        await Assert.That(await new WaitRunCommand().Execute(cli, ctx, CancellationToken.None)).Succeeded();
+        await Assert.That(stdout.ToString()).Contains(expected);
+        await Assert.That(ctx.ExitCode ?? 0).IsEqualTo(exitCode);
     }
 
     private const string Manifest = """

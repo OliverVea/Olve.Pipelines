@@ -149,6 +149,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<TriggerRunResponse>? TriggerRunResult { get; set; }
     public Result<PageOfRunSummary>? ListRunsResult { get; set; }
     public Result<RunDetail>? GetRunResult { get; set; }
+    public Func<int, Result<RunDetail>?>? GetRunByNumber { get; set; }
     public Result<Run>? CancelRunResult { get; set; }
     public Result<TriggerRunResponse>? RerunRunResult { get; set; }
     public Result<Run>? ContinueRunResult { get; set; }
@@ -193,7 +194,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct)
     {
         (LastPipelineId, LastRun) = (pipelineId, run);
-        return Record(GetRunResult, nameof(GetRun));
+        return Record(GetRunByNumber?.Invoke(run) ?? GetRunResult, nameof(GetRun));
     }
 
     public Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct)

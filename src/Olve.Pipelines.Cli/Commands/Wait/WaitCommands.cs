@@ -133,11 +133,35 @@ internal static class Waiter
         };
     }
 
+    /// <summary>
+    /// The run <paramref name="number"/> points at, following <c>supersededBy</c> when <paramref name="follow"/>:
+    /// a superseded run's work continues in the newer run (for pushes, a newer commit containing this one).
+    /// Moves <paramref name="number"/> along the chain.
+    /// </summary>
+    internal static async Task<Result<RunDetail>> GetRunFollowingAsync(
+        CommandContext ctx, string pipelineId, string label, RunCursor number, bool follow, CancellationToken ct)
+    {
+        while (true)
+        {
+            if ((await ctx.Api.GetRun(pipelineId, number.Value, ct)).TryPickProblems(out var problems, out var detail))
+                return problems;
+            if (!follow || detail.Run.Status != "Superseded" || detail.Run.SupersededByNumber is not { } next)
+                return detail;
+            Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss}  {RunAddress.Format(label, number.Value)} superseded by #{next}, following");
+            number.Value = next;
+        }
+    }
+
     internal static bool IsTerminal(string runStatus) => runStatus is "Succeeded" or "Failed" or "Cancelled" or "Superseded";
 
     internal static WaitCheck RunFinished(string label, RunSummary run) => IsTerminal(run.Status)
         ? new WaitCheck.Done($"{RunAddress.Format(label, run.Number)}  {run.Status}", run.Status == "Succeeded")
         : new WaitCheck.Pending($"{RunAddress.Format(label, run.Number)}: {run.Status}");
+}
+
+internal sealed class RunCursor(int value)
+{
+    public int Value { get; set; } = value;
 }
 
 /// <summary><c>pl wait run &lt;address&gt;</c> — wait for a run (or one step of it) to finish, start or be held.</summary>
@@ -147,19 +171,22 @@ public sealed class WaitRunCommand : ICliCommand
     public string Verb => "run";
     public int RequiredOperands => 1;
     public string HelpLine => "Wait for a run or step to finish (or --until started/held); exit 0 on success";
+    public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "no-follow" };
     public string? HelpDetail =>
         """
-        pl wait run <pipeline>#<run>[/<step>] [--until finished|started|held] [--timeout 45m]
+        pl wait run <pipeline>#<run>[/<step>] [--until finished|started|held] [--timeout 45m] [--no-follow]
 
           Blocks until the run (or the step) reaches the state, then prints it. Re-checks on the
-          pipeline's live events, and every minute in case the stream stalls.
+          pipeline's live events, and every minute in case the stream stalls. A superseded run is
+          followed to the run that superseded it (printed on stderr); the result is that run's.
 
-          --until finished  (default) run: Succeeded → exit 0; Failed, Cancelled, Superseded → 1.
+          --until finished  (default) run: Succeeded → exit 0; Failed or Cancelled → 1.
                             step: succeeded, skipped or excluded → 0; failed or cancelled, or the run
                             ended without running it → 1.
           --until started   the step has an attempt (or the run exists).
           --until held      the run is held at a blocked step; exits 1 if it finishes first.
           --timeout <dur>   give up after 90s / 30m / 2h: exit 124.
+          --no-follow       stop at a superseded run instead: exit 1.
 
           Progress goes to stderr, the result to stdout.
         """;
@@ -175,9 +202,11 @@ public sealed class WaitRunCommand : ICliCommand
             return new ResultProblem("--until must be finished, started or held, got '{0}'.", until);
 
         var id = pipeline.Id.ToString();
+        var number = new RunCursor(address.Run);
+        var follow = !cli.HasFlag("no-follow");
         return await Waiter.RunAsync(cli, ctx, id, new HashSet<string> { "run", "attempt" }, async c =>
         {
-            if ((await ctx.Api.GetRun(id, address.Run, c)).TryPickProblems(out var getProblems, out var detail))
+            if ((await Waiter.GetRunFollowingAsync(ctx, id, address.Pipeline, number, follow, c)).TryPickProblems(out var getProblems, out var detail))
                 return getProblems;
             return address.Step is { } step
                 ? StepState(address.Pipeline, detail, step, until)
@@ -230,13 +259,16 @@ public sealed class WaitPushCommand : ICliCommand
     public string Verb => "push";
     public int RequiredOperands => 2;
     public string HelpLine => "Wait for a run of a commit to start (or --until finished); prints its address";
+    public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "no-follow" };
     public string? HelpDetail =>
         """
-        pl wait push <pipeline> <sha> [--until started|finished] [--timeout 30m]
+        pl wait push <pipeline> <sha> [--until started|finished] [--timeout 30m] [--no-follow]
 
           Blocks until a run whose input sha is <sha> (a prefix is enough) exists, and prints its
           address (e.g. olve-pipelines#412): addr=$(pl wait push olve-pipelines 6881313).
-          --until finished keeps waiting until that run finishes (exit as `pl wait run`).
+          --until finished keeps waiting until that run finishes (exit as `pl wait run`). When a
+          newer push supersedes it, the wait follows the newer run, which contains the commit;
+          --no-follow stops there instead (exit 1).
           Exits 1 when the binding's reconcile of that commit failed (no run will start).
         """;
 
@@ -252,12 +284,13 @@ public sealed class WaitPushCommand : ICliCommand
         var id = pipeline.Id.ToString();
         var label = pipeline.Label;
         var notIt = new HashSet<int>();
-        int? found = null;
+        RunCursor? found = null;
+        var follow = !cli.HasFlag("no-follow");
         return await Waiter.RunAsync(cli, ctx, id, new HashSet<string> { "run", "binding" }, async c =>
         {
-            if (found is { } number)
+            if (found is not null)
             {
-                if ((await ctx.Api.GetRun(id, number, c)).TryPickProblems(out var getProblems, out var detail))
+                if ((await Waiter.GetRunFollowingAsync(ctx, id, label, found, follow, c)).TryPickProblems(out var getProblems, out var detail))
                     return getProblems;
                 return Waiter.RunFinished(label, detail.Run);
             }
@@ -276,8 +309,11 @@ public sealed class WaitPushCommand : ICliCommand
 
                 if (until == "started")
                     return new WaitCheck.Done(RunAddress.Format(label, run.Number), true);
-                found = run.Number;
+                found = new RunCursor(run.Number);
                 Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss}  {RunAddress.Format(label, run.Number)} is the run of {sha}");
+                if (follow && detail.Run.Status == "Superseded"
+                    && (await Waiter.GetRunFollowingAsync(ctx, id, label, found, follow, c)).TryPickProblems(out var followProblems, out detail))
+                    return followProblems;
                 return Waiter.RunFinished(label, detail.Run);
             }
 

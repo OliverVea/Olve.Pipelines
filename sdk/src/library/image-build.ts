@@ -24,6 +24,8 @@ export type ImageBuildInput = typeof input;
 
 export interface ImageBuildDef<N extends string> {
   name: LiteralName<N>;
+  /** What the step does, shown in the UI. Required; may be empty. */
+  description: string;
   /** Image name, e.g. `olve-pipelines-v2`. The tag is the run's version (see `imageTag`). */
   repository: string;
   /**
@@ -82,7 +84,7 @@ export function qualifyRepository(repository: string): string {
 export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep {
   return makeStep(
     "imageBuild",
-    { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
+    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
     {
       manifestConfig: () => ({
         repository: def.repository,

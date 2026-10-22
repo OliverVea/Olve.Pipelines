@@ -50,6 +50,11 @@ export class StepView extends LitElement {
       .head .spacer {
         flex: 1;
       }
+      .desc {
+        margin: 0.3rem 0 0;
+        color: var(--color-text-muted);
+        font-size: 0.88rem;
+      }
       .facts {
         display: flex;
         flex-wrap: wrap;
@@ -178,6 +183,7 @@ export class StepView extends LitElement {
             ${blocked ? 'Unblock' : 'Block'}
           </button>
         </div>
+        ${this._def?.description ? html`<p class="desc">${this._def.description}</p>` : nothing}
         ${this._renderFacts()}
         ${held.length
           ? html`<p class="reason warn">

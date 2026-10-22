@@ -56,6 +56,7 @@ export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for the host."
 
 export const deployBeta = step({
   name: "deploy-beta",                         // identity: lower-case kebab, ≤ 63 chars
+  description: "Deploys to beta.",             // required (may be ""); shown in the UI, not versioned
   image: "alpine:latest",                      // any image; the harness brings its own runtime
   input: { artifact: BuildArtifact },          // model | optional(model) | plain zod schema
   output: BetaDeployment,                      // a model, or omitted (no output)
@@ -65,7 +66,7 @@ export const deployBeta = step({
 });
 
 import testSh from "./scripts/test.sh" with { type: "file" };
-export const test = steps.script({ name: "test", image: "…", script: testSh, input: { source: Source }, output: TestReport,
+export const test = steps.script({ name: "test", description: "Runs the tests.", image: "…", script: testSh, input: { source: Source }, output: TestReport,
   env: { TAG: ({ source }, run) => `${run.version}-${source.sha.slice(0, 7)}` } });   // env values may be functions of the inputs
 ```
 
@@ -295,7 +296,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
-- **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `input` mappings + `handlerHash`. Stage placement and `when` are pipeline-level.
+- **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
   - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olve/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
   - Library steps: `sha256(canonical {library: kind, config, harness})`.
   - Because `harness` is part of both hashes, a Bun or SDK bump changes every handler.

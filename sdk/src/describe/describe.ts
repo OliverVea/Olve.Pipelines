@@ -213,11 +213,13 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       problems.push(`${at}: library step of kind '${s.kind}' has no implementation`);
       handlerHash = "";
     }
+    if (typeof s.description !== "string") problems.push(`${at}: description must be a string (it may be empty)`);
     if (s.timeoutSeconds !== undefined && !(Number.isInteger(s.timeoutSeconds) && s.timeoutSeconds > 0)) problems.push(`${at}: timeoutSeconds must be a positive integer`);
     if (s.retries !== undefined && !(Number.isInteger(s.retries) && s.retries >= 0)) problems.push(`${at}: retries must be a non-negative integer`);
 
     const out: StepDescriptorT = {
       name: s.name,
+      description: typeof s.description === "string" ? s.description : "",
       kind: s.kind,
       image: s.image,
       inputTypes,

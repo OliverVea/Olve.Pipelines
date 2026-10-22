@@ -19,6 +19,8 @@ export type GitHubSourceInput = typeof input;
 
 export interface GitHubSourceDef<N extends string, T extends string> {
   name: LiteralName<N>;
+  /** What the step does, shown in the UI. Required; may be empty. */
+  description: string;
   /** Token sent to the GitHub API (needed for private repositories; raises the rate limit). */
   token?: Secret<T>;
   timeoutSeconds?: number;
@@ -37,7 +39,7 @@ export function gitHubSource<const N extends string, const T extends string = ne
 ): Step<N, GitHubSourceInput, typeof Source, T> & LibraryStep {
   return makeStep(
     "gitHubSource",
-    { name: def.name, image: GITHUB_SOURCE_IMAGE, input, output: Source, secrets: def.token ? [def.token] : [], timeoutSeconds: def.timeoutSeconds },
+    { name: def.name, description: def.description, image: GITHUB_SOURCE_IMAGE, input, output: Source, secrets: def.token ? [def.token] : [], timeoutSeconds: def.timeoutSeconds },
     {
       manifestConfig: () => ({ ...(def.token ? { token: def.token.name } : {}) }),
       async run({ repo, sha }: { repo: string; sha: string }, ctx: Ctx) {

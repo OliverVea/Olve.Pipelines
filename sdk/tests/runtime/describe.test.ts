@@ -18,9 +18,9 @@ const H = "sha256:" + "b".repeat(64);
 const Req = model("Req", z.object({ sha: z.string(), env: z.enum(["beta", "prod"]).default("beta"), flag: z.boolean().default(false), n: z.number() }));
 const Art = model("Art", z.object({ version: z.string(), nested: z.object({ a: z.string() }) }));
 const Dep = model("Dep", z.object({ url: z.string() }));
-const make = step({ name: "make", image: "alpine", input: { req: Req }, output: Art });
-const make2 = step({ name: "make2", image: "alpine", input: { req: Req }, output: Art });
-const use = step({ name: "use", image: "alpine", input: { art: Art }, output: Dep });
+const make = step({ name: "make", description: "", image: "alpine", input: { req: Req }, output: Art });
+const make2 = step({ name: "make2", description: "", image: "alpine", input: { req: Req }, output: Art });
+const use = step({ name: "use", description: "", image: "alpine", input: { art: Art }, output: Dep });
 
 /** Problems of `p`; by default every custom step has a handler. */
 function problems(p: unknown, names?: string[]): string[] {
@@ -47,6 +47,12 @@ describe("example manifest", async () => {
   test("is deterministic", () => {
     const again = describePipeline(cfg.pipeline, { handlerNames: Object.keys(cfg.handlers), handlerHashes: cfg.handlerHashes, harness: cfg.harness });
     expect(canonicalJson(again)).toBe(canonicalJson(m));
+  });
+  test("step descriptions", () => {
+    const [s0, s1] = m.stages as any[];
+    expect(s0.steps[0].description).toBe("Fetches the repository at the pushed commit.");
+    expect(s1.steps.map((s: any) => s.name)).toEqual(["build", "test"]);
+    expect(s1.steps[1].description).toBe("Runs the unit tests.");
   });
   test("resolved model matches and explicit mappings", () => {
     const [s0, s1, s2] = m.stages as any[];
@@ -96,20 +102,24 @@ describe("manifest.schema.json", () => {
 
 describe("describe-time checks", () => {
   test("valid pipeline has no problems", () => expect(problems(base().stage(make).stage(use))).toEqual([]));
+  test("step without a description", () => {
+    const s = step({ name: "s", image: "alpine" } as never);
+    expectProblem(base().stage(s), /description must be a string/, ["s"]);
+  });
   test("custom step without handler", () => expectProblem(base().stage(make), /step 'make' has no handler/, []));
   test("handler file without step / for a library step", () => {
     expectProblem(base().stage(make), /handlers\/ghost.ts does not match any step/, ["make", "ghost"]);
-    const lib = steps.script({ name: "s", image: "alpine", script: join(EXAMPLE, "scripts/test.sh") });
+    const lib = steps.script({ name: "s", description: "", image: "alpine", script: join(EXAMPLE, "scripts/test.sh") });
     expectProblem(base().stage(lib), /'s' is a library step/, ["s"]);
   });
   test("two schemas under one model name", () => {
     const Art2 = model("Art", z.object({ other: z.number() }));
-    const s = step({ name: "s", image: "alpine", output: Art2 });
+    const s = step({ name: "s", description: "", image: "alpine", output: Art2 });
     expectProblem(base().stage(make).stage(s as any), /two different schemas .* 'Art'/);
   });
   test("identical re-registration of a model name is fine", () => {
     const Same = model("Dep", z.object({ url: z.string() }));
-    const s = step({ name: "s", image: "alpine", input: { art: Art }, output: Same });
+    const s = step({ name: "s", description: "", image: "alpine", input: { art: Art }, output: Same });
     expect(problems(base().stage(make).stage(use).stage([s, (f: any) => ({ art: f.make })] as any))).toEqual([]);
   });
   test("not available / same-stage sibling", () => {
@@ -119,19 +129,19 @@ describe("describe-time checks", () => {
   test("ambiguous producers", () => expectProblem((base() as any).stage(make, make2).stage(use), /several producers \(make, make2\)/));
   test("maybe-available as required input, optional ok", () => {
     expectProblem((base() as any).when({ env: "prod" }, (p: any) => p.stage(make)).stage(use), /only maybe-available/);
-    const opt = step({ name: "other", image: "alpine", input: { art: optional(Art) } });
+    const opt = step({ name: "other", description: "", image: "alpine", input: { art: optional(Art) } });
     expect(problems((base() as any).when({ env: "prod" }, (p: any) => p.stage(make)).stage(opt))).toEqual([]);
   });
   test("optional() still needs a producer", () => {
-    const opt = step({ name: "other", image: "alpine", input: { art: optional(Art) } });
+    const opt = step({ name: "other", description: "", image: "alpine", input: { art: optional(Art) } });
     expectProblem(base().stage(opt as any), /not available .*optional\(\) means maybe-skipped/);
   });
   test("plain schema input needs a mapper", () => {
-    const s = step({ name: "s", image: "alpine", input: { tag: z.string() } });
+    const s = step({ name: "s", description: "", image: "alpine", input: { tag: z.string() } });
     expectProblem(base().stage(s as any), /plain schema, not a model/);
   });
   test("mapper: logic, unknown field, missing/extra keys, unavailable root", () => {
-    const s = step({ name: "s", image: "alpine", input: { tag: z.string() } });
+    const s = step({ name: "s", description: "", image: "alpine", input: { tag: z.string() } });
     expectProblem(base().stage([s, (f: any) => ({ tag: f.input.flag ? "a" : "b" })] as any), /ternary/);
     expectProblem(base().stage([s, (f: any) => ({ tag: f.input.shaa })] as any), /model Req has no field 'shaa'/);
     expectProblem(base().stage([s, () => ({})] as any), /does not provide input 'tag'/);
@@ -151,11 +161,11 @@ describe("describe-time checks", () => {
   });
   test("duplicate and reserved step names, name format", () => {
     expectProblem((base() as any).stage(make).stage(make), /duplicate step name 'make'/);
-    const input = step({ name: "input", image: "alpine" });
+    const input = step({ name: "input", description: "", image: "alpine" });
     expectProblem(base().stage(input as any), /'input' is reserved/);
-    const failure = step({ name: "failure", image: "alpine" });
+    const failure = step({ name: "failure", description: "", image: "alpine" });
     expectProblem(base().stage(failure as any), /'failure' is reserved/);
-    const bad = step({ name: "Bad_Name", image: "alpine" });
+    const bad = step({ name: "Bad_Name", description: "", image: "alpine" });
     expectProblem(base().stage(bad as any), /must be lower-case kebab/, ["Bad_Name"]);
   });
   test("triggers: one push, unique polls, header secrets", () => {
@@ -168,25 +178,25 @@ describe("describe-time checks", () => {
     expectProblem(base().onPoll({ url: "u", secrets: [T], headers: { A: "$SECRET:OTHER" } as any, valuePath: "sha", intervalSeconds: 60 }, (v) => ({ sha: v, n: 1 })), /references secret 'OTHER'/);
   });
   test("secrets: conflicting descriptions, name format", () => {
-    const a = step({ name: "s", image: "alpine", secrets: [secret("X", "one")] });
-    const b = step({ name: "t", image: "alpine", secrets: [secret("X", "two")] });
+    const a = step({ name: "s", description: "", image: "alpine", secrets: [secret("X", "one")] });
+    const b = step({ name: "t", description: "", image: "alpine", secrets: [secret("X", "two")] });
     expectProblem((base() as any).stage(a, b), /secret 'X' is declared twice/);
-    const c = step({ name: "s", image: "alpine", secrets: [secret("lower", "x")] });
+    const c = step({ name: "s", description: "", image: "alpine", secrets: [secret("lower", "x")] });
     expectProblem(base().stage(c), /secret name 'lower'/);
   });
   test("onFailure: inputs must be FailureContext, scope must exist", () => {
     expectProblem(base().stage(make).onFailure(use as any), /must all be FailureContext/);
-    const fh = step({ name: "fh", image: "alpine" });
-    const ghost = step({ name: "ghost", image: "alpine" });
+    const fh = step({ name: "fh", description: "", image: "alpine" });
+    const ghost = step({ name: "ghost", description: "", image: "alpine" });
     expectProblem(base().stage(make).onFailure(fh, { steps: [ghost as any] }), /'ghost' is not a step of this pipeline/);
   });
   test("non-JSON-representable model", () => {
     const D = model("D", z.object({ at: z.date() }));
-    const s = step({ name: "s", image: "alpine", output: D });
+    const s = step({ name: "s", description: "", image: "alpine", output: D });
     expectProblem(base().stage(s), /not representable as JSON Schema/);
   });
   test("all problems are reported together", () => {
-    const s = step({ name: "s", image: "alpine", input: { tag: z.string() } });
+    const s = step({ name: "s", description: "", image: "alpine", input: { tag: z.string() } });
     expect(problems((base() as any).stage(use).stage(s), []).length).toBeGreaterThanOrEqual(4);
   });
 });

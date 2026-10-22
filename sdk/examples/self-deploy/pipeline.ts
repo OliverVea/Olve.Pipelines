@@ -11,6 +11,7 @@ export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for image impo
 // ── steps (contracts) ─────────────────────────────────────────────────────────────────────────
 export const checkout = step({
   name: "checkout",
+  description: "Fetches the repository at the pushed commit.",
   image: "alpine/git:latest",
   input: { repo: z.string(), sha: z.string() },     // plain schemas → a mapper is required
   output: Source,
@@ -19,6 +20,7 @@ export const checkout = step({
 
 export const build = step({
   name: "build",
+  description: "Builds the image and the chart.",
   image: "gcr.io/kaniko-project/executor:debug",
   input: { source: Source },
   output: M.BuildArtifact,
@@ -27,6 +29,7 @@ export const build = step({
 
 export const test = steps.script({
   name: "test",
+  description: "Runs the unit tests.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   script: testSh,
   input: { source: Source },
@@ -35,6 +38,7 @@ export const test = steps.script({
 
 export const deployBeta = step({
   name: "deploy-beta",
+  description: "Deploys to beta.",
   image: "alpine:latest",
   input: { artifact: M.BuildArtifact },
   output: M.BetaDeployment,
@@ -44,6 +48,7 @@ export const deployBeta = step({
 
 export const deployProd = step({
   name: "deploy-prod",
+  description: "Deploys to prod.",
   image: "alpine:latest",
   input: { artifact: M.BuildArtifact },
   output: M.ProdDeployment,
@@ -52,6 +57,7 @@ export const deployProd = step({
 
 export const publishCli = step({
   name: "publish-cli",
+  description: "Publishes the pl CLI.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { artifact: M.BuildArtifact, prod: M.ProdDeployment },
   output: M.CliRelease,
@@ -60,12 +66,14 @@ export const publishCli = step({
 
 export const summary = step({
   name: "summary",
+  description: "Reports what was deployed.",
   image: "alpine:latest",
   input: { beta: M.BetaDeployment, prod: optional(M.ProdDeployment), cli: optional(M.CliRelease) },
 });
 
 export const aoeTriage = step({
   name: "aoe-triage",
+  description: "Opens an AI session to triage a failed deploy.",
   image: "alpine:latest",
   input: { failure: FailureContext },
 });

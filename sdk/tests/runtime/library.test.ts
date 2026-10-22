@@ -45,7 +45,7 @@ describe("steps.gitHubSource", () => {
   };
 
   test("downloads the tarball at the sha with the token and outputs the stripped tree", async () => {
-    const step = steps.gitHubSource({ name: "source", token: TOKEN });
+    const step = steps.gitHubSource({ name: "source", description: "", token: TOKEN });
     expect(step.secrets.map((s) => s.name)).toEqual(["GITHUB_TOKEN"]);
     expect(step.image).toBe("alpine:3.22");
     const body = await tarball();
@@ -71,7 +71,7 @@ describe("steps.gitHubSource", () => {
   });
 
   test("the tree ref extracts to the repository root", async () => {
-    const step = steps.gitHubSource({ name: "source" });
+    const step = steps.gitHubSource({ name: "source", description: "" });
     const body = await tarball();
     let extracted = "";
     const r = await testHandler(step, { repo: "a/b", sha: SHA }, {
@@ -90,7 +90,7 @@ describe("steps.gitHubSource", () => {
   });
 
   test("no token: no authorization header and no secrets; 4xx fails at once, 5xx is retried", async () => {
-    const step = steps.gitHubSource({ name: "source" });
+    const step = steps.gitHubSource({ name: "source", description: "" });
     expect(step.secrets).toEqual([]);
     let calls = 0;
     const notFound = await testHandler(step, { repo: "a/b", sha: SHA }, {
@@ -115,7 +115,7 @@ describe("steps.gitHubSource", () => {
   });
 
   test("rejects a malformed repo", async () => {
-    const r = await testHandler(steps.gitHubSource({ name: "source" }), { repo: "not a repo", sha: SHA });
+    const r = await testHandler(steps.gitHubSource({ name: "source", description: "" }), { repo: "not a repo", sha: SHA });
     expect(r).toMatchObject({ status: "failed", error: { kind: "input" } });
   });
 });
@@ -140,7 +140,7 @@ describe("steps.imageBuild", () => {
   };
 
   test("kaniko build with layer cache: exact argv, BuiltImage output", async () => {
-    const step = steps.imageBuild({ name: "build", repository: "olve-pipelines-v2", cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache", timeoutSeconds: 3600 });
+    const step = steps.imageBuild({ name: "build", description: "", repository: "olve-pipelines-v2", cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache", timeoutSeconds: 3600 });
     expect(step).toMatchObject({ image: "gcr.io/kaniko-project/executor:debug", timeoutSeconds: 3600, retries: 2, secrets: [] });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files }, run: { version: "2026.10.21.412" } });
@@ -178,7 +178,7 @@ describe("steps.imageBuild", () => {
 
   test("no cache flags without cacheRepo; reruns get a distinct tag", async () => {
     const k = fakeKaniko();
-    const r = await testHandler(steps.imageBuild({ name: "build", repository: "registry.ovea.pro/app" }), { source }, {
+    const r = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app" }), { source }, {
       ctx: { exec: k.exec, files: k.files },
       run: { version: "2026.10.21.7", attempt: 2 },
     });
@@ -190,7 +190,7 @@ describe("steps.imageBuild", () => {
 
   test("registryMap: one --registry-map per entry, recorded in the manifest config", async () => {
     const registryMap = { "mcr.microsoft.com": "registry.example/mirror/mcr.microsoft.com", "index.docker.io": "registry.example/mirror/docker.io" };
-    const step = steps.imageBuild({ name: "build", repository: "x", registryMap });
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x", registryMap });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
     expect(r.status).toBe("succeeded");
@@ -202,10 +202,10 @@ describe("steps.imageBuild", () => {
   });
 
   test("stallTimeoutSeconds and retries: passed to kaniko's exec and into the step contract", async () => {
-    const step = steps.imageBuild({ name: "build", repository: "x", stallTimeoutSeconds: 120, retries: 2 });
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x", stallTimeoutSeconds: 120, retries: 2 });
     expect(step).toMatchObject({ retries: 2 });
-    expect(steps.imageBuild({ name: "build", repository: "x" })).toMatchObject({ retries: 2 }); // default
-    expect(steps.imageBuild({ name: "build", repository: "x", retries: 0 })).toMatchObject({ retries: 0 });
+    expect(steps.imageBuild({ name: "build", description: "", repository: "x" })).toMatchObject({ retries: 2 }); // default
+    expect(steps.imageBuild({ name: "build", description: "", repository: "x", retries: 0 })).toMatchObject({ retries: 0 });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
     expect(r.status).toBe("succeeded");
@@ -214,10 +214,10 @@ describe("steps.imageBuild", () => {
 
   test("a missing digest file or an invalid tag fails the step", async () => {
     const k = fakeKaniko({ digest: "" });
-    const r = await testHandler(steps.imageBuild({ name: "build", repository: "x" }), { source }, { ctx: { exec: k.exec, files: k.files } });
+    const r = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: k.exec, files: k.files } });
     expect(r).toMatchObject({ status: "failed", error: { kind: "handler" } });
     if (r.status === "failed") expect(r.error.message).toContain("did not write the image digest");
-    const bad = await testHandler(steps.imageBuild({ name: "build", repository: "x" }), { source }, { ctx: { exec: fakeKaniko().exec, files: k.files }, run: { version: "1+2" } });
+    const bad = await testHandler(steps.imageBuild({ name: "build", description: "", repository: "x" }), { source }, { ctx: { exec: fakeKaniko().exec, files: k.files }, run: { version: "1+2" } });
     if (bad.status === "failed") expect(bad.error.message).toContain("not a valid image tag");
     else throw new Error("expected failure");
   });
@@ -226,6 +226,7 @@ describe("steps.imageBuild", () => {
 describe("steps.helmDeployOverSsh", () => {
   const def = {
     name: "deploy-beta",
+    description: "",
     host: "oliver@bulwark-m2",
     sshKey: KEY,
     release: "olve-pipelines-v2",
@@ -381,9 +382,9 @@ describe("library steps in the manifest", () => {
   test("kinds, images, secrets and configs are emitted and schema-valid", () => {
     const Req = model("Req", z.object({ repo: z.string(), sha: z.string() }));
     const p = pipeline({ name: "t", input: Req })
-      .stage([steps.gitHubSource({ name: "source", token: TOKEN }), (from) => ({ repo: from.input.repo, sha: from.input.sha })])
-      .stage(steps.imageBuild({ name: "build", repository: "app", cacheRepo: "registry.example/app/cache" }))
-      .stage(steps.helmDeployOverSsh({ name: "deploy", host: "u@h", sshKey: KEY, release: "app", namespace: "ns", chart: "helm" }));
+      .stage([steps.gitHubSource({ name: "source", description: "", token: TOKEN }), (from) => ({ repo: from.input.repo, sha: from.input.sha })])
+      .stage(steps.imageBuild({ name: "build", description: "", repository: "app", cacheRepo: "registry.example/app/cache" }))
+      .stage(steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "app", namespace: "ns", chart: "helm" }));
     const harness = { bun: "1.4.3", sdk: "0.0.0", sdkHash: "sha256:" + "a".repeat(64) };
     const m = describePipeline(p, { handlerNames: [], handlerHashes: {}, harness });
     expect(Manifest.safeParse(m).success).toBe(true);

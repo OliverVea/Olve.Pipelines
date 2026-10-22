@@ -313,6 +313,10 @@
           },
           "type": "object"
         },
+        "description": {
+          "description": "What the step does, shown in the UI (may be empty).",
+          "type": "string"
+        },
         "handlerHash": {
           "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for library steps kind + config + harness.",
           "pattern": "^sha256:[0-9a-f]{64}$",
@@ -394,6 +398,7 @@
       },
       "required": [
         "name",
+        "description",
         "kind",
         "image",
         "inputTypes",

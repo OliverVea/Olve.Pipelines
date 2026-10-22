@@ -11,6 +11,7 @@ import * as M from "./models";
 
 export const hello = step({
   name: "hello",
+  description: "Writes a greeting file and passes it on as a file ref.",
   image: "alpine:3.22",
   input: { request: M.TestInput },
   output: M.Greeting,
@@ -19,6 +20,7 @@ export const hello = step({
 
 export const count = step({
   name: "count",
+  description: "Counts the greeting's lines.",
   image: "debian:bookworm-slim",
   input: { greeting: M.Greeting },
   output: M.LineCount,
@@ -27,6 +29,7 @@ export const count = step({
 
 export const echo = step({
   name: "echo",
+  description: "Echoes the request; fails on purpose when mode is fail.",
   image: "busybox:1.37",
   input: { request: M.TestInput },
   timeoutSeconds: 300,
@@ -34,15 +37,16 @@ export const echo = step({
 
 export const last = step({
   name: "last",
+  description: "Summarises the greeting and its line count.",
   image: "alpine:3.22",
   input: { greeting: M.Greeting, count: M.LineCount },
   output: M.Summary,
   timeoutSeconds: 300,
 });
 
-/** Failure handler: logs the FailureContext it is given (proves onFailure dispatch). */
 export const logFailure = step({
   name: "log-failure",
+  description: "Logs the failure context it is given.",
   image: "alpine:3.22",
   input: { failure: FailureContext },
   timeoutSeconds: 120,

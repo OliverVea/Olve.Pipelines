@@ -156,7 +156,7 @@ describe("cancellation through the real loader", () => {
     mkdirSync(join(dir, "handlers"), { recursive: true });
     writeFileSync(join(dir, "pipeline.ts"), `import { model, pipeline, step, z } from "@olve/pipelines";
 export const Req = model("Req", z.object({ x: z.string() }));
-export const slow = step({ name: "slow", image: "alpine" });
+export const slow = step({ name: "slow", description: "", image: "alpine" });
 export default pipeline({ name: "slow", input: Req }).stage(slow);
 `);
     writeFileSync(join(dir, "handlers/slow.ts"), `import { implement } from "@olve/pipelines";

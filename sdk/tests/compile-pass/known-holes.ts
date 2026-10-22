@@ -1,7 +1,7 @@
 // Things that type-check but are WRONG. Each is a reconcile/lint concern (see REPORT.md).
 import { base, step, checkout, z } from "../fixtures2";
 
-const s = step({ name: "s", image: "alpine", input: { tag: z.string(), flag: z.boolean() } });
+const s = step({ name: "s", description: "", image: "alpine", input: { tag: z.string(), flag: z.boolean() } });
 const p = base().stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })]);
 
 // 1. Truthiness on a ref: always truthy at describe time → the proxy silently records "latest".

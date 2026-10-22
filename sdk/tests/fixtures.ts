@@ -7,10 +7,10 @@ export { M };
 export const base = () => pipeline({ name: "t", input: M.DeployRequest });
 
 /** Second producer of Source, to provoke ambiguity. */
-export const checkout2 = step({ name: "checkout2", image: "alpine/git", input: { repo: z.string(), sha: z.string() }, output: Source });
+export const checkout2 = step({ name: "checkout2", description: "", image: "alpine/git", input: { repo: z.string(), sha: z.string() }, output: Source });
 /** A step consuming Source. */
-export const lint = steps.script({ name: "lint", image: "alpine", script: "lint.sh", input: { source: Source } });
+export const lint = steps.script({ name: "lint", description: "", image: "alpine", script: "lint.sh", input: { source: Source } });
 /** A producer of BetaDeployment-shaped data that is actually a ProdDeployment. */
-export const fakeProd = step({ name: "fake-prod", image: "alpine", output: M.ProdDeployment });
-export const needsBeta = step({ name: "needs-beta", image: "alpine", input: { beta: M.BetaDeployment } });
+export const fakeProd = step({ name: "fake-prod", description: "", image: "alpine", output: M.ProdDeployment });
+export const needsBeta = step({ name: "needs-beta", description: "", image: "alpine", input: { beta: M.BetaDeployment } });
 export const NOPE = secret("NOPE", "not declared anywhere");

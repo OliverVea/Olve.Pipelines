@@ -35,6 +35,7 @@ export type InputType = { model: string; optional: boolean } | { schema: ModelSc
 
 export type ManifestStep = {
   name: string;
+  description?: string;
   kind: string;
   image: string;
   input: Record<string, Mapping>;

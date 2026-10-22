@@ -5,19 +5,24 @@ import * as M from "./models";
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing the image and running helm on the homelab host.");
 
-export const source = steps.gitHubSource({ name: "source", token: GITHUB_TOKEN });
+export const source = steps.gitHubSource({
+  name: "source",
+  description: "Fetches the pushed commit from GitHub.",
+  token: GITHUB_TOKEN,
+});
 
 export const MIRROR = "registry.ovea.pro/olve-pipelines-v2/mirror";
 
-// kaniko under gVisor stalls pulling from mcr.microsoft.com; build pulls the Dockerfile's FROMs from this mirror.
 export const mirrorBaseImages = step({
   name: "mirror-base-images",
+  description: "Copies the Dockerfile's base images into registry.ovea.pro; kaniko under gVisor stalls pulling from mcr.microsoft.com.",
   image: "gcr.io/go-containerregistry/crane:debug",
   timeoutSeconds: 900,
 });
 
 export const build = steps.imageBuild({
   name: "build",
+  description: "Builds the Olve.Pipelines image with kaniko.",
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
   registryMap: { "mcr.microsoft.com": `${MIRROR}/mcr.microsoft.com`, "index.docker.io": `${MIRROR}/docker.io` },
@@ -26,6 +31,7 @@ export const build = steps.imageBuild({
 
 export const test = step({
   name: "test",
+  description: "Runs the .NET unit tests.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
   timeoutSeconds: 1800,
@@ -33,6 +39,7 @@ export const test = step({
 
 export const deployBeta = steps.helmDeployOverSsh({
   name: "deploy-beta",
+  description: "Deploys the image to apps-beta (olve-pipelines-v2) with Helm and checks its health.",
   host: "oliver@bulwark-m2",
   sshKey: SSH_PRIVATE_KEY,
   release: "olve-pipelines-v2",
@@ -46,6 +53,7 @@ export const deployBeta = steps.helmDeployOverSsh({
 
 export const publishCli = step({
   name: "publish-cli",
+  description: "Builds the pl CLI that this instance serves at /download and /install.sh.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
   output: M.CliRelease,

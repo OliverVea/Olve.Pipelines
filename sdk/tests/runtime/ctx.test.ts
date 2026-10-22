@@ -15,7 +15,7 @@ import { EXAMPLE, SHA, tmp, withEnv } from "./helpers.ts";
 
 const Out = model("Out", z.object({ text: z.string() }));
 const KEY = secret("API_KEY", "an api key");
-const plain = step({ name: "plain", image: "alpine", input: { cmd: z.string() }, output: Out, secrets: [KEY] });
+const plain = step({ name: "plain", description: "", image: "alpine", input: { cmd: z.string() }, output: Out, secrets: [KEY] });
 
 const servers: { stop(force?: boolean): void }[] = [];
 afterAll(() => servers.forEach((s) => s.stop(true)));
@@ -108,8 +108,8 @@ describe("ctx.secrets", () => {
 
 describe("ctx.output and ctx.files.fetch", () => {
   const Files = model("Files", z.object({ a: fileRef(), b: fileRef(), d: fileRef() }));
-  const producer = step({ name: "producer", image: "alpine", output: Files });
-  const consumer = step({ name: "consumer", image: "alpine", input: { files: Files }, output: Out });
+  const producer = step({ name: "producer", description: "", image: "alpine", output: Files });
+  const consumer = step({ name: "consumer", description: "", image: "alpine", input: { files: Files }, output: Out });
 
   test("write / file / dir produce refs with run, step, attempt, path, sha256 (dirs as deterministic tars)", async () => {
     const src = tmp("out");
@@ -285,7 +285,7 @@ describe("testHandler on the example handlers", () => {
     const sh = join(dir, "files.sh");
     writeFileSync(sh, '#!/bin/sh\nset -eu\necho "$INPUT_DEPLOY_TO" > "$TMPDIR_OUT/v.txt"\nprintf \'{"tag":"%s-%s","img":{"$file":"%s"}}\' "$INPUT_DEPLOY_TO" "$TAG" "$TMPDIR_OUT/v.txt" > "$OLVE_OUTPUT"\n');
     const Img = model("Img", z.object({ tag: z.string(), img: fileRef() }));
-    const s = steps.script({ name: "lib", image: "alpine", script: sh, input: { deployTo: z.enum(["beta", "prod"]) }, output: Img, env: { TMPDIR_OUT: dir, TAG: ({ deployTo }, run) => `${deployTo}.${run.number}` } });
+    const s = steps.script({ name: "lib", description: "", image: "alpine", script: sh, input: { deployTo: z.enum(["beta", "prod"]) }, output: Img, env: { TMPDIR_OUT: dir, TAG: ({ deployTo }, run) => `${deployTo}.${run.number}` } });
     const r2 = await testHandler(s, { deployTo: "prod" }, { run: { number: 9 } });
     expect(r2).toMatchObject({ status: "succeeded", output: { tag: "prod-prod.9", img: { path: "v.txt", run: 9, step: "lib" } } });
   });

@@ -49,6 +49,7 @@ export const InputType = z
 export const StepDescriptor = z
   .strictObject({
     name: stepName,
+    description: z.string().describe("What the step does, shown in the UI (may be empty)."),
     kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
     image: z.string().min(1).describe("Container image the step runs in."),
     inputTypes: z.record(z.string(), InputType).describe("Declared input entries, keyed like input.json."),

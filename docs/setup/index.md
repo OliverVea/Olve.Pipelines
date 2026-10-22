@@ -85,8 +85,8 @@ import { pipeline, steps, Source } from "@olve/pipelines";
 import testSh from "./scripts/test.sh" with { type: "file" };
 import * as M from "./models";
 
-export const source = steps.gitHubSource({ name: "source" });
-export const test = steps.script({ name: "test", image: "alpine:3.22", script: testSh, input: { source: Source } });
+export const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
+export const test = steps.script({ name: "test", description: "Runs the tests.", image: "alpine:3.22", script: testSh, input: { source: Source } });
 
 export default pipeline({ name: "my-app", input: M.Request })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))

@@ -28,6 +28,8 @@ export type HelmDeployOverSshInput = typeof input;
 
 export interface HelmDeployOverSshDef<N extends string, K extends string> {
   name: LiteralName<N>;
+  /** What the step does, shown in the UI. Required; may be empty. */
+  description: string;
   /** SSH target, `user@host`. The user needs passwordless sudo for nerdctl, and helm/kubectl with a kubeconfig. */
   host: string;
   /** Private key for `host`. */
@@ -94,7 +96,7 @@ export function helmDeployOverSsh<const N extends string, const K extends string
   const set = def.set ?? {};
   return makeStep(
     "helmDeployOverSsh",
-    { name: def.name, image: HELM_DEPLOY_IMAGE, input, output: HelmRelease, secrets: [def.sshKey], timeoutSeconds: def.timeoutSeconds },
+    { name: def.name, description: def.description, image: HELM_DEPLOY_IMAGE, input, output: HelmRelease, secrets: [def.sshKey], timeoutSeconds: def.timeoutSeconds },
     {
       manifestConfig: () => ({
         host: def.host,

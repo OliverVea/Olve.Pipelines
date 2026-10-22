@@ -3,6 +3,7 @@ import { base, step, checkout, build, z, M } from "../fixtures2";
 // A mapper may build objects out of refs and literals, at any depth.
 const deployTo = step({
   name: "deploy-to",
+  description: "",
   image: "alpine",
   input: {
     artifact: M.BuildArtifact,

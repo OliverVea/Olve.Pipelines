@@ -3,6 +3,7 @@ import { base, steps, checkout, Source } from "../fixtures2";
 // Run-dependent library config is a function of the step's typed inputs (+ run info).
 const tag = steps.script({
   name: "tag",
+  description: "",
   image: "alpine",
   script: "tag.sh",
   input: { source: Source },

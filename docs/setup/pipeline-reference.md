@@ -66,6 +66,7 @@ of the same name; `ctx.secrets` is typed to exactly that set.
 ```ts
 export const deployBeta = step({
   name: "deploy-beta",                  // identity: lower-case kebab, ≤ 63 chars; not "input"/"failure"
+  description: "Deploys to beta.",      // required (may be ""); shown in the UI
   image: "alpine:3.22",                 // any x86-64 image — the harness brings its own runtime
   input: { artifact: M.BuildArtifact }, // model | optional(model) | plain zod schema
   output: M.BetaDeployment,             // a model, or omitted (no output)
@@ -77,6 +78,8 @@ export const deployBeta = step({
 
 - The **name is the step's identity**: history, scheduling, gates and addresses are keyed on it.
   Renaming a step starts a new history.
+- The **description** is required but may be empty. It is display-only: changing it makes a new
+  pipeline version but does not bump the step's version.
 - An input entry that is a **plain schema** (`{ repo: z.string() }`) has no model to match on, so the
   stage must give the step a mapper.
 - The image needs a shell only if the handler runs shell commands (`ctx.sh`); `ctx.exec` works on
@@ -97,7 +100,7 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage` | `repository`, `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `healthUrl?` |
 
-All take `name` and `timeoutSeconds?`.
+All take `name`, `description` and `timeoutSeconds?`.
 
 - **`steps.script`** — the zero-TypeScript path. The script gets `$OLVE_INPUT` (the validated input
   as JSON) and one `INPUT_<KEY>` env var per input key (`deployTo` → `INPUT_DEPLOY_TO`; strings raw,
@@ -234,7 +237,7 @@ binary, and the service re-validates the result.
 ### Failure handlers
 
 ```ts
-export const notify = step({ name: "notify", image: "alpine:3.22", input: { failure: FailureContext }, secrets: [WEBHOOK_URL] });
+export const notify = step({ name: "notify", description: "Posts the failure to a webhook.", image: "alpine:3.22", input: { failure: FailureContext }, secrets: [WEBHOOK_URL] });
 // …
   .onFailure(notify, { steps: [deployBeta] })   // omit `steps` for any step
 ```

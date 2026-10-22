@@ -9,7 +9,7 @@ const p = base()
   .stage(deployBeta)
   .when({ deployTo: "prod" }, p => p.stage(deployProd));
 
-const report = step({ name: "report", image: "alpine", input: { beta: M.BetaDeployment, prod: optional(M.ProdDeployment) } });
+const report = step({ name: "report", description: "", image: "alpine", input: { beta: M.BetaDeployment, prod: optional(M.ProdDeployment) } });
 p.stage(report); // beta definite, prod maybe → fine because prod is optional()
 // (summary also wants optional(CliRelease), which nothing produces here → error; see compile-fail/optional-not-available.ts)
 

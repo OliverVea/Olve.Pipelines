@@ -1,7 +1,7 @@
 import { base, step, checkout, build, test, deployBeta, deployProd, z } from "../fixtures2";
 
 // A field of a maybe-available output is maybe-undefined too.
-const notify = step({ name: "notify", image: "alpine", input: { url: z.string() } });
+const notify = step({ name: "notify", description: "", image: "alpine", input: { url: z.string() } });
 base()
   .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build, test)

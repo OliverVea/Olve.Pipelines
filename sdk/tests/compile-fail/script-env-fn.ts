@@ -2,6 +2,7 @@ import { steps, Source } from "../fixtures2";
 
 steps.script({
   name: "tag",
+  description: "",
   image: "alpine",
   script: "tag.sh",
   input: { source: Source },

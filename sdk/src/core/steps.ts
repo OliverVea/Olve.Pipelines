@@ -28,6 +28,7 @@ export interface Step<
   readonly [StepBrand]: true;
   readonly kind: StepKind;
   readonly name: N;
+  readonly description: string;
   readonly image: string;
   readonly input: I;
   readonly output: O;
@@ -62,6 +63,8 @@ export const RESERVED_STEP_NAMES: readonly string[] = ["input"];
 
 export interface StepDef<N extends string, I extends InputSpec, O extends AnyModel | null, Sec extends readonly Secret[]> {
   name: LiteralName<N>;
+  /** What the step does, shown in the UI. Required; may be empty. */
+  description: string;
   /** Any image: the harness brings its own runtime. */
   image: string;
   input?: I;
@@ -77,6 +80,7 @@ export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?:
     [STEP]: true,
     kind,
     name: def.name,
+    description: def.description,
     image: def.image,
     input: Object.freeze({ ...((def.input as object | undefined) ?? {}) }),
     output: def.output ?? null,

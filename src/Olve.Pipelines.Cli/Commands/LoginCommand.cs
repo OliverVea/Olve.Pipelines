@@ -43,7 +43,7 @@ public sealed class LoginCommand : ICliCommand
         several logins side by side (the profile is 'default' unless given), e.g.
           pl login --api-url https://pipelines-v2-private.ovea.pro
           pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
-        Then `pl --profile beta pipeline list`; `pl profile list` shows them.
+        Then `pl pipeline list --profile beta`; `pl profile list` shows them.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

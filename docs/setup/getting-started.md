@@ -43,7 +43,7 @@ first.
   ```sh
   pl login --api-url https://pipelines-v2-private.ovea.pro                  # profile 'default'; add --device over SSH
   pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro      # a second instance beside it
-  pl --profile beta pipeline list                                          # or PIPELINES_PROFILE=beta
+  pl pipeline list --profile beta                                          # or PIPELINES_PROFILE=beta
   pl profile list
   ```
   `PIPELINES_API_URL` and `--api-url` still override the URL per command. v1's `pl` doesn't read

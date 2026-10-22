@@ -22,7 +22,7 @@ export const build = steps.imageBuild({
 
 export const test = step({
   name: "test",
-  description: "Runs the .NET unit tests.",
+  description: "Runs the .NET unit tests and checks api.json and the TS client match the API.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
   timeoutSeconds: 1800,

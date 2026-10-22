@@ -147,7 +147,7 @@ cd frontend && npm run build                                # Production build
 - Domain subnamespaces nest under their parent (e.g. `Pipelines.Runs`, `Pipelines.Scheduling`, `Pipelines.Versions`)
 - Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, step outputs/files/logs under `runs/<p>/<run>/<step>/<attempt>/`, binaries and manifests under `versions/` (see `StorageLayout`). Step pods only ever get pre-signed URLs, signed for `Storage:InClusterEndpoint`
 - New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
-- Regenerate the TypeScript client after any API change (`api.json` → Kiota), or the frontend breaks at runtime rather than at build time
+- Commit the rebuilt `api.json` and regenerate the TypeScript client after any API change (`api.json` → Kiota): the deploy's `test` step fails when either is out of date
 - TypeScript client generated from OpenAPI via Kiota
 - The `pl` CLI has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/` (add each endpoint there by hand).
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See README "Logging".

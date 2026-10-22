@@ -96,8 +96,7 @@ helm/                               Helm chart (values.yaml, values-beta.yaml, v
 .pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs
-docs/design/                        v2 spec, plan, spike findings
-spikes/                             v2 spike code
+docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 test/Olve.Pipelines.UnitTests/      Unit tests (TUnit + Rocks)
 test/Olve.Pipelines.IntegrationTests/  Integration tests against the live beta instance
 tools/version.cs                    CalVer versioning script

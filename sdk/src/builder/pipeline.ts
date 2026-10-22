@@ -71,7 +71,7 @@ type SiblingNames<E extends readonly unknown[], K> = {
 }[number];
 
 /**
- * Per-entry check. Inference constraints (see spikes/sdk-types):
+ * Per-entry check. Inference constraints:
  *  - the [step, mapper] branch must be exactly `readonly [S, (from) => …]` — wrapping S or the whole
  *    mapper type in a conditional/intersection breaks inference of E or contextual typing of `from`;
  *    so name errors of tuple entries are reported on the mapper's return type instead;

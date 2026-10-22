@@ -1,7 +1,8 @@
 # Olve.Pipelines v2 — spike findings (2026-10-21)
 
-Spike code lives under `spikes/` (`compile/`, `cluster/`, `sdk-types/`), with raw results in
-`spikes/cluster/results/`. Bun 1.4.3, zod 4.6.7, k3s 1.34 + gVisor + the real runner NetworkPolicy.
+The spike code (`spikes/compile/`, `spikes/cluster/`, `spikes/sdk-types/`, raw results in
+`spikes/cluster/results/`) was removed on 2026-10-22; `git show d269107:spikes/…` or
+`git checkout d269107 -- spikes` brings it back. Bun 1.4.3, zod 4.6.7, k3s 1.34 + gVisor + the real runner NetworkPolicy.
 
 ## Spike 1 — harness in any image (cluster, gVisor) — PASS
 

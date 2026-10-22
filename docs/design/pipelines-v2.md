@@ -659,7 +659,7 @@ a promote/rerun would roll an environment back to an older build; describe deter
 ## 12. Spikes — done (2026-10-21)
 
 All four passed; findings are folded into this spec. Details, numbers and gotchas:
-[pipelines-v2-spikes.md](pipelines-v2-spikes.md) (code under `spikes/`).
+[pipelines-v2-spikes.md](pipelines-v2-spikes.md) (spike code removed 2026-10-22; in git at `d269107:spikes/`).
 
 1. **Harness in any image** — PASS (glibc binary + bundled loader; §5.1).
 2. **One binary, many modes** — PASS (deterministic manifest; per-handler bundle hashes, not the

@@ -1,6 +1,0 @@
-# Harness image: init container copies /olve/* into the step pod's emptyDir.
-# Layer 1 (stable across commits): static busybox (for cp) + bundled loader/libs.
-# Layer 2 (per commit): the bun --compile output.
-FROM busybox:1.37-musl
-COPY lib/ /olve/lib/
-COPY bin/step /olve/step

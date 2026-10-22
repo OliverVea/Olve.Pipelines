@@ -1,7 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { PipelineBindingStatus, PipelineHealth, StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
-import { client, apiPost, errorMessages } from '../api.js';
+import type { Attempt, PipelineBindingStatus, PipelineHealth, StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
+import { client, apiPost, downloadFile, encodePath, errorMessages } from '../api.js';
+import type { FileRefValue } from './typed-value.js';
 import {
   sharedStyles,
   toneOf,
@@ -19,6 +20,7 @@ import { type JsonSchema, type Manifest, type ManifestStep, type Mapping, stepsB
 import { loadVersion, toActivation, currentVersion, type LoadedVersion } from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
+import './typed-value.js';
 
 /** One-line type of a schema: `string`, `file`, `"beta" | "prod"`, `{ a, b }`, `string[]`. */
 function typeOf(s: JsonSchema | undefined): string {
@@ -182,6 +184,13 @@ export class StepView extends LitElement {
         font-size: 0.8rem;
         color: var(--color-text-muted);
       }
+      .card.output {
+        margin-top: 1rem;
+      }
+      h3 a {
+        text-transform: none;
+        letter-spacing: normal;
+      }
       p.empty {
         margin: 0;
         font-size: 0.85rem;
@@ -197,6 +206,7 @@ export class StepView extends LitElement {
   @state() private declare _binding: PipelineBindingStatus | null;
   @state() private declare _version: LoadedVersion | null;
   @state() private declare _history: StepHistoryItem[];
+  @state() private declare _output: Attempt | null;
   @state() private declare _loaded: boolean;
   @state() private declare _busy: boolean;
   @state() private declare _errors: string[];
@@ -210,6 +220,7 @@ export class StepView extends LitElement {
     this._binding = null;
     this._version = null;
     this._history = [];
+    this._output = null;
     this._loaded = false;
     this._busy = false;
     this._errors = [];
@@ -240,11 +251,21 @@ export class StepView extends LitElement {
       this._history = history ?? [];
       const n = currentVersion(toActivation(health?.activation));
       this._version = n !== null ? await loadVersion(this.pipelineId, n) : null;
+      await this._loadOutput(p);
     } catch (e) {
       this._errors = errorMessages(e);
     } finally {
       this._loaded = true;
     }
+  }
+
+  /** The latest succeeded attempt, re-fetched only when that changes. */
+  private async _loadOutput(p: ReturnType<typeof client.api.pipelines.byId>) {
+    const ok = this._history.find((h) => h.status === 'succeeded');
+    if (!ok) return void (this._output = null);
+    if (this._output?.id === ok.attemptId) return;
+    const attempts = await p.runs.byNumber(ok.runNumber ?? 0).attempts.get();
+    this._output = attempts?.find((a) => a.id === ok.attemptId) ?? null;
   }
 
   render() {
@@ -260,7 +281,8 @@ export class StepView extends LitElement {
         ? html`<div class="cards">
             <section class="card">${this._renderIo(m, d)}</section>
             <section class="card">${this._renderSecrets(m, d)}</section>
-          </div>`
+          </div>
+          ${d.output ? html`<section class="card output">${this._renderOutput(m, d)}</section>` : nothing}`
         : this._loaded
           ? html`<p class="muted">This step isn't in the active version of the pipeline.</p>`
           : nothing}
@@ -364,6 +386,31 @@ export class StepView extends LitElement {
       ${fields.map((f) => html`<li>${f.name}${f.optional ? '?' : ''} <span class="type">${f.type}</span></li>`)}
     </ul>`;
   }
+
+  private _renderOutput(m: Manifest, d: ManifestStep) {
+    const a = this._output;
+    if (!a) return html`<h3>Latest output</h3><p class="muted empty">No successful run yet.</p>`;
+    let value: unknown;
+    try {
+      value = JSON.parse(a.output?.json ?? 'null');
+    } catch {
+      value = a.output?.json;
+    }
+    return html`<h3>
+        Latest output ·
+        <a href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(this.step)}&attempt=${a.number}" @click=${navClick}
+          >#${a.runNumber}</a
+        >
+      </h3>
+      <typed-value .value=${value} .schema=${m.models[d.output!]?.output ?? null} @file-download=${this._onFileRef}></typed-value>`;
+  }
+
+  private _onFileRef = (e: CustomEvent<{ ref: FileRefValue }>) => {
+    const ref = e.detail.ref;
+    const name = ref.path.endsWith('/') ? `${ref.path.slice(0, -1).split('/').pop()}.tar` : (ref.path.split('/').pop() ?? ref.path);
+    const url = `/api/pipelines/${this.pipelineId}/runs/${ref.run}/steps/${encodeURIComponent(ref.step)}/files/${encodePath(ref.path)}?attempt=${ref.attempt}`;
+    this._act(() => downloadFile(url, name));
+  };
 
   private _renderSecrets(m: Manifest, d: ManifestStep) {
     const described = new Map(m.secrets.map((s) => [s.name, s.description]));

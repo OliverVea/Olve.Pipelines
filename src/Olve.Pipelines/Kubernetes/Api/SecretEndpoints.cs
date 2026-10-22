@@ -97,10 +97,15 @@ public static class SecretEndpoints
         .WithName("CopySecrets");
     }
 
-    /// <summary>Who is calling, for the audit log: the OIDC username, falling back to name / subject.</summary>
+    /// <summary>
+    /// Who is calling, for the audit log: the OIDC username, falling back to name / email / subject
+    /// (a client-credentials token without the profile scope carries only the subject).
+    /// </summary>
     private static string Actor(System.Security.Claims.ClaimsPrincipal user) =>
         user.FindFirst("preferred_username")?.Value
         ?? user.Identity?.Name
+        ?? user.FindFirst("email")?.Value
+        ?? user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
         ?? user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
         ?? user.FindFirst("sub")?.Value
         ?? "unknown";

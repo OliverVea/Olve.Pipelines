@@ -51,7 +51,8 @@ public class PipelineSecretCopyService(
         var copied = plan.Select(p => p.To).ToArray();
         logger.LogInformation(
             "Secret copy by {Actor}: {SourceNames} from pipeline {SourcePipelineName} ({SourcePipelineId}) to {TargetNames} on pipeline {TargetPipelineName} ({TargetPipelineId}), overwrite {Overwrite}",
-            actor, plan.Select(p => p.From).ToArray(), source.Name, source.Id, copied, target.Name, target.Id, request.Overwrite);
+            actor, string.Join(", ", plan.Select(p => p.From)), source.Name, source.Id, string.Join(", ", copied),
+            target.Name, target.Id, request.Overwrite);
 
         return new CopySecretsResponse(copied);
     }

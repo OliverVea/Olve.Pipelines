@@ -116,6 +116,55 @@ public class RunCancellationTests
         await Assert.That(s.Active(run)).IsEmpty();
         await Assert.That(cancellation.Cancel(run.Id)).Failed();
     }
+
+    private static RunCancellationService Cancellation(SchedulerScenario s) => new(s.D.RunService, s.D.AttemptService, s.D.SchedulingLock,
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<RunCancellationService>.Instance);
+
+    [Test]
+    public async Task CancelStep_CancelsOnlyThatAttempt_AndTheRunEndsCancelledAtTheBarrier()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.MarkInProgress(run, "build"); // build and test share a stage
+
+        var cancelled = TestRunDomain.Pick(Cancellation(s).CancelStep(run.Id, "build"));
+
+        await Assert.That(cancelled.Status).IsTypeOf<AttemptStatus.Cancelled>();
+        await Assert.That(s.Latest(run, "test")!.Status).IsTypeOf<AttemptStatus.Scheduled>();
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Running);
+
+        s.Succeed(run, "test");
+
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Cancelled);
+    }
+
+    [Test]
+    public async Task CancelStep_ThenRerunAndContinue_ReopensTheRun()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "test");
+        TestRunDomain.Pick(Cancellation(s).CancelStep(run.Id, "build"));
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Cancelled);
+
+        var rerun = TestRunDomain.Pick(s.D.Continuations.RerunStep(run.Id, "build", continueAfter: true));
+
+        await Assert.That(rerun.Number).IsEqualTo(2);
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Running);
+    }
+
+    [Test]
+    public async Task CancelStep_FailsWithoutAnActiveAttempt()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+
+        await Assert.That(Cancellation(s).CancelStep(run.Id, "checkout")).Failed();
+        await Assert.That(Cancellation(s).CancelStep(run.Id, "nope")).Failed();
+    }
 }
 
 public class RunInputOperationTests

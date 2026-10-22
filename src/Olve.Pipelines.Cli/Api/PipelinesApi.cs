@@ -17,24 +17,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(id)}", CliJsonContext.Default.Pipeline, ct);
 
-    // Jobs
-    public Task<Result<PageOfJob>> ListJobs(string? pipelineId, int page, int pageSize, int sort, CancellationToken ct)
-    {
-        var query = $"?Page={page}&PageSize={pageSize}&Sort={sort}";
-        if (!string.IsNullOrEmpty(pipelineId))
-            query += $"&PipelineId={Enc(pipelineId)}";
-        return transport.GetAsync($"/api/jobs/{query}", CliJsonContext.Default.PageOfJob, ct);
-    }
-
-    public Task<Result<Job>> GetJob(string id, CancellationToken ct) =>
-        transport.GetAsync($"/api/jobs/{Enc(id)}", CliJsonContext.Default.Job, ct);
-
-    // The logs endpoints return the text as a JSON string.
-    public Task<Result<string>> GetJobLogs(string id, CancellationToken ct) =>
-        transport.GetAsync($"/api/jobs/{Enc(id)}/logs", CliJsonContext.Default.String, ct);
-
-    public Task<Result<string>> GetJobQueueRaw(CancellationToken ct) =>
-        transport.GetStringAsync("/api/jobs/queue", ct);
+    // Attempts across pipelines
+    public Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct) =>
+        transport.GetAsync("/api/attempts?status=active", CliJsonContext.Default.ActiveAttemptArray, ct);
 
     // Secrets
     public Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
@@ -58,9 +43,6 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.GetStringAsync("/api/ready", ct);
 
     // Mutations
-    public Task<Result> CancelJob(string id, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Post, $"/api/jobs/{Enc(id)}/cancel", body: null, ct);
-
     public Task<Result> DeletePipeline(string id, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(id)}", body: null, ct);
 
@@ -136,13 +118,16 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.RawJson(inputChangesJson is null ? "{}" : $"{{\"input\":{inputChangesJson}}}"),
             CliJsonContext.Default.Run, ct);
 
-    public Task<Result<Job[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct) =>
-        transport.GetAsync($"{StepPath(pipelineId, run, step)}/attempts", CliJsonContext.Default.JobArray, ct);
+    public Task<Result<Attempt[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct) =>
+        transport.GetAsync($"{StepPath(pipelineId, run, step)}/attempts", CliJsonContext.Default.AttemptArray, ct);
 
-    public Task<Result<Job>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct) =>
+    public Task<Result<Attempt>> CancelStep(string pipelineId, int run, string step, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/cancel", body: null, CliJsonContext.Default.Attempt, ct);
+
+    public Task<Result<Attempt>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/rerun",
             ApiTransport.JsonBody(new RerunStepRequest { Continue = continueRun }, CliJsonContext.Default.RerunStepRequest),
-            CliJsonContext.Default.Job, ct);
+            CliJsonContext.Default.Attempt, ct);
 
     public Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct) =>
         transport.GetAsync($"{StepPath(pipelineId, run, step)}/output{AttemptQuery(attempt)}", CliJsonContext.Default.AttemptOutputResponse, ct);

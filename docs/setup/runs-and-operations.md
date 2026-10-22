@@ -93,6 +93,10 @@ shows the latest attempt whatever its status; output and files use the latest su
   the run has finished, or when that step's latest attempt failed or was cancelled. *Rerun only*
   leaves the rest of the run alone; `--continue` re-opens the run, and later stages run again where
   their input changed.
+- **Cancel step** (`pl step cancel <pipeline>#<run>/<step>`) cancels that step's scheduled or
+  in-progress attempt (its Job is deleted). A cancelled attempt is treated like any other: the other
+  steps of its stage keep running, and once the stage settles the run ends Cancelled. To carry on,
+  `pl step rerun <address> --continue`.
 - **Continue and rerun need the run's version to be active.** After a switch, re-trigger instead.
 
 Health (`pl pipeline list`):
@@ -107,8 +111,8 @@ Health (`pl pipeline list`):
 
 Cancelled and superseded runs are ignored; skipped steps never count as unhealthy.
 
-Attempt-level view by attempt id: `pl job list [--pipeline <id>]`, `pl job get|logs|cancel <jobId>`,
-`pl job queue`.
+What's running across all pipelines: `pl attempts` (`GET /api/attempts?status=active`) lists every
+scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`).
 
 ## How a step runs
 

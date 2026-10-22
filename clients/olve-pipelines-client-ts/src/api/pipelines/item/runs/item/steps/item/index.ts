@@ -4,6 +4,8 @@
 // @ts-ignore
 import { AttemptsRequestBuilderRequestsMetadata, type AttemptsRequestBuilder } from './attempts/index.js';
 // @ts-ignore
+import { CancelRequestBuilderRequestsMetadata, type CancelRequestBuilder } from './cancel/index.js';
+// @ts-ignore
 import { FilesRequestBuilderNavigationMetadata, FilesRequestBuilderRequestsMetadata, type FilesRequestBuilder } from './files/index.js';
 // @ts-ignore
 import { LogsRequestBuilderRequestsMetadata, type LogsRequestBuilder } from './logs/index.js';
@@ -22,6 +24,10 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
      * The attempts property
      */
     get attempts(): AttemptsRequestBuilder;
+    /**
+     * The cancel property
+     */
+    get cancel(): CancelRequestBuilder;
     /**
      * The files property
      */
@@ -49,6 +55,9 @@ export const WithStepItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{
 export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithStepItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     attempts: {
         requestsMetadata: AttemptsRequestBuilderRequestsMetadata,
+    },
+    cancel: {
+        requestsMetadata: CancelRequestBuilderRequestsMetadata,
     },
     files: {
         requestsMetadata: FilesRequestBuilderRequestsMetadata,

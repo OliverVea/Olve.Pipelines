@@ -14,11 +14,8 @@ public interface IPipelinesApi
     Task<Result<PipelineSummary[]>> ListPipelineSummaries(CancellationToken ct);
     Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct);
 
-    // Jobs
-    Task<Result<PageOfJob>> ListJobs(string? pipelineId, int page, int pageSize, int sort, CancellationToken ct);
-    Task<Result<Job>> GetJob(string id, CancellationToken ct);
-    Task<Result<string>> GetJobLogs(string id, CancellationToken ct);
-    Task<Result<string>> GetJobQueueRaw(CancellationToken ct);
+    // Attempts across pipelines (what's running)
+    Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct);
 
     // Secrets
     Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct);
@@ -33,7 +30,6 @@ public interface IPipelinesApi
     Task<Result<string>> GetReadyRaw(CancellationToken ct);
 
     // Mutations
-    Task<Result> CancelJob(string id, CancellationToken ct);
     Task<Result> DeletePipeline(string id, CancellationToken ct);
     Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);
     Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
@@ -56,8 +52,9 @@ public interface IPipelinesApi
     Task<Result<Run>> ContinueRun(string pipelineId, int run, string? inputChangesJson, CancellationToken ct);
 
     // Steps of a run (attempt null = latest successful for output/files, latest for logs)
-    Task<Result<Job[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct);
-    Task<Result<Job>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct);
+    Task<Result<Attempt[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct);
+    Task<Result<Attempt>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct);
+    Task<Result<Attempt>> CancelStep(string pipelineId, int run, string step, CancellationToken ct);
     Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct);
     Task<Result<AttemptFilesResponse>> ListStepFiles(string pipelineId, int run, string step, int? attempt, CancellationToken ct);
     Task<Result<long>> DownloadStepFile(string pipelineId, int run, string step, string path, int? attempt, Stream destination, CancellationToken ct);

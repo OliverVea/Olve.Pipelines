@@ -174,5 +174,5 @@ public static class RunCommandSupport
             ? "null"
             : JsonNode.Parse(element.GetRawText())?.ToJsonString(DevPool.IndentedJson) ?? "null";
 
-    public static bool IsActive(Job attempt) => attempt.Status is ScheduledStatus or InProgressStatus;
+    public static bool IsActive(Attempt attempt) => attempt.Status is ScheduledStatus or InProgressStatus;
 }

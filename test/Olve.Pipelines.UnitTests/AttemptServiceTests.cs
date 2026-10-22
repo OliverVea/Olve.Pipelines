@@ -177,18 +177,21 @@ public class AttemptServiceTests
     }
 
     [Test]
-    public async Task List_PagesAndFiltersByPipeline()
+    public async Task ActiveAttemptQuery_ListsOnlyActiveAttempts_AcrossPipelines_ByAddress()
     {
         var d = new TestRunDomain();
         var run = d.CreateRun();
-        d.Schedule("a", run);
+        var a = d.Schedule("a", run);
         d.Schedule("b", run);
         d.Schedule("c"); // other pipeline
+        await Assert.That(d.AttemptService.Cancel(a.Id)).Succeeded();
 
-        var page = d.AttemptService.List(new ListAttemptsRequest(run.PipelineId, Page: 0, PageSize: 1));
+        var active = new ActiveAttemptQuery(d.AttemptService, d.PipelineService).List();
 
-        await Assert.That(page.TotalCount).IsEqualTo(2);
-        await Assert.That(page.Items).Count().IsEqualTo(1);
-        await Assert.That(page.Items[0].StepName).IsEqualTo("b"); // newest first
+        await Assert.That(active.Select(x => x.Step)).IsEquivalentTo(["b", "c"]);
+        await Assert.That(active[0].PipelineName).IsEqualTo("p");
+        await Assert.That(active[0].Run).IsEqualTo(run.Number);
+        await Assert.That(active[0].Attempt).IsEqualTo(1);
+        await Assert.That(active[0].Status).IsEqualTo("scheduled");
     }
 }

@@ -151,6 +151,7 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | GET | `/{number}/attempts` | All attempts of the run |
 | GET | `/{number}/steps/{step}/attempts` | One step's attempts |
 | POST | `/{number}/steps/{step}/rerun` | New attempt of a step (`{ continue }`) |
+| POST | `/{number}/steps/{step}/cancel` | Cancel the step's scheduled/in-progress attempt (Job deleted); the run ends Cancelled once the stage settles |
 | GET | `/{number}/steps/{step}/output` | Output JSON (`?attempt=`; default: latest successful) |
 | GET | `/{number}/steps/{step}/files` | Stored files of an attempt (authenticated) |
 | GET | `/{number}/steps/{step}/files/{*path}` | Download a file (authenticated; `dir/` → `dir.tar`) |
@@ -165,15 +166,11 @@ All under `/api/pipelines/{pipelineId}/runs`.
 | POST | `/api/pipelines/{pipelineId}/steps/{step}/block` | Block a step (runs reaching it are held) |
 | POST | `/api/pipelines/{pipelineId}/steps/{step}/unblock` | Unblock (held runs resume) |
 
-### Jobs (attempts by id)
+### Attempts across pipelines
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/jobs` | Attempts across runs (paged, `?pipelineId=`) |
-| GET | `/api/jobs/{id}` | One attempt |
-| GET | `/api/jobs/{id}/logs` | Its log |
-| GET | `/api/jobs/queue` | Scheduled attempt ids |
-| POST | `/api/jobs/{id}/cancel` | Cancel an attempt |
+| GET | `/api/attempts?status=active` | What's running: every scheduled/in-progress attempt, oldest first, as `{pipelineId, pipelineName, run, step, attempt, status, createdAt, startedAt}` |
 
 ### Secrets
 
@@ -247,6 +244,7 @@ pl step files <pipeline>#<run>/<step>[@<attempt>]
 pl step file <pipeline>#<run>/<step>[@<attempt>] <path> [-o <file>]
 pl step logs <pipeline>#<run>/<step>[@<attempt>] [--follow] [--interval <seconds>]
 pl step rerun <pipeline>#<run>/<step> [--continue]
+pl step cancel <pipeline>#<run>/<step>                 # the run ends Cancelled once the stage settles
 pl step history <pipeline>/<step> [--limit <n>]
 
 # promotion gates
@@ -254,10 +252,8 @@ pl gate list <pipeline>
 pl gate block <pipeline>/<step>
 pl gate unblock <pipeline>/<step>
 
-# attempts by id
-pl job list [--pipeline <id>] [--page <n>] [--page-size <n>] [--sort created-desc|created-asc]
-pl job get|logs|cancel <jobId>
-pl job queue
+# what's running (scheduled/in-progress attempts across pipelines)
+pl attempts
 
 # secrets and bindings (by pipeline id)
 pl secret list <pipelineId>

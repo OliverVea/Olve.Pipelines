@@ -9,7 +9,6 @@ const routes: Route[] = [
   { pattern: /^\/callback/, params: [], view: 'callback' },
   { pattern: /^\/docs\/([\w-]+)$/, params: ['page'], view: 'docs-view' },
   { pattern: /^\/docs\/?$/, params: [], view: 'docs-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/job\/([^/]+)\/logs$/, params: ['pipelineId', 'jobId'], view: 'job-logs-view' },
   { pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)$/, params: ['pipelineId', 'run'], view: 'run-view' },
   { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'step'], view: 'step-history-view' },
   { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },

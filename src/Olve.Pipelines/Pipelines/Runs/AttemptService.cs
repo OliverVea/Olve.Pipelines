@@ -2,7 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Shared;
-using Olve.Utilities.Paginations;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Pipelines.Runs;
@@ -68,23 +67,6 @@ public class AttemptService(
     public bool TryGet(Id<Attempt> id, [NotNullWhen(true)] out Attempt? attempt) => store.TryGet(id, out attempt);
 
     public IReadOnlyList<Attempt> List() => store.List();
-
-    public Page<Attempt> List(ListAttemptsRequest request)
-    {
-        IEnumerable<Attempt> source = request.PipelineId is { } pipelineId ? Resolve(_byPipeline.GetForKey(pipelineId)) : store.List();
-
-        var sorted = request.Sort switch
-        {
-            AttemptSortField.CreatedAtAsc => source.OrderBy(a => a.CreatedAt),
-            _ => source.OrderByDescending(a => a.CreatedAt),
-        };
-
-        var materialized = sorted.ToList();
-        var pageNumber = Math.Max(0, request.Page);
-        var pageSize = Math.Max(1, request.PageSize);
-        var items = materialized.Skip(pageNumber * pageSize).Take(pageSize).ToList();
-        return new Page<Attempt>(items, pageNumber, pageSize, materialized.Count);
-    }
 
     /// <summary>Every attempt of a pipeline (any status, unordered).</summary>
     public IReadOnlyList<Attempt> ListByPipeline(Id<Pipeline> pipelineId) => Resolve(_byPipeline.GetForKey(pipelineId)).ToList();
@@ -273,15 +255,3 @@ public class AttemptService(
         }
     }
 }
-
-public enum AttemptSortField
-{
-    CreatedAtDesc,
-    CreatedAtAsc,
-}
-
-public record ListAttemptsRequest(
-    Id<Pipeline>? PipelineId = null,
-    int Page = 0,
-    int PageSize = 50,
-    AttemptSortField Sort = AttemptSortField.CreatedAtDesc);

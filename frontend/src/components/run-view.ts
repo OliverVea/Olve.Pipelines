@@ -51,7 +51,7 @@ function parseJson(s: string | null | undefined): unknown {
 /**
  * One run: its input, the pinned version's stage graph coloured by step status,
  * and per step the attempts with typed input/output, files and logs. Actions:
- * cancel, rerun the run, continue with changed input, rerun a step (optionally
+ * cancel, rerun the run, continue with changed input, cancel a step, rerun a step (optionally
  * continuing the run).
  */
 @customElement('run-view')
@@ -416,6 +416,7 @@ export class RunView extends LitElement {
     const a = this._selectedAttempt();
     const as = a ? attemptStatus(a) : null;
     const continuable = this._detail?.continuable ?? false;
+    const active = attempts.some((x) => ['scheduled', 'in-progress'].includes(attemptStatus(x).type ?? ''));
     const logsUrl = a ? `${this._base}/steps/${encodeURIComponent(this._step)}/logs?attempt=${a.number}` : '';
     return html`<section class="panel">
       <div class="step-head">
@@ -424,6 +425,10 @@ export class RunView extends LitElement {
         ${st?.blocked ? html`<span class="pill t-wait" title="This step's gate is closed">gate closed</span>` : nothing}
         <a href=${stepHistoryPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step history</a>
         <div class="actions">
+          ${active
+            ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancelStep}
+                title="Stop this step's attempt; the run ends Cancelled once its stage settles">Cancel step</button>`
+            : nothing}
           <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}
             title="Add an attempt of this step only">Rerun step</button>
           <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}
@@ -564,6 +569,15 @@ export class RunView extends LitElement {
       if (!confirm(`Cancel run #${this.run}? Running steps are stopped.`)) return;
       await apiPost(`${this._base}/cancel`);
       await this._load();
+    });
+
+  private _cancelStep = () =>
+    this._act(async () => {
+      const step = this._step;
+      if (!confirm(`Cancel step ${step} in run #${this.run}? The run ends Cancelled once its stage settles.`)) return;
+      await apiPost(`${this._base}/steps/${encodeURIComponent(step)}/cancel`);
+      await this._load();
+      this._selectStep(step, null);
     });
 
   private _rerunRun = () =>

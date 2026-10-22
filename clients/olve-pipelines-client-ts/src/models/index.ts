@@ -4,6 +4,40 @@
 // @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type ApiError, type Guid, type Parsable, type ParseNode, type SerializationWriter, type UntypedNode } from '@microsoft/kiota-abstractions';
 
+export interface ActiveAttempt extends AdditionalDataHolder, Parsable {
+    /**
+     * The attempt property
+     */
+    attempt?: number | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The pipelineName property
+     */
+    pipelineName?: string | null;
+    /**
+     * The run property
+     */
+    run?: number | null;
+    /**
+     * The startedAt property
+     */
+    startedAt?: Date | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+}
 export interface Attempt extends AdditionalDataHolder, Parsable {
     /**
      * The createdAt property
@@ -227,6 +261,15 @@ export interface CopySecretsResponse extends AdditionalDataHolder, Parsable {
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ActiveAttempt}
+ */
+// @ts-ignore
+export function createActiveAttemptFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoActiveAttempt;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {AttemptFileEntry}
  */
 // @ts-ignore
@@ -444,15 +487,6 @@ export function createManifestIssueViewFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createManifestValidationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoManifestValidationResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PageOfAttempt}
- */
-// @ts-ignore
-export function createPageOfAttemptFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPageOfAttempt;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -824,6 +858,24 @@ export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: Pars
 }
 /**
  * The deserialization information for the current model
+ * @param ActiveAttempt The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoActiveAttempt(activeAttempt: Partial<ActiveAttempt> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attempt": n => { activeAttempt.attempt = n.getNumberValue(); },
+        "createdAt": n => { activeAttempt.createdAt = n.getDateValue(); },
+        "pipelineId": n => { activeAttempt.pipelineId = n.getGuidValue(); },
+        "pipelineName": n => { activeAttempt.pipelineName = n.getStringValue(); },
+        "run": n => { activeAttempt.run = n.getNumberValue(); },
+        "startedAt": n => { activeAttempt.startedAt = n.getDateValue(); },
+        "status": n => { activeAttempt.status = n.getStringValue(); },
+        "step": n => { activeAttempt.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Attempt The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1107,23 +1159,6 @@ export function deserializeIntoManifestValidationResponse(manifestValidationResp
         "manifestHash": n => { manifestValidationResponse.manifestHash = n.getStringValue(); },
         "valid": n => { manifestValidationResponse.valid = n.getBooleanValue(); },
         "warnings": n => { manifestValidationResponse.warnings = n.getCollectionOfObjectValues<ManifestIssueView>(createManifestIssueViewFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PageOfAttempt The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPageOfAttempt(pageOfAttempt: Partial<PageOfAttempt> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "hasNextPage": n => { pageOfAttempt.hasNextPage = n.getBooleanValue(); },
-        "items": n => { pageOfAttempt.items = n.getCollectionOfObjectValues<Attempt>(createAttemptFromDiscriminatorValue); },
-        "next": n => { pageOfAttempt.next = n.getObjectValue<Pagination>(createPaginationFromDiscriminatorValue); },
-        "pageNumber": n => { pageOfAttempt.pageNumber = n.getNumberValue(); },
-        "pageSize": n => { pageOfAttempt.pageSize = n.getNumberValue(); },
-        "totalCount": n => { pageOfAttempt.totalCount = n.getNumberValue(); },
-        "totalPages": n => { pageOfAttempt.totalPages = n.getNumberValue(); },
     }
 }
 /**
@@ -1712,36 +1747,6 @@ export interface ManifestValidationResponse extends AdditionalDataHolder, Parsab
      * The warnings property
      */
     warnings?: ManifestIssueView[] | null;
-}
-export interface PageOfAttempt extends AdditionalDataHolder, Parsable {
-    /**
-     * The hasNextPage property
-     */
-    hasNextPage?: boolean | null;
-    /**
-     * The items property
-     */
-    items?: Attempt[] | null;
-    /**
-     * The next property
-     */
-    next?: Pagination | null;
-    /**
-     * The pageNumber property
-     */
-    pageNumber?: number | null;
-    /**
-     * The pageSize property
-     */
-    pageSize?: number | null;
-    /**
-     * The totalCount property
-     */
-    totalCount?: number | null;
-    /**
-     * The totalPages property
-     */
-    totalPages?: number | null;
 }
 export interface PageOfRunSummary extends AdditionalDataHolder, Parsable {
     /**
@@ -2405,6 +2410,25 @@ export interface SecretStatus extends AdditionalDataHolder, Parsable {
 }
 /**
  * Serializes information the current object
+ * @param ActiveAttempt The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeActiveAttempt(writer: SerializationWriter, activeAttempt: Partial<ActiveAttempt> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!activeAttempt || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attempt", activeAttempt.attempt);
+    writer.writeDateValue("createdAt", activeAttempt.createdAt);
+    writer.writeGuidValue("pipelineId", activeAttempt.pipelineId);
+    writer.writeStringValue("pipelineName", activeAttempt.pipelineName);
+    writer.writeNumberValue("run", activeAttempt.run);
+    writer.writeDateValue("startedAt", activeAttempt.startedAt);
+    writer.writeStringValue("status", activeAttempt.status);
+    writer.writeStringValue("step", activeAttempt.step);
+    writer.writeAdditionalData(activeAttempt.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param Attempt The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -2727,24 +2751,6 @@ export function serializeManifestValidationResponse(writer: SerializationWriter,
     writer.writeBooleanValue("valid", manifestValidationResponse.valid);
     writer.writeCollectionOfObjectValues<ManifestIssueView>("warnings", manifestValidationResponse.warnings, serializeManifestIssueView);
     writer.writeAdditionalData(manifestValidationResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PageOfAttempt The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePageOfAttempt(writer: SerializationWriter, pageOfAttempt: Partial<PageOfAttempt> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pageOfAttempt || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("hasNextPage", pageOfAttempt.hasNextPage);
-    writer.writeCollectionOfObjectValues<Attempt>("items", pageOfAttempt.items, serializeAttempt);
-    writer.writeObjectValue<Pagination>("next", pageOfAttempt.next, serializePagination);
-    writer.writeNumberValue("pageNumber", pageOfAttempt.pageNumber);
-    writer.writeNumberValue("pageSize", pageOfAttempt.pageSize);
-    writer.writeNumberValue("totalCount", pageOfAttempt.totalCount);
-    writer.writeNumberValue("totalPages", pageOfAttempt.totalPages);
-    writer.writeAdditionalData(pageOfAttempt.additionalData);
 }
 /**
  * Serializes information the current object

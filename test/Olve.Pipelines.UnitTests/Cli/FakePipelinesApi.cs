@@ -20,11 +20,8 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<PipelineSummary[]>? ListPipelineSummariesResult { get; set; }
     public Result<Pipeline>? GetPipelineResult { get; set; }
 
-    // Jobs
-    public Result<PageOfJob>? ListJobsResult { get; set; }
-    public Result<Job>? GetJobResult { get; set; }
-    public Result<string>? GetJobLogsResult { get; set; }
-    public Result<string>? GetJobQueueRawResult { get; set; }
+    // Attempts across pipelines
+    public Result<ActiveAttempt[]>? ListActiveAttemptsResult { get; set; }
 
     // Secrets
     public Result<string[]>? ListSecretsResult { get; set; }
@@ -43,7 +40,6 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<string>? GetReadyRawResult { get; set; }
 
     // Mutations
-    public Result? CancelJobResult { get; set; }
     public Result? DeletePipelineResult { get; set; }
     public Result? SetSecretResult { get; set; }
     public Result? DeleteSecretResult { get; set; }
@@ -74,18 +70,9 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct) =>
         Record(GetPipelineResult, nameof(GetPipeline));
 
-    // Jobs
-    public Task<Result<PageOfJob>> ListJobs(string? pipelineId, int page, int pageSize, int sort, CancellationToken ct) =>
-        Record(ListJobsResult, nameof(ListJobs));
-
-    public Task<Result<Job>> GetJob(string id, CancellationToken ct) =>
-        Record(GetJobResult, nameof(GetJob));
-
-    public Task<Result<string>> GetJobLogs(string id, CancellationToken ct) =>
-        Record(GetJobLogsResult, nameof(GetJobLogs));
-
-    public Task<Result<string>> GetJobQueueRaw(CancellationToken ct) =>
-        Record(GetJobQueueRawResult, nameof(GetJobQueueRaw));
+    // Attempts across pipelines
+    public Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct) =>
+        Record(ListActiveAttemptsResult, nameof(ListActiveAttempts));
 
     // Secrets
     public Task<Result<string[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
@@ -109,13 +96,6 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Record(GetReadyRawResult, nameof(GetReadyRaw));
 
     // Mutations
-    public Task<Result> CancelJob(string id, CancellationToken ct)
-    {
-        Calls.Add(nameof(CancelJob));
-        return Task.FromResult(
-            CancelJobResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(CancelJob)}' called but not configured."));
-    }
-
     public Task<Result> DeletePipeline(string id, CancellationToken ct)
     {
         Calls.Add(nameof(DeletePipeline));
@@ -186,8 +166,9 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<Run>? CancelRunResult { get; set; }
     public Result<TriggerRunResponse>? RerunRunResult { get; set; }
     public Result<Run>? ContinueRunResult { get; set; }
-    public Queue<Result<Job[]>> ListStepAttemptsResults { get; } = new();
-    public Result<Job>? RerunStepResult { get; set; }
+    public Queue<Result<Attempt[]>> ListStepAttemptsResults { get; } = new();
+    public Result<Attempt>? RerunStepResult { get; set; }
+    public Result<Attempt>? CancelStepResult { get; set; }
     public Result<AttemptOutputResponse>? GetStepOutputResult { get; set; }
     public Result<AttemptFilesResponse>? ListStepFilesResult { get; set; }
     public byte[]? StepFileContent { get; set; }
@@ -247,16 +228,22 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(ContinueRunResult, nameof(ContinueRun));
     }
 
-    public Task<Result<Job[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct)
+    public Task<Result<Attempt[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct)
     {
         Calls.Add(nameof(ListStepAttempts));
         return Task.FromResult(ListStepAttemptsResults.Count > 1 ? ListStepAttemptsResults.Dequeue() : ListStepAttemptsResults.Peek());
     }
 
-    public Task<Result<Job>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct)
+    public Task<Result<Attempt>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct)
     {
         (LastPipelineId, LastRun, LastStep, LastFlag) = (pipelineId, run, step, continueRun);
         return Record(RerunStepResult, nameof(RerunStep));
+    }
+
+    public Task<Result<Attempt>> CancelStep(string pipelineId, int run, string step, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep) = (pipelineId, run, step);
+        return Record(CancelStepResult, nameof(CancelStep));
     }
 
     public Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct)

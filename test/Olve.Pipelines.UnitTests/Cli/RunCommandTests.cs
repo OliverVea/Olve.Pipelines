@@ -200,7 +200,7 @@ public class RunCommandTests
     public async Task StepRerun_PassesContinue_AndRejectsAnAttempt()
     {
         var api = Api();
-        api.RerunStepResult = new Job { RunNumber = 15, StepName = "echo", Number = 2 };
+        api.RerunStepResult = new Attempt { RunNumber = 15, StepName = "echo", Number = 2 };
 
         var (ok, output) = await Run(new StepRerunCommand(), api, "step", "rerun", $"{Name}#15/echo", "--continue");
         var (withAttempt, _) = await Run(new StepRerunCommand(), api, "step", "rerun", $"{Name}#15/echo@1");
@@ -269,15 +269,15 @@ public class RunCommandTests
         await Assert.That(File.Exists(target + ".part")).IsFalse();
     }
 
-    private static Job Attempt(int number, JobStatus status) => new() { RunNumber = 15, StepName = "hello", Number = number, Status = status };
+    private static Attempt Attempt(int number, AttemptStatus status) => new() { RunNumber = 15, StepName = "hello", Number = number, Status = status };
 
     [Test]
     public async Task StepLogs_Follow_PrintsOnlyNewText_UntilTheAttemptFinishes()
     {
         var api = Api();
-        api.ListStepAttemptsResults.Enqueue(Result.Success<Job[]>([Attempt(1, new InProgressStatus())]));
-        api.ListStepAttemptsResults.Enqueue(Result.Success<Job[]>([Attempt(1, new InProgressStatus())]));
-        api.ListStepAttemptsResults.Enqueue(Result.Success<Job[]>([Attempt(1, new SucceededStatus())]));
+        api.ListStepAttemptsResults.Enqueue(Result.Success<Attempt[]>([Attempt(1, new InProgressStatus())]));
+        api.ListStepAttemptsResults.Enqueue(Result.Success<Attempt[]>([Attempt(1, new InProgressStatus())]));
+        api.ListStepAttemptsResults.Enqueue(Result.Success<Attempt[]>([Attempt(1, new SucceededStatus())]));
         api.GetStepLogsResults.Enqueue("line 1\n");
         api.GetStepLogsResults.Enqueue("line 1\nline 2\n");
         api.GetStepLogsResults.Enqueue("line 1\nline 2\nline 3\n");
@@ -296,7 +296,7 @@ public class RunCommandTests
     public async Task StepLogs_Follow_StopsWhenTheRunEndedWithoutAnAttempt()
     {
         var api = Api();
-        api.ListStepAttemptsResults.Enqueue(Result.Success<Job[]>([]));
+        api.ListStepAttemptsResults.Enqueue(Result.Success<Attempt[]>([]));
         api.GetRunResult = new RunDetail { Run = new RunSummary { Number = 15, Status = "Cancelled" } };
         var command = new StepLogsCommand { Delay = (_, _) => Task.CompletedTask };
 

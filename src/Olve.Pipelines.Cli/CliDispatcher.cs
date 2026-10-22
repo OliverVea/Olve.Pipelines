@@ -1,10 +1,10 @@
 using System.Reflection;
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
+using Olve.Pipelines.Cli.Commands.Attempts;
 using Olve.Pipelines.Cli.Commands.Bindings;
 using Olve.Pipelines.Cli.Commands.Dev;
 using Olve.Pipelines.Cli.Commands.Gates;
-using Olve.Pipelines.Cli.Commands.Jobs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Commands.Secrets;
@@ -59,6 +59,7 @@ public sealed class CliDispatcher
         Register(new StepFileCommand());
         Register(new StepLogsCommand());
         Register(new StepRerunCommand());
+        Register(new StepCancelCommand());
         Register(new StepHistoryCommand());
 
         // promotion gates
@@ -66,12 +67,8 @@ public sealed class CliDispatcher
         Register(new GateBlockCommand());
         Register(new GateUnblockCommand());
 
-        // job (attempt-level, by attempt id)
-        Register(new JobListCommand());
-        Register(new JobGetCommand());
-        Register(new JobLogsCommand());
-        Register(new JobQueueCommand());
-        Register(new JobCancelCommand());
+        // attempts across pipelines (what's running)
+        Register(new AttemptListCommand());
 
         // secret
         Register(new SecretListCommand());

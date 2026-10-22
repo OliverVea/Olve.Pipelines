@@ -275,8 +275,40 @@ public sealed class StepRerunCommand : ICliCommand
         if ((await ctx.Api.RerunStep(addr.Id, addr.Run, addr.Step, cont, ct)).TryPickProblems(out var rerunProblems, out var attempt))
             return rerunProblems;
 
-        ctx.Output.Emit(attempt, CliJsonContext.Default.Job, () =>
+        ctx.Output.Emit(attempt, CliJsonContext.Default.Attempt, () =>
             ctx.Output.Line($"{RunAddress.Format(addr.Label, attempt.RunNumber, attempt.StepName, attempt.Number)}  {attempt.Status.Kind}{(cont ? " (run continues downstream)" : "")}"));
+        return Result.Success();
+    }
+}
+
+/// <summary><c>pl step cancel &lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;</c> — cancel the step's active attempt.</summary>
+public sealed class StepCancelCommand : ICliCommand
+{
+    public string Noun => "step";
+    public string Verb => "cancel";
+    public int RequiredOperands => 1;
+    public string HelpLine => "Cancel a step's scheduled or in-progress attempt";
+    public string? HelpDetail =>
+        """
+        pl step cancel <pipeline>#<run>/<step>
+
+          Cancels the step's scheduled or in-progress attempt (its K8s Job is deleted). Like any
+          cancelled attempt, the other steps of its stage keep running and the run ends Cancelled
+          once the stage settles. `pl step rerun <address> --continue` re-opens the run.
+        """;
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ResolveStepAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var addr))
+            return problems;
+        if (addr.Attempt is not null)
+            return new ResultProblem("Cancel targets the step's active attempt; drop the @{0} from the address.", addr.Attempt);
+
+        if ((await ctx.Api.CancelStep(addr.Id, addr.Run, addr.Step, ct)).TryPickProblems(out var cancelProblems, out var attempt))
+            return cancelProblems;
+
+        ctx.Output.Emit(attempt, CliJsonContext.Default.Attempt, () =>
+            ctx.Output.Line($"{RunAddress.Format(addr.Label, attempt.RunNumber, attempt.StepName, attempt.Number)}  {attempt.Status.Kind}"));
         return Result.Success();
     }
 }

@@ -107,7 +107,6 @@ frontend/src/
     ├── versions-panel.ts      # Versions list, manifest diff, switch dialog
     ├── typed-value.ts         # JSON rendered against its schema (file refs downloadable)
     ├── log-pane.ts            # Attempt logs, polled while running
-    ├── job-logs-view.ts       # Raw job log viewer
     └── docs-view.ts           # Serves the /docs setup guide
 ```
 

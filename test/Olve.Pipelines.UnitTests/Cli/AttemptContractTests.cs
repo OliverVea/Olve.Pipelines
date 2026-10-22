@@ -3,16 +3,15 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
-using Olve.Utilities.Paginations;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
 /// <summary>
-/// The CLI's hand-rolled <c>Job</c> contract must read what the server actually sends for an attempt:
-/// its status is polymorphic, and an unknown discriminator would break <c>pl job</c> at runtime.
+/// The CLI's hand-rolled <c>Attempt</c> contract must read what the server actually sends for an attempt:
+/// its status is polymorphic, and an unknown discriminator would break <c>pl step</c>/<c>pl run</c> at runtime.
 /// </summary>
-public class JobContractTests
+public class AttemptContractTests
 {
     private static readonly JsonSerializerOptions ServerOptions = new(JsonSerializerDefaults.Web)
     {
@@ -33,12 +32,12 @@ public class JobContractTests
 
     [Test]
     [MethodDataSource(nameof(Statuses))]
-    public async Task ServerAttempt_DeserializesIntoCliJob(AttemptStatus status)
+    public async Task ServerAttempt_DeserializesIntoCliAttempt(AttemptStatus status)
     {
         var attempt = TestAttempts.Make(stepName: "deploy-beta", runNumber: 412, number: 2, status: status);
         var json = JsonSerializer.Serialize(attempt, ServerOptions);
 
-        var job = JsonSerializer.Deserialize(json, CliJsonContext.Default.Job)!;
+        var job = JsonSerializer.Deserialize(json, CliJsonContext.Default.Attempt)!;
 
         await Assert.That(job.Id).IsEqualTo(attempt.Id.Value.Value);
         await Assert.That(job.StepName).IsEqualTo("deploy-beta");
@@ -78,15 +77,18 @@ public class RunApiSerializationTests
     }
 
     [Test]
-    public async Task PageOfAttempts_SerializesThroughAppJsonContext()
+    public async Task ActiveAttempts_SerializeThroughAppJsonContext_AndReadIntoTheCliContract()
     {
-        var attempt = TestAttempts.Make(status: new AttemptStatus.Succeeded(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow))
-            with { InputHash = "sha256:in", Output = new AttemptOutput("runs/x/1/build/1/output.json", "{}") };
-        var page = new Page<Attempt>([attempt], 0, 50, 1);
+        var t = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+        var active = new ActiveAttempt(Olve.Utilities.Ids.Id.New<Pipeline>(), "Olve.Pipelines v2", 12, "deploy", 2, "in-progress", t, t.AddSeconds(5));
 
-        var json = JsonSerializer.Serialize(page, ServerOptions);
+        var json = JsonSerializer.Serialize(new[] { active }, ServerOptions);
+        var back = JsonSerializer.Deserialize(json, CliJsonContext.Default.ActiveAttemptArray)!;
 
-        await Assert.That(json).Contains("\"type\":\"succeeded\"");
-        await Assert.That(json).Contains("output.json");
+        await Assert.That(back[0].PipelineName).IsEqualTo("Olve.Pipelines v2");
+        await Assert.That(back[0].Run).IsEqualTo(12);
+        await Assert.That(back[0].Step).IsEqualTo("deploy");
+        await Assert.That(back[0].Attempt).IsEqualTo(2);
+        await Assert.That(back[0].StartedAt).IsEqualTo(t.AddSeconds(5));
     }
 }

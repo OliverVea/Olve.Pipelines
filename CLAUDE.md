@@ -131,7 +131,7 @@ cd frontend && npm run build                                # Production build
 - **IRunOnStartup over IHostedService** — domain startup wiring uses `IRunOnStartup` (sync, returns `Result`). A single `StartupRunner` hosted service runs them all. Keeps `IHostedService` out of domain code.
 - **Seams for testing** — `IdProvider` (virtual), `TimeProvider` (abstract). Wire store -> events -> subscribers explicitly in tests, no DI container needed.
 - **Named endpoints** — all endpoints use `.WithName()` to set `operationId` in the OpenAPI spec, giving clean generated client method names.
-- **Routes** — pipeline-scoped resources live under `/api/pipelines/{pipelineId}/...`, addressed the way users address them: runs by number, steps by name (`/runs/{number}/steps/{step}/...`, `/steps/{step}/block`). Only things addressed by their own id are top-level (`/api/jobs/{id}`).
+- **Routes** — pipeline-scoped resources live under `/api/pipelines/{pipelineId}/...`, addressed the way users address them: runs by number, steps by name (`/runs/{number}/steps/{step}/...`, `/steps/{step}/block`). Only cross-pipeline views are top-level (`/api/attempts?status=active`).
 
 ## Conventions
 

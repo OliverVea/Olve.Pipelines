@@ -26,10 +26,10 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(Pipeline[]))]
 [JsonSerializable(typeof(PipelineSummary))]
 [JsonSerializable(typeof(PipelineSummary[]))]
-// Jobs
-[JsonSerializable(typeof(Job))]
-[JsonSerializable(typeof(PageOfJob))]
-[JsonSerializable(typeof(JobStatus))]
+// Attempts
+[JsonSerializable(typeof(Attempt))]
+[JsonSerializable(typeof(AttemptStatus))]
+[JsonSerializable(typeof(ActiveAttempt[]))]
 // Bindings (GitOps)
 [JsonSerializable(typeof(PipelineConfigBinding))]
 [JsonSerializable(typeof(PipelineBindingStatus))]
@@ -44,7 +44,7 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(string))]
 // Runs (v2)
-[JsonSerializable(typeof(Job[]))]
+[JsonSerializable(typeof(Attempt[]))]
 [JsonSerializable(typeof(PageOfRunSummary))]
 [JsonSerializable(typeof(RunDetail))]
 [JsonSerializable(typeof(Run))]

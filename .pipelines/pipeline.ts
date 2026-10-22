@@ -21,13 +21,9 @@ export const build = steps.imageBuild({
   name: "build",
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
-  // A normal build takes 1–5 min. The tight timeout (plus imageBuild's 5-min no-output watchdog,
-  // which catches a base-image pull stalled at "Unpacking rootfs") fails a hung build fast instead
-  // of holding the build slot for an hour; imageBuild retries a failed attempt in a fresh pod.
   timeoutSeconds: 900,
 });
 
-/** Code-only test suite (unit tests), in parallel with the image build. Handler: handlers/test.ts. */
 export const test = step({
   name: "test",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
@@ -43,24 +39,14 @@ export const deployBeta = steps.helmDeployOverSsh({
   namespace: "apps-beta",
   chart: "helm",
   values: ["values-beta.yaml", "values-v2-beta.yaml"],
-  // The chart's slo block defaults to true, but the sloth CRD is not installed cluster-wide.
   set: { "slo.enabled": "false" },
-  // In-cluster Service URL, so the check does not depend on the edge route (the runner
-  // NetworkPolicy allows app namespaces). Checked after the rollout with httpHealthCheck, 5 × 5 s.
   healthUrl: "http://olve-pipelines-v2.apps-beta.svc.cluster.local/api/health",
   timeoutSeconds: 900,
 });
 
-/**
- * Build the `pl` operator CLI (linux-x64 Native AOT, win-x64 self-contained single-file) from the
- * deployed commit. Its output files are what the instance serves at GET /download/<asset>
- * (`Distribution__CliPipeline` names this pipeline; retention keeps the served run). Runs after
- * deploy-beta, so a published pl always matches a backend that actually deployed, and is not a third
- * MSBuild beside kaniko and the tests. Handler: handlers/publish-cli.ts.
- */
 export const publishCli = step({
   name: "publish-cli",
-  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",   // glibc + the SDK; the handler apt-installs clang for the AOT link
+  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
   output: M.CliRelease,
   timeoutSeconds: 1800,
@@ -73,7 +59,7 @@ export default pipeline({
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
-  .stage(build, test)                                     // both take the Source (matched by model)
+  .stage(build, test)
   .when({ deployTo: "beta" }, p => p
-    .stage(deployBeta)                                    // Source + BuiltImage, matched by model
-    .stage(publishCli));                                  // only real deploys publish a pl
+    .stage(deployBeta)
+    .stage(publishCli));

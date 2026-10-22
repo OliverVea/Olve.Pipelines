@@ -57,7 +57,7 @@ app.MapFrontendConfigEndpoints();
 app.MapCliDownloadEndpoints();
 app.MapPipelineEndpoints();
 app.MapSecretEndpoints();
-app.MapJobEndpoints();
+app.MapAttemptEndpoints();
 app.MapRunEndpoints();
 app.MapPipelineStepEndpoints();
 app.MapManifestEndpoints();

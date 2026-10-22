@@ -16,7 +16,7 @@ public record TriggerRunResponse(string Outcome, Run? Run);
 /// <param name="Output">The output JSON (null for a step without an output model).</param>
 public record AttemptOutputResponse(int Run, string Step, int Attempt, string Status, JsonElement? Output, string? OutputKey);
 
-/// <summary>Run API (spec §5): trigger, list/get/cancel/rerun/continue runs, attempts, step reruns, outputs, files and logs.</summary>
+/// <summary>Run API (spec §5): trigger, list/get/cancel/rerun/continue runs, attempts, step reruns/cancels, outputs, files and logs.</summary>
 public static class RunEndpoints
 {
     public static void MapRunEndpoints(this WebApplication app)
@@ -79,6 +79,15 @@ public static class RunEndpoints
                 => FindRun(runs, pipelineId, number).Bind(run => continuations.RerunStep(run.Id, step, request?.Continue ?? false)))
             .WithResultMapping<Attempt>()
             .WithName("RerunStep");
+
+        // Cancels the step's scheduled/in-progress attempt (its K8s Job is deleted). Like any cancelled attempt,
+        // the stage's other steps keep running and the run ends Cancelled at the stage barrier; rerun the step
+        // with continue to re-open it.
+        group.MapPost("/{number:int}/steps/{step}/cancel", Result<Attempt> (
+                RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number, string step)
+                => FindRun(runs, pipelineId, number).Bind(run => cancellation.CancelStep(run.Id, step)))
+            .WithResultMapping<Attempt>()
+            .WithName("CancelStep");
 
         // The stored files of an attempt (without ?attempt= the latest successful one).
         group.MapGet("/{number:int}/steps/{step}/files", async Task<Result<AttemptFilesResponse>> (

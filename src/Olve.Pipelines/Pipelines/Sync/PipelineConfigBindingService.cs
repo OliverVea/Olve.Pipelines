@@ -15,8 +15,7 @@ public class PipelineConfigBindingService(
         string repo,
         string branch,
         string path,
-        string? credentialsSecret,
-        BindingDeployTrigger deployTrigger = BindingDeployTrigger.Webhook)
+        string? credentialsSecret)
     {
         if (string.IsNullOrWhiteSpace(repo))
             return ValidationProblem.ForField("repo", "Binding requires a repository ('owner/name').");
@@ -39,31 +38,10 @@ public class PipelineConfigBindingService(
             LastReconciledSha: null,
             ReconcileStatus.NeverRun,
             DateTimeOffset.UtcNow,
-            deployTrigger,
-            // A webhook mode needs an HMAC key from the start; poll mode never uses one.
-            WebhookSecret: deployTrigger == BindingDeployTrigger.Poll ? null : idProvider.CreateSecret());
+            WebhookSecret: idProvider.CreateSecret());
 
         store.Set(binding);
         return binding;
-    }
-
-    /// <summary>
-    /// Changes how a bound pipeline is triggered (webhook / webhook-only / poll), settable any time
-    /// after binding. Generates the HMAC webhook secret on the first switch into a webhook mode so an
-    /// existing poll-bound pipeline can adopt webhooks without re-binding.
-    /// </summary>
-    public Result<PipelineConfigBinding> SetDeployTrigger(Id<Pipeline> pipelineId, BindingDeployTrigger deployTrigger)
-    {
-        if (GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
-            return problems;
-
-        var secret = binding.WebhookSecret;
-        if (deployTrigger != BindingDeployTrigger.Poll && string.IsNullOrEmpty(secret))
-            secret = idProvider.CreateSecret();
-
-        var updated = binding with { DeployTrigger = deployTrigger, WebhookSecret = secret };
-        store.Set(updated);
-        return updated;
     }
 
     /// <summary>

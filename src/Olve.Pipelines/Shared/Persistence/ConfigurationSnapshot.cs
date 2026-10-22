@@ -23,9 +23,6 @@ public record PipelineConfigBindingData(
     string? LastReconciledSha,
     ReconcileStatus? Status,
     DateTimeOffset CreatedAt,
-    // Nullable for back-compat: a snapshot written before deploy-trigger modes existed has no value,
-    // and such bindings load as Poll (their existing behavior) rather than silently adopting webhooks.
-    BindingDeployTrigger? DeployTrigger = null,
     string? WebhookSecret = null,
     // Pre-rename names of LastPushSha/LastReconciledSha: read from older snapshots, never written.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LastDeployedSha = null,

@@ -35,7 +35,6 @@ public interface IPushTriggerHandler
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
-    BindingHookStateStore bindingHookState,
     IServiceProvider sp,
     ILogger<DeployPollService> logger) : BackgroundService
 {
@@ -78,9 +77,6 @@ public class DeployPollService(
     {
         foreach (var binding in bindings.List())
         {
-            if (!ShouldPoll(binding))
-                continue;
-
             try
             {
                 await PollBindingAsync(binding.Id, force: false, ct);
@@ -92,14 +88,6 @@ public class DeployPollService(
             }
         }
     }
-
-    /// <summary>
-    /// Whether the background poll should run for this binding. WebhookOnly suppresses polling only once
-    /// a hook is confirmed registered — until then polling continues, so deploys never silently stop.
-    /// </summary>
-    private bool ShouldPoll(PipelineConfigBinding binding)
-        => binding.DeployTrigger != BindingDeployTrigger.WebhookOnly
-           || !bindingHookState.TryGet(binding.Id, out _);
 
     /// <summary>
     /// Runs one config + runs cycle for a pipeline's binding now and waits for it. <paramref name="force"/>

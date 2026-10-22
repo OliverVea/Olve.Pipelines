@@ -24,7 +24,6 @@ public sealed class BindingCreateCommand : ICliCommand
           --path <dir>                 Pipeline directory in the repo (default: .pipelines)
           --credentials-secret <key>   Key in the pipeline's k8s secret holding the GitHub token
                                        (omit for a public repo)
-          --trigger <mode>             Deploy trigger: webhook (default), webhook-only, or poll
 
           Example:
             pl binding create OliverVea/Olve.Pipelines --credentials-secret GITHUB_TOKEN
@@ -37,15 +36,7 @@ public sealed class BindingCreateCommand : ICliCommand
         var path = cli.Option("path");
         var credentialsSecret = cli.Option("credentials-secret");
 
-        BindingDeployTrigger? trigger = null;
-        if (cli.Option("trigger") is { } triggerText)
-        {
-            if (BindingTrigger.Parse(triggerText).TryPickProblems(out var triggerProblems, out var parsed))
-                return triggerProblems;
-            trigger = parsed;
-        }
-
-        if ((await ctx.Api.CreatePipelineWithRepo(repo, branch, path, credentialsSecret, trigger, ct))
+        if ((await ctx.Api.CreatePipelineWithRepo(repo, branch, path, credentialsSecret, ct))
             .TryPickProblems(out var problems, out var binding))
             return problems;
 
@@ -133,41 +124,6 @@ public sealed class BindingSetCredentialsCommand : ICliCommand
     }
 }
 
-/// <summary><c>pl binding set-trigger &lt;pipeline&gt; &lt;mode&gt;</c> — change how the bound pipeline deploys.</summary>
-public sealed class BindingSetTriggerCommand : ICliCommand
-{
-    public string Noun => "binding";
-    public string Verb => "set-trigger";
-    public int RequiredOperands => 2;
-    public string HelpLine => "Set the binding's deploy trigger (webhook/webhook-only/poll)";
-    public string? HelpDetail =>
-        """
-        pl binding set-trigger <pipeline> <mode>
-
-          mode is one of:
-            webhook       GitHub push hook drives deploys; poll runs as a slow safety net (default)
-            webhook-only  webhook only; polling is suppressed once the hook is live
-            poll          no webhook; the deploy poll is the sole trigger
-        """;
-
-    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
-    {
-        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
-            return resolveProblems;
-        var pipelineId = pipeline.Id.ToString();
-        if (BindingTrigger.Parse(cli.Operand(1)!).TryPickProblems(out var parseProblems, out var trigger))
-            return parseProblems;
-
-        if ((await ctx.Api.UpdatePipelineBindingDeployTrigger(pipelineId, trigger, ct))
-            .TryPickProblems(out var problems, out var binding))
-            return problems;
-
-        ctx.Output.Emit(binding, CliJsonContext.Default.PipelineConfigBinding,
-            () => BindingPrinter.PrintBinding(ctx.Output, binding));
-        return Result.Success();
-    }
-}
-
 /// <summary><c>pl binding reconcile &lt;pipeline&gt;</c>.</summary>
 public sealed class BindingReconcileCommand : ICliCommand
 {
@@ -191,26 +147,6 @@ public sealed class BindingReconcileCommand : ICliCommand
     }
 }
 
-/// <summary>Maps the deploy-trigger CLI token to the enum, and back for display.</summary>
-internal static class BindingTrigger
-{
-    public static Result<BindingDeployTrigger> Parse(string value) => value.ToLowerInvariant() switch
-    {
-        "webhook" => BindingDeployTrigger.Webhook,
-        "webhook-only" or "webhookonly" => BindingDeployTrigger.WebhookOnly,
-        "poll" => BindingDeployTrigger.Poll,
-        _ => new ResultProblem("Unknown deploy trigger '{0}'. Expected one of: webhook, webhook-only, poll.", value),
-    };
-
-    public static string Text(BindingDeployTrigger trigger) => trigger switch
-    {
-        BindingDeployTrigger.Webhook => "webhook",
-        BindingDeployTrigger.WebhookOnly => "webhook-only",
-        BindingDeployTrigger.Poll => "poll",
-        _ => trigger.ToString(),
-    };
-}
-
 /// <summary>Human-readable rendering for bindings and their reconcile status.</summary>
 internal static class BindingPrinter
 {
@@ -219,7 +155,6 @@ internal static class BindingPrinter
         output.Line($"Binding:     {b.Id}");
         output.Line($"Pipeline:    {b.PipelineId}");
         output.Line($"Repo:        {b.Repo}@{b.Branch} ({b.Path})");
-        output.Line($"Trigger:     {BindingTrigger.Text(b.DeployTrigger)}");
         output.Line($"Credentials: {b.CredentialsSecret ?? "(none)"}");
         output.Line($"Last push:   {b.LastPushSha ?? "(none)"}");
         output.Line($"Reconciled:  {b.LastReconciledSha ?? "(none)"}");

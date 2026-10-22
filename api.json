@@ -565,96 +565,6 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/binding/deploy-trigger": {
-      "patch": {
-        "tags": [
-          "Olve.Pipelines"
-        ],
-        "operationId": "UpdatePipelineBindingDeployTrigger",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetDeployTriggerRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/webhooks/binding/{bindingId}/github": {
       "post": {
         "tags": [
@@ -4043,10 +3953,6 @@
           }
         }
       },
-      "BindingDeployTrigger": {
-        "type": "integer",
-        "default": 0
-      },
       "ContinueRunRequest": {
         "type": "object",
         "properties": {
@@ -4130,16 +4036,6 @@
             "type": [
               "null",
               "string"
-            ]
-          },
-          "deployTrigger": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/BindingDeployTrigger"
-              }
             ]
           }
         }
@@ -4543,9 +4439,6 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
-          },
-          "deployTrigger": {
-            "$ref": "#/components/schemas/BindingDeployTrigger"
           },
           "webhookSecret": {
             "type": [
@@ -5249,17 +5142,6 @@
           "Poll",
           "Manual"
         ]
-      },
-      "SetDeployTriggerRequest": {
-        "required": [
-          "deployTrigger"
-        ],
-        "type": "object",
-        "properties": {
-          "deployTrigger": {
-            "$ref": "#/components/schemas/BindingDeployTrigger"
-          }
-        }
       },
       "SetSecretRequest": {
         "required": [

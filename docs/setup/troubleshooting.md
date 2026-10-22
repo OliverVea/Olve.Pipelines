@@ -24,8 +24,8 @@ reconcile; `pl binding status --json` lists them.
 
 ## I pushed but no run started
 
-- **Wait for the poll.** It runs every 15 minutes (webhook modes react within seconds, but v2 beta
-  has no public webhook). Force it: `pl binding reconcile <pipelineId>`.
+- **Wait for the poll.** It runs every 15 minutes (a webhook, where the instance has a public URL, reacts within seconds;
+  v2 beta has none). Force it: `pl binding reconcile <pipelineId>`.
 - **No `onPush`.** A pipeline without `.onPush(…)` ignores pushes.
 - **The first observation only records the head.** Right after binding, start the first run with
   `pl trigger`.

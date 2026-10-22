@@ -4,8 +4,6 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createPipelineConfigBindingFromDiscriminatorValue, serializePipelineConfigBinding, serializeUpdateBindingRequest, type ApiProblem, type PipelineConfigBinding, type UpdateBindingRequest } from '../../../../models/index.js';
 // @ts-ignore
-import { DeployTriggerRequestBuilderRequestsMetadata, type DeployTriggerRequestBuilder } from './deployTrigger/index.js';
-// @ts-ignore
 import { ReconcileRequestBuilderRequestsMetadata, type ReconcileRequestBuilder } from './reconcile/index.js';
 // @ts-ignore
 import { StatusRequestBuilderRequestsMetadata, type StatusRequestBuilder } from './status/index.js';
@@ -16,10 +14,6 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /api/pipelines/{-id}/binding
  */
 export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequestBuilder> {
-    /**
-     * The deployTrigger property
-     */
-    get deployTrigger(): DeployTriggerRequestBuilder;
     /**
      * The reconcile property
      */
@@ -69,9 +63,6 @@ export const BindingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did
  * Metadata for all the navigation properties in the request builder.
  */
 export const BindingRequestBuilderNavigationMetadata: Record<Exclude<keyof BindingRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
-    deployTrigger: {
-        requestsMetadata: DeployTriggerRequestBuilderRequestsMetadata,
-    },
     reconcile: {
         requestsMetadata: ReconcileRequestBuilderRequestsMetadata,
     },

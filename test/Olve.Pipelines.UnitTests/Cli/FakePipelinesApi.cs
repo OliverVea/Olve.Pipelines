@@ -31,7 +31,6 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<PipelineBindingStatus>? GetPipelineBindingStatusResult { get; set; }
     public Result<PipelineConfigBinding>? CreatePipelineWithRepoResult { get; set; }
     public Result<PipelineConfigBinding>? UpdatePipelineBindingCredentialsResult { get; set; }
-    public Result<PipelineConfigBinding>? UpdatePipelineBindingDeployTriggerResult { get; set; }
     public Result? ReconcilePipelineBindingResult { get; set; }
 
     // Info
@@ -52,13 +51,10 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public string? LastSecretValue { get; private set; }
 
     /// <summary>Arguments captured from the most recent <see cref="CreatePipelineWithRepo"/> call.</summary>
-    public (string Repo, string? Branch, string? Path, string? CredentialsSecret, BindingDeployTrigger? Trigger)? LastCreateWithRepo { get; private set; }
+    public (string Repo, string? Branch, string? Path, string? CredentialsSecret)? LastCreateWithRepo { get; private set; }
 
     /// <summary>The credentials key passed to the most recent <see cref="UpdatePipelineBindingCredentials"/> call.</summary>
     public string? LastCredentialsSecret { get; private set; }
-
-    /// <summary>The trigger passed to the most recent <see cref="UpdatePipelineBindingDeployTrigger"/> call.</summary>
-    public BindingDeployTrigger? LastDeployTrigger { get; private set; }
 
     // Pipelines
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
@@ -125,10 +121,9 @@ public sealed class FakePipelinesApi : IPipelinesApi
     }
 
     public Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
-        string repo, string? branch, string? path, string? credentialsSecret,
-        BindingDeployTrigger? deployTrigger, CancellationToken ct)
+        string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct)
     {
-        LastCreateWithRepo = (repo, branch, path, credentialsSecret, deployTrigger);
+        LastCreateWithRepo = (repo, branch, path, credentialsSecret);
         Calls.Add(nameof(CreatePipelineWithRepo));
         return Task.FromResult(
             CreatePipelineWithRepoResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(CreatePipelineWithRepo)}' called but not configured."));
@@ -141,15 +136,6 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Calls.Add($"{nameof(UpdatePipelineBindingCredentials)}({credentialsSecret ?? "(null)"})");
         return Task.FromResult(
             UpdatePipelineBindingCredentialsResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(UpdatePipelineBindingCredentials)}' called but not configured."));
-    }
-
-    public Task<Result<PipelineConfigBinding>> UpdatePipelineBindingDeployTrigger(
-        string pipelineId, BindingDeployTrigger deployTrigger, CancellationToken ct)
-    {
-        LastDeployTrigger = deployTrigger;
-        Calls.Add($"{nameof(UpdatePipelineBindingDeployTrigger)}({deployTrigger})");
-        return Task.FromResult(
-            UpdatePipelineBindingDeployTriggerResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(UpdatePipelineBindingDeployTrigger)}' called but not configured."));
     }
 
     public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct)

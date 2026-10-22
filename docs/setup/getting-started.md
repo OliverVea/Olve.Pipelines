@@ -142,15 +142,12 @@ See [Local Development](local-development.md) for the whole local loop.
 ## Step 3 — Create a pipeline bound to your repo
 
 ```sh
-pl binding create you/my-app --trigger poll
+pl binding create you/my-app
 ```
 
 - `--branch <name>` — branch to track (default `main`).
 - `--path <dir>` — pipeline directory in the repo (default `.pipelines`). Several pipelines in one
   repo are several bindings with different paths (this repo binds `.pipelines` and `.pipelines-test`).
-- `--trigger <mode>` — `webhook` (default), `webhook-only` or `poll`. **Use `poll` on v2 beta**: it
-  has no public webhook route (`Webhooks:PublicBaseUrl` is empty), so a webhook can't be registered.
-  See [deploy-trigger mode](binding-and-reconcile.md#deploy-trigger-mode).
 - `--credentials-secret <key>` — key in the pipeline's secret that holds a GitHub token. Leave it out
   for a public repo. For a private repo, bind without it, set the secret (Step 4), then name it with
   `pl binding set-credentials <pipelineId> GITHUB_TOKEN`. Until the key holds a value, fetches run

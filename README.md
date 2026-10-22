@@ -55,7 +55,7 @@ end-to-end fixture.
    [`sdk/`](sdk/README.md)) is not published to a registry yet, so the build Job can only resolve it
    from an `sdk/` directory at the repo root (`"@olve/pipelines": "file:../sdk"`).
 2. Check it locally: `pl dev describe`, `pl dev validate`, `pl dev run <step>`.
-3. `pl binding create <owner/repo> --trigger poll` — the only way to create a pipeline.
+3. `pl binding create <owner/repo>` — the only way to create a pipeline.
 4. `pl secret set <pipelineId> <NAME>` for each declared secret.
 5. `pl binding reconcile <pipelineId>`, then push. `pl binding status <pipelineId>` shows the result.
 
@@ -121,11 +121,10 @@ needs a bearer token. Errors (any non-2xx but 401/403) are `application/problem+
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/pipelines/with-repo` | Create a pipeline bound to a repo (`{ repo, branch?, path?, credentialsSecret?, deployTrigger? }`) — the only create |
+| POST | `/api/pipelines/with-repo` | Create a pipeline bound to a repo (`{ repo, branch?, path?, credentialsSecret? }`) — the only create |
 | GET | `/api/pipelines/{pipelineId}/binding` | Get the binding |
 | GET | `/api/pipelines/{pipelineId}/binding/status` | Reconcile result, commit, in-progress, resulting version, active version, problems, warnings |
 | PATCH | `/api/pipelines/{pipelineId}/binding` | Set/clear the credentials secret key |
-| PATCH | `/api/pipelines/{pipelineId}/binding/deploy-trigger` | `webhook` / `webhook-only` / `poll` |
 | POST | `/api/pipelines/{pipelineId}/binding/reconcile` | Reconcile now (returns at once; progress in status) |
 | POST | `/api/webhooks/binding/{bindingId}/github` | GitHub push webhook (HMAC-authenticated, anonymous) |
 
@@ -289,10 +288,9 @@ pl secret list <pipeline>                              # declared-by and set/uns
 pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
 pl secret delete <pipeline> <name>
 pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
-pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger webhook|webhook-only|poll]
+pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]
 pl binding get|status|reconcile <pipeline>
 pl binding set-credentials <pipeline> [key]
-pl binding set-trigger <pipeline> <webhook|webhook-only|poll>
 
 # local development (no service, except dev validate)
 pl dev describe [--dir <path>] [--json]

@@ -39,7 +39,6 @@ public class BindingCommandTests
         Branch = "main",
         Path = ".pipelines",
         CredentialsSecret = "GITHUB_TOKEN",
-        DeployTrigger = BindingDeployTrigger.Webhook,
         Status = new ReconcileStatus { Result = ReconcileResult.Success, Sha = new string('d', 40), VersionNumber = 4, Warnings = ["[W] w1"] },
     };
 
@@ -49,14 +48,14 @@ public class BindingCommandTests
         var api = new FakePipelinesApi { CreatePipelineWithRepoResult = Result.Success(SampleBinding()) };
         var (ctx, stdout, cli) = Build(new BindingCreateCommand(), api, json: false,
             "binding", "create", "OliverVea/Olve.Pipelines",
-            "--branch", "develop", "--path", "deploy", "--credentials-secret", "GH", "--trigger", "poll");
+            "--branch", "develop", "--path", "deploy", "--credentials-secret", "GH");
 
         var result = await new BindingCreateCommand().Execute(cli, ctx, CancellationToken.None);
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("CreatePipelineWithRepo")).IsTrue();
         await Assert.That(api.LastCreateWithRepo).IsEqualTo(
-            ("OliverVea/Olve.Pipelines", "develop", "deploy", "GH", (BindingDeployTrigger?)BindingDeployTrigger.Poll));
+            ("OliverVea/Olve.Pipelines", "develop", "deploy", "GH"));
         await Assert.That(stdout.ToString()).Contains("OliverVea/Olve.Pipelines");
     }
 
@@ -71,24 +70,11 @@ public class BindingCommandTests
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.LastCreateWithRepo).IsEqualTo(
-            ("OliverVea/Olve.Pipelines", (string?)null, (string?)null, (string?)null, (BindingDeployTrigger?)null));
+            ("OliverVea/Olve.Pipelines", (string?)null, (string?)null, (string?)null));
     }
 
     [Test]
-    public async Task BindingCreate_BadTrigger_Fails_WithoutCallingApi()
-    {
-        var api = new FakePipelinesApi(); // result intentionally unset — must not be called
-        var (ctx, _, cli) = Build(new BindingCreateCommand(), api, json: false,
-            "binding", "create", "OliverVea/Olve.Pipelines", "--trigger", "nonsense");
-
-        var result = await new BindingCreateCommand().Execute(cli, ctx, CancellationToken.None);
-
-        await Assert.That(result.Failed).IsTrue();
-        await Assert.That(api.Invoked("CreatePipelineWithRepo")).IsFalse();
-    }
-
-    [Test]
-    public async Task BindingGet_PrintsRepoAndTrigger()
+    public async Task BindingGet_PrintsRepoAndStatus()
     {
         var api = new FakePipelinesApi { GetPipelineBindingResult = Result.Success(SampleBinding()) };
         var (ctx, stdout, cli) = Build(new BindingGetCommand(), api, json: false, "binding", "get", "11111111-2222-3333-4444-555555555555");
@@ -98,7 +84,6 @@ public class BindingCommandTests
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("GetPipelineBinding")).IsTrue();
         await Assert.That(stdout.ToString()).Contains("OliverVea/Olve.Pipelines");
-        await Assert.That(stdout.ToString()).Contains("webhook");
         await Assert.That(stdout.ToString()).Contains("v4");
         await Assert.That(stdout.ToString()).Contains("[W] w1");
     }
@@ -158,32 +143,6 @@ public class BindingCommandTests
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(api.Invoked("UpdatePipelineBindingCredentials((null))")).IsTrue();
         await Assert.That(api.LastCredentialsSecret).IsNull();
-    }
-
-    [Test]
-    public async Task BindingSetTrigger_ParsesWebhookOnly()
-    {
-        var api = new FakePipelinesApi { UpdatePipelineBindingDeployTriggerResult = Result.Success(SampleBinding()) };
-        var (ctx, _, cli) = Build(new BindingSetTriggerCommand(), api, json: false,
-            "binding", "set-trigger", "11111111-2222-3333-4444-555555555555", "webhook-only");
-
-        var result = await new BindingSetTriggerCommand().Execute(cli, ctx, CancellationToken.None);
-
-        await Assert.That(result.Succeeded).IsTrue();
-        await Assert.That(api.LastDeployTrigger).IsEqualTo(BindingDeployTrigger.WebhookOnly);
-    }
-
-    [Test]
-    public async Task BindingSetTrigger_BadValue_Fails_WithoutCallingApi()
-    {
-        var api = new FakePipelinesApi();
-        var (ctx, _, cli) = Build(new BindingSetTriggerCommand(), api, json: false,
-            "binding", "set-trigger", "11111111-2222-3333-4444-555555555555", "nonsense");
-
-        var result = await new BindingSetTriggerCommand().Execute(cli, ctx, CancellationToken.None);
-
-        await Assert.That(result.Failed).IsTrue();
-        await Assert.That(api.Invoked("UpdatePipelineBindingDeployTrigger(WebhookOnly)")).IsFalse();
     }
 
     [Test]

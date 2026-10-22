@@ -104,7 +104,7 @@ public class BindingHookRegistrationTests
         var svc = new PipelineConfigBindingService(store, new IdProvider());
         var hookState = new BindingHookStateStore();
         var queue = new BindingHookWorkQueue();
-        var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(baseUrl), NullLogger<BindingWebhookEventRegistration>.Instance);
+        var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(baseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
         await Assert.That(reg.Run()).Succeeded();
         return new Harness(store, svc, hookState, queue);
     }
@@ -112,7 +112,7 @@ public class BindingHookRegistrationTests
     private static T Pick<T>(Result<T> r) { r.TryPickProblems(out _, out var v); return v!; }
 
     [Test]
-    public async Task WebhookBindingCreated_EnqueuesCreate()
+    public async Task BindingCreated_EnqueuesCreate()
     {
         var h = await CreateEventHarness();
         var binding = Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
@@ -126,16 +126,22 @@ public class BindingHookRegistrationTests
     }
 
     [Test]
-    public async Task PollBindingCreated_EnqueuesNothing()
+    public async Task BindingWithoutSecret_GetsOne_AndEnqueuesCreate()
     {
         var h = await CreateEventHarness();
-        Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN", BindingDeployTrigger.Poll));
+        var binding = new PipelineConfigBinding(Id.New<PipelineConfigBinding>(), Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines",
+            "GITHUB_TOKEN", null, null, ReconcileStatus.NeverRun, DateTimeOffset.UtcNow, WebhookSecret: null);
 
-        await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
+        h.Store.Set(binding);
+
+        await Assert.That(h.Store.TryGet(binding.Id, out var stored)).IsTrue();
+        await Assert.That(string.IsNullOrEmpty(stored!.WebhookSecret)).IsFalse();
+        await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
+        await Assert.That(work).IsTypeOf<CreateBindingHookWork>();
     }
 
     [Test]
-    public async Task WebhookBindingCreated_NoPublicUrl_EnqueuesNothing()
+    public async Task BindingCreated_NoPublicUrl_EnqueuesNothing()
     {
         var h = await CreateEventHarness(baseUrl: null);
         Pick(h.Svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
@@ -144,7 +150,7 @@ public class BindingHookRegistrationTests
     }
 
     [Test]
-    public async Task WebhookBindingCreated_NoCredentials_EnqueuesNothing()
+    public async Task BindingCreated_NoCredentials_EnqueuesNothing()
     {
         // Without a credentials secret there is no PAT to manage the hook → fall back to polling.
         var h = await CreateEventHarness();
@@ -154,7 +160,7 @@ public class BindingHookRegistrationTests
     }
 
     [Test]
-    public async Task SwitchedToPoll_WithLiveHook_EnqueuesDelete()
+    public async Task CredentialsCleared_WithLiveHook_EnqueuesDelete()
     {
         var h = await CreateEventHarness();
         var pid = Id.New<Pipeline>();
@@ -163,7 +169,7 @@ public class BindingHookRegistrationTests
         // Simulate the hook having been registered.
         h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 9L, "GITHUB_TOKEN"));
 
-        Pick(h.Svc.SetDeployTrigger(pid, BindingDeployTrigger.Poll));
+        Pick(h.Svc.SetCredentialsSecret(pid, null));
 
         await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
         var delete = work as DeleteBindingHookWork;

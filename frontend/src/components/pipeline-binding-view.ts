@@ -6,15 +6,9 @@ import { sharedStyles, navClick, pipelinePath, shortSha, secretsPath } from '../
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
 
-type Binding = { repo: string; branch: string; path: string; credentialsSecret?: string | null; deployTrigger: number };
+type Binding = { repo: string; branch: string; path: string; credentialsSecret?: string | null };
 
-const TRIGGERS = [
-  { value: 0, label: 'Webhook', help: 'GitHub push hook drives deploys; polling stays on as a slow safety net.' },
-  { value: 1, label: 'Webhook only', help: 'Only the push hook; polling stops once the hook is live.' },
-  { value: 2, label: 'Poll', help: 'No webhook; the service polls the branch.' },
-];
-
-/** A pipeline's git binding: where its definition lives, reconcile status, deploy trigger and credentials. */
+/** A pipeline's git binding: where its definition lives, its reconcile status, and its credentials. */
 @customElement('pipeline-binding-view')
 export class PipelineBindingView extends LitElement {
   static styles = [
@@ -61,17 +55,6 @@ export class PipelineBindingView extends LitElement {
       }
       ul.warnings {
         color: var(--color-text-muted);
-      }
-      label.choice {
-        display: flex;
-        gap: 0.5rem;
-        align-items: baseline;
-        padding: 0.3rem 0;
-        font-size: 0.88rem;
-      }
-      label.choice span {
-        color: var(--color-text-muted);
-        font-size: 0.8rem;
       }
       form {
         display: flex;
@@ -154,7 +137,7 @@ export class PipelineBindingView extends LitElement {
       <h2>Binding</h2>
       ${this._errors.length ? html`<div class="errors" role="alert">${this._errors.map((e) => html`<p>${e}</p>`)}</div>` : nothing}
       ${b
-        ? html`${this._renderSource(b)} ${this._renderTrigger(b)} ${this._renderCredentials(b)}`
+        ? html`${this._renderSource(b)} ${this._renderCredentials(b)}`
         : this._loaded
           ? html`<p class="muted">This pipeline isn't bound to a repository.</p>`
           : html`<p class="muted">Loading…</p>`}
@@ -188,24 +171,6 @@ export class PipelineBindingView extends LitElement {
     </section>`;
   }
 
-  private _renderTrigger(b: Binding) {
-    return html`<section class="card">
-      <h3>Deploy trigger</h3>
-      ${TRIGGERS.map(
-        (t) => html`<label class="choice">
-          <input
-            type="radio"
-            name="trigger"
-            .checked=${b.deployTrigger === t.value}
-            ?disabled=${this._busy}
-            @change=${() => this._setTrigger(t.value)}
-          />
-          <b>${t.label}</b> <span>${t.help}</span>
-        </label>`,
-      )}
-    </section>`;
-  }
-
   private _renderCredentials(b: Binding) {
     const current = b.credentialsSecret ?? '';
     const names = this._secretNames.includes(current) || !current ? this._secretNames : [current, ...this._secretNames];
@@ -226,10 +191,6 @@ export class PipelineBindingView extends LitElement {
   }
 
   private _reconcile = () => this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/binding/reconcile`));
-
-  private _setTrigger(value: number) {
-    this._act(() => apiFetch(`/api/pipelines/${this.pipelineId}/binding/deploy-trigger`, { method: 'PATCH', body: { deployTrigger: value } }));
-  }
 
   private _saveCredentials = (e: Event) => {
     e.preventDefault();

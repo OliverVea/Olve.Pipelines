@@ -60,11 +60,11 @@ Expect `valid` (one `output-unused` warning on deploy-beta is fine).
 
 ## Step 4: Create the pipeline bound to the repo
 
-The repo is public, so no credentials key is needed. v2 beta has no public webhook route, so the
-trigger must be `poll`.
+The repo is public, so no credentials key is needed. v2 beta has no public webhook route, so it
+polls (every 15 minutes).
 
 ```bash
-PID=$(pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines --trigger poll --json | jq -r .pipelineId)
+PID=$(pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines --json | jq -r .pipelineId)
 echo "Pipeline: $PID"
 ```
 
@@ -104,7 +104,7 @@ only records the branch head; it does not deploy.
 
 Run `/deploy` (manual trigger with the current `v2` head), or push to `v2` and wait for the deploy
 poll (up to 15 min). Optional: rebind the fixture the same way
-(`pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines-test --trigger poll`, no
+(`pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines-test`, no
 secrets).
 
 ## After setup

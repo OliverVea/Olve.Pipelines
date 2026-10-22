@@ -58,14 +58,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.JsonBody(request, CliJsonContext.Default.CopySecretsRequest), CliJsonContext.Default.CopySecretsResponse, ct);
 
     public Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
-        string repo, string? branch, string? path, string? credentialsSecret,
-        BindingDeployTrigger? deployTrigger, CancellationToken ct) =>
+        string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, "/api/pipelines/with-repo",
             ApiTransport.JsonBody(
                 new CreatePipelineWithRepoRequest
                 {
-                    Repo = repo, Branch = branch, Path = path,
-                    CredentialsSecret = credentialsSecret, DeployTrigger = deployTrigger,
+                    Repo = repo, Branch = branch, Path = path, CredentialsSecret = credentialsSecret,
                 },
                 CliJsonContext.Default.CreatePipelineWithRepoRequest),
             CliJsonContext.Default.PipelineConfigBinding, ct);
@@ -76,14 +74,6 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.JsonBody(
                 new UpdateBindingRequest { CredentialsSecret = credentialsSecret },
                 CliJsonContext.Default.UpdateBindingRequest),
-            CliJsonContext.Default.PipelineConfigBinding, ct);
-
-    public Task<Result<PipelineConfigBinding>> UpdatePipelineBindingDeployTrigger(
-        string pipelineId, BindingDeployTrigger deployTrigger, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Patch, $"/api/pipelines/{Enc(pipelineId)}/binding/deploy-trigger",
-            ApiTransport.JsonBody(
-                new SetDeployTriggerRequest { DeployTrigger = deployTrigger },
-                CliJsonContext.Default.SetDeployTriggerRequest),
             CliJsonContext.Default.PipelineConfigBinding, ct);
 
     public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct) =>

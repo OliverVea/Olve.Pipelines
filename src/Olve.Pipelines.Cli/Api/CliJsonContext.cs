@@ -40,7 +40,6 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(PipelineSecretInfo[]))]
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(UpdateBindingRequest))]
-[JsonSerializable(typeof(SetDeployTriggerRequest))]
 // Secrets, gates, logs (a JSON string)
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(string))]

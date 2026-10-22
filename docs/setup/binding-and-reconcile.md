@@ -16,36 +16,27 @@ pipeline; every pipeline has exactly one.
 | `branch` | branch to watch (default `main`) |
 | `path` | pipeline directory in the repo (default `.pipelines`) |
 | `credentialsSecret` | the **key name** in the pipeline's Secret holding a GitHub token (omit for a public repo) — a reference, never the token |
-| `deployTrigger` | `webhook`, `webhook-only` or `poll` (see below) |
 | `lastReconciledSha` / `lastPushSha` | the config commit last reconciled / the branch head last turned into a push trigger |
 | `status` | last reconcile `result`, `lastSyncTime`, `problems`, `warnings`, `sha`, `inProgress`, `versionNumber` (the version it switched to) |
 
 | `pl` command | Purpose |
 |---|---|
-| `pl binding create <repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>] [--trigger <mode>]` | Create a pipeline bound to a repo. Rolls the pipeline back if the bind fails. |
+| `pl binding create <repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]` | Create a pipeline bound to a repo. Rolls the pipeline back if the bind fails. |
 | `pl binding get <pipeline>` | Show the binding |
 | `pl binding status <pipeline>` | Reconcile result, commit, in-progress flag, resulting and active version, problems and warnings |
 | `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
-| `pl binding set-trigger <pipeline> <mode>` | Change the deploy-trigger mode |
 | `pl binding reconcile <pipeline>` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed) |
 
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
 bind seeds a provisional name from the repo.
 
-### Deploy-trigger mode
+### How changes are noticed
 
-How the service learns the branch moved:
-
-| Mode | Behaviour |
-|---|---|
-| `webhook` (default) | Registers a GitHub `push` hook; the 15-minute poll still runs as a safety net. |
-| `webhook-only` | Webhook only; polling stops once the hook is confirmed live. |
-| `poll` | No webhook; the 15-minute poll is the only trigger. |
-
-Webhook modes need `Webhooks:PublicBaseUrl` set on the instance and a `credentialsSecret` token
-with `admin:repo_hook`. Deliveries are authenticated by an HMAC secret the binding generates. If a
-hook can't be registered, polling continues regardless of mode. **v2 beta has no public webhook
-route, so bind with `--trigger poll` there.**
+The service polls every binding's branch every 15 minutes (an unchanged branch costs a free
+conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
+`credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub `push` hook, so changes
+are picked up within seconds; deliveries are authenticated by an HMAC secret the binding generates.
+There is nothing to choose per binding. v2 beta has no public webhook route, so it polls.
 
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.
@@ -124,7 +115,7 @@ pl pipeline switch my-app 7 --cancel-running   # cancel the old version's in-fli
 There are no API endpoints or `pl` commands that change pipeline shape. Steps, stages, triggers and
 secrets declarations come only from your committed pipeline. Operations are allowed on a bound
 pipeline: `pl trigger`, `pl run cancel|rerun|continue`, `pl step rerun`, `pl gate block|unblock`,
-`pl pipeline switch`, `pl secret set`, `pl binding set-trigger|set-credentials|reconcile`.
+`pl pipeline switch`, `pl secret set`, `pl binding set-credentials|reconcile`.
 
 ## Reading the status
 

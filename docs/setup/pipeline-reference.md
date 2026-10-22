@@ -208,7 +208,7 @@ Blocks nest.
 `z.input` view, type-checked). The event is `{ ref, after, repository: { full_name } }` (the SDK's
 `PushEvent`): the branch ref, the new head sha and the `owner/repo` name. A pipeline calls `onPush` at most once; without it, pushes are ignored.
 Pushes come from the binding (webhook or deploy poll), see
-[Binding & Reconcile](binding-and-reconcile.md#deploy-trigger-mode).
+[Binding & Reconcile](binding-and-reconcile.md#how-changes-are-noticed).
 
 **Poll.** `.onPoll(config, value => input)` GETs a URL on an interval, extracts a value by dot-path,
 and starts a run when it changes:

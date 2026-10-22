@@ -1,16 +1,5 @@
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
-/// <summary>
-/// How a bound pipeline learns it should deploy. Serialized as an integer (0=Webhook,
-/// 1=WebhookOnly, 2=Poll), matching the server enum — do not reorder.
-/// </summary>
-public enum BindingDeployTrigger
-{
-    Webhook,
-    WebhookOnly,
-    Poll,
-}
-
 /// <summary>Outcome of the most recent reconcile. Serialized as an integer; do not reorder.</summary>
 public enum ReconcileResult
 {
@@ -35,7 +24,6 @@ public sealed class PipelineConfigBinding
     public string? LastReconciledSha { get; set; }
     public ReconcileStatus Status { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
-    public BindingDeployTrigger DeployTrigger { get; set; }
 }
 
 public sealed class ReconcileStatus
@@ -75,7 +63,6 @@ public sealed class CreatePipelineWithRepoRequest
     public string? Branch { get; init; }
     public string? Path { get; init; }
     public string? CredentialsSecret { get; init; }
-    public BindingDeployTrigger? DeployTrigger { get; init; }
 }
 
 /// <summary>Body for <c>PATCH /api/pipelines/{id}/binding</c> — set/clear the credentials secret key.</summary>
@@ -84,8 +71,3 @@ public sealed class UpdateBindingRequest
     public string? CredentialsSecret { get; init; }
 }
 
-/// <summary>Body for <c>PATCH /api/pipelines/{id}/binding/deploy-trigger</c>.</summary>
-public sealed class SetDeployTriggerRequest
-{
-    public required BindingDeployTrigger DeployTrigger { get; init; }
-}

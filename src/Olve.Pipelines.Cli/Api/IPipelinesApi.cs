@@ -35,12 +35,9 @@ public interface IPipelinesApi
     Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
     Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
-        string repo, string? branch, string? path, string? credentialsSecret,
-        BindingDeployTrigger? deployTrigger, CancellationToken ct);
+        string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> UpdatePipelineBindingCredentials(
         string pipelineId, string? credentialsSecret, CancellationToken ct);
-    Task<Result<PipelineConfigBinding>> UpdatePipelineBindingDeployTrigger(
-        string pipelineId, BindingDeployTrigger deployTrigger, CancellationToken ct);
     Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct);
 
     // Runs (v2, spec §5) — pipelineId is always the resolved id; runs are addressed by number.

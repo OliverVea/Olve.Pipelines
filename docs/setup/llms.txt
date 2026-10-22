@@ -16,7 +16,7 @@ directly (no auth, no repo clone needed) and parse the raw text.
 - [Getting Started](/docs/getting-started.md): Put a repo under CD: `.pipelines/` layout, local check, `pl binding create`, secrets, first run. Includes the current SDK-publishing limitation.
 - [Pipeline Reference](/docs/pipeline-reference.md): Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, the checks that reject a pipeline, versioning.
 - [Local Development](/docs/local-development.md): `pl dev describe | validate | run | pipeline`, running a step in its real image, the local pool.
-- [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, deploy-trigger modes, how a commit becomes a version, switch and rollback, reading the status.
+- [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, how changes are noticed (poll + webhook), how a commit becomes a version, switch and rollback, reading the status.
 - [Runs & Operations](/docs/runs-and-operations.md): Runs, attempts, supersede, de-duplication, rerun/continue/cancel, outputs and files, how a step runs, storage, retention.
 - [Promotion Gates](/docs/promotion-gate.md): Blocking a step to hold runs, resuming them, promoting by continuing a run.
 - [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.

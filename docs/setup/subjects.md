@@ -13,7 +13,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [getting-started.md](getting-started.md) | Put a repo under CD: `.pipelines/`, local check, bind, secrets, first run |
 | [pipeline-reference.md](pipeline-reference.md) | Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, checks, versioning |
 | [local-development.md](local-development.md) | `pl dev describe \| validate \| run \| pipeline`, `--docker`, the local pool, `testHandler` |
-| [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, deploy-trigger modes, the reconcile cycle, versions, switch/rollback, status |
+| [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, supersede, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
 | [promotion-gate.md](promotion-gate.md) | Blocking a step, held runs, promoting by continuing a run |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
@@ -33,7 +33,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Continue a run (promote what you tested) | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | `ctx` (handler context) | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
 | De-duplication of automatic triggers | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
-| Deploy-trigger mode (webhook / webhook-only / poll) | [binding-and-reconcile.md#deploy-trigger-mode](binding-and-reconcile.md#deploy-trigger-mode) |
+| Webhook vs polling | [binding-and-reconcile.md#how-changes-are-noticed](binding-and-reconcile.md#how-changes-are-noticed) |
 | `--docker` (run a step in its image) | [local-development.md#3-run-one-step-in-its-real-image](local-development.md#3-run-one-step-in-its-real-image) |
 | Draining | [binding-and-reconcile.md#switch-and-rollback](binding-and-reconcile.md#switch-and-rollback) |
 | Exit codes (harness) | [troubleshooting.md#a-step-failed](troubleshooting.md#a-step-failed) |

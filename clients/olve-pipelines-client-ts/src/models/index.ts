@@ -264,8 +264,6 @@ export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
-export interface BindingDeployTrigger extends AdditionalDataHolder, Parsable {
-}
 export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
     /**
      * The input property
@@ -464,15 +462,6 @@ export function createAttemptStatusSkippedFromDiscriminatorValue(parseNode: Pars
 // @ts-ignore
 export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAttemptStatusSucceeded;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {BindingDeployTrigger}
- */
-// @ts-ignore
-export function createBindingDeployTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoBindingDeployTrigger;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -731,10 +720,6 @@ export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Par
      */
     credentialsSecret?: string | null;
     /**
-     * The deployTrigger property
-     */
-    deployTrigger?: BindingDeployTrigger | null;
-    /**
      * The path property
      */
     path?: string | null;
@@ -823,15 +808,6 @@ export function createRunSummaryFromDiscriminatorValue(parseNode: ParseNode | un
 // @ts-ignore
 export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRunTrigger;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetDeployTriggerRequest}
- */
-// @ts-ignore
-export function createSetDeployTriggerRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetDeployTriggerRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1113,16 +1089,6 @@ export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Pa
 }
 /**
  * The deserialization information for the current model
- * @param BindingDeployTrigger The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoBindingDeployTrigger(bindingDeployTrigger: Partial<BindingDeployTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-    }
-}
-/**
- * The deserialization information for the current model
  * @param ContinueRunRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1177,7 +1143,6 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
     return {
         "branch": n => { createPipelineWithRepoRequest.branch = n.getStringValue(); },
         "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
-        "deployTrigger": n => { createPipelineWithRepoRequest.deployTrigger = n.getObjectValue<BindingDeployTrigger>(createBindingDeployTriggerFromDiscriminatorValue); },
         "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
         "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
     }
@@ -1341,7 +1306,6 @@ export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Part
         "branch": n => { pipelineConfigBinding.branch = n.getStringValue(); },
         "createdAt": n => { pipelineConfigBinding.createdAt = n.getDateValue(); },
         "credentialsSecret": n => { pipelineConfigBinding.credentialsSecret = n.getStringValue(); },
-        "deployTrigger": n => { pipelineConfigBinding.deployTrigger = n.getNumberValue() ?? 0; },
         "id": n => { pipelineConfigBinding.id = n.getGuidValue(); },
         "lastPushSha": n => { pipelineConfigBinding.lastPushSha = n.getStringValue(); },
         "lastReconciledSha": n => { pipelineConfigBinding.lastReconciledSha = n.getStringValue(); },
@@ -1633,17 +1597,6 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
     return {
         "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
         "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param SetDeployTriggerRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoSetDeployTriggerRequest(setDeployTriggerRequest: Partial<SetDeployTriggerRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "deployTrigger": n => { setDeployTriggerRequest.deployTrigger = n.getNumberValue() ?? 0; },
     }
 }
 /**
@@ -1942,10 +1895,6 @@ export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
      * The credentialsSecret property
      */
     credentialsSecret?: string | null;
-    /**
-     * The deployTrigger property
-     */
-    deployTrigger?: number | null;
     /**
      * The id property
      */
@@ -2649,17 +2598,6 @@ export function serializeAttemptStatusSucceeded(writer: SerializationWriter, att
 }
 /**
  * Serializes information the current object
- * @param BindingDeployTrigger The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeBindingDeployTrigger(writer: SerializationWriter, bindingDeployTrigger: Partial<BindingDeployTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!bindingDeployTrigger || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(bindingDeployTrigger.additionalData);
-}
-/**
- * Serializes information the current object
  * @param ContinueRunRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -2719,7 +2657,6 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
     if (!createPipelineWithRepoRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branch", createPipelineWithRepoRequest.branch);
     writer.writeStringValue("credentialsSecret", createPipelineWithRepoRequest.credentialsSecret);
-    writer.writeObjectValue<BindingDeployTrigger>("deployTrigger", createPipelineWithRepoRequest.deployTrigger, serializeBindingDeployTrigger);
     writer.writeStringValue("path", createPipelineWithRepoRequest.path);
     writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
     writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
@@ -2900,7 +2837,6 @@ export function serializePipelineConfigBinding(writer: SerializationWriter, pipe
     writer.writeStringValue("branch", pipelineConfigBinding.branch);
     writer.writeDateValue("createdAt", pipelineConfigBinding.createdAt);
     writer.writeStringValue("credentialsSecret", pipelineConfigBinding.credentialsSecret);
-    writer.writeNumberValue("deployTrigger", pipelineConfigBinding.deployTrigger ?? 0);
     writer.writeGuidValue("id", pipelineConfigBinding.id);
     writer.writeStringValue("lastPushSha", pipelineConfigBinding.lastPushSha);
     writer.writeStringValue("lastReconciledSha", pipelineConfigBinding.lastReconciledSha);
@@ -3216,18 +3152,6 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetDeployTriggerRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeSetDeployTriggerRequest(writer: SerializationWriter, setDeployTriggerRequest: Partial<SetDeployTriggerRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setDeployTriggerRequest || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("deployTrigger", setDeployTriggerRequest.deployTrigger ?? 0);
-    writer.writeAdditionalData(setDeployTriggerRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SetSecretRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3309,12 +3233,6 @@ export function serializeUpdateBindingRequest(writer: SerializationWriter, updat
     if (!updateBindingRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("credentialsSecret", updateBindingRequest.credentialsSecret);
     writer.writeAdditionalData(updateBindingRequest.additionalData);
-}
-export interface SetDeployTriggerRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The deployTrigger property
-     */
-    deployTrigger?: number | null;
 }
 export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**

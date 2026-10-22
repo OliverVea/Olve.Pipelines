@@ -1,23 +1,25 @@
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>
-/// Drives GitHub hook (de)registration from binding lifecycle, so a binding in a webhook mode has a
-/// live push hook and a poll-mode (or deleted) binding does not. Subscribes directly to the binding
+/// Drives GitHub hook (de)registration from binding lifecycle, so a binding that can have a push hook
+/// has one and a deleted one does not. Subscribes directly to the binding
 /// store (bindings have no domain event hub, same as the persistence service). Handlers run
 /// synchronously during reconcile, so they only diff desired-vs-current and post work to
 /// <see cref="BindingHookWorkQueue"/>; the drainer does the network calls.
 ///
 /// A binding's repo never changes for a fixed Id (rebinding is delete+create with a new Id), so the
-/// update handler only needs to react to deploy-mode / credentials changes — not repo moves.
+/// update handler only needs to react to credentials changes — not repo moves.
 /// </summary>
 public class BindingWebhookEventRegistration(
     EntityStore<PipelineConfigBinding> store,
     BindingHookStateStore hookState,
     BindingHookWorkQueue queue,
     WebhookOptions options,
+    IdProvider idProvider,
     ILogger<BindingWebhookEventRegistration> logger) : IRunOnStartup
 {
     public Result Run()
@@ -28,11 +30,18 @@ public class BindingWebhookEventRegistration(
         return Result.Success();
     }
 
-    /// <summary>Converges the registered hook to what the binding's current mode wants.</summary>
+    /// <summary>Converges the registered hook to whether the binding can have one.</summary>
     private void Reconcile(Id<PipelineConfigBinding> id)
     {
         if (!store.TryGet(id, out var binding))
             return;
+
+        // Bindings from before webhooks were always on have no HMAC key; the update re-enters here.
+        if (string.IsNullOrEmpty(binding.WebhookSecret) && CanHaveHook(binding))
+        {
+            store.Set(binding with { WebhookSecret = idProvider.CreateSecret() });
+            return;
+        }
 
         var hasHook = hookState.TryGet(id, out var existing);
         var wantsHook = WantsHook(binding, out var owner, out var repo);
@@ -58,18 +67,19 @@ public class BindingWebhookEventRegistration(
             id, existing.PipelineId, existing.Owner, existing.Repo, existing.HookId, existing.CredentialsSecret));
     }
 
+    /// <summary>A public base URL to receive deliveries and a credentials secret (the PAT that manages the hook).</summary>
+    private bool CanHaveHook(PipelineConfigBinding binding)
+        => !string.IsNullOrEmpty(options.PublicBaseUrl) && !string.IsNullOrEmpty(binding.CredentialsSecret);
+
     /// <summary>
-    /// True when the binding both wants a webhook (mode) and can have one auto-registered: a public
-    /// base URL is set, a credentials secret is present (the PAT that manages the hook), an HMAC
-    /// secret exists, and the repo parses as <c>owner/name</c>. Otherwise polling carries the deploy.
+    /// True when a webhook can be auto-registered: <see cref="CanHaveHook"/>, an HMAC secret exists, and
+    /// the repo parses as <c>owner/name</c>. Polling carries the deploy either way.
     /// </summary>
     private bool WantsHook(PipelineConfigBinding binding, out string owner, out string repo)
     {
         owner = repo = string.Empty;
 
-        if (binding.DeployTrigger == BindingDeployTrigger.Poll)
-            return false;
-        if (string.IsNullOrEmpty(options.PublicBaseUrl) || string.IsNullOrEmpty(binding.CredentialsSecret) || string.IsNullOrEmpty(binding.WebhookSecret))
+        if (!CanHaveHook(binding) || string.IsNullOrEmpty(binding.WebhookSecret))
             return false;
 
         var parts = binding.Repo.Split('/');

@@ -24,8 +24,7 @@ public static class PipelineBindingEndpoints
                     return pipelineProblems;
 
                 var bindingResult = bindings.Create(
-                    pipeline.Id, request.Repo, Branch(request.Branch), Path(request.Path), request.CredentialsSecret,
-                    request.DeployTrigger ?? BindingDeployTrigger.Webhook);
+                    pipeline.Id, request.Repo, Branch(request.Branch), Path(request.Path), request.CredentialsSecret);
 
                 if (bindingResult.TryPickProblems(out var bindingProblems))
                 {
@@ -54,14 +53,6 @@ public static class PipelineBindingEndpoints
                 => bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
-;
-
-        // Separate from the credentials PATCH so neither field clobbers the other.
-        app.MapPatch("/api/pipelines/{pipelineId}/binding/deploy-trigger", Result<PipelineConfigBinding> (
-                PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetDeployTriggerRequest request)
-                => bindings.SetDeployTrigger(pipelineId, request.DeployTrigger))
-            .WithApiResultMapping<PipelineConfigBinding>()
-            .WithName("UpdatePipelineBindingDeployTrigger")
 ;
 
         // Authenticated by HMAC over the raw body (not Bearer), so it binds HttpRequest and returns raw
@@ -150,13 +141,9 @@ public static class PipelineBindingEndpoints
     private static string Path(string? path) => string.IsNullOrWhiteSpace(path) ? DefaultPath : path;
 }
 
-public record CreatePipelineWithRepoRequest(
-    string Repo, string? Branch, string? Path, string? CredentialsSecret,
-    BindingDeployTrigger? DeployTrigger = null);
+public record CreatePipelineWithRepoRequest(string Repo, string? Branch, string? Path, string? CredentialsSecret);
 
 public record UpdateBindingRequest(string? CredentialsSecret);
-
-public record SetDeployTriggerRequest(BindingDeployTrigger DeployTrigger);
 
 /// <param name="ReconcileSha">The config commit the last reconcile attempt was for.</param>
 /// <param name="ReconciledVersion">The version the last successful reconcile switched to.</param>

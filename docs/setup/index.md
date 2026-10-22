@@ -55,7 +55,7 @@ continuing, blocking a step, switching versions, setting secret values — go th
    stages, mappers, `when`, triggers, `onFailure`, and the checks that reject a pipeline.
 3. **[Local Development](local-development.md)** — `pl dev describe | validate | run | pipeline`:
    run steps from source before you push.
-4. **[Binding, Reconcile & Versions](binding-and-reconcile.md)** — the binding, deploy-trigger
+4. **[Binding, Reconcile & Versions](binding-and-reconcile.md)** — the binding, how changes are noticed
    modes, how a commit becomes a version, `switch` and rollback, reading the status.
 5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, supersede, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.

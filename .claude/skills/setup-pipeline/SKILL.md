@@ -9,7 +9,7 @@ allowed-tools: Bash Read
 The **bootstrap runbook** for v2 beta (`https://pipelines-v2-beta.ovea.pro`): it creates the
 pipeline bound to `OliverVea/Olve.Pipelines@v2`, path `.pipelines`, and sets its secrets.
 Reconcile then compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version
-(`source` → `build` ∥ `test` → `deploy-beta`). How it works: `docs/setup/getting-started.md` and
+(`source` ∥ `mirror-base-images` → `build` ∥ `test` → `deploy-beta` → `beta-test`). How it works: `docs/setup/getting-started.md` and
 `docs/setup/binding-and-reconcile.md`.
 
 Only needed after a hard reset (v2 Garage state deleted). To change *what* the pipeline does, edit
@@ -56,7 +56,7 @@ If "Olve.Pipelines v2" still exists, the state you meant to reset is still there
 pl dev validate --dir .pipelines            # describe locally + the service's reconcile checks
 ```
 
-Expect `valid` (one `output-unused` warning on deploy-beta is fine).
+Expect `valid` (`output-unused` warnings on deploy-prod and publish-* are fine).
 
 ## Step 4: Create the pipeline bound to the repo
 
@@ -94,7 +94,7 @@ the homelab deploy key out-of-band, the same way (stdin).
 pl binding reconcile "$PID"                 # returns at once; the build Job takes a minute or two
 pl binding status "$PID"                    # repeat until Reconcile: Success
 pl pipeline versions "$PID"                 # version 1, linked to the latest .pipelines/ commit
-pl pipeline manifest "$PID"                 # source → build, test → deploy-beta → when deployTo=prod: deploy-prod → publish-cli, publish-sdk
+pl pipeline manifest "$PID"                 # source → build, test → deploy-beta → beta-test → when deployTo=prod: deploy-prod → publish-cli, publish-sdk
 ```
 
 `Error` → read the problems (`pl dev validate` reproduces manifest problems). The first reconcile

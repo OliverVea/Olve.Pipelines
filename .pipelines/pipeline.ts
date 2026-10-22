@@ -1,5 +1,5 @@
 // v2's own CD pipeline: beta on push, prod on promotion. config.yaml beside it is the paused v1 deployer's rollback path.
-import { pipeline, secret, step, steps, Source } from "@olve/pipelines";
+import { pipeline, secret, step, steps, HelmRelease, Source } from "@olve/pipelines";
 import * as M from "./models";
 
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
@@ -38,6 +38,8 @@ export const test = step({
   timeoutSeconds: 1800,
 });
 
+export const BETA_URL = "http://olve-pipelines-v2.apps-beta.svc.cluster.local";
+
 export const deployBeta = steps.helmDeployOverSsh({
   name: "deploy-beta",
   description: "Deploys the image to apps-beta (olve-pipelines-v2) with Helm and checks its health.",
@@ -48,8 +50,16 @@ export const deployBeta = steps.helmDeployOverSsh({
   chart: "helm",
   values: ["values-beta.yaml", "values-v2-beta.yaml"],
   set: { "slo.enabled": "false" },
-  healthUrl: "http://olve-pipelines-v2.apps-beta.svc.cluster.local/api/health",
+  healthUrl: `${BETA_URL}/api/health`,
   timeoutSeconds: 900,
+});
+
+export const betaTest = step({
+  name: "beta-test",
+  description: "Smoke-tests the freshly deployed beta: readiness, this run in the API, the frontend bundle, the error model and SSE.",
+  image: "alpine:3.22",
+  input: { release: HelmRelease },
+  timeoutSeconds: 180,
 });
 
 export const deployProd = steps.helmDeployOverSsh({
@@ -86,13 +96,14 @@ export const publishSdk = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests and deploy it to apps-beta (olve-pipelines-v2) with Helm. Promoting a run to prod deploys the same image to apps, then publishes the pl CLI and the SDK to npm.",
+  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it. Promoting a run to prod deploys the same image to apps, then publishes the pl CLI and the SDK to npm.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })], mirrorBaseImages)
   .stage(build, test)
   .stage(deployBeta)
+  .stage(betaTest)
   .when({ deployTo: "prod" }, p => p
     .stage(deployProd)
     .stage(publishCli, publishSdk));

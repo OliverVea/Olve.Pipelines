@@ -517,6 +517,9 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
 2. **`deploy-prod`**: first stage of the pipeline's `when deployTo: "prod"` block, before
    publish-cli/publish-sdk (**done 2026-10-22**). Promotion = `pl run continue <run> --field
    deployTo=prod` on a succeeded beta push run of the active version, so prod gets the image beta ran.
+   Before it, the `beta-test` stage smoke-tests the freshly deployed beta (in-cluster URL: `/api/ready`,
+   this run in the run view, the frontend bundle, a `problem+json` 404, SSE `hello`, `/install.sh`);
+   a failed beta-test fails the run, so it can't be continued to prod.
    `deployTo` defaults to `prod`, so a manual trigger without `--field deployTo=beta` deploys prod.
    For now the pipeline stays on v2 beta, which therefore deploys v2 prod; `/download` on v2 prod
    serves nothing until the deployer moves there. The first deploy (by the user): unblock

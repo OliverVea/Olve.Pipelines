@@ -61,12 +61,14 @@ pl run get "$R"                                  # stages + each step's status, 
 pl step logs "$R/build" --follow                 # kaniko build
 pl step logs "$R/test" --follow                  # unit tests
 pl step logs "$R/deploy-beta" --follow
+pl step logs "$R/beta-test" --follow             # smoke test of the new beta
 ```
 
 Expected: `source` ~5 s; `build` ~1.5 min cached, up to ~4.5 min cold; `test` ~1 min (parallel with
 build); `deploy-beta` ~20 s. `deploy-beta` replaces the pod that runs the service: the new pod logs
 `Reattaching to K8s Job … deploy-beta`, collects it and finishes the run — a short API blip during
-that is normal.
+that is normal. `beta-test` then smoke-tests the new pod (a few seconds); if it fails, the run fails
+and must not be promoted.
 
 ## 4. On failure
 

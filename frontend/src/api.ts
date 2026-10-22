@@ -115,6 +115,38 @@ export async function apiFetch<T = unknown>(
   return parsed as T;
 }
 
+/**
+ * Server-sent events from an authenticated endpoint. `EventSource` can't send the bearer token, so this
+ * reads the stream with fetch. Ends when the server closes the stream or `signal` aborts.
+ */
+export async function* apiEvents(path: string, signal: AbortSignal): AsyncGenerator<{ event: string; data: string }> {
+  const res = await fetch(path, { headers: { ...(await authHeaders()), Accept: 'text/event-stream' }, signal });
+  if (!res.ok || !res.body) throw new ApiError(res.status, [`Event stream answered HTTP ${res.status}.`]);
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      buffer += value;
+      let end: number;
+      while ((end = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, end);
+        buffer = buffer.slice(end + 2);
+        let event = 'message';
+        const data: string[] = [];
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim();
+          else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''));
+        }
+        if (data.length) yield { event, data: data.join('\n') };
+      }
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
+
 /** POST with a JSON body (or none). */
 export function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
   return apiFetch<T>(path, { method: 'POST', body });

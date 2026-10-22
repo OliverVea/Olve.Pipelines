@@ -26,6 +26,7 @@ import './typed-value.js';
 import './input-form.js';
 import './log-pane.js';
 import './relative-time.js';
+import { PollController } from '../v2/poll.js';
 
 type AttemptStatusFields = {
   type?: string | null;
@@ -183,11 +184,14 @@ export class RunView extends LitElement {
   @query('#continue-dialog') private declare _continueDialog: HTMLDialogElement;
   @query('#continue-form') private declare _continueForm: InputForm;
 
-  private _timer?: ReturnType<typeof setInterval>;
+  private _loading = false;
   private _filesKey = '';
 
   constructor() {
     super();
+    new PollController(this, () => {
+      if (this._detail?.run?.status === 'Running' && !this._loading) this.reload();
+    }, 3000);
     this.pipelineId = '';
     this.run = '';
     this._detail = null;
@@ -205,20 +209,8 @@ export class RunView extends LitElement {
     this._continueErrors = [];
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._timer = setInterval(() => {
-      if (this._detail?.run?.status === 'Running') this.reload();
-    }, 3000);
-  }
-
   reload() {
     return this._load();
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    if (this._timer) clearInterval(this._timer);
   }
 
   updated(changed: Map<string, unknown>) {
@@ -248,19 +240,28 @@ export class RunView extends LitElement {
   }
 
   private async _load() {
+    // A response for a run we've navigated away from must not overwrite the current one.
+    const key = `${this.pipelineId}#${this.run}`;
+    const current = () => key === `${this.pipelineId}#${this.run}`;
+    this._loading = true;
     try {
       const [detail, attempts] = await Promise.all([this._runApi.get(), this._runApi.attempts.get()]);
+      if (!current()) return;
       this._detail = detail ?? null;
       this._attempts = attempts ?? [];
       this._error = null;
       const vn = detail?.run?.versionNumber;
       if (vn !== undefined && vn !== null && this._version?.number !== vn) {
-        this._version = await loadVersion(this.pipelineId, vn);
+        const version = await loadVersion(this.pipelineId, vn);
+        if (!current()) return;
+        this._version = version;
       }
       if (!this._step) this._step = this._defaultStep();
       this._loadFiles();
     } catch (e) {
-      this._error = errorMessages(e).join(' ');
+      if (current()) this._error = errorMessages(e).join(' ');
+    } finally {
+      this._loading = false;
     }
   }
 

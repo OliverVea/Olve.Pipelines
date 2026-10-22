@@ -98,10 +98,11 @@ frontend/src/
 └── components/
     ├── app-shell.ts           # Layout, auth gate, route switching
     ├── pipeline-list-view.ts  # Pipelines with run health
-    ├── pipeline-detail-view.ts# Stage graph + gates, trigger, recent runs, versions
-    ├── run-view.ts            # One run: input, coloured graph, attempts, I/O, files, logs, actions
+    ├── pipeline-detail-view.ts# Compact header, stage graph with latest attempts, trigger, step sheet
+    ├── run-view.ts            # One run: compact header, coloured graph; step sheet with attempts, I/O, files, logs
     ├── step-history-view.ts   # A step's attempts across runs, definition-change markers
-    ├── stage-graph.ts         # Stages/when blocks/wiring renderer (pipeline, run and plan)
+    ├── stage-graph.ts         # Stage graph at two levels (chips, cards), oriented by the viewport
+    ├── step-sheet.ts          # Bottom sheet with one step's details
     ├── trigger-panel.ts       # Manual trigger form + run plan preview
     ├── input-form.ts          # Form generated from an input model's JSON Schema
     ├── versions-panel.ts      # Versions list, manifest diff, switch dialog
@@ -114,16 +115,18 @@ frontend/src/
 
 - **Pipeline list** — per pipeline: run health (last run), active version or a switch in progress,
   running and held runs, closed gates, and the per-step strip.
-- **Pipeline** (`/pipeline/:id`) — the active version's stage graph: columns are stages (their steps
-  run in parallel), the rule between columns is the stage barrier, `when` blocks are dashed brackets
-  labelled with their condition. Hover a step to see where its inputs come from; "Show wiring" lists
-  every step's field-level mapping (`{ref}` / `{const}` from the manifest). Each step has a gate
-  toggle (block/unblock). Below: the trigger form (generated from the input model; the run plan
-  greys out `when` blocks that won't match), recent runs, versions with a manifest diff between any
-  two and switch (optionally cancelling running work).
-- **Run** (`/pipeline/:id/run/:n?step=&attempt=`) — input, the pinned version's graph coloured by
-  step status, and for the selected step its attempts with typed input/output, files and live logs.
-  Actions: cancel, rerun run, continue with field edits, rerun step (with or without continue).
+- **Pipeline** (`/pipeline/:id`) — a one-line header (name, health, Details fold, Trigger) over the
+  active version's stage graph with each step's latest attempt. The graph has two levels, Chips and
+  Cards (`[` / `]`, remembered per browser); a landscape viewport lays stages out left to right
+  (scrolling sideways inside the graph when too wide), a portrait one top to bottom. `when` blocks
+  are dashed brackets labelled with their condition; hovering a step outlines where its inputs come
+  from and what reads it. Clicking a step opens its details in a bottom sheet (`?step=`): status,
+  reason, latest attempt, recent runs, what it reads and what reads it, its definition, and the
+  actions (logs, cancel, rerun and continue, block/unblock, step page).
+- **Run** (`/pipeline/:id/run/:n?step=&attempt=`) — a one-line header (run, status, duration,
+  Details fold with rerun, continue, version and input; Cancel stays on the line while running) and
+  the pinned version's graph coloured by step status. The selected step's sheet holds its attempts
+  with typed input/output, files and live logs, and cancel / rerun step (with or without continue).
 - **Step history** (`/pipeline/:id/step/:name`) — attempts across runs, with a marker where the
   step's definition (step version) changed.
 

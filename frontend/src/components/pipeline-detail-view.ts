@@ -1,7 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { client, apiPost, errorMessages } from '../api.js';
-import { navigate } from '../router.js';
 import type {
   Pipeline,
   PipelineBindingStatus,
@@ -11,6 +10,9 @@ import type {
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import {
   sharedStyles,
+  headerStyles,
+  detailsOpen,
+  rememberDetails,
   toneOf,
   statusLabel,
   navClick,
@@ -23,34 +25,66 @@ import {
   stepLogsPath,
   isActiveStatus,
   shortSha,
+  formatDuration,
 } from '../v2/ui.js';
-import { allSteps } from '../v2/manifest.js';
+import { allSteps, type Manifest } from '../v2/manifest.js';
 import { loadVersion, toActivation, currentVersion, type Activation, type LoadedVersion } from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
 import type { StepState } from './stage-graph.js';
+import { sheetContentStyles } from './step-sheet.js';
 import './relative-time.js';
 import './stage-graph.js';
+import './step-sheet.js';
 import './trigger-panel.js';
 
-/** A pipeline's steps with the latest attempt of each, plus a compact header. */
+const RECENT = 10;
+
+/** A pipeline's steps with the latest attempt of each, a compact header and the selected step in a sheet. */
 @customElement('pipeline-detail-view')
 export class PipelineDetailView extends LitElement {
   static styles = [
     sharedStyles,
+    headerStyles,
+    sheetContentStyles,
     css`
-      .header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem 0.9rem;
-        flex-wrap: wrap;
-      }
-      .header .spacer {
-        flex: 1;
-      }
       .desc {
-        margin: 0.3rem 0 0;
+        margin: 0;
         color: var(--color-text-muted);
         font-size: 0.88rem;
+        max-width: 75ch;
+      }
+      .graph {
+        margin-top: 0.6rem;
+      }
+      .hist {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .hist a {
+        display: inline-flex;
+      }
+      .cube {
+        width: 1.15rem;
+        height: 1.15rem;
+        border-radius: 4px;
+        border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
+        background: color-mix(in srgb, var(--tone) 22%, transparent);
+      }
+      .cube.t-ok {
+        background: color-mix(in srgb, var(--tone) 70%, transparent);
+      }
+      .cube.t-fail {
+        background: var(--tone);
+      }
+      .cube.t-skip,
+      .cube.t-off,
+      .cube.t-idle {
+        background: transparent;
+      }
+      .cube.t-idle {
+        border-style: dashed;
       }
       .facts {
         display: flex;
@@ -97,7 +131,8 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _health: PipelineHealth | null;
   @state() private declare _activation: Activation;
   @state() private declare _active: LoadedVersion | null;
-  @state() private declare _latest: Map<string, StepHistoryItem>;
+  /** Recent attempts per step, newest first. */
+  @state() private declare _history: Map<string, StepHistoryItem[]>;
   @state() private declare _blocked: Set<string>;
   @state() private declare _loaded: boolean;
   @state() private declare _error: string | null;
@@ -105,6 +140,8 @@ export class PipelineDetailView extends LitElement {
   @state() private declare _retrying: Set<string>;
   @state() private declare _triggerOpen: boolean;
   @state() private declare _titleHint: string;
+  @state() private declare _step: string;
+  @state() private declare _detailsOpen: boolean;
 
   constructor() {
     super();
@@ -115,7 +152,7 @@ export class PipelineDetailView extends LitElement {
     this._health = null;
     this._activation = { kind: 'none' };
     this._active = null;
-    this._latest = new Map();
+    this._history = new Map();
     this._blocked = new Set();
     this._loaded = false;
     this._error = null;
@@ -124,13 +161,15 @@ export class PipelineDetailView extends LitElement {
     this._triggerOpen = new URLSearchParams(location.search).get('trigger') === '1';
     const st = history.state as { pipelineName?: string } | null;
     this._titleHint = st?.pipelineName ?? '';
+    this._step = new URLSearchParams(location.search).get('step') ?? '';
+    this._detailsOpen = detailsOpen();
     new PollController(this, () => this.reload());
   }
 
   updated(changed: Map<string, unknown>) {
     if (changed.has('pipelineId')) {
       this._active = null;
-      this._latest = new Map();
+      this._history = new Map();
       this._loaded = false;
       this.reload();
     }
@@ -158,12 +197,12 @@ export class PipelineDetailView extends LitElement {
         names.map((n) =>
           p.steps
             .byStep(n)
-            .history.get({ queryParameters: { limit: 1 } })
-            .then((h) => [n, h?.[0]] as const)
-            .catch(() => [n, undefined] as const),
+            .history.get({ queryParameters: { limit: RECENT } })
+            .then((h): [string, StepHistoryItem[]] => [n, h ?? []])
+            .catch((): [string, StepHistoryItem[]] => [n, []]),
         ),
       );
-      this._latest = new Map(latest.filter((x): x is readonly [string, StepHistoryItem] => !!x[1]));
+      this._history = new Map(latest.filter(([, h]) => h.length > 0));
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');
@@ -181,7 +220,7 @@ export class PipelineDetailView extends LitElement {
     for (const step of allSteps(this._active?.manifest?.stages ?? [])) {
       out.set(step.name, { status: 'not-run', blocked: this._blocked.has(step.name), heldRuns: held.get(step.name) });
     }
-    for (const [name, a] of this._latest) {
+    for (const [name, [a]] of this._history) {
       out.set(name, {
         status: a.status ?? '',
         reason: a.reason,
@@ -210,21 +249,28 @@ export class PipelineDetailView extends LitElement {
     if (this._error && !this._pipeline) return html`<p class="error">${this._error}</p>`;
     const p = this._pipeline;
     const m = this._active?.manifest ?? null;
+    const states = this._states();
+    const sheet = !!m && !!this._step;
+    const errors = this._stepErrors.length
+      ? html`<div class="errors" role="alert">${this._stepErrors.map((e) => html`<p>${e}</p>`)}</div>`
+      : nothing;
     return html`
-      <div class="crumbs"><a href="/" @click=${navClick}>Pipelines</a></div>
       <section>
-        <div class="header">
+        <div class="line">
           <h2>${p?.name ?? this._titleHint}</h2>
           ${this._health
             ? html`<span class="st t-${toneOf(this._health.status)}"><span class="dot"></span>${statusLabel(this._health.status)}</span>`
             : nothing}
+          <button class="more" aria-expanded=${this._detailsOpen} aria-controls="details" @click=${this._toggleDetails}>Details</button>
           <span class="spacer"></span>
           <button class="btn primary" ?disabled=${!m} @click=${() => (this._triggerOpen = !this._triggerOpen)}>
             ${this._triggerOpen ? 'Close' : 'Trigger'}
           </button>
+          <i class="br"></i>
         </div>
-        ${m?.description ? html`<p class="desc">${m.description}</p>` : nothing}
-        ${this._renderFacts()} ${this._renderSync()}
+        <div class="details" id="details" ?hidden=${!this._detailsOpen}>
+          ${m?.description ? html`<p class="desc">${m.description}</p>` : nothing} ${this._renderFacts()} ${this._renderSync()}
+        </div>
       </section>
 
       ${this._triggerOpen
@@ -238,27 +284,95 @@ export class PipelineDetailView extends LitElement {
           </section>`
         : nothing}
 
-      <section>
+      <section class="graph">
         ${m
           ? html`<stage-graph
               .manifest=${m}
-              .states=${this._states()}
+              .states=${states}
               .blocked=${this._blocked}
+              .selected=${sheet ? this._step : ''}
               stepControls
               @block-toggle=${(e: CustomEvent<{ step: string; block: boolean }>) => this._setBlocked(e.detail.step, e.detail.block)}
               @step-retry=${(e: CustomEvent<{ step: string }>) => this._retry(e.detail.step)}
               @step-cancel=${(e: CustomEvent<{ step: string }>) => this._cancel(e.detail.step)}
-              @step-select=${(e: CustomEvent<{ step: string }>) => this._open(e.detail.step)}
+              @step-select=${(e: CustomEvent<{ step: string }>) => this._select(e.detail.step)}
             ></stage-graph>`
           : this._loaded
             ? html`<p class="muted">No active version yet. One appears once reconcile has described the pipeline.</p>`
             : html`<p class="muted">Loading…</p>`}
-        ${this._stepErrors.length
-          ? html`<div class="errors" role="alert">${this._stepErrors.map((e) => html`<p>${e}</p>`)}</div>`
-          : nothing}
-        ${this._renderRetiredBlocks()}
+        ${sheet ? nothing : errors} ${this._renderRetiredBlocks()}
       </section>
+      ${sheet ? this._renderSheet(m, states.get(this._step), errors) : nothing}
     `;
+  }
+
+  private _renderSheet(m: Manifest, st: StepState | undefined, errors: unknown) {
+    const step = this._step;
+    const history = this._history.get(step) ?? [];
+    const at = st?.finishedAt ?? st?.startedAt ?? st?.createdAt;
+    return html`<step-sheet
+      .pipelineId=${this.pipelineId}
+      .manifest=${m}
+      .step=${step}
+      .state=${st}
+      @close=${() => this._select('')}
+      @step-select=${(e: CustomEvent<{ step: string }>) => this._select(e.detail.step)}
+    >
+      <span slot="actions" style="display:contents">
+        ${st?.logsHref ? html`<a class="btn small" href=${st.logsHref} @click=${navClick}>Logs</a>` : nothing}
+        ${st?.cancellable ? html`<button class="btn small danger" @click=${() => this._cancel(step)}>Cancel</button>` : nothing}
+        ${st?.retryable ? html`<button class="btn small" @click=${() => this._retry(step)}>Rerun and continue</button>` : nothing}
+        <button class="btn small" @click=${() => this._setBlocked(step, !st?.blocked)}>${st?.blocked ? 'Unblock' : 'Block'}</button>
+        <a class="btn small" href=${stepPath(this.pipelineId, step)} @click=${navClick}>Step page</a>
+      </span>
+      <div slot="attempt">
+        <h4 class="sheet-h">Latest attempt</h4>
+        <dl class="kv">
+          <dt>Run</dt>
+          <dd>
+            ${st?.runNumber
+              ? html`<a href=${st.runHref ?? runPath(this.pipelineId, st.runNumber)} @click=${navClick}
+                  >#${st.runNumber}${(st.attemptCount ?? 0) > 1 ? `@${st.latestAttempt}` : ''}</a
+                >`
+              : '—'}
+          </dd>
+          <dt>${st?.finishedAt ? 'Finished' : 'Started'}</dt>
+          <dd><relative-time .value=${at}></relative-time></dd>
+          <dt>Duration</dt>
+          <dd>${st?.startedAt ? formatDuration(st.startedAt, st.finishedAt) : '—'}</dd>
+          <dt>Attempts</dt>
+          <dd>${st?.attemptCount ?? 0}</dd>
+        </dl>
+        ${history.length
+          ? html`<h4 class="sheet-h">Recent runs</h4>
+              <div class="hist">
+                ${history.map(
+                  (h) =>
+                    html`<a
+                      href="${runPath(this.pipelineId, h.runNumber)}?step=${encodeURIComponent(step)}&attempt=${h.attemptNumber}"
+                      title="#${h.runNumber}@${h.attemptNumber} ${statusLabel(h.status)}"
+                      @click=${navClick}
+                      ><span class="cube t-${toneOf(h.status)}"></span
+                    ></a>`,
+                )}
+              </div>`
+          : nothing}
+      </div>
+      ${errors}
+    </step-sheet>`;
+  }
+
+  private _toggleDetails = () => {
+    this._detailsOpen = !this._detailsOpen;
+    rememberDetails(this._detailsOpen);
+  };
+
+  private _select(step: string) {
+    this._step = step;
+    const q = new URLSearchParams(location.search);
+    if (step) q.set('step', step);
+    else q.delete('step');
+    history.replaceState(history.state, '', `${location.pathname}${q.size ? `?${q}` : ''}`);
   }
 
   private _renderFacts() {
@@ -320,12 +434,8 @@ export class PipelineDetailView extends LitElement {
     </div>`;
   }
 
-  private _open(step: string) {
-    navigate(stepPath(this.pipelineId, step));
-  }
-
   private async _cancel(step: string) {
-    const run = this._latest.get(step)?.runNumber;
+    const run = this._history.get(step)?.[0]?.runNumber;
     if (!run || !confirm(`Cancel ${step} in run #${run}? The run ends Cancelled once its stage settles.`)) return;
     this._stepErrors = [];
     try {
@@ -337,7 +447,7 @@ export class PipelineDetailView extends LitElement {
   }
 
   private async _retry(step: string) {
-    const run = this._latest.get(step)?.runNumber;
+    const run = this._history.get(step)?.[0]?.runNumber;
     if (!run) return;
     this._stepErrors = [];
     this._retrying = new Set([...this._retrying, step]);

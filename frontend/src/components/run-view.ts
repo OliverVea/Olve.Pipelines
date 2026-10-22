@@ -5,6 +5,9 @@ import { client, apiPost, downloadFile, encodePath, errorMessages, untypedToJson
 import { navigate } from '../router.js';
 import {
   sharedStyles,
+  headerStyles,
+  detailsOpen,
+  rememberDetails,
   toneOf,
   statusLabel,
   formatDuration,
@@ -14,14 +17,17 @@ import {
   pipelinePath,
   runPath,
   stepPath,
+  stepLogsPath,
   isActiveStatus,
 } from '../v2/ui.js';
 import { loadVersion, type LoadedVersion } from '../v2/versions.js';
-import { stepsByName, stepInputSchema, outputSchemaOf, inputSchemaOf } from '../v2/manifest.js';
+import { type Manifest, stepsByName, stepInputSchema, outputSchemaOf, inputSchemaOf } from '../v2/manifest.js';
 import type { StepState } from './stage-graph.js';
 import type { FileRefValue } from './typed-value.js';
 import type { InputForm } from './input-form.js';
+import { sheetContentStyles } from './step-sheet.js';
 import './stage-graph.js';
+import './step-sheet.js';
 import './typed-value.js';
 import './input-form.js';
 import './log-pane.js';
@@ -59,18 +65,14 @@ function parseJson(s: string | null | undefined): unknown {
 export class RunView extends LitElement {
   static styles = [
     sharedStyles,
+    headerStyles,
+    sheetContentStyles,
     css`
-      .title {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-      }
-      .title .st {
-        font-size: 0.9rem;
+      .dur {
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
       }
       .actions {
-        margin-left: auto;
         display: flex;
         gap: 0.4rem;
         flex-wrap: wrap;
@@ -79,7 +81,7 @@ export class RunView extends LitElement {
         display: flex;
         flex-wrap: wrap;
         gap: 0.3rem 1.2rem;
-        margin: 0.5rem 0 0;
+        margin: 0.6rem 0 0;
         font-size: 0.82rem;
         color: var(--color-text-muted);
       }
@@ -88,29 +90,24 @@ export class RunView extends LitElement {
         color: var(--color-text);
       }
       .note {
-        margin-top: 0.6rem;
+        margin: 0.6rem 0 0;
         font-size: 0.82rem;
         padding: 0.4rem 0.7rem;
         border-left: 3px solid var(--color-warning);
         background: color-mix(in srgb, var(--color-warning) 8%, transparent);
         border-radius: 0 var(--radius) var(--radius) 0;
       }
-      .step-head {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-        margin-bottom: 0.6rem;
+      .graph {
+        margin-top: 1rem;
       }
-      .step-head h3 {
-        margin: 0;
-        font-size: 1.05rem;
+      .graph h3 {
+        margin-bottom: 0.4rem;
       }
       .attempts {
         display: flex;
         gap: 0.3rem;
         flex-wrap: wrap;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.6rem;
       }
       .attempt-tab {
         display: inline-flex;
@@ -130,32 +127,22 @@ export class RunView extends LitElement {
       .io {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 1rem;
+        gap: 0 1.5rem;
       }
       @media (max-width: 760px) {
         .io {
           grid-template-columns: 1fr;
         }
       }
-      .io h4,
-      .sub h4 {
-        margin: 0 0 0.4rem;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: var(--color-text-muted);
-      }
-      .io h4 code {
+      .sheet-h code {
         font-weight: 500;
-      }
-      .sub {
-        margin-top: 1rem;
       }
       .reason {
         font-size: 0.82rem;
-        margin: 0 0 0.75rem;
+        margin: 0.5rem 0 0;
       }
-      .hist {
-        font-size: 0.8rem;
+      log-pane {
+        --log-max-height: 22rem;
       }
       .continue-help {
         font-size: 0.82rem;
@@ -180,6 +167,7 @@ export class RunView extends LitElement {
   @state() private declare _files: AttemptFileEntry[] | null;
   @state() private declare _filesError: string | null;
   @state() private declare _continueErrors: string[];
+  @state() private declare _detailsOpen: boolean;
 
   @query('#continue-dialog') private declare _continueDialog: HTMLDialogElement;
   @query('#continue-form') private declare _continueForm: InputForm;
@@ -207,6 +195,7 @@ export class RunView extends LitElement {
     this._files = null;
     this._filesError = null;
     this._continueErrors = [];
+    this._detailsOpen = detailsOpen();
   }
 
   reload() {
@@ -256,26 +245,12 @@ export class RunView extends LitElement {
         if (!current()) return;
         this._version = version;
       }
-      if (!this._step) this._step = this._defaultStep();
       this._loadFiles();
     } catch (e) {
       if (current()) this._error = errorMessages(e).join(' ');
     } finally {
       this._loading = false;
     }
-  }
-
-  /** Pick the step worth looking at first: failed, then running/held, else the last that ran. */
-  private _defaultStep(): string {
-    const steps = (this._detail?.stages ?? []).flatMap((s) => s.steps ?? []);
-    const by = (pred: (s: string) => boolean) => steps.find((s) => pred(s.status ?? ''))?.name;
-    return (
-      by((s) => s === 'failed') ??
-      by((s) => s === 'in-progress' || s === 'held' || s === 'scheduled') ??
-      [...steps].reverse().find((s) => (s.attemptCount ?? 0) > 0)?.name ??
-      steps[0]?.name ??
-      ''
-    );
   }
 
   private _stepAttempts(step: string): Attempt[] {
@@ -311,9 +286,9 @@ export class RunView extends LitElement {
     this._step = step;
     this._attempt = attempt;
     const q = new URLSearchParams();
-    q.set('step', step);
-    if (attempt) q.set('attempt', String(attempt));
-    history.replaceState(history.state, '', `${location.pathname}?${q}`);
+    if (step) q.set('step', step);
+    if (step && attempt) q.set('attempt', String(attempt));
+    history.replaceState(history.state, '', `${location.pathname}${q.size ? `?${q}` : ''}`);
     this._loadFiles();
   }
 
@@ -339,80 +314,83 @@ export class RunView extends LitElement {
       }
     }
     const running = r.status === 'Running';
+    const sheet = !!m && !!this._step;
+    const errors = this._actionErrors.length
+      ? html`<div class="errors" role="alert">${this._actionErrors.map((e) => html`<p>${e}</p>`)}</div>`
+      : nothing;
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._pipelineName || 'Pipeline'}</a>
-      </div>
       <section>
-        <div class="title">
-          <h2>Run #${r.number}</h2>
+        <div class="line">
+          <h2>
+            <a class="crumb" href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._pipelineName || 'Pipeline'}</a
+            ><span class="sep">/</span>Run #${r.number}
+          </h2>
           <span class="st t-${toneOf(r.status)}"><span class="dot"></span>${statusLabel(r.status)}</span>
+          <span class="dur muted">${formatDuration(r.createdAt, r.finishedAt)}</span>
+          <button class="more" aria-expanded=${this._detailsOpen} aria-controls="details" @click=${this._toggleDetails}>Details</button>
+          <span class="spacer"></span>
+          ${running ? html`<button class="btn danger small" ?disabled=${this._busy} @click=${this._cancel}>Cancel run</button>` : nothing}
+          <i class="br"></i>
+        </div>
+        <div class="details" id="details" ?hidden=${!this._detailsOpen}>
           <div class="actions">
-            ${running
-              ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel run</button>`
-              : nothing}
-            <button class="btn" ?disabled=${this._busy} @click=${this._rerunRun}>Rerun run</button>
-            <button class="btn primary" ?disabled=${this._busy || !d.continuable} @click=${this._openContinue}
-              >Continue…</button>
+            <button class="btn small" ?disabled=${this._busy} @click=${this._rerunRun}>Rerun run</button>
+            <button class="btn primary small" ?disabled=${this._busy || !d.continuable} @click=${this._openContinue}>Continue…</button>
           </div>
-        </div>
-        <div class="meta">
-          <span>Version <b>v${r.versionNumber}</b></span>
-          <span>Stamp <b class="mono">${r.versionStamp}</b></span>
-          <span>Trigger <b>${(r.triggerKind ?? '').toLowerCase()}</b></span>
-          ${d.commitSha ? html`<span>Pipeline commit <b class="mono">${shortSha(d.commitSha)}</b></span>` : nothing}
-          <span>Started <b><relative-time .value=${r.createdAt}></relative-time></b></span>
-          <span>Duration <b>${formatDuration(r.createdAt, r.finishedAt)}</b></span>
-          ${r.heldAt ? html`<span>Held at <b>${r.heldAt}</b></span>` : nothing}
-          ${r.rerunOfNumber
-            ? html`<span>Rerun of <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}>#${r.rerunOfNumber}</a></span>`
+          <div class="meta">
+            <span>Version <b>v${r.versionNumber}</b></span>
+            <span>Stamp <b class="mono">${r.versionStamp}</b></span>
+            <span>Trigger <b>${(r.triggerKind ?? '').toLowerCase()}</b></span>
+            ${d.commitSha ? html`<span>Pipeline commit <b class="mono">${shortSha(d.commitSha)}</b></span>` : nothing}
+            <span>Started <b><relative-time .value=${r.createdAt}></relative-time></b></span>
+            ${r.heldAt ? html`<span>Held at <b>${r.heldAt}</b></span>` : nothing}
+            ${r.rerunOfNumber
+              ? html`<span>Rerun of <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}>#${r.rerunOfNumber}</a></span>`
+              : nothing}
+            ${r.supersededByNumber
+              ? html`<span>Superseded by <a href=${runPath(this.pipelineId, r.supersededByNumber)} @click=${navClick}>#${r.supersededByNumber}</a></span>`
+              : nothing}
+          </div>
+          ${!d.continuable && r.status !== 'Superseded'
+            ? html`<p class="note">
+                This run's version (v${r.versionNumber}) is no longer active, so it can't be continued. Trigger a new run on
+                the current version instead.
+              </p>`
             : nothing}
-          ${r.supersededByNumber
-            ? html`<span>Superseded by <a href=${runPath(this.pipelineId, r.supersededByNumber)} @click=${navClick}>#${r.supersededByNumber}</a></span>`
-            : nothing}
+          <h4 class="sheet-h">Input</h4>
+          <typed-value .value=${input} .schema=${m ? outputSchemaOf(m, m.input) : null}></typed-value>
         </div>
-        ${!d.continuable && r.status !== 'Superseded'
-          ? html`<p class="note">
-              This run's version (v${r.versionNumber}) is no longer active, so it can't be continued. Trigger a new run
-              on the current version instead.
-            </p>`
-          : nothing}
         ${r.heldAt && running
           ? html`<p class="note">
               Held before <b>${r.heldAt}</b>: the step is blocked. Unblock it on the
               <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>pipeline page</a> to let the run continue.
             </p>`
           : nothing}
-        ${this._actionErrors.length
-          ? html`<div class="errors" role="alert">${this._actionErrors.map((e) => html`<p>${e}</p>`)}</div>`
-          : nothing}
+        ${sheet ? nothing : errors}
       </section>
 
-      <section class="panel">
-        <h3>Input</h3>
-        <typed-value .value=${input} .schema=${m ? outputSchemaOf(m, m.input) : null}></typed-value>
-      </section>
-
-      <section>
+      <section class="graph">
         <h3>Stages</h3>
         ${m
           ? html`<stage-graph
               .manifest=${m}
               .states=${states}
-              .selected=${this._step}
+              .selected=${sheet ? this._step : ''}
               @step-select=${(e: CustomEvent<{ step: string }>) => this._selectStep(e.detail.step)}
             ></stage-graph>`
           : html`<p class="muted">Loading the pinned version…</p>`}
       </section>
 
-      ${this._step ? this._renderStep(states.get(this._step)) : nothing}
-      ${this._renderContinueDialog(input)}
+      ${sheet ? this._renderSheet(m, states.get(this._step), errors) : nothing} ${this._renderContinueDialog(input)}
     `;
   }
 
-  private _renderStep(st: StepState | undefined) {
-    const m = this._version?.manifest ?? null;
+  private _toggleDetails = () => {
+    this._detailsOpen = !this._detailsOpen;
+    rememberDetails(this._detailsOpen);
+  };
+
+  private _renderSheet(m: Manifest, st: StepState | undefined, errors: unknown) {
     const step = stepsByName(m).get(this._step);
     const attempts = this._stepAttempts(this._step);
     const a = this._selectedAttempt();
@@ -420,79 +398,89 @@ export class RunView extends LitElement {
     const continuable = this._detail?.continuable ?? false;
     const active = attempts.some((x) => ['scheduled', 'in-progress'].includes(attemptStatus(x).type ?? ''));
     const logsUrl = a ? `${this._base}/steps/${encodeURIComponent(this._step)}/logs?attempt=${a.number}` : '';
-    return html`<section class="panel">
-      <div class="step-head">
-        <h3>${this._step}</h3>
-        ${st ? html`<span class="st t-${toneOf(st.status)}"><span class="dot"></span>${statusLabel(st.status)}</span>` : nothing}
-        ${st?.blocked ? html`<span class="pill t-wait">blocked</span>` : nothing}
-        <a href=${stepPath(this.pipelineId, this._step)} @click=${navClick} class="hist">Step</a>
-        <div class="actions">
-          ${active
-            ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancelStep}>Cancel step</button>`
-            : nothing}
-          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}>Rerun step</button>
-          <button class="btn" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}>Rerun and continue</button>
-        </div>
+    return html`<step-sheet
+      .pipelineId=${this.pipelineId}
+      .manifest=${m}
+      .step=${this._step}
+      .state=${st}
+      @close=${() => this._selectStep('')}
+      @step-select=${(e: CustomEvent<{ step: string }>) => this._selectStep(e.detail.step)}
+    >
+      <span slot="actions" style="display:contents">
+        ${a
+          ? html`<a class="btn small" href=${stepLogsPath(this.pipelineId, Number(this.run), this._step, a.number)} @click=${navClick}
+              >Logs</a
+            >`
+          : nothing}
+        ${active ? html`<button class="btn small danger" ?disabled=${this._busy} @click=${this._cancelStep}>Cancel step</button>` : nothing}
+        <button class="btn small" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(false)}>Rerun step</button>
+        <button class="btn small" ?disabled=${this._busy || !continuable} @click=${() => this._rerunStep(true)}>Rerun and continue</button>
+        <a class="btn small" href=${stepPath(this.pipelineId, this._step)} @click=${navClick}>Step page</a>
+      </span>
+      <div slot="attempt">
+        <h4 class="sheet-h">Attempts</h4>
+        ${attempts.length
+          ? html`<div class="attempts" role="tablist" aria-label="Attempts">
+              ${attempts.map((x) => {
+                const t = attemptStatus(x).type ?? '';
+                return html`<button
+                  class="attempt-tab"
+                  role="tab"
+                  aria-selected=${x.id === a?.id}
+                  @click=${() => this._selectStep(this._step, x.number ?? null)}
+                >
+                  <span class="dot t-${toneOf(t)}"></span>@${x.number} ${statusLabel(t)}
+                </button>`;
+              })}
+            </div>`
+          : html`<p class="muted">No attempts${st ? ` (${statusLabel(st.status)})` : ''}.</p>`}
+        ${a && as
+          ? html`<dl class="kv">
+                <dt>Created</dt>
+                <dd><relative-time .value=${a.createdAt}></relative-time></dd>
+                ${as.startedAt ? html`<dt>Ran</dt><dd>${formatDuration(as.startedAt, as.finishedAt ?? as.cancelledAt)}</dd>` : nothing}
+                ${a.inputHash ? html`<dt>Input hash</dt><dd class="mono">${a.inputHash.slice(7, 17)}</dd>` : nothing}
+              </dl>
+              ${as.reason && as.reason !== st?.reason
+                ? html`<p class="reason"><b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}</p>`
+                : nothing}`
+          : nothing}
       </div>
-      ${attempts.length
-        ? html`<div class="attempts" role="tablist" aria-label="Attempts">
-            ${attempts.map((x) => {
-              const t = attemptStatus(x).type ?? '';
-              return html`<button
-                class="attempt-tab"
-                role="tab"
-                aria-selected=${x.id === a?.id}
-                @click=${() => this._selectStep(this._step, x.number ?? null)}
-              >
-                <span class="dot t-${toneOf(t)}"></span>@${x.number} ${statusLabel(t)}
-              </button>`;
-            })}
-          </div>`
-        : html`<p class="muted">No attempts${st ? ` — ${statusLabel(st.status)}` : ''}.</p>`}
+      ${errors}
       ${a && as
-        ? html`
-            <div class="meta" style="margin:0 0 0.75rem">
-              <span>Created <b><relative-time .value=${a.createdAt}></relative-time></b></span>
-              ${as.startedAt ? html`<span>Ran <b>${formatDuration(as.startedAt, as.finishedAt ?? as.cancelledAt)}</b></span>` : nothing}
-              ${a.inputHash ? html`<span>Input hash <b class="mono">${a.inputHash.slice(7, 17)}</b></span>` : nothing}
-            </div>
-            ${as.reason ? html`<p class="reason"><b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}</p>` : nothing}
-            <div class="io">
+        ? html`<div class="io">
               <div>
-                <h4>Input</h4>
+                <h4 class="sheet-h">Input</h4>
                 ${a.input
                   ? html`<typed-value
                       .value=${parseJson(a.input)}
-                      .schema=${m && step ? stepInputSchema(m, step) : null}
+                      .schema=${step ? stepInputSchema(m, step) : null}
                       @file-download=${this._onFileRef}
                     ></typed-value>`
                   : html`<span class="muted">Not assembled.</span>`}
               </div>
               <div>
-                <h4>Output${step?.output ? html` <code>${step.output}</code>` : nothing}</h4>
+                <h4 class="sheet-h">Output${step?.output ? html` <code>${step.output}</code>` : nothing}</h4>
                 ${a.output?.json
                   ? html`<typed-value
                       .value=${parseJson(a.output.json)}
-                      .schema=${m ? outputSchemaOf(m, step?.output) : null}
+                      .schema=${outputSchemaOf(m, step?.output)}
                       @file-download=${this._onFileRef}
                     ></typed-value>`
                   : html`<span class="muted">${step && !step.output ? 'This step declares no output.' : 'No output.'}</span>`}
               </div>
             </div>
             ${this._renderFiles(a)}
-            <div class="sub">
-              <h4>Logs</h4>
-              <log-pane .url=${logsUrl} ?live=${isActiveStatus(as.type)}></log-pane>
-            </div>
-          `
+            <h4 class="sheet-h">Logs</h4>
+            <log-pane .url=${logsUrl} ?live=${isActiveStatus(as.type)}></log-pane>`
         : nothing}
-    </section>`;
+    </step-sheet>`;
   }
 
   private _renderFiles(a: Attempt) {
     if (attemptStatus(a).type !== 'succeeded') return nothing;
-    return html`<div class="sub">
-      <h4>Files</h4>
+    return html`<div>
+      <h4 class="sheet-h">Files</h4>
       ${this._filesError
         ? html`<p class="error">${this._filesError}</p>`
         : this._files === null

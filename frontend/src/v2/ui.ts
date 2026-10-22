@@ -199,6 +199,9 @@ export const sharedStyles = css`
     border-color: var(--color-danger);
     color: var(--color-danger);
   }
+  a.btn:hover {
+    text-decoration: none;
+  }
   .btn.small {
     padding: 0.15rem 0.5rem;
     font-size: 0.75rem;
@@ -370,5 +373,113 @@ export const sharedStyles = css`
     justify-content: flex-end;
     gap: 0.5rem;
     margin-top: 1rem;
+  }
+`;
+
+const DETAILS_KEY = 'olve-header-details';
+
+/** Whether the compact header's Details fold was left open. */
+export function detailsOpen(): boolean {
+  try {
+    return localStorage.getItem(DETAILS_KEY) === 'open';
+  } catch {
+    return false;
+  }
+}
+
+export function rememberDetails(open: boolean): void {
+  try {
+    localStorage.setItem(DETAILS_KEY, open ? 'open' : 'closed');
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/**
+ * The compact page header: one `.line` (title, status, Details toggle, key action) and a
+ * `.details` fold. On phones the line splits at `.br`: title and buttons first, the rest below.
+ */
+export const headerStyles = css`
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.75rem;
+  }
+  .line h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .line .spacer {
+    flex: 1;
+  }
+  .br {
+    display: none;
+  }
+  .crumb {
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+  .sep {
+    margin: 0 0.35rem;
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+  .more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.2rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.78rem;
+  }
+  .more::after {
+    content: '▸';
+    transition: transform var(--transition);
+  }
+  .more[aria-expanded='true']::after {
+    transform: rotate(90deg);
+  }
+  .more:hover {
+    color: var(--color-text);
+  }
+  .more:focus-visible {
+    outline: 2px solid var(--color-primary);
+    border-radius: var(--radius);
+  }
+  .details {
+    margin: 0.5rem 0 0.2rem;
+    padding: 0.6rem 0 0.2rem 0.8rem;
+    border-left: 2px solid var(--color-border);
+    font-size: 0.85rem;
+  }
+  .details[hidden] {
+    display: none;
+  }
+  @media (max-width: 640px) {
+    .line {
+      gap: 0.25rem 0.6rem;
+    }
+    .line h2 {
+      font-size: 1.15rem;
+    }
+    .line > * {
+      order: 3;
+    }
+    .line > h2 {
+      order: 0;
+    }
+    .line > .spacer,
+    .line > .btn {
+      order: 1;
+    }
+    .line > .br {
+      order: 2;
+      display: block;
+      flex-basis: 100%;
+      height: 0;
+    }
   }
 `;

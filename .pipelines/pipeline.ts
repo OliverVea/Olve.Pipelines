@@ -73,12 +73,12 @@ export const publishSdk = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm, and publish the pl CLI it serves and the SDK to npm.",
+  description: "Build the v2 branch with kaniko, run the unit tests and deploy it to apps-beta (olve-pipelines-v2) with Helm. Promoting a run to prod publishes the pl CLI it serves and the SDK to npm.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "beta" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })], mirrorBaseImages)
   .stage(build, test)
-  .when({ deployTo: "beta" }, p => p
-    .stage(deployBeta)
+  .stage(deployBeta)
+  .when({ deployTo: "prod" }, p => p
     .stage(publishCli, publishSdk));

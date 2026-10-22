@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
     "describe": "olve-dev describe .",
     "build": "olve-build . --out .olve/out"
   },

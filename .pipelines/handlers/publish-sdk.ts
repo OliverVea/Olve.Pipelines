@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { implement } from "@olivervea/pipelines";
 import { publishSdk } from "../pipeline";
@@ -26,16 +26,18 @@ export default implement(publishSdk, async ({ source }, ctx) => {
   await ctx.exec([...clean, "bun", "run", "check"], { cwd: sdk });
 
   // Tag and access come from publishConfig. The token goes in the env, never argv (ctx.exec errors quote argv).
+  // The output goes to a file so a failure can be told apart; it is replayed into the log either way.
+  const out = join(ctx.tmpDir, "publish.log");
   try {
-    await ctx.exec(["bun", "publish"], { cwd: sdk, env: { HOME: home, NPM_CONFIG_TOKEN: token } });
+    await ctx.sh(`bun publish > ${out} 2>&1`, { cwd: sdk, env: { HOME: home, NPM_CONFIG_TOKEN: token } });
   } catch (e) {
-    // A concurrent run may have published this version moments ago; the registry lags behind.
-    for (let i = 0; i < 6; i++) {
-      if (await onNpm()) return ctx.skip(`${name}@${version} was published by another run`);
-      await Bun.sleep(5000);
-    }
+    const output = existsSync(out) ? readFileSync(out, "utf8") : "";
+    process.stderr.write(output);
+    // Another run published this version after our lookup: npm's view of new versions lags a minute or more.
+    if (output.includes("cannot publish over the previously published versions")) return ctx.skip(`${name}@${version} was published by another run`);
     throw e;
   }
+  process.stderr.write(readFileSync(out, "utf8"));
   ctx.log("published the SDK", { name, version });
   return { name, version };
 });

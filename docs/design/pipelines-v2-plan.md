@@ -538,7 +538,23 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
    `publish-cli`. The v2 beta copy (`f26d19cf…`) is paused (both deploy gates blocked) until the user deletes it;
    v2 beta keeps the fixture. Open: the first retention dry-run sweep logs on prod (above).
 3. **Migrate pipelines** one repo at a time to v2 prod. One deployer per repo at a time: block the v1
-   pipeline's gate before binding v2.
+   pipeline's gate before binding v2. Recipe: getting-started "Moving a repo from v1".
+   - **Migrated: Olve.Template.Api** (2026-10-22), the reference app pipeline other repos copy.
+     Pipeline `cc720357-1994-45f5-95a1-52e482009e17` on v2 prod (`main`, `.pipelines`, SDK
+     `2.0.0-beta.1` from npm, `GITHUB_TOKEN` as credentials key); run #1 (push) went
+     source ∥ mirror-base-images → build ∥ test (`mise run ci`) → deploy-beta → beta-test →
+     deploy-prod → prod-test, green in 5m07s. `beta-test`/`prod-test` are one smoke test
+     (`handlers/lib/smoke.ts`) over the release's in-cluster Service, derived from `HelmRelease`:
+     `/health`, `/api/messages` page shape, `/api/auth-config`, the SPA bundle, an anonymous POST
+     answering 401. It replaces v1's `test-after-beta` (the full API suite against beta, ~minutes);
+     `mise run api:remote` still runs that by hand. No library steps added: the mirror step is a
+     copy of this repo's (its own FROM list, the shared `olve-pipelines-v2/mirror` prefix, no
+     `cacheRepo`), a candidate for a library step now that two pipelines use it. v1
+     (`25ce1c9c…`) is paused: `deploy-beta` and `deploy` gates blocked, `config.yaml` kept; it
+     still runs its build and check on every push. Gaps and gotchas: the commit that adds
+     `.pipelines/` only seeds the push cursor (the first run came from the next commit, no manual
+     trigger); `prod-test` needs a mapper (`from["deploy-prod"]`) because two steps produce
+     `HelmRelease`; v1's `aoe-triage` failure handler has no v2 equivalent yet.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

@@ -116,7 +116,9 @@ cd .pipelines && bun install      # installs the SDK from npm and creates bun.lo
 Add `.pipelines/.olve/` and `.pipelines/node_modules/` to `.gitignore`.
 
 For a real build-and-deploy pipeline (kaniko image build, unit tests in parallel, Helm deploy over
-SSH, health check), copy from [`.pipelines/pipeline.ts`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/.pipelines/pipeline.ts).
+SSH, smoke tests of beta and prod), copy from
+[Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines),
+the reference app pipeline (see [Moving a repo from v1](#moving-a-repo-from-v1)).
 Every option is in the [Pipeline Reference](pipeline-reference.md).
 
 ## Step 2 — Check it locally
@@ -242,6 +244,32 @@ pl step logs my-app#1/test --follow
 
 Only commits that touch the binding path (or a local `file:` dependency of its `package.json`)
 create versions. A pipeline without `onPush` ignores pushes.
+
+## Moving a repo from v1
+
+Copy the reference app pipeline,
+[Olve.Template.Api's `.pipelines/`](https://github.com/OliverVea/Olve.Template.Api/tree/main/.pipelines):
+source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test → deploy-prod → prod-test,
+with the smoke tests in `handlers/lib/smoke.ts`. Change the repo, release, namespaces, chart values,
+the Dockerfile's `FROM`s in `mirror-base-images` and the smoke checks. Then, so only one instance
+deploys the repo at any time:
+
+1. Check the new pipeline locally (`pl dev describe`, `pl dev validate`).
+2. Pause v1: block the gate of its deploying processing steps with v1's `pl`
+   (`pl processing list <v1 pipeline>`, `pl processing block <step id>`). Keep `config.yaml` and the
+   v1 pipeline as the rollback path; unblocking them is the rollback.
+3. Push `.pipelines/`, then `pl binding create <owner/repo> --branch <deploy branch>` on v2. The
+   first reconcile builds it and only records the branch head.
+4. Copy the secret values from v1's Secret (`olve-pipeline-<v1 id without dashes>` in the runner
+   namespace) by piping bytes, never through `$(…)`:
+   `kubectl -n olve-runners get secret <v1 secret> -o jsonpath='{.data.SSH_PRIVATE_KEY}' | base64 -d | pl secret set <pipeline> SSH_PRIVATE_KEY`.
+   Name the token key with `pl binding set-credentials <pipeline> GITHUB_TOKEN` (also for public
+   repos: the anonymous GitHub rate limit is shared by every binding).
+5. Push the next commit (the README's deployment section, say). That push starts the first run;
+   `pl binding reconcile` picks it up without waiting for the poll.
+
+v1 keeps running its production steps on every push until its pipeline is deleted; with the
+deploy gates blocked they deploy nothing.
 
 ## Next
 

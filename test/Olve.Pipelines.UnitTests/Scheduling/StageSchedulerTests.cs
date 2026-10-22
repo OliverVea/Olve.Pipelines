@@ -182,6 +182,100 @@ public class StageSchedulerTests
         await Assert.That(s.Active(run)).IsEmpty();
     }
 
+    private static SchedulerScenario WithRetries(string step, int retries)
+        => new(Mutated(root => ManifestFixture.Step(root, step)["retries"] = retries));
+
+    [Test]
+    public async Task Retries_FailedAttemptIsRetried_UpToOnePlusRetriesTries_ThenTheRunFails()
+    {
+        var s = WithRetries("build", 2);
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "test");
+
+        s.Fail(run, "build");
+        await Assert.That(s.Active(run)).IsEquivalentTo(["build"]);
+        await Assert.That(s.Latest(run, "build")!.Number).IsEqualTo(2);
+        await Assert.That(s.Latest(run, "build")!.Input).IsEqualTo(s.All(run, "build")[0].Input);
+
+        s.Fail(run, "build");
+        await Assert.That(s.Latest(run, "build")!.Number).IsEqualTo(3);
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Running);
+
+        s.Fail(run, "build");
+        await Assert.That(s.All(run, "build")).Count().IsEqualTo(3);
+        await Assert.That(s.Active(run)).IsEmpty();
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
+    }
+
+    [Test]
+    public async Task Retries_ARetryThatSucceeds_ContinuesTheRun()
+    {
+        var s = WithRetries("build", 1);
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "test");
+
+        s.Fail(run, "build");
+        var retry = s.Succeed(run, "build");
+
+        await Assert.That(retry.Number).IsEqualTo(2);
+        await Assert.That(s.Active(run)).IsEquivalentTo(["deploy-beta"]);
+        await Assert.That(JsonNode.DeepEquals(Json(s.Latest(run, "deploy-beta")!.Input), JsonNode.Parse($$"""{"artifact":{{retry.Output!.Json}}}"""))).IsTrue();
+    }
+
+    [Test]
+    public async Task Retries_CancelledAttemptIsNotRetried()
+    {
+        var s = WithRetries("build", 2);
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "test");
+
+        await Assert.That(s.D.AttemptService.Cancel(s.Latest(run, "build")!.Id)).Succeeded();
+
+        await Assert.That(s.All(run, "build")).Count().IsEqualTo(1);
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Cancelled);
+    }
+
+    [Test]
+    public async Task Retries_SchedulerSideFailureIsNotRetried()
+    {
+        var manifest = Mutated(root =>
+        {
+            var deploy = ManifestFixture.Step(root, "deploy-beta");
+            deploy["retries"] = 2;
+            deploy["input"]!["pad"] = ManifestFixture.Const(new string('x', AttemptService.MaxInputJsonBytes + 1));
+        });
+        var s = new SchedulerScenario(manifest);
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "build");
+        s.Succeed(run, "test");
+
+        await Assert.That(s.All(run, "deploy-beta")).Count().IsEqualTo(1);
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
+    }
+
+    [Test]
+    public async Task Retries_ExhaustedThenContinued_GetsAFreshSetOfTries()
+    {
+        var s = WithRetries("build", 1);
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "test");
+        s.Fail(run, "build");
+        s.Fail(run, "build");
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
+
+        // Rerun-and-continue resumes the run: the rerun fails once more and is retried again.
+        TestRunDomain.Pick(s.D.Continuations.RerunStep(run.Id, "build", continueAfter: true));
+        s.Fail(run, "build");
+
+        await Assert.That(s.Latest(run, "build")!.Number).IsEqualTo(4);
+        await Assert.That(s.Active(run)).IsEquivalentTo(["build"]);
+    }
+
     [Test]
     public async Task CancelledAttempt_CancelsRun()
     {

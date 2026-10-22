@@ -20,7 +20,10 @@ export const build = steps.imageBuild({
   name: "build",
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
-  timeoutSeconds: 3600,
+  // A normal build takes 1–5 min. The tight timeout (plus imageBuild's 5-min no-output watchdog,
+  // which catches a base-image pull stalled at "Unpacking rootfs") fails a hung build fast instead
+  // of holding the build slot for an hour; imageBuild retries a failed attempt in a fresh pod.
+  timeoutSeconds: 900,
 });
 
 /** Code-only test suite (unit tests), in parallel with the image build. Handler: handlers/test.ts. */

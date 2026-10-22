@@ -124,8 +124,10 @@ describe("steps.imageBuild", () => {
   const fakeKaniko = (opts: { digest?: string } = {}) => {
     const tree = tmp("kaniko-tree");
     const calls: string[][] = [];
-    const exec: Ctx["exec"] = async (argv) => {
+    const execOpts: (Parameters<Ctx["exec"]>[1] | undefined)[] = [];
+    const exec: Ctx["exec"] = async (argv, o) => {
       calls.push([...argv]);
+      execOpts.push(o);
       if (argv[0] === "/kaniko/executor") {
         const flag = (n: string) => argv.find((a) => a.startsWith(`--${n}=`))!.slice(n.length + 3);
         writeFileSync(flag("tar-path"), "image tar");
@@ -134,7 +136,7 @@ describe("steps.imageBuild", () => {
     };
     const fetched: FileRef[] = [];
     const files = { fetch: async (ref: FileRef) => (fetched.push(ref), tree) };
-    return { tree, calls, exec, files, fetched };
+    return { tree, calls, execOpts, exec, files, fetched };
   };
 
   test("kaniko build with layer cache: exact argv, BuiltImage output", async () => {
@@ -163,6 +165,7 @@ describe("steps.imageBuild", () => {
         "--cache-repo=registry.ovea.pro/olve-pipelines-v2/cache",
       ],
     ]);
+    expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 300 }); // stall watchdog on by default
     if (r.status !== "succeeded") return;
     expect(r.output).toMatchObject({
       repository: "docker.io/library/olve-pipelines-v2",
@@ -182,6 +185,16 @@ describe("steps.imageBuild", () => {
     expect(r).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/app", tag: "2026.10.21.7-attempt2" } });
     expect(k.calls[2]).toContain("--destination=registry.ovea.pro/app:2026.10.21.7-attempt2");
     expect(k.calls[2]!.some((a) => a.startsWith("--cache"))).toBe(false);
+  });
+
+  test("stallTimeoutSeconds and retries: passed to kaniko's exec and into the step contract", async () => {
+    const step = steps.imageBuild({ name: "build", repository: "x", stallTimeoutSeconds: 120, retries: 2 });
+    expect(step).toMatchObject({ retries: 2 });
+    expect("retries" in steps.imageBuild({ name: "build", repository: "x" })).toBe(false);
+    const k = fakeKaniko();
+    const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files } });
+    expect(r.status).toBe("succeeded");
+    expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 120 });
   });
 
   test("a missing digest file or an invalid tag fails the step", async () => {

@@ -108,7 +108,7 @@ public class StageScheduler(
                 }
 
                 var decision = Decide(stage, step, pool);
-                if (IsSettled(latest, decision, run))
+                if (IsSettled(latest, decision, run) && !RetryDue(run, step, decision))
                     continue;
 
                 if (decision is StepDecision.Schedule && gates.IsBlocked(run.PipelineId, step.Name))
@@ -155,6 +155,34 @@ public class StageScheduler(
             Succeeded or Skipped => decision is StepDecision.Schedule sc && sc.Hash == latest.InputHash,
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// Automatic retry (spec §5.2: a step opts in with <c>retries: n</c>, an idempotency claim): the
+    /// step's latest attempt failed, the decision is to run it, and the trailing streak of failed
+    /// attempts since the run was last resumed is at most <see cref="StepDescriptor.Retries"/> — so a
+    /// step gets 1 + n consecutive tries. Cancelled/obsolete attempts and scheduler-side failures
+    /// (<see cref="StepDecision.Fail"/>) are never retried; a continue resets the count.
+    /// </summary>
+    private bool RetryDue(Run run, StepDescriptor step, StepDecision decision)
+    {
+        if (step.Retries is not > 0 || decision is not StepDecision.Schedule)
+            return false;
+
+        var failures = 0;
+        foreach (var attempt in attempts.ListForStep(run.Id, step.Name).Reverse())
+        {
+            if (attempt.Status is not Failed || (run.ResumedAt is { } resumed && attempt.CreatedAt < resumed))
+                break;
+            failures++;
+        }
+
+        if (failures == 0 || failures > step.Retries)
+            return false;
+
+        logger.LogInformation("Retrying step '{StepName}' in run #{RunNumber} ('{RunId}'): failure {Failures} of {MaxTries} tries",
+            step.Name, run.Number, run.Id, failures, step.Retries + 1);
+        return true;
     }
 
     private void Act(Run run, StepDescriptor step, StepDecision decision)

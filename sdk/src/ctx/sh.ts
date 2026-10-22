@@ -23,6 +23,18 @@ export class CommandError extends Error {
   }
 }
 
+/** The command went quiet for longer than its `idleTimeoutSeconds` and was killed. */
+export class CommandStalledError extends CommandError {
+  override name = "CommandStalledError";
+  constructor(what: string, readonly idleTimeoutSeconds: number, signalCode: string | null) {
+    super(what, null, signalCode);
+    this.message = `${what} produced no output for ${idleTimeoutSeconds} s and was killed`;
+  }
+}
+
+/** Grace between the watchdog's SIGTERM and SIGKILL (a process blocked in a socket read may ignore TERM). */
+export const STALL_KILL_GRACE_MS = 10_000;
+
 export function detectShell(candidates: readonly string[] = SHELL_CANDIDATES): string {
   for (const c of candidates) if (existsSync(c)) return c;
   throw new ShellNotFoundError();
@@ -85,28 +97,75 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
     return { argv: [detectShell(deps.shellCandidates), file, ...args], what: `script ${basename(scriptPath)}` };
   };
 
-  const run = async (argv: string[], what: string, opts: { env?: Record<string, string>; cwd?: string }, capture: boolean): Promise<string> => {
+  const run = async (
+    argv: string[],
+    what: string,
+    opts: { env?: Record<string, string>; cwd?: string; idleTimeoutSeconds?: number },
+    capture: boolean,
+  ): Promise<string> => {
     if (deps.signal.aborted) throw new Error(`${what} not started: the step was cancelled`);
-    let proc: Bun.Subprocess<"ignore", "pipe" | "inherit", "inherit">;
+    const idleSeconds = opts.idleTimeoutSeconds !== undefined && opts.idleTimeoutSeconds > 0 ? opts.idleTimeoutSeconds : undefined;
+    let proc: Bun.Subprocess<"ignore", "pipe" | "inherit", "pipe" | "inherit">;
     try {
       proc = Bun.spawn(argv, {
         cwd: opts.cwd,
         env: childEnv(opts.env),
         stdin: "ignore",
-        stdout: capture ? "pipe" : "inherit",
-        stderr: "inherit",
+        stdout: capture || idleSeconds ? "pipe" : "inherit",
+        stderr: idleSeconds ? "pipe" : "inherit",
       });
     } catch (e) {
       throw new Error(`cannot start ${what} (${argv[0]}): ${(e as Error).message}`);
     }
     const onAbort = () => proc.kill("SIGTERM");
     deps.signal.addEventListener("abort", onAbort, { once: true });
+
+    // Watchdog: every chunk of output re-arms the timer; on expiry TERM, then KILL after a grace.
+    let stalled = false;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const arm = () => {
+      if (!idleSeconds || stalled) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        stalled = true;
+        proc.kill("SIGTERM");
+        killTimer = setTimeout(() => proc.kill("SIGKILL"), STALL_KILL_GRACE_MS);
+      }, idleSeconds * 1000);
+    };
+    const captured: Uint8Array[] = [];
+    const readers: { cancel(): Promise<void> }[] = [];
+    const pump = async (stream: ReadableStream<Uint8Array>, sink: (chunk: Uint8Array) => void) => {
+      const reader = stream.getReader();
+      readers.push(reader);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          arm();
+          sink(value);
+        }
+      } catch {
+        // cancelled after a stall
+      }
+    };
+    const pumps: Promise<void>[] = [];
+    if (capture) pumps.push(pump(proc.stdout as ReadableStream<Uint8Array>, (c) => captured.push(c)));
+    else if (idleSeconds) pumps.push(pump(proc.stdout as ReadableStream<Uint8Array>, (c) => process.stdout.write(c)));
+    if (idleSeconds) pumps.push(pump(proc.stderr as ReadableStream<Uint8Array>, (c) => process.stderr.write(c)));
+    arm();
+
     try {
-      const text = capture ? await new Response(proc.stdout as ReadableStream).text() : "";
       const code = await proc.exited;
+      // A killed command's children may still hold the pipes open: don't wait for them after a stall.
+      if (stalled) await Promise.all(readers.map((r) => r.cancel().catch(() => {})));
+      else await Promise.all(pumps);
+      if (stalled) throw new CommandStalledError(what, idleSeconds!, proc.signalCode ? String(proc.signalCode) : null);
       if (code !== 0) throw new CommandError(what, proc.signalCode ? null : code, proc.signalCode ? String(proc.signalCode) : null);
-      return text;
+      return capture ? Buffer.concat(captured).toString("utf8") : "";
     } finally {
+      clearTimeout(idleTimer);
+      clearTimeout(killTimer);
       deps.signal.removeEventListener("abort", onAbort);
     }
   };

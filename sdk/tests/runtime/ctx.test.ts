@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { implement, model, secret, step, steps, z, fileRef, Source } from "../../src/index.ts";
 import { testFileRef, testHandler } from "../../src/testing/index.ts";
-import { createSh, detectShell, ShellNotFoundError, isEmbeddedScript, CommandError } from "../../src/ctx/sh.ts";
+import { createSh, detectShell, ShellNotFoundError, isEmbeddedScript, CommandError, CommandStalledError } from "../../src/ctx/sh.ts";
 import { sha256File } from "../../src/util/hash.ts";
 import checkoutImpl from "../../examples/self-deploy/handlers/checkout.ts";
 import buildImpl from "../../examples/self-deploy/handlers/build.ts";
@@ -60,6 +60,27 @@ describe("ctx.sh / ctx.exec", () => {
     });
     expect((await testHandler(impl, { cmd: "" })).status).toBe("succeeded");
   });
+  test("idleTimeoutSeconds: a quiet command is killed, a chatty one runs to completion", async () => {
+    const { sh, exec } = createSh({ tmpDir: tmp("idle"), signal: new AbortController().signal });
+    const t0 = Date.now();
+    const stalled = await exec(["/bin/sh", "-c", "echo started; sleep 30"], { idleTimeoutSeconds: 0.3 }).catch((e) => e);
+    expect(Date.now() - t0).toBeLessThan(5000);
+    expect(stalled).toBeInstanceOf(CommandStalledError);
+    expect(stalled).toBeInstanceOf(CommandError);
+    expect((stalled as Error).message).toMatch(/produced no output for 0.3 s and was killed/);
+    // Output on either stream re-arms the watchdog: 6 × 0.1 s of output outlives a 0.3 s window.
+    await exec(["/bin/sh", "-c", "for i in 1 2 3; do echo $i; sleep 0.1; echo e$i >&2; sleep 0.1; done"], { idleTimeoutSeconds: 0.3 });
+    expect(await sh.text("sleep 0.1; echo captured", { idleTimeoutSeconds: 2 })).toBe("captured");
+    await expect(exec(["/bin/sh", "-c", "echo x; exit 4"], { idleTimeoutSeconds: 2 })).rejects.toThrow(/exit code 4/);
+  });
+  test("idleTimeoutSeconds: TERM is escalated to KILL; children holding the pipes do not hang the call", async () => {
+    const { exec } = createSh({ tmpDir: tmp("idle-kill"), signal: new AbortController().signal });
+    const t0 = Date.now();
+    // The shell ignores TERM and a background child keeps stdout open.
+    const p = exec(["/bin/sh", "-c", "trap '' TERM; sleep 13 & while :; do sleep 1; done"], { idleTimeoutSeconds: 0.2 });
+    await expect(p).rejects.toThrow(CommandStalledError);
+    expect(Date.now() - t0).toBeLessThan(15_000);
+  }, 20_000);
   test("signal: cancellation kills the running command", async () => {
     const ac = new AbortController();
     const impl = implement(plain, async (_i, ctx) => {

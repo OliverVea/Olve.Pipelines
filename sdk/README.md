@@ -61,6 +61,7 @@ export const deployBeta = step({
   output: BetaDeployment,                      // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],                  // only these are mounted; ctx.secrets is typed to them
   timeoutSeconds: 900,                         // optional
+  retries: 1,                                  // optional: a failed attempt is retried (fresh pod) up to n times
 });
 
 import testSh from "./scripts/test.sh" with { type: "file" };
@@ -95,11 +96,11 @@ Library steps carry their own implementation and image; they take typed config a
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (see above) |
 | `steps.gitHubSource` | `alpine:3.22` (work happens in the harness) | `{ repo: "owner/name", sha }` (plain schemas: needs a mapper) → `Source` | `token?: Secret` (sent as `Authorization: Bearer`; becomes the step's secret) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `cacheRepo?` (kaniko layer cache), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
 | `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, image: BuiltImage }` → `HelmRelease { release, namespace, image }` | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `healthUrl?` |
 
 - `gitHubSource` downloads `https://api.github.com/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.
-- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `Dockerfile` at the tree root with `--no-push --tar-path --digest-file`, and outputs the tarball. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`).
+- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `Dockerfile` at the tree root with `--no-push --tar-path --digest-file`, and outputs the tarball. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`). A **stall watchdog** kills kaniko when it prints nothing for `stallTimeoutSeconds` (a base-image pull can stall on an idle connection at "Unpacking rootfs", and kaniko has no read timeout), failing the attempt; `retries` then starts a fresh attempt. The retry is deliberately a new pod, never a second kaniko in the same container: kaniko unpacks the base image over the container root and does not clean up when killed.
 - `helmDeployOverSsh` streams the image tar into the host's **k3s** containerd (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then `image.repository`/`image.tag`/`image.pullPolicy=Never`, which always win), waits for `kubectl rollout status deploy/<release>`, and with `healthUrl` polls it (5 × 5 s) from the harness.
 
 **Helpers.** General functions the library steps are built on, exported for custom handlers:
@@ -131,7 +132,7 @@ export default implement(deployBeta, async ({ artifact }, ctx) => {
 | `ctx.` | |
 |---|---|
 | `sh(cmd \| script, { env, cwd, args })`, `sh.text(…)` | Runs a command string, or an embedded script, through the image's shell. The script is copied to `$OLVE_DIR/tmp/scripts/` first. The shell is the first of `/bin/sh`, `/busybox/sh`, `/bin/bash` that exists; a shell-less image gets a clear `ShellNotFoundError`. A script's shebang is honoured when its interpreter exists. A string counts as an embedded script when it is a `/$bunfs/…` path, or an absolute path to an existing `*.sh` or `*.bash` file. Pass `{ script }` to force script mode. A non-zero exit throws a `CommandError` that carries `exitCode`. |
-| `exec([argv…], { env, cwd })` | Runs a binary directly, with no shell (works on distroless). |
+| `exec([argv…], { env, cwd, idleTimeoutSeconds })` | Runs a binary directly, with no shell (works on distroless). `idleTimeoutSeconds` (also on `sh`) is an inactivity watchdog: no stdout/stderr output for that long → SIGTERM, SIGKILL 10 s later, and a `CommandStalledError`. |
 | `readText(path)`, `readJson(path)` | Paths are relative to the cwd. |
 | `files.fetch(ref)` | Downloads a file reference and verifies its sha256. Directory refs are extracted. Returns a local path. |
 | `output.write(name, content)`, `output.file(path, { name })`, `output.dir(path, { name })` | Adds a file to the step's output and returns its `FileRef`. A directory becomes a deterministic tar. |

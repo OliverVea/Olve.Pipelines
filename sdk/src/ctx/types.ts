@@ -25,6 +25,12 @@ export interface ShOptions {
   cwd?: string;
   /** Arguments passed to an embedded script (`$1`, `$2`, …). */
   args?: readonly string[];
+  /**
+   * Inactivity watchdog: when the command writes nothing to stdout/stderr for this many seconds it is
+   * killed (SIGTERM, then SIGKILL after 10 s) and the call rejects with a `CommandStalledError`. Output
+   * is then piped through the harness (and forwarded) instead of inherited. Off when unset or ≤ 0.
+   */
+  idleTimeoutSeconds?: number;
 }
 /**
  * Run a command string or an embedded script through the image's shell.
@@ -41,6 +47,12 @@ export interface Sh {
 export interface ExecOptions {
   env?: Record<string, string>;
   cwd?: string;
+  /**
+   * Inactivity watchdog: when the command writes nothing to stdout/stderr for this many seconds it is
+   * killed (SIGTERM, then SIGKILL after 10 s) and the call rejects with a `CommandStalledError`. Output
+   * is then piped through the harness (and forwarded) instead of inherited. Off when unset or ≤ 0.
+   */
+  idleTimeoutSeconds?: number;
 }
 
 export interface HttpInit {

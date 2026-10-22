@@ -33,7 +33,23 @@ export interface ImageBuildDef<N extends string> {
    */
   cacheRepo?: string;
   timeoutSeconds?: number;
+  /**
+   * Kill kaniko when it writes no output for this long (default 300 s; 0 disables), failing the
+   * attempt so `retries` can start a fresh one. Catches base-image pulls that stall on an idle
+   * connection (seen with mcr.microsoft.com), which kaniko itself never times out. Keep it well above
+   * the longest silent build phase (an AOT "Generating native code" runs ~2 min with no output).
+   */
+  stallTimeoutSeconds?: number;
+  /**
+   * Automatic retries of a failed attempt (a fresh pod: kaniko unpacks the base image over the
+   * container root and does not clean up when killed, so retrying inside the same pod is unsafe).
+   * A `--no-push` build is idempotent.
+   */
+  retries?: number;
 }
+
+/** Default `stallTimeoutSeconds`: well above the longest silent phase of a normal build. */
+export const DEFAULT_STALL_TIMEOUT_SECONDS = 300;
 
 /**
  * The image tag for this run: the run's version stamp, plus `-attempt<n>` on reruns. A rebuilt image
@@ -61,7 +77,7 @@ export function qualifyRepository(repository: string): string {
 export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep {
   return makeStep(
     "imageBuild",
-    { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds },
+    { name: def.name, image: KANIKO_IMAGE, input, output: BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries },
     {
       manifestConfig: () => ({ repository: def.repository, ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}) }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
@@ -87,7 +103,7 @@ export function imageBuild<const N extends string>(def: ImageBuildDef<N>): Step<
           `--digest-file=${digestPath}`,
           `--destination=${def.repository}:${tag}`,
           ...(def.cacheRepo ? ["--cache=true", `--cache-repo=${def.cacheRepo}`] : []),
-        ]);
+        ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
 
         let digest: string;
         try {

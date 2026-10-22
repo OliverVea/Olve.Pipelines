@@ -9,9 +9,16 @@
           "olve-packages"
         ]
       }
+    },
+    "ovea-skills": {
+      "source": {
+        "source": "github",
+        "repo": "OliverVea/ovea-skills"
+      }
     }
   },
   "enabledPlugins": {
-    "olve-packages@olve-packages": true
+    "olve-packages@olve-packages": true,
+    "ovea-workflow@ovea-skills": true
   }
 }

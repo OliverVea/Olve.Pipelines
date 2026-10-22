@@ -2,6 +2,10 @@
 
 See [README.md](README.md) for project structure, endpoints, configuration, the `pl` CLI and client generation. The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
 
+## Start here: load the agent playbook
+
+**Before running any `pl` command, deploying, or touching a `.pipelines/` directory, load the `ovea-olve-pipelines` skill** (`ovea-workflow:ovea-olve-pipelines`). It is how this project expects agents to drive Olve.Pipelines: `pl` for everything, the user logs in, profiles, `pl wait` instead of poll loops, what a push does, changing a pipeline safely. This repo's `.claude/settings.json` enables its plugin (`ovea-workflow` from the `ovea-skills` marketplace, [OliverVea/ovea-skills](https://github.com/OliverVea/ovea-skills)). If the skill isn't listed, ask the user to install or update the plugin (`/plugin`); until then read [the SKILL.md](https://github.com/OliverVea/ovea-skills/blob/master/ovea-workflow/skills/ovea-olve-pipelines/SKILL.md) directly.
+
 ## Design
 
 Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This branch is **v2** (typed pipelines in TypeScript); it is fully breaking — v1's production/processing steps, ArtifactBundles, job groups, `config.yaml` and `StepConfiguration` are gone, not adapted.

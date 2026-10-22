@@ -569,6 +569,21 @@ v1 prod/beta keep running beside v2 prod/beta until every pipeline has moved.
      `.pipelines/` only seeds the push cursor (the first run came from the next commit, no manual
      trigger); `prod-test` needs a mapper (`from["deploy-prod"]`) because two steps produce
      `HelmRelease`; v1's `aoe-triage` failure handler has no v2 equivalent yet.
+   - **Migrated: homelab-dashboard** (2026-10-22). Pipeline `e737bb35-031b-4209-9bd0-d1bc877ee2fe`
+     on v2 prod (`main`, `.pipelines`, `GITHUB_TOKEN` as credentials key, passed to `binding create`
+     directly); run #1 (push) green in 1m06s. Differs from Template.Api: v1 deployed straight to
+     prod, so beta is new: a `homelab-dashboard` release in `apps-beta` with
+     `set: { "ingress.enabled": "false" }` (no DNS record or certificate), tested through its
+     Service. There is no test suite (a static page): `check` (beside `build`) verifies every local
+     link in `index.html` exists and runs `helm lint --strict` with the beta and prod settings;
+     `beta-test` checks beta serves this commit's `index.html` and every file it links byte for
+     byte against the source tree, which proves the deployed image is this commit's; `prod-test`
+     does the same against prod's Service and then through the ingress at its real hostname
+     (`curl --resolve home-private.ovea.pro:443:192.168.11.8`, TLS verified: v1's `verify`;
+     step pods reach traefik through the `runner-jobs-lockdown` policy). `prod-test` maps both inputs
+     (`{ source: from.source, release: from["deploy-prod"] }`). `mirror-base-images` is now in three
+     pipelines (copied again, `nginx:1.29-alpine` only): make it a library step. v1 (`50282eaa…`)
+     is paused: `deploy` and `verify` gates blocked, `config.yaml` kept.
 4. **Cut over**: point `pipelines-private.ovea.pro` and `pipelines-hooks.ovea.pro` at v2 prod, merge `v2`
    to `main`, remove the v1 releases.
 5. **Kill v1** (with the user): uninstalling v1 prod removes its MinIO Deployment and Service; the PVC

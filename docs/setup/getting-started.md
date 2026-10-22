@@ -253,7 +253,10 @@ source ∥ mirror-base-images → build ∥ test → deploy-beta → beta-test �
 `beta-test` runs the app's whole API test suite against the fresh beta (`mise run api:remote` in the
 dotnet SDK image, the in-cluster Service as `API_BASE_URL`); `prod-test` is a read-only smoke test
 (`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
-values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks. Then, so only one instance
+values, the Dockerfile's `FROM`s in `mirror-base-images`, the test command and the smoke checks. A repo v1 deployed straight to prod gets a beta all the
+same (homelab-dashboard: the release in `apps-beta` with its ingress turned off by `set`), and a repo
+without a test suite gets checks that prove the deployment serves this commit (homelab-dashboard
+compares the served files with the source tree). Then, so only one instance
 deploys the repo at any time:
 
 1. Check the new pipeline locally (`pl dev describe`, `pl dev validate`).
@@ -265,8 +268,10 @@ deploys the repo at any time:
 4. Copy the secret values from v1's Secret (`olve-pipeline-<v1 id without dashes>` in the runner
    namespace) by piping bytes, never through `$(…)`:
    `kubectl -n olve-runners get secret <v1 secret> -o jsonpath='{.data.SSH_PRIVATE_KEY}' | base64 -d | pl secret set <pipeline> SSH_PRIVATE_KEY`.
-   Name the token key with `pl binding set-credentials <pipeline> GITHUB_TOKEN` (also for public
-   repos: the anonymous GitHub rate limit is shared by every binding).
+   Name the token key with `pl binding set-credentials <pipeline> GITHUB_TOKEN`, or pass
+   `--credentials-secret GITHUB_TOKEN` to `binding create` (also for public repos: the anonymous
+   GitHub rate limit is shared by every binding). Check the copy by comparing the sha256 of both
+   Secrets' decoded values.
 5. Push the next commit (the README's deployment section, say). That push starts the first run;
    `pl binding reconcile` picks it up without waiting for the poll.
 

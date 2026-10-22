@@ -17,6 +17,8 @@ import {
   runPath,
   runsPath,
   versionsPath,
+  secretsPath,
+  bindingPath,
   stepPath,
   stepLogsPath,
   isActiveStatus,
@@ -276,6 +278,8 @@ export class PipelineDetailView extends LitElement {
       ${(h?.heldRuns ?? []).length ? html`<span class="warn">${h!.heldRuns!.length} held</span>` : nothing}
       <a href=${runsPath(this.pipelineId)} @click=${navClick}>Runs</a>
       <a href=${versionsPath(this.pipelineId)} @click=${navClick}>Versions</a>
+      <a href=${secretsPath(this.pipelineId)} @click=${navClick}>Secrets</a>
+      ${this._binding ? html`<a href=${bindingPath(this.pipelineId)} @click=${navClick}>Binding</a>` : nothing}
     </div>`;
   }
 
@@ -288,14 +292,16 @@ export class PipelineDetailView extends LitElement {
         ${b.reconcileInProgress
           ? html`<span>${where} reconciling ${shortSha(b.reconcileSha)}…</span>`
           : b.result === 2
-            ? html`<span class="bad">${where} reconcile failed at ${shortSha(b.reconcileSha)}</span>`
+            ? html`<a class="bad" href=${bindingPath(this.pipelineId)} @click=${navClick}>${where} reconcile failed at ${shortSha(b.reconcileSha)}</a>`
             : b.result === 1
               ? html`<span
                   >${where} synced at <span class="mono">${shortSha(b.lastReconciledSha)}</span>
                   <relative-time .value=${b.lastSyncTime}></relative-time
                 ></span>`
               : html`<span>${where} waiting for first sync</span>`}
-        ${unset.length ? html`<span class="bad">unset secrets: ${unset.join(', ')}</span>` : nothing}
+        ${unset.length
+          ? html`<a class="bad" href=${secretsPath(this.pipelineId)} @click=${navClick}>unset secrets: ${unset.join(', ')}</a>`
+          : nothing}
       </div>
       ${b.result === 2 && b.problems?.length ? html`<ul class="problems">${b.problems.map((x) => html`<li>${x}</li>`)}</ul>` : nothing}`;
   }

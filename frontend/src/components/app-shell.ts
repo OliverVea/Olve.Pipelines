@@ -178,6 +178,10 @@ export class AppShell extends LitElement {
         return html`<pipeline-runs-view .pipelineId=${this._route.params.pipelineId}></pipeline-runs-view>`;
       case 'pipeline-versions-view':
         return html`<pipeline-versions-view .pipelineId=${this._route.params.pipelineId}></pipeline-versions-view>`;
+      case 'pipeline-secrets-view':
+        return html`<pipeline-secrets-view .pipelineId=${this._route.params.pipelineId}></pipeline-secrets-view>`;
+      case 'pipeline-binding-view':
+        return html`<pipeline-binding-view .pipelineId=${this._route.params.pipelineId}></pipeline-binding-view>`;
       case 'run-view':
         return html`<run-view
           .pipelineId=${this._route.params.pipelineId}

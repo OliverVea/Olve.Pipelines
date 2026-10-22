@@ -8,3 +8,5 @@ import './components/step-runs-view.js';
 import './components/step-logs-view.js';
 import './components/pipeline-runs-view.js';
 import './components/pipeline-versions-view.js';
+import './components/pipeline-secrets-view.js';
+import './components/pipeline-binding-view.js';

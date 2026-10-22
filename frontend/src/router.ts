@@ -15,6 +15,8 @@ const routes: Route[] = [
   { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'step'], view: 'step-view' },
   { pattern: /^\/pipeline\/([^/]+)\/runs$/, params: ['pipelineId'], view: 'pipeline-runs-view' },
   { pattern: /^\/pipeline\/([^/]+)\/versions$/, params: ['pipelineId'], view: 'pipeline-versions-view' },
+  { pattern: /^\/pipeline\/([^/]+)\/secrets$/, params: ['pipelineId'], view: 'pipeline-secrets-view' },
+  { pattern: /^\/pipeline\/([^/]+)\/binding$/, params: ['pipelineId'], view: 'pipeline-binding-view' },
   { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },
 ];
 

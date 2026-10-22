@@ -4,7 +4,7 @@ namespace Olve.Pipelines.Cli.Commands;
 /// <c>pl teardown</c> — reverse of <c>pl bootstrap</c>, idempotent. Removes the helm release
 /// (controller, Garage, RBAC, ingress) and the storage creds Secret. The Garage data PVCs carry
 /// <c>helm.sh/resource-policy: keep</c>, so they survive a normal teardown and are only deleted
-/// with <c>--purge-data</c> (which also removes a pre-Garage MinIO PVC, if one is left). Re-running on a partial/already-gone install converges.
+/// with <c>--purge-data</c>. Re-running on a partial/already-gone install converges.
 /// </summary>
 public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
 {
@@ -85,8 +85,8 @@ public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
     private async Task<Result> DeleteDataPvcs(string ns, string release, CancellationToken ct)
     {
         // --purge-data only: the PVCs are retained across a normal uninstall, so this explicit
-        // delete is the sole path that wipes stored data. The MinIO PVC is from pre-Garage installs.
-        string[] pvcs = [$"{release}-garage-meta", $"{release}-garage-data", $"{release}-minio-data"];
+        // delete is the sole path that wipes stored data.
+        string[] pvcs = [$"{release}-garage-meta", $"{release}-garage-data"];
         Step($"Purging storage data volumes {string.Join(", ", pvcs)}");
         return Forget(await processRunner.RunCheckedAsync("kubectl",
             ["delete", "pvc", ..pvcs, "-n", ns, "--ignore-not-found"], ct: ct));

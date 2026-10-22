@@ -37,17 +37,10 @@ public class BootstrapCommandTests
     private static ProcessResult NotFound() => new(1, "", "NotFound");
 
     // Answers all calls success; the storage-secret existence check is toggled by secretExists,
-    // whether that secret already carries Garage's rpc-secret by hasRpcSecret, and which
-    // storage deployments exist by minioExists/garageExists.
+    // and whether that secret already carries Garage's rpc-secret by hasRpcSecret.
     private static FakeProcessRunner HappyRunner(
-        bool secretExists, bool hasRpcSecret = true, bool minioExists = false, bool garageExists = false) => new((file, args) =>
+        bool secretExists, bool hasRpcSecret = true) => new((file, args) =>
     {
-        if (file == "kubectl" && args.Contains("get") && args.Contains("deployment"))
-        {
-            if (args.Contains("olve-pipelines-minio")) return minioExists ? Ok() : NotFound();
-            if (args.Contains("olve-pipelines-garage")) return garageExists ? Ok() : NotFound();
-        }
-
         if (file == "kubectl" && args.Contains("get") && args.Contains("secret"))
         {
             if (args.Any(a => a.StartsWith("jsonpath", StringComparison.Ordinal)))
@@ -173,24 +166,5 @@ public class BootstrapCommandTests
 
         await Assert.That(result.Succeeded).IsTrue();
         await Assert.That(runner.Invoked("kubectl", "patch", "secret")).IsFalse();
-    }
-
-    [Test]
-    public async Task LegacyMinioInstall_WithoutGarage_Refuses_BeforeTouchingAnything()
-    {
-        var (result, runner) = await Bootstrap(HappyRunner(secretExists: true, minioExists: true));
-
-        await Assert.That(result.Failed).IsTrue();
-        await Assert.That(runner.Invoked("helm", "upgrade")).IsFalse();
-        await Assert.That(runner.Invoked("kubectl", "create", "secret")).IsFalse();
-        await Assert.That(runner.Invoked("kubectl", "patch", "secret")).IsFalse();
-    }
-
-    [Test]
-    public async Task MinioAlongsideGarage_Proceeds()
-    {
-        var (result, _) = await Bootstrap(HappyRunner(secretExists: true, minioExists: true, garageExists: true));
-
-        await Assert.That(result.Succeeded).IsTrue();
     }
 }

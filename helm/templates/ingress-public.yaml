@@ -1,5 +1,5 @@
 {{- if .Values.ingress.public.enabled -}}
-# Internet-facing ingress exposing ONLY the GitHub webhook receiver. The private ingress
+# Internet-facing ingress exposing ONLY the binding push webhook receiver. The private ingress
 # targets a Tailscale IP that GitHub cannot reach, so inbound webhooks need this separate,
 # narrowly-scoped public entrypoint (fronted by Cloudflare Tunnel or a public ingress
 # controller). Everything else stays behind the private ingress + Authentik OIDC.
@@ -31,15 +31,7 @@ spec:
     - host: {{ .Values.ingress.public.host }}
       http:
         paths:
-          # Per-pipeline GitHub trigger receiver and per-binding webhook-mode deploy receiver.
-          # Only these two webhook paths are exposed publicly — the rest of the API stays private.
-          - path: /api/webhooks/github
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ .Release.Name }}
-                port:
-                  number: {{ .Values.service.port }}
+          # The only public path; the rest of the API stays private.
           - path: /api/webhooks/binding
             pathType: Prefix
             backend:

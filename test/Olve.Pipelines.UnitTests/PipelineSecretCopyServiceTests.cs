@@ -40,7 +40,6 @@ public class PipelineSecretCopyServiceTests
             Secrets.Remove(secretName);
             return Task.CompletedTask;
         }
-        public Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default) => throw new NotSupportedException();

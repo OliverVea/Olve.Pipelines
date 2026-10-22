@@ -34,10 +34,6 @@ secrets:
       Storage__AccessKey: root-user
       Storage__SecretKey: root-password
 
-minio:
-  enabled: true
-  bucket: olve-pipelines-beta
-
 garage:
   enabled: true
   bucket: olve-pipelines-beta

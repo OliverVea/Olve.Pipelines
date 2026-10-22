@@ -34,8 +34,7 @@ ingress:
     enabled: true
     secretName: ""
   annotations: {}
-  # Internet-facing ingress exposing ONLY /api/webhooks/github (the inbound GitHub webhook
-  # receiver). Disabled by default: the private ingress above targets a Tailscale IP that
+  # Internet-facing ingress exposing ONLY /api/webhooks/binding (the inbound GitHub push webhook). Disabled by default: the private ingress above targets a Tailscale IP that
   # GitHub cannot reach. When enabled, also set config.Webhooks__PublicBaseUrl below so
   # auto-registered hooks point at this host. Must be fronted by a real public entrypoint
   # (Cloudflare Tunnel or a public ingress controller).
@@ -66,28 +65,7 @@ resources:
     # job events until restart (#26).
     memory: 512Mi
 
-# Dedicated in-cluster MinIO for this instance's storage (snapshots + bundles).
-# Disabled by default; enabled per-environment (beta first). When enabled, point the
-# controller at it via Storage__Endpoint + static creds (see values-beta.yaml). The
-# credentials Secret (keys: root-user, root-password) is created out-of-band —
-# see docs/operations/environment-setup.md.
-minio:
-  enabled: true
-  image: "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
-  credentialsSecret: olve-pipelines-minio
-  bucket: olve-pipelines
-  storage: 10Gi
-  storageClass: local-path
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
-
-# Dedicated in-cluster Garage (S3-compatible), replacing the archived MinIO above. Runs
+# Dedicated in-cluster Garage (S3-compatible). Runs
 # single-node; the access key + bucket are created at startup from the credentials Secret
 # (keys: root-user, root-password, rpc-secret). Metadata on SSD, object data on the bulk HDD.
 # See docs/superpowers/specs/2026-09-26-garage-storage-design.md.

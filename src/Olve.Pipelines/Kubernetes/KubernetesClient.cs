@@ -70,28 +70,6 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
-    public async Task CreateBareJobAsync(string ns, string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName = null, CancellationToken ct = default)
-    {
-        var manifest = BuildBareJobManifest(name, image, script, env, runtimeClassName);
-
-        _logger?.LogInformation("Creating bare K8s Job {JobName} in namespace {Namespace}", name, ns);
-
-        var response = await _httpClient.PostAsJsonAsync(
-            $"apis/batch/v1/namespaces/{ns}/jobs",
-            manifest,
-            KubernetesJsonContext.Default.K8sJobManifest,
-            ct);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var body = await response.Content.ReadAsStringAsync(ct);
-            _logger?.LogError("Failed to create bare Job {JobName}: {StatusCode} {Body}", name, response.StatusCode, body);
-            throw new InvalidOperationException($"Failed to create K8s Job '{name}': {response.StatusCode}");
-        }
-
-        _logger?.LogInformation("Bare K8s Job {JobName} created", name);
-    }
-
     public async Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default)
     {
         var response = await _httpClient.GetAsync(
@@ -256,51 +234,8 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
 
     // K8s deletes a finished step Job (and its pod) after this. The controller copies the pod's logs
     // to storage as soon as it sees the Job finish, so this only has to outlast a controller outage —
-    // a week is generous. Bare Jobs get no TTL: nothing persists their logs, so the pod is the only copy.
+    // a week is generous.
     internal const int StepJobTtlSeconds = 7 * 24 * 60 * 60;
-
-    // Steps run as root (kaniko, apt, npm need it) so no runAsNonRoot / capability drops here —
-    // isolation comes from the gVisor runtime class. Escalation *beyond* the granted set is
-    // still blocked, and seccomp applies when a job runs on plain runc.
-    private static readonly K8sContainerSecurityContext HardenedContainerContext =
-        new(AllowPrivilegeEscalation: false);
-
-    private static readonly K8sPodSecurityContext HardenedPodContext =
-        new(new K8sSeccompProfile("RuntimeDefault"));
-
-    internal static K8sJobManifest BuildBareJobManifest(string name, string image, string script, IReadOnlyDictionary<string, string>? env, string? runtimeClassName)
-    {
-        var labels = new Dictionary<string, string>
-        {
-            ["app"] = "olve-pipelines",
-            ["job-name"] = name,
-            ["olve-role"] = "failure-handler",
-        };
-
-        var envVars = env is { Count: > 0 }
-            ? env.Select(kvp => new K8sEnvVar(kvp.Key, kvp.Value)).ToArray()
-            : null;
-
-        var handler = new K8sContainer(
-            "handler",
-            image,
-            Command: ["/bin/sh", "-c"],
-            Args: [script],
-            Env: envVars,
-            SecurityContext: HardenedContainerContext);
-
-        return new K8sJobManifest(
-            "batch/v1",
-            "Job",
-            new K8sMetadata(name, labels),
-            new K8sJobSpecBody(
-                new K8sPodTemplateSpec(
-                    new K8sMetadata(name, labels),
-                    new K8sPodSpec(
-                        Containers: [handler],
-                        RuntimeClassName: runtimeClassName,
-                        SecurityContext: HardenedPodContext))));
-    }
 
     private static Dictionary<string, string> EncodeSecretData(Dictionary<string, string> data)
         => data.ToDictionary(

@@ -15,15 +15,12 @@ serviceAccount:
   enabled: true
 
 # Private Garage store on the cluster's default StorageClass (values.yaml's local-path /
-# bulk split is homelab-specific). MinIO is the pre-Garage store, off for new installs.
+# bulk split is homelab-specific).
 garage:
   enabled: true
   metaStorageClass: ""
   dataStorageClass: ""
   dataStorage: 20Gi
-
-minio:
-  enabled: false
 
 # No Authentik CA mount — nothing ovea.pro is contacted.
 authentikCa:
@@ -33,7 +30,7 @@ authentikCa:
 slo:
   enabled: false
 
-# Lists are replaced (not merged) by -f: only the static MinIO creds Secret remains —
+# Lists are replaced (not merged) by -f: only the static storage creds Secret remains —
 # none of the homelab OIDC/Authentik secrets the bare cluster doesn't have.
 secrets:
   - name: olve-pipelines-minio

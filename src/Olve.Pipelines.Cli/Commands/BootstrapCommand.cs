@@ -17,7 +17,7 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
     public const string DefaultBucket = "olve-pipelines";
     public const string DefaultRef = "main";
     public const string DefaultImageTag = "latest";
-    // Name predates the Garage migration (MinIO used it too); kept so existing installs converge.
+    // The name predates Garage; kept so existing installs converge.
     public const string StorageCredentialsSecret = "olve-pipelines-minio";
     public const string StorageAccessKey = "olve-pipelines";
 
@@ -67,9 +67,6 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
         if ((await EnsureNamespace(ns, ct)).TryPickProblems(out var nsProblems))
             return nsProblems;
 
-        if ((await RefuseLegacyMinioInstall(ns, release, ct)).TryPickProblems(out var legacyProblems))
-            return legacyProblems;
-
         if ((await EnsureStorageSecret(ns, ct)).TryPickProblems(out var secProblems))
             return secProblems;
 
@@ -112,28 +109,6 @@ public sealed class BootstrapCommand(IProcessRunner processRunner) : ICliCommand
 
         Step($"Creating namespace '{ns}'");
         return Forget(await processRunner.RunCheckedAsync("kubectl", ["create", "namespace", ns], ct: ct));
-    }
-
-    // A pre-Garage install keeps its data in the MinIO PVC; upgrading it in place would point the
-    // controller at an empty Garage bucket. Make that an explicit migration, not a silent reset.
-    private async Task<Result> RefuseLegacyMinioInstall(string ns, string release, CancellationToken ct)
-    {
-        var minio = await processRunner.RunAsync("kubectl", ["get", "deployment", $"{release}-minio", "-n", ns], ct: ct);
-        if (minio.TryPickProblems(out var minioProblems, out var minioOutput))
-            return minioProblems;
-        if (!minioOutput.Succeeded)
-            return Result.Success();
-
-        var garage = await processRunner.RunAsync("kubectl", ["get", "deployment", $"{release}-garage", "-n", ns], ct: ct);
-        if (garage.TryPickProblems(out var garageProblems, out var garageOutput))
-            return garageProblems;
-        if (garageOutput.Succeeded)
-            return Result.Success();
-
-        return new ResultProblem(
-            "Release '{0}' in '{1}' still stores its data in MinIO. Re-running bootstrap would switch it to an empty "
-            + "Garage store; migrate the data first (docs/operations/environment-setup.md, \"Migrating from MinIO\").",
-            release, ns);
     }
 
     private async Task<Result> EnsureStorageSecret(string ns, CancellationToken ct)

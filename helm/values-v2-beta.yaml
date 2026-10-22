@@ -23,10 +23,6 @@ config:
   # self-deploy's own .pipelines/pipeline.ts); retention keeps that run whatever its age or rank.
   Distribution__CliPipeline: "Olve.Pipelines v2"
 
-# MinIO is archived (images 401); v2 never had one.
-minio:
-  enabled: false
-
 # Reuses the beta credentials Secret by reference — each Garage keeps its own metadata, so
 # sharing the access key is harmless.
 garage:

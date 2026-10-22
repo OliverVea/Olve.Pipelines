@@ -325,6 +325,33 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   rollback relies on them). (3) A cancelled attempt can leave a `result.tar.gz` (retention's 24 h
   leftover sweep covers it once dry run is off).
 
+### v1-leftover rewrite (2026-10-22)
+
+- `/api/jobs*` and `pl job *` are gone (`CancelJob` cancelled an attempt outside the scheduling lock).
+  Replacements: `POST …/runs/{n}/steps/{step}/cancel` (`RunCancellationService.CancelStep`; the
+  run ends Cancelled at the stage barrier like any cancelled attempt, rerun `--continue` re-opens
+  it; `pl step cancel`) and `GET /api/attempts?status=active` (`pl attempts`). CLI `Job` DTOs are
+  `Attempt`. The orphan `job-logs-view` is removed.
+- `GET /api/pipelines/summary` is `{id, name, description, repo, health}` (no step strip).
+- `GET …/secrets` is `[{name, description, declaredBy, isSet}]` (`PipelineSecretService`: active
+  manifest + binding credentials key + K8s; `isSet` null when K8s is unreadable). Binding status
+  no longer carries secrets; deleting a pipeline deletes its `olve-pipeline-<id>` Secret.
+- Binding `lastDeployedSha`/`lastSyncedSha` are `lastPushSha`/`lastReconciledSha` (old snapshot
+  names still load); status adds `reconciledVersion` and `activation`. `pl secret`, `pl binding`
+  and `pl pipeline delete` take pipeline names.
+- Dead code removed: `IPipelineSecretStore`, `ConfigFetch.Changed.Files`, bare Jobs,
+  `PipelineService.SetName`, the public `/api/webhooks/github` ingress path, `pl bootstrap`'s
+  legacy-MinIO guard. The v2 chart no longer has MinIO templates or `minio:` values.
+- Deferred: typed problems / RFC 9457 error bodies (next change); renaming `JobQueueService` /
+  `JobLogService`.
+
+### Promotion checklist (v2 → prod / `main`)
+
+- The first v2 deploy to prod removes prod's MinIO Deployment and Service (the v2 chart has no MinIO
+  templates). Its PVC `olve-pipelines-minio-data` has `resource-policy: keep`, so it stays behind,
+  orphaned; delete it by hand once the data is confirmed unneeded. Confirm with the user before
+  promoting. The `olve-pipelines-minio` Secret stays: it holds the Garage credentials.
+
 ## Milestones
 
 | | Milestone | Needs |

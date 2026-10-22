@@ -439,8 +439,11 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - **Build Job**: the hardcoded `sdk/` install is gone. The script reads the binding's `package.json`
   and runs `bun install --frozen-lockfile --production` in each local `file:`/`link:` dependency
   directory (exit 78 if one resolves outside the repo); registry deps need nothing extra.
-- Follow-up: switch to npm trusted publishing via GitHub Actions (OIDC, provenance, no token) once the
-  token path works. npm requires the package to exist before a trusted publisher can be configured.
+- **Live**: run #23 (v8) published `2.0.0-beta.1` (`beta` tag); the registry served 404 for ~5 min
+  after the publish (CDN), longer for Bun's abbreviated metadata.
+- Follow-up: switch to npm trusted publishing via GitHub Actions (OIDC, provenance, no token) now that
+  the token path works and the package exists (npm configures a trusted publisher only on an existing
+  package: npm ≥ 11.5.1, Node ≥ 22.14, `id-token: write`).
 
 ### Promotion checklist (v2 → prod / `main`)
 

@@ -158,10 +158,4 @@ public static class StepKinds
     public const string HelmDeployOverSsh = "helmDeployOverSsh";
     public const string HelmDeployInCluster = "helmDeployInCluster";
     public const string ComposeDeploy = "composeDeploy";
-
-    /// <summary>The kinds sdk/manifest.schema.json allows. A new SDK library kind needs a service update.</summary>
-    public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
-    {
-        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh, HelmDeployInCluster, ComposeDeploy,
-    };
 }

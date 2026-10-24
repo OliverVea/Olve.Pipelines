@@ -84,7 +84,7 @@ public class ManifestValidatorTests
         ["unknown inputTypes model"] = (C.ModelUnknown, r => Step(r, "summary")["inputTypes"]!["beta"]!["model"] = "Nope"),
 
         // step fields
-        ["unknown step kind"] = (C.StepKindUnknown, r => Step(r, "build")["kind"] = "gitCheckout"),
+        ["empty step kind"] = (C.StepKindEmpty, r => Step(r, "build")["kind"] = ""),
         ["empty image"] = (C.StepImageEmpty, r => Step(r, "build")["image"] = " "),
         ["bad handler hash"] = (C.StepHashInvalid, r => Step(r, "build")["handlerHash"] = "sha256:abc"),
         ["bad harness hash"] = (C.HarnessHashInvalid, r => r["harness"]!["sdkHash"] = "md5:x"),

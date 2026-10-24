@@ -57,7 +57,7 @@ public static class ManifestIssueCodes
     public const string ModelUnused = "model-unused";
 
     // ── steps ──
-    public const string StepKindUnknown = "step-kind-unknown";
+    public const string StepKindEmpty = "step-kind-empty";
     public const string StepImageEmpty = "step-image-empty";
     public const string StepHashInvalid = "step-handler-hash-invalid";
     public const string StepTimeoutInvalid = "step-timeout-invalid";

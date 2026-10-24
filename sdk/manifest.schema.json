@@ -432,16 +432,8 @@
           "type": "object"
         },
         "kind": {
-          "description": "'custom' = handlers/<name>.ts; others are SDK library steps.",
-          "enum": [
-            "custom",
-            "script",
-            "gitHubSource",
-            "imageBuild",
-            "helmDeployOverSsh",
-            "helmDeployInCluster",
-            "composeDeploy"
-          ],
+          "description": "'custom' = handlers/<name>.ts; others are SDK library steps. A label: the service accepts any kind.",
+          "minLength": 1,
           "type": "string"
         },
         "name": {

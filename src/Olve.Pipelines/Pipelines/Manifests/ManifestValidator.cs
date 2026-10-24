@@ -336,8 +336,7 @@ public static partial class ManifestValidator
         private void CheckStep(StepDescriptor s, string path, IReadOnlyDictionary<string, Avail> avail, bool failureHandler, IReadOnlyList<CaseOf>? cases = null)
         {
             var n = s.Name;
-            if (!StepKinds.Known.Contains(s.Kind))
-                Error(ManifestIssueCodes.StepKindUnknown, $"{path}.kind", $"step '{n}': unknown kind '{s.Kind}' (known: {string.Join(", ", StepKinds.Known.Order(StringComparer.Ordinal))})", n);
+            if (string.IsNullOrWhiteSpace(s.Kind)) Error(ManifestIssueCodes.StepKindEmpty, $"{path}.kind", $"step '{n}': kind must not be empty", n);
             if (string.IsNullOrWhiteSpace(s.Image)) Error(ManifestIssueCodes.StepImageEmpty, $"{path}.image", $"step '{n}': image must not be empty", n);
             if (!HashRegex().IsMatch(s.HandlerHash))
                 Error(ManifestIssueCodes.StepHashInvalid, $"{path}.handlerHash", $"step '{n}': handlerHash '{s.HandlerHash}' is not a sha256:<64 hex> hash", n);

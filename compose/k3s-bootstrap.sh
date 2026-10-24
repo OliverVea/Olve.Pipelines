@@ -17,6 +17,9 @@ export KUBECONFIG=/tmp/kubeconfig
 until kubectl get --raw /readyz >/dev/null 2>&1; do echo "waiting for k3s API..."; sleep 2; done
 
 kubectl apply -f /bootstrap/k3s-rbac.yaml
+# The self-deploy demo: step ServiceAccount, target namespaces, and the registry name for pods.
+kubectl apply -f /bootstrap/k3s-selfdeploy.yaml
+kubectl -n kube-system rollout restart deployment/coredns
 
 # Job pods need the namespace's default ServiceAccount, which the controller-manager creates async.
 until kubectl -n "$NS" get serviceaccount default >/dev/null 2>&1; do sleep 1; done

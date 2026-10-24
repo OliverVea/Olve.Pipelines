@@ -1,0 +1,55 @@
+# Config document for Olve.Pipelines deploying itself into the local compose stack (README, "Watch it
+# deploy itself"). Beta and prod are two namespaces of the compose k3s, deployed in-cluster by the step
+# ServiceAccount olve-deployer; images go to the compose registry; nothing is published to npm or ghcr.
+#
+#   pl config set "Olve.Pipelines v2" -f compose/selfdeploy.config.yaml
+#   printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
+
+target:
+  beta:
+    kind: inCluster
+    namespace: selfdeploy-beta
+    values: [values-minimal.yaml]
+    set:
+      config.Storage__Endpoint: http://olve-pipelines-garage:3900
+      config.Kubernetes__Namespace: selfdeploy-beta
+      config.Kubernetes__RuntimeClassName: ""
+      config.Webhooks__PublicBaseUrl: ""
+      garage.metaStorage: 1Gi
+      garage.dataStorage: 2Gi
+  prod:
+    kind: inCluster
+    namespace: selfdeploy-prod
+    values: [values-minimal.yaml]
+    set:
+      config.Storage__Endpoint: http://olve-pipelines-garage:3900
+      config.Kubernetes__Namespace: selfdeploy-prod
+      config.Kubernetes__RuntimeClassName: ""
+      config.Webhooks__PublicBaseUrl: ""
+      garage.metaStorage: 1Gi
+      garage.dataStorage: 2Gi
+
+auth:
+  mode: none
+
+telemetry:
+  exporter: none
+
+publish:
+  server:
+    repository: registry:5000/olve-pipelines
+    insecure: true
+    registryMap: {}
+    auth:
+      username: local
+      password: { secret: REGISTRY_PASSWORD }
+  harness:
+    repository: registry:5000/olve-pipelines-harness-base
+    insecure: true
+    auth:
+      username: local
+      password: { secret: REGISTRY_PASSWORD }
+  npm:
+    enabled: false
+  cli:
+    enabled: true

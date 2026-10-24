@@ -14,7 +14,8 @@
 # The server and Dex share the `edge` container's network namespace, so the Dex issuer
 # http://localhost:5556/dex is the same URL for the server, the browser and pl. Step pods can't
 # resolve compose names and dial Garage through pre-signed URLs (host signed into SigV4), so Garage
-# has a fixed IP; change the subnet and both addresses if 172.29.80.0/24 clashes on your machine.
+# has a fixed IP, and so has the registry (pods resolve its name through a CoreDNS entry); change the
+# subnet and the addresses if 172.29.80.0/24 clashes on your machine.
 # Step pods need internet access (image pulls, GitHub tarballs, npm for `bun install`).
 
 name: olve-pipelines-local
@@ -64,6 +65,9 @@ services:
       KUBERNETES_SERVICE_PORT: "6443"
       # Built from harness/base by harness-build, pulled by k3s from the local registry.
       Harness__HarnessBaseImage: "registry:5000/olve-pipelines-harness-base:local"
+      # Steps that declare clusterAccess (helmDeploy) run as olve-deployer: admin of the selfdeploy-*
+      # namespaces only (compose/k3s-selfdeploy.yaml).
+      Kubernetes__StepServiceAccount: "olve-deployer"
       # pl built from source by pl-build.
       Distribution__LocalDirectory: "/pl-dist"
     volumes:
@@ -122,6 +126,10 @@ services:
     volumes:
       - ./compose/registry.htpasswd:/auth/htpasswd:ro
       - registry-data:/var/lib/registry
+    # Fixed, like Garage: step pods resolve `registry` to it (coredns-custom in compose/k3s-selfdeploy.yaml).
+    networks:
+      default:
+        ipv4_address: 172.29.80.201
 
   # One-shot: build harness/base with kaniko and push it to the local registry.
   harness-build:

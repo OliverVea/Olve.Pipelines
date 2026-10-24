@@ -1,0 +1,86 @@
+# The local self-deploy (README, "Watch it deploy itself"): the step ServiceAccount, the namespaces it
+# deploys into, and what those deploys need. Applied by k3s-bootstrap.sh.
+#
+# olve-deployer is the instance's Kubernetes:StepServiceAccount: steps that declare clusterAccess run
+# with its token. It is admin of selfdeploy-beta and selfdeploy-prod only, and has no rights in
+# olve-runners (the runner namespace, which holds every pipeline's secrets).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: olve-deployer
+  namespace: olve-runners
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: selfdeploy-beta
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: selfdeploy-prod
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: olve-deployer
+  namespace: selfdeploy-beta
+subjects:
+  - kind: ServiceAccount
+    name: olve-deployer
+    namespace: olve-runners
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: olve-deployer
+  namespace: selfdeploy-prod
+subjects:
+  - kind: ServiceAccount
+    name: olve-deployer
+    namespace: olve-runners
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: admin
+---
+# The chart's Garage credentials (helm/values-minimal.yaml), one per deployed copy. Local-only values.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: olve-pipelines-minio
+  namespace: selfdeploy-beta
+stringData:
+  root-user: selfdeploy-beta
+  root-password: 6c6f63616c2d6f6e6c792d6e6f742d612d7365637265742d62657461
+  rpc-secret: "0000000000000000000000000000000000000000000000000000000000000002"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: olve-pipelines-minio
+  namespace: selfdeploy-prod
+stringData:
+  root-user: selfdeploy-prod
+  root-password: 6c6f63616c2d6f6e6c792d6e6f742d612d7365637265742d70726f64
+  rpc-secret: "0000000000000000000000000000000000000000000000000000000000000003"
+---
+# Pods resolve the compose registry by the same name k3s pulls from (registries.yaml), so kaniko in a
+# step pod pushes to registry:5000 and the node pulls registry:5000/... back.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  registry.server: |
+    registry:53 {
+      hosts {
+        172.29.80.201 registry
+      }
+    }

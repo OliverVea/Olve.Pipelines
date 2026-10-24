@@ -63,6 +63,16 @@ describe("config documents", () => {
     expect(auth).toMatchObject({ mode: "dex", allow: { users: ["OliverVea"], orgs: [], emails: [] } });
   });
 
+  test("prod from local: ssh to bulwark-m2 by IP, today's namespaces and values, pinned harness, no npm", () => {
+    const c = load("compose/prod-from-local.config.yaml");
+    const pin = { "config.Harness__HarnessBaseImage": "registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf" };
+    expect(c.target.beta).toMatchObject({ kind: "ssh", host: "oliver@100.100.117.17", namespace: "apps-beta", release: "olve-pipelines-v2", values: ["values-beta.yaml", "values-v2-beta.yaml"], set: { "slo.enabled": "false", ...pin }, url: "https://pipelines-v2-beta.ovea.pro" });
+    expect(c.target.prod).toMatchObject({ kind: "ssh", host: "oliver@100.100.117.17", namespace: "apps", release: "olve-pipelines-v2", values: ["values-v2-prod.yaml"], set: pin, url: "https://pipelines-v2-private.ovea.pro" });
+    expect(c.publish).toMatchObject({ server: { repository: "registry.ovea.pro/olve-pipelines-v2" }, harness: { push: false }, npm: { enabled: false } });
+    const prodExample = load("docs/design/prod-config.example.yaml");
+    expect({ auth: c.auth, telemetry: c.telemetry }).toEqual({ auth: prodExample.auth, telemetry: prodExample.telemetry });
+  });
+
   test("publishing is off unless the document turns it on", () => {
     expect(PUBLISH.schema.parse({ server: { repository: "r/s" }, harness: { repository: "r/h" } }).npm.enabled).toBe(false);
   });

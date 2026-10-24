@@ -213,9 +213,9 @@ describe("target deploys and select", () => {
     const deploy = steps.helmDeployOverSsh({ name: "deploy-beta", description: "", sshKey: KEY, ...opts(TARGET.beta) });
     const r = await testHandler(deploy as any, { source, server, harness: undefined }, {
       ctx: f.ctx, secrets: { SSH_PRIVATE_KEY: "k" },
-      config: { target: { beta: { kind: "ssh", host: "u@h", namespace: "apps-beta", values: ["values-beta.yaml"], set: { "slo.enabled": "false" } }, prod: { kind: "ssh", host: "u@h", namespace: "apps" } }, auth: { mode: "none" } },
+      config: { target: { beta: { kind: "ssh", host: "u@h", namespace: "apps-beta", values: ["values-beta.yaml"], set: { "slo.enabled": "false" }, url: "https://beta.example/" }, prod: { kind: "ssh", host: "u@h", namespace: "apps" } }, auth: { mode: "none" } },
     });
-    expect(r).toMatchObject({ status: "succeeded", output: { release: "app", namespace: "apps-beta", image: `registry:5000/app:2026.10.24.7@${server.digest}` } });
+    expect(r).toMatchObject({ status: "succeeded", output: { release: "app", namespace: "apps-beta", image: `registry:5000/app:2026.10.24.7@${server.digest}`, url: "https://beta.example" } });
     const flat = f.calls.filter(Array.isArray).map((c) => (c as string[]).join(" "));
     expect(flat.some((c) => c.includes(`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io pull -q registry:5000/app@${server.digest}`))).toBe(true);
     const helm = flat.find((c) => c.includes("helm upgrade --install app ."))!;
@@ -224,7 +224,7 @@ describe("target deploys and select", () => {
     expect(helm).not.toContain("harness.image");
     expect(JSON.parse(readFileSync(join(f.tree, "helm", "olve-values-0.json"), "utf8"))).toEqual({ auth: { mode: "none" } });
     expect(JSON.parse(readFileSync(join(f.tree, "helm", "olve-values-1.json"), "utf8"))).toEqual({ extra: { ns: "apps-beta" } });
-    expect(flat.at(-1)).toBe("GET http://app.apps-beta.svc.cluster.local/api/health");
+    expect(flat.at(-1)).toBe("GET https://beta.example/api/health");
     const wrong = await testHandler(deploy as any, { source, server }, { ctx: fakes().ctx, secrets: { SSH_PRIVATE_KEY: "k" }, config: { target: { beta: { kind: "inCluster", namespace: "x" }, prod: { kind: "inCluster", namespace: "y" } }, auth: { mode: "none" } } });
     if (wrong.status !== "failed") throw new Error("expected failure");
     expect(wrong.error.message).toContain("the target is kind 'inCluster', not 'ssh'");

@@ -393,6 +393,24 @@ What step 5 built, and where it differs from §9 and §11.
   the values this document produces (checked 2026-10-24). One behaviour changes, by design of the
   release flow: the server image is pushed to `registry.ovea.pro/olve-pipelines-v2` and pulled on
   the host by digest, instead of a tarball imported over SSH.
+- **`url` on a target.** The health check and beta-test used the release's in-cluster Service URL,
+  which only works when the steps run in the target's cluster. A target may name the URL step pods
+  reach it at (`url`); `HelmRelease.url` carries it to later steps.
+- **The rollout from a local instance** ([compose/prod-from-local.config.yaml](../../compose/prod-from-local.config.yaml)).
+  The deployed v2 prod (c0398a7) can't reconcile a pipeline that declares config, so the local
+  compose instance (new code) deploys beta and prod once over SSH, and prod deploys itself after
+  that. The document is the prod example with three local differences: the host by Tailscale IP
+  (the compose k3s can't resolve `bulwark-m2`), `url` set to each instance's ingress, and the
+  harness image pinned to the one the instances use today
+  (`registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf`, the original `harness/base`;
+  the new server runs old-layout harness images unchanged) with `publish.harness.push: false`; npm
+  off. Rendered with the deploy step and `helm template`, it differs from today's deploy only in the
+  server image (registry by digest, `IfNotPresent`), an explicit `Harness__HarnessBaseImage` (the
+  value the old server defaulted to) and, on prod, `Distribution__CliPromotedBy=promote`.
+- **Follow-up (parked): `publish` should `select` too.** build-server, build-harness, publish-*
+  and promote each declare GHCR_TOKEN, NPM_TOKEN and REGISTRY_PASSWORD and pick at runtime from
+  `publish`, which is branching on config inside a step. Like the deploy targets, each registry
+  kind should be a `select` case whose steps declare only the secret that registry needs.
 - **The chart** maps `auth.mode` and `telemetry` onto `Auth__*`/`OpenTelemetry__*` in a helper that
   merges them into `config` before rendering, so unchanged values files render identically.
   `mode: none` sets `Auth__Disable=true`. `image.digest` pins the server image.

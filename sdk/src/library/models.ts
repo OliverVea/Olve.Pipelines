@@ -26,7 +26,13 @@ export const PushedImage = model(
 /** A Helm release that was installed or upgraded. */
 export const HelmRelease = model(
   "HelmRelease",
-  z.object({ release: z.string(), namespace: z.string(), image: z.string() }),
+  z.object({
+    release: z.string(),
+    namespace: z.string(),
+    image: z.string(),
+    /** Where step pods reach the release (the target's `url`); absent = its in-cluster Service URL (`serviceUrl`). */
+    url: z.string().optional(),
+  }),
 );
 
 /** One failed step of a run, as seen by a failure handler. */

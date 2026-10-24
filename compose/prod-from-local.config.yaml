@@ -1,0 +1,69 @@
+# Config document for the one-off rollout: this local instance (new code) deploys the new version to
+# the homelab's v2 beta and prod over SSH, as the deployed v2 prod does today; afterwards prod deploys
+# itself. Based on docs/design/prod-config.example.yaml, with three local differences:
+#   - host by Tailscale IP: step pods in the compose k3s can't resolve bulwark-m2;
+#   - url: step pods reach beta and prod through their ingress, not the homelab's cluster DNS;
+#   - the harness image pinned to the one the instances use today, and not built (no ghcr); npm off.
+#
+#   pl config set "Olve.Pipelines v2" -f compose/prod-from-local.config.yaml
+
+target:
+  beta:
+    kind: ssh
+    host: oliver@100.100.117.17
+    namespace: apps-beta
+    release: olve-pipelines-v2
+    values: [values-beta.yaml, values-v2-beta.yaml]
+    set:
+      slo.enabled: "false"
+      config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
+    url: https://pipelines-v2-beta.ovea.pro
+    auth:
+      mode: authentik
+      authority: https://auth-beta.ovea.pro/application/o/olve-pipelines/
+      audience: olve-pipelines-beta
+      frontendAuthority: https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/
+      frontendAudience: olve-pipelines-frontend-beta
+      anonymousReads: true
+    telemetry:
+      exporter: otlp
+      endpoint: http://otel-beta.ovea.pro
+      auth: { type: none }
+  prod:
+    kind: ssh
+    host: oliver@100.100.117.17
+    namespace: apps
+    release: olve-pipelines-v2
+    values: [values-v2-prod.yaml]
+    set:
+      config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
+    url: https://pipelines-v2-private.ovea.pro
+
+auth:
+  mode: authentik
+  authority: https://auth.ovea.pro/application/o/olve-pipelines/
+  audience: olve-pipelines
+  frontendAuthority: https://auth.ovea.pro/application/o/olve-pipelines-frontend/
+  frontendAudience: olve-pipelines-frontend
+
+telemetry:
+  exporter: otlp
+  endpoint: https://otel.ovea.pro
+  auth:
+    type: oauth2
+    tokenUrl: https://auth.ovea.pro/application/o/token/
+    clientId: otel
+    clientSecret:
+      kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
+
+publish:
+  server:
+    repository: registry.ovea.pro/olve-pipelines-v2
+    cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
+  harness:
+    push: false
+    repository: registry.ovea.pro/olve-pipelines-v2/harness-base
+  npm:
+    enabled: false
+  cli:
+    enabled: true

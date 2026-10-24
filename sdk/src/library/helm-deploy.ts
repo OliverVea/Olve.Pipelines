@@ -36,6 +36,7 @@ export function helmTarget<const E extends z.ZodRawShape = {}>(defaults: { names
     release: name(defaults.release).describe("Helm release name."),
     values: z.array(z.string()).default([]).describe("Values files, relative to the chart directory (-f, in order)."),
     set: z.record(z.string(), z.string()).default({}).describe("Extra --set flags."),
+    url: z.string().optional().describe("Base URL step pods reach the release at (health checks, smoke tests); default http://<release>.<namespace>.svc.cluster.local."),
     ...(extend ?? ({} as E)),
   };
   return z.discriminatedUnion("kind", [
@@ -49,6 +50,7 @@ interface TargetCommon {
   release: string;
   values: readonly string[];
   set: Readonly<Record<string, string>>;
+  url?: string | undefined;
 }
 /** A resolved `kind: inCluster` target. */
 export type InClusterTargetValue = TargetCommon & { kind: "inCluster" };
@@ -217,9 +219,10 @@ function targetDeploy(kind: StepKind, def: AnyTargetDef, sshKey: Secret | undefi
           });
         }
 
-        if (def.healthPath !== undefined) await httpHealthCheck(ctx, `${serviceUrl({ release, namespace })}${def.healthPath}`, { attempts: 12, delaySeconds: 5 });
+        const url = (target.url ?? serviceUrl({ release, namespace })).replace(/\/+$/, "");
+        if (def.healthPath !== undefined) await httpHealthCheck(ctx, `${url}${def.healthPath}`, { attempts: 12, delaySeconds: 5 });
         const main = flags[0]!;
-        return { release, namespace, image: `${main.repository}:${main.tag}@${main.digest}` };
+        return { release, namespace, image: `${main.repository}:${main.tag}@${main.digest}`, ...(target.url ? { url } : {}) };
       },
     },
     configurable,

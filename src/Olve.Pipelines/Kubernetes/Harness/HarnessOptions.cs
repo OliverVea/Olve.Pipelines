@@ -20,6 +20,12 @@ public sealed record HarnessOptions
     /// <summary>Pod <c>runtimeClassName</c> (gvisor on the cluster); null = plain runc.</summary>
     public string? RuntimeClassName { get; init; }
 
+    /// <summary>
+    /// <c>Kubernetes:StepServiceAccount</c>: the ServiceAccount (in the runner namespace) whose token a step that
+    /// declares <c>clusterAccess</c> gets. Null = no step gets a token.
+    /// </summary>
+    public string? StepServiceAccount { get; init; }
+
     /// <summary>A step without <c>timeoutSeconds</c> gets this.</summary>
     public long DefaultStepTimeoutSeconds { get; init; } = 3600;
 

@@ -215,6 +215,7 @@ public static class ManifestWriter
             w.WriteEndObject();
         }
         if (s.ConfigEntries.Count > 0) WriteStrings(w, "configEntries", s.ConfigEntries);
+        if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
         w.WriteEndObject();
     }
 

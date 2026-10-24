@@ -39,7 +39,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
 
         var request = HarnessJobRequest.ForAttempt(
             attempt, versionStamp, step.Image, step.TimeoutSeconds, step.Secrets,
-            new HarnessUrls(stepUrl, inputUrl, resultUrl, fileUrls));
+            new HarnessUrls(stepUrl, inputUrl, resultUrl, fileUrls), step.ClusterAccess);
         return HarnessJobBuilder.Build(request, options);
     }
 
@@ -61,7 +61,8 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
             PipelineSecrets.Name(run.PipelineId),
             new HarnessUrls(stepUrl, inputUrl, ResultUrl: null, new Dictionary<string, string>()),
             Role: HarnessJobBuilder.FailureHandlerRole,
-            UrlSecretNameOverride: dispatch.UrlSecretName);
+            UrlSecretNameOverride: dispatch.UrlSecretName,
+            ClusterAccess: dispatch.Handler.ClusterAccess);
         return HarnessJobBuilder.Build(request, options);
     }
 

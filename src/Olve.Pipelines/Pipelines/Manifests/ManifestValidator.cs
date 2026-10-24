@@ -282,6 +282,7 @@ public static partial class ManifestValidator
             }
 
             CheckStepConfig(s, path, stepSecrets);
+            CheckConfigRefs(s, path);
 
             if (s.Output is not null) UseModel(s.Output, $"{path}.output", $"step '{n}' output", n);
 
@@ -511,6 +512,25 @@ public static partial class ManifestValidator
                     if (!stepSecrets.Contains(secret))
                         Error(ManifestIssueCodes.ConfigSecretRefNotInStep, cp,
                             $"step '{s.Name}' receives config entry '{name}', which references secret '{secret}'; the step must also declare that secret", s.Name);
+            }
+        }
+
+        /// <summary>Every <c>{"$config": "entry.path"}</c> in a library step's configuration names an entry the step receives, and a field it has.</summary>
+        private void CheckConfigRefs(StepDescriptor s, string path)
+        {
+            if (s.Config is null) return;
+            foreach (var (key, value) in s.Config)
+            foreach (var (refPath, reference) in ConfigRefs.Find(value, $"{path}.config.{key}"))
+            {
+                var segments = reference.Split('.');
+                var entryName = segments[0];
+                if (!s.ConfigEntries.Contains(entryName, StringComparer.Ordinal))
+                    Error(ManifestIssueCodes.ConfigRefNotReceived, refPath,
+                        $"step '{s.Name}': config reference '{reference}': the step does not receive config entry '{entryName}'", s.Name);
+                else if (_config.TryGetValue(entryName, out var entry)
+                         && !JsonSchemaShapes.TryResolveField(entry.Schema, entry.Schema, segments[1..], out _))
+                    Error(ManifestIssueCodes.ConfigRefFieldUnknown, refPath,
+                        $"step '{s.Name}': config reference '{reference}': config '{entryName}' has no field '{string.Join('.', segments[1..])}'", s.Name);
             }
         }
 

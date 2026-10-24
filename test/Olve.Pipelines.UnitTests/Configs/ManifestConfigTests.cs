@@ -64,6 +64,63 @@ public class ManifestConfigTests
         await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigNameInvalid);
     }
 
+    private static string WithStepConfig(JsonObject config, bool clusterAccess = false)
+    {
+        var node = JsonNode.Parse(Text())!.AsObject();
+        var hello = node["stages"]![0]!["steps"]![0]!.AsObject();
+        hello["config"] = config;
+        if (clusterAccess) hello["clusterAccess"] = true;
+        return node.ToJsonString();
+    }
+
+    [Test]
+    public async Task ConfigRef_ToAFieldOfAReceivedEntry_IsValid()
+    {
+        var text = WithStepConfig(new JsonObject
+        {
+            ["host"] = new JsonObject { ["$config"] = "target.host" },
+            ["values"] = new JsonArray(new JsonObject { ["auth"] = new JsonObject { ["$config"] = "auth" } }),
+            ["mode"] = new JsonObject { ["$config"] = "auth.mode" },
+        });
+
+        await Assert.That(ManifestValidator.Validate(Parse(text)).Errors).IsEmpty();
+    }
+
+    [Test]
+    public async Task ConfigRef_ToAnEntryTheStepDoesNotReceive_OrAMissingField_IsAnError()
+    {
+        var notReceived = ManifestValidator.Validate(Parse(WithStepConfig(new JsonObject { ["x"] = new JsonObject { ["$config"] = "publish.repository" } })));
+        var noField = ManifestValidator.Validate(Parse(WithStepConfig(new JsonObject { ["x"] = new JsonObject { ["$config"] = "target.port" } })));
+
+        await Assert.That(notReceived.Errors.Select(e => e.Code)).IsEquivalentTo([ManifestIssueCodes.ConfigRefNotReceived]);
+        await Assert.That(notReceived.Errors.Single().Path).IsEqualTo("stages[0].steps[0].config.x");
+        await Assert.That(noField.Errors.Select(e => e.Code)).IsEquivalentTo([ManifestIssueCodes.ConfigRefFieldUnknown]);
+        await Assert.That(noField.Errors.Single().Message).Contains("config 'target' has no field 'port'");
+    }
+
+    [Test]
+    public async Task ClusterAccess_RoundTrips_AndBumpsTheStepVersion()
+    {
+        var plain = Parse(Text());
+        var withAccess = Parse(WithStepConfig(new JsonObject(), clusterAccess: true));
+        var written = ManifestWriter.ToCanonicalJson(withAccess);
+
+        await Assert.That(ManifestVersioning.AllSteps(withAccess).Single(s => s.Name == "hello").ClusterAccess).IsTrue();
+        await Assert.That(ManifestVersioning.AllSteps(plain).Single(s => s.Name == "hello").ClusterAccess).IsFalse();
+        await Assert.That(written).Contains("\"clusterAccess\": true");
+        await Assert.That(ManifestWriter.ToCanonicalJson(plain)).DoesNotContain("clusterAccess");
+        await Assert.That(ManifestWriter.ToCanonicalJson(Parse(written))).IsEqualTo(written);
+    }
+
+    [Test]
+    public async Task ClusterAccess_OtherThanTrue_DoesNotParse()
+    {
+        var node = JsonNode.Parse(Text())!.AsObject();
+        node["stages"]![0]!["steps"]![0]!["clusterAccess"] = false;
+
+        await Assert.That(ManifestParser.TryParse(System.Text.Encoding.UTF8.GetBytes(node.ToJsonString()), out _, out _)).IsFalse();
+    }
+
     [Test]
     public async Task SecretRefToAnUndeclaredSecret_IsAnError()
     {

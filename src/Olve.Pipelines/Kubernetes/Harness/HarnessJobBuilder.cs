@@ -42,15 +42,16 @@ public sealed record HarnessJobRequest(
     string PipelineSecretName,
     HarnessUrls Urls,
     string Role = HarnessJobBuilder.StepRole,
-    string? UrlSecretNameOverride = null)
+    string? UrlSecretNameOverride = null,
+    bool ClusterAccess = false)
 {
     /// <summary>Builds the request from an attempt; the step fields come from the pinned manifest.</summary>
     public static HarnessJobRequest ForAttempt(
         Attempt attempt, string versionStamp, string stepImage, long? timeoutSeconds,
-        IReadOnlyList<string> secrets, HarnessUrls urls)
+        IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false)
         => new(attempt.KubernetesJobName, attempt.Id, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
             attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
-            PipelineSecrets.Name(attempt.PipelineId), urls);
+            PipelineSecrets.Name(attempt.PipelineId), urls, ClusterAccess: clusterAccess);
 }
 
 /// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
@@ -186,6 +187,9 @@ public static partial class HarnessJobBuilder
             SecurityContext: HarnessSecurity.Container,
             Resources: StepResources(options));
 
+        // A step that asks for cluster access gets the instance's step ServiceAccount, if it grants one; every other
+        // step pod has no token at all.
+        var serviceAccount = request.ClusterAccess ? options.StepServiceAccount : null;
         var job = new K8sJobManifest(
             "batch/v1",
             "Job",
@@ -200,8 +204,9 @@ public static partial class HarnessJobBuilder
                         RestartPolicy: "Never",
                         RuntimeClassName: options.RuntimeClassName,
                         SecurityContext: HarnessSecurity.Pod,
-                        AutomountServiceAccountToken: false,
-                        EnableServiceLinks: false)),
+                        AutomountServiceAccountToken: serviceAccount is not null,
+                        EnableServiceLinks: false,
+                        ServiceAccountName: serviceAccount)),
                 BackoffLimit: 0,
                 TtlSecondsAfterFinished: options.TtlSecondsAfterFinished,
                 ActiveDeadlineSeconds: options.DeadlineSeconds(request.TimeoutSeconds)));

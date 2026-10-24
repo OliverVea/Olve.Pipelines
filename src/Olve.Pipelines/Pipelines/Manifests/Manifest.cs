@@ -95,6 +95,9 @@ public sealed record StepDescriptor(
 {
     /// <summary>Config entries delivered to the step as <c>ctx.config</c> (sorted; empty = none).</summary>
     public IReadOnlyList<string> ConfigEntries { get; init; } = [];
+
+    /// <summary>The step pod gets the instance's step ServiceAccount token (<c>Kubernetes:StepServiceAccount</c>), if it grants one.</summary>
+    public bool ClusterAccess { get; init; }
 }
 
 public abstract record InputType;
@@ -139,10 +142,11 @@ public static class StepKinds
     public const string GitHubSource = "gitHubSource";
     public const string ImageBuild = "imageBuild";
     public const string HelmDeployOverSsh = "helmDeployOverSsh";
+    public const string HelmDeploy = "helmDeploy";
 
     /// <summary>The kinds sdk/manifest.schema.json allows. A new SDK library kind needs a service update.</summary>
     public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
     {
-        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh,
+        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh, HelmDeploy,
     };
 }

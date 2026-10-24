@@ -22,6 +22,7 @@ public static class HarnessConfiguration
             HarnessBaseImage = Str(nameof(HarnessOptions.HarnessBaseImage), defaults.HarnessBaseImage),
             BunImage = Str(nameof(HarnessOptions.BunImage), defaults.BunImage),
             RuntimeClassName = runtimeClassName,
+            StepServiceAccount = string.IsNullOrWhiteSpace(configuration["Kubernetes:StepServiceAccount"]) ? null : configuration["Kubernetes:StepServiceAccount"]!.Trim(),
             DefaultStepTimeoutSeconds = Long(nameof(HarnessOptions.DefaultStepTimeoutSeconds), defaults.DefaultStepTimeoutSeconds),
             MaxStepTimeoutSeconds = Long(nameof(HarnessOptions.MaxStepTimeoutSeconds), defaults.MaxStepTimeoutSeconds),
             StartupGraceSeconds = Long(nameof(HarnessOptions.StartupGraceSeconds), defaults.StartupGraceSeconds),

@@ -137,6 +137,7 @@ public static class ManifestVersioning
                 }
                 w.WriteEndObject();
             }
+            if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
             w.WriteEndObject();
         });
         return CanonicalJson.Hash(content);

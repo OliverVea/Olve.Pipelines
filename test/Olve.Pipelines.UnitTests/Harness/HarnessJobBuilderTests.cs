@@ -190,6 +190,24 @@ public class HarnessJobBuilderTests
         await Assert.That(Serialize(spec.Job)).DoesNotContain("runtimeClassName");
     }
 
+    [Test]
+    public async Task StepJob_ClusterAccess_GetsTheStepServiceAccount_OnlyWhenTheInstanceGrantsOne()
+    {
+        var granted = Options with { StepServiceAccount = "olve-deployer" };
+        var asks = Request() with { ClusterAccess = true };
+
+        var withToken = HarnessJobBuilder.Build(asks, granted).Value!.Job.Spec.Template.Spec;
+        var notGranted = HarnessJobBuilder.Build(asks, Options).Value!.Job.Spec.Template.Spec;
+        var notAsked = HarnessJobBuilder.Build(Request(), granted).Value!.Job.Spec.Template.Spec;
+
+        await Assert.That(withToken.ServiceAccountName).IsEqualTo("olve-deployer");
+        await Assert.That(withToken.AutomountServiceAccountToken).IsTrue();
+        await Assert.That(notGranted.ServiceAccountName).IsNull();
+        await Assert.That(notGranted.AutomountServiceAccountToken).IsFalse();
+        await Assert.That(notAsked.ServiceAccountName).IsNull();
+        await Assert.That(notAsked.AutomountServiceAccountToken).IsFalse();
+    }
+
     internal static string Serialize(K8sJobManifest manifest)
         => JsonSerializer.Serialize(manifest, HarnessKubernetesJsonContext.Default.K8sJobManifest);
 

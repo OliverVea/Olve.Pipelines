@@ -23,9 +23,12 @@ public class RunQueryService(RunService runs, AttemptService attempts)
     }
 
     /// <summary>The latest successful attempt of a step across all runs (promote; later the environments view).</summary>
-    public bool TryGetLatestSucceededAcrossRuns(Id<Pipeline> pipelineId, string stepName, [NotNullWhen(true)] out Attempt? attempt)
+    /// <param name="alsoSucceeded">Only runs in which this step also succeeded count (null = any run).</param>
+    public bool TryGetLatestSucceededAcrossRuns(Id<Pipeline> pipelineId, string stepName, [NotNullWhen(true)] out Attempt? attempt, string? alsoSucceeded = null)
     {
-        attempt = attempts.ListByStepName(pipelineId, stepName).FirstOrDefault(a => a.Status is AttemptStatus.Succeeded);
+        attempt = attempts.ListByStepName(pipelineId, stepName).FirstOrDefault(a =>
+            a.Status is AttemptStatus.Succeeded
+            && (alsoSucceeded is null || attempts.TryGetLatestSucceeded(a.RunId, alsoSucceeded, out _)));
         return attempt is not null;
     }
 }

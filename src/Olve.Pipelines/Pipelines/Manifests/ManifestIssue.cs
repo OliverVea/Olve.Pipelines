@@ -108,6 +108,8 @@ public static class ManifestIssueCodes
     public const string ConfigUnknown = "config-unknown";
     public const string ConfigSecretRefUndeclared = "config-secret-ref-undeclared";
     public const string ConfigSecretRefNotInStep = "config-secret-ref-not-in-step";
+    public const string ConfigRefNotReceived = "config-ref-not-received";
+    public const string ConfigRefFieldUnknown = "config-ref-field-unknown";
 
     // ── warnings ──
     public const string OutputUnused = "output-unused";

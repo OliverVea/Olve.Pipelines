@@ -296,7 +296,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -329,13 +329,20 @@ public static class ManifestParser
             config = c?.ToDictionary(kv => kv.Key, kv => kv.Value!.Value, StringComparer.Ordinal);
         }
         var configEntries = e.TryGetProperty("configEntries", out _) ? ctx.StringArray(e, "configEntries", path) : [];
+        var clusterAccessOk = true;
+        if (e.TryGetProperty("clusterAccess", out var clusterAccessEl) && clusterAccessEl.ValueKind != JsonValueKind.True)
+        {
+            ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "clusterAccess"), "clusterAccess must be true (omit it otherwise)");
+            clusterAccessOk = false;
+        }
 
         if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
-            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null)
+            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk)
             return null;
         return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
         {
             ConfigEntries = configEntries,
+            ClusterAccess = e.TryGetProperty("clusterAccess", out _),
         };
     }
 

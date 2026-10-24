@@ -47,6 +47,29 @@ public class CliDistributionTests
     }
 
     [Test]
+    public async Task LatestRelease_WithPromotedBy_OnlyCountsRunsWhereThatStepSucceeded()
+    {
+        var d = new TestRunDomain();
+        var pipeline = d.CreatePipeline("Olve.Pipelines v2");
+        var version = d.AddVersion(pipeline.Id);
+        var promotedRun = d.CreateRun(version);
+        var promoted = d.Schedule("publish-cli", promotedRun);
+        await Assert.That(d.AttemptService.MarkSucceeded(promoted.Id)).Succeeded();
+        await Assert.That(d.AttemptService.MarkSucceeded(d.Schedule("promote", promotedRun).Id)).Succeeded();
+        var prerelease = d.Schedule("publish-cli", d.CreateRun(version));
+        await Assert.That(d.AttemptService.MarkSucceeded(prerelease.Id)).Succeeded();
+        var query = new CliReleaseQuery(new DistributionOptions("Olve.Pipelines v2", "publish-cli", "promote"), d.PipelineService, d.Query);
+
+        await Assert.That(query.TryGetLatest(out var served)).IsTrue();
+        await Assert.That(served!.Id).IsEqualTo(promoted.Id);
+        await Assert.That(Query(d, "Olve.Pipelines v2").TryGetLatest(out var unpromoted)).IsTrue();
+        await Assert.That(unpromoted!.Id).IsEqualTo(prerelease.Id);
+        var options = DistributionOptions.From(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Distribution:CliPromotedBy"] = "promote" }).Build());
+        await Assert.That(options.CliPromotedBy).IsEqualTo("promote");
+    }
+
+    [Test]
     public async Task Options_DefaultStep_AndUnsetPipeline()
     {
         var empty = DistributionOptions.From(new ConfigurationBuilder().Build());

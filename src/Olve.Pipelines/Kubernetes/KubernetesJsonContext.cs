@@ -31,7 +31,8 @@ public record K8sPodSpec(
     [property: JsonPropertyName("runtimeClassName")] string? RuntimeClassName = null,
     [property: JsonPropertyName("securityContext")] K8sPodSecurityContext? SecurityContext = null,
     [property: JsonPropertyName("automountServiceAccountToken"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? AutomountServiceAccountToken = null,
-    [property: JsonPropertyName("enableServiceLinks"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? EnableServiceLinks = null);
+    [property: JsonPropertyName("enableServiceLinks"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? EnableServiceLinks = null,
+    [property: JsonPropertyName("serviceAccountName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ServiceAccountName = null);
 
 public record K8sPodSecurityContext(
     [property: JsonPropertyName("seccompProfile")] K8sSeccompProfile? SeccompProfile = null);

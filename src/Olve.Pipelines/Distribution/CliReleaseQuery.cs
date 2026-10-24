@@ -9,17 +9,21 @@ namespace Olve.Pipelines.Distribution;
 /// <see cref="CliStep"/> in the pipeline named (or with the id) <see cref="CliPipeline"/>. Unset → nothing is
 /// served. It is one configured pipeline, never "any pipeline with a publish-cli step": the download route is
 /// anonymous, so any repo bound on the instance could otherwise serve its own binary as <c>pl</c>.
+/// With <see cref="CliPromotedBy"/> set, only a run in which that step also succeeded counts (a release
+/// published before the deploy it ships with is served once the run is promoted).
 /// </summary>
-public sealed record DistributionOptions(string? CliPipeline, string CliStep = "publish-cli")
+public sealed record DistributionOptions(string? CliPipeline, string CliStep = "publish-cli", string? CliPromotedBy = null)
 {
     public static DistributionOptions From(IConfiguration configuration)
     {
         var s = configuration.GetSection("Distribution");
         var pipeline = s["CliPipeline"];
         var step = s["CliStep"];
+        var promotedBy = s["CliPromotedBy"];
         return new DistributionOptions(
             string.IsNullOrWhiteSpace(pipeline) ? null : pipeline.Trim(),
-            string.IsNullOrWhiteSpace(step) ? "publish-cli" : step.Trim());
+            string.IsNullOrWhiteSpace(step) ? "publish-cli" : step.Trim(),
+            string.IsNullOrWhiteSpace(promotedBy) ? null : promotedBy.Trim());
     }
 }
 
@@ -35,7 +39,7 @@ public class CliReleaseQuery(DistributionOptions options, PipelineService pipeli
         attempt = null;
         return options.CliPipeline is { } configured
                && ResolvePipeline(configured) is { } pipeline
-               && runs.TryGetLatestSucceededAcrossRuns(pipeline.Id, options.CliStep, out attempt);
+               && runs.TryGetLatestSucceededAcrossRuns(pipeline.Id, options.CliStep, out attempt, options.CliPromotedBy);
     }
 
     /// <summary>By id, else by exact name — only when exactly one pipeline has it.</summary>

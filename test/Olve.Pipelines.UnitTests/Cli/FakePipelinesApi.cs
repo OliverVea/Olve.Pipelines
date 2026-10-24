@@ -70,6 +70,32 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct) =>
         Record(ListActiveAttemptsResult, nameof(ListActiveAttempts));
 
+    // Config
+    public Result<ConfigDocument>? GetPipelineConfigResult { get; set; }
+    public Result<ConfigSaveResponse>? SetPipelineConfigResult { get; set; }
+    public Result<ConfigSnapshotInfo[]>? ListPipelineConfigSnapshotsResult { get; set; }
+    public Result<ConfigSaveResponse>? RollbackPipelineConfigResult { get; set; }
+    public Result<ConfigCheckResponse>? CheckPipelineConfigResult { get; set; }
+    public string? LastConfigYaml { get; private set; }
+
+    public Task<Result<ConfigDocument>> GetPipelineConfig(string pipelineId, int? snapshot, CancellationToken ct) =>
+        Record(GetPipelineConfigResult, $"{nameof(GetPipelineConfig)}({snapshot})");
+
+    public Task<Result<ConfigSaveResponse>> SetPipelineConfig(string pipelineId, string yaml, CancellationToken ct)
+    {
+        LastConfigYaml = yaml;
+        return Record(SetPipelineConfigResult, nameof(SetPipelineConfig));
+    }
+
+    public Task<Result<ConfigSnapshotInfo[]>> ListPipelineConfigSnapshots(string pipelineId, CancellationToken ct) =>
+        Record(ListPipelineConfigSnapshotsResult, nameof(ListPipelineConfigSnapshots));
+
+    public Task<Result<ConfigSaveResponse>> RollbackPipelineConfig(string pipelineId, int snapshot, CancellationToken ct) =>
+        Record(RollbackPipelineConfigResult, $"{nameof(RollbackPipelineConfig)}({snapshot})");
+
+    public Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct) =>
+        Record(CheckPipelineConfigResult, $"{nameof(CheckPipelineConfig)}({version})");
+
     // Secrets
     public Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
         Record(ListSecretsResult, nameof(ListSecrets));
@@ -113,9 +139,9 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(CopySecretsResult, nameof(CopySecrets));
     }
 
-    public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct)
+    public Task<Result> DeleteSecret(string pipelineId, string name, bool force, CancellationToken ct)
     {
-        Calls.Add($"{nameof(DeleteSecret)}({name})");
+        Calls.Add($"{nameof(DeleteSecret)}({name}{(force ? ", force" : "")})");
         return Task.FromResult(
             DeleteSecretResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(DeleteSecret)}' called but not configured."));
     }

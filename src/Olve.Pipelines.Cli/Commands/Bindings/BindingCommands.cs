@@ -176,6 +176,8 @@ internal static class BindingPrinter
         output.Line($"  commit:    {s.ReconcileSha ?? "(none)"}{(s.ReconcileInProgress ? " (in progress)" : "")}");
         output.Line($"  version:   {(s.ReconciledVersion is { } v ? $"v{v}" : "(none)")}");
         output.Line($"Active:      {s.Activation?.ToString() ?? "(no version)"}");
+        if (s.Pending is { } pending)
+            output.Line($"Pending:     {pending.Describe()}");
         output.Line($"Last push:   {s.LastPushSha ?? "(none)"}");
         output.Line($"Reconciled:  {s.LastReconciledSha ?? "(none)"}");
 

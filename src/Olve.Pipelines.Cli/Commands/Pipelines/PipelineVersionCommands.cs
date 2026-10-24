@@ -160,6 +160,8 @@ public sealed class PipelineHealthCommand : ICliCommand
         {
             ctx.Output.Line($"status:      {h.Status}");
             ctx.Output.Line($"activation:  {h.Activation?.ToString() ?? "none"}");
+            if (h.Pending is { } pending)
+                ctx.Output.Line($"pending:     {pending.Describe()}");
             ctx.Output.Line($"last run:    {(h.LastRun is { } l ? $"#{l.Number} {l.Status} ({Time(l.CreatedAt)})" : "-")}");
             ctx.Output.Line($"settled:     {(h.LastSettledRun is { } s ? $"#{s.Number} {s.Status} ({Time(s.FinishedAt)})" : "-")}");
             ctx.Output.Line($"running:     {h.RunningRuns}");

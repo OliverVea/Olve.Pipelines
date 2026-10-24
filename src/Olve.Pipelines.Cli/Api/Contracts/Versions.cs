@@ -75,6 +75,7 @@ public sealed class PipelineHealth
     public bool Draining { get; set; }
     public string[] BlockedSteps { get; set; } = [];
     public RunSummary[] HeldRuns { get; set; } = [];
+    public PendingVersionInfo? Pending { get; set; }
 }
 
 /// <summary><c>POST /api/manifests/validate</c> verdict (always 200).</summary>

@@ -156,9 +156,11 @@ public sealed class RunGetCommand : ICliCommand
     {
         var r = d.Run;
         o.Line($"{RunAddress.Format(label, r.Number)}  {r.Status}");
-        o.Line($"version:   v{r.VersionNumber} · {r.VersionStamp} · commit {Short(d.CommitSha)}");
+        o.Line($"version:   v{r.VersionNumber}{(r.ConfigSnapshot is { } c ? $", config #{c}" : "")} · {r.VersionStamp} · commit {Short(d.CommitSha)}");
         o.Line($"trigger:   {r.TriggerKind} · created {Time(r.CreatedAt)} · finished {Time(r.FinishedAt)} · took {Duration(r.CreatedAt, r.FinishedAt)}");
         o.Line($"input:     {Json(d.Input)}");
+        if (d.Config is { } config)
+            o.Line($"config:    {config}");
         if (RunListCommand.Note(r) is { Length: > 0 } note)
             o.Line($"note:      {note}");
         o.Line($"continue:  {(d.Continuable ? "possible" : "no (not on the active version, or superseded)")}");

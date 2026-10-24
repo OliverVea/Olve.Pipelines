@@ -3,6 +3,7 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Attempts;
 using Olve.Pipelines.Cli.Commands.Bindings;
+using Olve.Pipelines.Cli.Commands.Config;
 using Olve.Pipelines.Cli.Commands.Dev;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Profiles;
@@ -85,6 +86,13 @@ public sealed class CliDispatcher
         Register(new SecretSetCommand());
         Register(new SecretDeleteCommand());
         Register(new SecretCopyCommand());
+
+        // Config
+        Register(new ConfigGetCommand());
+        Register(new ConfigSetCommand());
+        Register(new ConfigHistoryCommand());
+        Register(new ConfigRollbackCommand());
+        Register(new ConfigCheckCommand());
 
         // binding
         Register(new BindingCreateCommand());

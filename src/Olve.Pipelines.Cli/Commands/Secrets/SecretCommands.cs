@@ -160,11 +160,18 @@ public sealed class SecretSetCommand : ICliCommand
 /// <summary><c>pl secret delete &lt;pipeline&gt; &lt;name&gt;</c> — remove a secret from a pipeline.</summary>
 public sealed class SecretDeleteCommand : ICliCommand
 {
+    public IReadOnlySet<string> BooleanFlags { get; } = CliCommand.Options("force");
     public string Noun => "secret";
     public string Verb => "delete";
     public int RequiredOperands => 2;
     public string HelpLine => "Delete a secret by name";
-    public string? HelpDetail => "pl secret delete <pipeline> <name>";
+    public string? HelpDetail =>
+        """
+        pl secret delete <pipeline> <name> [--force]
+
+          A secret the current config references (a secretRef) is only deleted with --force; new
+          runs then wait until it is set again.
+        """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
@@ -173,7 +180,7 @@ public sealed class SecretDeleteCommand : ICliCommand
         var pipelineId = pipeline.Id.ToString();
         var name = cli.Operand(1)!;
 
-        if ((await ctx.Api.DeleteSecret(pipelineId, name, ct)).TryPickProblems(out var problems))
+        if ((await ctx.Api.DeleteSecret(pipelineId, name, cli.HasFlag("force"), ct)).TryPickProblems(out var problems))
             return problems;
 
         if (!ctx.Output.IsJson)

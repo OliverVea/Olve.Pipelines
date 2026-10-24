@@ -362,7 +362,9 @@ public sealed class WaitReconcileCommand : ICliCommand
                 return statusProblems;
             bool Is(string? s) => s?.StartsWith(sha, StringComparison.OrdinalIgnoreCase) == true;
             if (Is(b.LastReconciledSha) && b.Result == ReconcileResult.Success)
-                return new WaitCheck.Done($"{pipeline.Label}: {Short(b.LastReconciledSha)} applied (v{b.ReconciledVersion})", true);
+                return new WaitCheck.Done(b.Pending is { Held: false } pending && pending.Version == b.ReconciledVersion
+                    ? $"{pipeline.Label}: {Short(b.LastReconciledSha)} applied; {pending.Describe()}"
+                    : $"{pipeline.Label}: {Short(b.LastReconciledSha)} applied (v{b.ReconciledVersion})", true);
             if (Is(b.ReconcileSha) && b.Result == ReconcileResult.Error && !b.ReconcileInProgress)
                 return new WaitCheck.Done($"{pipeline.Label}: reconcile of {Short(b.ReconcileSha)} failed: {string.Join("; ", b.Problems)}", false);
             return new WaitCheck.Pending(b.ReconcileInProgress

@@ -32,13 +32,20 @@ public interface IPipelinesApi
     // Mutations
     Task<Result> DeletePipeline(string id, CancellationToken ct);
     Task<Result> SetSecret(string pipelineId, string name, string value, CancellationToken ct);
-    Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct);
+    Task<Result> DeleteSecret(string pipelineId, string name, bool force, CancellationToken ct);
     Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
         string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> UpdatePipelineBindingCredentials(
         string pipelineId, string? credentialsSecret, CancellationToken ct);
     Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct);
+
+    // Config (one YAML document per pipeline, saved as snapshots)
+    Task<Result<ConfigDocument>> GetPipelineConfig(string pipelineId, int? snapshot, CancellationToken ct);
+    Task<Result<ConfigSaveResponse>> SetPipelineConfig(string pipelineId, string yaml, CancellationToken ct);
+    Task<Result<ConfigSnapshotInfo[]>> ListPipelineConfigSnapshots(string pipelineId, CancellationToken ct);
+    Task<Result<ConfigSaveResponse>> RollbackPipelineConfig(string pipelineId, int snapshot, CancellationToken ct);
+    Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct);
 
     // Runs (v2, spec §5) — pipelineId is always the resolved id; runs are addressed by number.
     Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct);

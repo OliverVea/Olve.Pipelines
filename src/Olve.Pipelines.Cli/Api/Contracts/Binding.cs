@@ -54,6 +54,7 @@ public sealed class PipelineBindingStatus
     public bool ReconcileInProgress { get; set; }
     public int? ReconciledVersion { get; set; }
     public PipelineActivation? Activation { get; set; }
+    public PendingVersionInfo? Pending { get; set; }
 }
 
 /// <summary>Body for <c>POST /api/pipelines/with-repo</c> — create a pipeline already bound to a repo.</summary>

@@ -50,8 +50,26 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.SendAsync(HttpMethod.Put, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}",
             ApiTransport.JsonBody(new SetSecretRequest { Value = value }, CliJsonContext.Default.SetSecretRequest), ct);
 
-    public Task<Result> DeleteSecret(string pipelineId, string name, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}", body: null, ct);
+    public Task<Result> DeleteSecret(string pipelineId, string name, bool force, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Delete, $"/api/pipelines/{Enc(pipelineId)}/secrets/{Enc(name)}{(force ? "?force=true" : "")}", body: null, ct);
+
+    // Config
+    public Task<Result<ConfigDocument>> GetPipelineConfig(string pipelineId, int? snapshot, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/config{(snapshot is { } n ? $"?snapshot={n}" : "")}", CliJsonContext.Default.ConfigDocument, ct);
+
+    public Task<Result<ConfigSaveResponse>> SetPipelineConfig(string pipelineId, string yaml, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Put, $"/api/pipelines/{Enc(pipelineId)}/config",
+            ApiTransport.JsonBody(new SetConfigRequest { Yaml = yaml }, CliJsonContext.Default.SetConfigRequest), CliJsonContext.Default.ConfigSaveResponse, ct);
+
+    public Task<Result<ConfigSnapshotInfo[]>> ListPipelineConfigSnapshots(string pipelineId, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/config/history", CliJsonContext.Default.ConfigSnapshotInfoArray, ct);
+
+    public Task<Result<ConfigSaveResponse>> RollbackPipelineConfig(string pipelineId, int snapshot, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/config/rollback",
+            ApiTransport.JsonBody(new RollbackConfigRequest { Snapshot = snapshot }, CliJsonContext.Default.RollbackConfigRequest), CliJsonContext.Default.ConfigSaveResponse, ct);
+
+    public Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/config/check{(version is { } v ? $"?version={v}" : "")}", CliJsonContext.Default.ConfigCheckResponse, ct);
 
     public Task<Result<CopySecretsResponse>> CopySecrets(string targetPipelineId, CopySecretsRequest request, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(targetPipelineId)}/secrets/copy",

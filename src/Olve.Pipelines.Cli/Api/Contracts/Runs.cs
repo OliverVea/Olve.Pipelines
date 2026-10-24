@@ -20,6 +20,7 @@ public sealed class RunSummary
     public string? HeldAt { get; set; }
     public int? SupersededByNumber { get; set; }
     public int? RerunOfNumber { get; set; }
+    public int? ConfigSnapshot { get; set; }
 }
 
 public sealed class PageOfRunSummary
@@ -63,6 +64,8 @@ public sealed class RunDetail
     public JsonElement Input { get; set; }
     public bool Continuable { get; set; }
     public RunStageView[] Stages { get; set; } = [];
+    /// <summary>The run's effective config (JSON text); null when its version declares none.</summary>
+    public string? Config { get; set; }
 }
 
 public sealed class RunStageView

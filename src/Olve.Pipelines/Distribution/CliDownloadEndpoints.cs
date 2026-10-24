@@ -51,6 +51,11 @@ public static class CliDownloadEndpoints
                 http.Response.Headers.ContentDisposition = $"attachment; filename=\"{asset}\"";
                 return HttpResults.File(local, "application/octet-stream");
             }
+            if (LocalBuildPending(services.GetRequiredService<IConfiguration>(), asset))
+            {
+                http.Response.Headers.RetryAfter = "60";
+                return HttpResults.Text(StillBuildingMessage + "\n","text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
 
             // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation /
             // no-storage profiles), so resolve optionally and degrade to 503 instead of a DI failure.
@@ -100,8 +105,17 @@ public static class CliDownloadEndpoints
             .WithName("CliInstallScriptWindows");
     }
 
+    internal const string StillBuildingMessage = "pl is still being built on this instance; try again in a few minutes.";
+
     private static IResult InstallScript(HttpContext http, IConfiguration config, string name, string contentType)
     {
+        // Piped into a shell, so answer with a script that says why instead of an error status curl -f hides.
+        var windows = name.EndsWith(".ps1", StringComparison.Ordinal);
+        if (LocalBuildPending(config, windows ? "pl-win-x64.exe" : "pl-linux-x64"))
+            return HttpResults.Text(
+                windows ? $"Write-Error '{StillBuildingMessage}'\nexit 1\n" : $"#!/bin/sh\necho '{StillBuildingMessage}' >&2\nexit 1\n",
+                contentType);
+
         var path = Path.Combine(AppContext.BaseDirectory, name);
         if (!File.Exists(path))
             return HttpResults.NotFound();
@@ -126,6 +140,10 @@ public static class CliDownloadEndpoints
         var path = Path.Combine(dir, asset);
         return File.Exists(path) ? path : null;
     }
+
+    /// <summary>The local build directory is configured but does not have <paramref name="asset"/> yet.</summary>
+    internal static bool LocalBuildPending(IConfiguration config, string asset)
+        => !string.IsNullOrWhiteSpace(config["Distribution:LocalDirectory"]) && LocalAsset(config, asset) is null;
 
     /// <summary><c>Links:BaseUrl</c> (the public URL), else the request's own origin.</summary>
     internal static string InstanceBaseUrl(HttpContext http, IConfiguration config)

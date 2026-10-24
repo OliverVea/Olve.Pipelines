@@ -459,7 +459,9 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
 - **The step pods' init image.** `harness-build` builds it from `harness/base` with kaniko and
   pushes it to a password-protected local `registry:2`. k3s pulls it from there over plain HTTP.
 - **`pl`.** `pl-build` builds it from source, and the server serves it at `/download`, so
-  `curl -fsSL http://localhost:5080/install.sh | sh` works.
+  `curl -fsSL http://localhost:5080/install.sh | sh` works. The server doesn't wait for it: until the
+  build lands (several minutes of AOT compiling), `/download` answers 503 and `install.sh` exits
+  with "pl is still being built".
 - **Dex** for login, at <http://localhost:5556/dex>. The test user is `dev@example.com` with
   password `password`.
 

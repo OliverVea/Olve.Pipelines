@@ -80,8 +80,6 @@ services:
         condition: service_completed_successfully
       harness-build:
         condition: service_completed_successfully
-      pl-build:
-        condition: service_completed_successfully
 
   dex:
     image: dexidp/dex:v2.43.1
@@ -140,7 +138,8 @@ services:
     depends_on:
       - registry
 
-  # One-shot: build pl from source for /download and /install.sh.
+  # One-shot: build pl from source for /download and /install.sh. The server doesn't wait for it (minutes
+  # of AOT compiling); until it lands, those answer "pl is still being built".
   pl-build:
     image: mcr.microsoft.com/dotnet/sdk:10.0-noble-aot
     entrypoint: ["/bin/sh", "/repo/compose/pl-build.sh"]

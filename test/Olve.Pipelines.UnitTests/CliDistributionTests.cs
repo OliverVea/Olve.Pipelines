@@ -111,5 +111,8 @@ public class CliDistributionTests
         await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-linux-x64")).IsEqualTo(Path.Combine(dir, "pl-linux-x64"));
         await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-win-x64.exe")).IsNull();
         await Assert.That(CliDownloadEndpoints.LocalAsset(new ConfigurationBuilder().Build(), "pl-linux-x64")).IsNull();
+        await Assert.That(CliDownloadEndpoints.LocalBuildPending(local, "pl-linux-x64")).IsFalse();
+        await Assert.That(CliDownloadEndpoints.LocalBuildPending(local, "pl-win-x64.exe")).IsTrue();
+        await Assert.That(CliDownloadEndpoints.LocalBuildPending(new ConfigurationBuilder().Build(), "pl-win-x64.exe")).IsFalse();
     }
 }

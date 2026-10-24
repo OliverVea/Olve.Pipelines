@@ -421,6 +421,13 @@ What step 5 built, and where it differs from §9 and §11.
   `publish-sdk` fails when the version is already on npm with different content (it used to skip,
   so a change without a version bump never shipped: npm's 2.0.0-beta.3 is an earlier tree than the
   last commit that carried that version).
+- **`pl` on GitHub Releases (2026-10-24).** With `publish.cli.github.enabled`, `promote` creates the
+  release `v<version>` on the run's commit with `pl-linux-x64` and `pl-win-x64.exe` (the files
+  `/download` serves, not rebuilt), using `GITHUB_RELEASE_TOKEN`. The repo's install scripts fetch
+  GitHub's latest release; served by an instance they fetch that instance's `pl` (the server
+  replaces the `__OLVE_INSTANCE__` placeholder). Releases are full releases, not prereleases, since
+  GitHub's `releases/latest` skips prereleases. Instance serving stays for now: it is the `pl` that
+  matches the instance's API, and the compose stack's local build.
 - **The chart** maps `auth.mode` and `telemetry` onto `Auth__*`/`OpenTelemetry__*` in a helper that
   merges them into `config` before rendering, so unchanged values files render identically.
   `mode: none` sets `Auth__Disable=true`. `image.digest` pins the server image.

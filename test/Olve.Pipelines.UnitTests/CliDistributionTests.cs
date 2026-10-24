@@ -88,7 +88,7 @@ public class CliDistributionTests
         foreach (var name in new[] { "install.sh", "install.ps1" })
         {
             var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, name));
-            // The rewrite anchors on the one default; it must exist exactly once (the BASE assignment).
+            // The rewrite anchors on the one placeholder; it must exist exactly once (the INSTANCE assignment).
             await Assert.That(script.Split(CliDownloadEndpoints.ScriptDefaultBaseUrl).Length - 1).IsEqualTo(1);
 
             var rewritten = CliDownloadEndpoints.RewriteDefaultBaseUrl(script, "https://pipelines-v2-beta.ovea.pro");

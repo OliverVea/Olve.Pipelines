@@ -13,7 +13,7 @@ Released images are public: the server at `ghcr.io/olivervea/olve-pipelines` (`l
 and one tag per release, e.g. `2026.10.24.59`) and the step pods' init image at
 `ghcr.io/olivervea/olve-pipelines-harness-base`. The chart defaults to the server's `latest`.
 
-`pl bootstrap`, run from a checkout of the repo, installs the chart's minimal profile: the server
+`pl bootstrap` (`pl` from the latest [release](cli.md#installing)), run from a checkout of the repo, installs the chart's minimal profile: the server
 and its Garage, with no ingress and auth off. It is idempotent, and `pl teardown` removes it (the
 Garage data is kept unless `--purge-data`).
 

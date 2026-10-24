@@ -2,7 +2,7 @@
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
 import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
-import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
+import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_RELEASE_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
 export * from "./config";
@@ -133,11 +133,11 @@ export const betaTest = step({
 
 export const promote = step({
   name: "promote",
-  description: "Moves the release tags to this run's artifacts, here and in the release repositories: the image digests and the npm version (no rebuild).",
+  description: "Moves the release tags to this run's artifacts, here and in the release repositories: the image digests, the npm version and a GitHub release with pl (no rebuild).",
   image: CRANE_IMAGE,
-  input: { server: PushedImage, harness: optional(PushedImage), sdk: optional(M.SdkRelease) },
-  config: [PUBLISH],
-  secrets: [NPM_TOKEN, ...REGISTRY_SECRETS],
+  input: { source: Source, server: PushedImage, harness: optional(PushedImage), sdk: optional(M.SdkRelease), cli: optional(M.CliRelease) },
+  config: [PUBLISH, SOURCE],
+  secrets: [NPM_TOKEN, GITHUB_RELEASE_TOKEN, ...REGISTRY_SECRETS],
   timeoutSeconds: 300,
 });
 
@@ -185,4 +185,4 @@ export default pipeline({
         from => ({ image: from["build-server"] }),
       ]),
     })
-    .stage([promote, from => ({ server: from["build-server"], harness: from["build-harness"], sdk: from["publish-sdk"] })]));
+    .stage([promote, from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"], sdk: from["publish-sdk"], cli: from["publish-cli"] })]));

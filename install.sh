@@ -1,17 +1,15 @@
 #!/bin/sh
 # Install the `pl` operator CLI on Linux.
 #
-#   curl -fsSL https://<instance>/install.sh | sh
+#   curl -fsSL https://<instance>/install.sh | sh                                                    # the instance's pl
+#   curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh          # the latest release
 #
-# Downloads the latest pl binary from an Olve.Pipelines instance (served anonymously at
-# /download/pl-linux-x64) and drops it on your PATH. Fetched from an instance, the default
-# below is that instance (the app rewrites it when serving this script); fetched from the repo,
-# it is v1 prod over Tailscale. Override the instance with PL_API_URL and the target dir with
-# PL_INSTALL_DIR.
+# Served by an instance, it installs the pl that instance was deployed with (/download/pl-linux-x64);
+# from the repo, the latest GitHub release. PL_API_URL picks an instance, PL_INSTALL_DIR the target dir.
 set -e
 
-BASE="${PL_API_URL:-https://pipelines-private.ovea.pro}"
-BASE="${BASE%/}"
+INSTANCE="__OLVE_INSTANCE__"
+RELEASES="https://github.com/OliverVea/Olve.Pipelines/releases/latest/download"
 DEST="${PL_INSTALL_DIR:-$HOME/.local/bin}"
 
 arch=$(uname -m)
@@ -20,10 +18,18 @@ case "$arch" in
   *) echo "Unsupported architecture: $arch (only linux x86_64 is published)" >&2; exit 1 ;;
 esac
 
+if [ -n "$PL_API_URL" ]; then BASE="${PL_API_URL%/}"; URL="$BASE/download/$asset"
+else
+  case "$INSTANCE" in
+    __OLVE*) BASE=""; URL="$RELEASES/$asset" ;;
+    *) BASE="${INSTANCE%/}"; URL="$BASE/download/$asset" ;;
+  esac
+fi
+
 mkdir -p "$DEST"
-echo "Downloading $asset from $BASE ..."
+echo "Downloading $URL ..."
 # Download next to the target and move into place, so a failed download never leaves a broken pl.
-curl -fsSL "$BASE/download/$asset" -o "$DEST/pl.download"
+curl -fsSL "$URL" -o "$DEST/pl.download"
 chmod +x "$DEST/pl.download"
 mv -f "$DEST/pl.download" "$DEST/pl"
 echo "Installed $("$DEST/pl" --version 2>/dev/null || echo pl) to $DEST/pl"
@@ -33,5 +39,4 @@ case ":$PATH:" in
   *) echo "Note: $DEST is not on your PATH — add it, e.g. export PATH=\"$DEST:\$PATH\"" ;;
 esac
 
-# pl's built-in default instance is v1 prod; `pl login --api-url` saves this one in ~/.pl.
-echo "Next: pl login --api-url $BASE"
+echo "Next: pl login --api-url ${BASE:-https://<instance>}"

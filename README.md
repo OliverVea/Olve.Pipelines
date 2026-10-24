@@ -17,6 +17,17 @@ export default pipeline({ name: "my-app", input: M.DeployRequest })
 This repo deploys itself with it: [`.pipelines/`](.pipelines) builds every component once, deploys
 beta, smoke-tests it, deploys prod and promotes the same artifacts.
 
+## Install `pl`
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh   # Linux, to ~/.local/bin/pl
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.ps1 | iex          # Windows
+```
+
+That installs the latest [release](https://github.com/OliverVea/Olve.Pipelines/releases). An
+instance also serves the `pl` it was deployed with: `curl -fsSL https://<instance>/install.sh | sh`.
+Then `pl login --api-url https://<instance>` (add `--device` over SSH).
+
 ## Get an instance
 
 An instance is the server, its own storage (Garage) and a Kubernetes namespace it runs Jobs in.
@@ -40,19 +51,6 @@ pl bootstrap -n <namespace> --chart helm          # --image-tag <version> pins a
 ```
 
 Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hosting.md).
-
-## Install `pl`
-
-Every instance serves the `pl` CLI it was deployed with:
-
-```bash
-curl -fsSL https://<instance>/install.sh | sh     # Linux, to ~/.local/bin/pl
-irm https://<instance>/install.ps1 | iex          # Windows
-pl login --api-url https://<instance>             # add --device over SSH
-```
-
-Before you have an instance (for `pl bootstrap`), build it from source:
-`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
 
 ## Adding CD to your repo
 

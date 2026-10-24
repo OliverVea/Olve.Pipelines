@@ -33,7 +33,7 @@ public static class CliDownloadEndpoints
     };
 
     /// <summary>The default instance written in <c>install.sh</c> / <c>install.ps1</c> (v1 prod over Tailscale).</summary>
-    internal const string ScriptDefaultBaseUrl = "https://pipelines-private.ovea.pro";
+    internal const string ScriptDefaultBaseUrl = "__OLVE_INSTANCE__";
 
     public static void MapCliDownloadEndpoints(this WebApplication app)
     {

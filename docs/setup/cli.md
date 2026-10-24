@@ -6,19 +6,26 @@
 
 ## Installing
 
-Every instance serves the `pl` it was deployed with. Install it from the instance you use:
+Each release of Olve.Pipelines attaches `pl` to its
+[GitHub release](https://github.com/OliverVea/Olve.Pipelines/releases); the install scripts in the repo
+fetch the latest one:
 
 ```bash
-curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | sh   # to ~/.local/bin/pl (PL_INSTALL_DIR overrides)
-pl --version                                                       # the publishing run's version stamp
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh   # to ~/.local/bin/pl (PL_INSTALL_DIR overrides)
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.ps1 | iex          # Windows
+pl --version                                                                               # the release's version stamp
+```
+
+Every instance also serves the `pl` it was deployed with, which always matches its API: the same
+scripts from the instance (`curl -fsSL https://<instance>/install.sh | sh`), or the binaries alone at
+`/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
+`PL_API_URL` makes the repo's script fetch from an instance. From source:
+`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
+
+```bash
 pl login --api-url https://pipelines-v2-private.ovea.pro           # profile 'default'; add --device over SSH
 pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
 ```
-
-Windows: `irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex`. The binaries alone:
-`/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
-`PL_API_URL` / `PL_INSTALL_DIR` override the script's defaults. From source:
-`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
 
 `pl login` caches the token and the API URL in a **profile** of `~/.pl` (or `$PIPELINES_CONFIG`):
 `default`, or the one named by `--profile <name>` / `PIPELINES_PROFILE`. Every command uses the

@@ -53,7 +53,13 @@ export type ManifestStep = {
 
 export type StepsStage = { steps: ManifestStep[] };
 export type WhenStage = { when: Record<string, unknown[]>; stages: Stage[] };
-export type Stage = StepsStage | WhenStage;
+/** A branch on config: the case named by the config value at `select.discriminator` runs. */
+export type SelectStage = {
+  select: string;
+  discriminator: string;
+  cases: Record<string, Stage[]>;
+};
+export type Stage = StepsStage | WhenStage | SelectStage;
 
 export type Trigger = {
   kind: 'push' | 'poll' | string;
@@ -92,14 +98,25 @@ export function isWhen(stage: Stage): stage is WhenStage {
   return 'when' in stage && 'stages' in stage;
 }
 
-/** Every step in manifest order. */
+export function isSelect(stage: Stage): stage is SelectStage {
+  return 'select' in stage && 'cases' in stage;
+}
+
+/** Every step in manifest order (every case of a select). */
 export function allSteps(stages: Stage[]): ManifestStep[] {
   const out: ManifestStep[] = [];
   for (const s of stages) {
     if (isWhen(s)) out.push(...allSteps(s.stages));
+    else if (isSelect(s))
+      for (const c of Object.values(s.cases)) out.push(...allSteps(c));
     else out.push(...s.steps);
   }
   return out;
+}
+
+/** "target.prod.kind = ssh" */
+export function formatCase(stage: SelectStage, value: string): string {
+  return `${stage.select}.${stage.discriminator} = ${value}`;
 }
 
 /** Steps of the manifest keyed by name. */

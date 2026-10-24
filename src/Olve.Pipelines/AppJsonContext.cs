@@ -42,6 +42,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<AttemptOutputResponse>))]
 [JsonSerializable(typeof(Result<PipelineVersionsResponse>))]
 [JsonSerializable(typeof(Result<PipelineVersion>))]
+[JsonSerializable(typeof(Result<EffectivePipelineResponse>))]
 [JsonSerializable(typeof(Result<PipelineActivation>))]
 [JsonSerializable(typeof(SwitchVersionRequest))]
 [JsonSerializable(typeof(PipelineConfigBinding))]

@@ -238,6 +238,20 @@ public static class ManifestParser
         }
     }
 
+    private static IReadOnlyList<ManifestStage>? ParseStageList(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Expect(e, JsonValueKind.Array, path, "an array")) return null;
+        var list = new List<ManifestStage>();
+        var ok = true;
+        var i = 0;
+        foreach (var x in e.EnumerateArray())
+        {
+            if (ParseStage(ctx, x, $"{path}[{i++}]") is { } stage) list.Add(stage);
+            else ok = false;
+        }
+        return ok ? list : null;
+    }
+
     private static ManifestStage? ParseStage(Ctx ctx, JsonElement e, string path)
     {
         if (!ctx.Expect(e, JsonValueKind.Object, path, "an object")) return null;
@@ -260,7 +274,15 @@ public static class ManifestParser
             var stages = ctx.Array(e, "stages", path, (v, sp) => ParseStage(ctx, v, sp));
             return when is null || stages is null ? null : new WhenStage(when, stages);
         }
-        ctx.Error(ManifestIssueCodes.MissingProperty, path, "a stage is either {steps} or {when, stages}");
+        if (e.TryGetProperty("select", out _))
+        {
+            if (!ctx.Object(e, path, ["select", "discriminator", "cases"], [])) return null;
+            var select = ctx.String(e, "select", path);
+            var discriminator = ctx.String(e, "discriminator", path);
+            var cases = ctx.Dictionary(e, "cases", path, (v, cp) => ParseStageList(ctx, v, cp));
+            return select is null || discriminator is null || cases is null ? null : new SelectStage(select, discriminator, cases);
+        }
+        ctx.Error(ManifestIssueCodes.MissingProperty, path, "a stage is {steps}, {when, stages} or {select, discriminator, cases}");
         return null;
     }
 

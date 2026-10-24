@@ -93,6 +93,10 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<ConfigSaveResponse>> RollbackPipelineConfig(string pipelineId, int snapshot, CancellationToken ct) =>
         Record(RollbackPipelineConfigResult, $"{nameof(RollbackPipelineConfig)}({snapshot})");
 
+    public Result<EffectivePipelineResponse>? GetEffectivePipelineResult { get; set; }
+    public Task<Result<EffectivePipelineResponse>> GetEffectivePipeline(string pipelineId, int version, CancellationToken ct) =>
+        Record(GetEffectivePipelineResult, $"{nameof(GetEffectivePipeline)}({version})");
+
     public Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct) =>
         Record(CheckPipelineConfigResult, $"{nameof(CheckPipelineConfig)}({version})");
 

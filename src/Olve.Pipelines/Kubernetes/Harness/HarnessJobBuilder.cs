@@ -45,6 +45,9 @@ public sealed record HarnessJobRequest(
     string? UrlSecretNameOverride = null,
     bool ClusterAccess = false)
 {
+    /// <summary>The select cases the step sits in (<c>OLVE_CASES</c>): which variant of a same-named step to run.</summary>
+    public IReadOnlyList<string> Cases { get; init; } = [];
+
     /// <summary>Builds the request from an attempt; the step fields come from the pinned manifest.</summary>
     public static HarnessJobRequest ForAttempt(
         Attempt attempt, string versionStamp, string stepImage, long? timeoutSeconds,
@@ -87,12 +90,13 @@ public static partial class HarnessJobBuilder
     public const string InputUrlKey = "OLVE_INPUT_URL";
     public const string ResultUrlKey = "OLVE_RESULT_URL";
     public const string FileUrlsKey = "OLVE_FILE_URLS";
+    public const string CasesKey = "OLVE_CASES";
 
     /// <summary>Env names the service sets itself; a declared secret must not shadow them.</summary>
     private static readonly HashSet<string> ReservedEnv = new(StringComparer.Ordinal)
     {
         "OLVE_DIR", "TMPDIR", "OLVE_PIPELINE", "OLVE_RUN_ID", "OLVE_RUN", "OLVE_ATTEMPT", "OLVE_VERSION_STAMP",
-        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey,
+        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey, CasesKey,
     };
 
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
@@ -149,6 +153,7 @@ public static partial class HarnessJobBuilder
             new("OLVE_ATTEMPT", request.AttemptNumber.ToString(CultureInfo.InvariantCulture)),
             new("OLVE_VERSION_STAMP", request.VersionStamp),
         };
+        if (request.Cases.Count > 0) stepEnv.Add(new K8sEnvVar(CasesKey, HarnessCases.ToJson(request.Cases)));
         if (secretData.ContainsKey(ResultUrlKey)) stepEnv.Add(Url(ResultUrlKey));
         if (secretData.ContainsKey(FileUrlsKey)) stepEnv.Add(Url(FileUrlsKey));
         // Declared secrets only, one secretKeyRef each (key = name) — never envFrom of the whole Secret.

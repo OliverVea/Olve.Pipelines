@@ -1,5 +1,6 @@
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Scheduling;
 
 namespace Olve.Pipelines.Pipelines.Versions;
@@ -22,6 +23,14 @@ public record PipelineVersionSummary(
 public record PipelineVersionsResponse(PipelineActivation? Activation, PipelineVersionSummary[] Versions);
 
 public record SwitchVersionRequest(int Version, bool CancelRunning = false);
+
+/// <summary>
+/// A version as the pipeline's current config makes it run: each <c>select</c> replaced by the case the config picks.
+/// </summary>
+/// <param name="ConfigSnapshot">The config snapshot it was resolved with (null = the pipeline has no config yet).</param>
+/// <param name="Selected">Each select's reference → the case picked.</param>
+/// <param name="Manifest">The effective manifest (canonical JSON): the version's, with selects resolved.</param>
+public record EffectivePipelineResponse(int Version, int? ConfigSnapshot, IReadOnlyDictionary<string, string> Selected, string Manifest);
 
 /// <summary>Minimal versions/switch endpoints for M1 (spec §6). The full API is B8.</summary>
 public static class PipelineVersionEndpoints
@@ -46,6 +55,22 @@ public static class PipelineVersionEndpoints
                     : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
             .WithApiResultMapping<PipelineVersion>()
             .WithName("GetPipelineVersion")
+            .RequireRead();
+
+        // The version with its selects resolved by the current config: what new runs execute.
+        group.MapGet("/{number:int}/effective", Result<EffectivePipelineResponse> (
+                PipelineVersionService versions, RunPlanCache plans, ConfigSnapshotService snapshots, Id<Pipeline> pipelineId, int number) =>
+            {
+                if (!versions.TryGetByNumber(pipelineId, number, out var version))
+                    return new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId);
+                if (plans.ForCurrentConfig(version.Id, snapshots).TryPickProblems(out var problems, out var plan))
+                    return problems.Prepend("The current config does not resolve version {0}'s selects.", number);
+                int? snapshot = snapshots.TryGetLatest(pipelineId, out var latest) ? latest.Number : null;
+                return new EffectivePipelineResponse(number, snapshot, plan.Selected,
+                    ManifestWriter.ToCanonicalJson(plan.Manifest with { Stages = RunPlan.Effective(plan.Manifest.Stages, plan.Selected) }));
+            })
+            .WithApiResultMapping<EffectivePipelineResponse>()
+            .WithName("GetEffectivePipeline")
             .RequireRead();
 
         // Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b). Refused (409, with

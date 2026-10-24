@@ -62,7 +62,7 @@ public class FailureHandlerService(
             return;
         if (!pipelines.TryGet(run.PipelineId, out var pipeline)
             || !versions.TryGet(run.VersionId, out var version)
-            || plans.Get(run.VersionId).TryPickProblems(out _, out var plan))
+            || plans.ForRun(run).TryPickProblems(out _, out var plan))
             return;
         if (plan.Manifest.FailureHandlers.Count == 0)
             return;

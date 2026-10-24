@@ -54,6 +54,9 @@ internal sealed class TestRunDomain
     public EntityStore<ConfigSnapshot> ConfigSnapshotStore { get; }
     public AttachmentStore<Pipeline, PendingVersion> PendingVersions { get; }
     public ConfigSnapshotService ConfigSnapshots { get; }
+
+    /// <summary>Harness settings the gate reads (the step ServiceAccount); tests replace it with <c>with</c>.</summary>
+    public Olve.Pipelines.Kubernetes.Harness.HarnessOptions Harness { get; set; } = new() { StepServiceAccount = "olve-deployer" };
     public ConfigActivationService Gate => Services.GetRequiredService<ConfigActivationService>();
 
     public AttachmentStore<Pipeline, PipelineBlockedSteps> BlockedSteps { get; }
@@ -121,6 +124,7 @@ internal sealed class TestRunDomain
         services.AddSingleton(SchedulingLock);
         services.AddSingleton(Plans);
         services.AddSingleton(ConfigSnapshots);
+        services.AddSingleton(Harness);
         services.AddSingleton(PendingVersions);
         services.AddTransient<ConfigActivationService>();
         services.AddTransient<StepBlockService>();

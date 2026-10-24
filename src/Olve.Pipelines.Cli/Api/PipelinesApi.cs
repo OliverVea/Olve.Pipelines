@@ -68,6 +68,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/config/rollback",
             ApiTransport.JsonBody(new RollbackConfigRequest { Snapshot = snapshot }, CliJsonContext.Default.RollbackConfigRequest), CliJsonContext.Default.ConfigSaveResponse, ct);
 
+    public Task<Result<EffectivePipelineResponse>> GetEffectivePipeline(string pipelineId, int version, CancellationToken ct) =>
+        transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/versions/{version}/effective", CliJsonContext.Default.EffectivePipelineResponse, ct);
+
     public Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(pipelineId)}/config/check{(version is { } v ? $"?version={v}" : "")}", CliJsonContext.Default.ConfigCheckResponse, ct);
 

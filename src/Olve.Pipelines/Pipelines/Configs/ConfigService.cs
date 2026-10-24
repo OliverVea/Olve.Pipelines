@@ -15,6 +15,7 @@ public record ConfigDocument(ConfigSnapshotInfo? Snapshot, string Yaml);
 /// <summary>A config document checked against one version.</summary>
 /// <param name="Satisfied">Valid and every referenced secret set: the version can activate.</param>
 /// <param name="Effective">The effective config (JSON: defaults applied, declared entries only); null when invalid.</param>
+/// <param name="Unmet">What the branches the config selects need and the instance doesn't give (e.g. cluster access).</param>
 public record ConfigCheckResponse(
     int Version,
     bool Valid,
@@ -23,10 +24,11 @@ public record ConfigCheckResponse(
     string[] ReferencedSecrets,
     string[] MissingSecrets,
     ChangedDefault[] ChangedDefaults,
-    string? Effective)
+    string? Effective,
+    string[] Unmet)
 {
     public static ConfigCheckResponse From(ConfigCheck c) => new(c.VersionNumber, c.Valid, c.Satisfied, c.Problems.ToArray(),
-        c.ReferencedSecrets.ToArray(), c.MissingSecrets.ToArray(), c.ChangedDefaults.ToArray(), c.Effective?.ToJsonString());
+        c.ReferencedSecrets.ToArray(), c.MissingSecrets.ToArray(), c.ChangedDefaults.ToArray(), c.Effective?.ToJsonString(), c.Unmet.ToArray());
 }
 
 /// <param name="Active">The saved document checked against the active version (null = no version yet).</param>

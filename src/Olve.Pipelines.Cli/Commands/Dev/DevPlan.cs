@@ -9,7 +9,8 @@ public sealed record PlannedStep(DevStep Step, int Stage, IReadOnlyList<WhenCond
 public static class DevPlan
 {
     /// <summary>All stage steps in order (failure handlers excluded). Stages inside <c>when</c> blocks keep their place.</summary>
-    public static IReadOnlyList<PlannedStep> Flatten(DevManifest manifest)
+    /// <param name="config">The config document: picks each <c>select</c>'s case. Without it every case's steps are listed.</param>
+    public static IReadOnlyList<PlannedStep> Flatten(DevManifest manifest, JsonObject? config = null)
     {
         var result = new List<PlannedStep>();
         var stage = 0;
@@ -29,9 +30,23 @@ public static class DevPlan
                     case DevWhenBlock w:
                         Walk(w.Nodes, [.. conditions, .. w.Conditions]);
                         break;
+                    case DevSelectBlock sel:
+                        var value = SelectedValue(sel, config);
+                        foreach (var (key, caseNodes) in sel.Cases)
+                            if (value is null || key == value)
+                                Walk(caseNodes, conditions);
+                        break;
                 }
             }
         }
+    }
+
+    private static string? SelectedValue(DevSelectBlock select, JsonObject? config)
+    {
+        JsonNode? cur = config;
+        foreach (var seg in select.Select.Split('.').Append(select.Discriminator))
+            cur = cur is JsonObject o && o.TryGetPropertyValue(seg, out var next) ? next : null;
+        return cur is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
     }
 
     /// <summary>

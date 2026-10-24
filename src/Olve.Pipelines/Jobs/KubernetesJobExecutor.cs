@@ -94,7 +94,7 @@ public class KubernetesJobExecutor(
         using (var input = JsonDocument.Parse(launch.InputJson))
         {
             specResult = await factory.CreateStepJobAsync(
-                attempt, launch.Version.BinaryKey, launch.Run.VersionStamp, launch.Step, input.RootElement, ct);
+                attempt, launch.Version.BinaryKey, launch.Run.VersionStamp, launch.Step, input.RootElement, launch.Cases, ct);
         }
 
         if (specResult.TryPickProblems(out var specProblems, out var spec))

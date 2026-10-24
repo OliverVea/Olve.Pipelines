@@ -304,6 +304,10 @@ export interface ConfigCheckResponse extends AdditionalDataHolder, Parsable {
      */
     satisfied?: boolean | null;
     /**
+     * The unmet property
+     */
+    unmet?: string[] | null;
+    /**
      * The valid property
      */
     valid?: boolean | null;
@@ -646,6 +650,24 @@ export function createCopySecretsResponseFromDiscriminatorValue(parseNode: Parse
 // @ts-ignore
 export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoCreatePipelineWithRepoRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EffectivePipelineResponse_selected}
+ */
+// @ts-ignore
+export function createEffectivePipelineResponse_selectedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipelineResponse_selected;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EffectivePipelineResponse}
+ */
+// @ts-ignore
+export function createEffectivePipelineResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipelineResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1298,6 +1320,7 @@ export function deserializeIntoConfigCheckResponse(configCheckResponse: Partial<
         "problems": n => { configCheckResponse.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
         "referencedSecrets": n => { configCheckResponse.referencedSecrets = n.getCollectionOfPrimitiveValues<string>("string"); },
         "satisfied": n => { configCheckResponse.satisfied = n.getBooleanValue(); },
+        "unmet": n => { configCheckResponse.unmet = n.getCollectionOfPrimitiveValues<string>("string"); },
         "valid": n => { configCheckResponse.valid = n.getBooleanValue(); },
         "version": n => { configCheckResponse.version = n.getNumberValue(); },
     }
@@ -1400,6 +1423,30 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
         "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
         "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
         "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param EffectivePipelineResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEffectivePipelineResponse(effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "configSnapshot": n => { effectivePipelineResponse.configSnapshot = n.getNumberValue(); },
+        "manifest": n => { effectivePipelineResponse.manifest = n.getStringValue(); },
+        "selected": n => { effectivePipelineResponse.selected = n.getObjectValue<EffectivePipelineResponse_selected>(createEffectivePipelineResponse_selectedFromDiscriminatorValue); },
+        "version": n => { effectivePipelineResponse.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param EffectivePipelineResponse_selected The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEffectivePipelineResponse_selected(effectivePipelineResponse_selected: Partial<EffectivePipelineResponse_selected> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -2002,6 +2049,26 @@ export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partia
     return {
         "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
     }
+}
+export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The configSnapshot property
+     */
+    configSnapshot?: number | null;
+    /**
+     * The manifest property
+     */
+    manifest?: string | null;
+    /**
+     * The selected property
+     */
+    selected?: EffectivePipelineResponse_selected | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+}
+export interface EffectivePipelineResponse_selected extends AdditionalDataHolder, Parsable {
 }
 export interface JsonElement extends AdditionalDataHolder, Parsable {
 }
@@ -3034,6 +3101,7 @@ export function serializeConfigCheckResponse(writer: SerializationWriter, config
     writer.writeCollectionOfPrimitiveValues<string>("problems", configCheckResponse.problems);
     writer.writeCollectionOfPrimitiveValues<string>("referencedSecrets", configCheckResponse.referencedSecrets);
     writer.writeBooleanValue("satisfied", configCheckResponse.satisfied);
+    writer.writeCollectionOfPrimitiveValues<string>("unmet", configCheckResponse.unmet);
     writer.writeBooleanValue("valid", configCheckResponse.valid);
     writer.writeNumberValue("version", configCheckResponse.version);
     writer.writeAdditionalData(configCheckResponse.additionalData);
@@ -3145,6 +3213,32 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
     writer.writeStringValue("path", createPipelineWithRepoRequest.path);
     writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
     writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param EffectivePipelineResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEffectivePipelineResponse(writer: SerializationWriter, effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipelineResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("configSnapshot", effectivePipelineResponse.configSnapshot);
+    writer.writeStringValue("manifest", effectivePipelineResponse.manifest);
+    writer.writeObjectValue<EffectivePipelineResponse_selected>("selected", effectivePipelineResponse.selected, serializeEffectivePipelineResponse_selected);
+    writer.writeNumberValue("version", effectivePipelineResponse.version);
+    writer.writeAdditionalData(effectivePipelineResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param EffectivePipelineResponse_selected The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEffectivePipelineResponse_selected(writer: SerializationWriter, effectivePipelineResponse_selected: Partial<EffectivePipelineResponse_selected> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipelineResponse_selected || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(effectivePipelineResponse_selected.additionalData);
 }
 /**
  * Serializes information the current object

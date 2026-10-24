@@ -34,6 +34,7 @@ public sealed class ConfigCheckResponse
     public string[] MissingSecrets { get; set; } = [];
     public ChangedDefault[] ChangedDefaults { get; set; } = [];
     public string? Effective { get; set; }
+    public string[] Unmet { get; set; } = [];
 }
 
 public sealed class ConfigSaveResponse

@@ -56,7 +56,7 @@ public class RunViewService(
         using (var doc = JsonDocument.Parse(run.Input))
             input = doc.RootElement.Clone();
 
-        var stages = plans.Get(run.VersionId).TryPickProblems(out _, out var plan)
+        var stages = plans.ForRun(run).TryPickProblems(out _, out var plan)
             ? []
             : BuildStages(run, input, plan, version);
 
@@ -143,7 +143,7 @@ public class RunViewService(
 
     private bool IsExcluded(Run run, string stepName)
     {
-        if (plans.Get(run.VersionId).TryPickProblems(out _, out var plan) || !StageScheduler.TryParseInput(run.Input, out var input))
+        if (plans.ForRun(run).TryPickProblems(out _, out var plan) || !StageScheduler.TryParseInput(run.Input, out var input))
             return false;
         return plan.ExcludedReason(stepName, input) is not null;
     }

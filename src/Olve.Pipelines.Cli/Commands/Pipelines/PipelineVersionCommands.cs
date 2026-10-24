@@ -49,16 +49,19 @@ public sealed class PipelineVersionsCommand : ICliCommand
 public sealed class PipelineManifestCommand : ICliCommand
 {
     public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("version");
+    public IReadOnlySet<string> BooleanFlags { get; } = CliCommand.Options("effective");
     public string Noun => "pipeline";
     public string Verb => "manifest";
     public int RequiredOperands => 1;
     public string HelpLine => "Show a version's manifest (default: the version runs start on)";
     public string? HelpDetail =>
         """
-        pl pipeline manifest <pipeline> [--version <n>] [--json]
+        pl pipeline manifest <pipeline> [--version <n>] [--effective] [--json]
 
           Summarizes the manifest like `pl dev describe` (input model, secrets, triggers, stages,
-          `when` blocks). --json prints the canonical manifest JSON itself.
+          `when` and `select` blocks). --json prints the canonical manifest JSON itself.
+          --effective resolves each `select` with the pipeline's current config: the pipeline new
+          runs execute.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -84,6 +87,15 @@ public sealed class PipelineManifestCommand : ICliCommand
 
         if ((await ctx.Api.GetPipelineVersion(id, version, ct)).TryPickProblems(out var getProblems, out var pv))
             return getProblems;
+        string? selection = null;
+        if (cli.HasFlag("effective"))
+        {
+            if ((await ctx.Api.GetEffectivePipeline(id, version, ct)).TryPickProblems(out var effectiveProblems, out var effective))
+                return effectiveProblems;
+            pv.Manifest = effective.Manifest;
+            selection = $"effective with config #{effective.ConfigSnapshot?.ToString() ?? "-"}"
+                + (effective.Selected.Count > 0 ? ": " + string.Join(", ", effective.Selected.Select(kv => $"{kv.Key} = {kv.Value}")) : "");
+        }
 
         if (ctx.Json)
         {
@@ -92,6 +104,7 @@ public sealed class PipelineManifestCommand : ICliCommand
         }
 
         ctx.Output.Line($"v{pv.Number} · {pv.ManifestHash} · commit {Short(pv.CommitSha)} · {Time(pv.CreatedAt)}");
+        if (selection is not null) ctx.Output.Line(selection);
         ctx.Output.Line();
         if (DevManifest.Parse(pv.Manifest).TryPickProblems(out var parseProblems, out var manifest))
             return parseProblems;

@@ -71,7 +71,7 @@ public class StageScheduler(
         if (!runs.TryGet(runId, out var run) || run.Status.IsTerminal())
             return;
 
-        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        if (plans.ForRun(run).TryPickProblems(out var planProblems, out var plan))
         {
             logger.LogProblems(LogLevel.Error, planProblems,
                 "Run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}' cannot be scheduled: its version {VersionNumber} has no usable manifest; failing the run",

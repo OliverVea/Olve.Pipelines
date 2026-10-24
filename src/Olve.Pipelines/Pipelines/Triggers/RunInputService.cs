@@ -101,7 +101,7 @@ public class RunInputService(
     {
         if (changes is not null and not JsonObject)
             return ValidationProblem.ForField("input", "The input changes must be a JSON object.");
-        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        if (plans.ForRun(run).TryPickProblems(out var planProblems, out var plan))
             return Result.Failure<Run>(planProblems);
         if (JsonNode.Parse(run.Input) is not JsonObject merged)
             return new ResultProblem("Run #{0} has malformed input.", run.Number);

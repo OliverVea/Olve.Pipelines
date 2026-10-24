@@ -16,7 +16,7 @@ public class PipelineSummaryServiceTests
         var domain = new TestRunDomain(TimeProvider.System);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
         var service = new PipelineSummaryService(domain.PipelineService, new PipelineConfigBindingService(bindings, new IdProvider()), domain.Health,
-            domain.ActivationService, domain.Plans, domain.Views);
+            domain.ActivationService, domain.Plans, domain.Views, domain.ConfigSnapshots);
         return new Fixture(domain, bindings, service);
     }
 

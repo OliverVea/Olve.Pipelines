@@ -43,7 +43,8 @@ public class ConfigActivationService(
     RunPlanCache plans,
     RunSchedulingLock schedulingLock,
     TimeProvider timeProvider,
-    ILogger<ConfigActivationService> logger)
+    ILogger<ConfigActivationService> logger,
+    Kubernetes.Harness.HarnessOptions? harness = null)
 {
     /// <summary>Checks the current config document against <paramref name="version"/> (changed defaults relative to the active version).</summary>
     public Result<ConfigCheck> Check(PipelineVersion version, IReadOnlySet<string>? setSecrets)
@@ -54,7 +55,7 @@ public class ConfigActivationService(
         if (ActiveVersionId(version.PipelineId) is { } activeId && activeId != version.Id && plans.Get(activeId).TryPickProblems(out _, out var activePlan) is false)
             active = activePlan.Manifest;
         snapshots.TryGetLatest(version.PipelineId, out var latest);
-        return ConfigValidation.Check(plan.Manifest, version.Number, snapshots.Document(latest), setSecrets, active);
+        return ConfigValidation.Check(plan.Manifest, version.Number, snapshots.Document(latest), setSecrets, active, harness?.StepServiceAccount is not null);
     }
 
     /// <summary>Whether <paramref name="document"/> is valid for <paramref name="version"/> (secrets aside).</summary>

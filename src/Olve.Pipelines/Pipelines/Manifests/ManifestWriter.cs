@@ -173,6 +173,18 @@ public static class ManifestWriter
                 foreach (var inner in ws.Stages) Write(w, inner);
                 w.WriteEndArray();
                 break;
+            case SelectStage sel:
+                w.WriteString("select", sel.Select);
+                w.WriteString("discriminator", sel.Discriminator);
+                w.WriteStartObject("cases");
+                foreach (var (value, stages) in sel.Cases)
+                {
+                    w.WriteStartArray(value);
+                    foreach (var inner in stages) Write(w, inner);
+                    w.WriteEndArray();
+                }
+                w.WriteEndObject();
+                break;
         }
         w.WriteEndObject();
     }

@@ -4,12 +4,18 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createPipelineVersionFromDiscriminatorValue, type ApiProblem, type PipelineVersion } from '../../../../../models/index.js';
 // @ts-ignore
-import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
+import { EffectiveRequestBuilderRequestsMetadata, type EffectiveRequestBuilder } from './effective/index.js';
+// @ts-ignore
+import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
  * Builds and executes requests for operations under /api/pipelines/{-id}/versions/{number}
  */
 export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNumberItemRequestBuilder> {
+    /**
+     * The effective property
+     */
+    get effective(): EffectiveRequestBuilder;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineVersion>}
@@ -30,6 +36,14 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
  * Uri template for the request builder.
  */
 export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/versions/{number}";
+/**
+ * Metadata for all the navigation properties in the request builder.
+ */
+export const WithNumberItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithNumberItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+    effective: {
+        requestsMetadata: EffectiveRequestBuilderRequestsMetadata,
+    },
+};
 /**
  * Metadata for all the requests in the request builder.
  */

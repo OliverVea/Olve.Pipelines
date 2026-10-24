@@ -5,6 +5,8 @@ import {
   type ManifestStep,
   type Stage,
   isWhen,
+  isSelect,
+  formatCase,
   formatWhen,
   allSteps,
   producersOf,
@@ -699,6 +701,14 @@ export class StageGraph extends LitElement {
             <div class="when-body">${this._stages(stage.stages, rel)}</div>
           </div>`,
         );
+      } else if (isSelect(stage)) {
+        for (const [value, inner] of Object.entries(stage.cases))
+          out.push(
+            html`<div class="when">
+              <span class="when-label">config ${formatCase(stage, value)}</span>
+              <div class="when-body">${this._stages(inner, rel)}</div>
+            </div>`,
+          );
       } else {
         out.push(
           html`<div class="col">${stage.steps.map((s) => this._node(s, rel))}</div>`,
@@ -724,6 +734,19 @@ export class StageGraph extends LitElement {
               counter,
             )}
           </div>`;
+      }
+      if (isSelect(stage)) {
+        const at = counter.n;
+        return html`${down}${Object.entries(stage.cases).map(([value, inner]) => {
+          counter.n = at;
+          return html`<div class="vwhen">
+            <span class="vlabel">config ${formatCase(stage, value)}</span>${this._rows(
+              inner,
+              rel,
+              counter,
+            )}
+          </div>`;
+        })}`;
       }
       counter.n++;
       return html`${down}

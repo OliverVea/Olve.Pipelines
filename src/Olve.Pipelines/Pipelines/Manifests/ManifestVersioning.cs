@@ -53,10 +53,13 @@ public static class ManifestVersioning
         var modelVersions = currentModels.ToDictionary(kv => kv.Key, kv => kv.Value.Version, StringComparer.Ordinal);
         var currentSteps = new Dictionary<string, EntityVersion>(StringComparer.Ordinal);
         var changedSteps = new List<string>();
-        foreach (var step in AllSteps(manifest))
+        // A name has one version: select cases may give it several variants, hashed together (sorted), so a
+        // change to any of them bumps it. A failure handler attached several times is one variant.
+        foreach (var group in AllSteps(manifest).GroupBy(s => s.Name, StringComparer.Ordinal))
         {
-            if (currentSteps.ContainsKey(step.Name)) continue; // a handler attached several times
-            currentSteps[step.Name] = Next(history.Steps, step.Name, StepContentHash(step, modelVersions, manifest.Config), changedSteps);
+            var hashes = group.Select(s => StepContentHash(s, modelVersions, manifest.Config)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+            var hash = hashes.Count == 1 ? hashes[0] : CanonicalJson.HashText(string.Join(' ', hashes));
+            currentSteps[group.Key] = Next(history.Steps, group.Key, hash, changedSteps);
         }
 
         var current = new EntityVersionMap(currentModels, currentSteps);
@@ -161,6 +164,10 @@ public static class ManifestVersioning
                     break;
                 case WhenStage ws:
                     foreach (var s in StageSteps(ws.Stages)) yield return s;
+                    break;
+                case SelectStage sel:
+                    foreach (var caseStages in sel.Cases.Values)
+                    foreach (var s in StageSteps(caseStages)) yield return s;
                     break;
             }
         }

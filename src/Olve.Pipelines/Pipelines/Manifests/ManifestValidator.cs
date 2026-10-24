@@ -52,6 +52,12 @@ public static partial class ManifestValidator
 
     private readonly record struct Avail(string? Model, bool Maybe);
 
+    /// <summary>A select case a step sits in: the select (by reference), the value, and its condition text.</summary>
+    private sealed record CaseOf(SelectStage Select, string Value)
+    {
+        public string Condition => Select.Condition(Value);
+    }
+
     private sealed class Checker(Manifest m)
     {
         private readonly List<ManifestIssue> _errors = [];
@@ -60,7 +66,8 @@ public static partial class ManifestValidator
         private readonly Dictionary<string, ManifestConfigEntry> _config = new(StringComparer.Ordinal);
         private readonly HashSet<string> _usedModels = new(StringComparer.Ordinal);
         private readonly HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → path
+        private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
+        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output)>> _placements = new(StringComparer.Ordinal);
         private readonly List<(string Name, string Path)> _producers = [];
 
         private void Error(string code, string path, string message, string? step = null) =>
@@ -180,8 +187,9 @@ public static partial class ManifestValidator
         }
 
         // ── stages ──
-        private void WalkStages(IReadOnlyList<ManifestStage> stages, string path, Dictionary<string, Avail> avail)
+        private void WalkStages(IReadOnlyList<ManifestStage> stages, string path, Dictionary<string, Avail> avail, IReadOnlyList<CaseOf>? cases = null)
         {
+            cases ??= [];
             for (var i = 0; i < stages.Count; i++)
             {
                 var stagePath = $"{path}[{i}]";
@@ -193,8 +201,8 @@ public static partial class ManifestValidator
                         {
                             var step = ss.Steps[j];
                             var stepPath = $"{stagePath}.steps[{j}]";
-                            RegisterStageStep(step, stepPath);
-                            CheckStep(step, stepPath, avail, failureHandler: false);
+                            RegisterStageStep(step, stepPath, cases);
+                            CheckStep(step, stepPath, avail, failureHandler: false, cases);
                         }
                         // Outputs become available only after the barrier: same-stage siblings can't see each other.
                         for (var j = 0; j < ss.Steps.Count; j++)
@@ -207,20 +215,85 @@ public static partial class ManifestValidator
                     case WhenStage ws:
                         CheckWhen(ws, $"{stagePath}.when");
                         var inner = new Dictionary<string, Avail>(avail, StringComparer.Ordinal);
-                        WalkStages(ws.Stages, $"{stagePath}.stages", inner);
+                        WalkStages(ws.Stages, $"{stagePath}.stages", inner, cases);
                         foreach (var (name, a) in inner)
                             if (!avail.ContainsKey(name))
                                 avail[name] = a with { Maybe = true };
+                        break;
+                    case SelectStage sel:
+                        CheckSelect(sel, stagePath, avail, cases);
                         break;
                 }
             }
         }
 
-        private void RegisterStageStep(StepDescriptor step, string path)
+        private void RegisterStageStep(StepDescriptor step, string path, IReadOnlyList<CaseOf> cases)
         {
             CheckStepName(step.Name, path);
-            if (!_stageSteps.TryAdd(step.Name, path))
-                Error(ManifestIssueCodes.StepNameDuplicate, $"{path}.name", $"duplicate step name '{step.Name}' (also at {_stageSteps[step.Name]})", step.Name);
+            _stageSteps.TryAdd(step.Name, path);
+            if (!_placements.TryGetValue(step.Name, out var placed)) _placements[step.Name] = placed = [];
+            // Only steps in different cases of one select may share a name: exactly one of them exists in a run.
+            foreach (var other in placed)
+            {
+                if (!Exclusive(other.Cases, cases))
+                    Error(ManifestIssueCodes.StepNameDuplicate, $"{path}.name", $"duplicate step name '{step.Name}' (also at {other.Path})", step.Name);
+                else if (!string.Equals(other.Output, step.Output, StringComparison.Ordinal))
+                    Error(ManifestIssueCodes.SelectOutputMismatch, $"{path}.output",
+                        $"step '{step.Name}' has output {step.Output ?? "none"} here and {other.Output ?? "none"} at {other.Path}; select cases must agree", step.Name);
+            }
+            placed.Add((path, cases, step.Output));
+        }
+
+        private static bool Exclusive(IReadOnlyList<CaseOf> a, IReadOnlyList<CaseOf> b) =>
+            a.Any(x => b.Any(y => ReferenceEquals(x.Select, y.Select) && x.Value != y.Value));
+
+        // ── select ──
+        private void CheckSelect(SelectStage sel, string path, Dictionary<string, Avail> avail, IReadOnlyList<CaseOf> cases)
+        {
+            var segments = sel.Select.Split('.');
+            if (!_config.TryGetValue(segments[0], out var entry))
+                Error(ManifestIssueCodes.SelectInvalid, $"{path}.select", $"select '{sel.Select}': '{segments[0]}' is not in the pipeline's config");
+            else if (DiscriminatorValues(entry.Schema, segments[1..], sel.Discriminator) is not { } values)
+                Error(ManifestIssueCodes.SelectInvalid, $"{path}.select",
+                    $"select '{sel.Select}': it must reference a union whose branches each fix '{sel.Discriminator}' to a string");
+            else
+            {
+                foreach (var v in values.Where(v => !sel.Cases.ContainsKey(v)))
+                    Error(ManifestIssueCodes.SelectCaseMissing, $"{path}.cases", $"select '{sel.Select}': no case for {sel.Discriminator} '{v}'");
+                foreach (var v in sel.Cases.Keys.Where(v => !values.Contains(v)))
+                    Error(ManifestIssueCodes.SelectCaseUnknown, $"{path}.cases.{v}", $"select '{sel.Select}': '{v}' is not a value of {sel.Discriminator} ({string.Join(", ", values)})");
+            }
+
+            var branches = new List<Dictionary<string, Avail>>();
+            foreach (var (value, stages) in sel.Cases)
+            {
+                var inner = new Dictionary<string, Avail>(avail, StringComparer.Ordinal);
+                WalkStages(stages, $"{path}.cases.{value}", inner, [.. cases, new CaseOf(sel, value)]);
+                branches.Add(inner);
+            }
+            // A step every case has is as available as in its cases (one case always runs); one only some have is maybe-available.
+            foreach (var name in branches.SelectMany(b => b.Keys).Where(k => !avail.ContainsKey(k)).Distinct(StringComparer.Ordinal).ToList())
+            {
+                var present = branches.Where(b => b.ContainsKey(name)).Select(b => b[name]).ToList();
+                avail[name] = new Avail(present[0].Model, present.Count < branches.Count || present.Any(a => a.Maybe));
+            }
+        }
+
+        /// <summary>The string values <paramref name="discriminator"/> takes across the union at <paramref name="path"/>, or null.</summary>
+        private static IReadOnlyList<string>? DiscriminatorValues(JsonElement schema, IReadOnlyList<string> path, string discriminator)
+        {
+            if (!JsonSchemaShapes.TryResolveField(schema, schema, path, out var leaf) || leaf is not { } union) return null;
+            if (!union.TryGetProperty("oneOf", out var branches) && !union.TryGetProperty("anyOf", out branches)) return null;
+            if (branches.ValueKind != JsonValueKind.Array) return null;
+            var values = new List<string>();
+            foreach (var branch in branches.EnumerateArray())
+            {
+                if (!JsonSchemaShapes.TryResolveField(schema, branch, [discriminator], out var field) || field is not { } f) return null;
+                var literals = JsonSchemaShapes.LiteralValues(schema, f);
+                if (literals is null || literals.Any(l => l.ValueKind != JsonValueKind.String)) return null;
+                values.AddRange(literals.Select(l => l.GetString()!));
+            }
+            return values;
         }
 
         private void CheckStepName(string name, string path)
@@ -260,7 +333,7 @@ public static partial class ManifestValidator
         }
 
         // ── one step ──
-        private void CheckStep(StepDescriptor s, string path, IReadOnlyDictionary<string, Avail> avail, bool failureHandler)
+        private void CheckStep(StepDescriptor s, string path, IReadOnlyDictionary<string, Avail> avail, bool failureHandler, IReadOnlyList<CaseOf>? cases = null)
         {
             var n = s.Name;
             if (!StepKinds.Known.Contains(s.Kind))
@@ -282,7 +355,7 @@ public static partial class ManifestValidator
             }
 
             CheckStepConfig(s, path, stepSecrets);
-            CheckConfigRefs(s, path);
+            CheckConfigRefs(s, path, cases ?? []);
 
             if (s.Output is not null) UseModel(s.Output, $"{path}.output", $"step '{n}' output", n);
 
@@ -516,12 +589,15 @@ public static partial class ManifestValidator
         }
 
         /// <summary>Every <c>{"$config": "entry.path"}</c> in a library step's configuration names an entry the step receives, and a field it has.</summary>
-        private void CheckConfigRefs(StepDescriptor s, string path)
+        private void CheckConfigRefs(StepDescriptor s, string path, IReadOnlyList<CaseOf> cases)
         {
             if (s.Config is null) return;
             foreach (var (key, value) in s.Config)
-            foreach (var (refPath, reference) in ConfigRefs.Find(value, $"{path}.config.{key}"))
+            foreach (var (refPath, reference, condition) in ConfigRefs.Find(value, $"{path}.config.{key}"))
             {
+                if (condition is not null && !cases.Any(c => c.Condition == condition))
+                    Error(ManifestIssueCodes.ConfigRefOutsideCase, refPath,
+                        $"step '{s.Name}': config reference '{reference}' is narrowed to the select case '{condition}' and can only be used inside it", s.Name);
                 var segments = reference.Split('.');
                 var entryName = segments[0];
                 if (!s.ConfigEntries.Contains(entryName, StringComparer.Ordinal))

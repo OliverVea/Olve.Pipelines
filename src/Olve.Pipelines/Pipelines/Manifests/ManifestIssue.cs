@@ -110,6 +110,13 @@ public static class ManifestIssueCodes
     public const string ConfigSecretRefNotInStep = "config-secret-ref-not-in-step";
     public const string ConfigRefNotReceived = "config-ref-not-received";
     public const string ConfigRefFieldUnknown = "config-ref-field-unknown";
+    public const string ConfigRefOutsideCase = "config-ref-outside-case";
+
+    // ── select ──
+    public const string SelectInvalid = "select-invalid";
+    public const string SelectCaseMissing = "select-case-missing";
+    public const string SelectCaseUnknown = "select-case-unknown";
+    public const string SelectOutputMismatch = "select-output-mismatch";
 
     // ── warnings ──
     public const string OutputUnused = "output-unused";

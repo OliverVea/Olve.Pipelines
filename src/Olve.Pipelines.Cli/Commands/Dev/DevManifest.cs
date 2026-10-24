@@ -28,6 +28,9 @@ public sealed record DevStage(IReadOnlyList<DevStep> Steps) : DevStageNode;
 
 public sealed record DevWhenBlock(IReadOnlyList<WhenCondition> Conditions, IReadOnlyList<DevStageNode> Nodes) : DevStageNode;
 
+/// <summary>A <c>select</c> block: the config at <see cref="Select"/>'s <see cref="Discriminator"/> picks one case.</summary>
+public sealed record DevSelectBlock(string Select, string Discriminator, IReadOnlyDictionary<string, IReadOnlyList<DevStageNode>> Cases) : DevStageNode;
+
 /// <summary>
 /// The parts of the manifest (<c>sdk/manifest.schema.json</c>) that <c>pl dev</c> uses, parsed with
 /// <see cref="JsonNode"/> (AOT-safe, no reflection). The raw text is kept for <c>--json</c>.
@@ -73,6 +76,10 @@ public sealed class DevManifest
                     break;
                 case DevWhenBlock block:
                     foreach (var step in StageSteps(block.Nodes))
+                        yield return step;
+                    break;
+                case DevSelectBlock select:
+                    foreach (var step in select.Cases.Values.SelectMany(StageSteps))
                         yield return step;
                     break;
             }
@@ -146,6 +153,13 @@ public sealed class DevManifest
                         kv.Value is JsonArray values ? values.Select(v => v?.DeepClone()).ToList() : [kv.Value?.DeepClone()]))
                     .ToList();
                 result.Add(new DevWhenBlock(conditions, ParseNodes(node["stages"] as JsonArray)));
+            }
+            else if (node["select"] is JsonValue select && node["cases"] is JsonObject cases)
+            {
+                result.Add(new DevSelectBlock(
+                    select.GetValue<string>(),
+                    node["discriminator"]?.GetValue<string>() ?? "",
+                    cases.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<DevStageNode>)ParseNodes(kv.Value as JsonArray), StringComparer.Ordinal)));
             }
         }
 

@@ -37,7 +37,7 @@ public class RunContinuationService(
             return new NotFoundProblem("Run '{0}' not found.", runId);
         if (RequireActiveVersion(run) is { } versionProblem)
             return versionProblem;
-        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        if (plans.ForRun(run).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
         if (!plan.TryGetStep(stepName, out var stage, out var step))
             return new NotFoundProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
@@ -89,7 +89,7 @@ public class RunContinuationService(
             return versionProblem;
         if (attempts.HasActiveAttempts(run.Id))
             return new ConflictProblem("Run #{0} still has active attempts; continue it once they finish.", run.Number);
-        if (plans.Get(run.VersionId).TryPickProblems(out var planProblems, out var plan))
+        if (plans.ForRun(run).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
         if (!StageScheduler.TryParseInput(run.Input, out var oldInput))
             return new ResultProblem("Run #{0} has malformed input.", run.Number);

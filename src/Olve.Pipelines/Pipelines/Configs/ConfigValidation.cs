@@ -27,12 +27,15 @@ public sealed record ConfigCheck(
 {
     public bool Valid => Problems.Count == 0;
 
-    /// <summary>The activation gate: every required entry present and valid, every referenced secret set.</summary>
-    public bool Satisfied => Valid && MissingSecrets.Count == 0;
+    /// <summary>What the selected branches need and the instance doesn't give (e.g. cluster access), one line each.</summary>
+    public IReadOnlyList<string> Unmet { get; init; } = [];
+
+    /// <summary>The activation gate: every required entry present and valid, every referenced secret set, the selected branches' needs met.</summary>
+    public bool Satisfied => Valid && MissingSecrets.Count == 0 && Unmet.Count == 0;
 
     /// <summary>Why the version can't activate, one line per reason.</summary>
     public IReadOnlyList<string> Reasons =>
-        Problems.Select(p => $"config {p}").Concat(MissingSecrets.Select(s => $"secret {s} not set")).ToList();
+        Problems.Select(p => $"config {p}").Concat(MissingSecrets.Select(s => $"secret {s} not set")).Concat(Unmet).ToList();
 }
 
 /// <summary>Validates config documents against a version's config schema. Pure.</summary>
@@ -64,7 +67,9 @@ public static class ConfigValidation
     /// unknown (every referenced secret counts as missing). With <paramref name="active"/>, lists the defaults
     /// the target changes that the document relies on.
     /// </summary>
-    public static ConfigCheck Check(Manifest target, int targetNumber, JsonObject document, IReadOnlySet<string>? setSecrets, Manifest? active = null)
+    /// <param name="grantsClusterAccess">Whether the instance gives steps that declare <c>clusterAccess</c> a token
+    /// (<c>Kubernetes:StepServiceAccount</c>); checked against the steps of the branches the document selects.</param>
+    public static ConfigCheck Check(Manifest target, int targetNumber, JsonObject document, IReadOnlySet<string>? setSecrets, Manifest? active = null, bool grantsClusterAccess = true)
     {
         var targetDefaults = new List<AppliedDefault>();
         var validated = Effective(target, document, targetDefaults);
@@ -86,7 +91,23 @@ public static class ConfigValidation
 
         var referenced = ReferencedSecrets(target, effective);
         var missing = referenced.Where(s => setSecrets is null || !setSecrets.Contains(s)).ToList();
-        return new ConfigCheck(targetNumber, [], referenced, missing, changed, effective);
+        return new ConfigCheck(targetNumber, [], referenced, missing, changed, effective) { Unmet = BranchNeeds(target, effective, grantsClusterAccess) };
+    }
+
+    /// <summary>
+    /// The needs of the effective pipeline (the branches <paramref name="effective"/> selects) that the instance
+    /// doesn't meet. A step in an unselected branch needs nothing.
+    /// </summary>
+    public static IReadOnlyList<string> BranchNeeds(Manifest manifest, JsonObject effective, bool grantsClusterAccess)
+    {
+        if (!Scheduling.RunPlan.HasSelect(manifest.Stages) && grantsClusterAccess) return [];
+        var plan = Scheduling.RunPlanCache.ForConfig(manifest, effective.ToJsonString());
+        if (plan.TryPickProblems(out var problems, out var effectivePlan))
+            return problems.Select(p => p.ToDisplayString()).ToList();
+        if (grantsClusterAccess) return [];
+        return effectivePlan.Stages.SelectMany(s => s.Steps).Where(s => s.ClusterAccess).Select(s => s.Name).Distinct(StringComparer.Ordinal)
+            .Select(name => $"step {name} needs cluster access, but the instance grants no step ServiceAccount (Kubernetes:StepServiceAccount)")
+            .ToList();
     }
 
     /// <summary>Secrets referenced by the effective config (<c>{secret: NAME}</c> where the entry's schema allows a secretRef to NAME).</summary>

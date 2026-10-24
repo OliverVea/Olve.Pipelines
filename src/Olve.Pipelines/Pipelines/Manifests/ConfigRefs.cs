@@ -9,16 +9,18 @@ namespace Olve.Pipelines.Pipelines.Manifests;
 public static class ConfigRefs
 {
     public const string Key = "$config";
+    /// <summary>Beside <see cref="Key"/> on a reference narrowed by a select case: the case's condition (<c>target.prod.kind=ssh</c>).</summary>
+    public const string CaseKey = "$case";
 
-    /// <summary>Every reference inside <paramref name="value"/>, with its JSON path.</summary>
-    public static IEnumerable<(string Path, string Reference)> Find(JsonElement value, string path)
+    /// <summary>Every reference inside <paramref name="value"/>, with its JSON path and the select case it is narrowed to.</summary>
+    public static IEnumerable<(string Path, string Reference, string? Case)> Find(JsonElement value, string path)
     {
         switch (value.ValueKind)
         {
             case JsonValueKind.Object:
-                if (TryGet(value, out var reference))
+                if (TryGet(value, out var reference, out var condition))
                 {
-                    yield return (path, reference);
+                    yield return (path, reference, condition);
                     yield break;
                 }
                 foreach (var p in value.EnumerateObject())
@@ -34,16 +36,21 @@ public static class ConfigRefs
         }
     }
 
-    /// <summary>True when <paramref name="value"/> is exactly <c>{"$config": "&lt;reference&gt;"}</c>.</summary>
-    public static bool TryGet(JsonElement value, out string reference)
+    /// <summary>True when <paramref name="value"/> is <c>{"$config": "&lt;reference&gt;"}</c>, optionally with <c>"$case"</c>.</summary>
+    public static bool TryGet(JsonElement value, out string reference, out string? condition)
     {
         reference = "";
+        condition = null;
         if (value.ValueKind != JsonValueKind.Object) return false;
-        using var props = value.EnumerateObject();
-        if (!props.MoveNext() || props.Current.Name != Key || props.Current.Value.ValueKind != JsonValueKind.String) return false;
-        var r = props.Current.Value.GetString()!;
-        if (props.MoveNext() || r.Length == 0) return false;
-        reference = r;
-        return true;
+        var count = 0;
+        foreach (var p in value.EnumerateObject())
+        {
+            count++;
+            if (p.Value.ValueKind != JsonValueKind.String) return false;
+            if (p.Name == Key) reference = p.Value.GetString()!;
+            else if (p.Name == CaseKey) condition = p.Value.GetString();
+            else return false;
+        }
+        return reference.Length > 0 && count == (condition is null ? 1 : 2);
     }
 }

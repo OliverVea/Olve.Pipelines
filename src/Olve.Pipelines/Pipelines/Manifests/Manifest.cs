@@ -78,6 +78,20 @@ public sealed record WhenStage(
     IReadOnlyDictionary<string, IReadOnlyList<JsonElement>> When,
     IReadOnlyList<ManifestStage> Stages) : ManifestStage;
 
+/// <summary>
+/// A branch on config: <see cref="Select"/> references a discriminated union in a config entry
+/// (<c>target.prod</c>); the run's config snapshot picks the case whose key is the union's
+/// <see cref="Discriminator"/> value. Steps of different cases may share a name (only one exists in any run).
+/// </summary>
+public sealed record SelectStage(
+    string Select,
+    string Discriminator,
+    IReadOnlyDictionary<string, IReadOnlyList<ManifestStage>> Cases) : ManifestStage
+{
+    /// <summary>The condition a case stands for, as recorded on narrowed config references: <c>target.prod.kind=ssh</c>.</summary>
+    public string Condition(string value) => $"{Select}.{Discriminator}={value}";
+}
+
 /// <summary>A step. <see cref="Description"/> is display-only (not part of the step's content hash).</summary>
 public sealed record StepDescriptor(
     string Name,
@@ -142,11 +156,11 @@ public static class StepKinds
     public const string GitHubSource = "gitHubSource";
     public const string ImageBuild = "imageBuild";
     public const string HelmDeployOverSsh = "helmDeployOverSsh";
-    public const string HelmDeploy = "helmDeploy";
+    public const string HelmDeployInCluster = "helmDeployInCluster";
 
     /// <summary>The kinds sdk/manifest.schema.json allows. A new SDK library kind needs a service update.</summary>
     public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
     {
-        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh, HelmDeploy,
+        Custom, Script, GitHubSource, ImageBuild, HelmDeployOverSsh, HelmDeployInCluster,
     };
 }

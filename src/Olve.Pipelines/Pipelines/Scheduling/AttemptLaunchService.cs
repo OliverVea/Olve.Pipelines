@@ -30,7 +30,11 @@ public sealed record AttemptLaunchSpec(
     IReadOnlyList<AttemptFileRef> FileRefs,
     IReadOnlyDictionary<string, string> Environment,
     string BinaryKey,
-    string AttemptPrefix);
+    string AttemptPrefix)
+{
+    /// <summary>The select cases the step sits in, from the run's effective plan (<c>OLVE_CASES</c>).</summary>
+    public IReadOnlyList<string> Cases { get; init; } = [];
+}
 
 /// <summary>Builds <see cref="AttemptLaunchSpec"/>s. Stateless query (transient).</summary>
 public class AttemptLaunchService(RunService runs, AttemptService attempts, PipelineVersionService versions, RunPlanCache plans)
@@ -43,9 +47,9 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
             return new NotFoundProblem("Run '{0}' of attempt '{1}' not found.", attempt.RunId, attemptId);
         if (!versions.TryGet(run.VersionId, out var version))
             return new NotFoundProblem("Version {0} of run #{1} not found.", run.VersionNumber, run.Number);
-        if (plans.Get(run.VersionId).TryPickProblems(out var problems, out var plan))
+        if (plans.ForRun(run).TryPickProblems(out var problems, out var plan))
             return problems;
-        if (!plan.TryGetStep(attempt.StepName, out _, out var step))
+        if (!plan.TryGetStep(attempt.StepName, out var stage, out var step))
             return new ResultProblem("Version {0} has no step '{1}'.", run.VersionNumber, attempt.StepName);
         if (attempt.Input is not { } input)
             return new ResultProblem("Attempt {0} of step '{1}' in run #{2} has no input (it was not scheduled to run).",
@@ -62,6 +66,6 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
 
         return new AttemptLaunchSpec(
             attempt, run, version, step, ConfigDelivery.WithConfig(input, step, run.Config), attempt.InputHash,
-            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt));
+            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt)) { Cases = stage.Cases };
     }
 }

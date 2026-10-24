@@ -70,6 +70,7 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(ConfigSaveResponse))]
 [JsonSerializable(typeof(ConfigSnapshotInfo[]))]
 [JsonSerializable(typeof(ConfigCheckResponse))]
+[JsonSerializable(typeof(EffectivePipelineResponse))]
 [JsonSerializable(typeof(SetConfigRequest))]
 [JsonSerializable(typeof(RollbackConfigRequest))]
 public sealed partial class CliJsonContext : JsonSerializerContext;

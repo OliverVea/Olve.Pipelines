@@ -44,6 +44,15 @@ public sealed class PipelineVersionSummary
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+/// <summary>A version with its selects resolved by the current config (<c>GET …/versions/{n}/effective</c>).</summary>
+public sealed class EffectivePipelineResponse
+{
+    public int Version { get; set; }
+    public int? ConfigSnapshot { get; set; }
+    public Dictionary<string, string> Selected { get; set; } = [];
+    public string Manifest { get; set; } = "";
+}
+
 /// <summary>One pipeline version in full; <see cref="Manifest"/> is the canonical manifest JSON text.</summary>
 public sealed class PipelineVersion
 {

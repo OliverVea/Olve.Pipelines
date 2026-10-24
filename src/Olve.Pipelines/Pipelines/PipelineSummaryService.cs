@@ -12,7 +12,8 @@ public class PipelineSummaryService(
     PipelineHealthService health,
     PipelineActivationService activations,
     RunPlanCache plans,
-    RunViewService views)
+    RunViewService views,
+    Configs.ConfigSnapshotService snapshots)
 {
     public IReadOnlyList<PipelineSummary> List()
         => pipelines.List()
@@ -33,7 +34,7 @@ public class PipelineSummaryService(
             PipelineActivation.Active a => a.VersionId,
             _ => throw new InvalidOperationException($"Unknown activation {activation.GetType().Name}."),
         };
-        if (plans.Get(versionId).TryPickProblems(out _, out var plan))
+        if (plans.ForCurrentConfig(versionId, snapshots).TryPickProblems(out _, out var plan))
             return [];
 
         return plan.Stages.Select(stage => new PipelineStageSummary(

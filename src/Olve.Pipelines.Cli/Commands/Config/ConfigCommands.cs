@@ -211,11 +211,13 @@ internal static class ConfigCommandSupport
 
     public static void PrintCheck(IOutputWriter o, ConfigCheckResponse c)
     {
-        o.Line($"v{c.Version}: {(c.Satisfied ? "satisfied" : c.Valid ? "valid, but secrets are missing" : "invalid")}");
+        o.Line($"v{c.Version}: {(c.Satisfied ? "satisfied" : !c.Valid ? "invalid" : c.MissingSecrets.Length > 0 ? "valid, but secrets are missing" : "valid, but not satisfied")}");
         foreach (var problem in c.Problems)
             o.Line($"  config {problem}");
         foreach (var secret in c.MissingSecrets)
             o.Line($"  secret {secret} not set");
+        foreach (var unmet in c.Unmet)
+            o.Line($"  {unmet}");
         foreach (var d in c.ChangedDefaults)
             o.Line($"  v{c.Version} changes the default of {d.Path} ({d.From} → {d.To})");
         if (c.ReferencedSecrets.Length > 0)
@@ -225,5 +227,5 @@ internal static class ConfigCommandSupport
     }
 
     private static IEnumerable<string> Reasons(ConfigCheckResponse c)
-        => c.Problems.Select(p => $"config {p}").Concat(c.MissingSecrets.Select(s => $"secret {s} not set"));
+        => c.Problems.Select(p => $"config {p}").Concat(c.MissingSecrets.Select(s => $"secret {s} not set")).Concat(c.Unmet);
 }

@@ -46,6 +46,7 @@ public interface IPipelinesApi
     Task<Result<ConfigSnapshotInfo[]>> ListPipelineConfigSnapshots(string pipelineId, CancellationToken ct);
     Task<Result<ConfigSaveResponse>> RollbackPipelineConfig(string pipelineId, int snapshot, CancellationToken ct);
     Task<Result<ConfigCheckResponse>> CheckPipelineConfig(string pipelineId, int? version, CancellationToken ct);
+    Task<Result<EffectivePipelineResponse>> GetEffectivePipeline(string pipelineId, int version, CancellationToken ct);
 
     // Runs (v2, spec §5) — pipelineId is always the resolved id; runs are addressed by number.
     Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct);

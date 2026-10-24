@@ -35,6 +35,7 @@ public class PipelineSecretService(
     PipelineConfigBindingService bindings,
     PipelineActivationService activations,
     RunPlanCache plans,
+    Configs.ConfigSnapshotService snapshots,
     IServiceProvider services,
     ILogger<PipelineSecretService> logger) : IPipelineSecretNames
 {
@@ -155,12 +156,12 @@ public class PipelineSecretService(
         }
 
         if (activations.TryGet(pipelineId, out var activation)
-            && !plans.Get(activation switch
+            && !plans.ForCurrentConfig(activation switch
             {
                 PipelineActivation.Active a => a.VersionId,
                 PipelineActivation.Draining d => d.ToVersionId,
                 _ => throw new InvalidOperationException("Unknown activation."),
-            }).TryPickProblems(out _, out var plan))
+            }, snapshots).TryPickProblems(out _, out var plan))
         {
             var manifest = plan.Manifest;
             var descriptions = manifest.Secrets.ToDictionary(s => s.Name, s => s.Description, StringComparer.Ordinal);

@@ -4,7 +4,7 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createPipelineVersionsResponseFromDiscriminatorValue, type ApiProblem, type PipelineVersionsResponse } from '../../../../models/index.js';
 // @ts-ignore
-import { type WithNumberItemRequestBuilder, WithNumberItemRequestBuilderRequestsMetadata } from './item/index.js';
+import { type WithNumberItemRequestBuilder, WithNumberItemRequestBuilderNavigationMetadata, WithNumberItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
@@ -44,6 +44,7 @@ export const VersionsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Di
 export const VersionsRequestBuilderNavigationMetadata: Record<Exclude<keyof VersionsRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     byNumber: {
         requestsMetadata: WithNumberItemRequestBuilderRequestsMetadata,
+        navigationMetadata: WithNumberItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["number"],
     },
 };

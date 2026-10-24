@@ -217,6 +217,16 @@ public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? tool
                         o.WriteLine($"{indent}when {string.Join(" and ", w.Conditions)}:");
                         RenderNodes(w.Nodes, indent + "  ");
                         break;
+                    case DevSelectBlock sel:
+                        o.WriteLine($"{indent}select on config {sel.Select}.{sel.Discriminator}:");
+                        var at = stage;
+                        foreach (var (value, caseNodes) in sel.Cases)
+                        {
+                            stage = at;
+                            o.WriteLine($"{indent}  {value}:");
+                            RenderNodes(caseNodes, indent + "    ");
+                        }
+                        break;
                 }
             }
         }

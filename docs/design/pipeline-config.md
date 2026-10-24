@@ -330,7 +330,9 @@ satisfies "never deleted while a retained run references them".
 
 **Defaults.** A changed default is reported only where both versions have a default at that path
 and the document doesn't set it (`telemetry.exporter ("none" → "otlp")`). A new field with a
-default isn't reported as a change.
+default isn't reported as a change. They show on a pending version (even one the document doesn't
+satisfy yet), in `pl config check` and the save result, and as reconcile warnings when a version
+activates straight away.
 
 **Not built (deferred):**
 - Library steps reading config values in their typed definitions (`host: TARGET.host`). Config is

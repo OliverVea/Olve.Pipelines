@@ -1,6 +1,8 @@
 # Olve.Pipelines v2 — typed pipeline config
 
-Status: **design agreed, not implemented** (2026-10-24). Extends [pipelines-v2.md](pipelines-v2.md);
+Status: **steps 1–4 implemented** (2026-10-24; SDK 2.0.0-beta.5, server, `pl config`, the Config
+page); step 5 open. What was built differs from this text in the places listed in
+[§13](#13-implementation-notes). Extends [pipelines-v2.md](pipelines-v2.md);
 section references like §6.2 point there.
 
 ## 1. Why
@@ -266,3 +268,76 @@ directly, with `auth: none` or the bundled Dex and `telemetry: none`.
 - Which Dex version, and does it support client credentials (decides `telemetry.auth` in prod)?
 - Masking approach for config-referenced secrets in logs (shares pipelines-v2 §8's open item).
 - Whether a trigger mapper (`onPush`) may read config. Out of scope for the first cut.
+
+## 13. Implementation notes
+
+What steps 1–4 built, where it differs from or adds to the sections above. User docs:
+[docs/setup/configuration.md](../setup/configuration.md).
+
+**Manifest.**
+- The per-step list is `configEntries`, not `config`: a step's `config` key already holds a library
+  step's configuration.
+- Each top-level entry also carries `required` (`!schema.safeParse(undefined).success`), because
+  JSON Schema can't say "accepts undefined". `schema` is the **`z.input`** view, so it lists
+  defaults and leaves defaulted fields optional; that is what the YAML is written against.
+- Both keys are omitted when empty, so manifests of pipelines without config are unchanged.
+- A step's content hash includes the schemas of its entries, so a schema change bumps exactly the
+  steps that receive the entry.
+
+**Delivery.** `ctx.config` arrives in the attempt's `input.json` under the reserved key `$config`
+(describe rejects input keys starting with `$`). The service adds it at launch, from the run's
+effective config filtered to the step's entries, and only for steps that declare config, so
+binaries built before config existed never see the key. `Attempt.Input` and its hash stay
+config-free. Failure handlers that declare config get it the same way.
+
+**Validation.** The service validates with its own `JsonSchemaValidator`, extended with `oneOf`
+(exactly one branch matches). For a discriminated union, errors come from the branch whose literal
+fields the value matches (`config.auth.clientId: is required`), not from every branch. `format`
+(e.g. `.url()`) stays an annotation server-side; the harness parses `$config` with zod again, so a
+step still rejects a non-URL.
+
+**YAML.** The document is stored verbatim (comments survive). The server parses it with
+YamlDotNet's event parser (AOT-safe, no serializer) under the YAML 1.2 core schema. Anchors,
+aliases, custom tags and multi-document files are rejected. The CLI passes text through and has no
+YAML library. The UI uses the `yaml` package and CodeMirror 6.
+
+**Activation gate.**
+- Pending is an explicit marker (one per pipeline, persisted in `pipeline-state.json`) holding the
+  reasons and changed defaults at the last check, not a rule like "latest > active". So a manual
+  rollback isn't undone by the next config save.
+- Re-checks run after a config save or rollback, after a secret set or delete, and on reconcile.
+  An activation then nudges the push check, so the held push starts at once.
+- A reconcile back to the active version's manifest drops a pending version.
+- `pl pipeline switch` to an unsatisfied version is **refused** (409, with the reasons) rather than
+  marking it pending. A successful switch drops any pending version.
+- While a version is pending, automatic triggers are held (`RunIfConfigCurrentAsync` returns false).
+  Manual triggers start on the active version.
+- "Secret referenced by config unset or deleted → new runs held": deleting such a secret needs
+  `force`. The active version then becomes its own pending marker (**held**), and run starts are
+  refused with the reasons until the secret is set again. A secret changed directly in Kubernetes is
+  only noticed at the next re-check.
+- Secret names are read from Kubernetes before the (synchronous) gate runs. If Kubernetes can't be
+  read, every referenced secret counts as missing.
+
+**Runs.**
+- A run pins the latest snapshot and its effective config only when its version declares config
+  (`pl run get` shows `v8, config #5`).
+- A run start whose effective config is invalid is refused (409). The save-time and gate checks
+  make this rare.
+
+**Snapshots** are never deleted while their pipeline exists (retention does not touch them), which
+satisfies "never deleted while a retained run references them".
+
+**Defaults.** A changed default is reported only where both versions have a default at that path
+and the document doesn't set it (`telemetry.exporter ("none" → "otlp")`). A new field with a
+default isn't reported as a change.
+
+**Not built (deferred):**
+- Library steps reading config values in their typed definitions (`host: TARGET.host`). Config is
+  delivered to custom steps (and failure handlers) only. Step 5 needs this, for
+  `helmDeployOverSsh`.
+- An escape hatch for held runs.
+- Schema completion beyond keys and enum/const/boolean values in the editor.
+
+**Testing seam.** `GitHub:ApiUrl` / `GitHub:CodeloadUrl` (default github.com) let a local stack read
+unpushed commits from a stand-in server; the e2e of this feature used one.

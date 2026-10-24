@@ -420,7 +420,7 @@ export class PipelineDetailView extends LitElement {
         ${unset.length
           ? html`<a class="bad" href=${secretsPath(this.pipelineId)} @click=${navClick}>unset secrets: ${unset.join(', ')}</a>`
           : nothing}
-        ${this._health?.pending
+        ${this._health?.pending?.version != null
           ? html`<a class="warn" href=${configPath(this.pipelineId)} @click=${navClick}
               >${this._health.pending.held ? 'held' : 'pending'} v${this._health.pending.version}:
               ${(this._health.pending.reasons ?? []).join('; ')}</a

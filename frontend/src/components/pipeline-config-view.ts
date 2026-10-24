@@ -158,7 +158,7 @@ export class PipelineConfigView extends LitElement {
         this._dirty = false;
       }
       this._history = history ?? [];
-      this._pending = health?.pending ?? null;
+      this._pending = health?.pending?.version != null ? health.pending : null;
       this._targets = await this._loadTargets(
         currentVersion(toActivation(versions?.activation)),
         this._pending,

@@ -10,6 +10,8 @@ import {
   type CompletionContext,
 } from '@codemirror/autocomplete';
 import { isAlias, parseDocument, visit, type Document } from 'yaml';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import type { JsonSchema } from '../v2/manifest.js';
 import { propertiesAt, validate, valuesAt, type Path } from '../v2/config-schema.js';
 
@@ -103,6 +105,42 @@ function pathAtLine(state: EditorState, lineNumber: number, indent: number): Pat
   }
   return path;
 }
+
+/** Colours from the app's theme variables, so the editor follows light and dark mode. */
+const theme = EditorView.theme({
+  '&': { color: 'var(--color-text)', backgroundColor: 'var(--color-surface)' },
+  '.cm-content': { caretColor: 'var(--color-text)' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--color-text)' },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
+    {
+      backgroundColor: 'color-mix(in srgb, var(--color-primary) 30%, transparent)',
+    },
+  '.cm-activeLine': { backgroundColor: 'var(--color-surface-hover)' },
+  '.cm-activeLineGutter': { backgroundColor: 'var(--color-surface-hover)' },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    border: '1px solid var(--color-border)',
+  },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'var(--color-surface-hover)',
+    color: 'var(--color-text)',
+  },
+});
+
+const highlight = HighlightStyle.define([
+  {
+    tag: [tags.propertyName, tags.definition(tags.propertyName)],
+    color: 'var(--color-primary)',
+  },
+  { tag: [tags.string, tags.special(tags.string)], color: 'var(--color-success)' },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: 'var(--color-when)' },
+  { tag: tags.comment, color: 'var(--color-text-muted)', fontStyle: 'italic' },
+  {
+    tag: [tags.punctuation, tags.separator, tags.squareBracket, tags.brace],
+    color: 'var(--color-text-muted)',
+  },
+]);
 
 function complete(schema: () => JsonSchema | null) {
   return (ctx: CompletionContext) => {
@@ -207,6 +245,8 @@ export class ConfigEditor extends LitElement {
         doc: this.value,
         extensions: [
           basicSetup,
+          theme,
+          syntaxHighlighting(highlight),
           yamlLanguage(),
           lintGutter(),
           this._lint.of(this._linter()),

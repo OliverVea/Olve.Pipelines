@@ -8,7 +8,7 @@ namespace Olve.Pipelines.Pipelines.Manifests;
 /// <summary>
 /// A small, AOT-safe JSON Schema validator for the subset zod's <c>toJSONSchema</c> emits for pipeline
 /// input models: <c>type</c> (incl. <c>integer</c> and type arrays), <c>properties</c>, <c>required</c>,
-/// <c>additionalProperties</c> (bool or schema), <c>enum</c>, <c>const</c>, <c>default</c> (applied to
+/// <c>additionalProperties</c> (bool or schema), <c>propertyNames</c> (records' keys, as strings), <c>enum</c>, <c>const</c>, <c>default</c> (applied to
 /// absent properties), <c>items</c>, <c>anyOf</c> (incl. nullable), <c>oneOf</c> (discriminated unions), string <c>pattern</c>/<c>minLength</c>/
 /// <c>maxLength</c>, number <c>minimum</c>/<c>maximum</c>/<c>exclusiveMinimum</c>/<c>exclusiveMaximum</c>.
 /// Annotations (<c>title</c>, <c>description</c>, <c>format</c>, <c>x-olve-kind</c>, …) are ignored. Any
@@ -19,7 +19,7 @@ public static class JsonSchemaValidator
 {
     private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
-        "type", "properties", "required", "additionalProperties", "enum", "const", "default", "items", "anyOf", "oneOf",
+        "type", "properties", "required", "additionalProperties", "propertyNames", "enum", "const", "default", "items", "anyOf", "oneOf",
         "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
     };
 
@@ -226,9 +226,12 @@ public static class JsonSchemaValidator
         }
 
         var additional = schema.TryGetProperty("additionalProperties", out var ap) ? ap : (JsonElement?)null;
+        var propertyNames = schema.TryGetProperty("propertyNames", out var pn) && pn.ValueKind == JsonValueKind.Object ? pn : (JsonElement?)null;
         foreach (var name in obj.Select(kv => kv.Key).ToList())
         {
             var childPath = $"{path}.{name}";
+            if (propertyNames is { } namesSchema)
+                Check(namesSchema, JsonValue.Create(name), $"{childPath} (key)", errors, depth + 1, defaults: null);
             if (properties is { } known && known.TryGetProperty(name, out var propertySchema))
             {
                 var child = obj[name];

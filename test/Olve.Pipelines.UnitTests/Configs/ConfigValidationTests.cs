@@ -112,4 +112,14 @@ public class ConfigValidationTests
         await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonValue.Create("x"))).Failed();
         await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonValue.Create(""))).Succeeded();
     }
+
+    [Test]
+    public async Task Record_KeysAreCheckedAgainstPropertyNames()
+    {
+        // z.record(z.string().regex(/^[a-z.]+$/), z.string())
+        using var schema = JsonDocument.Parse("""{"type":"object","propertyNames":{"type":"string","pattern":"^[a-z.]+$"},"additionalProperties":{"type":"string"}}""");
+
+        await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonNode.Parse("""{"slo.enabled":"false"}"""))).Succeeded();
+        await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonNode.Parse("""{"Bad Key":"x"}"""))).Failed();
+    }
 }

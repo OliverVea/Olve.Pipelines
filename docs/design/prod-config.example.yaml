@@ -1,7 +1,7 @@
 # Config document for "Olve.Pipelines v2" on the prod instance (pipelines-v2-private.ovea.pro):
 #
 #   pl config set "Olve.Pipelines v2" -f docs/design/prod-config.example.yaml
-#   pl secret set "Olve.Pipelines v2" GHCR_TOKEN        # already set today; REGISTRY_PASSWORD is not needed
+#   (no secrets beyond today's: registry.ovea.pro takes anonymous pushes; npm and ghcr are off)
 #
 # It reproduces what the pipeline deployed before it read config: the same hosts, namespaces,
 # releases, values files, Authentik and OTLP settings (helm template renders the same manifests,
@@ -18,6 +18,8 @@ target:
     values: [values-beta.yaml, values-v2-beta.yaml]
     set:
       slo.enabled: "false"
+      # The init image the instances run today; the server's built-in default is an unpublished ghcr tag.
+      config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
     auth:
       mode: authentik
       authority: https://auth-beta.ovea.pro/application/o/olve-pipelines/
@@ -35,6 +37,8 @@ target:
     namespace: apps
     release: olve-pipelines-v2
     values: [values-v2-prod.yaml]
+    set:
+      config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
 
 auth:
   mode: authentik
@@ -65,12 +69,10 @@ publish:
     repository: registry.ovea.pro/olve-pipelines-v2
     cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
   harness:
-    repository: ghcr.io/olivervea/olve-pipelines-harness-base
-    auth:
-      username: olivervea
-      password: { secret: GHCR_TOKEN }
+    push: false                     # pinned through target.*.set; build and push it once a repository is public
+    repository: registry.ovea.pro/olve-pipelines-v2/harness-base
   npm:
-    enabled: true
+    enabled: false                  # turn on to publish the SDK (needs NPM_TOKEN)
     prereleaseTag: next
     releaseTag: beta                # the SDK is a 2.0 beta: promote moves `beta`, as publishing did
   cli:

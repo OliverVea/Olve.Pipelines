@@ -4,9 +4,30 @@
 
 An instance is the server (one container), its own Garage (S3-compatible storage) and a Kubernetes
 namespace where it runs build and step Jobs. The Helm chart in `helm/` installs all of it
-(`helm/values-minimal.yaml` is the smallest profile); `pl bootstrap` does a cold install of a
-minimal instance. An instance can also deploy itself: the repo's own pipeline (`.pipelines/`)
-does, configured per instance ([Pipeline Config](configuration.md)).
+(`helm/values-minimal.yaml` is the smallest profile). An instance can also deploy itself: the
+repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Config](configuration.md)).
+
+## Installing on a cluster
+
+The server image isn't published to a public registry. Build it from a checkout of the repo and
+push it to a registry the cluster pulls from:
+
+```bash
+docker build -t <registry>/olve-pipelines:<tag> .
+docker push <registry>/olve-pipelines:<tag>
+```
+
+`pl bootstrap` installs the chart's minimal profile with that image: the server and its Garage,
+with no ingress and auth off. It is idempotent, and `pl teardown` removes it (the Garage data is
+kept unless `--purge-data`).
+
+```bash
+pl bootstrap -n <namespace> --chart helm --image-repository <registry>/olve-pipelines --image-tag <tag>
+```
+
+For anything beyond trying it, set the [server configuration](#server-configuration) below through
+the chart's `config.*` values: auth (`Auth:*`), storage, the runner namespace, an ingress. A local
+instance needs no cluster at all: [Docker Compose](#a-local-instance-with-docker-compose).
 
 ## Server configuration
 

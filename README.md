@@ -17,7 +17,33 @@ export default pipeline({ name: "my-app", input: M.DeployRequest })
 This repo deploys itself with it: [`.pipelines/`](.pipelines) builds every component once, deploys
 beta, smoke-tests it, deploys prod and promotes the same artifacts.
 
-## Install
+## Get an instance
+
+An instance is the server, its own storage (Garage) and a Kubernetes namespace it runs Jobs in.
+
+**Try it on your machine.** The compose stack builds everything from this checkout, including a
+single-node k3s, and needs only Docker (with privileged containers):
+
+```bash
+git clone https://github.com/OliverVea/Olve.Pipelines && cd Olve.Pipelines && git switch v2
+docker compose up -d --build      # first run: several minutes. UI and API at http://localhost:5080
+```
+
+Log in as `dev@example.com` / `password` (Dex). Details:
+[a local instance](docs/setup/self-hosting.md#a-local-instance-with-docker-compose).
+
+**On your own cluster.** The server image isn't published yet, so build it and push it to a
+registry your cluster pulls from, then install the chart with its minimal profile (the server and
+its Garage, no ingress, auth off):
+
+```bash
+docker build -t <registry>/olve-pipelines:<tag> . && docker push <registry>/olve-pipelines:<tag>
+pl bootstrap -n <namespace> --chart helm --image-repository <registry>/olve-pipelines --image-tag <tag>
+```
+
+Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hosting.md).
+
+## Install `pl`
 
 Every instance serves the `pl` CLI it was deployed with:
 
@@ -27,9 +53,8 @@ irm https://<instance>/install.ps1 | iex          # Windows
 pl login --api-url https://<instance>             # add --device over SSH
 ```
 
-No instance yet? `docker compose up -d --build` runs a throwaway one at <http://localhost:5080>
-([details](docs/setup/self-hosting.md#a-local-instance-with-docker-compose)); for a real one see
-[Running an Instance](docs/setup/self-hosting.md).
+Before you have an instance (for `pl bootstrap`), build it from source:
+`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
 
 ## Adding CD to your repo
 

@@ -12,6 +12,12 @@ export const CliRelease = model("CliRelease", z.object({
   winX64: fileRef(),
 }));
 
+export const SdkPackage = model("SdkPackage", z.object({
+  name: z.string(),
+  version: z.string(),
+  tarball: fileRef(),
+}));
+
 export const SdkRelease = model("SdkRelease", z.object({
   name: z.string(),
   version: z.string(),

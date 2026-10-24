@@ -1,11 +1,13 @@
-import { checkSpa, httpHealthCheck, implement } from "@olivervea/pipelines";
-import { BETA_URL, betaTest } from "../pipeline";
+import { checkSpa, httpHealthCheck, implement, serviceUrl } from "@olivervea/pipelines";
+import { betaTest } from "../pipeline";
 
 function check(ok: boolean, what: string): asserts ok {
   if (!ok) throw new Error(`beta-test: ${what}`);
 }
 
-export default implement(betaTest, async (_input, ctx) => {
+export default implement(betaTest, async ({ release }, ctx) => {
+  const BETA_URL = serviceUrl(release);
+  const auth = ctx.config.target.beta.auth ?? ctx.config.auth;
   await httpHealthCheck(ctx, `${BETA_URL}/api/ready`, { attempts: 12, delaySeconds: 5 });
 
   const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`);
@@ -16,8 +18,10 @@ export default implement(betaTest, async (_input, ctx) => {
   const attempts = await ctx.http.getJson<unknown>(`${BETA_URL}/api/attempts?status=active`);
   check(Array.isArray(attempts), "/api/attempts did not answer a list");
 
-  const anonymousTrigger = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`, { method: "POST", body: "{}" });
-  check(anonymousTrigger.status === 401, `an anonymous trigger answered ${anonymousTrigger.status}, expected 401`);
+  if (auth.mode !== "none") {
+    const anonymousTrigger = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`, { method: "POST", body: "{}" });
+    check(anonymousTrigger.status === 401, `an anonymous trigger answered ${anonymousTrigger.status}, expected 401`);
+  }
 
   const missing = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs/1`);
   check(missing.status === 404, `an unknown pipeline answered ${missing.status}, expected 404`);

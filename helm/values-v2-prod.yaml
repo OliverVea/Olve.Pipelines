@@ -13,6 +13,8 @@ config:
   Links__BaseUrl: "https://pipelines-v2-private.ovea.pro"
   Telemetry__ServiceName: "olve-pipelines-v2"
   Distribution__CliPipeline: "Olve.Pipelines v2"
+  # The pl release is built before beta; prod serves it once the run reaches promote.
+  Distribution__CliPromotedBy: "promote"
 
 # The credentials Secret (olve-pipelines-minio) is shared with v1 prod's Garage; each Garage keeps
 # its own metadata, and --default-bucket creates this bucket and key on first boot.

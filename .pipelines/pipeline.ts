@@ -1,34 +1,45 @@
-// v2's own CD pipeline: every push goes beta, then prod. config.yaml beside it is the paused v1 deployer's rollback path.
-import { pipeline, secret, step, steps, HelmRelease, Source } from "@olivervea/pipelines";
+// Olve.Pipelines deploying itself: build and verify every component once, publish prereleases,
+// deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
+// instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
+import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps } from "@olivervea/pipelines";
+import { AUTH, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
-export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
-export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing the image and running helm on the homelab host.");
-export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines.");
-export const GHCR_TOKEN = secret("GHCR_TOKEN", "GitHub token with write:packages that pushes the harness image to ghcr.io.");
+export * from "./config";
+
+const REGISTRY_SECRETS = [GHCR_TOKEN, REGISTRY_PASSWORD];
 
 export const source = steps.gitHubSource({
   name: "source",
   description: "Fetches the pushed commit from GitHub.",
   token: GITHUB_TOKEN,
+  apiUrl: SOURCE.apiUrl,
 });
 
-export const build = steps.imageBuild({
-  name: "build",
-  description: "Builds the Olve.Pipelines image with kaniko.",
-  repository: "olve-pipelines-v2",
-  cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
-  timeoutSeconds: 900,
+export const serverImage = steps.imageBuild({
+  name: "server-image",
+  description: "Builds the server image (API, frontend, docs) with kaniko and pushes it under this run's version tag.",
+  repository: PUBLISH.server.repository,
+  push: true,
+  cacheRepo: PUBLISH.server.cacheRepo,
+  registryMap: PUBLISH.server.registryMap,
+  insecureRegistry: PUBLISH.server.insecure,
+  registryAuth: PUBLISH.server.auth,
+  secrets: REGISTRY_SECRETS,
+  timeoutSeconds: 1800,
 });
 
-export const publishHarness = steps.imageBuild({
-  name: "publish-harness",
-  description: "Builds the step pods' init image (harness/base) and pushes it to ghcr.io when its content changed.",
-  repository: "ghcr.io/olivervea/olve-pipelines-harness-base",
+export const harness = steps.imageBuild({
+  name: "harness",
+  description: "Builds the step pods' init image (harness/base) when its content changed, under its content tag.",
+  repository: PUBLISH.harness.repository,
   context: "harness/base",
   push: true,
   contentTag: true,
-  registryAuth: { username: "olivervea", password: GHCR_TOKEN },
+  enabled: PUBLISH.harness.push,
+  insecureRegistry: PUBLISH.harness.insecure,
+  registryAuth: PUBLISH.harness.auth,
+  secrets: REGISTRY_SECRETS,
   timeoutSeconds: 600,
 });
 
@@ -40,21 +51,86 @@ export const test = step({
   timeoutSeconds: 1800,
 });
 
-export const BETA_URL = "http://olve-pipelines-v2.apps-beta.svc.cluster.local";
-
-export const deployBeta = steps.helmDeployOverSsh({
-  name: "deploy-beta",
-  description: "Deploys the image to apps-beta (olve-pipelines-v2) with Helm and checks its health.",
-  host: "oliver@bulwark-m2",
-  sshKey: SSH_PRIVATE_KEY,
-  release: "olve-pipelines-v2",
-  namespace: "apps-beta",
-  chart: "helm",
-  values: ["values-beta.yaml", "values-v2-beta.yaml"],
-  imageRefs: { harness: "harness.image" },
-  set: { "slo.enabled": "false" },
-  healthUrl: `${BETA_URL}/api/health`,
+export const frontendLint = step({
+  name: "frontend-lint",
+  description: "Lints the frontend and checks its formatting (the server image builds and type-checks it).",
+  image: "node:22-slim",
+  input: { source: Source },
   timeoutSeconds: 900,
+});
+
+export const sdk = step({
+  name: "sdk",
+  description: "Checks sdk/ (tsc, compile-fail cases, bun test) and packs it.",
+  image: "oven/bun:1.4.3-slim",
+  input: { source: Source },
+  output: M.SdkPackage,
+  timeoutSeconds: 1200,
+});
+
+export const cli = step({
+  name: "cli",
+  description: "Builds the pl CLI for Linux and Windows.",
+  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
+  input: { source: Source },
+  output: M.CliRelease,
+  timeoutSeconds: 1800,
+});
+
+export const publishImages = step({
+  name: "publish-images",
+  description: "Tags this run's server and harness images as the prerelease (same digests).",
+  image: "alpine:3.22",
+  input: { server: PushedImage, harness: optional(PushedImage) },
+  config: [PUBLISH],
+  secrets: REGISTRY_SECRETS,
+  timeoutSeconds: 300,
+});
+
+export const publishSdk = step({
+  name: "publish-sdk",
+  description: "Publishes the packed SDK to npm under the prerelease dist-tag, when npm publishing is on.",
+  image: "oven/bun:1.4.3-slim",
+  input: { pkg: M.SdkPackage },
+  output: M.SdkRelease,
+  config: [PUBLISH],
+  secrets: [NPM_TOKEN, ...REGISTRY_SECRETS],
+  timeoutSeconds: 600,
+});
+
+export const publishCli = step({
+  name: "publish-cli",
+  description: "Releases this run's pl build: the instance serves it at /download once the run is promoted.",
+  image: "alpine:3.22",
+  input: { build: M.CliRelease },
+  output: M.CliRelease,
+  config: [PUBLISH],
+  secrets: REGISTRY_SECRETS,
+  timeoutSeconds: 300,
+});
+
+const deployTo = (target: typeof TARGET.beta) => ({
+  target,
+  sshKey: SSH_PRIVATE_KEY,
+  chart: "helm",
+  inlineValues: [{ auth: AUTH, telemetry: TELEMETRY }, { auth: target.auth, telemetry: target.telemetry }],
+  images: { server: "image" },
+  imageRefs: { harness: "harness.image" },
+  rolloutTimeoutSeconds: 300,
+  healthPath: "/api/health",
+  timeoutSeconds: 900,
+}) as const;
+
+export const deployBeta = steps.helmDeploy({
+  name: "deploy-beta",
+  description: "Deploys this run's images with Helm to the beta target and checks its health.",
+  ...deployTo(TARGET.beta),
+});
+
+export const deployProd = steps.helmDeploy({
+  name: "deploy-prod",
+  description: "Deploys this run's images with Helm to the prod target and checks its health.",
+  ...deployTo(TARGET.prod),
 });
 
 export const betaTest = step({
@@ -62,52 +138,32 @@ export const betaTest = step({
   description: "Smoke-tests the freshly deployed beta: readiness, the API, the frontend bundle, the error model and SSE.",
   image: "alpine:3.22",
   input: { release: HelmRelease },
+  config: [TARGET, AUTH],
   timeoutSeconds: 180,
 });
 
-export const deployProd = steps.helmDeployOverSsh({
-  name: "deploy-prod",
-  description: "Deploys the image to apps (olve-pipelines-v2) with Helm and checks its health.",
-  host: "oliver@bulwark-m2",
-  sshKey: SSH_PRIVATE_KEY,
-  release: "olve-pipelines-v2",
-  namespace: "apps",
-  chart: "helm",
-  values: ["values-v2-prod.yaml"],
-  imageRefs: { harness: "harness.image" },
-  healthUrl: "http://olve-pipelines-v2.apps.svc.cluster.local/api/health",
-  timeoutSeconds: 900,
+export const promote = step({
+  name: "promote",
+  description: "Moves the release tags to this run's artifacts: the image digests and the npm version (no rebuild).",
+  image: "alpine:3.22",
+  input: { server: PushedImage, harness: optional(PushedImage), sdk: optional(M.SdkRelease) },
+  config: [PUBLISH],
+  secrets: [NPM_TOKEN, ...REGISTRY_SECRETS],
+  timeoutSeconds: 300,
 });
 
-export const publishCli = step({
-  name: "publish-cli",
-  description: "Builds the pl CLI that this instance serves at /download and /install.sh.",
-  image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
-  input: { source: Source },
-  output: M.CliRelease,
-  timeoutSeconds: 1800,
-});
-
-export const publishSdk = step({
-  name: "publish-sdk",
-  description: "Checks sdk/ and publishes it to npm as @olivervea/pipelines when its version is not on npm yet.",
-  image: "oven/bun:1.4.3-slim",
-  input: { source: Source },
-  output: M.SdkRelease,
-  secrets: [NPM_TOKEN],
-  timeoutSeconds: 1200,
-});
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests and publish the step harness image, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it, then deploy the same image to apps and publish the pl CLI and the SDK to npm. deployTo=beta stops after beta.",
+  description: "Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta and smoke-test it; deploy prod; promote the same artifacts. deployTo=beta stops after beta.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
-  .stage(build, test, publishHarness)
-  .stage(deployBeta)
+  .stage(serverImage, harness, test, frontendLint, sdk, cli)
+  .stage([publishImages, from => ({ server: from["server-image"], harness: from.harness })], publishSdk, publishCli)
+  .stage([deployBeta, from => ({ source: from.source, server: from["server-image"], harness: from.harness })])
   .stage(betaTest)
   .when({ deployTo: "prod" }, p => p
-    .stage(deployProd)
-    .stage(publishCli, publishSdk));
+    .stage([deployProd, from => ({ source: from.source, server: from["server-image"], harness: from.harness })])
+    .stage([promote, from => ({ server: from["server-image"], harness: from.harness, sdk: from["publish-sdk"] })]));

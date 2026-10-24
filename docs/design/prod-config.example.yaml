@@ -1,0 +1,70 @@
+# Config document for "Olve.Pipelines v2" on the prod instance (pipelines-v2-private.ovea.pro):
+#
+#   pl config set "Olve.Pipelines v2" -f docs/design/prod-config.example.yaml
+#   pl secret set "Olve.Pipelines v2" GHCR_TOKEN        # already set today; REGISTRY_PASSWORD is not needed
+#
+# It reproduces what the pipeline deployed before it read config: the same hosts, namespaces,
+# releases, values files, Authentik and OTLP settings (helm template renders the same manifests,
+# except the server image, which is now pulled from the registry by digest instead of imported as a
+# tarball). Set it before pushing the version that declares config: until then the new version
+# stays pending and pushes are held.
+
+target:
+  beta:
+    kind: ssh
+    host: oliver@bulwark-m2
+    namespace: apps-beta
+    release: olve-pipelines-v2
+    values: [values-beta.yaml, values-v2-beta.yaml]
+    set:
+      slo.enabled: "false"
+    auth:
+      mode: authentik
+      authority: https://auth-beta.ovea.pro/application/o/olve-pipelines/
+      audience: olve-pipelines-beta
+      frontendAuthority: https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/
+      frontendAudience: olve-pipelines-frontend-beta
+      anonymousReads: true          # beta-test reads without a session
+    telemetry:
+      exporter: otlp
+      endpoint: http://otel-beta.ovea.pro
+      auth: { type: none }
+  prod:
+    kind: ssh
+    host: oliver@bulwark-m2
+    namespace: apps
+    release: olve-pipelines-v2
+    values: [values-v2-prod.yaml]
+
+auth:
+  mode: authentik
+  authority: https://auth.ovea.pro/application/o/olve-pipelines/
+  audience: olve-pipelines
+  frontendAuthority: https://auth.ovea.pro/application/o/olve-pipelines-frontend/
+  frontendAudience: olve-pipelines-frontend
+
+telemetry:
+  exporter: otlp
+  endpoint: https://otel.ovea.pro
+  auth:
+    type: oauth2
+    tokenUrl: https://auth.ovea.pro/application/o/token/
+    clientId: otel
+    clientSecret:
+      kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
+
+publish:
+  server:
+    repository: registry.ovea.pro/olve-pipelines-v2
+    cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
+  harness:
+    repository: ghcr.io/olivervea/olve-pipelines-harness-base
+    auth:
+      username: olivervea
+      password: { secret: GHCR_TOKEN }
+  npm:
+    enabled: true
+    prereleaseTag: next
+    releaseTag: beta                # the SDK is a 2.0 beta: promote moves `beta`, as publishing did
+  cli:
+    enabled: true

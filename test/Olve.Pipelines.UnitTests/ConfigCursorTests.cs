@@ -131,7 +131,7 @@ public class ConfigCursorTests
     private static T Pick<T>(Result<T> result)
         => result.TryPickProblems(out var problems, out var value) ? throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToString()))) : value;
 
-    private sealed class TestSource(FakeGitHub gh) : GitHubConfigSource(null!, null!, NullLogger<GitHubConfigSource>.Instance)
+    private sealed class TestSource(FakeGitHub gh) : GitHubConfigSource(null!, null!, new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), NullLogger<GitHubConfigSource>.Instance)
     {
         protected override HttpClient CreateClient() => new(gh, disposeHandler: false);
     }

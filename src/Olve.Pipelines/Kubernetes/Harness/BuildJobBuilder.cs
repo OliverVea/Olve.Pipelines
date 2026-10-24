@@ -56,7 +56,7 @@ public static partial class BuildJobBuilder
         bun -e '(async () => {
         const repo = process.env.OLVE_REPO, sha = process.env.OLVE_SHA, token = process.env.OLVE_GITHUB_TOKEN;
         // With a token: the API tarball endpoint (private repos). Without: codeload, which has no API rate limit.
-        const url = token ? `https://api.github.com/repos/${repo}/tarball/${sha}` : `https://codeload.github.com/${repo}/tar.gz/${sha}`;
+        const url = token ? `${process.env.OLVE_GITHUB_API_URL}/repos/${repo}/tarball/${sha}` : `${process.env.OLVE_CODELOAD_URL}/${repo}/tar.gz/${sha}`;
         const headers = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
         if (token) headers.authorization = `Bearer ${token}`;
         for (let i = 1; ; i++) {
@@ -141,6 +141,8 @@ public static partial class BuildJobBuilder
             new("OLVE_REPO", request.Repo),
             new("OLVE_SHA", request.CommitSha),
             new("OLVE_PIPELINE_PATH", request.PipelinePath),
+            new("OLVE_GITHUB_API_URL", options.GitHubApiUrl),
+            new("OLVE_CODELOAD_URL", options.GitHubCodeloadUrl),
             K8sEnvVar.FromSecret(BinaryUrlKey, urlSecretName, BinaryUrlKey),
         };
         if (request.PipelineSecretName is not null)

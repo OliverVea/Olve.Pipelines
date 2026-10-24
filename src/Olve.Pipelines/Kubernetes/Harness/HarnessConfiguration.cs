@@ -1,3 +1,4 @@
+using Olve.Pipelines.GitHub;
 namespace Olve.Pipelines.Kubernetes.Harness;
 
 public static class HarnessConfiguration
@@ -35,6 +36,8 @@ public static class HarnessConfiguration
             BuildMemoryRequest = Str(nameof(HarnessOptions.BuildMemoryRequest), defaults.BuildMemoryRequest),
             BuildMemoryLimit = Str(nameof(HarnessOptions.BuildMemoryLimit), defaults.BuildMemoryLimit),
             BuildTokenSecretKey = Str(nameof(HarnessOptions.BuildTokenSecretKey), defaults.BuildTokenSecretKey),
+            GitHubApiUrl = GitHubEndpoints.ApiUrl(configuration),
+            GitHubCodeloadUrl = GitHubEndpoints.CodeloadUrl(configuration),
         };
 
         services.AddSingleton(options);

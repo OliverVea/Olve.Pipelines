@@ -1,3 +1,4 @@
+using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 
@@ -57,6 +58,11 @@ public sealed record HarnessOptions
 
     /// <summary>Key in the pipeline Secret holding the GitHub token used to fetch the repo tarball (optional).</summary>
     public string BuildTokenSecretKey { get; init; } = "GITHUB_TOKEN";
+
+    /// <summary>GitHub API and tarball hosts the build Job fetches from (<c>GitHub:ApiUrl</c>, <c>GitHub:CodeloadUrl</c>).</summary>
+    public string GitHubApiUrl { get; init; } = GitHubEndpoints.DefaultApiUrl;
+
+    public string GitHubCodeloadUrl { get; init; } = GitHubEndpoints.DefaultCodeloadUrl;
 
     /// <summary><c>activeDeadlineSeconds</c> of a map-trigger Job (mappers are pure and fast).</summary>
     public long MapTriggerTimeoutSeconds { get; init; } = 300;

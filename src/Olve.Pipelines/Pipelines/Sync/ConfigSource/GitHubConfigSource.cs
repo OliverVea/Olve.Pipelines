@@ -1,3 +1,4 @@
+using Olve.Pipelines.GitHub;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -15,16 +16,17 @@ namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 public class GitHubConfigSource(
     IKubernetesClient kubernetes,
     KubernetesOptions kubernetesOptions,
+    IConfiguration configuration,
     ILogger<GitHubConfigSource> logger) : IConfigSource
 {
-    private const string ApiBase = "https://api.github.com";
+    private readonly string _apiBase = GitHubEndpoints.ApiUrl(configuration);
 
     public async Task<Result<string>> GetBranchHeadShaAsync(PipelineConfigBinding binding, CancellationToken ct = default)
     {
         var token = await GetTokenAsync(binding, ct);
         using var client = new HttpClient();
 
-        using var request = BuildRequest(HttpMethod.Get, $"{ApiBase}/repos/{binding.Repo}/commits/{binding.Branch}", token);
+        using var request = BuildRequest(HttpMethod.Get, $"{_apiBase}/repos/{binding.Repo}/commits/{binding.Branch}", token);
         using var response = await client.SendAsync(request, ct);
 
         if (!response.IsSuccessStatusCode)
@@ -104,11 +106,11 @@ public class GitHubConfigSource(
     private sealed record PathFetch(PathCursor? Cursor, bool Changed);
 
     /// <summary>Conditional request for the newest commit touching <paramref name="path"/> (<c>""</c> = any).</summary>
-    private static async Task<Result<PathFetch>> PathCursorAsync(
+    private async Task<Result<PathFetch>> PathCursorAsync(
         HttpClient client, PipelineConfigBinding binding, string path, PathCursor? previous, string? token, CancellationToken ct)
     {
         var pathQuery = path.Length > 0 ? $"path={Uri.EscapeDataString(path)}&" : "";
-        var url = $"{ApiBase}/repos/{binding.Repo}/commits?{pathQuery}sha={Uri.EscapeDataString(binding.Branch)}&per_page=1";
+        var url = $"{_apiBase}/repos/{binding.Repo}/commits?{pathQuery}sha={Uri.EscapeDataString(binding.Branch)}&per_page=1";
         using var request = BuildRequest(HttpMethod.Get, url, token);
         if (previous is { ETag.Length: > 0 })
             request.Headers.IfNoneMatch.ParseAdd(previous.ETag);
@@ -134,7 +136,7 @@ public class GitHubConfigSource(
     {
         var dir = LocalPathDependencies.Normalize(binding.Path) ?? binding.Path;
         var file = dir.Length > 0 ? $"{dir}/package.json" : "package.json";
-        var url = $"{ApiBase}/repos/{binding.Repo}/contents/{string.Join('/', file.Split('/').Select(Uri.EscapeDataString))}?ref={Uri.EscapeDataString(sha)}";
+        var url = $"{_apiBase}/repos/{binding.Repo}/contents/{string.Join('/', file.Split('/').Select(Uri.EscapeDataString))}?ref={Uri.EscapeDataString(sha)}";
         using var request = BuildRequest(HttpMethod.Get, url, token);
         request.Headers.Accept.Clear();
         request.Headers.Accept.ParseAdd("application/vnd.github.raw+json");

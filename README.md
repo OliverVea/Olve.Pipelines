@@ -360,6 +360,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
+| `GitHub:ApiUrl` / `GitHub:CodeloadUrl` | `https://api.github.com` / `https://codeload.github.com` | Where bindings read config cursors and the build Job fetches tarballs (GitHub Enterprise, or a local stand-in for tests) |
 | `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
 | `Harness:UrlExpiryGraceSeconds` | `600` | Added to the deadline for step pre-signed URLs |
 | `Harness:ScratchSizeLimit` | `1Gi` | `sizeLimit` of the step pod's `/olve` emptyDir |

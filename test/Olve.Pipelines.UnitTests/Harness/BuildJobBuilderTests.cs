@@ -51,6 +51,8 @@ public class BuildJobBuilderTests
                           { "name": "OLVE_REPO", "value": "OliverVea/Olve.Pipelines" },
                           { "name": "OLVE_SHA", "value": "0123456789abcdef0123456789abcdef01234567" },
                           { "name": "OLVE_PIPELINE_PATH", "value": ".pipelines" },
+                          { "name": "OLVE_GITHUB_API_URL", "value": "https://api.github.com" },
+                          { "name": "OLVE_CODELOAD_URL", "value": "https://codeload.github.com" },
                           { "name": "OLVE_BINARY_URL", "valueFrom": { "secretKeyRef": { "name": "olve-build-1111-7-urls", "key": "OLVE_BINARY_URL", "optional": false } } },
                           { "name": "OLVE_GITHUB_TOKEN", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "GITHUB_TOKEN", "optional": true } } }
                         ],

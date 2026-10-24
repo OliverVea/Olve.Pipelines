@@ -44,6 +44,9 @@ publish:
       username: local
       password: { secret: REGISTRY_PASSWORD }
   harness:
+    # Off: kaniko can't build harness/base inside a step pod (its /olve/lib collides with the running
+    # harness's). The deployed copies use the server's built-in harness image.
+    push: false
     repository: registry:5000/olve-pipelines-harness-base
     insecure: true
     auth:

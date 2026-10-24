@@ -49,7 +49,7 @@ describe("config documents", () => {
     expect(c.auth).toEqual({ mode: "none" });
     expect(c.telemetry).toEqual({ exporter: "none" });
     expect(c.publish.server.repository.startsWith("registry:5000/")).toBe(true);
-    expect(c.publish.harness.repository.startsWith("registry:5000/")).toBe(true);
+    expect(c.publish.harness).toMatchObject({ push: false, repository: "registry:5000/olve-pipelines-harness-base" });
     expect(c.publish.npm.enabled).toBe(false);
   });
 

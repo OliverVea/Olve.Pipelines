@@ -58,7 +58,8 @@ export default implement(deploy, async (_, ctx) => {
 - `secretRef(S)` is a field whose value in YAML is `{ secret: S }`: it names a secret, never holds
   its value.
 - Checks (describe and reconcile): entry names; one schema and description per entry name; a step
-  that receives an entry containing a `secretRef` must declare that secret; a `secretRef` must name a
+  that receives an entry containing a `secretRef` must declare that secret (a library step: only the
+  secrets of the parts it references); a `secretRef` must name a
   declared secret.
 - A changed entry schema is a manifest change (a new pipeline version) and bumps the step versions
   of the steps that declare that entry.
@@ -88,7 +89,9 @@ export const build = steps.imageBuild({ name: "build", description: "", reposito
   `{"$config": "publish.repository"}`; reconcile checks the entry is one the step receives and the
   field exists.
 - An entry that contains a `secretRef` must have its secrets declared by every step that receives it
-  (`imageBuild` takes `secrets: [...]` for that).
+  (`imageBuild` takes `secrets: [...]` for that). A library step that references parts of an entry
+  needs only the secrets those parts name, narrowed to its `select` case: a `helmDeployOverSsh` in
+  the `ssh` case of a `deployTarget()` doesn't declare the compose case's `token`.
 
 ## The config document
 

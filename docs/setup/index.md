@@ -60,9 +60,11 @@ continuing, blocking a step, switching versions, setting secret values — go th
    document and its snapshots, pending versions, `pl config`.
 6. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
-7. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
+7. **[Deploying to Docker Compose](compose-deploy.md)** — the compose deployer, `deployTarget()`
+   and `steps.composeDeploy`.
+8. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
    the pipeline or its target (`pl step block`), and let them resume.
-8. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
+9. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
 **Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics to pages.
 
@@ -111,8 +113,8 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
   deploys itself, driven by config (`config.ts`): `gitHubSource` → `imageBuild` (server, harness) ∥
   custom `test`, `frontend-lint`, `build-sdk`, `build-cli` → prereleases (`publish-images`,
   `publish-sdk`, `publish-cli`) → `select` on `target.beta.kind`: `helmDeployOverSsh` or
-  `helmDeployInCluster` (beta) → custom `beta-test` → when `deployTo: "prod"`: the same select for
-  prod → custom `promote`.
+  `helmDeployInCluster` then custom `beta-test`, `composeDeploy`, or nothing (`none`) → when
+  `deployTo: "prod"`: the same select for prod (without `none`) → custom `promote`.
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

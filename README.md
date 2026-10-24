@@ -218,7 +218,7 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Liveness |
+| GET | `/api/health` | Liveness: `{ status, image, version }` (`image` from `Deployment:Image`, set by the compose deployer) |
 | GET | `/api/ready` | Readiness (persisted state loaded) |
 | GET | `/api/config/frontend` | OIDC authority + client id for the UI and `pl login` |
 | GET, HEAD | `/download/{asset}` | `pl` binary (`pl-linux-x64`, `pl-win-x64.exe`): an output file of the latest successful `publish-cli` attempt of the pipeline named by `Distribution:CliPipeline` (404 until one exists). Anonymous; retention keeps that run |
@@ -393,6 +393,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Distribution:CliPipeline` / `Distribution:CliStep` | — / `publish-cli` | Pipeline (name or id) whose latest successful `CliStep` attempt `/download` serves; unset = nothing served. Retention keeps that run |
 | `Distribution:CliPromotedBy` | — | Only runs in which this step (e.g. `promote`) also succeeded count for `/download` |
 | `Distribution:LocalDirectory` | — | Serve `/download` assets from this directory when it has them (the compose stack builds `pl` from source) |
+| `Deployment:Image` | — | The image this instance runs, reported by `/api/health`. The compose deployer sets it (`Deployment__Image`) when it recreates the container |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint; unset or empty = no exporter |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
 | `Logging:Console:Json:UseUtcTimestamp` | `false` | UTC timestamps with the `json` formatter |
@@ -479,6 +480,9 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
   with "pl is still being built".
 - **Dex** for login, at <http://localhost:5556/dex>. The test user is `dev@example.com` with
   password `password`.
+- **The compose deployer** (`compose/deployer`), the only service with the Docker socket. The
+  self-deploy pipeline asks it to recreate the `pipelines` service with a new image
+  ([docs/setup/compose-deploy.md](docs/setup/compose-deploy.md)).
 
 ```bash
 docker compose up -d --build     # first run builds everything: several minutes
@@ -541,41 +545,55 @@ docker compose down -v           # stop and wipe all state (the reset between ev
 #### Watch it deploy itself
 
 The stack can run Olve.Pipelines' own deploy pipeline (`.pipelines/`), the one that deploys prod,
-against itself: beta and prod are the namespaces `selfdeploy-beta` and `selfdeploy-prod` of the
-compose k3s. Only the config differs from prod
+against itself: one instance that redeploys itself, with no beta. Only the config differs from prod
 ([compose/selfdeploy.config.yaml](compose/selfdeploy.config.yaml)):
 
-- The targets are `kind: inCluster`, so the pipeline's `select` picks `helmDeployInCluster`. It runs helm in its own pod as the step
-  ServiceAccount `olve-deployer` (`Kubernetes__StepServiceAccount`), which the bootstrap makes admin
-  of the two `selfdeploy-*` namespaces and nothing else (`compose/k3s-selfdeploy.yaml`).
+- `target.beta` is `kind: none`, so the beta deploy and `beta-test` are left out.
+- `target.prod` is `kind: compose`, so the pipeline's `select` picks `composeDeploy`: `deploy-prod`
+  asks the `deployer` service to recreate the `pipelines` service (the instance running the
+  pipeline) with the image the run built. The deployer waits for `/api/ready` and puts the old
+  container back if the new one doesn't come up.
 - Images go to the compose registry (`registry:5000`); `next` and `latest` are tags moved there.
   npm publishing is off, so `publish-sdk` is skipped and `promote` moves no dist-tag. No step talks
   to npm's registry for publishing, or to ghcr.io.
-- `auth: none` and `telemetry: none` for the deployed copies.
+- `auth: none` and `telemetry: none` for the deployed instance.
 
 ```bash
 export PIPELINES_CONFIG=/tmp/pl-local.json PIPELINES_PROFILE=local   # and log in, as above
 pl binding create OliverVea/Olve.Pipelines --branch <a branch you pushed> --path .pipelines
 pl binding status "Olve.Pipelines v2"        # reconciled; pending until it has config
 printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
+printf local-deployer | pl secret set "Olve.Pipelines v2" DEPLOYER_TOKEN
 pl config set "Olve.Pipelines v2" -f compose/selfdeploy.config.yaml   # activates the version
 pl trigger "Olve.Pipelines v2" --field sha=<the branch head>           # or push a commit
 pl wait run "Olve.Pipelines v2#1" --until finished
-docker compose exec k3s kubectl -n selfdeploy-prod get pods
-docker compose exec k3s kubectl -n selfdeploy-prod port-forward svc/olve-pipelines 8081:80 &
-docker compose exec k3s wget -qO- http://127.0.0.1:8081/api/ready
+curl -s http://localhost:5080/api/health      # image: the digest the run deployed
 ```
 
 The run builds every component (the server image, `pl`, the SDK; minutes of AOT compiling and
-several GB of memory in k3s), publishes the prereleases, deploys beta, smoke-tests it, deploys prod
-and promotes: about 11 minutes on a laptop, most of it the server image's AOT compile. A first run
-on a fresh stack also pulls the build images. Each deployed copy has its own Garage and runs its
-own step Jobs in its namespace, with the harness image this run built.
+several GB of memory in k3s), publishes the prereleases, deploys the instance and promotes. A first
+run on a fresh stack also pulls the build images. The redeployed instance keeps its state: it is the
+same container config and the same Garage, only the image changes.
 
 - The deploy poll checks the branch every 15 minutes (`Reconcile:PollIntervalSeconds`), and webhooks
   are off in the stack: after a push, `pl binding reconcile` picks it up at once.
-- On the first install the server restarts a few times until its new Garage answers; that is
-  the readiness gate working, not a failure.
-- Each deployed copy runs steps: `kubectl -n selfdeploy-beta port-forward --address 0.0.0.0
-  svc/olve-pipelines 18081:80` inside the k3s container, then point `pl` (auth is off) at
-  `http://k3s:18081` from a container on the compose network.
+- The run survives the redeploy: the new server reattaches to the run's Jobs, as on prod.
+- `docker compose up` names `olve-pipelines-v2:local` again, so it can put the locally built image
+  back over a deployed one.
+
+**The in-cluster variant** ([compose/selfdeploy-incluster.config.yaml](compose/selfdeploy-incluster.config.yaml))
+tests the helm chart instead: beta and prod are the namespaces `selfdeploy-beta` and
+`selfdeploy-prod` of the compose k3s, both `kind: inCluster`, so the pipeline's `select` picks
+`helmDeployInCluster`. It runs helm in its own pod as the step ServiceAccount `olve-deployer`
+(`Kubernetes__StepServiceAccount`), which the bootstrap makes admin of the two `selfdeploy-*`
+namespaces and nothing else (`compose/k3s-selfdeploy.yaml`). Set it with
+`pl config set "Olve.Pipelines v2" -f compose/selfdeploy-incluster.config.yaml` (only
+`REGISTRY_PASSWORD` is needed). The run also deploys beta and smoke-tests it.
+
+- Each deployed copy has its own Garage and runs its own step Jobs in its namespace, with the
+  harness image the run built. On the first install the server restarts a few times until its new
+  Garage answers; that is the readiness gate working, not a failure.
+- Look at a copy with `docker compose exec k3s kubectl -n selfdeploy-prod get pods`. To drive one,
+  run `kubectl -n selfdeploy-beta port-forward --address 0.0.0.0 svc/olve-pipelines 18081:80` inside
+  the k3s container, then point `pl` (auth is off) at `http://k3s:18081` from a container on the
+  compose network.

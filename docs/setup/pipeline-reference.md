@@ -131,6 +131,7 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?`; or the target form: `target` (an ssh `helmTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
+| `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -183,8 +184,9 @@ config are reserved.
   ```
 - **Deploying to a target from config.** `helmTarget(defaults?, extend?)` is the schema of a deploy
   target for your config entry: a union on `kind`, `inCluster` or `ssh` (with `host`), each with
-  `namespace`, `release`, `values` (chart-relative files) and `set`. `select` on it, and give each case
-  its step: **`steps.helmDeployInCluster`** runs `helm upgrade --install --wait` in the step pod against
+  `namespace`, `release`, `values` (chart-relative files), `set` and `url?`. `deployTarget(options)`
+  adds `kind: compose` (see below) and, with `optional: true`, `kind: none` (not deployed: give its
+  `select` case no steps, `none: p => p`). `select` on it, and give each case its step: **`steps.helmDeployInCluster`** runs `helm upgrade --install --wait` in the step pod against
   its own cluster with the step ServiceAccount's token (`clusterAccess`); the target form of
   **`steps.helmDeployOverSsh`** pulls the images on the host and runs helm there. Each declares only
   what it uses: no SSH key in-cluster, no cluster token over SSH. Both deploy registry images pinned
@@ -202,6 +204,11 @@ config are reserved.
     inCluster: (p, beta) => p.stage([steps.helmDeployInCluster({ name: "deploy-beta", description: "…", target: beta, ...deploy }), from => ({ … })]),
   })
   ```
+- **`steps.composeDeploy`** asks a Docker Compose deployer to recreate a service with the image
+  (`POST <deployerUrl>/v1/deploy`, bearer token); the deployer pulls it, waits for the service's
+  health and rolls back if it fails. The target is `{ kind: "compose", deployerUrl, service, token:
+  { secret }, healthUrl? }`. Running the deployer, the API and an example: [Deploying to Docker
+  Compose](compose-deploy.md).
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
@@ -417,7 +424,7 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | Two schemas under one model name | describe |
 | Config entry name not `^[a-z][a-zA-Z0-9]*$`; two schemas or descriptions under one entry name | describe, reconcile |
 | A step uses a config entry the pipeline doesn't declare | TS, reconcile |
-| A step receives a config entry with a `secretRef` but doesn't declare that secret; a `secretRef` to an undeclared secret | describe, reconcile |
+| A step receives a config entry with a `secretRef` but doesn't declare that secret (a library step only the secrets of the parts it references, in its `select` case); a `secretRef` to an undeclared secret | describe, reconcile |
 | An input key starting with `$` (reserved) | describe |
 | Custom step without a handler file; handler file without a step | describe |
 | Output nothing consumes | reconcile **warning** only (fine for gate steps like `test`) |

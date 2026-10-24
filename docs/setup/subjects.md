@@ -16,6 +16,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
 | [configuration.md](configuration.md) | Typed config entries, the YAML document and snapshots, secretRefs, pending versions, runs pinning config, defaults, `pl config` |
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, latest-wins, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
+| [compose-deploy.md](compose-deploy.md) | The compose deployer, its API and rollback, `deployTarget()`, `steps.composeDeploy` |
 | [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
 
@@ -37,6 +38,8 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Continue a run (promote what you tested) | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | `ctx` (handler context) | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
 | De-duplication of automatic triggers | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
+| Deploy targets (`deployTarget()`, `helmTarget()`, `kind: none`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps), [compose-deploy.md#the-deploy-target](compose-deploy.md#the-deploy-target) |
+| Docker Compose deploys (the deployer, `steps.composeDeploy`) | [compose-deploy.md](compose-deploy.md) |
 | Webhook vs polling | [binding-and-reconcile.md#how-changes-are-noticed](binding-and-reconcile.md#how-changes-are-noticed) |
 | `--docker` (run a step in its image) | [local-development.md#3-run-one-step-in-its-real-image](local-development.md#3-run-one-step-in-its-real-image) |
 | Draining | [binding-and-reconcile.md#switch-and-rollback](binding-and-reconcile.md#switch-and-rollback) |
@@ -51,7 +54,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Health statuses | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | Kaniko hang ("Unpacking rootfs") | [troubleshooting.md#a-run-is-stuck](troubleshooting.md#a-run-is-stuck) |
 | Latest-wins, one attempt in progress per step | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
-| Library steps (`script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
+| Library steps (`script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
 | Local pool (`.olve/pool.json`) | [local-development.md#2-run-one-step-from-source](local-development.md#2-run-one-step-from-source) |
 | Login (`pl login`, v2 instance URL) | [getting-started.md#prerequisites](getting-started.md#prerequisites) |
 | Mappers (`[step, from => …]`) | [pipeline-reference.md#input-matching-and-mappers](pipeline-reference.md#input-matching-and-mappers) |

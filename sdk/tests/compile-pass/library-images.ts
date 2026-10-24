@@ -26,3 +26,18 @@ base()
   .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(server, web, figures)
   .stage([deploy, from => ({ source: from.checkout, server: from["build-server"], web: from["build-web"] })], deployFigures);
+
+// A registry image the chart only references, next to a tarball image: distinct input models.
+const GHCR = secret("GHCR_TOKEN", "token");
+const harness = steps.imageBuild({ name: "publish-harness", description: "", repository: "ghcr.io/o/harness", context: "harness/base", push: true, contentTag: true, registryAuth: { username: "o", password: GHCR } });
+const deployWithRefs = steps.helmDeployOverSsh({
+  name: "deploy-refs", description: "", host: "u@h", sshKey: KEY, release: "refs", namespace: "ns", chart: "helm", imageRefs: { harness: "harness.image" },
+});
+const _refsIn: Equal<keyof typeof deployWithRefs.input, "source" | "image" | "harness"> = true;
+const _refsModel: Equal<(typeof deployWithRefs.input)["harness"], typeof PushedImage> = true;
+const _harnessSecrets: Equal<(typeof harness.secrets)[number]["name"], "GHCR_TOKEN"> = true;
+
+base()
+  .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(server, harness)
+  .stage(deployWithRefs);

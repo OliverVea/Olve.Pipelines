@@ -98,4 +98,18 @@ public class CliDistributionTests
     [Arguments("../pl-linux-x64", false)]
     public async Task OnlyAllowListedAssetsResolve(string asset, bool allowed)
         => await Assert.That(CliDownloadEndpoints.Assets.Contains(asset)).IsEqualTo(allowed);
+
+    [Test]
+    public async Task LocalDirectory_ServesBinariesBuiltNextToTheInstance()
+    {
+        var dir = Directory.CreateTempSubdirectory("pl-dist-").FullName;
+        await File.WriteAllTextAsync(Path.Combine(dir, "pl-linux-x64"), "binary");
+        var local = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Distribution:LocalDirectory"] = dir })
+            .Build();
+
+        await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-linux-x64")).IsEqualTo(Path.Combine(dir, "pl-linux-x64"));
+        await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-win-x64.exe")).IsNull();
+        await Assert.That(CliDownloadEndpoints.LocalAsset(new ConfigurationBuilder().Build(), "pl-linux-x64")).IsNull();
+    }
 }

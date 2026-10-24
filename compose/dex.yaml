@@ -1,0 +1,31 @@
+# Local OIDC provider for docker-compose.yml. The issuer is reached at the same URL from the server
+# (Dex shares its network namespace, so localhost), the browser and pl (published port 5556).
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+  # The dashboard exchanges its code with Dex from the browser.
+  allowedOrigins: ["http://localhost:5080"]
+
+oauth2:
+  skipApprovalScreen: true
+  # Password grant against the static users: lets a script mint a token without a browser.
+  passwordConnector: local
+
+# One public client for the dashboard and pl. With no redirectURIs, Dex accepts any loopback
+# redirect (http://localhost:5080/callback, pl's http://127.0.0.1:<port>/callback) and the device flow.
+staticClients:
+  - id: olve-pipelines
+    name: Olve.Pipelines (local)
+    public: true
+
+enablePasswordDB: true
+staticPasswords:
+  - email: dev@example.com
+    # bcrypt of "password"
+    hash: "$2a$10$pEBZOG.ShUZPx0oHXTO7vupxsI52asoph19OzcDXyx7Orue6dsDES"
+    username: dev
+    userID: 6f0c7c5e-3c1a-4d8e-9a55-0d6c5a1e2b01

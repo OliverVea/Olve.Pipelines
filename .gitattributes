@@ -1,0 +1,12 @@
+# Files that end up inside Linux containers or embed shell scripts stay LF in every checkout,
+# including Windows with core.autocrlf=true (a CR breaks `set -eu` in the build Job and olve-init).
+*.sh                    text eol=lf
+*.cs                    text eol=lf
+*.ts                    text eol=lf
+*.toml                  text eol=lf
+*.yaml                  text eol=lf
+*.yml                   text eol=lf
+# Byte-exact fixtures (manifests, schema) and generated api.json.
+*.json                  text eol=lf
+Dockerfile              text eol=lf
+harness/base/olve-init  text eol=lf

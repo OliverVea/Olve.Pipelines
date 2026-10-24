@@ -19,6 +19,7 @@ RUN mkdir -p /out/lib \
  && chmod 0755 /out/lib/*
 
 FROM busybox:1.37-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092
+LABEL org.opencontainers.image.source="https://github.com/OliverVea/Olve.Pipelines"
 COPY --from=glibc /out/lib/ /olve/lib/
 COPY --chmod=0755 olve-init /olve/bin/olve-init
 ENTRYPOINT ["/olve/bin/olve-init"]

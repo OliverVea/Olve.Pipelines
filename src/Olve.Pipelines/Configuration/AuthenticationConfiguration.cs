@@ -55,6 +55,10 @@ public static class AuthenticationConfiguration
                     ValidateLifetime = true,
                 };
 
+                // A plain-HTTP OIDC provider (the local compose stack's Dex) needs Auth:RequireHttpsMetadata=false.
+                if (!builder.Configuration.GetValue("Auth:RequireHttpsMetadata", true))
+                    options.RequireHttpsMetadata = false;
+
                 if (builder.Environment.IsDevelopment())
                 {
                     options.RequireHttpsMetadata = false;

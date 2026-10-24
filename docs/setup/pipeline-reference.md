@@ -100,8 +100,8 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`), `insecureRegistry?` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?` |
 
 All take `name`, `description` and `timeoutSeconds?`.
 

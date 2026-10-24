@@ -102,6 +102,12 @@ public static partial class BuildJobBuilder
         exec bunx olve-build . --out /work/out --sentinels --upload-url "$OLVE_BINARY_URL"
         """;
 
+    /// <summary>
+    /// A script as <c>sh -c</c> gets it: LF line endings only. A CRLF checkout (core.autocrlf on Windows)
+    /// compiles CRs into the raw string, and <c>set -eu\r</c> then fails the Job.
+    /// </summary>
+    public static string ShellScript(string script) => script.ReplaceLineEndings("\n");
+
     /// <summary>Per-build URL Secret name.</summary>
     public static string UrlSecretName(string jobName) => $"{jobName}-urls";
 
@@ -152,7 +158,7 @@ public static partial class BuildJobBuilder
             ContainerName,
             options.BunImage,
             Command: ["/bin/sh", "-c"],
-            Args: [Script],
+            Args: [ShellScript(Script)],
             Env: env.ToArray(),
             VolumeMounts: [new K8sVolumeMount("work", "/work")],
             SecurityContext: HarnessSecurity.Container,

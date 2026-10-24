@@ -1,10 +1,11 @@
 // steps.imageBuild — build a container image from a `Source` with kaniko: to an image tarball that
 // travels as a file ref (a deploy imports it on the host), or pushed to a registry (`push: true`).
 // Ported from v1's olve-lib.sh (olve_kaniko_build + build.sh's layer cache); footguns kept below.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx, RunInfo } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
+import type { Secret } from "../core/secrets.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
 import { sha256File } from "../util/hash.ts";
 import { dirEntries, writeTar } from "../util/tar.ts";
@@ -23,7 +24,13 @@ export const KANIKO_CONTEXT = "/kaniko/build-context";
 const input = { source: Source };
 export type ImageBuildInput = typeof input;
 
-export interface ImageBuildDef<N extends string> {
+/** Credentials for the registry of `repository`: a user name and a secret holding the password or token. */
+export interface RegistryAuth<K extends string> {
+  username: string;
+  password: Secret<K>;
+}
+
+export interface ImageBuildDef<N extends string, K extends string = never> {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
@@ -62,10 +69,17 @@ export interface ImageBuildDef<N extends string> {
    * A `--no-push` build is idempotent, so the default is 2 (three tries).
    */
   retries?: number;
+  /**
+   * Log in to the registry of `repository` (e.g. `ghcr.io` with a token that may write packages).
+   * Used for kaniko's push, base image and cache pulls from that registry, and the `contentTag` lookup.
+   */
+  registryAuth?: RegistryAuth<K>;
+  /** The registry of `repository` speaks plain HTTP (a local `registry:2`). */
+  insecureRegistry?: boolean;
 }
 
 /** Tarball mode (default): output `BuiltImage` with the image tar as a file. */
-export interface ImageBuildTarballDef<N extends string> extends ImageBuildDef<N> {
+export interface ImageBuildTarballDef<N extends string, K extends string = never> extends ImageBuildDef<N, K> {
   push?: false;
   contentTag?: never;
 }
@@ -74,7 +88,7 @@ export interface ImageBuildTarballDef<N extends string> extends ImageBuildDef<N>
  * Registry mode: push to `repository` and output `PushedImage`, for images too big to travel as a
  * tarball (the step's scratch space is ~1 GiB).
  */
-export interface ImageBuildPushDef<N extends string> extends ImageBuildDef<N> {
+export interface ImageBuildPushDef<N extends string, K extends string = never> extends ImageBuildDef<N, K> {
   push: true;
   /**
    * Tag the image `src-<hash>`, the hash of the build context's content, and skip the build when the
@@ -186,15 +200,92 @@ const MANIFEST_TYPES = [
   "application/vnd.docker.distribution.manifest.v2+json",
 ].join(", ");
 
-/** The digest of `repository:tag` in its registry (anonymous `HEAD …/manifests/<tag>`), or undefined if it has none. */
-export async function registryDigest(http: Ctx["http"], repository: string, tag: string): Promise<string | undefined> {
+/** Options of a registry API call: login (`username`/`password`) and plain HTTP. */
+export interface RegistryAccess {
+  username?: string;
+  password?: string;
+  insecure?: boolean;
+}
+
+const basic = (username: string, password: string) => `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+
+/** `Bearer realm="…",service="…",scope="…"` → its parameters. */
+export function parseChallenge(header: string): { scheme: string; params: Record<string, string> } {
+  const scheme = header.trim().split(/\s+/, 1)[0]!.toLowerCase();
+  const params: Record<string, string> = {};
+  for (const m of header.slice(scheme.length).matchAll(/([A-Za-z]+)="([^"]*)"/g)) params[m[1]!.toLowerCase()] = m[2]!;
+  return { scheme, params };
+}
+
+/**
+ * `HEAD`/`GET` against a registry API path, answering its auth challenge: Basic (a `registry:2` with
+ * htpasswd) or a Bearer token from the realm (ghcr.io, Docker Hub; anonymous for public images).
+ */
+async function registryFetch(http: Ctx["http"], host: string, path: string, init: RequestInit, access: RegistryAccess): Promise<Response> {
+  const url = `${access.insecure ? "http" : "https"}://${host}${path}`;
+  const res = await http.fetch(url, init);
+  if (res.status !== 401) return res;
+  await res.body?.cancel().catch(() => {});
+  const { scheme, params } = parseChallenge(res.headers.get("www-authenticate") ?? "");
+  const login = access.username !== undefined && access.password !== undefined ? basic(access.username, access.password) : undefined;
+  let authorization: string;
+  if (scheme === "basic") {
+    if (!login) return new Response(null, { status: 401 });
+    authorization = login;
+  } else if (scheme === "bearer" && params.realm) {
+    const q = new URLSearchParams();
+    if (params.service) q.set("service", params.service);
+    if (params.scope) q.set("scope", params.scope);
+    const tokenRes = await http.fetch(`${params.realm}?${q}`, { headers: login ? { Authorization: login } : {} });
+    if (!tokenRes.ok) {
+      await tokenRes.body?.cancel().catch(() => {});
+      return new Response(null, { status: tokenRes.status === 404 ? 401 : tokenRes.status });
+    }
+    const body = (await tokenRes.json()) as { token?: string; access_token?: string };
+    const token = body.token ?? body.access_token;
+    if (!token) throw new Error(`registry token endpoint ${params.realm} returned no token`);
+    authorization = `Bearer ${token}`;
+  } else {
+    return new Response(null, { status: 401 });
+  }
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", authorization);
+  return http.fetch(url, { ...init, headers });
+}
+
+/** The digest of `repository:tag` in its registry (`HEAD …/manifests/<tag>`), or undefined if it has none. */
+export async function registryDigest(http: Ctx["http"], repository: string, tag: string, access: RegistryAccess = {}): Promise<string | undefined> {
   const [host, ...path] = repository.split("/");
-  const res = await http.fetch(`https://${host}/v2/${path.join("/")}/manifests/${tag}`, { method: "HEAD", headers: { Accept: MANIFEST_TYPES } });
+  const res = await registryFetch(http, host!, `/v2/${path.join("/")}/manifests/${tag}`, { method: "HEAD", headers: { Accept: MANIFEST_TYPES } }, access);
   await res.body?.cancel().catch(() => {});
   if (res.status === 404) return undefined;
+  // An anonymous lookup of a repository that doesn't exist yet (or is private) is denied, not 404.
+  if ((res.status === 401 || res.status === 403) && access.password === undefined) return undefined;
   if (!res.ok) throw new Error(`registry lookup of ${repository}:${tag} answered HTTP ${res.status}`);
   const digest = res.headers.get("docker-content-digest") ?? "";
   return /^sha256:[0-9a-f]{64}$/.test(digest) ? digest : undefined;
+}
+
+/** kaniko reads registry logins from `$DOCKER_CONFIG/config.json` (`/kaniko/.docker` in its image). */
+export const KANIKO_DOCKER_CONFIG = "/kaniko/.docker";
+
+/** A docker `config.json` that logs in to `host`. */
+export function dockerConfigJson(host: string, username: string, password: string): string {
+  return JSON.stringify({ auths: { [host]: { auth: Buffer.from(`${username}:${password}`).toString("base64") } } });
+}
+
+/** Adds the login for `host` to `<dir>/config.json` (owner-only), keeping what is there (kaniko's credHelpers). */
+export function writeDockerConfig(dir: string, host: string, username: string, password: string): void {
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, "config.json");
+  let config: { auths?: Record<string, unknown> } = {};
+  try {
+    config = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    // absent or unreadable: start fresh
+  }
+  const login = JSON.parse(dockerConfigJson(host, username, password)) as { auths: Record<string, unknown> };
+  writeFileSync(file, JSON.stringify({ ...config, auths: { ...config.auths, ...login.auths } }), { mode: 0o600 });
 }
 
 /**
@@ -202,19 +293,22 @@ export async function registryDigest(http: Ctx["http"], repository: string, tag:
  * at the root). Default: into an image tarball, output `BuiltImage { repository, tag, digest, tar }`.
  * With `push: true`: pushed to `repository`, output `PushedImage { repository, tag, digest }`.
  */
-export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N>): Step<N, ImageBuildInput, typeof BuiltImage, never> & LibraryStep;
-export function imageBuild<const N extends string>(def: ImageBuildPushDef<N>): Step<N, ImageBuildInput, typeof PushedImage, never> & LibraryStep;
-export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> | ImageBuildPushDef<N>): AnyImageBuild {
+export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildTarballDef<N, K>): Step<N, ImageBuildInput, typeof BuiltImage, K> & LibraryStep;
+export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildPushDef<N, K>): Step<N, ImageBuildInput, typeof PushedImage, K> & LibraryStep;
+export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildTarballDef<N, K> | ImageBuildPushDef<N, K>): AnyImageBuild {
   const registryMap = def.registryMap ?? DEFAULT_REGISTRY_MAP;
   const mapped = Object.keys(registryMap).length > 0;
   const push = def.push === true;
   const contentTag = push && def.contentTag === true;
   const context = checkRelative("context", def.context ?? "");
   const dockerfile = checkRelative("dockerfile", def.dockerfile ?? "Dockerfile");
-  if (push && !/[.:]|^localhost$/.test(def.repository.split("/")[0]!)) throw new Error(`imageBuild '${def.name}': push needs a repository with a registry host, got '${def.repository}'`);
+  const host = registryHost(def.repository);
+  const insecure = def.insecureRegistry === true;
+  if (push && !/[.:]|^localhost$/.test(host)) throw new Error(`imageBuild '${def.name}': push needs a repository with a registry host, got '${def.repository}'`);
+  if ((def.registryAuth || insecure) && !/[.:]|^localhost$/.test(host)) throw new Error(`imageBuild '${def.name}': registryAuth and insecureRegistry need a repository with a registry host, got '${def.repository}'`);
   return makeStep(
     "imageBuild",
-    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: push ? PushedImage : BuiltImage, secrets: [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
+    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: push ? PushedImage : BuiltImage, secrets: def.registryAuth ? [def.registryAuth.password] : [], timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
     {
       manifestConfig: () => ({
         repository: def.repository,
@@ -224,6 +318,8 @@ export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> 
         ...(contentTag ? { contentTag: true } : {}),
         ...(def.cacheRepo ? { cacheRepo: def.cacheRepo } : {}),
         ...(mapped ? { registryMap: { ...registryMap } } : {}),
+        ...(def.registryAuth ? { registryAuth: { username: def.registryAuth.username, password: def.registryAuth.password.name } } : {}),
+        ...(insecure ? { insecureRegistry: true } : {}),
       }),
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
         const tree = await ctx.files.fetch(source.tree);
@@ -231,9 +327,16 @@ export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> 
         if (!existsSync(contextDir) || !statSync(contextDir).isDirectory()) throw new Error(`build context '${context}' not found in the source tree`);
         if (!existsSync(join(contextDir, dockerfile))) throw new Error(`${dockerfile} not found in the build context${context ? ` '${context}'` : ""}`);
 
+        const access: RegistryAccess = {
+          insecure,
+          ...(def.registryAuth ? { username: def.registryAuth.username, password: ctx.secrets[def.registryAuth.password.name] } : {}),
+        };
+        if (def.registryAuth && !access.password) throw new Error(`secret ${def.registryAuth.password.name} (registryAuth) is not set`);
+        if (access.password !== undefined) writeDockerConfig(process.env.DOCKER_CONFIG || KANIKO_DOCKER_CONFIG, host, access.username!, access.password);
+
         const tag = contentTag ? contentTagOf(contextDir, ctx.tmpDir) : imageTag(ctx.run);
         if (contentTag) {
-          const digest = await registryDigest(ctx.http, def.repository, tag);
+          const digest = await registryDigest(ctx.http, def.repository, tag, access);
           if (digest) {
             ctx.log("image already in the registry", { image: `${def.repository}:${tag}`, digest });
             return { repository: def.repository, tag, digest };
@@ -263,6 +366,7 @@ export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> 
           ...output,
           `--digest-file=${digestPath}`,
           `--destination=${def.repository}:${tag}`,
+          ...(insecure ? ["--insecure", `--insecure-registry=${host}`] : []),
           ...(caches.cacheRepo ? ["--cache=true", `--cache-repo=${caches.cacheRepo}`, "--skip-push-permission-check"] : []),
           ...Object.entries(caches.registryMap).map(([from, to]) => `--registry-map=${from}=${to}`),
         ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
@@ -287,4 +391,4 @@ export function imageBuild<const N extends string>(def: ImageBuildTarballDef<N> 
   ) as never;
 }
 
-type AnyImageBuild = Step<string, ImageBuildInput, typeof BuiltImage | typeof PushedImage, never> & LibraryStep;
+type AnyImageBuild = Step<string, ImageBuildInput, typeof BuiltImage | typeof PushedImage, any> & LibraryStep;

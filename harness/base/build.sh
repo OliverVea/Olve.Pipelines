@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# Builds and pushes registry.ovea.pro/olve-pipelines-v2/harness-base:<content-tag> (+ :latest).
-#
-# The tag is the first 12 hex chars of sha256(Dockerfile + olve-init): both base images are pinned
-# by digest inside the Dockerfile, so equal content => equal image. Re-running with unchanged
-# content re-pushes the same tag (idempotent). Prints the tag and the pushed digest.
+# Builds and pushes ghcr.io/olivervea/olve-pipelines-harness-base:<content-tag> by hand. The pipeline's
+# publish-harness step (steps.imageBuild with contentTag) normally does this; both use the same tag:
+# `src-` + the first 12 hex chars of the sha256 of this directory's deterministic tar (the SDK's
+# contentTagOf), so equal content => equal tag. Prints the tag and the pushed digest.
 #
 #   harness/base/build.sh            # build + push
 #   PUSH=0 harness/base/build.sh     # build only (local smoke tests)
 #
-# Requires docker (buildx) usable without sudo and `docker login registry.ovea.pro`.
+# Requires bun (for the tag), docker (buildx) usable without sudo and `docker login ghcr.io`.
+# Run it from a Linux checkout: the tag covers file modes and line endings.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REPO=${REPO:-registry.ovea.pro/olve-pipelines-v2/harness-base}
-TAG=$(cat Dockerfile olve-init | sha256sum | cut -c1-12)
+REPO=${REPO:-ghcr.io/olivervea/olve-pipelines-harness-base}
+TAG=$(bun -e 'import { contentTagOf } from "../../sdk/src/library/image-build.ts"; import { tmpdir } from "node:os"; console.log(contentTagOf(".", tmpdir()));')
 
-docker build --platform linux/amd64 --provenance=false --pull \
-  -t "$REPO:$TAG" -t "$REPO:latest" .
+docker build --platform linux/amd64 --provenance=false --pull -t "$REPO:$TAG" .
 
 if [ "${PUSH:-1}" = 1 ]; then
   docker push -q "$REPO:$TAG"
-  docker push -q "$REPO:latest"
   digest=$(docker inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$REPO:$TAG" | grep "^$REPO@" | head -1)
   echo "pushed $REPO:$TAG"
   echo "digest $digest"

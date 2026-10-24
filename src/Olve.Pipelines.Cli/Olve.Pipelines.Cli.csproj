@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Olve.Pipelines.UnitTests" />
+    <!-- One harness image default for the server and pl dev (docker mode). -->
+    <Compile Include="../Olve.Pipelines/Kubernetes/Harness/HarnessImage.cs" Link="Shared/HarnessImage.cs" />
   </ItemGroup>
 
   <ItemGroup>

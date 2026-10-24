@@ -51,7 +51,7 @@ public sealed class DevSession(
     DevWorkspace workspace,
     DevConsole console)
 {
-    public const string HarnessBaseImage = "registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf";
+    public const string HarnessBaseImage = Olve.Pipelines.Kubernetes.Harness.HarnessImage.Default;
     public const string HarnessBaseEnvVar = "OLVE_HARNESS_BASE";
     public const string Loader = "/olve/lib/ld-linux-x86-64.so.2";
     public const string ResultBegin = "---OLVE-RESULT-BEGIN---";

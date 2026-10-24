@@ -11,7 +11,8 @@ public static class TelemetryConfiguration
     public static void ConfigureTelemetry(this WebApplicationBuilder builder)
     {
         var endpoint = builder.Configuration["OpenTelemetry:Endpoint"];
-        if (endpoint is null) return;
+        // Unset or empty (OpenTelemetry__Endpoint="") = no exporter.
+        if (string.IsNullOrWhiteSpace(endpoint)) return;
 
         var serviceName = builder.Configuration["Telemetry:ServiceName"] ?? "olve-pipelines";
         var protocol = builder.Configuration["OpenTelemetry:Protocol"];

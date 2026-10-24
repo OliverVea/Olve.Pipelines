@@ -5,6 +5,7 @@ import * as M from "./models";
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for importing the image and running helm on the homelab host.");
 export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines.");
+export const GHCR_TOKEN = secret("GHCR_TOKEN", "GitHub token with write:packages that pushes the harness image to ghcr.io.");
 
 export const source = steps.gitHubSource({
   name: "source",
@@ -18,6 +19,17 @@ export const build = steps.imageBuild({
   repository: "olve-pipelines-v2",
   cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache",
   timeoutSeconds: 900,
+});
+
+export const publishHarness = steps.imageBuild({
+  name: "publish-harness",
+  description: "Builds the step pods' init image (harness/base) and pushes it to ghcr.io when its content changed.",
+  repository: "ghcr.io/olivervea/olve-pipelines-harness-base",
+  context: "harness/base",
+  push: true,
+  contentTag: true,
+  registryAuth: { username: "olivervea", password: GHCR_TOKEN },
+  timeoutSeconds: 600,
 });
 
 export const test = step({
@@ -39,6 +51,7 @@ export const deployBeta = steps.helmDeployOverSsh({
   namespace: "apps-beta",
   chart: "helm",
   values: ["values-beta.yaml", "values-v2-beta.yaml"],
+  imageRefs: { harness: "harness.image" },
   set: { "slo.enabled": "false" },
   healthUrl: `${BETA_URL}/api/health`,
   timeoutSeconds: 900,
@@ -61,6 +74,7 @@ export const deployProd = steps.helmDeployOverSsh({
   namespace: "apps",
   chart: "helm",
   values: ["values-v2-prod.yaml"],
+  imageRefs: { harness: "harness.image" },
   healthUrl: "http://olve-pipelines-v2.apps.svc.cluster.local/api/health",
   timeoutSeconds: 900,
 });
@@ -86,12 +100,12 @@ export const publishSdk = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build the v2 branch with kaniko, run the unit tests, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it, then deploy the same image to apps and publish the pl CLI and the SDK to npm. deployTo=beta stops after beta.",
+  description: "Build the v2 branch with kaniko, run the unit tests and publish the step harness image, deploy it to apps-beta (olve-pipelines-v2) with Helm and smoke-test it, then deploy the same image to apps and publish the pl CLI and the SDK to npm. deployTo=beta stops after beta.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
-  .stage(build, test)
+  .stage(build, test, publishHarness)
   .stage(deployBeta)
   .stage(betaTest)
   .when({ deployTo: "prod" }, p => p

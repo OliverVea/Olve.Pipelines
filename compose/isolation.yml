@@ -1,0 +1,15 @@
+# Proof that the stack needs none of the homelab's hosts: layer this on top and every one of them
+# resolves to 127.0.0.1 in the server/Dex namespace and on the k3s node (image pulls).
+#   docker compose -f docker-compose.yml -f compose/isolation.yml up -d --build
+x-homelab: &homelab
+  - "registry.ovea.pro:127.0.0.1"
+  - "auth.ovea.pro:127.0.0.1"
+  - "otel.ovea.pro:127.0.0.1"
+  - "hub-cache.ovea.pro:127.0.0.1"
+  - "mcr-cache.ovea.pro:127.0.0.1"
+
+services:
+  edge:
+    extra_hosts: *homelab
+  k3s:
+    extra_hosts: *homelab

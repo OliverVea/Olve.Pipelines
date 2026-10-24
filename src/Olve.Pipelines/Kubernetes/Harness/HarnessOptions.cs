@@ -11,7 +11,7 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 public sealed record HarnessOptions
 {
     /// <summary>The olve-init image. Pinned by content tag — never <c>latest</c> (harness/README.md).</summary>
-    public string HarnessBaseImage { get; init; } = "registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf";
+    public string HarnessBaseImage { get; init; } = HarnessImage.Default;
 
     /// <summary>Build/describe image: glibc Bun (never alpine), the Bun version the SDK pins.</summary>
     public string BunImage { get; init; } = "oven/bun:1.4.3-slim";

@@ -20,7 +20,8 @@ public class BuildJobBuilderTests
         var json = JsonNode.Parse(HarnessJobBuilderTests.Serialize(spec.Value!.Job))!;
         // The script is asserted separately; compare the rest structurally.
         var container = json["spec"]!["template"]!["spec"]!["containers"]![0]!.AsObject();
-        await Assert.That(container["args"]![0]!.GetValue<string>()).IsEqualTo(BuildJobBuilder.Script);
+        await Assert.That(container["args"]![0]!.GetValue<string>()).IsEqualTo(BuildJobBuilder.ShellScript(BuildJobBuilder.Script));
+        await Assert.That(container["args"]![0]!.GetValue<string>()).DoesNotContain("\r");
         container["args"] = new JsonArray("<script>");
 
         await HarnessJobBuilderTests.AssertJsonEqual(json.ToJsonString(), """
@@ -74,6 +75,17 @@ public class BuildJobBuilderTests
             }
             """);
         await Assert.That(spec.Value.UrlSecretData["OLVE_BINARY_URL"]).IsEqualTo("http://garage/versions/step.tar.gz?sig");
+    }
+
+    [Test]
+    public async Task ShellScript_StripsCarriageReturns()
+    {
+        // What a CRLF checkout compiles the raw-string script into.
+        var crlf = BuildJobBuilder.Script.ReplaceLineEndings("\r\n");
+
+        await Assert.That(crlf).Contains("set -eu\r\n");
+        await Assert.That(BuildJobBuilder.ShellScript(crlf)).IsEqualTo(BuildJobBuilder.Script.ReplaceLineEndings("\n"));
+        await Assert.That(BuildJobBuilder.ShellScript(crlf)).DoesNotContain("\r");
     }
 
     [Test]

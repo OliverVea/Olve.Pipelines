@@ -11,6 +11,14 @@ image:
 serviceAccount:
   enabled: false
 
+# The step pods' init image (harness/base), rendered as Harness__HarnessBaseImage. The deploy sets it
+# from the publish-harness step's pushed image; empty = the server's built-in default.
+harness:
+  image:
+    repository: ""
+    tag: ""
+    digest: ""
+
 service:
   type: ClusterIP
   port: 80

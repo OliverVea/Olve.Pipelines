@@ -6,7 +6,7 @@ import { script } from "./script.ts";
 export { Source, BuiltImage, PushedImage, HelmRelease, FailureContext } from "./models.ts";
 export { inputEnvName, type RunValue, type ScriptDef } from "./script.ts";
 export type { GitHubSourceDef } from "./github-source.ts";
-export type { ImageBuildDef, ImageBuildTarballDef, ImageBuildPushDef } from "./image-build.ts";
+export type { ImageBuildDef, ImageBuildTarballDef, ImageBuildPushDef, RegistryAuth } from "./image-build.ts";
 export type { HelmDeployOverSshDef } from "./helm-deploy-ssh.ts";
 export { sshSession, shq, type SshSession } from "./ssh.ts";
 export { serviceUrl, checkSpa } from "./checks.ts";

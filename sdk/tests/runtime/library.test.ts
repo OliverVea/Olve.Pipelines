@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkSpa, httpHealthCheck, model, pipeline, secret, serviceUrl, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
-import { contentTagOf, reachableCaches, registryUp } from "../../src/library/image-build.ts";
+import { contentTagOf, dockerConfigJson, parseChallenge, reachableCaches, registryUp, writeDockerConfig } from "../../src/library/image-build.ts";
 import { sha256File } from "../../src/util/hash.ts";
 import { dirEntries, writeTar } from "../../src/util/tar.ts";
 import { describePipeline } from "../../src/describe/describe.ts";
@@ -373,6 +373,131 @@ describe("steps.imageBuild: context, dockerfile, push", () => {
   });
 });
 
+describe("steps.imageBuild: registry login and plain-HTTP registries", () => {
+  const GHCR = secret("GHCR_TOKEN", "ghcr token");
+  const digest = "sha256:" + "cd".repeat(32);
+  const setup = (registry: (url: string, init: RequestInit | undefined) => Response) => {
+    const tree = tmp("kaniko-auth-tree");
+    mkdirSync(join(tree, "harness/base"), { recursive: true });
+    writeFileSync(join(tree, "harness/base/Dockerfile"), "FROM scratch\n");
+    writeFileSync(join(tree, "Dockerfile"), "FROM scratch\n");
+    const calls: string[][] = [];
+    const requests: { url: string; method: string; authorization: string | null }[] = [];
+    const exec: Ctx["exec"] = async (argv) => {
+      calls.push([...argv]);
+      if (argv[0] === "/kaniko/executor") writeFileSync(argv.find((a) => a.startsWith("--digest-file="))!.slice(14), digest);
+    };
+    const http = {
+      fetch: async (url: string, init?: RequestInit) => {
+        requests.push({ url, method: init?.method ?? "GET", authorization: new Headers(init?.headers).get("authorization") });
+        return registry(url, init);
+      },
+    } as unknown as Ctx["http"];
+    const dockerConfig = tmp("docker-config");
+    return { calls, requests, dockerConfig, ctx: { exec, http, files: { fetch: async () => tree } } };
+  };
+  const withDockerConfig = async <T,>(dir: string, fn: () => Promise<T>): Promise<T> => {
+    const before = process.env.DOCKER_CONFIG;
+    process.env.DOCKER_CONFIG = dir;
+    try {
+      return await fn();
+    } finally {
+      if (before === undefined) delete process.env.DOCKER_CONFIG;
+      else process.env.DOCKER_CONFIG = before;
+    }
+  };
+
+  test("registryAuth: the secret is declared, kaniko gets a docker config, the lookup answers a Bearer challenge", async () => {
+    const step = steps.imageBuild({
+      name: "publish-harness", description: "", repository: "ghcr.io/olivervea/harness-base", context: "harness/base",
+      push: true, contentTag: true, registryMap: {}, registryAuth: { username: "olivervea", password: GHCR },
+    });
+    expect(step.secrets).toEqual([GHCR]);
+    expect(step.builtin.manifestConfig()).toEqual({
+      repository: "ghcr.io/olivervea/harness-base", context: "harness/base", push: true, contentTag: true,
+      registryAuth: { username: "olivervea", password: "GHCR_TOKEN" },
+    });
+    const s = setup((url, init) => {
+      if (url.startsWith("https://ghcr.io/token")) return Response.json({ token: "registry-token" });
+      const auth = new Headers(init?.headers).get("authorization");
+      if (!auth) return new Response(null, { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:olivervea/harness-base:pull"' } });
+      return new Response(null, { status: 404 });
+    });
+    const r = await withDockerConfig(s.dockerConfig, () => testHandler(step, { source }, { ctx: s.ctx, secrets: { GHCR_TOKEN: "ghp_secret" } }));
+    expect(r).toMatchObject({ status: "succeeded", output: { repository: "ghcr.io/olivervea/harness-base", digest } });
+    const basic = `Basic ${Buffer.from("olivervea:ghp_secret").toString("base64")}`;
+    expect(s.requests.map((q) => [q.method, q.url.split("/manifests/")[0], q.authorization])).toEqual([
+      ["HEAD", "https://ghcr.io/v2/olivervea/harness-base", null],
+      ["GET", "https://ghcr.io/token?service=ghcr.io&scope=repository%3Aolivervea%2Fharness-base%3Apull", basic],
+      ["HEAD", "https://ghcr.io/v2/olivervea/harness-base", "Bearer registry-token"],
+    ]);
+    expect(JSON.parse(readFileSync(join(s.dockerConfig, "config.json"), "utf8"))).toEqual({
+      auths: { "ghcr.io": { auth: Buffer.from("olivervea:ghp_secret").toString("base64") } },
+    });
+    expect(statSync(join(s.dockerConfig, "config.json")).mode & 0o777).toBe(0o600);
+    expect(s.calls.find((c) => c[0] === "/kaniko/executor")!.some((a) => a.startsWith("--insecure"))).toBe(false);
+  });
+
+  test("insecureRegistry with Basic auth: plain HTTP lookups, kaniko --insecure; an existing tag skips the build", async () => {
+    const REG = secret("REGISTRY_PASSWORD", "password");
+    const step = steps.imageBuild({
+      name: "publish", description: "", repository: "registry:5000/harness", context: "harness/base",
+      push: true, contentTag: true, registryMap: {}, insecureRegistry: true, registryAuth: { username: "local", password: REG },
+    });
+    const existing = "sha256:" + "ef".repeat(32);
+    let present = false;
+    const s = setup((_url, init) => {
+      if (new Headers(init?.headers).get("authorization") !== `Basic ${Buffer.from("local:pw").toString("base64")}`)
+        return new Response(null, { status: 401, headers: { "WWW-Authenticate": 'Basic realm="Registry Realm"' } });
+      return present ? new Response(null, { status: 200, headers: { "Docker-Content-Digest": existing } }) : new Response(null, { status: 404 });
+    });
+    const built = await withDockerConfig(s.dockerConfig, () => testHandler(step, { source }, { ctx: s.ctx, secrets: { REGISTRY_PASSWORD: "pw" } }));
+    expect(built).toMatchObject({ status: "succeeded", output: { digest } });
+    expect(s.requests.every((q) => q.url.startsWith("http://registry:5000/v2/harness/manifests/src-"))).toBe(true);
+    const argv = s.calls.find((c) => c[0] === "/kaniko/executor")!;
+    expect(argv).toContain("--insecure");
+    expect(argv).toContain("--insecure-registry=registry:5000");
+
+    present = true;
+    s.calls.length = 0;
+    const skipped = await withDockerConfig(s.dockerConfig, () => testHandler(step, { source }, { ctx: s.ctx, secrets: { REGISTRY_PASSWORD: "pw" } }));
+    expect(skipped).toMatchObject({ status: "succeeded", output: { digest: existing } });
+    expect(s.calls).toEqual([]);
+
+    const wrong = await withDockerConfig(s.dockerConfig, () => testHandler(step, { source }, { ctx: s.ctx, secrets: { REGISTRY_PASSWORD: "nope" } }));
+    if (wrong.status !== "failed") throw new Error("expected failure");
+    expect(wrong.error.message).toContain("answered HTTP 401");
+  });
+
+  test("an unset registryAuth secret fails the step; an anonymous denied lookup builds", async () => {
+    const step = steps.imageBuild({ name: "p", description: "", repository: "ghcr.io/o/x", push: true, contentTag: true, registryMap: {}, registryAuth: { username: "o", password: GHCR } });
+    const s = setup(() => new Response(null, { status: 404 }));
+    const unset = await withDockerConfig(s.dockerConfig, () => testHandler(step, { source }, { ctx: s.ctx, secrets: {} }));
+    if (unset.status !== "failed") throw new Error("expected failure");
+    expect(unset.error.message).toContain("secret GHCR_TOKEN is not set");
+
+    const anon = steps.imageBuild({ name: "p", description: "", repository: "ghcr.io/o/x", push: true, contentTag: true, registryMap: {} });
+    const denied = setup((url) => (url.includes("/token") ? new Response(null, { status: 403 }) : new Response(null, { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="https://ghcr.io/token"' } })));
+    expect(await testHandler(anon, { source }, { ctx: denied.ctx })).toMatchObject({ status: "succeeded" });
+    expect(denied.calls.some((c) => c[0] === "/kaniko/executor")).toBe(true);
+  });
+
+  test("definition errors and challenge parsing", () => {
+    expect(() => steps.imageBuild({ name: "b", description: "", repository: "app", insecureRegistry: true })).toThrow("registry host");
+    expect(parseChallenge('Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:a/b:pull"')).toEqual({
+      scheme: "bearer", params: { realm: "https://ghcr.io/token", service: "ghcr.io", scope: "repository:a/b:pull" },
+    });
+    expect(parseChallenge('Basic realm="Registry Realm"')).toEqual({ scheme: "basic", params: { realm: "Registry Realm" } });
+    expect(JSON.parse(dockerConfigJson("ghcr.io", "u", "p"))).toEqual({ auths: { "ghcr.io": { auth: "dTpw" } } });
+    const dir = tmp("docker-config-merge");
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ credHelpers: { "gcr.io": "gcr" }, auths: { "other.io": { auth: "eA==" } } }));
+    writeDockerConfig(dir, "ghcr.io", "u", "p");
+    expect(JSON.parse(readFileSync(join(dir, "config.json"), "utf8"))).toEqual({
+      credHelpers: { "gcr.io": "gcr" }, auths: { "other.io": { auth: "eA==" }, "ghcr.io": { auth: "dTpw" } },
+    });
+  });
+});
+
 describe("steps.helmDeployOverSsh", () => {
   const def = {
     name: "deploy-beta",
@@ -549,6 +674,28 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
     expect(remote[2]).toContain("--set image.repository=registry.ovea.pro/qb/figures --set image.tag=src-0123456789ab --set image.pullPolicy=IfNotPresent");
     expect(remote[3]).toBe("kubectl -n apps rollout status deploy/figures --timeout=300s");
     expect(f.calls).toContain("retry 6x5");
+  });
+
+  test("imageRefs: registry images next to tarball images, set as repository/tag/digest without a pull", async () => {
+    const step = steps.helmDeployOverSsh({
+      name: "deploy-beta", description: "", host: "u@h", sshKey: KEY, release: "app", namespace: "apps-beta", chart: "helm",
+      imageRefs: { harness: "harness.image" },
+    });
+    expect(Object.keys(step.input)).toEqual(["source", "image", "harness"]);
+    expect(step.input.image.name).toBe("BuiltImage");
+    expect(step.input.harness.name).toBe("PushedImage");
+    expect(step.builtin.manifestConfig()).toMatchObject({ imageRefs: { harness: "harness.image" } });
+    const f = fakes();
+    const harness = { repository: "ghcr.io/olivervea/olve-pipelines-harness-base", tag: "src-0123456789ab", digest: "sha256:" + "cd".repeat(32) };
+    const r = await testHandler(step, { source, image: built("docker.io/library/app", "app.tar"), harness }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
+    expect(r).toMatchObject({ status: "succeeded", output: { image: "docker.io/library/app:2026.10.22.3" } });
+    const remote = sshCmd(f.calls);
+    expect(remote.some((c) => c.includes(" pull "))).toBe(false);
+    expect(remote[1]).toContain(
+      "--set image.pullPolicy=Never --set-string harness.image.repository=ghcr.io/olivervea/olve-pipelines-harness-base " +
+        `--set-string harness.image.tag=src-0123456789ab --set-string harness.image.digest=sha256:${"cd".repeat(32)}`,
+    );
+    expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", imageRefs: { image: "x" } })).toThrow("both in images and imageRefs");
   });
 
   test("bad image config is a definition error", () => {

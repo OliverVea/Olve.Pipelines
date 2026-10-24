@@ -1,0 +1,206 @@
+# Throwaway local Olve.Pipelines v2 instance, built entirely from this checkout (e.g. for agent evals).
+# NOT a deployment shape — helm/ is the source of truth for that. See README "Running locally with
+# Docker Compose".
+#
+#   docker compose up -d --build     # dashboard/API http://localhost:5080, Dex http://localhost:5556/dex
+#   docker compose down -v           # stop and wipe all state
+#
+# Mirrors the chart's minimal profile (helm/values-minimal.yaml): the server, its own Garage and a
+# single-node k3s that runs the build and step Jobs (Kubernetes:AuthMode=InCluster via the
+# ServiceAccount files k3s-bootstrap writes). Nothing here talks to the homelab: the step pods' init
+# image is built from harness/base into a local registry, pl is built from source and served at
+# /download, and Dex is the OIDC provider. PIPELINES_AUTH_DISABLE=true turns auth off.
+#
+# The server and Dex share the `edge` container's network namespace, so the Dex issuer
+# http://localhost:5556/dex is the same URL for the server, the browser and pl. Step pods can't
+# resolve compose names and dial Garage through pre-signed URLs (host signed into SigV4), so Garage
+# has a fixed IP; change the subnet and both addresses if 172.29.80.0/24 clashes on your machine.
+# Step pods need internet access (image pulls, GitHub tarballs, npm for `bun install`).
+
+name: olve-pipelines-local
+
+x-storage-creds:
+  access: &access "${GARAGE_ACCESS_KEY:-pipelines-local}"
+  secret: &secret "${GARAGE_SECRET_KEY:-6c6f63616c2d6f6e6c792d6e6f742d612d736563726574}"
+
+services:
+  # Owns the network namespace (and the published ports) the server and Dex share.
+  edge:
+    image: alpine:3.22
+    command: ["sleep", "infinity"]
+    init: true
+    ports:
+      - "${PIPELINES_LOCAL_PORT:-5080}:${PIPELINES_LOCAL_PORT:-5080}"
+      - "5556:5556"
+
+  pipelines:
+    image: olve-pipelines-v2:local
+    build: .
+    network_mode: service:edge
+    environment:
+      Host: "0.0.0.0"
+      # Same port inside and out, so http://localhost:5080 works from the shared namespace too.
+      Port: "${PIPELINES_LOCAL_PORT:-5080}"
+      Links__BaseUrl: "http://localhost:${PIPELINES_LOCAL_PORT:-5080}"
+      # Auth: Dex (both the API and the dashboard/pl client). PIPELINES_AUTH_DISABLE=true makes every
+      # endpoint anonymous.
+      Auth__Disable: "${PIPELINES_AUTH_DISABLE:-false}"
+      Auth__Authority: "http://localhost:5556/dex"
+      Auth__Audience: "olve-pipelines"
+      Auth__FrontendAuthority: "http://localhost:5556/dex"
+      Auth__FrontendAudience: "olve-pipelines"
+      Auth__RequireHttpsMetadata: "false"
+      # No telemetry exporter.
+      OpenTelemetry__Endpoint: ""
+      Telemetry__ServiceName: "olve-pipelines-local"
+      Storage__Endpoint: "http://172.29.80.200:3900"
+      Storage__InClusterEndpoint: "http://172.29.80.200:3900"
+      Storage__Bucket: "olve-pipelines"
+      Storage__AccessKey: *access
+      Storage__SecretKey: *secret
+      Kubernetes__AuthMode: "InCluster"
+      Kubernetes__Namespace: "olve-runners"
+      KUBERNETES_SERVICE_HOST: "k3s"
+      KUBERNETES_SERVICE_PORT: "6443"
+      # Built from harness/base by harness-build, pulled by k3s from the local registry.
+      Harness__HarnessBaseImage: "registry:5000/olve-pipelines-harness-base:local"
+      # pl built from source by pl-build.
+      Distribution__LocalDirectory: "/pl-dist"
+    volumes:
+      # Replaces the image's appsettings.json, whose defaults point at the homelab.
+      - ./compose/appsettings.json:/app/appsettings.json:ro
+      - k3s-sa:/var/run/secrets/kubernetes.io/serviceaccount:ro
+      - pl-dist:/pl-dist:ro
+    depends_on:
+      dex:
+        condition: service_started
+      garage:
+        condition: service_healthy
+      k3s-bootstrap:
+        condition: service_completed_successfully
+      harness-build:
+        condition: service_completed_successfully
+      pl-build:
+        condition: service_completed_successfully
+
+  dex:
+    image: dexidp/dex:v2.43.1
+    network_mode: service:edge
+    command: ["dex", "serve", "/etc/dex/dex.yaml"]
+    volumes:
+      - ./compose/dex.yaml:/etc/dex/dex.yaml:ro
+
+  garage:
+    # Same image and flags as helm/templates/garage-deployment.yaml.
+    image: dxflrs/garage:v2.4.1
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage/garage.toml
+      GARAGE_DEFAULT_BUCKET: "olve-pipelines"
+      GARAGE_DEFAULT_ACCESS_KEY: *access
+      GARAGE_DEFAULT_SECRET_KEY: *secret
+      GARAGE_RPC_SECRET: "${GARAGE_RPC_SECRET:-0000000000000000000000000000000000000000000000000000000000000001}"
+    volumes:
+      - ./compose/garage.toml:/etc/garage/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      # No shell or curl in the image; `garage status` asks the node over RPC.
+      test: ["CMD", "/garage", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+    networks:
+      default:
+        ipv4_address: 172.29.80.200
+
+  # Password-protected (compose/registry.htpasswd: local / local-registry), plain HTTP.
+  registry:
+    image: registry:2.8.3
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: olve-pipelines-local
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+    volumes:
+      - ./compose/registry.htpasswd:/auth/htpasswd:ro
+      - registry-data:/var/lib/registry
+
+  # One-shot: build harness/base with kaniko and push it to the local registry.
+  harness-build:
+    image: gcr.io/kaniko-project/executor:v1.23.2-debug
+    command:
+      - --context=dir:///workspace
+      - --dockerfile=/workspace/Dockerfile
+      - --destination=registry:5000/olve-pipelines-harness-base:local
+      - --insecure
+      - --insecure-registry=registry:5000
+    volumes:
+      - ./harness/base:/workspace:ro
+      - ./compose/registry-docker-config.json:/kaniko/.docker/config.json:ro
+    depends_on:
+      - registry
+
+  # One-shot: build pl from source for /download and /install.sh.
+  pl-build:
+    image: mcr.microsoft.com/dotnet/sdk:10.0-noble-aot
+    entrypoint: ["/bin/sh", "/repo/compose/pl-build.sh"]
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    volumes:
+      - .:/repo:ro
+      - pl-dist:/dist
+      - nuget-cache:/root/.nuget/packages
+
+  k3s:
+    image: rancher/k3s:v1.31.4-k3s1
+    privileged: true
+    command:
+      - server
+      - --disable=traefik
+      - --disable=metrics-server
+      - --tls-san=k3s
+      - --write-kubeconfig-mode=644
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+    tmpfs:
+      - /run
+      - /var/run
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+    volumes:
+      - ./compose/k3s-registries.yaml:/etc/rancher/k3s/registries.yaml:ro
+      - k3s-output:/output
+      - k3s-data:/var/lib/rancher/k3s
+
+  # One-shot: namespace + ServiceAccount + RBAC (mirrors helm/templates/serviceaccount.yaml).
+  k3s-bootstrap:
+    image: rancher/k3s:v1.31.4-k3s1
+    entrypoint: ["/bin/sh", "/bootstrap/k3s-bootstrap.sh"]
+    volumes:
+      - ./compose:/bootstrap:ro
+      - k3s-output:/k3s-output:ro
+      - k3s-sa:/sa
+    depends_on:
+      - k3s
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.80.0/24
+          # Dynamic addresses stay below .128, so they never take Garage's fixed one.
+          ip_range: 172.29.80.0/25
+
+volumes:
+  garage-meta:
+  garage-data:
+  registry-data:
+  pl-dist:
+  nuget-cache:
+  k3s-output:
+  k3s-data:
+  k3s-sa:

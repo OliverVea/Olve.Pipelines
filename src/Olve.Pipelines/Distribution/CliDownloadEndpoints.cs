@@ -46,6 +46,12 @@ public static class CliDownloadEndpoints
             if (asset is null || !Assets.Contains(asset))
                 return HttpResults.NotFound();
 
+            if (LocalAsset(services.GetRequiredService<IConfiguration>(), asset) is { } local)
+            {
+                http.Response.Headers.ContentDisposition = $"attachment; filename=\"{asset}\"";
+                return HttpResults.File(local, "application/octet-stream");
+            }
+
             // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation /
             // no-storage profiles), so resolve optionally and degrade to 503 instead of a DI failure.
             if (services.GetService<IAmazonS3>() is null)
@@ -100,8 +106,25 @@ public static class CliDownloadEndpoints
         if (!File.Exists(path))
             return HttpResults.NotFound();
 
-        var script = RewriteDefaultBaseUrl(File.ReadAllText(path), InstanceBaseUrl(http, config));
+        var text = File.ReadAllText(path);
+        // `curl … | sh` breaks on CRs, whatever line endings the image was built from.
+        if (name.EndsWith(".sh", StringComparison.Ordinal))
+            text = text.ReplaceLineEndings("\n");
+        var script = RewriteDefaultBaseUrl(text, InstanceBaseUrl(http, config));
         return HttpResults.Text(script, contentType);
+    }
+
+    /// <summary>
+    /// <c>Distribution:LocalDirectory</c>: binaries built next to the instance (the local compose stack builds
+    /// <c>pl</c> from source) are served from there instead of a <c>publish-cli</c> run.
+    /// </summary>
+    internal static string? LocalAsset(IConfiguration config, string asset)
+    {
+        var dir = config["Distribution:LocalDirectory"];
+        if (string.IsNullOrWhiteSpace(dir))
+            return null;
+        var path = Path.Combine(dir, asset);
+        return File.Exists(path) ? path : null;
     }
 
     /// <summary><c>Links:BaseUrl</c> (the public URL), else the request's own origin.</summary>

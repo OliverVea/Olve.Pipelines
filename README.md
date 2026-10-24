@@ -347,6 +347,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Auth:SigningKey` | — | Local HS256 key (bypasses OIDC, for dev) |
 | `Auth:Disable` | `false` | Disable auth (local dev, minimal install) |
 | `Auth:FrontendAuthority` / `Auth:FrontendAudience` | — | OIDC authority and client id served to the UI and `pl login` |
+| `Auth:RequireHttpsMetadata` | `true` | `false` allows a plain-HTTP OIDC provider (the local compose stack's Dex) |
 | `Storage:Mode` | `Persistent` | `Ephemeral` = in-memory only |
 | `Storage:Endpoint` | — | The instance's Garage (S3-compatible) endpoint |
 | `Storage:AccessKey` / `Storage:SecretKey` | — | S3 credentials |
@@ -357,7 +358,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:Namespace` | — | Runner namespace for step Jobs and pipeline Secrets |
 | `Kubernetes:AuthMode` | OpenBao | `InCluster` = the pod's ServiceAccount; otherwise OpenBao (`Kubernetes:OpenBaoUrl`) |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
-| `Harness:HarnessBaseImage` | `registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf` | Step-pod init image (pinned, never `latest`) |
+| `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
 | `Harness:DefaultStepTimeoutSeconds` / `MaxStepTimeoutSeconds` / `StartupGraceSeconds` | `3600` / `21600` / `120` | Step Job `activeDeadlineSeconds` = min(timeout, max) + grace |
 | `Harness:UrlExpiryGraceSeconds` | `600` | Added to the deadline for step pre-signed URLs |
@@ -376,7 +377,8 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Retention:ClusterGraceMinutes` / `FinishedJobMaxAgeDays` | `60` / `7` | URL Secrets and leaked step Jobs / TTL-less finished Jobs |
 | `Retention:IntervalHours` / `StartupDelayMinutes` | `24` / `2` | Sweep schedule |
 | `Distribution:CliPipeline` / `Distribution:CliStep` | — / `publish-cli` | Pipeline (name or id) whose latest successful `CliStep` attempt `/download` serves; unset = nothing served. Retention keeps that run |
-| `OpenTelemetry:Endpoint` | — | OTLP endpoint (null = disabled) |
+| `Distribution:LocalDirectory` | — | Serve `/download` assets from this directory when it has them (the compose stack builds `pl` from source) |
+| `OpenTelemetry:Endpoint` | — | OTLP endpoint; unset or empty = no exporter |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
 | `Logging:Console:Json:UseUtcTimestamp` | `false` | UTC timestamps with the `json` formatter |
 
@@ -444,3 +446,77 @@ v2 beta is the release `olve-pipelines-v2` in `apps-beta`, installed by `deploy-
 `values-beta.yaml` then `values-v2-beta.yaml`); v2 prod is `olve-pipelines-v2` in `apps`, installed
 by `deploy-prod` (`values.yaml` then `values-v2-prod.yaml`). A cold install of a minimal controller is
 `pl bootstrap` (see [AGENTS.md](AGENTS.md)).
+
+### Running locally with Docker Compose
+
+`docker-compose.yml` runs the full application as a throwaway instance, for example for agent evals.
+Everything is built from this checkout, and nothing talks to the homelab. It runs:
+
+- **The server image**, built from the root `Dockerfile`. Dashboard, API and `/docs` are at
+  <http://localhost:5080>.
+- **Garage** for storage, as in the chart.
+- **A single-node k3s** in a privileged container. It runs the build Jobs and the step Jobs.
+- **The step pods' init image.** `harness-build` builds it from `harness/base` with kaniko and
+  pushes it to a password-protected local `registry:2`. k3s pulls it from there over plain HTTP.
+- **`pl`.** `pl-build` builds it from source, and the server serves it at `/download`, so
+  `curl -fsSL http://localhost:5080/install.sh | sh` works.
+- **Dex** for login, at <http://localhost:5556/dex>. The test user is `dev@example.com` with
+  password `password`.
+
+```bash
+docker compose up -d --build     # first run builds everything: several minutes
+docker compose down -v           # stop and wipe all state (the reset between eval runs)
+
+
+- **Auth is on by default and uses Dex.** `pl login` and the dashboard both log in through it.
+  `pl login` uses the device flow when there is no local browser, as in WSL or a container.
+  - To run without auth, set `PIPELINES_AUTH_DISABLE=true docker compose up -d`. Every endpoint is
+    then anonymous.
+  - A script can get a token without a browser through Dex's password grant:
+
+    ```bash
+    curl -s localhost:5556/dex/token -d grant_type=password -d client_id=olve-pipelines \
+      -d username=dev@example.com -d password=password -d 'scope=openid profile email' | jq -r .access_token
+    ```
+
+    Pass the result as `PIPELINES_API_TOKEN`.
+- **Pointing `pl` at the instance.** Give it its own profile, and keep `~/.pl` out of it with
+  `PIPELINES_CONFIG`:
+
+  ```bash
+  export PIPELINES_CONFIG=/tmp/pl-local.json PIPELINES_PROFILE=local
+  pl login --api-url http://localhost:5080        # Dex; device flow on a headless box
+  pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines-test   # the v2 fixture
+  pl binding reconcile <pipelineId>
+  pl wait reconcile <pipelineId> <sha touching .pipelines-test or sdk>
+  pl trigger <pipelineId> --field sha=<sha>
+  pl wait run '<pipelineId>#1'
+  ```
+
+- **Requirements.**
+  - Docker must allow privileged containers.
+  - Ports 5080 and 5556 must be free. Set `PIPELINES_LOCAL_PORT` to move 5080.
+  - Step pods need internet access for image pulls, GitHub tarballs and npm.
+  - Bind a public repo, or set a token with `pl binding set-credentials`. Unauthenticated GitHub API
+    calls are limited to 60 an hour.
+  - Webhooks are never registered because `Webhooks:PublicBaseUrl` is unset. The deploy poll still
+    works.
+- **Rebuilding the harness image.** It is tagged `:local`, and k3s pulls it only if it isn't
+  present yet. After changing `harness/base`, run `docker compose down -v` (or delete the
+  `k3s-data` volume).
+- **Windows checkouts.** `.gitattributes` keeps every file that ends up in a container LF. A
+  checkout made before it existed still has CRLF files, so re-check them out once:
+
+  ```bash
+  git rm -r --cached -q . && git reset --hard   # discards uncommitted changes
+  ```
+
+- **Proving there is no homelab dependency.** `compose/isolation.yml` maps `registry.ovea.pro`,
+  `auth.ovea.pro`, `otel.ovea.pro`, `hub-cache.ovea.pro` and `mcr-cache.ovea.pro` to 127.0.0.1 for
+  the server, Dex and the k3s node:
+
+  ```bash
+  docker compose -f docker-compose.yml -f compose/isolation.yml up -d --build
+  ```
+
+- **Inspecting the cluster:** `docker compose exec k3s kubectl -n olve-runners get jobs,pods`.

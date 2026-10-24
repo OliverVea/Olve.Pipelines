@@ -15,11 +15,12 @@ harness/
 
 ## Image
 
-`registry.ovea.pro/olve-pipelines-v2/harness-base:<tag>`. Current version:
-
-| tag | digest |
-|---|---|
-| `0c4808c152bf` (also `latest`) | `sha256:f68f265061b220334a59e5196c7bf4aa75a62e66db07a5754d1cc2446555ce81` |
+`ghcr.io/olivervea/olve-pipelines-harness-base:<tag>`, public. The pipeline's `publish-harness` step
+(`steps.imageBuild` with `push` and `contentTag`) builds and pushes it whenever `harness/base`
+changes, and `deploy-beta` / `deploy-prod` set the chart's `harness.image` from that step's output, so
+a deployed server always runs the image of its own commit. The server's built-in default (used
+without that value, e.g. by `pl bootstrap` and `pl dev run --docker`) is `HarnessImage.Default` in
+`src/Olve.Pipelines/Kubernetes/Harness/HarnessImage.cs`.
 
 The image is 2.4 MB compressed and contains:
 
@@ -30,8 +31,10 @@ The image is 2.4 MB compressed and contains:
 | `/olve/bin/olve-init` | entrypoint |
 
 Both base images are pinned by digest in the Dockerfile, so the build needs no local files and is
-reproducible. The tag is the first 12 hex characters of `sha256(Dockerfile + olve-init)`. The
-same content always gives the same tag.
+reproducible. The tag is `src-` plus the first 12 hex characters of the sha256 of the directory's
+deterministic tar (the SDK's `contentTagOf`, covering every file, its content and its exec bit). The
+same content always gives the same tag. `sdk/tests/runtime/harness-image.test.ts` fails when
+`HarnessImage.Tag` no longer matches the directory.
 
 The step binary must be built with `bun build --compile --target=bun-linux-x64` on a glibc Bun
 image. Its PT_INTERP is `/lib64/ld-linux-x86-64.so.2`, but it is always launched through
@@ -106,7 +109,7 @@ spec:                                     # runner NetworkPolicy selects (egress
           emptyDir: { sizeLimit: 1Gi }
       initContainers:
         - name: olve-init
-          image: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf   # pin; never :latest
+          image: ghcr.io/olivervea/olve-pipelines-harness-base:src-8c3fb106f91e   # pin; never :latest
           imagePullPolicy: IfNotPresent
           env:
             - { name: OLVE_STEP_URL,  value: "<pre-signed GET versions/<p>/<version>/step.tar.gz>" }
@@ -200,17 +203,19 @@ The script works in these steps:
 
 ## Rebuild / push
 
+The pipeline's `publish-harness` step does this on every push that changes `harness/base`. By hand:
+
 ```bash
-harness/base/build.sh          # docker buildx, --platform linux/amd64, pushes :<tag> and :latest
+harness/base/build.sh          # docker buildx, --platform linux/amd64, pushes :<tag>
 PUSH=0 harness/base/build.sh   # build only
 ```
 
-You need Docker without sudo and `docker login registry.ovea.pro`. Kaniko is not needed. After
-changing `olve-init` or the Dockerfile:
+You need Bun (for the tag), Docker without sudo and `docker login ghcr.io`. Run it from a Linux
+checkout: the tag covers exec bits and line endings. After changing `olve-init` or the Dockerfile:
 
 1. Rebuild.
 2. Run `validate.sh`.
-3. Update the tag and digest in this README and in the executor's configured harness-base
-   reference. The executor pins a tag; it never uses `latest`.
+3. Set `HarnessImage.Tag` to the new tag (the SDK test above prints the expected one). The executor
+   pins a tag; it never uses `latest`.
 4. To bump the glibc libs, change the `debian:bookworm-slim@sha256:` digest. The step binary only
    needs a glibc at least as new as the one Bun was linked against.

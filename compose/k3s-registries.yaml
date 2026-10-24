@@ -1,0 +1,12 @@
+# k3s/containerd: pull the locally built harness image from the compose registry over plain HTTP.
+# Only this registry is listed: ghcr.io is never mirrored, so a broken local build can't silently fall
+# back to the published image.
+mirrors:
+  "registry:5000":
+    endpoint:
+      - "http://registry:5000"
+configs:
+  "registry:5000":
+    auth:
+      username: local
+      password: local-registry

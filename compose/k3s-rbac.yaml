@@ -1,0 +1,55 @@
+# Controller identity inside the local k3s cluster (docker-compose.yml). Same rules as
+# helm/templates/serviceaccount.yaml, plus a long-lived token Secret because the compose app
+# can't get a projected (rotating) token the way a real pod does.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: olve-runners
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: olve-pipelines
+  namespace: olve-runners
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: olve-pipelines-token
+  namespace: olve-runners
+  annotations:
+    kubernetes.io/service-account.name: olve-pipelines
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: olve-pipelines
+  namespace: olve-runners
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "list", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: olve-pipelines
+  namespace: olve-runners
+subjects:
+  - kind: ServiceAccount
+    name: olve-pipelines
+    namespace: olve-runners
+roleRef:
+  kind: Role
+  name: olve-pipelines
+  apiGroup: rbac.authorization.k8s.io

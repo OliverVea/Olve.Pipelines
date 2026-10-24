@@ -22,5 +22,5 @@ steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, 
 steps.imageBuild({ name: "b", description: "", repository: "registry.example/x", contentTag: true });
 
 const widened = { fromRegistry: true };
-// @ts-expect-error -- expect: DefaultImages, boolean>
+// @ts-expect-error -- expect: DefaultImages, boolean
 steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", ...widened });

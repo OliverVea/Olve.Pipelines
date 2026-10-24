@@ -31,11 +31,21 @@ export const DEFAULT_ROLLOUT_TIMEOUT_SECONDS = 120;
 
 type DefaultImages = { readonly image: "image" };
 type ImageModel<R extends boolean> = R extends true ? typeof PushedImage : typeof BuiltImage;
-export type HelmDeployOverSshInput<Im extends Record<string, string> = DefaultImages, R extends boolean = false> = Simplify<
-  { readonly source: typeof Source } & { readonly [K in keyof Im]: ImageModel<R> }
+export type HelmDeployOverSshInput<
+  Im extends Record<string, string> = DefaultImages,
+  R extends boolean = false,
+  Rf extends Record<string, string> = {},
+> = Simplify<
+  { readonly source: typeof Source } & { readonly [K in keyof Im]: ImageModel<R> } & { readonly [K in keyof Rf]: typeof PushedImage }
 >;
 
-export interface HelmDeployOverSshDef<N extends string, K extends string, Im extends Record<string, string> = DefaultImages, R extends boolean = false> {
+export interface HelmDeployOverSshDef<
+  N extends string,
+  K extends string,
+  Im extends Record<string, string> = DefaultImages,
+  R extends boolean = false,
+  Rf extends Record<string, string> = {},
+> {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
@@ -67,6 +77,13 @@ export interface HelmDeployOverSshDef<N extends string, K extends string, Im ext
    * `pullPolicy=Never`.
    */
   fromRegistry?: R & (boolean extends R ? "❌ fromRegistry must be a literal true or false (use `as const` on a shared config object)" : unknown);
+  /**
+   * Registry images the chart only references (not run by the release's own pods, e.g. an image the
+   * app starts Jobs with): step input key → values prefix. Each input is a `PushedImage`; the step sets
+   * `<prefix>.repository`, `<prefix>.tag` and `<prefix>.digest` and does not pull it on the host. Works
+   * next to tarball `images`.
+   */
+  imageRefs?: Rf & { readonly source?: never };
   /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name. */
   deployments?: readonly string[];
   /** Per rollout (`kubectl rollout status --timeout`). Default 120. */
@@ -83,6 +100,14 @@ export interface HelmImageFlags {
   pullPolicy: "Never" | "IfNotPresent";
 }
 
+/** A registry image the chart only references (`imageRefs`). */
+export interface HelmImageRefFlags {
+  prefix: string;
+  repository: string;
+  tag: string;
+  digest: string;
+}
+
 /** Remote `helm upgrade --install`, run from inside the copied chart directory. */
 export function helmUpgradeCommand(o: {
   remoteChart: string;
@@ -91,9 +116,11 @@ export function helmUpgradeCommand(o: {
   values: readonly string[];
   set: Readonly<Record<string, string>>;
   images: readonly HelmImageFlags[];
+  imageRefs?: readonly HelmImageRefFlags[];
 }): string {
   // Chart-relative values paths (`-f values-beta.yaml`) resolve because helm runs from inside the
   // copied chart dir. Extra flags come before the image flags, so the image overrides win.
+  // --set-string: a tag like `2026.10` or `1e5` would otherwise be parsed as a number.
   const flags = [
     ...o.values.flatMap((v) => ["-f", v]),
     ...Object.entries(o.set).flatMap(([k, v]) => ["--set", `${k}=${v}`]),
@@ -101,6 +128,11 @@ export function helmUpgradeCommand(o: {
       "--set", `${i.prefix}.repository=${i.repository}`,
       "--set", `${i.prefix}.tag=${i.tag}`,
       "--set", `${i.prefix}.pullPolicy=${i.pullPolicy}`,
+    ]),
+    ...(o.imageRefs ?? []).flatMap((i) => [
+      "--set-string", `${i.prefix}.repository=${i.repository}`,
+      "--set-string", `${i.prefix}.tag=${i.tag}`,
+      "--set-string", `${i.prefix}.digest=${i.digest}`,
     ]),
   ];
   return [
@@ -120,7 +152,8 @@ export function helmDeployOverSsh<
   const K extends string,
   const Im extends Record<string, string> = DefaultImages,
   const R extends boolean = false,
->(def: HelmDeployOverSshDef<N, K, Im, R>): Step<N, HelmDeployOverSshInput<Im, R>, typeof HelmRelease, K> & LibraryStep {
+  const Rf extends Record<string, string> = {},
+>(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K> & LibraryStep {
   const values = def.values ?? [];
   const set = def.set ?? {};
   const images: Record<string, string> = def.images ?? { image: "image" };
@@ -132,8 +165,16 @@ export function helmDeployOverSsh<
   if (imageEntries.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': images must not be empty`);
   if ("source" in images) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
   if (deployments.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': deployments must not be empty`);
+  const imageRefs: Record<string, string> = def.imageRefs ?? {};
+  const refEntries = Object.entries(imageRefs);
+  if ("source" in imageRefs) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
+  for (const [key] of refEntries) if (key in images) throw new Error(`helmDeployOverSsh '${def.name}': '${key}' is both in images and imageRefs`);
   const imageModel = fromRegistry ? PushedImage : BuiltImage;
-  const input = { source: Source, ...Object.fromEntries(imageEntries.map(([key]) => [key, imageModel])) };
+  const input = {
+    source: Source,
+    ...Object.fromEntries(imageEntries.map(([key]) => [key, imageModel])),
+    ...Object.fromEntries(refEntries.map(([key]) => [key, PushedImage])),
+  };
   const isDefaultImages = imageEntries.length === 1 && images.image === "image";
 
   return makeStep(
@@ -150,11 +191,12 @@ export function helmDeployOverSsh<
         set: { ...set },
         ...(isDefaultImages ? {} : { images: { ...images } }),
         ...(fromRegistry ? { fromRegistry: true } : {}),
+        ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
         ...(def.deployments ? { deployments: [...def.deployments] } : {}),
         ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
         ...(def.healthUrl !== undefined ? { healthUrl: typeof def.healthUrl === "string" ? def.healthUrl : { ...def.healthUrl } } : {}),
       }),
-      async run(input: Record<string, { repository: string; tag: string; tar?: FileRef }> & { source: { tree: FileRef } }, ctx: Ctx) {
+      async run(input: Record<string, { repository: string; tag: string; digest: string; tar?: FileRef }> & { source: { tree: FileRef } }, ctx: Ctx) {
         const tree = await ctx.files.fetch(input.source.tree);
         const chartDir = join(tree, def.chart);
         if (!existsSync(chartDir) || !statSync(chartDir).isDirectory()) throw new Error(`chart directory '${def.chart}' not found in the source tree`);
@@ -180,7 +222,8 @@ export function helmDeployOverSsh<
         ctx.log("helm upgrade", { release: def.release, namespace: def.namespace, images: flags.map((f) => `${f.repository}:${f.tag}`).join(" ") });
         await ssh.run(`rm -rf ${shq(remoteChart)}`);
         await ssh.copy(chartDir, remoteChart);
-        await ssh.run(helmUpgradeCommand({ remoteChart, release: def.release, namespace: def.namespace, values, set, images: flags }));
+        const refs: HelmImageRefFlags[] = refEntries.map(([key, prefix]) => ({ prefix, repository: input[key]!.repository, tag: input[key]!.tag, digest: input[key]!.digest }));
+        await ssh.run(helmUpgradeCommand({ remoteChart, release: def.release, namespace: def.namespace, values, set, images: flags, imageRefs: refs }));
 
         for (const d of deployments) {
           const target = d.includes("/") ? d : `deploy/${d}`;

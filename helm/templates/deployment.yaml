@@ -30,6 +30,12 @@ spec:
               value: {{ $value | quote }}
             {{- end }}
             {{- end }}
+            {{- with .Values.harness.image }}
+            {{- if and .repository .tag }}
+            - name: Harness__HarnessBaseImage
+              value: {{ if .digest }}{{ printf "%s:%s@%s" .repository .tag .digest | quote }}{{ else }}{{ printf "%s:%s" .repository .tag | quote }}{{ end }}
+            {{- end }}
+            {{- end }}
             {{- range .Values.secrets }}
             {{- $secretName := .name }}
             {{- range $envVar, $key := .envMap }}

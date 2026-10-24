@@ -30,7 +30,7 @@ fixture), `frontend/` (Lit SPA), `docs/`.
 Olve.Pipelines deploys itself. **v2 (this branch):** the v2 prod instance
 (`pipelines-v2-private.ovea.pro`, release `olve-pipelines-v2` in `apps`, runners `olve-runners`)
 runs the pipeline "Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` →
-`build` ∥ `test` → `deploy-beta` (`steps.helmDeployOverSsh`, v2 beta in
+`build` ∥ `test` ∥ `publish-harness` (the step pods' init image, pushed to `ghcr.io/olivervea/olve-pipelines-harness-base` and set as the chart's `harness.image` by both deploys) → `deploy-beta` (`steps.helmDeployOverSsh`, v2 beta in
 `apps-beta`, values `values-beta.yaml` + `values-v2-beta.yaml`) → `beta-test` → when
 `deployTo: "prod"`: `deploy-prod` (values `values-v2-prod.yaml`) → `publish-cli` (the `pl` that
 v2 prod serves at `/download`, see below) ∥ `publish-sdk`. The deploy poll (no public webhook on

@@ -30,7 +30,8 @@ public record SwitchVersionRequest(int Version, bool CancelRunning = false);
 /// <param name="ConfigSnapshot">The config snapshot it was resolved with (null = the pipeline has no config yet).</param>
 /// <param name="Selected">Each select's reference → the case picked.</param>
 /// <param name="Manifest">The effective manifest (canonical JSON): the version's, with selects resolved.</param>
-public record EffectivePipelineResponse(int Version, int? ConfigSnapshot, IReadOnlyDictionary<string, string> Selected, string Manifest);
+/// <param name="Cases">Step name → the select cases it was picked by (<c>target.beta.kind=inCluster</c>); steps outside selects are absent.</param>
+public record EffectivePipelineResponse(int Version, int? ConfigSnapshot, IReadOnlyDictionary<string, string> Selected, string Manifest, IReadOnlyDictionary<string, string[]> Cases);
 
 /// <summary>Minimal versions/switch endpoints for M1 (spec §6). The full API is B8.</summary>
 public static class PipelineVersionEndpoints
@@ -58,16 +59,21 @@ public static class PipelineVersionEndpoints
             .RequireRead();
 
         // The version with its selects resolved by the current config: what new runs execute.
+        // ?snapshot=N resolves with that config snapshot (a run's pinned one); default: the latest.
         group.MapGet("/{number:int}/effective", Result<EffectivePipelineResponse> (
-                PipelineVersionService versions, RunPlanCache plans, ConfigSnapshotService snapshots, Id<Pipeline> pipelineId, int number) =>
+                PipelineVersionService versions, RunPlanCache plans, ConfigSnapshotService snapshots, Id<Pipeline> pipelineId, int number, int? snapshot) =>
             {
                 if (!versions.TryGetByNumber(pipelineId, number, out var version))
                     return new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId);
-                if (plans.ForCurrentConfig(version.Id, snapshots).TryPickProblems(out var problems, out var plan))
-                    return problems.Prepend("The current config does not resolve version {0}'s selects.", number);
-                int? snapshot = snapshots.TryGetLatest(pipelineId, out var latest) ? latest.Number : null;
-                return new EffectivePipelineResponse(number, snapshot, plan.Selected,
-                    ManifestWriter.ToCanonicalJson(plan.Manifest with { Stages = RunPlan.Effective(plan.Manifest.Stages, plan.Selected) }));
+                if (plans.ForSnapshot(version.Id, snapshot, snapshots).TryPickProblems(out var problems, out var plan))
+                    return problems;
+                int? used = snapshot ?? (snapshots.TryGetLatest(pipelineId, out var latest) ? latest.Number : null);
+                var cases = plan.Stages.SelectMany(s => s.Steps.Select(step => (step.Name, s.Cases)))
+                    .Where(x => x.Cases.Count > 0)
+                    .GroupBy(x => x.Name, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.First().Cases.ToArray(), StringComparer.Ordinal);
+                return new EffectivePipelineResponse(number, used, plan.Selected,
+                    ManifestWriter.ToCanonicalJson(plan.Manifest with { Stages = RunPlan.Effective(plan.Manifest.Stages, plan.Selected) }), cases);
             })
             .WithApiResultMapping<EffectivePipelineResponse>()
             .WithName("GetEffectivePipeline")

@@ -209,13 +209,19 @@ public class RunPlanCache(PipelineVersionService versions)
     /// The effective plan of a version under the pipeline's current config (its latest snapshot): what new runs would
     /// execute. Without a select, or without a usable config, the version's plan.
     /// </summary>
-    public Result<RunPlan> ForCurrentConfig(Id<PipelineVersion> versionId, Configs.ConfigSnapshotService snapshots)
+    public Result<RunPlan> ForCurrentConfig(Id<PipelineVersion> versionId, Configs.ConfigSnapshotService snapshots) =>
+        ForSnapshot(versionId, null, snapshots);
+
+    /// <summary>The effective plan of a version under config snapshot <paramref name="snapshot"/> (null = the latest).</summary>
+    public Result<RunPlan> ForSnapshot(Id<PipelineVersion> versionId, int? snapshot, Configs.ConfigSnapshotService snapshots)
     {
         if (Get(versionId).TryPickProblems(out var problems, out var plan))
             return problems;
-        if (!RunPlan.HasSelect(plan.Manifest.Stages) || !versions.TryGet(versionId, out var version)
-            || !snapshots.TryGetLatest(version.PipelineId, out var latest))
+        if (!RunPlan.HasSelect(plan.Manifest.Stages) || !versions.TryGet(versionId, out var version))
             return plan;
+        Configs.ConfigSnapshot? latest;
+        if (snapshot is { } n ? !snapshots.TryGetByNumber(version.PipelineId, n, out latest) : !snapshots.TryGetLatest(version.PipelineId, out latest))
+            return new ConflictProblem("Version {0} branches on config, and the pipeline has no config {1} to pick its branches.", version.Number, snapshot is { } s ? $"#{s}" : "yet");
         return _effective.GetOrAdd((versionId, latest.Number), _ =>
             Configs.ConfigValidation.Effective(plan.Manifest, snapshots.Document(latest)).TryPickProblems(out var invalid, out var effective)
                 ? Result.Failure<RunPlan>(invalid)

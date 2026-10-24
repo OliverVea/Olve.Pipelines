@@ -654,6 +654,15 @@ export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {EffectivePipelineResponse_cases}
+ */
+// @ts-ignore
+export function createEffectivePipelineResponse_casesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipelineResponse_cases;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {EffectivePipelineResponse_selected}
  */
 // @ts-ignore
@@ -1433,10 +1442,21 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
 // @ts-ignore
 export function deserializeIntoEffectivePipelineResponse(effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "cases": n => { effectivePipelineResponse.cases = n.getObjectValue<EffectivePipelineResponse_cases>(createEffectivePipelineResponse_casesFromDiscriminatorValue); },
         "configSnapshot": n => { effectivePipelineResponse.configSnapshot = n.getNumberValue(); },
         "manifest": n => { effectivePipelineResponse.manifest = n.getStringValue(); },
         "selected": n => { effectivePipelineResponse.selected = n.getObjectValue<EffectivePipelineResponse_selected>(createEffectivePipelineResponse_selectedFromDiscriminatorValue); },
         "version": n => { effectivePipelineResponse.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param EffectivePipelineResponse_cases The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoEffectivePipelineResponse_cases(effectivePipelineResponse_cases: Partial<EffectivePipelineResponse_cases> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -2052,6 +2072,10 @@ export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partia
 }
 export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsable {
     /**
+     * The cases property
+     */
+    cases?: EffectivePipelineResponse_cases | null;
+    /**
      * The configSnapshot property
      */
     configSnapshot?: number | null;
@@ -2067,6 +2091,8 @@ export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsabl
      * The version property
      */
     version?: number | null;
+}
+export interface EffectivePipelineResponse_cases extends AdditionalDataHolder, Parsable {
 }
 export interface EffectivePipelineResponse_selected extends AdditionalDataHolder, Parsable {
 }
@@ -3223,11 +3249,23 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
 // @ts-ignore
 export function serializeEffectivePipelineResponse(writer: SerializationWriter, effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!effectivePipelineResponse || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<EffectivePipelineResponse_cases>("cases", effectivePipelineResponse.cases, serializeEffectivePipelineResponse_cases);
     writer.writeNumberValue("configSnapshot", effectivePipelineResponse.configSnapshot);
     writer.writeStringValue("manifest", effectivePipelineResponse.manifest);
     writer.writeObjectValue<EffectivePipelineResponse_selected>("selected", effectivePipelineResponse.selected, serializeEffectivePipelineResponse_selected);
     writer.writeNumberValue("version", effectivePipelineResponse.version);
     writer.writeAdditionalData(effectivePipelineResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param EffectivePipelineResponse_cases The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeEffectivePipelineResponse_cases(writer: SerializationWriter, effectivePipelineResponse_cases: Partial<EffectivePipelineResponse_cases> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipelineResponse_cases || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(effectivePipelineResponse_cases.additionalData);
 }
 /**
  * Serializes information the current object

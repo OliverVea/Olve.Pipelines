@@ -31,6 +31,8 @@ import {
 import { allSteps, type Manifest } from '../v2/manifest.js';
 import {
   loadVersion,
+  loadEffective,
+  type EffectivePipeline,
   toActivation,
   currentVersion,
   type Activation,
@@ -138,6 +140,8 @@ export class PipelineDetailView extends LitElement {
   @state() declare private _health: PipelineHealth | null;
   @state() declare private _activation: Activation;
   @state() declare private _active: LoadedVersion | null;
+  /** The active version as the current config runs it (selects resolved). */
+  @state() declare private _effective: EffectivePipeline | null;
   /** Recent attempts per step, newest first. */
   @state() declare private _history: Map<string, StepHistoryItem[]>;
   @state() declare private _blocked: Set<string>;
@@ -200,9 +204,11 @@ export class PipelineDetailView extends LitElement {
       const cur = currentVersion(this._activation);
       if (cur !== null && this._active?.number !== cur)
         this._active = await loadVersion(this.pipelineId, cur);
-      const names = this._active?.manifest
-        ? allSteps(this._active.manifest.stages).map((s) => s.name)
-        : [];
+      this._effective = this._active
+        ? await loadEffective(this.pipelineId, this._active)
+        : null;
+      const effective = this._effectiveManifest();
+      const names = effective ? allSteps(effective.stages).map((s) => s.name) : [];
       const latest = await Promise.all(
         names.map((n) =>
           p.steps
@@ -227,7 +233,7 @@ export class PipelineDetailView extends LitElement {
       if (r.heldAt) held.set(r.heldAt, [...(held.get(r.heldAt) ?? []), r.number ?? 0]);
     }
     const out = new Map<string, StepState>();
-    for (const step of allSteps(this._active?.manifest?.stages ?? [])) {
+    for (const step of allSteps(this._effectiveManifest()?.stages ?? [])) {
       out.set(step.name, {
         status: 'not-run',
         blocked: this._blocked.has(step.name),
@@ -262,7 +268,7 @@ export class PipelineDetailView extends LitElement {
   render() {
     if (this._error && !this._pipeline) return html`<p class="error">${this._error}</p>`;
     const p = this._pipeline;
-    const m = this._active?.manifest ?? null;
+    const m = this._effectiveManifest();
     const states = this._states();
     const sheet = !!m && !!this._step;
     const errors = this._stepErrors.length
@@ -307,7 +313,7 @@ export class PipelineDetailView extends LitElement {
         ? html`<section class="panel">
             <trigger-panel
               .pipelineId=${this.pipelineId}
-              .manifest=${m}
+              .manifest=${this._active?.manifest ?? null}
               .versionNumber=${currentVersion(this._activation)}
               @close=${() => (this._triggerOpen = false)}
             ></trigger-panel>
@@ -315,9 +321,16 @@ export class PipelineDetailView extends LitElement {
         : nothing}
 
       <section class="graph">
+        ${this._effective && !this._effective.ok
+          ? html`<p class="muted">
+              v${this._active?.number} branches on config, and the current config doesn't
+              pick its branches: ${this._effective.reason}
+            </p>`
+          : nothing}
         ${m
           ? html`<stage-graph
               .manifest=${m}
+              .cases=${this._effective?.ok ? this._effective.cases : null}
               .states=${states}
               .blocked=${this._blocked}
               .selected=${sheet ? this._step : ''}
@@ -341,6 +354,11 @@ export class PipelineDetailView extends LitElement {
       </section>
       ${sheet ? this._renderSheet(m, states.get(this._step), errors) : nothing}
     `;
+  }
+
+  /** The pipeline the overview shows: the active version with its selects resolved by the current config. */
+  private _effectiveManifest(): Manifest | null {
+    return this._effective?.ok ? this._effective.manifest : null;
   }
 
   private _renderSheet(m: Manifest, st: StepState | undefined, errors: unknown) {
@@ -511,7 +529,7 @@ export class PipelineDetailView extends LitElement {
   }
 
   private _renderRetiredBlocks() {
-    const m = this._active?.manifest;
+    const m = this._effectiveManifest();
     if (!m) return nothing;
     const names = new Set(allSteps(m.stages).map((s) => s.name));
     const retired = [...this._blocked].filter((s) => !names.has(s));

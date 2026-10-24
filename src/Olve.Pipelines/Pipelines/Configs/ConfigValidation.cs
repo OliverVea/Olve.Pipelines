@@ -67,24 +67,25 @@ public static class ConfigValidation
     public static ConfigCheck Check(Manifest target, int targetNumber, JsonObject document, IReadOnlySet<string>? setSecrets, Manifest? active = null)
     {
         var targetDefaults = new List<AppliedDefault>();
-        if (Effective(target, document, targetDefaults).TryPickProblems(out var problems, out var effective))
-            return new ConfigCheck(targetNumber, problems.Select(p => p.ToDisplayString()).ToList(), [], [], [], null);
-
-        var referenced = ReferencedSecrets(target, effective);
-        var missing = referenced.Where(s => setSecrets is null || !setSecrets.Contains(s)).ToList();
+        var validated = Effective(target, document, targetDefaults);
 
         var changed = new List<ChangedDefault>();
         var activeDefaults = new List<AppliedDefault>();
         if (active is not null && !Effective(active, document, activeDefaults).TryPickProblems(out _))
         {
-            var before = activeDefaults.ToDictionary(d => d.Path, d => d.Value, StringComparer.Ordinal);
-            foreach (var d in targetDefaults)
+            var before = activeDefaults.GroupBy(d => d.Path, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Value, StringComparer.Ordinal);
+            foreach (var d in targetDefaults.DistinctBy(d => d.Path))
             {
                 if (before.TryGetValue(d.Path, out var old) && !JsonNode.DeepEquals(old, d.Value))
                     changed.Add(new ChangedDefault(d.Path[(Root.Length + 1)..], Text(old), Text(d.Value)));
             }
         }
 
+        if (validated.TryPickProblems(out var problems, out var effective))
+            return new ConfigCheck(targetNumber, problems.Select(p => p.ToDisplayString()).ToList(), [], [], changed, null);
+
+        var referenced = ReferencedSecrets(target, effective);
+        var missing = referenced.Where(s => setSecrets is null || !setSecrets.Contains(s)).ToList();
         return new ConfigCheck(targetNumber, [], referenced, missing, changed, effective);
     }
 

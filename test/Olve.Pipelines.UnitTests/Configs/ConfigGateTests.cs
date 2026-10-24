@@ -114,6 +114,19 @@ public class ConfigGateTests
     }
 
     [Test]
+    public async Task ActivatingAVersionThatChangesADefault_ReportsItAsAWarning()
+    {
+        var w = Build();
+        w.Apply(Text(namespaceDefault: "olve"));
+        TestRunDomain.Pick(await w.Save(NoneConfig));
+
+        var report = w.Apply(Text(namespaceDefault: "apps"));
+
+        await Assert.That(w.ActiveNumber).IsEqualTo(2);
+        await Assert.That(report.Warnings).Contains("v2 changes the default of target.namespace (\"olve\" → \"apps\")");
+    }
+
+    [Test]
     public async Task SavingADocumentTheActiveVersionRejects_IsRefused()
     {
         var w = Build();

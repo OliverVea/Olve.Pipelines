@@ -79,6 +79,19 @@ public class ConfigValidationTests
     }
 
     [Test]
+    public async Task ChangedDefault_IsListed_EvenWhenTheTargetRejectsTheDocument()
+    {
+        var active = Parse(Text(namespaceDefault: "olve"));
+        var target = Parse(Text(namespaceDefault: "apps"));
+
+        var check = ConfigValidation.Check(target, 9, Yaml("target: {host: h}\n"), NoSecrets, active: Parse(Text(namespaceDefault: "olve", authRequired: false)));
+
+        await Assert.That(check.Valid).IsFalse();
+        await Assert.That(check.ChangedDefaults.Select(d => d.Path)).IsEquivalentTo(["target.namespace"]);
+        await Assert.That(active.Config.Count).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task ForStep_SlicesTheDeclaredEntries()
     {
         var manifest = Parse(Text());

@@ -121,6 +121,8 @@ public class PipelineReconcileService(
                 if (gate.Activate(target, setSecrets).TryPickProblems(out var gateProblems, out var outcome))
                     return Result.Failure<ReconcileReport>(gateProblems);
                 pendingVersion = (outcome as ActivationOutcome.Pending)?.Version;
+                if (outcome is ActivationOutcome.Activated { ChangedDefaults.Count: > 0 } activated)
+                    warnings.AddRange(activated.ChangedDefaults.Select(d => $"v{target.Number} changes the default of {d.Path} ({d.From} → {d.To})"));
             }
 
             if (pipelines.SetDefinition(pipelineId, manifest.Name, manifest.Description).TryPickProblems(out var nameProblems))

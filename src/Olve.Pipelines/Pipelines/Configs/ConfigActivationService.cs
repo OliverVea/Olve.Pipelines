@@ -23,7 +23,8 @@ public sealed record PendingVersion(
 /// <summary>What the activation gate did with a version.</summary>
 public abstract record ActivationOutcome
 {
-    public sealed record Activated(PipelineActivation Activation) : ActivationOutcome;
+    /// <param name="ChangedDefaults">Defaults the activated version changes that the document relies on.</param>
+    public sealed record Activated(PipelineActivation Activation, IReadOnlyList<ChangedDefault> ChangedDefaults) : ActivationOutcome;
 
     public sealed record Pending(PendingVersion Version) : ActivationOutcome;
 }
@@ -83,7 +84,7 @@ public class ConfigActivationService(
         if (switches.Switch(version.PipelineId, version.Id).TryPickProblems(out var switchProblems, out var activation))
             return switchProblems;
         pending.Remove(version.PipelineId);
-        return new ActivationOutcome.Activated(activation);
+        return new ActivationOutcome.Activated(activation, check.ChangedDefaults);
     });
 
     /// <summary>An explicit switch (<c>pl pipeline switch</c>): refused with the reasons when not satisfied; clears any pending version.</summary>

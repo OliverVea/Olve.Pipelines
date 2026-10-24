@@ -40,15 +40,18 @@ public static class JsonSchemaValidator
     public static Result<JsonNode?> Validate(JsonElement schema, JsonNode? value, string root = "input")
         => Validate(schema, value, root, null);
 
-    /// <summary>Like <see cref="Validate(JsonElement, JsonNode?, string)"/>, also collecting every default it filled in.</summary>
+    /// <summary>
+    /// Like <see cref="Validate(JsonElement, JsonNode?, string)"/>, also collecting every default it filled in
+    /// (on failure too, so a caller can still say which defaults a document relies on).
+    /// </summary>
     public static Result<JsonNode?> Validate(JsonElement schema, JsonNode? value, string root, List<AppliedDefault>? appliedDefaults)
     {
         var errors = new List<(string Path, string Message)>();
         var defaults = appliedDefaults is null ? null : new List<AppliedDefault>();
         var result = Check(schema, value?.DeepClone(), root, errors, 0, defaults);
+        appliedDefaults?.AddRange(defaults!);
         if (errors.Count > 0)
             return Result.Failure<JsonNode?>(errors.Select(e => ValidationProblem.ForField(e.Path, "{0}", e.Message)));
-        appliedDefaults?.AddRange(defaults!);
         return Result.Success(result);
     }
 

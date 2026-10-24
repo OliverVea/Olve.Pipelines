@@ -131,7 +131,12 @@ public class ConfigService(
         logger.LogInformation("Saved config #{SnapshotNumber} of pipeline '{PipelineId}' by {Author}{RestoredFrom}",
             snapshot.Number, pipelineId, author, restoredFrom is { } r ? $" (rollback to #{r})" : "");
 
-        var pendingBefore = gate.TryGetPending(pipelineId, out var marker) ? marker : null;
+        // Checked before the re-check, so a version this save activates still shows its changed defaults.
+        ConfigCheckResponse? pendingCheck = null;
+        if (gate.TryGetPending(pipelineId, out var marker) && versions.TryGet(marker!.VersionId, out var pendingVersion)
+            && pendingVersion.Id != ActiveVersion(pipelineId)?.Id && !gate.Check(pendingVersion, setSecrets).TryPickProblems(out _, out var pc))
+            pendingCheck = ConfigCheckResponse.From(pc);
+
         if (gate.Recheck(pipelineId, setSecrets).TryPickProblems(out var recheckProblems, out var activated))
             logger.LogProblems(LogLevel.Warning, recheckProblems, "Could not re-check pending versions of pipeline '{PipelineId}'", pipelineId);
         else if (activated is not null)
@@ -140,10 +145,6 @@ public class ConfigService(
         ConfigCheckResponse? activeCheck = null;
         if (ActiveVersion(pipelineId) is { } nowActive && !gate.Check(nowActive, setSecrets).TryPickProblems(out _, out var c))
             activeCheck = ConfigCheckResponse.From(c);
-        ConfigCheckResponse? pendingCheck = null;
-        if (pendingBefore is not null && versions.TryGet(pendingBefore.VersionId, out var pendingVersion)
-            && pendingVersion.Id != (ActiveVersion(pipelineId)?.Id) && !gate.Check(pendingVersion, setSecrets).TryPickProblems(out _, out var pc))
-            pendingCheck = ConfigCheckResponse.From(pc);
 
         return new ConfigSaveResponse(ConfigSnapshotInfo.From(snapshot), activeCheck, pendingCheck, activated?.Number);
     }

@@ -32,6 +32,15 @@ export interface GitHubSourceDef<N extends string, T extends string> {
 
 export const GITHUB_API_URL = "https://api.github.com";
 
+/** A declared secret's value, or "" when it is not set. */
+function optionalSecret(ctx: Pick<Ctx, "secrets">, name: string): string {
+  try {
+    return ((ctx.secrets as Record<string, string>)[name] ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
 /** Tarball URL of `repo` at `sha` (the API redirects to codeload.github.com). */
 export const gitHubTarballUrl = (repo: string, sha: string, apiUrl = GITHUB_API_URL): string =>
   `${apiUrl.replace(/\/+$/, "")}/repos/${repo}/tarball/${encodeURIComponent(sha)}`;
@@ -51,7 +60,9 @@ export function gitHubSource<const N extends string, const T extends string = ne
       manifestConfig: () => ({ ...(def.token ? { token: def.token.name } : {}), ...(def.apiUrl !== undefined ? { apiUrl: recordConfigRefs(def.apiUrl) } : {}) }),
       async run({ repo, sha }: { repo: string; sha: string }, ctx: Ctx) {
         const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
-        if (def.token) headers.authorization = `Bearer ${ctx.secrets[def.token.name]}`;
+        const token = def.token ? optionalSecret(ctx, def.token.name) : "";
+        if (token) headers.authorization = `Bearer ${token}`;
+        else if (def.token) ctx.log(`${def.token.name} is not set: fetching anonymously (public repositories only)`);
         const url = gitHubTarballUrl(repo, sha, resolveConfigRefs(def.apiUrl, ctx.config ?? {}) ?? GITHUB_API_URL);
         mkdirSync(ctx.tmpDir, { recursive: true });
         const dir = mkdtempSync(join(ctx.tmpDir, "github-source-"));

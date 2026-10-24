@@ -117,6 +117,16 @@ describe("steps.gitHubSource", () => {
     expect(flaky.status).toBe("succeeded");
   });
 
+  test("a declared token that is not set: fetched anonymously", async () => {
+    const body = await tarball();
+    let authorization: string | null = "unset";
+    const r = await testHandler(steps.gitHubSource({ name: "source", description: "", token: TOKEN }), { repo: "a/b", sha: SHA }, {
+      ctx: { http: { fetch: async (_u: string, init?: RequestInit) => { authorization = new Headers(init?.headers).get("authorization"); return new Response(body); } } as unknown as Ctx["http"], retry: fastRetry },
+    });
+    expect(r.status).toBe("succeeded");
+    expect(authorization).toBeNull();
+  });
+
   test("rejects a malformed repo", async () => {
     const r = await testHandler(steps.gitHubSource({ name: "source", description: "" }), { repo: "not a repo", sha: SHA });
     expect(r).toMatchObject({ status: "failed", error: { kind: "input" } });

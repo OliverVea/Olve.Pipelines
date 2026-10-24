@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { registryTag, type Ctx } from "@olivervea/pipelines";
 
 interface Published {
@@ -18,4 +21,41 @@ export async function tagImage(ctx: Pick<Ctx, "http" | "log" | "secrets">, image
     ...(target.auth && password ? { username: target.auth.username, password } : {}),
   });
   ctx.log("tagged image", { image: `${image.repository}:${tag}`, digest: image.digest });
+}
+
+interface Repository extends Target {
+  repository: string;
+}
+
+/**
+ * Copies a verified image (same digest) from where it was built to a release repository and points
+ * `tags` at it there. `tag` (the image's build tag) is copied first; a content tag (`src-…`) already
+ * in the release repository is kept, since equal content means an equal tag.
+ */
+export async function releaseImage(
+  ctx: Pick<Ctx, "exec" | "log" | "secrets" | "tmpDir">,
+  image: Published & { tag: string },
+  from: Target,
+  to: Repository,
+  tags: string[],
+): Promise<void> {
+  const config = join(ctx.tmpDir, `docker-${createHash("sha256").update(to.repository).digest("hex").slice(0, 8)}`);
+  mkdirSync(config, { recursive: true });
+  const auths: Record<string, { auth: string }> = {};
+  for (const [repository, target] of [[image.repository, from], [to.repository, to]] as const) {
+    if (!target.auth) continue;
+    const password = (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret];
+    if (!password) throw new Error(`secret ${target.auth.password.secret} (registry login for ${repository}) is not set`);
+    auths[repository.split("/")[0]!] = { auth: Buffer.from(`${target.auth.username}:${password}`).toString("base64") };
+  }
+  writeFileSync(join(config, "config.json"), JSON.stringify({ auths }), { mode: 0o600 });
+  const opts = { env: { DOCKER_CONFIG: config } };
+  const insecure = from.insecure || to.insecure ? ["--insecure"] : [];
+
+  const built = `${to.repository}:${image.tag}`;
+  const kept = image.tag.startsWith("src-") && (await ctx.exec(["crane", "digest", built, ...insecure], opts).then(() => true, () => false));
+  if (kept) ctx.log("content tag already released", { image: built });
+  else await ctx.exec(["crane", "copy", `${image.repository}@${image.digest}`, built, ...insecure], opts);
+  for (const tag of tags) await ctx.exec(["crane", "tag", built, tag, ...insecure], opts);
+  ctx.log("released image", { from: `${image.repository}@${image.digest}`, to: to.repository, tags: [image.tag, ...tags] });
 }

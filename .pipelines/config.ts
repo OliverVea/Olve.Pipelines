@@ -69,10 +69,15 @@ export const SOURCE = config("source", "Where the source tarball is fetched from
 }).prefault({}));
 
 const RegistryAuth = z.object({ username: z.string(), password: z.union([secretRef(GHCR_TOKEN), secretRef(REGISTRY_PASSWORD)]) });
-const Image = {
+const Registry = {
   repository: z.string().describe("Registry repository, e.g. ghcr.io/you/olve-pipelines."),
   insecure: z.boolean().default(false).describe("The registry speaks plain HTTP."),
   auth: RegistryAuth.optional(),
+};
+const Image = {
+  ...Registry,
+  release: z.array(z.object(Registry)).default([])
+    .describe("Public repositories the verified image is copied to: its build tag and the prerelease tag when published, the release tag when promoted."),
 };
 
 export const PUBLISH = config("publish", "Where releases go: images, the npm package and the pl CLI.", z.object({

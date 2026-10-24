@@ -8,6 +8,7 @@ import * as M from "./models";
 export * from "./config";
 
 const REGISTRY_SECRETS = [GHCR_TOKEN, REGISTRY_PASSWORD];
+const CRANE_IMAGE = "gcr.io/go-containerregistry/crane/debug:v0.21.9@sha256:ba318977330d2a41fdd4af7536d35567a4ceb204252b7dfcd19b01dad2567793";
 
 export const source = steps.gitHubSource({
   name: "source",
@@ -79,8 +80,8 @@ export const buildCli = step({
 
 export const publishImages = step({
   name: "publish-images",
-  description: "Tags this run's server and harness images as the prerelease (same digests).",
-  image: "alpine:3.22",
+  description: "Tags this run's server and harness images as the prerelease and copies them to the release repositories (same digests).",
+  image: CRANE_IMAGE,
   input: { server: PushedImage, harness: optional(PushedImage) },
   config: [PUBLISH],
   secrets: REGISTRY_SECRETS,
@@ -132,8 +133,8 @@ export const betaTest = step({
 
 export const promote = step({
   name: "promote",
-  description: "Moves the release tags to this run's artifacts: the image digests and the npm version (no rebuild).",
-  image: "alpine:3.22",
+  description: "Moves the release tags to this run's artifacts, here and in the release repositories: the image digests and the npm version (no rebuild).",
+  image: CRANE_IMAGE,
   input: { server: PushedImage, harness: optional(PushedImage), sdk: optional(M.SdkRelease) },
   config: [PUBLISH],
   secrets: [NPM_TOKEN, ...REGISTRY_SECRETS],

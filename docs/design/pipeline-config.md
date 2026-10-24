@@ -412,6 +412,15 @@ What step 5 built, and where it differs from §9 and §11.
   and promote each declare GHCR_TOKEN, NPM_TOKEN and REGISTRY_PASSWORD and pick at runtime from
   `publish`, which is branching on config inside a step. Like the deploy targets, each registry
   kind should be a `select` case whose steps declare only the secret that registry needs.
+- **Public images come from staging (2026-10-24).** `build-server` and `build-harness` push to
+  `publish.*.repository` in parallel with `test`, so that repository holds unverified builds and
+  should be private (prod: registry.ovea.pro); beta and prod deploy from it. `publish.*.release`
+  lists the public repositories (ghcr). `publish-images`, after every build and test passed, copies
+  the run's digest there (`crane copy`, same digest) under its build tag and moves `next`; `promote`,
+  after prod, moves `latest` there. A content tag (`src-…`) already in a release repository is kept.
+  `publish-sdk` fails when the version is already on npm with different content (it used to skip,
+  so a change without a version bump never shipped: npm's 2.0.0-beta.3 is an earlier tree than the
+  last commit that carried that version).
 - **The chart** maps `auth.mode` and `telemetry` onto `Auth__*`/`OpenTelemetry__*` in a helper that
   merges them into `config` before rendering, so unchanged values files render identically.
   `mode: none` sets `Auth__Disable=true`. `image.digest` pins the server image.

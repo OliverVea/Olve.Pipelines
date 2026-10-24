@@ -19,12 +19,13 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}{{ with .Values.image.digest }}@{{ . }}{{ end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.container.port }}
           env:
-            {{- range $key, $value := .Values.config }}
+            {{- $config := include "olve-pipelines.config" . | fromYaml }}
+            {{- range $key, $value := $config }}
             {{- if $value }}
             - name: {{ $key }}
               value: {{ $value | quote }}
@@ -35,6 +36,13 @@ spec:
             - name: Harness__HarnessBaseImage
               value: {{ if .digest }}{{ printf "%s:%s@%s" .repository .tag .digest | quote }}{{ else }}{{ printf "%s:%s" .repository .tag | quote }}{{ end }}
             {{- end }}
+            {{- end }}
+            {{- with (include "olve-pipelines.telemetrySecret" . | fromYaml) }}
+            - name: OpenTelemetry__OAuth2__ClientSecret
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}
+                  key: {{ .key }}
             {{- end }}
             {{- range .Values.secrets }}
             {{- $secretName := .name }}

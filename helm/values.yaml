@@ -3,7 +3,21 @@ replicaCount: 1
 image:
   repository: olve-pipelines
   tag: latest
+  # Pins the image (repository:tag@digest); empty = by tag.
+  digest: ""
   pullPolicy: IfNotPresent
+
+# How users authenticate, mapped onto config.Auth__*. Empty = config.Auth__* as given.
+#   mode: none                     # Auth__Disable=true: every endpoint is anonymous
+#   mode: dex, issuer, clientId, frontendClientId?, anonymousReads?
+#   mode: authentik, authority, audience, frontendAuthority, frontendAudience, anonymousReads?
+auth: {}
+
+# Telemetry export, mapped onto config.OpenTelemetry__*. Empty = config.OpenTelemetry__* as given.
+#   exporter: none
+#   exporter: otlp, endpoint, protocol?, auth: { type: none }
+#     | { type: oauth2, tokenUrl, clientId, scope?, clientSecret: { kubernetesSecret: { name, key } } }
+telemetry: {}
 
 # ServiceAccount + RBAC for in-cluster controller→K8s access (Tier-A / InCluster auth
 # mode). Off here: the full/prod profile reaches the cluster via OpenBao (see

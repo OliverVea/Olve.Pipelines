@@ -32,7 +32,7 @@ Olve.Pipelines deploys itself. **v2 (this branch):** the v2 prod instance
 runs the pipeline "Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` →
 `build-server` ∥ `build-harness` (the step pods' init image, set as the chart's `harness.image` by
 both deploys) ∥ `test` ∥ `frontend-lint` ∥ `build-sdk` ∥ `build-cli` → `publish-images` (tag `next`)
-∥ `publish-sdk` (npm `--tag next`) ∥ `publish-cli` → `deploy-beta` (`steps.helmDeploy`, v2 beta in
+∥ `publish-sdk` (npm `--tag next`) ∥ `publish-cli` → `deploy-beta` (`helmDeployOverSsh` or `helmDeployInCluster`, selected by `target.beta.kind`; v2 beta in
 `apps-beta`, values `values-beta.yaml` + `values-v2-beta.yaml`) → `beta-test` → when
 `deployTo: "prod"`: `deploy-prod` (values `values-v2-prod.yaml`) → `promote` (`latest`, npm
 dist-tag; prod's `/download` serves the promoted `pl`). Hosts, namespaces, registries, auth and

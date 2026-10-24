@@ -72,7 +72,11 @@ export const TARGET = config("target", "Where to deploy.", z.object({ beta: helm
 export const PUBLISH = config("publish", "Where images go.", z.object({ repository: z.string() }));
 
 export const build = steps.imageBuild({ name: "build", description: "", repository: PUBLISH.repository, push: true });
-export const deployBeta = steps.helmDeploy({ name: "deploy-beta", description: "", target: TARGET.beta, chart: "helm" });
+// select on a config union: each case gets the reference narrowed to its variant
+.select(TARGET.beta, {
+  ssh: (p, beta) => p.stage(steps.helmDeployOverSsh({ name: "deploy-beta", description: "", target: beta, sshKey: SSH_PRIVATE_KEY, chart: "helm" })),
+  inCluster: (p, beta) => p.stage(steps.helmDeployInCluster({ name: "deploy-beta", description: "", target: beta, chart: "helm" })),
+})
 ```
 
 - `PUBLISH.repository` is a typed reference: it must have the field's type (a `number` field or an

@@ -51,7 +51,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Health statuses | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | Kaniko hang ("Unpacking rootfs") | [troubleshooting.md#a-run-is-stuck](troubleshooting.md#a-run-is-stuck) |
 | Latest-wins, one attempt in progress per step | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
-| Library steps (`script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
+| Library steps (`script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
 | Local pool (`.olve/pool.json`) | [local-development.md#2-run-one-step-from-source](local-development.md#2-run-one-step-from-source) |
 | Login (`pl login`, v2 instance URL) | [getting-started.md#prerequisites](getting-started.md#prerequisites) |
 | Mappers (`[step, from => …]`) | [pipeline-reference.md#input-matching-and-mappers](pipeline-reference.md#input-matching-and-mappers) |

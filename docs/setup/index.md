@@ -110,8 +110,9 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
   deploys itself, driven by config (`config.ts`): `gitHubSource` → `imageBuild` (server, harness) ∥
   custom `test`, `frontend-lint`, `build-sdk`, `build-cli` → prereleases (`publish-images`,
-  `publish-sdk`, `publish-cli`) → `helmDeploy` (beta) → custom `beta-test` → when
-  `deployTo: "prod"`: `helmDeploy` (prod) → custom `promote`.
+  `publish-sdk`, `publish-cli`) → `select` on `target.beta.kind`: `helmDeployOverSsh` or
+  `helmDeployInCluster` (beta) → custom `beta-test` → when `deployTo: "prod"`: the same select for
+  prod → custom `promote`.
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

@@ -1,5 +1,5 @@
 // Config references in library-step definitions (`host: TARGET.beta.host`): recorded in the manifest,
-// delivered to the step automatically, resolved from ctx.config when the step runs. Plus helmDeploy,
+// delivered to the step automatically, resolved from ctx.config when the step runs. Plus select, the target deploys,
 // registryTag and npmDistTag.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, test } from "bun:test";

@@ -397,8 +397,10 @@ What step 5 built, and where it differs from §9 and §11.
   merges them into `config` before rendering, so unchanged values files render identically.
   `mode: none` sets `Auth__Disable=true`. `image.digest` pins the server image.
 
-**Deploying in-cluster.** `steps.helmDeploy` runs helm in the step pod against its own cluster
-(`kind: inCluster`) or on a host over SSH (`kind: ssh`), chosen by config. In-cluster needs a token:
+**Deploying in-cluster.** `steps.helmDeployInCluster` runs helm in the step pod against its own
+cluster; `steps.helmDeployOverSsh({ target, … })` runs it on a host over SSH. The pipeline picks one
+per target with `select` on the target's `kind` ([§15](#15-select-branching-on-config)). In-cluster needs
+a token:
 - A step declares `clusterAccess: true` (manifest key, omitted when false). The instance names the
   one ServiceAccount such steps get (`Kubernetes:StepServiceAccount`); unset = no token for any
   step, so prod is unchanged. The manifest never names the ServiceAccount: in the compose stack the
@@ -422,10 +424,70 @@ are, and kaniko leaves mount points out of its snapshots anyway. The image now k
 `harness/base` change could not have been published by prod's pipeline either.
 
 **Pushing this to v2 takes two pushes.** The running prod server reconciles the new `.pipelines`
-before it deploys anything, and it rejects the new manifest (step kind `helmDeploy`, key
-`clusterAccess`), which would hold every run. First push the server, SDK and chart changes with
+before it deploys anything, and it rejects the new manifest (step kind `helmDeployInCluster`, key
+`clusterAccess`, the `select` stage), which would hold every run. First push the server, SDK and chart changes with
 the old `.pipelines` (prod then deploys the new server with the old pipeline), set the config
 document and secrets on prod, then push the new `.pipelines`.
 
 **Not done in step 5:** deploying Dex and switching prod to it, the `allow` rule in the server, and
 Dex client credentials for telemetry (§12).
+
+## 15. `select`: branching on config
+
+Decided 2026-10-24 (Oliver), replacing a single deploy step that branched on `target.kind` at run time.
+That step had to declare the union of both paths: an ssh deploy got a cluster token, an in-cluster
+deploy got the SSH key, the run plan couldn't show which path ran, and one step hash covered two
+behaviours.
+
+**`select` vs `when`.** `when` branches on **run input** and is decided per run; `select` branches on
+**config** and is decided by the run's pinned config snapshot. Both are data in the manifest, and they
+nest in each other.
+
+```ts
+.select(TARGET.prod, {
+  ssh:       (p, prod) => p.stage(steps.helmDeployOverSsh({ name: "deploy-prod", target: prod, sshKey: SSH_PRIVATE_KEY, … })),
+  inCluster: (p, prod) => p.stage(steps.helmDeployInCluster({ name: "deploy-prod", target: prod, … })),
+})
+```
+
+- **On a union entry, narrowed per case.** The first argument references a `z.discriminatedUnion`
+  in a config entry; its discriminator is the union's one literal field. Each case gets the
+  reference narrowed to its variant, typed as exactly that variant, so the wrong variant or the
+  unnarrowed union doesn't compile into a step that wants another. The manifest records a narrowed
+  reference with its case (`{"$config": "target.prod", "$case": "target.prod.kind=ssh"}`); describe
+  and the server reject one used outside its case.
+- **Exhaustive and type-checked.** A missing case, or one that isn't a value of the discriminator,
+  is a compile error and a describe/validator error.
+- **Every case is in the manifest** (`{select, discriminator, cases}`). Switching branches by config
+  is a new config snapshot, not a new pipeline version.
+- **Same name in exclusive cases.** A step name may repeat across mutually exclusive cases of one
+  select, with the same output model, and nowhere else. Only one exists in any effective pipeline, so
+  history, blocks and addresses stay keyed on the name across a branch switch. Its step version hashes
+  all its variants together (sorted), so a change to either bumps it. Two *different custom* steps
+  can't share a name: handlers pair by name. The harness picks the variant to run from `OLVE_CASES`.
+- **Availability.** A step every case has is available afterwards as in its cases (one case always
+  runs); a step only some cases have is maybe-available, as after a `when`.
+
+**The effective pipeline.** For each (version, config snapshot) the server resolves every select from
+the effective config: `RunPlanCache.ForRun(run)` (keyed on the version and the run's pinned snapshot,
+both immutable). Every run-scoped path uses it: scheduling, launches, continue/rerun, input changes,
+failure handlers, the run view. A plan built without config (`RunPlanCache.Get`) leaves selects out
+entirely, so a forgotten caller can't schedule both variants. The pipeline overview and secret usage
+show the effective pipeline of the current config; `GET …/versions/{n}/effective` and
+`pl pipeline manifest --effective` return it. Unselected branches are not "excluded" steps of a run:
+they don't appear in runs at all, only in the full manifest.
+
+**The branch-aware gate.** Config validity is checked as before, over the whole document. On top,
+the gate resolves the effective pipeline for the document and checks what the selected branches
+need from the instance: today, a step there that declares `clusterAccess` needs
+`Kubernetes:StepServiceAccount` (reported as `step X needs cluster access, …`; `ConfigCheck.Unmet`).
+A step in an unselected branch needs nothing, so an instance whose targets are `inCluster` never needs
+`SSH_PRIVATE_KEY`, and prod over SSH needs no step ServiceAccount. Declared step secrets stay
+optional, as in §7. Saving config that changes a discriminator re-runs the gate like any save; on the
+active version the save is refused if the document doesn't resolve (an unknown case) and otherwise
+accepted, as for a missing referenced secret.
+
+**Recorded choices.**
+- The discriminator is inferred (the union's single string-literal field), not named in the call.
+- `pl dev run` has no config, so it lists every case's steps; selecting by a local config file is
+  future work.

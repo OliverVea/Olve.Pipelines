@@ -456,7 +456,7 @@ dotnet run --project src/Olve.Pipelines
 
 ```
 
-On Kubernetes the chart in `helm/` is deployed by the pipeline itself (`steps.helmDeploy`, targets from its config):
+On Kubernetes the chart in `helm/` is deployed by the pipeline itself (`steps.helmDeployOverSsh` or `steps.helmDeployInCluster`, selected by its config):
 v2 beta is the release `olve-pipelines-v2` in `apps-beta`, installed by `deploy-beta` (values
 `values-beta.yaml` then `values-v2-beta.yaml`); v2 prod is `olve-pipelines-v2` in `apps`, installed
 by `deploy-prod` (`values.yaml` then `values-v2-prod.yaml`). A cold install of a minimal controller is
@@ -545,7 +545,7 @@ against itself: beta and prod are the namespaces `selfdeploy-beta` and `selfdepl
 compose k3s. Only the config differs from prod
 ([compose/selfdeploy.config.yaml](compose/selfdeploy.config.yaml)):
 
-- `helmDeploy` targets are `inCluster`. The deploy steps run helm in their own pod as the step
+- The targets are `kind: inCluster`, so the pipeline's `select` picks `helmDeployInCluster`. It runs helm in its own pod as the step
   ServiceAccount `olve-deployer` (`Kubernetes__StepServiceAccount`), which the bootstrap makes admin
   of the two `selfdeploy-*` namespaces and nothing else (`compose/k3s-selfdeploy.yaml`).
 - Images go to the compose registry (`registry:5000`); `next` and `latest` are tags moved there.

@@ -114,7 +114,7 @@ export const deployBeta = step({
 - **`clusterAccess: true`** asks for a Kubernetes API token in the step pod: the instance's step
   ServiceAccount (`Kubernetes:StepServiceAccount`), with whatever RBAC the operator gave it (e.g.
   admin of the namespaces it deploys to). On an instance that grants none the pod gets no token, like
-  every other step pod. `steps.helmDeploy` declares it.
+  every other step pod. `steps.helmDeployInCluster` declares it.
   **There is one such account per instance:** every step that declares `clusterAccess`, in every
   pipeline bound on the instance, runs with the same token and so has that account's whole RBAC
   reach. Grant it only rights every bound repository may use, and keep the namespaces it can write
@@ -129,8 +129,8 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?` |
-| `steps.helmDeploy` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (a `helmTarget()` value, usually a config reference), `sshKey?` (ssh targets), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?`; or the target form: `target` (an ssh `helmTarget()` value), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
 output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
@@ -181,22 +181,26 @@ config are reserved.
   // two BuiltImage producers, so a mapper picks them:
   .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], web: from["build-web"] })])
   ```
-- **`steps.helmDeploy`** deploys registry images, pinned by digest (`<prefix>.repository`, `.tag`,
-  `.digest`, `.pullPolicy=IfNotPresent`), to a target chosen by config. `helmTarget(defaults?,
-  extend?)` is the target's schema for your config entry: `kind: inCluster` runs
-  `helm upgrade --install --wait` in the step pod against its own cluster with the step
-  ServiceAccount's token (`clusterAccess`); `kind: ssh` pulls the images on the host (`host`) and runs
-  helm there, as `helmDeployOverSsh`. Both take `namespace`, `release`, `values` (chart-relative
-  files) and `set`. `inlineValues` are written as values files after the target's (config references
-  resolved, undefined members dropped). With `healthPath` it GETs
-  `http://<release>.<namespace>.svc.cluster.local<healthPath>` until 2xx.
+- **Deploying to a target from config.** `helmTarget(defaults?, extend?)` is the schema of a deploy
+  target for your config entry: a union on `kind`, `inCluster` or `ssh` (with `host`), each with
+  `namespace`, `release`, `values` (chart-relative files) and `set`. `select` on it, and give each case
+  its step: **`steps.helmDeployInCluster`** runs `helm upgrade --install --wait` in the step pod against
+  its own cluster with the step ServiceAccount's token (`clusterAccess`); the target form of
+  **`steps.helmDeployOverSsh`** pulls the images on the host and runs helm there. Each declares only
+  what it uses: no SSH key in-cluster, no cluster token over SSH. Both deploy registry images pinned
+  by digest (`<prefix>.repository`, `.tag`, `.digest`, `.pullPolicy=IfNotPresent`), write
+  `inlineValues` as values files after the target's (config references resolved, undefined members
+  dropped), and with `healthPath` GET `http://<release>.<namespace>.svc.cluster.local<healthPath>`
+  until 2xx.
 
   ```ts
   export const TARGET = config("target", "Where to deploy.", z.object({ beta: helmTarget({ release: "app" }) }));
-  export const deployBeta = steps.helmDeploy({
-    name: "deploy-beta", description: "…", target: TARGET.beta, sshKey: SSH_PRIVATE_KEY, chart: "helm",
-    inlineValues: [{ auth: AUTH }], images: { server: "image" }, healthPath: "/api/health",
-  });
+  const deploy = { chart: "helm", inlineValues: [{ auth: AUTH }], images: { server: "image" }, healthPath: "/api/health" } as const;
+
+  .select(TARGET.beta, {
+    ssh: (p, beta) => p.stage([steps.helmDeployOverSsh({ name: "deploy-beta", description: "…", target: beta, sshKey: SSH_PRIVATE_KEY, ...deploy }), from => ({ … })]),
+    inCluster: (p, beta) => p.stage([steps.helmDeployInCluster({ name: "deploy-beta", description: "…", target: beta, ...deploy }), from => ({ … })]),
+  })
   ```
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
@@ -287,6 +291,37 @@ Blocks nest.
 - An output produced inside a `when` is only *maybe* available afterwards. A later step must declare
   it `optional(Model)` (the handler sees `T | undefined`), or it is a compile error. `optional` still
   needs an earlier producer of the model.
+
+### `select` blocks
+
+```ts
+.select(TARGET.prod, {
+  ssh:       (p, prod) => p.stage(steps.helmDeployOverSsh({ name: "deploy-prod", target: prod, sshKey: SSH_PRIVATE_KEY, … })),
+  inCluster: (p, prod) => p.stage(steps.helmDeployInCluster({ name: "deploy-prod", target: prod, … })),
+})
+```
+
+A branch on **config**, where `when` is a branch on run input. The first argument references a
+`z.discriminatedUnion` in a config entry; each case gets the pipeline and that reference **narrowed to
+its variant** (typed as exactly that variant, so passing it to a step that wants another is a compile
+error). Exactly one case runs, picked by the run's pinned config snapshot.
+
+- **Exhaustive:** a missing case or one that isn't a value of the discriminator is a compile error.
+- **Every case is in the manifest**, but each instance runs its **effective pipeline**: the version
+  with each `select` resolved by its config. `pl run get` and the run view list only the selected
+  case's steps; `pl pipeline manifest --effective` shows the effective pipeline, `pl pipeline manifest`
+  every case.
+- **The same step name may appear in several cases** (`deploy-prod` in both above), with the same output
+  model: only one exists in any run, and history, blocks and addresses stay keyed on the name. A name
+  may not repeat anywhere else.
+- A step every case has is available afterwards like any other; a step only some cases have is
+  *maybe* available, as after a `when`.
+- A case's reference can only be used inside that case.
+- The activation gate looks only at the selected cases: a step there that declares `clusterAccess`
+  needs the instance's step ServiceAccount; a step in an unselected case needs nothing. Changing the
+  discriminator in the config document re-runs the gate for the new branch. It is not a new pipeline
+  version.
+- `when` and `select` nest in each other.
 
 ### Triggers
 

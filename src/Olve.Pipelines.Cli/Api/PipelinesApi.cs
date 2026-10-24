@@ -114,6 +114,18 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct) =>
         transport.GetAsync($"{Runs(pipelineId)}?Page={page}&PageSize={pageSize}", CliJsonContext.Default.PageOfRunSummary, ct);
 
+    public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, CancellationToken ct)
+    {
+        var query = string.Join("&", new[]
+        {
+            from is { } f ? $"from={f}" : null,
+            to is { } t ? $"to={t}" : null,
+            includeUnsuccessful ? "includeUnsuccessful=true" : null,
+        }.Where(q => q is not null));
+        return transport.GetAsync($"{Runs(pipelineId)}/critical-path{(query.Length > 0 ? "?" + query : "")}",
+            CliJsonContext.Default.CriticalPathReport, ct);
+    }
+
     public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct) =>
         transport.GetAsync($"{Runs(pipelineId)}/{run}", CliJsonContext.Default.RunDetail, ct);
 

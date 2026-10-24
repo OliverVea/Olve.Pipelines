@@ -97,6 +97,7 @@ public static class ServiceConfiguration
         services.AddSingleton<AttemptService>();
         services.AddTransient<RunQueryService>();
         services.AddTransient<RunViewService>();
+        services.AddTransient<CriticalPathService>();
         services.AddTransient<ActiveAttemptQuery>();
         services.AddTransient<AttemptFileService>();
         services.AddTransient<RunCleanupService>();

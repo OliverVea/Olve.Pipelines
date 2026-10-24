@@ -116,6 +116,28 @@ Cancelled and superseded runs are ignored; skipped steps never count as unhealth
 What's running across all pipelines: `pl attempts` (`GET /api/attempts?status=active`) lists every
 scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`).
 
+## Where the time goes
+
+`pl run critical-path <pipeline> [--from <run>] [--to <run>]` (default: the latest 20 runs) shows each
+run's critical path and each step's part in it:
+
+```
+RUN  STATUS     PATH   IDLE  CRITICAL PATH
+#61  Succeeded  3m28s  -     source 7s → build-cli 2m08s → publish-images 20s → deploy-beta 18s → …
+
+STEP          ON PATH  TOTAL   SHARE  AVG WHEN ON  WAIT
+build-server  6/20     26m43s  28.7%  4m27s        2m08s
+build-cli     9/20     20m32s  22.1%  2m17s        4m19s
+```
+
+- A stage is a barrier, so its critical step is the one that finished last. It is charged from the
+  stage's first attempt to that finish; **WAIT** is the part before the step's first attempt started
+  (scheduling, image pull, pod start).
+- Automatic retries count toward their stage (`test×2`); a later rerun of a step doesn't, and is
+  noted. Time between stages (a held run, a later `continue`) is **IDLE**, charged to no step.
+- `--step <name>` also lists the runs that step was on the critical path in. Only succeeded runs are
+  reported unless `--all`. `--json` gives the whole report (`GET …/runs/critical-path`).
+
 ## Live events
 
 `GET /api/events[?pipeline=<id>]` is a server-sent event stream (needs a session, like other reads) of

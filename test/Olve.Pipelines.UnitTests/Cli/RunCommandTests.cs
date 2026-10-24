@@ -454,4 +454,43 @@ public class RunCommandTests
         await Assert.That(await dispatcher.RunAsync(["trigger", "--help"])).IsEqualTo(0);
         await Assert.That(await dispatcher.RunAsync(["run", "get"])).IsEqualTo(1); // missing address
     }
+
+    [Test]
+    public async Task CriticalPath_PassesTheRange_AndListsTheRunsAStepWasOnThePathIn()
+    {
+        var api = Api();
+        api.GetCriticalPathResult = Result.Success(new CriticalPathReport
+        {
+            From = 3, To = 4, TotalSeconds = 300, AverageSeconds = 150,
+            Runs =
+            [
+                new CriticalPathRun { Number = 3, Status = "Succeeded", Seconds = 100, Path = [new CriticalPathStage { Stage = 1, Step = "test", Attempts = 2, Seconds = 100 }] },
+                new CriticalPathRun { Number = 4, Status = "Succeeded", Seconds = 200, Path = [new CriticalPathStage { Stage = 1, Step = "build", Attempts = 1, Seconds = 200 }], Notes = ["build@2 left out"] },
+            ],
+            Steps =
+            [
+                new CriticalPathStep { Step = "build", Runs = 1, Seconds = 200, Share = 2.0 / 3, AverageSeconds = 200, RunNumbers = [4] },
+                new CriticalPathStep { Step = "test", Runs = 1, Seconds = 100, Share = 1.0 / 3, AverageSeconds = 100, RunNumbers = [3] },
+            ],
+            Skipped = [new CriticalPathSkip { Number = 5, Reason = "Failed" }],
+        });
+
+        var (result, output) = await Run(new RunCriticalPathCommand(), api, "run", "critical-path", Name, "--from", "#3", "--to", "4", "--step", "test", "--all");
+
+        await Assert.That(result).Succeeded();
+        await Assert.That(api.LastPipelineId).IsEqualTo(Id);
+        await Assert.That(api.LastCriticalPathQuery).IsEqualTo((3, 4, true));
+        await Assert.That(output).Contains("test×2 1m40s");
+        await Assert.That(output).Contains("66.7%");
+        await Assert.That(output).Contains("#4: build@2 left out");
+        await Assert.That(output).Contains("#5: not reported (Failed)");
+        await Assert.That(output).Contains("test was on the critical path in 1/2 run(s): #3 (1m40s)");
+    }
+
+    [Test]
+    public async Task CriticalPath_RejectsANonNumberRange()
+    {
+        var (result, _) = await Run(new RunCriticalPathCommand(), Api(), "run", "critical-path", Name, "--from", "abc");
+        await Assert.That(result).Failed();
+    }
 }

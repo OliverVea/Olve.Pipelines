@@ -48,6 +48,7 @@ namespace Olve.Pipelines.Cli.Api;
 // Runs (v2)
 [JsonSerializable(typeof(Attempt[]))]
 [JsonSerializable(typeof(PageOfRunSummary))]
+[JsonSerializable(typeof(CriticalPathReport))]
 [JsonSerializable(typeof(RunDetail))]
 [JsonSerializable(typeof(Run))]
 [JsonSerializable(typeof(TriggerRunResponse))]

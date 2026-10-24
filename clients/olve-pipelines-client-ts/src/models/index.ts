@@ -654,6 +654,51 @@ export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathReport}
+ */
+// @ts-ignore
+export function createCriticalPathReportFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathReport;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathRun}
+ */
+// @ts-ignore
+export function createCriticalPathRunFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathRun;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathSkip}
+ */
+// @ts-ignore
+export function createCriticalPathSkipFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathSkip;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathStage}
+ */
+// @ts-ignore
+export function createCriticalPathStageFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathStage;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathStep}
+ */
+// @ts-ignore
+export function createCriticalPathStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathStep;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {EffectivePipelineResponse_cases}
  */
 // @ts-ignore
@@ -1078,6 +1123,132 @@ export function createTriggerRunResponseFromDiscriminatorValue(parseNode: ParseN
 export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoUpdateBindingRequest;
 }
+export interface CriticalPathReport extends AdditionalDataHolder, Parsable {
+    /**
+     * The averageSeconds property
+     */
+    averageSeconds?: number | null;
+    /**
+     * The from property
+     */
+    from?: number | null;
+    /**
+     * The runs property
+     */
+    runs?: CriticalPathRun[] | null;
+    /**
+     * The skipped property
+     */
+    skipped?: CriticalPathSkip[] | null;
+    /**
+     * The steps property
+     */
+    steps?: CriticalPathStep[] | null;
+    /**
+     * The to property
+     */
+    to?: number | null;
+    /**
+     * The totalSeconds property
+     */
+    totalSeconds?: number | null;
+}
+export interface CriticalPathRun extends AdditionalDataHolder, Parsable {
+    /**
+     * The idleSeconds property
+     */
+    idleSeconds?: number | null;
+    /**
+     * The notes property
+     */
+    notes?: string[] | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The path property
+     */
+    path?: CriticalPathStage[] | null;
+    /**
+     * The seconds property
+     */
+    seconds?: number | null;
+    /**
+     * The status property
+     */
+    status?: RunStatus | null;
+    /**
+     * The versionNumber property
+     */
+    versionNumber?: number | null;
+    /**
+     * The versionStamp property
+     */
+    versionStamp?: string | null;
+}
+export interface CriticalPathSkip extends AdditionalDataHolder, Parsable {
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The reason property
+     */
+    reason?: string | null;
+}
+export interface CriticalPathStage extends AdditionalDataHolder, Parsable {
+    /**
+     * The attempts property
+     */
+    attempts?: number | null;
+    /**
+     * The seconds property
+     */
+    seconds?: number | null;
+    /**
+     * The stage property
+     */
+    stage?: number | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+    /**
+     * The waitSeconds property
+     */
+    waitSeconds?: number | null;
+}
+export interface CriticalPathStep extends AdditionalDataHolder, Parsable {
+    /**
+     * The averageSeconds property
+     */
+    averageSeconds?: number | null;
+    /**
+     * The runNumbers property
+     */
+    runNumbers?: number[] | null;
+    /**
+     * The runs property
+     */
+    runs?: number | null;
+    /**
+     * The seconds property
+     */
+    seconds?: number | null;
+    /**
+     * The share property
+     */
+    share?: number | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+    /**
+     * The waitSeconds property
+     */
+    waitSeconds?: number | null;
+}
 /**
  * The deserialization information for the current model
  * @param ActiveAttempt The instance to deserialize into.
@@ -1432,6 +1603,85 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
         "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
         "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
         "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CriticalPathReport The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathReport(criticalPathReport: Partial<CriticalPathReport> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "averageSeconds": n => { criticalPathReport.averageSeconds = n.getNumberValue(); },
+        "from": n => { criticalPathReport.from = n.getNumberValue(); },
+        "runs": n => { criticalPathReport.runs = n.getCollectionOfObjectValues<CriticalPathRun>(createCriticalPathRunFromDiscriminatorValue); },
+        "skipped": n => { criticalPathReport.skipped = n.getCollectionOfObjectValues<CriticalPathSkip>(createCriticalPathSkipFromDiscriminatorValue); },
+        "steps": n => { criticalPathReport.steps = n.getCollectionOfObjectValues<CriticalPathStep>(createCriticalPathStepFromDiscriminatorValue); },
+        "to": n => { criticalPathReport.to = n.getNumberValue(); },
+        "totalSeconds": n => { criticalPathReport.totalSeconds = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CriticalPathRun The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathRun(criticalPathRun: Partial<CriticalPathRun> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "idleSeconds": n => { criticalPathRun.idleSeconds = n.getNumberValue(); },
+        "notes": n => { criticalPathRun.notes = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "number": n => { criticalPathRun.number = n.getNumberValue(); },
+        "path": n => { criticalPathRun.path = n.getCollectionOfObjectValues<CriticalPathStage>(createCriticalPathStageFromDiscriminatorValue); },
+        "seconds": n => { criticalPathRun.seconds = n.getNumberValue(); },
+        "status": n => { criticalPathRun.status = n.getEnumValue<RunStatus>(RunStatusObject); },
+        "versionNumber": n => { criticalPathRun.versionNumber = n.getNumberValue(); },
+        "versionStamp": n => { criticalPathRun.versionStamp = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CriticalPathSkip The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathSkip(criticalPathSkip: Partial<CriticalPathSkip> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "number": n => { criticalPathSkip.number = n.getNumberValue(); },
+        "reason": n => { criticalPathSkip.reason = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CriticalPathStage The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathStage(criticalPathStage: Partial<CriticalPathStage> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attempts": n => { criticalPathStage.attempts = n.getNumberValue(); },
+        "seconds": n => { criticalPathStage.seconds = n.getNumberValue(); },
+        "stage": n => { criticalPathStage.stage = n.getNumberValue(); },
+        "step": n => { criticalPathStage.step = n.getStringValue(); },
+        "waitSeconds": n => { criticalPathStage.waitSeconds = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CriticalPathStep The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathStep(criticalPathStep: Partial<CriticalPathStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "averageSeconds": n => { criticalPathStep.averageSeconds = n.getNumberValue(); },
+        "runNumbers": n => { criticalPathStep.runNumbers = n.getCollectionOfPrimitiveValues<number>("number"); },
+        "runs": n => { criticalPathStep.runs = n.getNumberValue(); },
+        "seconds": n => { criticalPathStep.seconds = n.getNumberValue(); },
+        "share": n => { criticalPathStep.share = n.getNumberValue(); },
+        "step": n => { criticalPathStep.step = n.getStringValue(); },
+        "waitSeconds": n => { criticalPathStep.waitSeconds = n.getNumberValue(); },
     }
 }
 /**
@@ -3239,6 +3489,90 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
     writer.writeStringValue("path", createPipelineWithRepoRequest.path);
     writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
     writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CriticalPathReport The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathReport(writer: SerializationWriter, criticalPathReport: Partial<CriticalPathReport> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathReport || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("averageSeconds", criticalPathReport.averageSeconds);
+    writer.writeNumberValue("from", criticalPathReport.from);
+    writer.writeCollectionOfObjectValues<CriticalPathRun>("runs", criticalPathReport.runs, serializeCriticalPathRun);
+    writer.writeCollectionOfObjectValues<CriticalPathSkip>("skipped", criticalPathReport.skipped, serializeCriticalPathSkip);
+    writer.writeCollectionOfObjectValues<CriticalPathStep>("steps", criticalPathReport.steps, serializeCriticalPathStep);
+    writer.writeNumberValue("to", criticalPathReport.to);
+    writer.writeNumberValue("totalSeconds", criticalPathReport.totalSeconds);
+    writer.writeAdditionalData(criticalPathReport.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CriticalPathRun The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathRun(writer: SerializationWriter, criticalPathRun: Partial<CriticalPathRun> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathRun || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("idleSeconds", criticalPathRun.idleSeconds);
+    writer.writeCollectionOfPrimitiveValues<string>("notes", criticalPathRun.notes);
+    writer.writeNumberValue("number", criticalPathRun.number);
+    writer.writeCollectionOfObjectValues<CriticalPathStage>("path", criticalPathRun.path, serializeCriticalPathStage);
+    writer.writeNumberValue("seconds", criticalPathRun.seconds);
+    writer.writeEnumValue<RunStatus>("status", criticalPathRun.status);
+    writer.writeNumberValue("versionNumber", criticalPathRun.versionNumber);
+    writer.writeStringValue("versionStamp", criticalPathRun.versionStamp);
+    writer.writeAdditionalData(criticalPathRun.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CriticalPathSkip The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathSkip(writer: SerializationWriter, criticalPathSkip: Partial<CriticalPathSkip> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathSkip || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("number", criticalPathSkip.number);
+    writer.writeStringValue("reason", criticalPathSkip.reason);
+    writer.writeAdditionalData(criticalPathSkip.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CriticalPathStage The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathStage(writer: SerializationWriter, criticalPathStage: Partial<CriticalPathStage> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathStage || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attempts", criticalPathStage.attempts);
+    writer.writeNumberValue("seconds", criticalPathStage.seconds);
+    writer.writeNumberValue("stage", criticalPathStage.stage);
+    writer.writeStringValue("step", criticalPathStage.step);
+    writer.writeNumberValue("waitSeconds", criticalPathStage.waitSeconds);
+    writer.writeAdditionalData(criticalPathStage.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CriticalPathStep The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathStep(writer: SerializationWriter, criticalPathStep: Partial<CriticalPathStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathStep || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("averageSeconds", criticalPathStep.averageSeconds);
+    writer.writeCollectionOfPrimitiveValues<number>("runNumbers", criticalPathStep.runNumbers);
+    writer.writeNumberValue("runs", criticalPathStep.runs);
+    writer.writeNumberValue("seconds", criticalPathStep.seconds);
+    writer.writeNumberValue("share", criticalPathStep.share);
+    writer.writeStringValue("step", criticalPathStep.step);
+    writer.writeNumberValue("waitSeconds", criticalPathStep.waitSeconds);
+    writer.writeAdditionalData(criticalPathStep.additionalData);
 }
 /**
  * Serializes information the current object

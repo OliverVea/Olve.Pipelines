@@ -51,6 +51,7 @@ public interface IPipelinesApi
     // Runs (v2, spec §5) — pipelineId is always the resolved id; runs are addressed by number.
     Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct);
     Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct);
+    Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, CancellationToken ct);
     Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct);
     Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct);
     Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct);

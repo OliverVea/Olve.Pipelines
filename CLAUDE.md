@@ -65,7 +65,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Configs` | `ConfigSnapshot(Service)`, `ConfigService`, `ConfigValidation`, `ConfigActivationService` (the activation gate, `PendingVersion`), `YamlJson` |
 | `Pipelines.Triggers` | `PushTriggerService`, `PushTriggerHandler`, `PollTriggerService`, `WebhookTriggerService`, `TriggerMappingService`, `RunInputService` |
 | `Pipelines.Scheduling` | `RunStartService`, `StageScheduler`, `RunPlan`, `AttemptInputBuilder`, `RunContinuationService`, `RunCancellationService`, `StepBlockService`, `SwitchService`, `AttemptLaunchService` |
-| `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `AttemptFileService`, `RunCleanupService` |
+| `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `CriticalPathService`, `AttemptFileService`, `RunCleanupService` |
 | `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
 | `Distribution` | `CliDownloadEndpoints` (`/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
 | `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |

@@ -62,6 +62,7 @@ public sealed class CliDispatcher
         Register(new RunCancelCommand());
         Register(new RunRerunCommand());
         Register(new RunContinueCommand());
+        Register(new RunCriticalPathCommand());
 
         // steps of a run
         Register(new StepOutputCommand());

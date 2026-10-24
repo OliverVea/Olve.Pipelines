@@ -45,6 +45,15 @@ public static class RunEndpoints
             .WithDescription("Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).");
 
         // Input, pinned version, links, and the pinned manifest's stage layout with each step's latest attempt.
+        group.MapGet("/critical-path", Result<CriticalPathReport> (CriticalPathService paths, Id<Pipeline> pipelineId, int? from, int? to, bool? includeUnsuccessful)
+                => paths.Get(pipelineId, from, to, includeUnsuccessful ?? false))
+            .WithApiResultMapping<CriticalPathReport>()
+            .WithName("GetCriticalPath")
+            .WithTags("Runs")
+            .WithSummary("Get the critical path of a range of runs")
+            .WithDescription("Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.")
+            .RequireRead();
+
         group.MapGet("/{number:int}", Result<RunDetail> (RunViewService views, Id<Pipeline> pipelineId, int number)
                 => views.Get(pipelineId, number))
             .WithApiResultMapping<RunDetail>()

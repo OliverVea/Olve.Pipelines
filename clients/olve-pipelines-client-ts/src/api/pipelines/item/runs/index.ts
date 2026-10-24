@@ -4,6 +4,8 @@
 // @ts-ignore
 import { createApiProblemFromDiscriminatorValue, createPageOfRunSummaryFromDiscriminatorValue, createTriggerRunResponseFromDiscriminatorValue, serializeTriggerRunRequest, serializeTriggerRunResponse, type ApiProblem, type PageOfRunSummary, type TriggerRunRequest, type TriggerRunResponse } from '../../../../models/index.js';
 // @ts-ignore
+import { CriticalPathRequestBuilderRequestsMetadata, type CriticalPathRequestBuilder } from './criticalPath/index.js';
+// @ts-ignore
 import { type WithNumberItemRequestBuilder, WithNumberItemRequestBuilderNavigationMetadata, WithNumberItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -12,6 +14,10 @@ import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type 
  * Builds and executes requests for operations under /api/pipelines/{-id}/runs
  */
 export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilder> {
+    /**
+     * The criticalPath property
+     */
+    get criticalPath(): CriticalPathRequestBuilder;
     /**
      * Gets an item from the OlvePipelinesClient.api.pipelines.item.runs.item collection
      * @param number Unique identifier of the item
@@ -81,6 +87,9 @@ export const RunsRequestBuilderNavigationMetadata: Record<Exclude<keyof RunsRequ
         requestsMetadata: WithNumberItemRequestBuilderRequestsMetadata,
         navigationMetadata: WithNumberItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["number"],
+    },
+    criticalPath: {
+        requestsMetadata: CriticalPathRequestBuilderRequestsMetadata,
     },
 };
 /**

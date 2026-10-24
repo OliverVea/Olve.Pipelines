@@ -394,6 +394,21 @@ Starts a manual run; the body is the pipeline input, validated against the input
 
 **Returns:** `200` [TriggerRunResponse](#triggerrunresponse)
 
+#### Get the critical path of a range of runs
+
+`GET /api/pipelines/{pipelineId}/runs/critical-path`
+
+Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string | yes |
+| `from` | query | integer |  |
+| `to` | query | integer |  |
+| `includeUnsuccessful` | query | boolean |  |
+
+**Returns:** `200` [CriticalPathReport](#criticalpathreport)
+
 #### Get a run
 
 `GET /api/pipelines/{pipelineId}/runs/{number}`
@@ -914,6 +929,60 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `branch` | string? | required |
 | `path` | string? | required |
 | `credentialsSecret` | string? | required |
+
+### CriticalPathReport
+
+| Field | Type | |
+|---|---|---|
+| `from` | integer | required |
+| `to` | integer | required |
+| `runs` | [CriticalPathRun](#criticalpathrun)[] | required |
+| `steps` | [CriticalPathStep](#criticalpathstep)[] | required |
+| `skipped` | [CriticalPathSkip](#criticalpathskip)[] | required |
+| `totalSeconds` | number | required |
+| `averageSeconds` | number | required |
+
+### CriticalPathRun
+
+| Field | Type | |
+|---|---|---|
+| `number` | integer | required |
+| `status` | `"Running"` \| `"Succeeded"` \| `"Failed"` \| `"Cancelled"` \| `"Superseded"` | required |
+| `versionNumber` | integer | required |
+| `versionStamp` | string | required |
+| `seconds` | number | required |
+| `idleSeconds` | number | required |
+| `path` | [CriticalPathStage](#criticalpathstage)[] | required |
+| `notes` | string[] | required |
+
+### CriticalPathSkip
+
+| Field | Type | |
+|---|---|---|
+| `number` | integer | required |
+| `reason` | string | required |
+
+### CriticalPathStage
+
+| Field | Type | |
+|---|---|---|
+| `stage` | integer | required |
+| `step` | string | required |
+| `attempts` | integer | required |
+| `seconds` | number | required |
+| `waitSeconds` | number | required |
+
+### CriticalPathStep
+
+| Field | Type | |
+|---|---|---|
+| `step` | string | required |
+| `runs` | integer | required |
+| `seconds` | number | required |
+| `share` | number | required |
+| `averageSeconds` | number | required |
+| `waitSeconds` | number | required |
+| `runNumbers` | integer[] | required |
 
 ### EffectivePipelineResponse
 

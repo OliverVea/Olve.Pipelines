@@ -163,3 +163,53 @@ public sealed class ServerProblem
     public string Message { get; set; } = "";
     public string? Field { get; set; }
 }
+
+/// <summary>The critical path of a range of runs (<c>GetCriticalPath</c>).</summary>
+public sealed class CriticalPathReport
+{
+    public int From { get; set; }
+    public int To { get; set; }
+    public CriticalPathRun[] Runs { get; set; } = [];
+    public CriticalPathStep[] Steps { get; set; } = [];
+    public CriticalPathSkip[] Skipped { get; set; } = [];
+    public double TotalSeconds { get; set; }
+    public double AverageSeconds { get; set; }
+}
+
+public sealed class CriticalPathRun
+{
+    public int Number { get; set; }
+    public string Status { get; set; } = "";
+    public int VersionNumber { get; set; }
+    public string VersionStamp { get; set; } = "";
+    public double Seconds { get; set; }
+    public double IdleSeconds { get; set; }
+    public CriticalPathStage[] Path { get; set; } = [];
+    public string[] Notes { get; set; } = [];
+}
+
+public sealed class CriticalPathStage
+{
+    public int Stage { get; set; }
+    public string Step { get; set; } = "";
+    public int Attempts { get; set; }
+    public double Seconds { get; set; }
+    public double WaitSeconds { get; set; }
+}
+
+public sealed class CriticalPathStep
+{
+    public string Step { get; set; } = "";
+    public int Runs { get; set; }
+    public double Seconds { get; set; }
+    public double Share { get; set; }
+    public double AverageSeconds { get; set; }
+    public double WaitSeconds { get; set; }
+    public int[] RunNumbers { get; set; } = [];
+}
+
+public sealed class CriticalPathSkip
+{
+    public int Number { get; set; }
+    public string Reason { get; set; } = "";
+}

@@ -40,6 +40,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Config-before-run | [binding-and-reconcile.md#the-reconcile-cycle](binding-and-reconcile.md#the-reconcile-cycle) |
 | Continue a run (promote what you tested) | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | `ctx` (handler context) | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
+| Critical path, where a run spends its time (`pl run critical-path`) | [runs-and-operations.md#where-the-time-goes](runs-and-operations.md#where-the-time-goes) |
 | De-duplication of automatic triggers | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
 | Deploy targets (`deployTarget()`, `helmTarget()`, `kind: none`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps), [compose-deploy.md#the-deploy-target](compose-deploy.md#the-deploy-target) |
 | Docker Compose deploys (the deployer, `steps.composeDeploy`) | [compose-deploy.md](compose-deploy.md) |

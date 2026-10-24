@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { implement, npmHasVersion, type Ctx } from "@olivervea/pipelines";
 import { publishSdk } from "../pipeline";
@@ -24,8 +24,12 @@ export default implement(publishSdk, async ({ pkg }, ctx) => {
   // The token goes in the env, never argv (ctx.exec errors quote argv). The output goes to a file so a
   // failure can be told apart; it is replayed into the log either way.
   const out = join(ctx.tmpDir, "publish.log");
+  // bun publish wants a package.json in its cwd even for a tarball; it uploads the tarball unchanged.
+  const cwd = join(ctx.tmpDir, "publish");
+  mkdirSync(cwd, { recursive: true });
+  writeFileSync(join(cwd, "package.json"), "{}");
   try {
-    await ctx.sh(`bun publish ${tarball} --tag ${npm.prereleaseTag} --access public > ${out} 2>&1`, { cwd: ctx.tmpDir, env: { HOME: home, NPM_CONFIG_TOKEN: token } });
+    await ctx.sh(`bun publish ${tarball} --tag ${npm.prereleaseTag} --access public > ${out} 2>&1`, { cwd, env: { HOME: home, NPM_CONFIG_TOKEN: token } });
   } catch (e) {
     const output = existsSync(out) ? readFileSync(out, "utf8") : "";
     process.stderr.write(output);

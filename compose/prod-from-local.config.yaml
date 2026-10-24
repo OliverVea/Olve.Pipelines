@@ -3,7 +3,8 @@
 # itself. Based on docs/design/prod-config.example.yaml, with three local differences:
 #   - host by Tailscale IP: step pods in the compose k3s can't resolve bulwark-m2;
 #   - url: step pods reach beta and prod through their ingress, not the homelab's cluster DNS;
-#   - the harness image pinned to the one the instances use today, and not built (no ghcr); npm off.
+#   - the harness image pinned to the one the instances use today, and not built (no ghcr); npm off;
+#   - prod's /download keeps serving its latest publish-cli until prod's own runs promote.
 #
 #   pl config set "Olve.Pipelines v2" -f compose/prod-from-local.config.yaml
 
@@ -37,6 +38,8 @@ target:
     values: [values-v2-prod.yaml]
     set:
       config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
+      # Prod's own runs have no promote step yet: keep serving its latest publish-cli at /download.
+      config.Distribution__CliPromotedBy: ""
     url: https://pipelines-v2-private.ovea.pro
 
 auth:

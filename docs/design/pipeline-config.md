@@ -406,7 +406,8 @@ What step 5 built, and where it differs from §9 and §11.
   the new server runs old-layout harness images unchanged) with `publish.harness.push: false`; npm
   off. Rendered with the deploy step and `helm template`, it differs from today's deploy only in the
   server image (registry by digest, `IfNotPresent`), an explicit `Harness__HarnessBaseImage` (the
-  value the old server defaulted to) and, on prod, `Distribution__CliPromotedBy=promote`.
+  value the old server defaulted to) and, on prod, `Distribution__CliPromotedBy` set empty, so
+  prod's `/download` keeps serving its latest `publish-cli` until its own runs promote.
 - **Follow-up (parked): `publish` should `select` too.** build-server, build-harness, publish-*
   and promote each declare GHCR_TOKEN, NPM_TOKEN and REGISTRY_PASSWORD and pick at runtime from
   `publish`, which is branching on config inside a step. Like the deploy targets, each registry

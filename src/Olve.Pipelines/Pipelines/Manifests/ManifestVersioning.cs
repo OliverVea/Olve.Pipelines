@@ -56,7 +56,7 @@ public static class ManifestVersioning
         foreach (var step in AllSteps(manifest))
         {
             if (currentSteps.ContainsKey(step.Name)) continue; // a handler attached several times
-            currentSteps[step.Name] = Next(history.Steps, step.Name, StepContentHash(step, modelVersions), changedSteps);
+            currentSteps[step.Name] = Next(history.Steps, step.Name, StepContentHash(step, modelVersions, manifest.Config), changedSteps);
         }
 
         var current = new EntityVersionMap(currentModels, currentSteps);
@@ -74,7 +74,7 @@ public static class ManifestVersioning
     /// Step content = kind, image, input types (models as <c>Name.Version</c>), mappings, output model version,
     /// secrets (as a set), handler hash, config, timeout, retries.
     /// </summary>
-    public static string StepContentHash(StepDescriptor s, IReadOnlyDictionary<string, int> modelVersions)
+    public static string StepContentHash(StepDescriptor s, IReadOnlyDictionary<string, int> modelVersions, IReadOnlyList<ManifestConfigEntry>? config = null)
     {
         string Versioned(string model) => modelVersions.TryGetValue(model, out var v) ? EntityId(model, v) : model;
         var content = ManifestWriter.ToElement(w =>
@@ -122,6 +122,18 @@ public static class ManifestVersioning
                 {
                     w.WritePropertyName(k);
                     v.WriteTo(w);
+                }
+                w.WriteEndObject();
+            }
+            if (s.ConfigEntries.Count > 0)
+            {
+                // Entry schemas count, so a changed config schema bumps the steps that receive it.
+                w.WriteStartObject("configEntries");
+                foreach (var name in s.ConfigEntries)
+                {
+                    w.WritePropertyName(name);
+                    if (config?.FirstOrDefault(c => c.Name == name) is { } entry) ManifestWriter.Write(w, entry);
+                    else w.WriteNullValue();
                 }
                 w.WriteEndObject();
             }

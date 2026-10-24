@@ -102,6 +102,13 @@ public static class ManifestIssueCodes
     public const string FailureHandlerInputInvalid = "failure-handler-input-invalid";
     public const string FailureHandlerConflict = "failure-handler-conflict";
 
+    // ── config ──
+    public const string ConfigNameInvalid = "config-name-invalid";
+    public const string ConfigDuplicate = "config-duplicate";
+    public const string ConfigUnknown = "config-unknown";
+    public const string ConfigSecretRefUndeclared = "config-secret-ref-undeclared";
+    public const string ConfigSecretRefNotInStep = "config-secret-ref-not-in-step";
+
     // ── warnings ──
     public const string OutputUnused = "output-unused";
 }

@@ -74,6 +74,23 @@ public static class ManifestWriter
             w.WriteEndObject();
         }
         w.WriteEndArray();
+        if (m.Config.Count > 0)
+        {
+            w.WriteStartArray("config");
+            foreach (var c in m.Config) Write(w, c);
+            w.WriteEndArray();
+        }
+        w.WriteEndObject();
+    }
+
+    public static void Write(Utf8JsonWriter w, ManifestConfigEntry c)
+    {
+        w.WriteStartObject();
+        w.WriteString("name", c.Name);
+        w.WriteString("description", c.Description);
+        w.WriteBoolean("required", c.Required);
+        w.WritePropertyName("schema");
+        c.Schema.WriteTo(w);
         w.WriteEndObject();
     }
 
@@ -197,6 +214,7 @@ public static class ManifestWriter
             }
             w.WriteEndObject();
         }
+        if (s.ConfigEntries.Count > 0) WriteStrings(w, "configEntries", s.ConfigEntries);
         w.WriteEndObject();
     }
 

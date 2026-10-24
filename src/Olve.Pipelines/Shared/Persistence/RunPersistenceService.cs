@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -23,6 +24,8 @@ namespace Olve.Pipelines.Shared.Persistence;
 /// pipeline-state.json                 activations (Active/Draining), sequences, blocked steps, queued run starts, poll values
 /// runs.json                           which runs exist: (id, pipeline, number)
 /// runs/&lt;p&gt;/&lt;n&gt;/run.json              one run + all its attempts (incl. capped outputs)
+/// pipeline-config.json                config snapshot metadata
+/// config/&lt;p&gt;/&lt;n&gt;.yaml               one config snapshot, as written (immutable)
 /// </code>
 /// <para><b>Why.</b> Attempts change status constantly while a pipeline runs, and each carries up to
 /// <see cref="AttemptService.MaxOutputJsonBytes"/> of output; manifests embed JSON Schemas. A whole-state
@@ -49,6 +52,8 @@ public class RunPersistenceService(
     AttachmentStore<Pipeline, PendingRunStart> pendingStarts,
     AttachmentStore<Pipeline, EntityVersionMap> entityVersions,
     AttachmentStore<Pipeline, PollTriggerStates> pollTriggers,
+    EntityStore<ConfigSnapshot> configs,
+    AttachmentStore<Pipeline, PendingVersion> pendingVersions,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<RunPersistenceService> logger,
@@ -57,6 +62,7 @@ public class RunPersistenceService(
     internal const string VersionsIndexKey = "pipeline-versions.json";
     internal const string StateKey = "pipeline-state.json";
     internal const string RunsIndexKey = "runs.json";
+    internal const string ConfigIndexKey = "pipeline-config.json";
     private const string ReadinessKey = "runs";
     private const int LoadParallelism = 16;
 
@@ -65,12 +71,15 @@ public class RunPersistenceService(
 
     private readonly ConcurrentDictionary<Id<PipelineVersion>, byte> _pendingManifests = new();
     private readonly ConcurrentDictionary<Id<PipelineVersion>, byte> _writtenManifests = new();
+    private readonly ConcurrentDictionary<Id<ConfigSnapshot>, byte> _pendingConfigs = new();
+    private readonly ConcurrentDictionary<Id<ConfigSnapshot>, byte> _writtenConfigs = new();
     private readonly ConcurrentDictionary<Id<Run>, byte> _dirtyRuns = new();
     private readonly ConcurrentDictionary<Id<Run>, byte> _writtenRuns = new();
     private readonly ConcurrentQueue<string> _deletedKeys = new();
     private readonly DirtyFlag _versionsIndexDirty = new();
     private readonly DirtyFlag _stateDirty = new();
     private readonly DirtyFlag _runsIndexDirty = new();
+    private readonly DirtyFlag _configIndexDirty = new();
 
     private volatile bool _loaded;
     private Timer? _timer;
@@ -107,6 +116,7 @@ public class RunPersistenceService(
             _versionsIndexDirty.Set();
             _stateDirty.Set();
             _runsIndexDirty.Set();
+            _configIndexDirty.Set();
             await FlushAsync(cancellationToken);
         }
 
@@ -131,6 +141,11 @@ public class RunPersistenceService(
         entityVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         pollTriggers.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
         pollTriggers.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+
+        configs.OnAdded.Subscribe(e => OnConfigAdded(e.Id));
+        configs.OnDeleted.Subscribe(e => OnConfigDeleted(e.Entity));
 
         runs.OnAdded.Subscribe(e => OnRunChanged(e.Id));
         runs.OnUpdated.Subscribe(e => OnRunChanged(e.Id));
@@ -166,6 +181,21 @@ public class RunPersistenceService(
         _deletedKeys.Enqueue(StorageLayout.VersionManifestKey(version));
     }
 
+    private void OnConfigAdded(Id<ConfigSnapshot> id)
+    {
+        if (!_loaded) return;
+        _pendingConfigs[id] = 0;
+    }
+
+    private void OnConfigDeleted(ConfigSnapshot snapshot)
+    {
+        if (!_loaded) return;
+        _pendingConfigs.TryRemove(snapshot.Id, out _);
+        _writtenConfigs.TryRemove(snapshot.Id, out _);
+        MarkDirty(_configIndexDirty);
+        _deletedKeys.Enqueue(StorageLayout.ConfigSnapshotKey(snapshot.PipelineId, snapshot.Number));
+    }
+
     private void OnRunChanged(Id<Run> runId)
     {
         if (!_loaded) return;
@@ -187,8 +217,8 @@ public class RunPersistenceService(
     }
 
     private bool HasWork =>
-        !_pendingManifests.IsEmpty || !_dirtyRuns.IsEmpty || !_deletedKeys.IsEmpty
-        || _versionsIndexDirty.IsSet || _stateDirty.IsSet || _runsIndexDirty.IsSet;
+        !_pendingManifests.IsEmpty || !_pendingConfigs.IsEmpty || !_dirtyRuns.IsEmpty || !_deletedKeys.IsEmpty
+        || _versionsIndexDirty.IsSet || _stateDirty.IsSet || _runsIndexDirty.IsSet || _configIndexDirty.IsSet;
 
     private async void OnTimerTick(object? state)
     {
@@ -228,8 +258,11 @@ public class RunPersistenceService(
             var runDocs = await WriteRunDocumentsAsync(store, cancellationToken);
             var runsOk = await WriteIndexIfDirtyAsync(store, RunsIndexKey, _runsIndexDirty,
                 BuildRunsIndex, Json.RunIndexSnapshot, cancellationToken);
+            var configDocs = await WriteConfigsAsync(store, cancellationToken);
+            var configOk = await WriteIndexIfDirtyAsync(store, ConfigIndexKey, _configIndexDirty,
+                BuildConfigIndex, Json.ConfigSnapshotIndexSnapshot, cancellationToken);
 
-            if (versionsOk && runsOk)
+            if (versionsOk && runsOk && configOk)
             {
                 foreach (var key in toDelete)
                     await DeleteBestEffortAsync(store, key, cancellationToken);
@@ -240,10 +273,10 @@ public class RunPersistenceService(
                     _deletedKeys.Enqueue(key);
             }
 
-            if (manifests + runDocs > 0 || toDelete.Count > 0)
+            if (manifests + runDocs + configDocs > 0 || toDelete.Count > 0)
                 logger.LogDebug(
-                    "Flushed run state: {Manifests} manifest(s), {RunDocuments} run document(s), {Deleted} deletion(s); state ok={StateOk}",
-                    manifests, runDocs, versionsOk && runsOk ? toDelete.Count : 0, stateOk);
+                    "Flushed run state: {Manifests} manifest(s), {RunDocuments} run document(s), {ConfigSnapshots} config snapshot(s), {Deleted} deletion(s); state ok={StateOk}",
+                    manifests, runDocs, configDocs, versionsOk && runsOk && configOk ? toDelete.Count : 0, stateOk);
         }
         finally
         {
@@ -273,6 +306,33 @@ public class RunPersistenceService(
                 _pendingManifests.TryAdd(id, 0);
                 logger.LogError(ex, "Failed to write manifest of version {VersionNumber} of pipeline '{PipelineId}'; will retry",
                     version.Number, version.PipelineId);
+            }
+        }
+
+        return written;
+    }
+
+    private async Task<int> WriteConfigsAsync(ISnapshotStore snapshotStore, CancellationToken ct)
+    {
+        var written = 0;
+        foreach (var id in _pendingConfigs.Keys)
+        {
+            _pendingConfigs.TryRemove(id, out _);
+            if (!configs.TryGet(id, out var snapshot))
+                continue;
+
+            try
+            {
+                await snapshotStore.WriteAsync(StorageLayout.ConfigSnapshotKey(snapshot.PipelineId, snapshot.Number), Encoding.UTF8.GetBytes(snapshot.Yaml), ct);
+                written++;
+                if (_writtenConfigs.TryAdd(id, 0))
+                    _configIndexDirty.Set();
+            }
+            catch (Exception ex)
+            {
+                _pendingConfigs.TryAdd(id, 0);
+                logger.LogError(ex, "Failed to write config #{SnapshotNumber} of pipeline '{PipelineId}'; will retry",
+                    snapshot.Number, snapshot.PipelineId);
             }
         }
 
@@ -376,7 +436,15 @@ public class RunPersistenceService(
             PendingStarts: pendingStarts.GetAll().Select(kv => new PendingRunStartEntry(kv.Key, kv.Value)).ToArray(),
             EntityVersions: entityVersions.GetAll().Select(kv => new EntityVersionHistoryEntry(kv.Key, kv.Value)).ToArray(),
             PollTriggers: pollTriggers.GetAll().Select(kv => new PollTriggerStatesEntry(kv.Key, kv.Value)).ToArray(),
-            BlockedSteps: blocked.GetAll().Select(kv => new PipelineBlockedStepsEntry(kv.Key, kv.Value)).ToArray());
+            BlockedSteps: blocked.GetAll().Select(kv => new PipelineBlockedStepsEntry(kv.Key, kv.Value)).ToArray(),
+            PendingVersions: pendingVersions.GetAll().Select(kv => new PendingVersionEntry(kv.Key, kv.Value)).ToArray());
+
+    private ConfigSnapshotIndexSnapshot BuildConfigIndex() =>
+        new(configs.List()
+            .Where(s => _writtenConfigs.ContainsKey(s.Id))
+            .OrderBy(s => s.PipelineId).ThenBy(s => s.Number)
+            .Select(ConfigSnapshotMetadata.From)
+            .ToArray());
 
     private RunIndexSnapshot BuildRunsIndex() =>
         new(runs.List()
@@ -393,6 +461,20 @@ public class RunPersistenceService(
         var versionsIndex = await ReadAsync(snapshotStore, VersionsIndexKey, Json.PipelineVersionIndexSnapshot, ct);
         var state = await ReadAsync(snapshotStore, StateKey, Json.PipelineStateSnapshot, ct);
         var runsIndex = await ReadAsync(snapshotStore, RunsIndexKey, Json.RunIndexSnapshot, ct);
+        var configIndex = await ReadAsync(snapshotStore, ConfigIndexKey, Json.ConfigSnapshotIndexSnapshot, ct);
+
+        var configEntries = configIndex?.Snapshots ?? [];
+        var configTexts = new string[configEntries.Length];
+        await Parallel.ForEachAsync(Enumerable.Range(0, configEntries.Length),
+            new ParallelOptions { MaxDegreeOfParallelism = LoadParallelism, CancellationToken = ct },
+            async (i, token) =>
+            {
+                var meta = configEntries[i];
+                var key = StorageLayout.ConfigSnapshotKey(meta.PipelineId, meta.Number);
+                var bytes = await ReadRawAsync(snapshotStore, key, token)
+                            ?? throw Missing(key, $"config #{meta.Number} of pipeline '{meta.PipelineId}'");
+                configTexts[i] = Encoding.UTF8.GetString(bytes);
+            });
 
         var versionEntries = versionsIndex?.Versions ?? [];
         var manifests = new string[versionEntries.Length];
@@ -444,6 +526,13 @@ public class RunPersistenceService(
             entityVersions.Set(entry.PipelineId, entry.History);
         foreach (var entry in state?.PollTriggers ?? [])
             pollTriggers.Set(entry.PipelineId, entry.States);
+        foreach (var entry in state?.PendingVersions ?? [])
+            pendingVersions.Set(entry.PipelineId, entry.Pending);
+        for (var i = 0; i < configEntries.Length; i++)
+        {
+            configs.Set(configEntries[i].WithYaml(configTexts[i]));
+            _writtenConfigs[configEntries[i].Id] = 0;
+        }
 
         var attemptCount = 0;
         foreach (var document in documents)
@@ -460,10 +549,10 @@ public class RunPersistenceService(
         }
 
         logger.LogInformation(
-            "Loaded run state: {Versions} versions, {Activations} activations, {Runs} runs, {Attempts} attempts",
-            versionEntries.Length, state?.Activations.Length ?? 0, documents.Length, attemptCount);
+            "Loaded run state: {Versions} versions, {Activations} activations, {Runs} runs, {Attempts} attempts, {ConfigSnapshots} config snapshots",
+            versionEntries.Length, state?.Activations.Length ?? 0, documents.Length, attemptCount, configEntries.Length);
 
-        return versionsIndex is null || state is null || runsIndex is null;
+        return versionsIndex is null || state is null || runsIndex is null || configIndex is null;
     }
 
     private async Task<T?> ReadAsync<T>(ISnapshotStore snapshotStore, string key, JsonTypeInfo<T> typeInfo, CancellationToken ct)

@@ -1,5 +1,6 @@
 using System.Text;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
@@ -10,19 +11,22 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// <summary>What a successful reconcile did.</summary>
 /// <param name="Version">The version the pipeline is now switched to (or draining towards).</param>
 /// <param name="Created">True when this reconcile added <paramref name="Version"/>; false when the manifest matched an existing one.</param>
+/// <param name="Pending">Set when <paramref name="Version"/> was not activated: its config or secrets aren't satisfied yet.</param>
 public sealed record ReconcileReport(
     PipelineVersion Version,
     bool Created,
     IReadOnlyList<string> Warnings,
     IReadOnlyList<string> ChangedSteps,
-    IReadOnlyList<string> ChangedModels);
+    IReadOnlyList<string> ChangedModels,
+    PendingVersion? Pending = null);
 
 /// <summary>
 /// v2 reconcile of one config commit (spec §5.1, §6): build/describe Job (compile the pipeline at the
 /// commit, PUT <c>step.tar.gz</c> to <see cref="StorageLayout.BuildBinaryKey"/>, print the manifest
 /// between sentinels) → parse → validate (errors fail the reconcile; warnings are reported) → entity
 /// versions over the persisted history → a new <see cref="PipelineVersion"/> when the manifest hash
-/// differs from the active one → <see cref="SwitchService.Switch"/>. The build is the async I/O part;
+/// differs from the active one → the activation gate (<see cref="ConfigActivationService.Activate"/>: switch, or
+/// pending until the config document and referenced secrets satisfy it). The build is the async I/O part;
 /// <see cref="Apply"/> is the synchronous domain part.
 /// </summary>
 public class PipelineReconcileService(
@@ -31,7 +35,8 @@ public class PipelineReconcileService(
     IHarnessStorage storage,
     PipelineVersionService versions,
     PipelineActivationService activations,
-    SwitchService switches,
+    ConfigActivationService gate,
+    IPipelineSecretNames secretNames,
     PipelineService pipelines,
     AttachmentStore<Pipeline, EntityVersionMap> history,
     RunSchedulingLock schedulingLock,
@@ -49,18 +54,23 @@ public class PipelineReconcileService(
         if (built.TryPickProblems(out var buildProblems, out var manifestText))
             return Result.Failure<ReconcileReport>(buildProblems);
 
-        var applied = Apply(binding.PipelineId, commitSha, manifestText);
+        var setSecrets = await secretNames.ListSetAsync(binding.PipelineId, ct);
+        var applied = Apply(binding.PipelineId, commitSha, manifestText, setSecrets);
         if (applied.TryPickProblems(out _, out var report))
             return applied; // logged by the caller, like a failed build
 
-        logger.LogInformation("Reconciled '{Repo}@{Sha}' ({Path}) for pipeline '{PipelineId}' in {ElapsedMs}ms: version {VersionNumber} ({Outcome}); changed steps {ChangedSteps}, models {ChangedModels}",
+        logger.LogInformation("Reconciled '{Repo}@{Sha}' ({Path}) for pipeline '{PipelineId}' in {ElapsedMs}ms: version {VersionNumber} ({Outcome}{Pending}); changed steps {ChangedSteps}, models {ChangedModels}",
             binding.Repo, commitSha, binding.Path, binding.PipelineId, sw.ElapsedMilliseconds, report.Version.Number,
-            report.Created ? "new" : "unchanged", string.Join(",", report.ChangedSteps), string.Join(",", report.ChangedModels));
+            report.Created ? "new" : "unchanged", report.Pending is null ? "" : ", pending",
+            string.Join(",", report.ChangedSteps), string.Join(",", report.ChangedModels));
         return applied;
     }
 
-    /// <summary>The domain half: manifest text → validated version → switch. Pure apart from the stores.</summary>
-    public Result<ReconcileReport> Apply(Id<Pipeline> pipelineId, string commitSha, string manifestText)
+    /// <summary>
+    /// The domain half: manifest text → validated version → activation gate. Pure apart from the stores.
+    /// <paramref name="setSecrets"/>: the pipeline's set secret names (null = unknown).
+    /// </summary>
+    public Result<ReconcileReport> Apply(Id<Pipeline> pipelineId, string commitSha, string manifestText, IReadOnlySet<string>? setSecrets = null)
     {
         if (!ManifestParser.TryParse(Encoding.UTF8.GetBytes(manifestText), out var manifest, out var parseIssues))
             return Result.Failure<ReconcileReport>(parseIssues.Select(i => new ResultProblem("manifest {0}", i.ToString())));
@@ -77,7 +87,8 @@ public class PipelineReconcileService(
 
             PipelineVersion target;
             var created = false;
-            if (CurrentTarget(pipelineId) is { } current && current.ManifestHash == computed.ManifestHash)
+            var current = CurrentTarget(pipelineId);
+            if (current is not null && current.ManifestHash == computed.ManifestHash)
             {
                 target = current;
             }
@@ -98,14 +109,25 @@ public class PipelineReconcileService(
                 created = true;
             }
 
-            if (switches.Switch(pipelineId, target.Id).TryPickProblems(out var switchProblems))
-                return Result.Failure<ReconcileReport>(switchProblems);
+            PendingVersion? pendingVersion = null;
+            if (target.Id == current?.Id)
+            {
+                // Back on the active version: a newer pending one is moot (a held active version stays held).
+                if (gate.TryGetPending(pipelineId, out var marker) && marker!.VersionId != target.Id)
+                    gate.ClearPending(pipelineId);
+            }
+            else
+            {
+                if (gate.Activate(target, setSecrets).TryPickProblems(out var gateProblems, out var outcome))
+                    return Result.Failure<ReconcileReport>(gateProblems);
+                pendingVersion = (outcome as ActivationOutcome.Pending)?.Version;
+            }
 
             if (pipelines.SetDefinition(pipelineId, manifest.Name, manifest.Description).TryPickProblems(out var nameProblems))
                 return Result.Failure<ReconcileReport>(nameProblems);
 
             return new ReconcileReport(target, created, warnings,
-                created ? computed.ChangedSteps : [], created ? computed.ChangedModels : []);
+                created ? computed.ChangedSteps : [], created ? computed.ChangedModels : [], pendingVersion);
         });
     }
 

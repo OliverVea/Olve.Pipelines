@@ -1,4 +1,5 @@
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.GitHub;
@@ -106,7 +107,7 @@ public static class PipelineBindingEndpoints
 
         app.MapGet("/api/pipelines/{pipelineId}/binding/status", Result<PipelineBindingStatus> (
                 PipelineConfigBindingService bindings, PipelineActivationService activations, PipelineVersionService versions,
-                Id<Pipeline> pipelineId) =>
+                ConfigActivationService gate, Id<Pipeline> pipelineId) =>
             {
                 if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
                     return problems;
@@ -121,7 +122,8 @@ public static class PipelineBindingEndpoints
                     status.VersionNumber ?? (status.Result == ReconcileResult.Success
                         ? versions.ListByPipeline(pipelineId).FirstOrDefault(v => v.CommitSha == status.Sha)?.Number
                         : null),
-                    activations.TryGet(pipelineId, out var activation) ? activation : null);
+                    activations.TryGet(pipelineId, out var activation) ? activation : null,
+                    gate.PendingInfo(pipelineId));
             })
             .WithApiResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
@@ -152,6 +154,7 @@ public record UpdateBindingRequest(string? CredentialsSecret);
 /// <param name="ReconcileSha">The config commit the last reconcile attempt was for.</param>
 /// <param name="ReconciledVersion">The version the last successful reconcile switched to.</param>
 /// <param name="Activation">The pipeline's active version, or the switch in progress.</param>
+/// <param name="Pending">A version reconcile produced that waits for its config or secrets, with the reasons.</param>
 public record PipelineBindingStatus(
     Id<Pipeline> PipelineId,
     string Repo,
@@ -166,4 +169,5 @@ public record PipelineBindingStatus(
     string? ReconcileSha,
     bool ReconcileInProgress,
     int? ReconciledVersion,
-    PipelineActivation? Activation);
+    PipelineActivation? Activation,
+    PendingVersionInfo? Pending = null);

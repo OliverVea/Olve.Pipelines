@@ -35,6 +35,8 @@ internal sealed class TestRunDomain
         PendingStarts = new AttachmentStore<Pipeline, PendingRunStart>(Pipelines);
         EntityVersions = new AttachmentStore<Pipeline, EntityVersionMap>(Pipelines);
         PollTriggers = new AttachmentStore<Pipeline, PollTriggerStates>(Pipelines);
+        ConfigSnapshotStore = new EntityStore<ConfigSnapshot>([]);
+        PendingVersions = new AttachmentStore<Pipeline, PendingVersion>(Pipelines);
 
         var ids = new IdProvider();
         PipelineService = new PipelineService(Pipelines, ids);
@@ -45,7 +47,13 @@ internal sealed class TestRunDomain
         AttemptService = new AttemptService(Attempts, Runs, ids, Time);
         Query = new RunQueryService(RunService, AttemptService);
         Plans = new RunPlanCache(VersionService);
+        ConfigSnapshots = new ConfigSnapshotService(ConfigSnapshotStore, Pipelines, ids, Time);
     }
+
+    public EntityStore<ConfigSnapshot> ConfigSnapshotStore { get; }
+    public AttachmentStore<Pipeline, PendingVersion> PendingVersions { get; }
+    public ConfigSnapshotService ConfigSnapshots { get; }
+    public ConfigActivationService Gate => Services.GetRequiredService<ConfigActivationService>();
 
     public AttachmentStore<Pipeline, PipelineBlockedSteps> BlockedSteps { get; }
     public AttachmentStore<Pipeline, PendingRunStart> PendingStarts { get; }
@@ -111,6 +119,9 @@ internal sealed class TestRunDomain
         services.AddSingleton(ActivationService);
         services.AddSingleton(SchedulingLock);
         services.AddSingleton(Plans);
+        services.AddSingleton(ConfigSnapshots);
+        services.AddSingleton(PendingVersions);
+        services.AddTransient<ConfigActivationService>();
         services.AddTransient<StepBlockService>();
         services.AddTransient<StageScheduler>();
         services.AddTransient<RunStartService>();
@@ -143,7 +154,7 @@ internal sealed class TestRunDomain
     public RunViewService Views => new(RunService, AttemptService, VersionService, ActivationService, Plans,
         new StepBlockService(BlockedSteps, Pipelines, SchedulingLock));
 
-    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepBlockService(BlockedSteps, Pipelines, SchedulingLock));
+    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepBlockService(BlockedSteps, Pipelines, SchedulingLock), PendingVersions);
 
     public Pipeline CreatePipeline(string name = "p") => Pick(PipelineService.Create(name));
 

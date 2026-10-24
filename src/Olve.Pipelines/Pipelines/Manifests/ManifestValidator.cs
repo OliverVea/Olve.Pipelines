@@ -34,6 +34,9 @@ public static partial class ManifestValidator
     [GeneratedRegex("^[A-Z_][A-Z0-9_]*$")]
     private static partial Regex SecretNameRegex();
 
+    [GeneratedRegex("^[a-z][a-zA-Z0-9]*$")]
+    private static partial Regex ConfigNameRegex();
+
     [GeneratedRegex("^sha256:[0-9a-f]{64}$")]
     private static partial Regex HashRegex();
 
@@ -54,6 +57,7 @@ public static partial class ManifestValidator
         private readonly List<ManifestIssue> _errors = [];
         private readonly List<ManifestIssue> _warnings = [];
         private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, ManifestConfigEntry> _config = new(StringComparer.Ordinal);
         private readonly HashSet<string> _usedModels = new(StringComparer.Ordinal);
         private readonly HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → path
@@ -70,6 +74,7 @@ public static partial class ManifestValidator
             CheckHeader();
             CheckModels();
             CheckSecrets();
+            CheckConfig();
             CheckTriggers();
 
             var avail = new Dictionary<string, Avail>(StringComparer.Ordinal);
@@ -276,6 +281,8 @@ public static partial class ManifestValidator
                 if (!_secrets.Contains(secret)) Error(ManifestIssueCodes.SecretUndeclared, sp, $"step '{n}' uses secret '{secret}', which is not in the pipeline's secrets", n);
             }
 
+            CheckStepConfig(s, path, stepSecrets);
+
             if (s.Output is not null) UseModel(s.Output, $"{path}.output", $"step '{n}' output", n);
 
             foreach (var key in s.InputTypes.Keys.Where(k => !s.Input.ContainsKey(k)))
@@ -469,6 +476,44 @@ public static partial class ManifestValidator
         }
 
         // ── failure handlers ──
+        // ── config ──
+        private void CheckConfig()
+        {
+            for (var i = 0; i < m.Config.Count; i++)
+            {
+                var c = m.Config[i];
+                var path = $"config[{i}]";
+                if (!ConfigNameRegex().IsMatch(c.Name))
+                    Error(ManifestIssueCodes.ConfigNameInvalid, $"{path}.name", $"config entry name '{c.Name}' must match {ConfigNameRegex()}");
+                if (!_config.TryAdd(c.Name, c))
+                    Error(ManifestIssueCodes.ConfigDuplicate, $"{path}.name", $"config entry '{c.Name}' is declared more than once");
+                foreach (var secret in ConfigSecretRefs.Declared(c.Schema))
+                    if (!_secrets.Contains(secret))
+                        Error(ManifestIssueCodes.ConfigSecretRefUndeclared, $"{path}.schema",
+                            $"config entry '{c.Name}' references secret '{secret}', which is not in the pipeline's secrets");
+            }
+        }
+
+        private void CheckStepConfig(StepDescriptor s, string path, IReadOnlySet<string> stepSecrets)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < s.ConfigEntries.Count; i++)
+            {
+                var name = s.ConfigEntries[i];
+                var cp = $"{path}.configEntries[{i}]";
+                if (!seen.Add(name)) Error(ManifestIssueCodes.ConfigDuplicate, cp, $"step '{s.Name}' lists config entry '{name}' twice", s.Name);
+                if (!_config.TryGetValue(name, out var entry))
+                {
+                    Error(ManifestIssueCodes.ConfigUnknown, cp, $"step '{s.Name}' uses config entry '{name}', which is not in the pipeline's config", s.Name);
+                    continue;
+                }
+                foreach (var secret in ConfigSecretRefs.Declared(entry.Schema))
+                    if (!stepSecrets.Contains(secret))
+                        Error(ManifestIssueCodes.ConfigSecretRefNotInStep, cp,
+                            $"step '{s.Name}' receives config entry '{name}', which references secret '{secret}'; the step must also declare that secret", s.Name);
+            }
+        }
+
         private void CheckFailureHandlers()
         {
             var handlers = new Dictionary<string, (string Path, string Canonical)>(StringComparer.Ordinal);

@@ -38,7 +38,8 @@ public class RunViewService(
         run.FinishedAt,
         run.HeldAt,
         run.SupersededBy is { } s && runs.TryGet(s, out var newer) ? newer.Number : null,
-        run.RerunOf is { } r && runs.TryGet(r, out var original) ? original.Number : null);
+        run.RerunOf is { } r && runs.TryGet(r, out var original) ? original.Number : null,
+        run.ConfigSnapshot);
 
     public Result<RunDetail> Get(Id<Pipeline> pipelineId, int number)
     {
@@ -59,7 +60,7 @@ public class RunViewService(
             ? []
             : BuildStages(run, input, plan, version);
 
-        return new RunDetail(Summarize(run), run.VersionId, version?.CommitSha, input, continuable, stages);
+        return new RunDetail(Summarize(run), run.VersionId, version?.CommitSha, input, continuable, stages, run.Config);
     }
 
     private RunStageView[] BuildStages(Run run, JsonElement input, RunPlan plan, PipelineVersion? version)

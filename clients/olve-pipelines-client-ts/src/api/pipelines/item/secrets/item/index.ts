@@ -19,7 +19,7 @@ export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameI
      * @throws {ApiProblem} error when the service returns a 500 status code
      * @throws {ApiProblem} error when the service returns a 503 status code
      */
-     delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
+     delete(requestConfiguration?: RequestConfiguration<WithNameItemRequestBuilderDeleteQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
@@ -35,7 +35,7 @@ export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameI
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<WithNameItemRequestBuilderDeleteQueryParameters> | undefined) : RequestInformation;
     /**
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
@@ -43,10 +43,13 @@ export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameI
      */
      toPutRequestInformation(body: SetSecretRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+export interface WithNameItemRequestBuilderDeleteQueryParameters {
+    force?: boolean;
+}
 /**
  * Uri template for the request builder.
  */
-export const WithNameItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/secrets/{name}";
+export const WithNameItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/secrets/{name}{?force*}";
 /**
  * Metadata for all the requests in the request builder.
  */

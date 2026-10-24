@@ -1,4 +1,5 @@
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Scheduling;
 
 namespace Olve.Pipelines.Pipelines.Versions;
@@ -47,12 +48,16 @@ public static class PipelineVersionEndpoints
             .WithName("GetPipelineVersion")
             .RequireRead();
 
-        // Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b).
-        app.MapPost("/api/pipelines/{pipelineId}/switch", Result<PipelineActivation> (
-                PipelineVersionService versions, SwitchService switches, Id<Pipeline> pipelineId, SwitchVersionRequest request)
-                => versions.TryGetByNumber(pipelineId, request.Version, out var version)
-                    ? switches.Switch(pipelineId, version.Id, request.CancelRunning)
-                    : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", request.Version, pipelineId))
+        // Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b). Refused (409, with
+        // the reasons) when the config document or a secret it references doesn't satisfy the version.
+        app.MapPost("/api/pipelines/{pipelineId}/switch", async Task<Result<PipelineActivation>> (
+                PipelineVersionService versions, ConfigActivationService gate, IPipelineSecretNames secretNames,
+                Id<Pipeline> pipelineId, SwitchVersionRequest request, CancellationToken ct) =>
+            {
+                if (!versions.TryGetByNumber(pipelineId, request.Version, out var version))
+                    return new NotFoundProblem("Version {0} of pipeline '{1}' not found.", request.Version, pipelineId);
+                return gate.Switch(version, request.CancelRunning, await secretNames.ListSetAsync(pipelineId, ct));
+            })
             .WithApiResultMapping<PipelineActivation>()
             .WithName("SwitchPipelineVersion");
     }

@@ -264,6 +264,100 @@ export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
+export interface ChangedDefault extends AdditionalDataHolder, Parsable {
+    /**
+     * The from property
+     */
+    from?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The to property
+     */
+    to?: string | null;
+}
+export interface ConfigCheckResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedDefaults property
+     */
+    changedDefaults?: ChangedDefault[] | null;
+    /**
+     * The effective property
+     */
+    effective?: string | null;
+    /**
+     * The missingSecrets property
+     */
+    missingSecrets?: string[] | null;
+    /**
+     * The problems property
+     */
+    problems?: string[] | null;
+    /**
+     * The referencedSecrets property
+     */
+    referencedSecrets?: string[] | null;
+    /**
+     * The satisfied property
+     */
+    satisfied?: boolean | null;
+    /**
+     * The valid property
+     */
+    valid?: boolean | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+}
+export interface ConfigDocument extends AdditionalDataHolder, Parsable {
+    /**
+     * The snapshot property
+     */
+    snapshot?: ConfigSnapshotInfo | null;
+    /**
+     * The yaml property
+     */
+    yaml?: string | null;
+}
+export interface ConfigSaveResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The activatedVersion property
+     */
+    activatedVersion?: number | null;
+    /**
+     * The active property
+     */
+    active?: ConfigCheckResponse | null;
+    /**
+     * The pending property
+     */
+    pending?: ConfigCheckResponse | null;
+    /**
+     * The snapshot property
+     */
+    snapshot?: ConfigSnapshotInfo | null;
+}
+export interface ConfigSnapshotInfo extends AdditionalDataHolder, Parsable {
+    /**
+     * The author property
+     */
+    author?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The number property
+     */
+    number?: number | null;
+    /**
+     * The restoredFrom property
+     */
+    restoredFrom?: number | null;
+}
 export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
     /**
      * The input property
@@ -466,6 +560,51 @@ export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: Pa
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ChangedDefault}
+ */
+// @ts-ignore
+export function createChangedDefaultFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoChangedDefault;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ConfigCheckResponse}
+ */
+// @ts-ignore
+export function createConfigCheckResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoConfigCheckResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ConfigDocument}
+ */
+// @ts-ignore
+export function createConfigDocumentFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoConfigDocument;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ConfigSaveResponse}
+ */
+// @ts-ignore
+export function createConfigSaveResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoConfigSaveResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ConfigSnapshotInfo}
+ */
+// @ts-ignore
+export function createConfigSnapshotInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoConfigSnapshotInfo;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ContinueRunRequest_input}
  */
 // @ts-ignore
@@ -552,6 +691,15 @@ export function createPageOfRunSummaryFromDiscriminatorValue(parseNode: ParseNod
 // @ts-ignore
 export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPagination;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PendingVersionInfo}
+ */
+// @ts-ignore
+export function createPendingVersionInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPendingVersionInfo;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -767,6 +915,15 @@ export function createRerunStepRequestFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RollbackConfigRequest}
+ */
+// @ts-ignore
+export function createRollbackConfigRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRollbackConfigRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RunDetail}
  */
 // @ts-ignore
@@ -826,6 +983,15 @@ export function createRunSummaryFromDiscriminatorValue(parseNode: ParseNode | un
 // @ts-ignore
 export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRunTrigger;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetConfigRequest}
+ */
+// @ts-ignore
+export function createSetConfigRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetConfigRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1107,6 +1273,77 @@ export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Pa
 }
 /**
  * The deserialization information for the current model
+ * @param ChangedDefault The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoChangedDefault(changedDefault: Partial<ChangedDefault> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "from": n => { changedDefault.from = n.getStringValue(); },
+        "path": n => { changedDefault.path = n.getStringValue(); },
+        "to": n => { changedDefault.to = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ConfigCheckResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoConfigCheckResponse(configCheckResponse: Partial<ConfigCheckResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedDefaults": n => { configCheckResponse.changedDefaults = n.getCollectionOfObjectValues<ChangedDefault>(createChangedDefaultFromDiscriminatorValue); },
+        "effective": n => { configCheckResponse.effective = n.getStringValue(); },
+        "missingSecrets": n => { configCheckResponse.missingSecrets = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "problems": n => { configCheckResponse.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "referencedSecrets": n => { configCheckResponse.referencedSecrets = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "satisfied": n => { configCheckResponse.satisfied = n.getBooleanValue(); },
+        "valid": n => { configCheckResponse.valid = n.getBooleanValue(); },
+        "version": n => { configCheckResponse.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ConfigDocument The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoConfigDocument(configDocument: Partial<ConfigDocument> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "snapshot": n => { configDocument.snapshot = n.getObjectValue<ConfigSnapshotInfo>(createConfigSnapshotInfoFromDiscriminatorValue); },
+        "yaml": n => { configDocument.yaml = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ConfigSaveResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoConfigSaveResponse(configSaveResponse: Partial<ConfigSaveResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "activatedVersion": n => { configSaveResponse.activatedVersion = n.getNumberValue(); },
+        "active": n => { configSaveResponse.active = n.getObjectValue<ConfigCheckResponse>(createConfigCheckResponseFromDiscriminatorValue); },
+        "pending": n => { configSaveResponse.pending = n.getObjectValue<ConfigCheckResponse>(createConfigCheckResponseFromDiscriminatorValue); },
+        "snapshot": n => { configSaveResponse.snapshot = n.getObjectValue<ConfigSnapshotInfo>(createConfigSnapshotInfoFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ConfigSnapshotInfo The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoConfigSnapshotInfo(configSnapshotInfo: Partial<ConfigSnapshotInfo> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "author": n => { configSnapshotInfo.author = n.getStringValue(); },
+        "createdAt": n => { configSnapshotInfo.createdAt = n.getDateValue(); },
+        "number": n => { configSnapshotInfo.number = n.getNumberValue(); },
+        "restoredFrom": n => { configSnapshotInfo.restoredFrom = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param ContinueRunRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1236,6 +1473,21 @@ export function deserializeIntoPagination(pagination: Partial<Pagination> | unde
 }
 /**
  * The deserialization information for the current model
+ * @param PendingVersionInfo The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPendingVersionInfo(pendingVersionInfo: Partial<PendingVersionInfo> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedDefaults": n => { pendingVersionInfo.changedDefaults = n.getCollectionOfObjectValues<ChangedDefault>(createChangedDefaultFromDiscriminatorValue); },
+        "held": n => { pendingVersionInfo.held = n.getBooleanValue(); },
+        "reasons": n => { pendingVersionInfo.reasons = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "since": n => { pendingVersionInfo.since = n.getDateValue(); },
+        "version": n => { pendingVersionInfo.version = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Pipeline The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1303,6 +1555,7 @@ export function deserializeIntoPipelineBindingStatus(pipelineBindingStatus: Part
         "lastReconciledSha": n => { pipelineBindingStatus.lastReconciledSha = n.getStringValue(); },
         "lastSyncTime": n => { pipelineBindingStatus.lastSyncTime = n.getDateValue(); },
         "path": n => { pipelineBindingStatus.path = n.getStringValue(); },
+        "pending": n => { pipelineBindingStatus.pending = n.getObjectValue<PendingVersionInfo>(createPendingVersionInfoFromDiscriminatorValue); },
         "pipelineId": n => { pipelineBindingStatus.pipelineId = n.getGuidValue(); },
         "problems": n => { pipelineBindingStatus.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
         "reconciledVersion": n => { pipelineBindingStatus.reconciledVersion = n.getNumberValue(); },
@@ -1348,6 +1601,7 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
         "heldRuns": n => { pipelineHealth.heldRuns = n.getCollectionOfObjectValues<RunSummary>(createRunSummaryFromDiscriminatorValue); },
         "lastRun": n => { pipelineHealth.lastRun = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
         "lastSettledRun": n => { pipelineHealth.lastSettledRun = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
+        "pending": n => { pipelineHealth.pending = n.getObjectValue<PendingVersionInfo>(createPendingVersionInfoFromDiscriminatorValue); },
         "runningRuns": n => { pipelineHealth.runningRuns = n.getNumberValue(); },
         "status": n => { pipelineHealth.status = n.getStringValue(); },
     }
@@ -1527,12 +1781,25 @@ export function deserializeIntoRerunStepRequest(rerunStepRequest: Partial<RerunS
 }
 /**
  * The deserialization information for the current model
+ * @param RollbackConfigRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRollbackConfigRequest(rollbackConfigRequest: Partial<RollbackConfigRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "snapshot": n => { rollbackConfigRequest.snapshot = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param Run The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
 export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "config": n => { run.config = n.getStringValue(); },
+        "configSnapshot": n => { run.configSnapshot = n.getNumberValue(); },
         "createdAt": n => { run.createdAt = n.getDateValue(); },
         "finishedAt": n => { run.finishedAt = n.getDateValue(); },
         "heldAt": n => { run.heldAt = n.getStringValue(); },
@@ -1559,6 +1826,7 @@ export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<
 export function deserializeIntoRunDetail(runDetail: Partial<RunDetail> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "commitSha": n => { runDetail.commitSha = n.getStringValue(); },
+        "config": n => { runDetail.config = n.getStringValue(); },
         "continuable": n => { runDetail.continuable = n.getBooleanValue(); },
         "input": n => { runDetail.input = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
         "run": n => { runDetail.run = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
@@ -1619,6 +1887,7 @@ export function deserializeIntoRunStepView(runStepView: Partial<RunStepView> | u
 // @ts-ignore
 export function deserializeIntoRunSummary(runSummary: Partial<RunSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "configSnapshot": n => { runSummary.configSnapshot = n.getNumberValue(); },
         "createdAt": n => { runSummary.createdAt = n.getDateValue(); },
         "finishedAt": n => { runSummary.finishedAt = n.getDateValue(); },
         "heldAt": n => { runSummary.heldAt = n.getStringValue(); },
@@ -1642,6 +1911,17 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
     return {
         "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
         "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SetConfigRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetConfigRequest(setConfigRequest: Partial<SetConfigRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "yaml": n => { setConfigRequest.yaml = n.getStringValue(); },
     }
 }
 /**
@@ -1809,6 +2089,28 @@ export interface Pagination extends AdditionalDataHolder, Parsable {
      */
     pageSize?: number | null;
 }
+export interface PendingVersionInfo extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedDefaults property
+     */
+    changedDefaults?: ChangedDefault[] | null;
+    /**
+     * The held property
+     */
+    held?: boolean | null;
+    /**
+     * The reasons property
+     */
+    reasons?: string[] | null;
+    /**
+     * The since property
+     */
+    since?: Date | null;
+    /**
+     * The version property
+     */
+    version?: number | null;
+}
 export interface Pipeline extends AdditionalDataHolder, Parsable {
     /**
      * The description property
@@ -1894,6 +2196,10 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
      * The path property
      */
     path?: string | null;
+    /**
+     * The pending property
+     */
+    pending?: PendingVersionInfo | null;
     /**
      * The pipelineId property
      */
@@ -1998,6 +2304,10 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
      * The lastSettledRun property
      */
     lastSettledRun?: RunSummary | null;
+    /**
+     * The pending property
+     */
+    pending?: PendingVersionInfo | null;
     /**
      * The runningRuns property
      */
@@ -2205,7 +2515,21 @@ export interface RerunStepRequest extends AdditionalDataHolder, Parsable {
      */
     continueEscaped?: boolean | null;
 }
+export interface RollbackConfigRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The snapshot property
+     */
+    snapshot?: number | null;
+}
 export interface Run extends AdditionalDataHolder, Parsable {
+    /**
+     * The config property
+     */
+    config?: string | null;
+    /**
+     * The configSnapshot property
+     */
+    configSnapshot?: number | null;
     /**
      * The createdAt property
      */
@@ -2272,6 +2596,10 @@ export interface RunDetail extends AdditionalDataHolder, Parsable {
      * The commitSha property
      */
     commitSha?: string | null;
+    /**
+     * The config property
+     */
+    config?: string | null;
     /**
      * The continuable property
      */
@@ -2361,6 +2689,10 @@ export interface RunStepView extends AdditionalDataHolder, Parsable {
     succeededAttempt?: number | null;
 }
 export interface RunSummary extends AdditionalDataHolder, Parsable {
+    /**
+     * The configSnapshot property
+     */
+    configSnapshot?: number | null;
     /**
      * The createdAt property
      */
@@ -2675,6 +3007,82 @@ export function serializeAttemptStatusSucceeded(writer: SerializationWriter, att
 }
 /**
  * Serializes information the current object
+ * @param ChangedDefault The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeChangedDefault(writer: SerializationWriter, changedDefault: Partial<ChangedDefault> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!changedDefault || isSerializingDerivedType) { return; }
+    writer.writeStringValue("from", changedDefault.from);
+    writer.writeStringValue("path", changedDefault.path);
+    writer.writeStringValue("to", changedDefault.to);
+    writer.writeAdditionalData(changedDefault.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ConfigCheckResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeConfigCheckResponse(writer: SerializationWriter, configCheckResponse: Partial<ConfigCheckResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!configCheckResponse || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<ChangedDefault>("changedDefaults", configCheckResponse.changedDefaults, serializeChangedDefault);
+    writer.writeStringValue("effective", configCheckResponse.effective);
+    writer.writeCollectionOfPrimitiveValues<string>("missingSecrets", configCheckResponse.missingSecrets);
+    writer.writeCollectionOfPrimitiveValues<string>("problems", configCheckResponse.problems);
+    writer.writeCollectionOfPrimitiveValues<string>("referencedSecrets", configCheckResponse.referencedSecrets);
+    writer.writeBooleanValue("satisfied", configCheckResponse.satisfied);
+    writer.writeBooleanValue("valid", configCheckResponse.valid);
+    writer.writeNumberValue("version", configCheckResponse.version);
+    writer.writeAdditionalData(configCheckResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ConfigDocument The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeConfigDocument(writer: SerializationWriter, configDocument: Partial<ConfigDocument> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!configDocument || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ConfigSnapshotInfo>("snapshot", configDocument.snapshot, serializeConfigSnapshotInfo);
+    writer.writeStringValue("yaml", configDocument.yaml);
+    writer.writeAdditionalData(configDocument.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ConfigSaveResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeConfigSaveResponse(writer: SerializationWriter, configSaveResponse: Partial<ConfigSaveResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!configSaveResponse || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("activatedVersion", configSaveResponse.activatedVersion);
+    writer.writeObjectValue<ConfigCheckResponse>("active", configSaveResponse.active, serializeConfigCheckResponse);
+    writer.writeObjectValue<ConfigCheckResponse>("pending", configSaveResponse.pending, serializeConfigCheckResponse);
+    writer.writeObjectValue<ConfigSnapshotInfo>("snapshot", configSaveResponse.snapshot, serializeConfigSnapshotInfo);
+    writer.writeAdditionalData(configSaveResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param ConfigSnapshotInfo The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeConfigSnapshotInfo(writer: SerializationWriter, configSnapshotInfo: Partial<ConfigSnapshotInfo> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!configSnapshotInfo || isSerializingDerivedType) { return; }
+    writer.writeStringValue("author", configSnapshotInfo.author);
+    writer.writeDateValue("createdAt", configSnapshotInfo.createdAt);
+    writer.writeNumberValue("number", configSnapshotInfo.number);
+    writer.writeNumberValue("restoredFrom", configSnapshotInfo.restoredFrom);
+    writer.writeAdditionalData(configSnapshotInfo.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ContinueRunRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -2815,6 +3223,22 @@ export function serializePagination(writer: SerializationWriter, pagination: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PendingVersionInfo The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePendingVersionInfo(writer: SerializationWriter, pendingVersionInfo: Partial<PendingVersionInfo> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pendingVersionInfo || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<ChangedDefault>("changedDefaults", pendingVersionInfo.changedDefaults, serializeChangedDefault);
+    writer.writeBooleanValue("held", pendingVersionInfo.held);
+    writer.writeCollectionOfPrimitiveValues<string>("reasons", pendingVersionInfo.reasons);
+    writer.writeDateValue("since", pendingVersionInfo.since);
+    writer.writeNumberValue("version", pendingVersionInfo.version);
+    writer.writeAdditionalData(pendingVersionInfo.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param Pipeline The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -2892,6 +3316,7 @@ export function serializePipelineBindingStatus(writer: SerializationWriter, pipe
     writer.writeStringValue("lastReconciledSha", pipelineBindingStatus.lastReconciledSha);
     writer.writeDateValue("lastSyncTime", pipelineBindingStatus.lastSyncTime);
     writer.writeStringValue("path", pipelineBindingStatus.path);
+    writer.writeObjectValue<PendingVersionInfo>("pending", pipelineBindingStatus.pending, serializePendingVersionInfo);
     writer.writeGuidValue("pipelineId", pipelineBindingStatus.pipelineId);
     writer.writeCollectionOfPrimitiveValues<string>("problems", pipelineBindingStatus.problems);
     writer.writeNumberValue("reconciledVersion", pipelineBindingStatus.reconciledVersion);
@@ -2939,6 +3364,7 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
     writer.writeCollectionOfObjectValues<RunSummary>("heldRuns", pipelineHealth.heldRuns, serializeRunSummary);
     writer.writeObjectValue<RunSummary>("lastRun", pipelineHealth.lastRun, serializeRunSummary);
     writer.writeObjectValue<RunSummary>("lastSettledRun", pipelineHealth.lastSettledRun, serializeRunSummary);
+    writer.writeObjectValue<PendingVersionInfo>("pending", pipelineHealth.pending, serializePendingVersionInfo);
     writer.writeNumberValue("runningRuns", pipelineHealth.runningRuns);
     writer.writeStringValue("status", pipelineHealth.status);
     writer.writeAdditionalData(pipelineHealth.additionalData);
@@ -3132,12 +3558,26 @@ export function serializeRerunStepRequest(writer: SerializationWriter, rerunStep
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RollbackConfigRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRollbackConfigRequest(writer: SerializationWriter, rollbackConfigRequest: Partial<RollbackConfigRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!rollbackConfigRequest || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("snapshot", rollbackConfigRequest.snapshot);
+    writer.writeAdditionalData(rollbackConfigRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param Run The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
 export function serializeRun(writer: SerializationWriter, run: Partial<Run> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!run || isSerializingDerivedType) { return; }
+    writer.writeStringValue("config", run.config);
+    writer.writeNumberValue("configSnapshot", run.configSnapshot);
     writer.writeDateValue("createdAt", run.createdAt);
     writer.writeDateValue("finishedAt", run.finishedAt);
     writer.writeStringValue("heldAt", run.heldAt);
@@ -3165,6 +3605,7 @@ export function serializeRun(writer: SerializationWriter, run: Partial<Run> | un
 export function serializeRunDetail(writer: SerializationWriter, runDetail: Partial<RunDetail> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!runDetail || isSerializingDerivedType) { return; }
     writer.writeStringValue("commitSha", runDetail.commitSha);
+    writer.writeStringValue("config", runDetail.config);
     writer.writeBooleanValue("continuable", runDetail.continuable);
     writer.writeObjectValue("input", runDetail.input);
     writer.writeObjectValue<RunSummary>("run", runDetail.run, serializeRunSummary);
@@ -3229,6 +3670,7 @@ export function serializeRunStepView(writer: SerializationWriter, runStepView: P
 // @ts-ignore
 export function serializeRunSummary(writer: SerializationWriter, runSummary: Partial<RunSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!runSummary || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("configSnapshot", runSummary.configSnapshot);
     writer.writeDateValue("createdAt", runSummary.createdAt);
     writer.writeDateValue("finishedAt", runSummary.finishedAt);
     writer.writeStringValue("heldAt", runSummary.heldAt);
@@ -3254,6 +3696,18 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
     writer.writeStringValue("dedupKey", runTrigger.dedupKey);
     writer.writeEnumValue<RunTriggerKind>("kind", runTrigger.kind);
     writer.writeAdditionalData(runTrigger.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetConfigRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetConfigRequest(writer: SerializationWriter, setConfigRequest: Partial<SetConfigRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setConfigRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("yaml", setConfigRequest.yaml);
+    writer.writeAdditionalData(setConfigRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3339,6 +3793,12 @@ export function serializeUpdateBindingRequest(writer: SerializationWriter, updat
     if (!updateBindingRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("credentialsSecret", updateBindingRequest.credentialsSecret);
     writer.writeAdditionalData(updateBindingRequest.additionalData);
+}
+export interface SetConfigRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The yaml property
+     */
+    yaml?: string | null;
 }
 export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
     /**

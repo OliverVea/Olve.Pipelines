@@ -3,6 +3,7 @@ using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.UnitTests.Configs;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results;
@@ -20,7 +21,7 @@ public class ReconcileApplyTests
         var d = new TestRunDomain().WireEvents(scheduler: true);
         var p = d.CreatePipeline("provisional");
         var service = new PipelineReconcileService(
-            factory: null!, control: null!, storage: null!, d.VersionService, d.ActivationService, d.Switches,
+            factory: null!, control: null!, storage: null!, d.VersionService, d.ActivationService, d.Gate, new FakeSecretNames(),
             d.PipelineService, d.EntityVersions, d.SchedulingLock, new HarnessOptions(),
             NullLogger<PipelineReconcileService>.Instance);
         return (d, p, service);

@@ -31,7 +31,9 @@ public class RunService(
         Id<PipelineVersion> versionId,
         string input,
         RunTrigger trigger,
-        Id<Run>? rerunOf = null)
+        Id<Run>? rerunOf = null,
+        int? configSnapshot = null,
+        string? config = null)
     {
         if (!versions.TryGet(versionId, out var version) || version.PipelineId != pipelineId)
             return new ResultProblem("Version '{0}' does not belong to pipeline '{1}'.", versionId, pipelineId);
@@ -55,7 +57,9 @@ public class RunService(
                 RunStatus.Running,
                 trigger,
                 now,
-                RerunOf: rerunOf);
+                RerunOf: rerunOf,
+                ConfigSnapshot: configSnapshot,
+                Config: config);
             store.Set(run);
             return run;
         }

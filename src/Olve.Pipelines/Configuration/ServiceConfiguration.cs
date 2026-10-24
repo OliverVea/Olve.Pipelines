@@ -4,6 +4,7 @@ using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Retention;
@@ -41,6 +42,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IPipelineSecretReader, KubernetesPipelineSecretReader>();
         services.AddTransient<PipelineSecretCopyService>();
         services.AddTransient<PipelineSecretService>();
+        services.AddTransient<IPipelineSecretNames>(sp => sp.GetRequiredService<PipelineSecretService>());
         services.AddSingleton<IRunOnStartup, PipelineSecretEventRegistration>();
         services.AddSingleton<IGitHubClient, GitHubClient>();
         services.AddSingleton<EntityStore<PipelineConfigBinding>>();
@@ -115,6 +117,14 @@ public static class ServiceConfiguration
         services.AddTransient<RunCancellationService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
+
+        // Typed pipeline config: snapshots, the activation gate (pending versions).
+        services.AddSingleton<EntityStore<ConfigSnapshot>>();
+        services.AddSingleton<ConfigSnapshotService>();
+        services.AddSingleton<AttachmentStore<Pipeline, PendingVersion>>();
+        services.AddTransient<ConfigActivationService>();
+        services.AddTransient<ConfigService>();
+        services.AddSingleton<IRunOnStartup, ConfigEventRegistration>();
 
         // Failure handlers (onFailure): a failed run dispatches its pinned manifest's handlers as untracked
         // harness Jobs (the K8s launcher replaces the no-op when Kubernetes is configured).

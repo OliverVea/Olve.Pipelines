@@ -1,6 +1,8 @@
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines;
 
@@ -13,6 +15,7 @@ namespace Olve.Pipelines.Pipelines;
 /// <param name="LastSettledRun">The newest Succeeded or Failed run.</param>
 /// <param name="Activation">Active version or the switch in progress (null = no version yet).</param>
 /// <param name="HeldRuns">Running runs held at a blocked step.</param>
+/// <param name="Pending">A version waiting for its config or secrets (or the active one, held), with the reasons.</param>
 public record PipelineHealth(
     string Status,
     RunSummary? LastRun,
@@ -21,14 +24,16 @@ public record PipelineHealth(
     PipelineActivation? Activation,
     bool Draining,
     string[] BlockedSteps,
-    RunSummary[] HeldRuns);
+    RunSummary[] HeldRuns,
+    PendingVersionInfo? Pending = null);
 
 /// <summary>Computes <see cref="PipelineHealth"/>. Stateless query; transient.</summary>
 public class PipelineHealthService(
     RunService runs,
     RunViewService views,
     PipelineActivationService activations,
-    StepBlockService blocks)
+    StepBlockService blocks,
+    AttachmentStore<Pipeline, PendingVersion> pendingVersions)
 {
     public PipelineHealth Get(Id<Pipeline> pipelineId)
     {
@@ -45,7 +50,22 @@ public class PipelineHealthService(
             activation,
             activation is PipelineActivation.Draining,
             blocks.ListBlocked(pipelineId).ToArray(),
-            running.Where(r => r.HeldAt is not null).Select(views.Summarize).ToArray());
+            running.Where(r => r.HeldAt is not null).Select(views.Summarize).ToArray(),
+            PendingInfo(pendingVersions, activation, pipelineId));
+    }
+
+    /// <summary>The pending version of a pipeline as the health and binding views show it.</summary>
+    public static PendingVersionInfo? PendingInfo(AttachmentStore<Pipeline, PendingVersion> pendingVersions, PipelineActivation? activation, Id<Pipeline> pipelineId)
+    {
+        if (!pendingVersions.TryGet(pipelineId, out var pending))
+            return null;
+        var held = activation switch
+        {
+            PipelineActivation.Active a => a.VersionId == pending.VersionId,
+            PipelineActivation.Draining d => d.ToVersionId == pending.VersionId,
+            _ => false,
+        };
+        return PendingVersionInfo.From(pending, held);
     }
 
     public static string Compute(bool anyRunning, RunStatus? lastSettled) => (anyRunning, lastSettled) switch

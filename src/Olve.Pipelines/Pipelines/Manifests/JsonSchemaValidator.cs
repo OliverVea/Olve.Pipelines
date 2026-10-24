@@ -9,17 +9,17 @@ namespace Olve.Pipelines.Pipelines.Manifests;
 /// A small, AOT-safe JSON Schema validator for the subset zod's <c>toJSONSchema</c> emits for pipeline
 /// input models: <c>type</c> (incl. <c>integer</c> and type arrays), <c>properties</c>, <c>required</c>,
 /// <c>additionalProperties</c> (bool or schema), <c>enum</c>, <c>const</c>, <c>default</c> (applied to
-/// absent properties), <c>items</c>, <c>anyOf</c> (incl. nullable), string <c>pattern</c>/<c>minLength</c>/
+/// absent properties), <c>items</c>, <c>anyOf</c> (incl. nullable), <c>oneOf</c> (discriminated unions), string <c>pattern</c>/<c>minLength</c>/
 /// <c>maxLength</c>, number <c>minimum</c>/<c>maximum</c>/<c>exclusiveMinimum</c>/<c>exclusiveMaximum</c>.
 /// Annotations (<c>title</c>, <c>description</c>, <c>format</c>, <c>x-olve-kind</c>, …) are ignored. Any
-/// other keyword (<c>$ref</c>, <c>allOf</c>, <c>oneOf</c>, <c>not</c>, …) is rejected explicitly rather than
+/// other keyword (<c>$ref</c>, <c>allOf</c>, <c>not</c>, …) is rejected explicitly rather than
 /// silently skipped. Schemas come from untrusted manifests: patterns run with a match timeout.
 /// </summary>
 public static class JsonSchemaValidator
 {
     private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
-        "type", "properties", "required", "additionalProperties", "enum", "const", "default", "items", "anyOf",
+        "type", "properties", "required", "additionalProperties", "enum", "const", "default", "items", "anyOf", "oneOf",
         "pattern", "minLength", "maxLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
     };
 
@@ -38,15 +38,21 @@ public static class JsonSchemaValidator
     /// (field <c>input.mode</c>, message <c>must be one of …</c>).
     /// </summary>
     public static Result<JsonNode?> Validate(JsonElement schema, JsonNode? value, string root = "input")
+        => Validate(schema, value, root, null);
+
+    /// <summary>Like <see cref="Validate(JsonElement, JsonNode?, string)"/>, also collecting every default it filled in.</summary>
+    public static Result<JsonNode?> Validate(JsonElement schema, JsonNode? value, string root, List<AppliedDefault>? appliedDefaults)
     {
         var errors = new List<(string Path, string Message)>();
-        var result = Check(schema, value?.DeepClone(), root, errors, 0);
-        return errors.Count == 0
-            ? Result.Success(result)
-            : Result.Failure<JsonNode?>(errors.Select(e => ValidationProblem.ForField(e.Path, "{0}", e.Message)));
+        var defaults = appliedDefaults is null ? null : new List<AppliedDefault>();
+        var result = Check(schema, value?.DeepClone(), root, errors, 0, defaults);
+        if (errors.Count > 0)
+            return Result.Failure<JsonNode?>(errors.Select(e => ValidationProblem.ForField(e.Path, "{0}", e.Message)));
+        appliedDefaults?.AddRange(defaults!);
+        return Result.Success(result);
     }
 
-    private static JsonNode? Check(JsonElement schema, JsonNode? value, string path, List<(string Path, string Message)> errors, int depth)
+    private static JsonNode? Check(JsonElement schema, JsonNode? value, string path, List<(string Path, string Message)> errors, int depth, List<AppliedDefault>? defaults)
     {
         if (depth > MaxDepth)
         {
@@ -76,7 +82,9 @@ public static class JsonSchemaValidator
         }
 
         if (schema.TryGetProperty("anyOf", out var anyOf))
-            return CheckAnyOf(schema, anyOf, value, path, errors, depth);
+            return CheckUnion(schema, "anyOf", anyOf, value, path, errors, depth, defaults);
+        if (schema.TryGetProperty("oneOf", out var oneOf))
+            return CheckUnion(schema, "oneOf", oneOf, value, path, errors, depth, defaults);
 
         if (schema.TryGetProperty("type", out var type) && !MatchesType(type, value))
         {
@@ -94,12 +102,12 @@ public static class JsonSchemaValidator
         switch (value)
         {
             case JsonObject obj:
-                CheckObject(schema, obj, path, errors, depth);
+                CheckObject(schema, obj, path, errors, depth, defaults);
                 break;
             case JsonArray array when schema.TryGetProperty("items", out var items):
                 for (var i = 0; i < array.Count; i++)
                 {
-                    var checkedItem = Check(items, array[i], $"{path}[{i}]", errors, depth + 1);
+                    var checkedItem = Check(items, array[i], $"{path}[{i}]", errors, depth + 1, defaults);
                     if (!ReferenceEquals(checkedItem, array[i]))
                         array[i] = checkedItem;
                 }
@@ -115,40 +123,78 @@ public static class JsonSchemaValidator
         return value;
     }
 
-    private static JsonNode? CheckAnyOf(JsonElement schema, JsonElement anyOf, JsonNode? value, string path, List<(string Path, string Message)> errors, int depth)
+    /// <summary><c>anyOf</c>: the first matching branch wins. <c>oneOf</c>: exactly one branch may match.</summary>
+    private static JsonNode? CheckUnion(JsonElement schema, string keyword, JsonElement branches, JsonNode? value, string path,
+        List<(string Path, string Message)> errors, int depth, List<AppliedDefault>? defaults)
     {
-        if (anyOf.ValueKind != JsonValueKind.Array)
+        if (branches.ValueKind != JsonValueKind.Array)
         {
-            errors.Add((path, "invalid schema ('anyOf' is not an array)"));
+            errors.Add((path, $"invalid schema ('{keyword}' is not an array)"));
             return value;
         }
 
-        var branchErrors = new List<(string Path, string Message)>();
-        foreach (var branch in anyOf.EnumerateArray())
+        var siblings = schema.EnumerateObject()
+            .Select(k => k.Name)
+            .Where(n => n != keyword && !Annotations.Contains(n) && n != "default")
+            .ToList();
+        if (siblings.Count > 0)
         {
-            var attempt = new List<(string Path, string Message)>();
-            var result = Check(branch, value?.DeepClone(), path, attempt, depth + 1);
-            if (attempt.Count == 0)
-            {
-                // Sibling keywords of anyOf (rare in zod output) still apply.
-                var siblings = new List<string>();
-                foreach (var keyword in schema.EnumerateObject())
-                {
-                    if (keyword.Name is "anyOf" || Annotations.Contains(keyword.Name) || keyword.Name == "default") continue;
-                    siblings.Add(keyword.Name);
-                }
-                if (siblings.Count > 0)
-                    errors.Add((path, $"'anyOf' combined with {string.Join(", ", siblings)} is not supported"));
-                return result;
-            }
-            branchErrors.AddRange(attempt);
+            errors.Add((path, $"'{keyword}' combined with {string.Join(", ", siblings)} is not supported"));
+            return value;
         }
 
-        errors.Add((path, $"matches none of the allowed shapes ({string.Join("; ", branchErrors.Distinct().Select(e => $"{e.Path}: {e.Message}"))})"));
+        var attempts = new List<(JsonElement Branch, JsonNode? Result, List<(string Path, string Message)> Errors, List<AppliedDefault>? Defaults)>();
+        foreach (var branch in branches.EnumerateArray())
+        {
+            var branchErrors = new List<(string Path, string Message)>();
+            var branchDefaults = defaults is null ? null : new List<AppliedDefault>();
+            var result = Check(branch, value?.DeepClone(), path, branchErrors, depth + 1, branchDefaults);
+            attempts.Add((branch, result, branchErrors, branchDefaults));
+            if (branchErrors.Count == 0 && keyword == "anyOf")
+                break;
+        }
+
+        var matches = attempts.Where(a => a.Errors.Count == 0).ToList();
+        if (matches.Count == 1 || (matches.Count > 1 && keyword == "anyOf"))
+        {
+            defaults?.AddRange(matches[0].Defaults!);
+            return matches[0].Result;
+        }
+        if (matches.Count > 1)
+        {
+            errors.Add((path, "matches more than one of the allowed shapes"));
+            return value;
+        }
+
+        // A discriminated union: report only the branch whose literal fields the value matches.
+        if (value is JsonObject obj && attempts.Where(a => MatchesDiscriminators(a.Branch, obj)).ToList() is [var chosen])
+        {
+            errors.AddRange(chosen.Errors);
+            return value;
+        }
+
+        errors.Add((path, $"matches none of the allowed shapes ({string.Join("; ", attempts.SelectMany(a => a.Errors).Distinct().Select(e => $"{e.Path}: {e.Message}"))})"));
         return value;
     }
 
-    private static void CheckObject(JsonElement schema, JsonObject obj, string path, List<(string Path, string Message)> errors, int depth)
+    /// <summary>The branch has at least one <c>const</c> property, and the value holds every one of them.</summary>
+    private static bool MatchesDiscriminators(JsonElement branch, JsonObject value)
+    {
+        if (branch.ValueKind != JsonValueKind.Object || !branch.TryGetProperty("properties", out var props) || props.ValueKind != JsonValueKind.Object)
+            return false;
+        var any = false;
+        foreach (var p in props.EnumerateObject())
+        {
+            if (p.Value.ValueKind != JsonValueKind.Object || !p.Value.TryGetProperty("const", out var constant))
+                continue;
+            any = true;
+            if (!value.TryGetPropertyValue(p.Name, out var actual) || !JsonNode.DeepEquals(ToNode(constant), actual))
+                return false;
+        }
+        return any;
+    }
+
+    private static void CheckObject(JsonElement schema, JsonObject obj, string path, List<(string Path, string Message)> errors, int depth, List<AppliedDefault>? defaults)
     {
         var properties = schema.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object
             ? props
@@ -160,7 +206,10 @@ public static class JsonSchemaValidator
             foreach (var p in ps.EnumerateObject())
             {
                 if (!obj.ContainsKey(p.Name) && p.Value.ValueKind == JsonValueKind.Object && p.Value.TryGetProperty("default", out var def))
+                {
                     obj[p.Name] = ToNode(def);
+                    defaults?.Add(new AppliedDefault($"{path}.{p.Name}", ToNode(def)));
+                }
             }
         }
 
@@ -180,7 +229,7 @@ public static class JsonSchemaValidator
             if (properties is { } known && known.TryGetProperty(name, out var propertySchema))
             {
                 var child = obj[name];
-                var checkedChild = Check(propertySchema, child, childPath, errors, depth + 1);
+                var checkedChild = Check(propertySchema, child, childPath, errors, depth + 1, defaults);
                 if (!ReferenceEquals(checkedChild, child))
                     obj[name] = checkedChild;
             }
@@ -190,7 +239,7 @@ public static class JsonSchemaValidator
             }
             else if (additional is { ValueKind: JsonValueKind.Object } additionalSchema)
             {
-                Check(additionalSchema, obj[name], childPath, errors, depth + 1);
+                Check(additionalSchema, obj[name], childPath, errors, depth + 1, defaults);
             }
         }
     }
@@ -282,3 +331,6 @@ public static class JsonSchemaValidator
 
     private static JsonNode? ToNode(JsonElement element) => JsonNode.Parse(element.GetRawText());
 }
+
+/// <summary>A default the validator filled in for an absent property (<see cref="Path"/> like <c>config.telemetry.exporter</c>).</summary>
+public sealed record AppliedDefault(string Path, JsonNode? Value);

@@ -21,7 +21,15 @@ public sealed record Manifest(
     IReadOnlyList<ManifestFailureHandler> FailureHandlers)
 {
     public const string SupportedApiVersion = "2.0";
+
+    /// <summary>Config entries the version declares (empty when the manifest has no <c>config</c>).</summary>
+    public IReadOnlyList<ManifestConfigEntry> Config { get; init; } = [];
 }
+
+/// <summary>A typed config entry: one top-level key of the pipeline's config document.</summary>
+/// <param name="Schema">The entry's JSON Schema (input view: fields with defaults are optional and list their <c>default</c>).</param>
+/// <param name="Required">False when the entry may be absent (optional, or it has a default).</param>
+public sealed record ManifestConfigEntry(string Name, string Description, bool Required, JsonElement Schema);
 
 /// <summary>Harness identity (already folded into every handler hash).</summary>
 public sealed record ManifestHarness(string Bun, string Sdk, string SdkHash);
@@ -83,7 +91,11 @@ public sealed record StepDescriptor(
     string HandlerHash,
     long? TimeoutSeconds,
     long? Retries,
-    IReadOnlyDictionary<string, JsonElement>? Config);
+    IReadOnlyDictionary<string, JsonElement>? Config)
+{
+    /// <summary>Config entries delivered to the step as <c>ctx.config</c> (sorted; empty = none).</summary>
+    public IReadOnlyList<string> ConfigEntries { get; init; } = [];
+}
 
 public abstract record InputType;
 

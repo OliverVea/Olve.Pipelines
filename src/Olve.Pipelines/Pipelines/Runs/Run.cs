@@ -17,6 +17,9 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// <param name="HeldAt">While Running: the blocked step the run is held at (no attempt created yet).</param>
 /// <param name="ResumedAt">When the run was last continued (rerun-and-continue / continue). Failed, cancelled
 /// and obsolete attempts created before this are stale and get retried by the scheduler.</param>
+/// <param name="ConfigSnapshot">The config snapshot pinned at run start (<c>config #N</c>); null when the version declares no config.
+/// Continues and step reruns keep it; only a new run picks up newer config.</param>
+/// <param name="Config">The run's effective config (JSON): the pinned snapshot with the pinned version's defaults applied.</param>
 public record Run(
     Id<Run> Id,
     Id<Pipeline> PipelineId,
@@ -32,7 +35,9 @@ public record Run(
     Id<Run>? SupersededBy = null,
     Id<Run>? RerunOf = null,
     string? HeldAt = null,
-    DateTimeOffset? ResumedAt = null) : IHasId<Id<Run>>;
+    DateTimeOffset? ResumedAt = null,
+    int? ConfigSnapshot = null,
+    string? Config = null) : IHasId<Id<Run>>;
 
 [JsonConverter(typeof(JsonStringEnumConverter<RunStatus>))]
 public enum RunStatus

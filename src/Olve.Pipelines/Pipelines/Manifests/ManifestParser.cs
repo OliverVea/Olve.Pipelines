@@ -105,7 +105,7 @@ public static class ManifestParser
     private static Manifest? ParseManifest(Ctx ctx, JsonElement e)
     {
         const string p = "$";
-        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description"]))
+        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config"]))
             return null;
 
         var apiVersion = ctx.String(e, "apiVersion", p);
@@ -120,11 +120,27 @@ public static class ManifestParser
         var triggers = ctx.Array(e, "triggers", p, (v, path) => ParseTrigger(ctx, v, path));
         var stages = ctx.Array(e, "stages", p, (v, path) => ParseStage(ctx, v, path));
         var failureHandlers = ctx.Array(e, "failureHandlers", p, (v, path) => ParseFailureHandler(ctx, v, path));
+        var config = e.TryGetProperty("config", out _)
+            ? ctx.Array(e, "config", p, (v, path) => ParseConfigEntry(ctx, v, path))
+            : [];
 
         if (apiVersion is null || name is null || input is null || harness is null || models is null || secrets is null
-            || triggers is null || stages is null || failureHandlers is null)
+            || triggers is null || stages is null || failureHandlers is null || config is null)
             return null;
-        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers);
+        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config };
+    }
+
+    private static ManifestConfigEntry? ParseConfigEntry(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["name", "description", "required", "schema"], [])) return null;
+        var name = ctx.String(e, "name", path);
+        var description = ctx.String(e, "description", path);
+        var required = ctx.Boolean(e, "required", path);
+        var schema = e.GetProperty("schema");
+        var schemaOk = ctx.Expect(schema, JsonValueKind.Object, Ctx.Child(path, "schema"), "a JSON Schema object");
+        return name is null || description is null || required is null || !schemaOk
+            ? null
+            : new ManifestConfigEntry(name, description, required.Value, schema.Clone());
     }
 
     private static ManifestHarness? ParseHarness(Ctx ctx, JsonElement parent, string path)
@@ -280,7 +296,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -312,11 +328,15 @@ public static class ManifestParser
             configOk = c is not null;
             config = c?.ToDictionary(kv => kv.Key, kv => kv.Value!.Value, StringComparer.Ordinal);
         }
+        var configEntries = e.TryGetProperty("configEntries", out _) ? ctx.StringArray(e, "configEntries", path) : [];
 
         if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
-            || handlerHash is null || !timeoutOk || !retriesOk || !configOk)
+            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null)
             return null;
-        return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config);
+        return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
+        {
+            ConfigEntries = configEntries,
+        };
     }
 
     private static InputType? ParseInputType(Ctx ctx, JsonElement e, string path)

@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
@@ -34,6 +35,8 @@ public abstract record RunStartOutcome
 /// (one InProgress attempt per step, latest-wins among Scheduled ones, see <see cref="Jobs.JobObsoletionService"/>).
 /// Explicit (manual) runs and whole-run reruns are never de-duplicated.</item>
 /// </list>
+/// <item><b>Config.</b> A run pins the latest config snapshot and records its effective config for the
+/// version (defaults applied). A held active version (a secret its config references is unset) starts nothing.</item>
 /// Input is assumed validated against the input model already (B7); it is stored verbatim.
 /// </summary>
 public class RunStartService(
@@ -41,6 +44,9 @@ public class RunStartService(
     RunService runs,
     PipelineActivationService activations,
     AttachmentStore<Pipeline, PendingRunStart> pending,
+    AttachmentStore<Pipeline, PendingVersion> pendingVersions,
+    ConfigSnapshotService configSnapshots,
+    RunPlanCache plans,
     RunSchedulingLock schedulingLock,
     TimeProvider timeProvider,
     ILogger<RunStartService> logger)
@@ -107,7 +113,11 @@ public class RunStartService(
         }
 
         var active = (PipelineActivation.Active)activation;
-        if (runs.Create(pipelineId, active.VersionId, inputJson, trigger, rerunOf).TryPickProblems(out var problems, out var run))
+        if (pendingVersions.TryGet(pipelineId, out var held) && held.VersionId == active.VersionId)
+            return new ConflictProblem("Version {0} is held until its config is satisfied: {1}.", active.VersionNumber, string.Join("; ", held.Reasons));
+        if (PinConfig(pipelineId, active).TryPickProblems(out var configProblems, out var pinned))
+            return configProblems;
+        if (runs.Create(pipelineId, active.VersionId, inputJson, trigger, rerunOf, pinned.Snapshot, pinned.Config).TryPickProblems(out var problems, out var run))
             return problems;
 
         logger.LogInformation("Started run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}' on version {VersionNumber} ({TriggerKind})",
@@ -115,6 +125,20 @@ public class RunStartService(
 
         return new RunStartOutcome.Started(runs.TryGet(run.Id, out var current) ? current : run);
     });
+
+    /// <summary>The latest snapshot and its effective config for the version; nothing when the version declares no config.</summary>
+    private Result<(int? Snapshot, string? Config)> PinConfig(Id<Pipeline> pipelineId, PipelineActivation.Active active)
+    {
+        // An unparseable manifest fails the run in the scheduler, with the reason.
+        if (plans.Get(active.VersionId).TryPickProblems(out _, out var plan) || plan.Manifest.Config.Count == 0)
+            return (null, null);
+
+        configSnapshots.TryGetLatest(pipelineId, out var snapshot);
+        if (ConfigValidation.Effective(plan.Manifest, configSnapshots.Document(snapshot)).TryPickProblems(out var invalid, out var effective))
+            return new ConflictProblem("Config {0} does not satisfy version {1}: {2}.",
+                snapshot is null ? "(none saved)" : $"#{snapshot.Number}", active.VersionNumber, string.Join("; ", invalid.Select(p => p.ToDisplayString())));
+        return (snapshot?.Number, effective.ToJsonString());
+    }
 
     private Run? FindDuplicate(Id<Pipeline> pipelineId, Id<PipelineVersion> versionId, string key)
     {

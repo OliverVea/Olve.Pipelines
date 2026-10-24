@@ -3,6 +3,7 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
@@ -55,4 +56,10 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<CopySecretsResponse>))]
 [JsonSerializable(typeof(Result<PipelineSecretInfo[]>))]
 [JsonSerializable(typeof(FrontendConfigEndpoints.FrontendConfig))]
+[JsonSerializable(typeof(Result<ConfigDocument>))]
+[JsonSerializable(typeof(Result<ConfigSaveResponse>))]
+[JsonSerializable(typeof(Result<ConfigSnapshotInfo[]>))]
+[JsonSerializable(typeof(Result<ConfigCheckResponse>))]
+[JsonSerializable(typeof(SetConfigRequest))]
+[JsonSerializable(typeof(RollbackConfigRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

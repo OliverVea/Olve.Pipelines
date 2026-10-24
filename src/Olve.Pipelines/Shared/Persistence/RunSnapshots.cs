@@ -1,4 +1,5 @@
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
@@ -42,7 +43,27 @@ public record PipelineStateSnapshot(
     PendingRunStartEntry[]? PendingStarts = null,
     EntityVersionHistoryEntry[]? EntityVersions = null,
     PollTriggerStatesEntry[]? PollTriggers = null,
-    PipelineBlockedStepsEntry[]? BlockedSteps = null);
+    PipelineBlockedStepsEntry[]? BlockedSteps = null,
+    PendingVersionEntry[]? PendingVersions = null);
+
+public record PendingVersionEntry(Id<Pipeline> PipelineId, PendingVersion Pending);
+
+/// <summary><c>pipeline-config.json</c>: config snapshot metadata; each document is its own write-once object.</summary>
+public record ConfigSnapshotIndexSnapshot(ConfigSnapshotMetadata[] Snapshots);
+
+/// <summary>A <see cref="ConfigSnapshot"/> without its YAML.</summary>
+public record ConfigSnapshotMetadata(
+    Id<ConfigSnapshot> Id,
+    Id<Pipeline> PipelineId,
+    int Number,
+    string Author,
+    DateTimeOffset CreatedAt,
+    int? RestoredFrom)
+{
+    public static ConfigSnapshotMetadata From(ConfigSnapshot s) => new(s.Id, s.PipelineId, s.Number, s.Author, s.CreatedAt, s.RestoredFrom);
+
+    public ConfigSnapshot WithYaml(string yaml) => new(Id, PipelineId, Number, yaml, Author, CreatedAt, RestoredFrom);
+}
 
 public record PollTriggerStatesEntry(Id<Pipeline> PipelineId, PollTriggerStates States);
 

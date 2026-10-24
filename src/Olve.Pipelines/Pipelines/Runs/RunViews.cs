@@ -17,7 +17,8 @@ public record RunSummary(
     DateTimeOffset? FinishedAt,
     string? HeldAt,
     int? SupersededByNumber,
-    int? RerunOfNumber);
+    int? RerunOfNumber,
+    int? ConfigSnapshot = null);
 
 /// <summary>
 /// One run in full (spec §7 run view): its input, pinned version, links, and the stage layout of the
@@ -26,13 +27,15 @@ public record RunSummary(
 /// <param name="Continuable">True while the run is pinned to the pipeline's active version and not superseded —
 /// reruns and continues are possible (spec §6.2: after a switch, re-trigger instead).</param>
 /// <param name="Stages">Empty when the pinned version's manifest is unavailable.</param>
+/// <param name="Config">The run's effective config (JSON text: the pinned snapshot with the version's defaults); null when the version declares none.</param>
 public record RunDetail(
     RunSummary Run,
     Id<PipelineVersion> VersionId,
     string? CommitSha,
     JsonElement Input,
     bool Continuable,
-    RunStageView[] Stages);
+    RunStageView[] Stages,
+    string? Config = null);
 
 /// <summary>One barrier stage of the pinned plan, with the <c>when</c> conditions enclosing it (all must match).</summary>
 public record RunStageView(int Index, RunStageCondition[] When, RunStepView[] Steps);

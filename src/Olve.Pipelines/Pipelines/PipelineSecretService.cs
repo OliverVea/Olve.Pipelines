@@ -16,6 +16,13 @@ public static class PipelineSecrets
 /// <param name="DeclaredBy">Steps, failure handlers (<c>onFailure:&lt;step&gt;</c>), poll triggers (<c>trigger:&lt;name&gt;</c>)
 /// and the binding (<c>binding</c>, its GitHub credentials key) of the active version that use it; empty = set but unused.</param>
 /// <param name="IsSet">Null when K8s could not be read.</param>
+/// <summary>Which of a pipeline's secrets have a value (K8s I/O, read before the activation gate runs).</summary>
+public interface IPipelineSecretNames
+{
+    /// <summary>The set secret names, or null when they can't be read (Kubernetes unavailable).</summary>
+    Task<IReadOnlySet<string>?> ListSetAsync(Id<Pipeline> pipelineId, CancellationToken ct = default);
+}
+
 public record PipelineSecretInfo(string Name, string? Description, string[] DeclaredBy, bool? IsSet);
 
 /// <summary>
@@ -29,8 +36,23 @@ public class PipelineSecretService(
     PipelineActivationService activations,
     RunPlanCache plans,
     IServiceProvider services,
-    ILogger<PipelineSecretService> logger)
+    ILogger<PipelineSecretService> logger) : IPipelineSecretNames
 {
+    public async Task<IReadOnlySet<string>?> ListSetAsync(Id<Pipeline> pipelineId, CancellationToken ct = default)
+    {
+        try
+        {
+            var (client, ns) = Kubernetes();
+            var values = await client.GetSecretAsync(ns, PipelineSecrets.Name(pipelineId), ct);
+            return (values?.Keys ?? Enumerable.Empty<string>()).ToHashSet(StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the secrets of pipeline '{PipelineId}'", pipelineId);
+            return null;
+        }
+    }
+
     public async Task<Result<PipelineSecretInfo[]>> ListAsync(Id<Pipeline> pipelineId, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(pipelineId, out _))

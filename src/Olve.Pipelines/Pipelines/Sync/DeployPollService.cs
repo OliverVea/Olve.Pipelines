@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Sources;
@@ -38,7 +39,8 @@ public interface IPushTriggerHandler
 /// <para><b>Config-before-run.</b> Everything runs under a per-binding lock, and every automatic run start
 /// of a bound pipeline (push, poll and webhook triggers) goes through <see cref="IConfigLock"/>: it starts
 /// only once the current config commit is applied, so a run for a commit always follows that commit's
-/// reconcile + switch, and no commit is built twice.</para>
+/// reconcile + switch, and no commit is built twice. While a version is pending (its config or secrets aren't
+/// satisfied yet) the config is not current: automatic starts wait until it activates.</para>
 /// </summary>
 public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
@@ -197,7 +199,7 @@ public class DeployPollService(
         }
 
         if (binding.LastReconciledSha == sha && binding.Status.Result == ReconcileResult.Success)
-            return true;
+            return !HasPending(services, binding.PipelineId);
 
         if (!force && _failed.TryGetValue(binding.Id, out var failedSha) && failedSha == sha)
             return false;
@@ -244,8 +246,11 @@ public class DeployPollService(
         RecordStatus(bindingService, binding.Id, _ => new ReconcileStatus(
             ReconcileResult.Success, DateTimeOffset.UtcNow, [], report.Warnings, sha, InProgress: false, report.Version.Number));
         bindingService.SetLastReconciledSha(binding.Id, sha).DiscardResult();
-        return true;
+        return report.Pending is null && !HasPending(services, binding.PipelineId);
     }
+
+    private static bool HasPending(IServiceProvider services, Id<Pipeline> pipelineId)
+        => services.GetRequiredService<ConfigActivationService>().TryGetPending(pipelineId, out _);
 
     private static void RecordStatus(
         PipelineConfigBindingService bindingService, Id<PipelineConfigBinding> id, Func<ReconcileStatus, ReconcileStatus> update)

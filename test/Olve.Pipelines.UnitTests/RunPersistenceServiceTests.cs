@@ -58,6 +58,7 @@ public class RunPersistenceServiceTests
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
             domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.BlockedSteps, domain.PendingStarts, domain.EntityVersions, domain.PollTriggers,
+            domain.ConfigSnapshotStore, domain.PendingVersions,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);
@@ -142,6 +143,7 @@ public class RunPersistenceServiceTests
         await Assert.That(store.Objects.Keys).IsEquivalentTo(new[]
         {
             RunPersistenceService.VersionsIndexKey, RunPersistenceService.StateKey, RunPersistenceService.RunsIndexKey,
+            RunPersistenceService.ConfigIndexKey,
         });
     }
 
@@ -269,6 +271,36 @@ public class RunPersistenceServiceTests
         await Assert.That(blocked!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
         await Assert.That(b.Domain.PendingStarts.TryGet(pipeline.Id, out var pending)).IsTrue();
         await Assert.That(pending).IsEqualTo(queued);
+    }
+
+    [Test]
+    public async Task Restart_RestoresConfigSnapshotsAsWritten_AndThePendingVersion()
+    {
+        var store = new FakeObjectStore();
+        var a = await StartNode(store);
+        var pipeline = a.Domain.CreatePipeline();
+        const string yaml = "# kept\ntarget: {host: h}\n";
+        TestRunDomain.Pick(a.Domain.ConfigSnapshots.Add(pipeline.Id, yaml, "dev"));
+        TestRunDomain.Pick(a.Domain.ConfigSnapshots.Add(pipeline.Id, yaml, "dev", restoredFrom: 1));
+        var version = a.Domain.AddVersion(pipeline.Id);
+        a.Domain.PendingVersions.Set(pipeline.Id, new PendingVersion(version.Id, version.Number, DateTimeOffset.UnixEpoch,
+            ["config config.target: is required"], [new ChangedDefault("target.namespace", "\"a\"", "\"b\"")]));
+        await a.Service.StoppingAsync(CancellationToken.None);
+        a.Service.Dispose();
+
+        await Assert.That(store.Objects.Keys).Contains(StorageLayout.ConfigSnapshotKey(pipeline.Id, 2));
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+
+        var snapshots = b.Domain.ConfigSnapshots.ListByPipeline(pipeline.Id);
+        await Assert.That(snapshots.Select(x => x.Number)).IsEquivalentTo([2, 1]);
+        await Assert.That(snapshots[0].Yaml).IsEqualTo(yaml);
+        await Assert.That(snapshots[0].RestoredFrom).IsEqualTo(1);
+        await Assert.That(b.Domain.PendingVersions.TryGet(pipeline.Id, out var pending)).IsTrue();
+        await Assert.That(pending!.VersionNumber).IsEqualTo(version.Number);
+        await Assert.That(pending.Reasons).IsEquivalentTo(["config config.target: is required"]);
+        await Assert.That(pending.ChangedDefaults.Single().Path).IsEqualTo("target.namespace");
     }
 
     [Test]

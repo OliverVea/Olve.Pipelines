@@ -8,6 +8,8 @@ import { BindingRequestBuilderNavigationMetadata, BindingRequestBuilderRequestsM
 // @ts-ignore
 import { BlockedStepsRequestBuilderRequestsMetadata, type BlockedStepsRequestBuilder } from './blockedSteps/index.js';
 // @ts-ignore
+import { ConfigRequestBuilderNavigationMetadata, ConfigRequestBuilderRequestsMetadata, type ConfigRequestBuilder } from './config/index.js';
+// @ts-ignore
 import { HealthRequestBuilderRequestsMetadata, type HealthRequestBuilder } from './health/index.js';
 // @ts-ignore
 import { RunsRequestBuilderNavigationMetadata, RunsRequestBuilderRequestsMetadata, type RunsRequestBuilder } from './runs/index.js';
@@ -34,6 +36,10 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      * The blockedSteps property
      */
     get blockedSteps(): BlockedStepsRequestBuilder;
+    /**
+     * The config property
+     */
+    get config(): ConfigRequestBuilder;
     /**
      * The health property
      */
@@ -103,6 +109,10 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
     },
     blockedSteps: {
         requestsMetadata: BlockedStepsRequestBuilderRequestsMetadata,
+    },
+    config: {
+        requestsMetadata: ConfigRequestBuilderRequestsMetadata,
+        navigationMetadata: ConfigRequestBuilderNavigationMetadata,
     },
     health: {
         requestsMetadata: HealthRequestBuilderRequestsMetadata,

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
@@ -76,7 +77,7 @@ public static class FailureHandlerPlanner
             }
 
             dispatches.Add(new FailureHandlerDispatch(
-                DispatchId(run, i, fh.Step.Name), pipeline, run, version, fh.Step, inputJson,
+                DispatchId(run, i, fh.Step.Name), pipeline, run, version, fh.Step, ConfigDelivery.WithConfig(inputJson, fh.Step, run.Config),
                 inScope.Select(a => a.StepName).ToList()));
         }
 

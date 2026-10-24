@@ -48,6 +48,8 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <!-- Only its event parser (YamlDotNet.Core), which is reflection-free: config documents → JsonNode. -->
+    <PackageReference Include="YamlDotNet" />
   </ItemGroup>
 
 </Project>

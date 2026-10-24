@@ -16,6 +16,7 @@ namespace Olve.Pipelines.Pipelines;
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/files/…
 /// runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/log
 /// runs/&lt;p&gt;/&lt;run&gt;/_failure/&lt;handler&gt;/&lt;id&gt;/{input.json,log}   failure-handler runs
+/// config/&lt;p&gt;/&lt;n&gt;.yaml                config snapshot n, as written (write-once)
 /// </code>
 /// </summary>
 public static class StorageLayout
@@ -72,6 +73,9 @@ public static class StorageLayout
     /// </summary>
     public static string FailureHandlerPrefix(Id<Pipeline> pipelineId, int runNumber, string handlerName, string dispatchId)
         => $"{RunPrefix(pipelineId, runNumber)}/_failure/{handlerName}/{dispatchId}";
+
+    public static string ConfigSnapshotKey(Id<Pipeline> pipelineId, int snapshotNumber)
+        => $"config/{Format(pipelineId)}/{snapshotNumber}.yaml";
 
     private static string Format(Id<Pipeline> pipelineId) => pipelineId.Value.Value.ToString("N");
 }

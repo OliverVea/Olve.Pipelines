@@ -1,4 +1,5 @@
 using System.Globalization;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
@@ -11,7 +12,8 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// </summary>
 /// <param name="Step">The step as declared in the pinned manifest: image, kind, declared secrets
 /// (inject each as a same-named env var via <c>secretKeyRef</c>), timeout, config.</param>
-/// <param name="InputJson">The <c>input.json</c> to upload (compact JSON; exactly the step's input keys).</param>
+/// <param name="InputJson">The <c>input.json</c> to upload (compact JSON; the step's input keys, plus <c>$config</c>
+/// from the run's pinned config when the step declares config).</param>
 /// <param name="FileRefs">File refs in the input: one presigned GET per ref in <c>OLVE_FILE_URLS</c>
 /// (key <see cref="AttemptFileRef.FileKey"/>, object <see cref="AttemptFileRef.StorageKey"/>).</param>
 /// <param name="Environment">The service-provided harness variables (sdk/README.md "Environment").
@@ -59,7 +61,7 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
         };
 
         return new AttemptLaunchSpec(
-            attempt, run, version, step, input, attempt.InputHash,
+            attempt, run, version, step, ConfigDelivery.WithConfig(input, step, run.Config), attempt.InputHash,
             AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt));
     }
 }

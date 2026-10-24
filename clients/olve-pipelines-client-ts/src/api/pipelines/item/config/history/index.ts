@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequestBuilder> {
     /**
+     * Newest first.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ConfigSnapshotInfo[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequest
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ConfigSnapshotInfo[] | undefined>;
     /**
+     * Newest first.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

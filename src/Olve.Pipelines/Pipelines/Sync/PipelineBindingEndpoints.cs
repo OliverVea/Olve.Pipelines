@@ -40,6 +40,9 @@ public static class PipelineBindingEndpoints
             })
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("CreatePipelineWithRepo")
+            .WithTags("Bindings")
+            .WithSummary("Create a pipeline bound to a repo")
+            .WithDescription("The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.")
 ;
 
         // Returns at once; the reconcile runs in the background (progress in GET .../binding/status).
@@ -49,6 +52,9 @@ public static class PipelineBindingEndpoints
                 => deployPoll.RequestReconcile(pipelineId, force: true))
             .WithApiResultMapping()
             .WithName("ReconcilePipelineBinding")
+            .WithTags("Bindings")
+            .WithSummary("Reconcile now")
+            .WithDescription("Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.")
 ;
 
         // The credentials key moves GitHub reads onto the authenticated rate limit; empty clears it.
@@ -57,6 +63,9 @@ public static class PipelineBindingEndpoints
                 => Redacted(bindings.SetCredentialsSecret(pipelineId, request.CredentialsSecret)))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("UpdatePipelineBinding")
+            .WithTags("Bindings")
+            .WithSummary("Update the binding")
+            .WithDescription("Sets or clears the credentials secret key.")
 ;
 
         // Authenticated by HMAC over the raw body (not Bearer), so it binds HttpRequest and returns raw
@@ -96,6 +105,9 @@ public static class PipelineBindingEndpoints
                 return HttpResults.Accepted();
             })
             .WithName("ExecuteBindingGitHubWebhook")
+            .WithTags("Bindings")
+            .WithSummary("GitHub push webhook")
+            .WithDescription("Receives the binding's GitHub push webhook. Anonymous, verified with the webhook's HMAC signature.")
             .AllowAnonymous();
 
         app.MapGet("/api/pipelines/{pipelineId}/binding", Result<PipelineConfigBinding> (
@@ -103,6 +115,8 @@ public static class PipelineBindingEndpoints
                 => Redacted(bindings.GetByPipelineId(pipelineId)))
             .WithApiResultMapping<PipelineConfigBinding>()
             .WithName("GetPipelineBinding")
+            .WithTags("Bindings")
+            .WithSummary("Get the binding")
             .RequireRead();
 
         app.MapGet("/api/pipelines/{pipelineId}/binding/status", Result<PipelineBindingStatus> (
@@ -127,6 +141,9 @@ public static class PipelineBindingEndpoints
             })
             .WithApiResultMapping<PipelineBindingStatus>()
             .WithName("GetPipelineBindingStatus")
+            .WithTags("Bindings")
+            .WithSummary("Get the binding's reconcile status")
+            .WithDescription("The last reconcile's result and commit, whether one is in progress, the resulting and the active version, problems and warnings.")
             .RequireRead();
     }
 

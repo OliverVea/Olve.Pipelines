@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface StreamRequestBuilder extends BaseRequestBuilder<StreamRequestBuilder> {
     /**
+     * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface StreamRequestBuilder extends BaseRequestBuilder<StreamRequestBu
      */
      get(requestConfiguration?: RequestConfiguration<StreamRequestBuilderGetQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<StreamRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
+ */
 export interface StreamRequestBuilderGetQueryParameters {
     attempt?: number;
 }

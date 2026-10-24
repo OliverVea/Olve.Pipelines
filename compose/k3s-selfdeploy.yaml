@@ -1,4 +1,4 @@
-# The local self-deploy (README, "Watch it deploy itself"): the step ServiceAccount, the namespaces it
+# The local self-deploy (docs/setup/self-hosting.md, "Watch it deploy itself"): the step ServiceAccount, the namespaces it
 # deploys into, and what those deploys need. Applied by k3s-bootstrap.sh.
 #
 # olve-deployer is the instance's Kubernetes:StepServiceAccount: steps that declare clusterAccess run

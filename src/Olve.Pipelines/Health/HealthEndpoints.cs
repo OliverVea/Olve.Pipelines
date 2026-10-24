@@ -19,6 +19,9 @@ public static class HealthEndpoints
         app.MapGet("/api/health", (IConfiguration config) =>
                 IResults.Ok(new HealthResponse("ok", string.IsNullOrWhiteSpace(config["Deployment:Image"]) ? null : config["Deployment:Image"], version)))
             .WithName("GetHealth")
+            .WithTags("Instance")
+            .WithSummary("Liveness")
+            .WithDescription("`status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.")
             .AllowAnonymous();
 
         // Readiness: every snapshot store has confirmed its load. Until then we return 503 so
@@ -27,6 +30,10 @@ public static class HealthEndpoints
                 readiness.IsReady
                     ? IResults.Ok()
                     : IResults.StatusCode(Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable))
+            .WithName("GetReadiness")
+            .WithTags("Instance")
+            .WithSummary("Readiness")
+            .WithDescription("200 once persisted state is loaded, 503 before.")
             .AllowAnonymous();
     }
 }

@@ -15,6 +15,9 @@ public static class AttemptEndpoints
                     : ValidationProblem.ForField("status", "status must be 'active' (got '{0}').", status))
             .WithApiResultMapping<ActiveAttempt[]>()
             .WithName("ListActiveAttempts")
+            .WithTags("Attempts")
+            .WithSummary("List running attempts")
+            .WithDescription("With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.")
             .RequireRead();
     }
 }

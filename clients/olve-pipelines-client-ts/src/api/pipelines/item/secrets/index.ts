@@ -25,6 +25,7 @@ export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequest
      */
      byName(name: string) : WithNameItemRequestBuilder;
     /**
+     * The secrets the active version (steps, failure handlers, poll triggers) or the binding uses, plus set but unused ones, each with `declaredBy` and `isSet` (null when Kubernetes can't be read). Values are never returned.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineSecretInfo[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -35,6 +36,7 @@ export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequest
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineSecretInfo[] | undefined>;
     /**
+     * The secrets the active version (steps, failure handlers, poll triggers) or the binding uses, plus set but unused ones, each with `declaredBy` and `isSet` (null when Kubernetes can't be read). Values are never returned.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

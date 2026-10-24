@@ -11,12 +11,14 @@ import { createUntypedNodeFromDiscriminatorValue, type BaseRequestBuilder, type 
  */
 export interface ValidateRequestBuilder extends BaseRequestBuilder<ValidateRequestBuilder> {
     /**
+     * Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `valid`, `manifestHash`, `errors` and `warnings`.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ManifestValidationResponse>}
      */
      post(body: UntypedNode, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ManifestValidationResponse | undefined>;
     /**
+     * Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `valid`, `manifestHash`, `errors` and `warnings`.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ContinueRequestBuilder extends BaseRequestBuilder<ContinueRequestBuilder> {
     /**
+     * Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Run>}
@@ -22,6 +23,7 @@ export interface ContinueRequestBuilder extends BaseRequestBuilder<ContinueReque
      */
      post(body: ContinueRunRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Run | undefined>;
     /**
+     * Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

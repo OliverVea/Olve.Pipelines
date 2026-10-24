@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CopyRequestBuilder extends BaseRequestBuilder<CopyRequestBuilder> {
     /**
+     * Copies values server-side from `sourcePipelineId` (`names`, default all; `targetName` renames a single one). Existing names are refused without `overwrite`. Answers the copied names. Whoever can write the target pipeline can read the copied values from its steps.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<CopySecretsResponse>}
@@ -22,6 +23,7 @@ export interface CopyRequestBuilder extends BaseRequestBuilder<CopyRequestBuilde
      */
      post(body: CopySecretsRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<CopySecretsResponse | undefined>;
     /**
+     * Copies values server-side from `sourcePipelineId` (`names`, default all; `targetName` renames a single one). Existing names are refused without `overwrite`. Answers the copied names. Whoever can write the target pipeline can read the copied values from its steps.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

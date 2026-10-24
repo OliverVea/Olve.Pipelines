@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuilder> {
     /**
+     * Starts a new run with the same input (`rerunOf` points back).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<TriggerRunResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuil
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<TriggerRunResponse | undefined>;
     /**
+     * Starts a new run with the same input (`rerunOf` points back).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

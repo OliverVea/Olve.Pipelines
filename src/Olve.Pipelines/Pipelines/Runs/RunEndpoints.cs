@@ -28,6 +28,9 @@ public static class RunEndpoints
                 => views.List(pipelineId, request))
             .WithApiResultMapping<Page<RunSummary>>()
             .WithName("ListRuns")
+            .WithTags("Runs")
+            .WithSummary("List runs")
+            .WithDescription("Runs of the pipeline, newest first, paged.")
             .RequireRead();
 
         // Manual trigger: the body is the pipeline input (the input model's z.input view; defaults are
@@ -36,26 +39,38 @@ public static class RunEndpoints
                 => inputs.StartManual(pipelineId, JsonFields.ToJsonObject(input.Fields))
                     .Map(ToResponse))
             .WithApiResultMapping<TriggerRunResponse>()
-            .WithName("TriggerRun");
+            .WithName("TriggerRun")
+            .WithTags("Runs")
+            .WithSummary("Start a run")
+            .WithDescription("Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).");
 
         // Input, pinned version, links, and the pinned manifest's stage layout with each step's latest attempt.
         group.MapGet("/{number:int}", Result<RunDetail> (RunViewService views, Id<Pipeline> pipelineId, int number)
                 => views.Get(pipelineId, number))
             .WithApiResultMapping<RunDetail>()
             .WithName("GetRun")
+            .WithTags("Runs")
+            .WithSummary("Get a run")
+            .WithDescription("Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.")
             .RequireRead();
 
         // Cancels the run and its scheduled/in-progress attempts (their K8s Jobs are deleted).
         group.MapPost("/{number:int}/cancel", Result<Run> (RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Bind(run => cancellation.Cancel(run.Id)))
             .WithApiResultMapping<Run>()
-            .WithName("CancelRun");
+            .WithName("CancelRun")
+            .WithTags("Runs")
+            .WithSummary("Cancel a run")
+            .WithDescription("Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).");
 
         // Whole-run rerun: a new run with the same input on the active version, linked via rerunOf.
         group.MapPost("/{number:int}/rerun", Result<TriggerRunResponse> (RunService runs, RunInputService inputs, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Bind(run => inputs.RerunRun(run)).Map(ToResponse))
             .WithApiResultMapping<TriggerRunResponse>()
-            .WithName("RerunRun");
+            .WithName("RerunRun")
+            .WithTags("Runs")
+            .WithSummary("Rerun a run")
+            .WithDescription("Starts a new run with the same input (`rerunOf` points back).");
 
         // Continue: keeps completed stages, re-evaluates the rest; optional input changes are merged over the
         // stored input (only fields no completed step consumed may change).
@@ -63,13 +78,18 @@ public static class RunEndpoints
                 RunService runs, RunInputService inputs, Id<Pipeline> pipelineId, int number, [FromBody] ContinueRunRequest? request)
                 => FindRun(runs, pipelineId, number).Bind(run => inputs.Continue(run, JsonFields.ToJsonObject(request?.Input))))
             .WithApiResultMapping<Run>()
-            .WithName("ContinueRun");
+            .WithName("ContinueRun")
+            .WithTags("Runs")
+            .WithSummary("Continue a run")
+            .WithDescription("Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.");
 
         group.MapGet("/{number:int}/steps/{step}/attempts", Result<Attempt[]> (
                 RunService runs, AttemptService attempts, Id<Pipeline> pipelineId, int number, string step)
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListForStep(run.Id, step).ToArray()))
             .WithApiResultMapping<Attempt[]>()
             .WithName("ListStepAttempts")
+            .WithTags("Steps")
+            .WithSummary("List a step's attempts in a run")
             .RequireRead();
 
         // A new attempt of one step (same pinned version, current pool input); continue=true re-opens the run downstream.
@@ -78,7 +98,10 @@ public static class RunEndpoints
                 [FromBody] RerunStepRequest? request)
                 => FindRun(runs, pipelineId, number).Bind(run => continuations.RerunStep(run.Id, step, request?.Continue ?? false)))
             .WithApiResultMapping<Attempt>()
-            .WithName("RerunStep");
+            .WithName("RerunStep")
+            .WithTags("Steps")
+            .WithSummary("Rerun a step")
+            .WithDescription("A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.");
 
         // Cancels the step's scheduled/in-progress attempt (its K8s Job is deleted). Like any cancelled attempt,
         // the stage's other steps keep running and the run ends Cancelled at the stage barrier; rerun the step
@@ -87,7 +110,10 @@ public static class RunEndpoints
                 RunService runs, RunCancellationService cancellation, Id<Pipeline> pipelineId, int number, string step)
                 => FindRun(runs, pipelineId, number).Bind(run => cancellation.CancelStep(run.Id, step)))
             .WithApiResultMapping<Attempt>()
-            .WithName("CancelStep");
+            .WithName("CancelStep")
+            .WithTags("Steps")
+            .WithSummary("Cancel a step")
+            .WithDescription("Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.");
 
         // The stored files of an attempt (without ?attempt= the latest successful one).
         group.MapGet("/{number:int}/steps/{step}/files", async Task<Result<AttemptFilesResponse>> (
@@ -99,7 +125,10 @@ public static class RunEndpoints
                 return await files.ListAsync(resolved, ct);
             })
             .WithApiResultMapping<AttemptFilesResponse>()
-            .WithName("ListStepFiles");
+            .WithName("ListStepFiles")
+            .WithTags("Steps")
+            .WithSummary("List a step's files")
+            .WithDescription("The files an attempt stored.");
 
         // Downloads one file by its §5.5 address #run/step[@attempt]/path (a directory ref "dir/" yields dir.tar).
         group.MapGet("/{number:int}/steps/{step}/files/{*path}", async Task<IResult> (
@@ -123,12 +152,17 @@ public static class RunEndpoints
             })
             .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
             .WithApiProblems()
-            .WithName("GetStepFile");
+            .WithName("GetStepFile")
+            .WithTags("Steps")
+            .WithSummary("Download a step file")
+            .WithDescription("One stored file; a directory `dir/` downloads as `dir.tar`.");
 
         group.MapGet("/{number:int}/attempts", Result<Attempt[]> (RunService runs, AttemptService attempts, Id<Pipeline> pipelineId, int number)
                 => FindRun(runs, pipelineId, number).Map(run => attempts.ListByRun(run.Id).ToArray()))
             .WithApiResultMapping<Attempt[]>()
             .WithName("ListRunAttempts")
+            .WithTags("Runs")
+            .WithSummary("List a run's attempts")
             .RequireRead();
 
         // Without ?attempt= the output of the latest successful attempt (what later stages consumed).
@@ -140,6 +174,9 @@ public static class RunEndpoints
                     : NoAttempt(number, step, attempt))
             .WithApiResultMapping<AttemptOutputResponse>()
             .WithName("GetStepOutput")
+            .WithTags("Steps")
+            .WithSummary("Get a step's output")
+            .WithDescription("The output JSON of `attempt` (default: the latest successful attempt).")
             .RequireRead();
 
         // Without ?attempt= the latest attempt (whatever its status).
@@ -158,6 +195,9 @@ public static class RunEndpoints
             })
             .WithApiResultMapping<string>()
             .WithName("GetStepLogs")
+            .WithTags("Steps")
+            .WithSummary("Get a step's log")
+            .WithDescription("The attempt's log; the live pod log while it runs.")
             .RequireRead();
     }
 

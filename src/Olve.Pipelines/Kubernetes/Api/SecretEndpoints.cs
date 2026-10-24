@@ -13,7 +13,10 @@ public static class SecretEndpoints
         group.MapGet("/", Task<Result<PipelineSecretInfo[]>> (PipelineSecretService secrets, Id<Pipeline> pipelineId, CancellationToken ct)
                 => secrets.ListAsync(pipelineId, ct))
             .WithApiResultMapping<PipelineSecretInfo[]>()
-            .WithName("ListSecrets");
+            .WithName("ListSecrets")
+            .WithTags("Secrets")
+            .WithSummary("List secrets")
+            .WithDescription("The secrets the active version (steps, failure handlers, poll triggers) or the binding uses, plus set but unused ones, each with `declaredBy` and `isSet` (null when Kubernetes can't be read). Values are never returned.");
 
         // Setting or deleting a secret re-runs the activation gate: a pending version waiting for it activates.
         group.MapPut("/{name}", async Task<Result> (PipelineSecretService secrets, ConfigActivationService gate, HttpContext http, Id<Pipeline> pipelineId, string name, SetSecretRequest request, CancellationToken ct) =>
@@ -23,7 +26,10 @@ public static class SecretEndpoints
                 return Recheck(gate, http.RequestServices, pipelineId, await secrets.ListSetAsync(pipelineId, ct));
             })
             .WithApiResultMapping()
-            .WithName("SetSecret");
+            .WithName("SetSecret")
+            .WithTags("Secrets")
+            .WithSummary("Set a secret")
+            .WithDescription("Sets the value. Re-checks a pending version.");
 
         // A secret the current config references is only deleted with force=true; new runs then wait until it is set again.
         group.MapDelete("/{name}", async Task<Result> (PipelineSecretService secrets, ConfigActivationService gate, HttpContext http, Id<Pipeline> pipelineId, string name, bool? force, CancellationToken ct) =>
@@ -36,7 +42,10 @@ public static class SecretEndpoints
                 return Recheck(gate, http.RequestServices, pipelineId, await secrets.ListSetAsync(pipelineId, ct));
             })
             .WithApiResultMapping()
-            .WithName("DeleteSecret");
+            .WithName("DeleteSecret")
+            .WithTags("Secrets")
+            .WithSummary("Delete a secret")
+            .WithDescription("Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.");
 
         // Server-side copy from another pipeline on this instance; values are never returned or logged.
         group.MapPost("/copy", Task<Result<CopySecretsResponse>> (
@@ -46,7 +55,10 @@ public static class SecretEndpoints
             CopySecretsRequest request,
             CancellationToken ct) => copies.CopyAsync(pipelineId, request, Actor(http.User), ct))
         .WithApiResultMapping<CopySecretsResponse>()
-        .WithName("CopySecrets");
+        .WithName("CopySecrets")
+        .WithTags("Secrets")
+        .WithSummary("Copy secrets from another pipeline")
+        .WithDescription("Copies values server-side from `sourcePipelineId` (`names`, default all; `targetName` renames a single one). Existing names are refused without `overwrite`. Answers the copied names. Whoever can write the target pipeline can read the copied values from its steps.");
     }
 
     private static Result Recheck(ConfigActivationService gate, IServiceProvider services, Id<Pipeline> pipelineId, IReadOnlySet<string>? setSecrets)

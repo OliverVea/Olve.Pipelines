@@ -9,11 +9,13 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface WithTriggerItemRequestBuilder extends BaseRequestBuilder<WithTriggerItemRequestBuilder> {
     /**
+     * A delivery for the pipeline's `onWebhook` trigger `trigger`. Anonymous, verified with the trigger's secret. Answers 202; the delivery is mapped to a run input in the background.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * A delivery for the pipeline's `onWebhook` trigger `trigger`. Anonymous, verified with the trigger's secret. Answers 202; the delivery is mapped to a run input in the background.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

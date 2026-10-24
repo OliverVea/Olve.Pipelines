@@ -120,7 +120,7 @@ scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`
 
 `GET /api/events[?pipeline=<id>]` is a server-sent event stream (needs a session, like other reads) of
 small change notices: `run`, `attempt`, `version`, `blocked`, `binding`, `pipeline`, each with the
-pipeline id and just enough to know what to reload (shapes in the repo README, "Live events").
+pipeline id and just enough to know what to reload (shapes: [API Reference, "Live events"](api-reference.md#live-events)).
 A UI or script re-fetches on each notice instead of polling:
 
 ```
@@ -195,7 +195,7 @@ leaked step Jobs) are swept too. Step Jobs have a 7-day TTL.
 
 Retention runs 2 minutes after start-up and then daily, and is a **dry run by default**: it logs
 what it would delete. An operator turns it on with `Retention__DryRun=false`; every threshold is a
-`Retention:*` setting (see the repo README).
+`Retention:*` setting (see [Running an Instance](self-hosting.md#server-configuration)).
 
 ## See also
 

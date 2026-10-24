@@ -45,7 +45,7 @@ export const buildHarness = steps.imageBuild({
 
 export const test = step({
   name: "test",
-  description: "Runs the .NET unit tests and checks api.json and the TS client match the API.",
+  description: "Runs the .NET unit tests and checks api.json, the TS client and the API reference match the API.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
   timeoutSeconds: 1800,

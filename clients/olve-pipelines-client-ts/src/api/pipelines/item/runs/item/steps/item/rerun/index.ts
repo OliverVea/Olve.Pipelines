@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuilder> {
     /**
+     * A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Attempt>}
@@ -22,6 +23,7 @@ export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuil
      */
      post(body: RerunStepRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Attempt | undefined>;
     /**
+     * A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

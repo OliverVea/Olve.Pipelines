@@ -8,8 +8,10 @@
     "/api/health": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Instance"
         ],
+        "summary": "Liveness",
+        "description": "`status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.",
         "operationId": "GetHealth",
         "responses": {
           "200": {
@@ -21,8 +23,11 @@
     "/api/ready": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Instance"
         ],
+        "summary": "Readiness",
+        "description": "200 once persisted state is loaded, 503 before.",
+        "operationId": "GetReadiness",
         "responses": {
           "200": {
             "description": "OK"
@@ -33,8 +38,10 @@
     "/api/config/frontend": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Instance"
         ],
+        "summary": "Get the login settings",
+        "description": "The OIDC authority and client id the web UI and `pl login` use.",
         "operationId": "GetFrontendConfig",
         "responses": {
           "200": {
@@ -46,8 +53,10 @@
     "/api/attempts": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Attempts"
         ],
+        "summary": "List running attempts",
+        "description": "With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.",
         "operationId": "ListActiveAttempts",
         "parameters": [
           {
@@ -128,8 +137,10 @@
     "/api/manifests/validate": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Versions"
         ],
+        "summary": "Validate a manifest",
+        "description": "Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `valid`, `manifestHash`, `errors` and `warnings`.",
         "operationId": "ValidateManifest",
         "requestBody": {
           "content": {
@@ -158,8 +169,10 @@
     "/api/pipelines/{pipelineId}/switch": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Versions"
         ],
+        "summary": "Switch the active version",
+        "description": "New runs start on `version`. `cancelRunning` cancels the other versions' runs and drains first. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version.",
         "operationId": "SwitchPipelineVersion",
         "parameters": [
           {
@@ -248,8 +261,10 @@
     "/api/pipelines/with-repo": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "Create a pipeline bound to a repo",
+        "description": "The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.",
         "operationId": "CreatePipelineWithRepo",
         "requestBody": {
           "content": {
@@ -328,8 +343,10 @@
     "/api/pipelines/{pipelineId}/binding/reconcile": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "Reconcile now",
+        "description": "Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.",
         "operationId": "ReconcilePipelineBinding",
         "parameters": [
           {
@@ -401,8 +418,10 @@
     "/api/pipelines/{pipelineId}/binding": {
       "patch": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "Update the binding",
+        "description": "Sets or clears the credentials secret key.",
         "operationId": "UpdatePipelineBinding",
         "parameters": [
           {
@@ -489,8 +508,9 @@
       },
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "Get the binding",
         "operationId": "GetPipelineBinding",
         "parameters": [
           {
@@ -569,8 +589,10 @@
     "/api/webhooks/binding/{bindingId}/github": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "GitHub push webhook",
+        "description": "Receives the binding's GitHub push webhook. Anonymous, verified with the webhook's HMAC signature.",
         "operationId": "ExecuteBindingGitHubWebhook",
         "parameters": [
           {
@@ -592,8 +614,10 @@
     "/api/pipelines/{pipelineId}/binding/status": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Bindings"
         ],
+        "summary": "Get the binding's reconcile status",
+        "description": "The last reconcile's result and commit, whether one is in progress, the resulting and the active version, problems and warnings.",
         "operationId": "GetPipelineBindingStatus",
         "parameters": [
           {
@@ -672,8 +696,10 @@
     "/api/hooks/{pipelineId}/{trigger}": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Triggers"
         ],
+        "summary": "Deliver a webhook trigger",
+        "description": "A delivery for the pipeline's `onWebhook` trigger `trigger`. Anonymous, verified with the trigger's secret. Answers 202; the delivery is mapped to a run input in the background.",
         "operationId": "ReceiveWebhookTrigger",
         "parameters": [
           {
@@ -703,8 +729,10 @@
     "/api/events": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Events"
         ],
+        "summary": "Stream change events",
+        "description": "Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.",
         "operationId": "StreamEvents",
         "parameters": [
           {
@@ -739,8 +767,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Stream a step's log",
+        "description": "The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.",
         "operationId": "StreamStepLogs",
         "parameters": [
           {
@@ -849,8 +879,9 @@
     "/api/pipelines/{id}": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Pipelines"
         ],
+        "summary": "Get a pipeline",
         "operationId": "GetPipeline",
         "parameters": [
           {
@@ -927,8 +958,10 @@
       },
       "delete": {
         "tags": [
-          "Olve.Pipelines"
+          "Pipelines"
         ],
+        "summary": "Delete a pipeline",
+        "description": "Deletes the pipeline with its runs, versions, binding and secrets.",
         "operationId": "DeletePipeline",
         "parameters": [
           {
@@ -1000,8 +1033,9 @@
     "/api/pipelines": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Pipelines"
         ],
+        "summary": "List pipelines",
         "operationId": "ListPipelines",
         "responses": {
           "200": {
@@ -1073,8 +1107,10 @@
     "/api/pipelines/summary": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Pipelines"
         ],
+        "summary": "List pipeline cards",
+        "description": "One card per pipeline for the list page: id, name, description, repo and health.",
         "operationId": "ListPipelineSummaries",
         "responses": {
           "200": {
@@ -1146,8 +1182,10 @@
     "/api/pipelines/{pipelineId}/secrets": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Secrets"
         ],
+        "summary": "List secrets",
+        "description": "The secrets the active version (steps, failure handlers, poll triggers) or the binding uses, plus set but unused ones, each with `declaredBy` and `isSet` (null when Kubernetes can't be read). Values are never returned.",
         "operationId": "ListSecrets",
         "parameters": [
           {
@@ -1229,8 +1267,10 @@
     "/api/pipelines/{pipelineId}/secrets/{name}": {
       "put": {
         "tags": [
-          "Olve.Pipelines"
+          "Secrets"
         ],
+        "summary": "Set a secret",
+        "description": "Sets the value. Re-checks a pending version.",
         "operationId": "SetSecret",
         "parameters": [
           {
@@ -1318,8 +1358,10 @@
       },
       "delete": {
         "tags": [
-          "Olve.Pipelines"
+          "Secrets"
         ],
+        "summary": "Delete a secret",
+        "description": "Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.",
         "operationId": "DeleteSecret",
         "parameters": [
           {
@@ -1406,8 +1448,10 @@
     "/api/pipelines/{pipelineId}/secrets/copy": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Secrets"
         ],
+        "summary": "Copy secrets from another pipeline",
+        "description": "Copies values server-side from `sourcePipelineId` (`names`, default all; `targetName` renames a single one). Existing names are refused without `overwrite`. Answers the copied names. Whoever can write the target pipeline can read the copied values from its steps.",
         "operationId": "CopySecrets",
         "parameters": [
           {
@@ -1496,8 +1540,10 @@
     "/api/pipelines/{pipelineId}/config": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Config"
         ],
+        "summary": "Get the config document",
+        "description": "The YAML document as saved, and its snapshot (number, author, time, `restoredFrom`). `snapshot` gets an older one; `yaml` is empty before the first save.",
         "operationId": "GetPipelineConfig",
         "parameters": [
           {
@@ -1586,8 +1632,10 @@
       },
       "put": {
         "tags": [
-          "Olve.Pipelines"
+          "Config"
         ],
+        "summary": "Save the config document",
+        "description": "Saves `yaml` as the next snapshot. 400 with each problem when the active version rejects it. The answer has the check against the active and the pending version, and the version it activated, if any.",
         "operationId": "SetPipelineConfig",
         "parameters": [
           {
@@ -1676,8 +1724,10 @@
     "/api/pipelines/{pipelineId}/config/history": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Config"
         ],
+        "summary": "List config snapshots",
+        "description": "Newest first.",
         "operationId": "ListPipelineConfigSnapshots",
         "parameters": [
           {
@@ -1759,8 +1809,10 @@
     "/api/pipelines/{pipelineId}/config/rollback": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Config"
         ],
+        "summary": "Roll back the config",
+        "description": "Saves snapshot `snapshot`'s content again as the newest.",
         "operationId": "RollbackPipelineConfig",
         "parameters": [
           {
@@ -1849,8 +1901,10 @@
     "/api/pipelines/{pipelineId}/config/check": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Config"
         ],
+        "summary": "Check the config",
+        "description": "The current document against `version` (default: the pending version, else the active one): validity, whether it is satisfied, problems, referenced and missing secrets, changed defaults and the effective values.",
         "operationId": "CheckPipelineConfig",
         "parameters": [
           {
@@ -1941,8 +1995,10 @@
     "/api/pipelines/{pipelineId}/runs": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "List runs",
+        "description": "Runs of the pipeline, newest first, paged.",
         "operationId": "ListRuns",
         "parameters": [
           {
@@ -2045,8 +2101,10 @@
       },
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "Start a run",
+        "description": "Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).",
         "operationId": "TriggerRun",
         "parameters": [
           {
@@ -2135,8 +2193,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "Get a run",
+        "description": "Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.",
         "operationId": "GetRun",
         "parameters": [
           {
@@ -2225,8 +2285,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/cancel": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "Cancel a run",
+        "description": "Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).",
         "operationId": "CancelRun",
         "parameters": [
           {
@@ -2315,8 +2377,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/rerun": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "Rerun a run",
+        "description": "Starts a new run with the same input (`rerunOf` points back).",
         "operationId": "RerunRun",
         "parameters": [
           {
@@ -2405,8 +2469,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/continue": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "Continue a run",
+        "description": "Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.",
         "operationId": "ContinueRun",
         "parameters": [
           {
@@ -2511,8 +2577,9 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "List a step's attempts in a run",
         "operationId": "ListStepAttempts",
         "parameters": [
           {
@@ -2612,8 +2679,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Rerun a step",
+        "description": "A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.",
         "operationId": "RerunStep",
         "parameters": [
           {
@@ -2726,8 +2795,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Cancel a step",
+        "description": "Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.",
         "operationId": "CancelStep",
         "parameters": [
           {
@@ -2824,8 +2895,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "List a step's files",
+        "description": "The files an attempt stored.",
         "operationId": "ListStepFiles",
         "parameters": [
           {
@@ -2934,8 +3007,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Download a step file",
+        "description": "One stored file; a directory `dir/` downloads as `dir.tar`.",
         "operationId": "GetStepFile",
         "parameters": [
           {
@@ -3045,8 +3120,9 @@
     "/api/pipelines/{pipelineId}/runs/{number}/attempts": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Runs"
         ],
+        "summary": "List a run's attempts",
         "operationId": "ListRunAttempts",
         "parameters": [
           {
@@ -3138,8 +3214,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Get a step's output",
+        "description": "The output JSON of `attempt` (default: the latest successful attempt).",
         "operationId": "GetStepOutput",
         "parameters": [
           {
@@ -3248,8 +3326,10 @@
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Get a step's log",
+        "description": "The attempt's log; the live pod log while it runs.",
         "operationId": "GetStepLogs",
         "parameters": [
           {
@@ -3358,8 +3438,10 @@
     "/api/pipelines/{pipelineId}/health": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Pipelines"
         ],
+        "summary": "Get a pipeline's health",
+        "description": "Run-based health: the last run, running and held runs, blocked steps and the activation.",
         "operationId": "GetPipelineHealth",
         "parameters": [
           {
@@ -3438,8 +3520,9 @@
     "/api/pipelines/{pipelineId}/blocked-steps": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "List blocked steps",
         "operationId": "ListBlockedSteps",
         "parameters": [
           {
@@ -3521,8 +3604,10 @@
     "/api/pipelines/{pipelineId}/steps/{step}/block": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Block a step",
+        "description": "Runs that reach the step are held there until it is unblocked. Answers the blocked step names.",
         "operationId": "BlockStep",
         "parameters": [
           {
@@ -3612,8 +3697,10 @@
     "/api/pipelines/{pipelineId}/steps/{step}/unblock": {
       "post": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Unblock a step",
+        "description": "Held runs resume. Answers the blocked step names.",
         "operationId": "UnblockStep",
         "parameters": [
           {
@@ -3703,8 +3790,10 @@
     "/api/pipelines/{pipelineId}/steps/{step}/history": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Steps"
         ],
+        "summary": "Get a step's history",
+        "description": "The step's attempts across runs, with markers where the step's definition changed.",
         "operationId": "GetStepHistory",
         "parameters": [
           {
@@ -3806,8 +3895,10 @@
     "/api/pipelines/{pipelineId}/versions": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Versions"
         ],
+        "summary": "List versions",
+        "description": "Every version (commit, step and model versions) and the current activation.",
         "operationId": "ListPipelineVersions",
         "parameters": [
           {
@@ -3886,8 +3977,10 @@
     "/api/pipelines/{pipelineId}/versions/{number}": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Versions"
         ],
+        "summary": "Get a version",
+        "description": "One version, including its canonical manifest.",
         "operationId": "GetPipelineVersion",
         "parameters": [
           {
@@ -3976,8 +4069,10 @@
     "/api/pipelines/{pipelineId}/versions/{number}/effective": {
       "get": {
         "tags": [
-          "Olve.Pipelines"
+          "Versions"
         ],
+        "summary": "Get a version's effective pipeline",
+        "description": "The version with each `select` resolved by a config snapshot: the steps a run of it would have.",
         "operationId": "GetEffectivePipeline",
         "parameters": [
           {
@@ -6274,7 +6369,37 @@
   },
   "tags": [
     {
-      "name": "Olve.Pipelines"
+      "name": "Instance"
+    },
+    {
+      "name": "Attempts"
+    },
+    {
+      "name": "Versions"
+    },
+    {
+      "name": "Bindings"
+    },
+    {
+      "name": "Triggers"
+    },
+    {
+      "name": "Events"
+    },
+    {
+      "name": "Steps"
+    },
+    {
+      "name": "Pipelines"
+    },
+    {
+      "name": "Secrets"
+    },
+    {
+      "name": "Config"
+    },
+    {
+      "name": "Runs"
     }
   ]
 }

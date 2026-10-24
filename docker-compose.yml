@@ -1,6 +1,6 @@
 # Throwaway local Olve.Pipelines v2 instance, built entirely from this checkout (e.g. for agent evals).
-# NOT a deployment shape — helm/ is the source of truth for that. See README "Running locally with
-# Docker Compose".
+# NOT a deployment shape — helm/ is the source of truth for that. See docs/setup/self-hosting.md, "A local
+# instance with Docker Compose".
 #
 #   docker compose up -d --build     # dashboard/API http://localhost:5080, Dex http://localhost:5556/dex
 #   docker compose down -v           # stop and wipe all state

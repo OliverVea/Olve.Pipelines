@@ -17,6 +17,7 @@ export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilde
      */
     get stream(): StreamRequestBuilder;
     /**
+     * The attempt's log; the live pod log while it runs.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -27,11 +28,15 @@ export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilde
      */
      get(requestConfiguration?: RequestConfiguration<LogsRequestBuilderGetQueryParameters> | undefined) : Promise<string | undefined>;
     /**
+     * The attempt's log; the live pod log while it runs.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<LogsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The attempt's log; the live pod log while it runs.
+ */
 export interface LogsRequestBuilderGetQueryParameters {
     attempt?: number;
 }

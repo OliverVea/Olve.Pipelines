@@ -47,6 +47,9 @@ public static class PipelineVersionEndpoints
                     versions.ListByPipeline(pipelineId).Select(PipelineVersionSummary.From).ToArray()))
             .WithApiResultMapping<PipelineVersionsResponse>()
             .WithName("ListPipelineVersions")
+            .WithTags("Versions")
+            .WithSummary("List versions")
+            .WithDescription("Every version (commit, step and model versions) and the current activation.")
             .RequireRead();
 
         // The version including its canonical manifest (JSON text, as described by the build Job).
@@ -56,6 +59,9 @@ public static class PipelineVersionEndpoints
                     : new NotFoundProblem("Version {0} of pipeline '{1}' not found.", number, pipelineId))
             .WithApiResultMapping<PipelineVersion>()
             .WithName("GetPipelineVersion")
+            .WithTags("Versions")
+            .WithSummary("Get a version")
+            .WithDescription("One version, including its canonical manifest.")
             .RequireRead();
 
         // The version with its selects resolved by the current config: what new runs execute.
@@ -77,6 +83,9 @@ public static class PipelineVersionEndpoints
             })
             .WithApiResultMapping<EffectivePipelineResponse>()
             .WithName("GetEffectivePipeline")
+            .WithTags("Versions")
+            .WithSummary("Get a version's effective pipeline")
+            .WithDescription("The version with each `select` resolved by a config snapshot: the steps a run of it would have.")
             .RequireRead();
 
         // Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b). Refused (409, with
@@ -90,6 +99,9 @@ public static class PipelineVersionEndpoints
                 return gate.Switch(version, request.CancelRunning, await secretNames.ListSetAsync(pipelineId, ct));
             })
             .WithApiResultMapping<PipelineActivation>()
-            .WithName("SwitchPipelineVersion");
+            .WithName("SwitchPipelineVersion")
+            .WithTags("Versions")
+            .WithSummary("Switch the active version")
+            .WithDescription("New runs start on `version`. `cancelRunning` cancels the other versions' runs and drains first. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version.");
     }
 }

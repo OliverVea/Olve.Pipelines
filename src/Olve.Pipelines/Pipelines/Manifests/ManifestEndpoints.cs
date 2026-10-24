@@ -36,7 +36,10 @@ public static class ManifestEndpoints
             })
             .Accepts<System.Text.Json.JsonElement>("application/json")
             .Produces<ManifestValidationResponse>()
-            .WithName("ValidateManifest");
+            .WithName("ValidateManifest")
+            .WithTags("Versions")
+            .WithSummary("Validate a manifest")
+            .WithDescription("Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `valid`, `manifestHash`, `errors` and `warnings`.");
     }
 
     public static ManifestValidationResponse Validate(ReadOnlyMemory<byte> utf8)

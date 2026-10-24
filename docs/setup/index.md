@@ -60,11 +60,16 @@ continuing, blocking a step, switching versions, setting secret values — go th
    document and its snapshots, pending versions, `pl config`.
 6. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
-7. **[Deploying to Docker Compose](compose-deploy.md)** — the compose deployer, `deployTarget()`
+7. **[The `pl` CLI](cli.md)** — installing `pl`, profiles, every command.
+8. **[API Reference](api-reference.md)** — every endpoint and schema, generated from the OpenAPI
+   document; auth, errors and live events.
+9. **[Running an Instance](self-hosting.md)** — server configuration, logging, a local instance
+   with Docker Compose.
+10. **[Deploying to Docker Compose](compose-deploy.md)** — the compose deployer, `deployTarget()`
    and `steps.composeDeploy`.
-8. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
+11. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
    the pipeline or its target (`pl step block`), and let them resume.
-9. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
+12. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
 **Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics to pages.
 

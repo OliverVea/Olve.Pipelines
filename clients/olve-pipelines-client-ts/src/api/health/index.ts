@@ -9,11 +9,13 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface HealthRequestBuilder extends BaseRequestBuilder<HealthRequestBuilder> {
     /**
+     * `status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * `status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

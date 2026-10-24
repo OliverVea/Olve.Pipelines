@@ -19,6 +19,7 @@ export interface VersionsRequestBuilder extends BaseRequestBuilder<VersionsReque
      */
      byNumber(number: number) : WithNumberItemRequestBuilder;
     /**
+     * Every version (commit, step and model versions) and the current activation.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineVersionsResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -29,6 +30,7 @@ export interface VersionsRequestBuilder extends BaseRequestBuilder<VersionsReque
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineVersionsResponse | undefined>;
     /**
+     * Every version (commit, step and model versions) and the current activation.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

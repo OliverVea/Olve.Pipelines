@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface HealthRequestBuilder extends BaseRequestBuilder<HealthRequestBuilder> {
     /**
+     * Run-based health: the last run, running and held runs, blocked steps and the activation.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineHealth>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface HealthRequestBuilder extends BaseRequestBuilder<HealthRequestBu
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineHealth | undefined>;
     /**
+     * Run-based health: the last run, running and held runs, blocked steps and the activation.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

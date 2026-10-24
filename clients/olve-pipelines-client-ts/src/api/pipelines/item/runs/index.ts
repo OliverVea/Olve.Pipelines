@@ -19,6 +19,7 @@ export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilde
      */
      byNumber(number: number) : WithNumberItemRequestBuilder;
     /**
+     * Runs of the pipeline, newest first, paged.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PageOfRunSummary>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -29,6 +30,7 @@ export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilde
      */
      get(requestConfiguration?: RequestConfiguration<RunsRequestBuilderGetQueryParameters> | undefined) : Promise<PageOfRunSummary | undefined>;
     /**
+     * Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<TriggerRunResponse>}
@@ -40,17 +42,22 @@ export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilde
      */
      post(body: TriggerRunRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<TriggerRunResponse | undefined>;
     /**
+     * Runs of the pipeline, newest first, paged.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<RunsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
     /**
+     * Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toPostRequestInformation(body: TriggerRunRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+/**
+ * Runs of the pipeline, newest first, paged.
+ */
 export interface RunsRequestBuilderGetQueryParameters {
     page?: number;
     pageSize?: number;

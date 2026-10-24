@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface WithRepoRequestBuilder extends BaseRequestBuilder<WithRepoRequestBuilder> {
     /**
+     * The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineConfigBinding>}
@@ -22,6 +23,7 @@ export interface WithRepoRequestBuilder extends BaseRequestBuilder<WithRepoReque
      */
      post(body: CreatePipelineWithRepoRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineConfigBinding | undefined>;
     /**
+     * The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

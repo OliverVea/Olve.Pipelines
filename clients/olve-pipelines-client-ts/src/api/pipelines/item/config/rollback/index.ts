@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface RollbackRequestBuilder extends BaseRequestBuilder<RollbackRequestBuilder> {
     /**
+     * Saves snapshot `snapshot`'s content again as the newest.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ConfigSaveResponse>}
@@ -22,6 +23,7 @@ export interface RollbackRequestBuilder extends BaseRequestBuilder<RollbackReque
      */
      post(body: RollbackConfigRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ConfigSaveResponse | undefined>;
     /**
+     * Saves snapshot `snapshot`'s content again as the newest.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

@@ -138,5 +138,5 @@ Set the token with `printf '%s' "$TOKEN" | pl secret set <pipeline> DEPLOYER_TOK
 ## A full example
 
 Olve.Pipelines deploys itself this way in its local compose stack: `compose/selfdeploy.config.yaml`
-(no beta, prod `kind: compose`) with the `deployer` service in `docker-compose.yml`. See the repo
-README, "Watch it deploy itself".
+(no beta, prod `kind: compose`) with the `deployer` service in `docker-compose.yml`. See [Running an
+Instance, "Watch it deploy itself"](self-hosting.md#watch-it-deploy-itself).

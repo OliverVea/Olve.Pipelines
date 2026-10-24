@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequestBuilder> {
     /**
+     * The step's attempts across runs, with markers where the step's definition changed.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<StepHistoryItem[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequest
      */
      get(requestConfiguration?: RequestConfiguration<HistoryRequestBuilderGetQueryParameters> | undefined) : Promise<StepHistoryItem[] | undefined>;
     /**
+     * The step's attempts across runs, with markers where the step's definition changed.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<HistoryRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The step's attempts across runs, with markers where the step's definition changed.
+ */
 export interface HistoryRequestBuilderGetQueryParameters {
     limit?: number;
 }

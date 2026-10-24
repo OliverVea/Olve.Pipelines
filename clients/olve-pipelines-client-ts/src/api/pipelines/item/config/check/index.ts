@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CheckRequestBuilder extends BaseRequestBuilder<CheckRequestBuilder> {
     /**
+     * The current document against `version` (default: the pending version, else the active one): validity, whether it is satisfied, problems, referenced and missing secrets, changed defaults and the effective values.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ConfigCheckResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface CheckRequestBuilder extends BaseRequestBuilder<CheckRequestBuil
      */
      get(requestConfiguration?: RequestConfiguration<CheckRequestBuilderGetQueryParameters> | undefined) : Promise<ConfigCheckResponse | undefined>;
     /**
+     * The current document against `version` (default: the pending version, else the active one): validity, whether it is satisfied, problems, referenced and missing secrets, changed defaults and the effective values.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<CheckRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The current document against `version` (default: the pending version, else the active one): validity, whether it is satisfied, problems, referenced and missing secrets, changed defaults and the effective values.
+ */
 export interface CheckRequestBuilderGetQueryParameters {
     version?: number;
 }

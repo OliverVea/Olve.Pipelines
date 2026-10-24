@@ -17,6 +17,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
      */
     get effective(): EffectiveRequestBuilder;
     /**
+     * One version, including its canonical manifest.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineVersion>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -27,6 +28,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineVersion | undefined>;
     /**
+     * One version, including its canonical manifest.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

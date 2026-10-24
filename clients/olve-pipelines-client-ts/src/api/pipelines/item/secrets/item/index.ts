@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameItemRequestBuilder> {
     /**
+     * Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameI
      */
      delete(requestConfiguration?: RequestConfiguration<WithNameItemRequestBuilderDeleteQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Sets the value. Re-checks a pending version.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
@@ -32,17 +34,22 @@ export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameI
      */
      put(body: SetSecretRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<WithNameItemRequestBuilderDeleteQueryParameters> | undefined) : RequestInformation;
     /**
+     * Sets the value. Re-checks a pending version.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toPutRequestInformation(body: SetSecretRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+/**
+ * Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.
+ */
 export interface WithNameItemRequestBuilderDeleteQueryParameters {
     force?: boolean;
 }

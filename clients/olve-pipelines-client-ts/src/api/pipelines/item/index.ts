@@ -65,6 +65,7 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
     get versions(): VersionsRequestBuilder;
     /**
+     * Deletes the pipeline with its runs, versions, binding and secrets.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -75,6 +76,7 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
      delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Get a pipeline
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Pipeline>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -85,11 +87,13 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Pipeline | undefined>;
     /**
+     * Deletes the pipeline with its runs, versions, binding and secrets.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toDeleteRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
+     * Get a pipeline
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

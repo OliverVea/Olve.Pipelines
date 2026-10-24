@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface UnblockRequestBuilder extends BaseRequestBuilder<UnblockRequestBuilder> {
     /**
+     * Held runs resume. Answers the blocked step names.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface UnblockRequestBuilder extends BaseRequestBuilder<UnblockRequest
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<string[] | undefined>;
     /**
+     * Held runs resume. Answers the blocked step names.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

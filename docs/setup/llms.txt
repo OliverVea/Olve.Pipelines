@@ -19,6 +19,9 @@ directly (no auth, no repo clone needed) and parse the raw text.
 - [Pipeline Config](/docs/configuration.md): Typed per-instance config (`config(…)`, `secretRef`, `ctx.config`), the YAML document and its snapshots, pending versions until config is satisfied, runs pinning config, defaults, `pl config get|set|history|rollback|check`.
 - [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, how changes are noticed (poll + webhook), how a commit becomes a version, switch and rollback, reading the status.
 - [Runs & Operations](/docs/runs-and-operations.md): Runs, attempts, supersede, de-duplication, rerun/continue/cancel, outputs and files, how a step runs, storage, retention.
+- [The pl CLI](/docs/cli.md): Installing `pl`, profiles and login, every command.
+- [API Reference](/docs/api-reference.md): Every HTTP endpoint and schema (generated from the OpenAPI document), auth, the error model, the live event stream.
+- [Running an Instance](/docs/self-hosting.md): Server configuration keys, logging, a throwaway local instance with Docker Compose, letting it deploy itself.
 - [Deploying to Docker Compose](/docs/compose-deploy.md): The compose deployer (pull, recreate, health, rollback; its env and API), `deployTarget()` with `kind: compose | none`, `steps.composeDeploy`.
 - [Blocking Steps](/docs/blocking-steps.md): Holding a pipeline's runs at a step while working on the pipeline or its target, and resuming them.
 - [Troubleshooting](/docs/troubleshooting.md): Symptoms → causes → fixes.

@@ -31,6 +31,7 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      */
      byId(id: string) : ItemRequestBuilder;
     /**
+     * List pipelines
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Pipeline[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -41,6 +42,7 @@ export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesReq
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Pipeline[] | undefined>;
     /**
+     * List pipelines
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

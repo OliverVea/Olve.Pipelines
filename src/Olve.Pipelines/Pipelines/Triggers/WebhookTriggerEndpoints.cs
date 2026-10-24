@@ -24,6 +24,9 @@ public static class WebhookTriggerEndpoints
                 };
             })
             .WithName("ReceiveWebhookTrigger")
+            .WithTags("Triggers")
+            .WithSummary("Deliver a webhook trigger")
+            .WithDescription("A delivery for the pipeline's `onWebhook` trigger `trigger`. Anonymous, verified with the trigger's secret. Answers 202; the delivery is mapped to a run input in the background.")
             .AllowAnonymous();
     }
 }

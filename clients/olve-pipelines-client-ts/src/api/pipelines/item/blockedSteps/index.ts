@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface BlockedStepsRequestBuilder extends BaseRequestBuilder<BlockedStepsRequestBuilder> {
     /**
+     * List blocked steps
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface BlockedStepsRequestBuilder extends BaseRequestBuilder<BlockedSt
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<string[] | undefined>;
     /**
+     * List blocked steps
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

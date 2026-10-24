@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface AttemptsRequestBuilder extends BaseRequestBuilder<AttemptsRequestBuilder> {
     /**
+     * List a run's attempts
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Attempt[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface AttemptsRequestBuilder extends BaseRequestBuilder<AttemptsReque
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Attempt[] | undefined>;
     /**
+     * List a run's attempts
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

@@ -9,16 +9,21 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface EventsRequestBuilder extends BaseRequestBuilder<EventsRequestBuilder> {
     /**
+     * Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      get(requestConfiguration?: RequestConfiguration<EventsRequestBuilderGetQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<EventsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.
+ */
 export interface EventsRequestBuilderGetQueryParameters {
     pipeline?: string;
 }

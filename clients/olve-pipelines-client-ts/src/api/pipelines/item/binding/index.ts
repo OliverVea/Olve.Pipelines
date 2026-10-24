@@ -23,6 +23,7 @@ export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequest
      */
     get status(): StatusRequestBuilder;
     /**
+     * Get the binding
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineConfigBinding>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -33,6 +34,7 @@ export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequest
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineConfigBinding | undefined>;
     /**
+     * Sets or clears the credentials secret key.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineConfigBinding>}
@@ -44,11 +46,13 @@ export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequest
      */
      patch(body: UpdateBindingRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineConfigBinding | undefined>;
     /**
+     * Get the binding
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
     /**
+     * Sets or clears the credentials secret key.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

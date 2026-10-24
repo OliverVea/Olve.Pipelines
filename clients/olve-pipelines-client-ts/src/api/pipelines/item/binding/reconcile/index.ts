@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileRequestBuilder> {
     /**
+     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileReq
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

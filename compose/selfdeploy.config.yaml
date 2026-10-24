@@ -1,4 +1,4 @@
-# Config document for Olve.Pipelines deploying itself into the local compose stack (README, "Watch it
+# Config document for Olve.Pipelines deploying itself into the local compose stack (docs/setup/self-hosting.md, "Watch it
 # deploy itself"): one instance, no beta. deploy-prod asks the compose deployer (compose/deployer) to
 # recreate the `pipelines` service, the instance running the pipeline, with the image the run built.
 # Images go to the compose registry; nothing is published to npm or ghcr.

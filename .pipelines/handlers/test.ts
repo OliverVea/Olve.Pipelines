@@ -24,5 +24,9 @@ export default implement(test, async ({ source }, ctx) => {
     throw new Error(`${CLIENT} is out of date with api.json: regenerate it (see CLAUDE.md) and commit`);
   });
 
-  ctx.log("tests passed; api.json and the TS client match the API");
+  await ctx.exec(["dotnet", "run", "tools/api-reference.cs", "--", "--check"], { cwd: tree, env }).catch(() => {
+    throw new Error("docs/setup/api-reference.md is out of date with api.json: run `dotnet run tools/api-reference.cs` and commit");
+  });
+
+  ctx.log("tests passed; api.json, the TS client and the API reference match the API");
 });

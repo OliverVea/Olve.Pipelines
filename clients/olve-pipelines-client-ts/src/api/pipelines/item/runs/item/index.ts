@@ -41,6 +41,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
      */
     get steps(): StepsRequestBuilder;
     /**
+     * Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<RunDetail>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -51,6 +52,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<RunDetail | undefined>;
     /**
+     * Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

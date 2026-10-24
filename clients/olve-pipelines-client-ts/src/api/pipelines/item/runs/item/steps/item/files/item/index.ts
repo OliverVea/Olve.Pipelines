@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface WithPathItemRequestBuilder extends BaseRequestBuilder<WithPathItemRequestBuilder> {
     /**
+     * One stored file; a directory `dir/` downloads as `dir.tar`.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface WithPathItemRequestBuilder extends BaseRequestBuilder<WithPathI
      */
      get(requestConfiguration?: RequestConfiguration<WithPathItemRequestBuilderGetQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * One stored file; a directory `dir/` downloads as `dir.tar`.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<WithPathItemRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * One stored file; a directory `dir/` downloads as `dir.tar`.
+ */
 export interface WithPathItemRequestBuilderGetQueryParameters {
     attempt?: number;
 }

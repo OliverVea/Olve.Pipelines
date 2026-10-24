@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBuilder> {
     /**
+     * Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Attempt>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBu
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Attempt | undefined>;
     /**
+     * Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

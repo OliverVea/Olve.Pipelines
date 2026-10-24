@@ -21,29 +21,43 @@ public static class PipelineStepEndpoints
                     : new NotFoundProblem("Pipeline '{0}' not found.", pipelineId))
             .WithApiResultMapping<PipelineHealth>()
             .WithName("GetPipelineHealth")
+            .WithTags("Pipelines")
+            .WithSummary("Get a pipeline's health")
+            .WithDescription("Run-based health: the last run, running and held runs, blocked steps and the activation.")
             .RequireRead();
 
         group.MapGet("/blocked-steps", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId)
                 => blocks.ListBlocked(pipelineId).ToArray())
             .WithApiResultMapping<string[]>()
             .WithName("ListBlockedSteps")
+            .WithTags("Steps")
+            .WithSummary("List blocked steps")
             .RequireRead();
 
         // Blocking holds runs at the step (no attempt is created); unblocking resumes held runs.
         group.MapPost("/steps/{step}/block", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId, string step)
                 => ChangeBlock(blocks, pipelineId, step, block: true))
             .WithApiResultMapping<string[]>()
-            .WithName("BlockStep");
+            .WithName("BlockStep")
+            .WithTags("Steps")
+            .WithSummary("Block a step")
+            .WithDescription("Runs that reach the step are held there until it is unblocked. Answers the blocked step names.");
 
         group.MapPost("/steps/{step}/unblock", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId, string step)
                 => ChangeBlock(blocks, pipelineId, step, block: false))
             .WithApiResultMapping<string[]>()
-            .WithName("UnblockStep");
+            .WithName("UnblockStep")
+            .WithTags("Steps")
+            .WithSummary("Unblock a step")
+            .WithDescription("Held runs resume. Answers the blocked step names.");
 
         group.MapGet("/steps/{step}/history", Result<StepHistoryItem[]> (RunViewService views, Id<Pipeline> pipelineId, string step, int? limit)
                 => views.History(pipelineId, step, Math.Clamp(limit ?? 50, 1, 500)).ToArray())
             .WithApiResultMapping<StepHistoryItem[]>()
             .WithName("GetStepHistory")
+            .WithTags("Steps")
+            .WithSummary("Get a step's history")
+            .WithDescription("The step's attempts across runs, with markers where the step's definition changed.")
             .RequireRead();
     }
 

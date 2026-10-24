@@ -2,7 +2,7 @@
 
 Agent-facing context for **building, structuring, deploying, and cold-boot-installing**
 Olve.Pipelines. For design patterns and conventions see [CLAUDE.md](CLAUDE.md); for the
-product/usage reference see [README.md](README.md) and the running instance's `/docs` (source
+codebase see [CONTRIBUTING.md](CONTRIBUTING.md); for the product/usage reference the running instance's `/docs` (source
 under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](docs/operations).
 
 ## How it's built

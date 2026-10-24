@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface SwitchRequestBuilder extends BaseRequestBuilder<SwitchRequestBuilder> {
     /**
+     * New runs start on `version`. `cancelRunning` cancels the other versions' runs and drains first. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineActivation>}
@@ -22,6 +23,7 @@ export interface SwitchRequestBuilder extends BaseRequestBuilder<SwitchRequestBu
      */
      post(body: SwitchVersionRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineActivation | undefined>;
     /**
+     * New runs start on `version`. `cancelRunning` cancels the other versions' runs and drains first. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}

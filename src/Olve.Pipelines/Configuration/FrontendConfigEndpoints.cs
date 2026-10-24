@@ -13,6 +13,9 @@ public static class FrontendConfigEndpoints
             return Microsoft.AspNetCore.Http.Results.Ok(new FrontendConfig(authority, clientId));
         })
         .WithName("GetFrontendConfig")
+        .WithTags("Instance")
+        .WithSummary("Get the login settings")
+        .WithDescription("The OIDC authority and client id the web UI and `pl login` use.")
         .AllowAnonymous();
     }
 }

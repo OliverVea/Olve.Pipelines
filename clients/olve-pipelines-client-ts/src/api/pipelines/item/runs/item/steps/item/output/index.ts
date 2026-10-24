@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface OutputRequestBuilder extends BaseRequestBuilder<OutputRequestBuilder> {
     /**
+     * The output JSON of `attempt` (default: the latest successful attempt).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<AttemptOutputResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface OutputRequestBuilder extends BaseRequestBuilder<OutputRequestBu
      */
      get(requestConfiguration?: RequestConfiguration<OutputRequestBuilderGetQueryParameters> | undefined) : Promise<AttemptOutputResponse | undefined>;
     /**
+     * The output JSON of `attempt` (default: the latest successful attempt).
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<OutputRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The output JSON of `attempt` (default: the latest successful attempt).
+ */
 export interface OutputRequestBuilderGetQueryParameters {
     attempt?: number;
 }

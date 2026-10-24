@@ -29,6 +29,7 @@ export interface ConfigRequestBuilder extends BaseRequestBuilder<ConfigRequestBu
      */
     get rollback(): RollbackRequestBuilder;
     /**
+     * The YAML document as saved, and its snapshot (number, author, time, `restoredFrom`). `snapshot` gets an older one; `yaml` is empty before the first save.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ConfigDocument>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -39,6 +40,7 @@ export interface ConfigRequestBuilder extends BaseRequestBuilder<ConfigRequestBu
      */
      get(requestConfiguration?: RequestConfiguration<ConfigRequestBuilderGetQueryParameters> | undefined) : Promise<ConfigDocument | undefined>;
     /**
+     * Saves `yaml` as the next snapshot. 400 with each problem when the active version rejects it. The answer has the check against the active and the pending version, and the version it activated, if any.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ConfigSaveResponse>}
@@ -50,17 +52,22 @@ export interface ConfigRequestBuilder extends BaseRequestBuilder<ConfigRequestBu
      */
      put(body: SetConfigRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ConfigSaveResponse | undefined>;
     /**
+     * The YAML document as saved, and its snapshot (number, author, time, `restoredFrom`). `snapshot` gets an older one; `yaml` is empty before the first save.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<ConfigRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
     /**
+     * Saves `yaml` as the next snapshot. 400 with each problem when the active version rejects it. The answer has the check against the active and the pending version, and the version it activated, if any.
      * @param body The request body
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toPutRequestInformation(body: SetConfigRequest, requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
 }
+/**
+ * The YAML document as saved, and its snapshot (number, author, time, `restoredFrom`). `snapshot` gets an older one; `yaml` is empty before the first save.
+ */
 export interface ConfigRequestBuilderGetQueryParameters {
     snapshot?: number;
 }

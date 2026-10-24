@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface SummaryRequestBuilder extends BaseRequestBuilder<SummaryRequestBuilder> {
     /**
+     * One card per pipeline for the list page: id, name, description, repo and health.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineSummary[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,6 +22,7 @@ export interface SummaryRequestBuilder extends BaseRequestBuilder<SummaryRequest
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineSummary[] | undefined>;
     /**
+     * One card per pipeline for the list page: id, name, description, repo and health.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

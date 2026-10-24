@@ -21,6 +21,9 @@ public static class EventStreamEndpoints
             })
             .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
             .WithName("StreamEvents")
+            .WithTags("Events")
+            .WithSummary("Stream change events")
+            .WithDescription("Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.")
             .RequireRead();
 
         // Without ?attempt= the latest attempt. Ends with `end` once the attempt is terminal.
@@ -42,6 +45,9 @@ public static class EventStreamEndpoints
             .Produces<string>(StatusCodes.Status200OK, "text/event-stream")
             .WithApiProblems()
             .WithName("StreamStepLogs")
+            .WithTags("Steps")
+            .WithSummary("Stream a step's log")
+            .WithDescription("The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.")
             .RequireRead();
     }
 

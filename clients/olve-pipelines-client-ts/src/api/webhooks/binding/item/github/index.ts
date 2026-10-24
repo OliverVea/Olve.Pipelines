@@ -9,11 +9,13 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface GithubRequestBuilder extends BaseRequestBuilder<GithubRequestBuilder> {
     /**
+     * Receives the binding's GitHub push webhook. Anonymous, verified with the webhook's HMAC signature.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
+     * Receives the binding's GitHub push webhook. Anonymous, verified with the webhook's HMAC signature.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

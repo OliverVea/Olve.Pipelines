@@ -11,6 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface EffectiveRequestBuilder extends BaseRequestBuilder<EffectiveRequestBuilder> {
     /**
+     * The version with each `select` resolved by a config snapshot: the steps a run of it would have.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<EffectivePipelineResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -21,11 +22,15 @@ export interface EffectiveRequestBuilder extends BaseRequestBuilder<EffectiveReq
      */
      get(requestConfiguration?: RequestConfiguration<EffectiveRequestBuilderGetQueryParameters> | undefined) : Promise<EffectivePipelineResponse | undefined>;
     /**
+     * The version with each `select` resolved by a config snapshot: the steps a run of it would have.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<EffectiveRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The version with each `select` resolved by a config snapshot: the steps a run of it would have.
+ */
 export interface EffectiveRequestBuilderGetQueryParameters {
     snapshot?: number;
 }

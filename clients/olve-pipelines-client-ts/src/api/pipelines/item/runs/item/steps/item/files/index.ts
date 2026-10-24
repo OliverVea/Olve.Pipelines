@@ -19,6 +19,7 @@ export interface FilesRequestBuilder extends BaseRequestBuilder<FilesRequestBuil
      */
      byPath(path: string) : WithPathItemRequestBuilder;
     /**
+     * The files an attempt stored.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<AttemptFilesResponse>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -29,11 +30,15 @@ export interface FilesRequestBuilder extends BaseRequestBuilder<FilesRequestBuil
      */
      get(requestConfiguration?: RequestConfiguration<FilesRequestBuilderGetQueryParameters> | undefined) : Promise<AttemptFilesResponse | undefined>;
     /**
+     * The files an attempt stored.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<FilesRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
+/**
+ * The files an attempt stored.
+ */
 export interface FilesRequestBuilderGetQueryParameters {
     attempt?: number;
 }

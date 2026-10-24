@@ -235,7 +235,7 @@ public sealed class DevSession(
     }
 
     /// <summary>
-    /// The bundled glibc loader + libs, extracted once from the harness-base image (<c>/olve/lib</c>)
+    /// The bundled glibc loader + libs, extracted once from the harness-base image (<c>/opt/olve/lib</c>)
     /// and cached in <c>.olve/lib/&lt;tag&gt;/</c>.
     /// </summary>
     private async Task<Result<string>> EnsureLoaderLibsAsync(CancellationToken ct)
@@ -260,11 +260,11 @@ public sealed class DevSession(
             if (Directory.Exists(partial))
                 Directory.Delete(partial, recursive: true);
             Directory.CreateDirectory(Path.GetDirectoryName(partial)!);
-            var copied = await runner.RunAsync(new ProcessSpec("docker", ["cp", $"{container}:/olve/lib", partial]), ct);
+            var copied = await runner.RunAsync(new ProcessSpec("docker", ["cp", $"{container}:/opt/olve/lib", partial]), ct);
             if (copied.TryPickProblems(out var cpProblems, out var cp))
                 return cpProblems;
             if (!cp.Succeeded)
-                return new ResultProblem("Could not copy /olve/lib out of {0}: {1}", image, cp.Diagnostic);
+                return new ResultProblem("Could not copy /opt/olve/lib out of {0}: {1}", image, cp.Diagnostic);
 
             if (Directory.Exists(libDir))
                 Directory.Delete(libDir, recursive: true);

@@ -7,7 +7,7 @@ musl, with or without a shell. It runs the binary through the bundled glibc load
 
 ```
 harness/
-  base/Dockerfile     harness-base image (static busybox + /olve/lib + olve-init)
+  base/Dockerfile     harness-base image (static busybox + /opt/olve/lib + olve-init)
   base/olve-init      init container entrypoint (POSIX sh)
   base/build.sh       build + push, content-derived tag
   validate/           end-to-end check on the beta cluster (validate.sh, job.yaml, step.ts, s3.ts)
@@ -27,8 +27,8 @@ The image is 2.4 MB compressed and contains:
 | path | what |
 |---|---|
 | `/bin/*` | `busybox:1.37-musl` (static): `sh`, `wget` (plain HTTP is fine), `tar`/`gzip`, `cp` |
-| `/olve/lib/` | `ld-linux-x86-64.so.2`, `libc.so.6`, `libpthread.so.0`, `libdl.so.2`, `libm.so.6`, copied with `cp -L` from `debian:bookworm-slim` |
-| `/olve/bin/olve-init` | entrypoint |
+| `/opt/olve/lib/` | `ld-linux-x86-64.so.2`, `libc.so.6`, `libpthread.so.0`, `libdl.so.2`, `libm.so.6`, copied with `cp -L` from `debian:bookworm-slim` |
+| `/opt/olve/bin/olve-init` | entrypoint |
 
 Both base images are pinned by digest in the Dockerfile, so the build needs no local files and is
 reproducible. The tag is `src-` plus the first 12 hex characters of the sha256 of the directory's
@@ -43,8 +43,11 @@ processes see the image's own libc.
 
 ## olve-init contract
 
-The init container mounts the emptyDir at **`/shared`**, not `/olve`, because that would hide the
-image's own `/olve/lib`.
+The init container mounts the emptyDir at **`/shared`**; the step container mounts it at `/olve`.
+The image keeps its own files under `/opt/olve`, outside `/olve`: a step that builds this image
+(kaniko in `build-harness`) runs with the emptyDir at `/olve` and its own loader in `/olve/lib`, so
+an image writing there would collide with it ("text file busy"), and kaniko leaves mount points out
+of its snapshots.
 
 | env | required | meaning |
 |---|---|---|
@@ -109,7 +112,7 @@ spec:                                     # runner NetworkPolicy selects (egress
           emptyDir: { sizeLimit: 1Gi }
       initContainers:
         - name: olve-init
-          image: ghcr.io/olivervea/olve-pipelines-harness-base:src-8c3fb106f91e   # pin; never :latest
+          image: ghcr.io/olivervea/olve-pipelines-harness-base:src-8d80fb6d74fc   # pin; never :latest
           imagePullPolicy: IfNotPresent
           env:
             - { name: OLVE_STEP_URL,  value: "<pre-signed GET versions/<p>/<version>/step.tar.gz>" }

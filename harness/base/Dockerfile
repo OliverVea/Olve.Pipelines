@@ -1,8 +1,8 @@
 # harness-base: the single init container of every v2 step pod ("design B").
 #
 #   /bin/busybox, /bin/sh ...   static busybox (musl build): sh, wget, tar, gzip, cp
-#   /olve/lib/                  glibc loader + libs the bun --compile (bun-linux-x64) binary needs
-#   /olve/bin/olve-init         entrypoint: fetch step.tar.gz + input.json into the shared emptyDir
+#   /opt/olve/lib/              glibc loader + libs the bun --compile (bun-linux-x64) binary needs
+#   /opt/olve/bin/olve-init     entrypoint: fetch step.tar.gz + input.json into the shared emptyDir
 #
 # Stable across commits: the per-commit step binary is NOT in this image; olve-init downloads it
 # from Garage via a pre-signed GET. Both bases are pinned by digest so the build is reproducible.
@@ -20,6 +20,6 @@ RUN mkdir -p /out/lib \
 
 FROM busybox:1.37-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092
 LABEL org.opencontainers.image.source="https://github.com/OliverVea/Olve.Pipelines"
-COPY --from=glibc /out/lib/ /olve/lib/
-COPY --chmod=0755 olve-init /olve/bin/olve-init
-ENTRYPOINT ["/olve/bin/olve-init"]
+COPY --from=glibc /out/lib/ /opt/olve/lib/
+COPY --chmod=0755 olve-init /opt/olve/bin/olve-init
+ENTRYPOINT ["/opt/olve/bin/olve-init"]

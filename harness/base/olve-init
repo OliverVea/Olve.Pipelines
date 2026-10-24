@@ -21,7 +21,7 @@ set -eu
 SHARED=${OLVE_SHARED:-/shared}
 RETRIES=${OLVE_FETCH_RETRIES:-5}
 TIMEOUT=${OLVE_FETCH_TIMEOUT:-60}
-LIB_SRC=/olve/lib
+LIB_SRC=/opt/olve/lib
 
 log() { echo "olve-init: $*"; }
 die() { code=$1; shift; echo "olve-init: ERROR: $*" >&2; exit "$code"; }

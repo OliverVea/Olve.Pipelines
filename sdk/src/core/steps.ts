@@ -2,6 +2,7 @@ import type { z } from "zod";
 import { STEP, type StepBrand } from "./brands.ts";
 import type { AnyModel, Infer, Optional } from "./models.ts";
 import type { AnyConfigEntry } from "./config.ts";
+import { configRefsIn } from "./config-refs.ts";
 import type { Secret } from "./secrets.ts";
 import type { Simplify } from "./types.ts";
 
@@ -18,7 +19,7 @@ export type InferEntry<E> =
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
 /** `custom` steps have a handler file; the others are library steps implemented by the SDK. */
-export type StepKind = "custom" | "script" | "gitHubSource" | "imageBuild" | "helmDeployOverSsh";
+export type StepKind = "custom" | "script" | "gitHubSource" | "imageBuild" | "helmDeployOverSsh" | "helmDeploy";
 
 export interface Step<
   N extends string = string,
@@ -39,6 +40,8 @@ export interface Step<
   readonly config: readonly Cfg[];
   readonly timeoutSeconds?: number;
   readonly retries?: number;
+  /** The step pod gets the instance's step ServiceAccount token (`Kubernetes:StepServiceAccount`). */
+  readonly clusterAccess?: boolean;
   /** Library steps carry their own implementation and config. */
   readonly builtin?: LibraryImplementation;
 }
@@ -81,9 +84,18 @@ export interface StepDef<N extends string, I extends InputSpec, O extends AnyMod
   timeoutSeconds?: number;
   /** Automatic retries (an idempotency claim). Default 0. */
   retries?: number;
+  /**
+   * Ask for a Kubernetes API token in the step pod: the instance's step ServiceAccount
+   * (`Kubernetes:StepServiceAccount`), if it grants one. Default false (no token).
+   */
+  clusterAccess?: boolean;
 }
 
-export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?: LibraryImplementation): AnyStep {
+/** `configFrom`: a library step's definition; the config entries it references are added to the step's `config`. */
+export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?: LibraryImplementation, configFrom?: unknown): AnyStep {
+  const config = new Map<string, AnyConfigEntry>();
+  for (const e of (def.config as readonly AnyConfigEntry[] | undefined) ?? []) if (!config.has(e.name)) config.set(e.name, e);
+  configRefsIn(configFrom, config);
   const s = {
     [STEP]: true,
     kind,
@@ -93,9 +105,10 @@ export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?:
     input: Object.freeze({ ...((def.input as object | undefined) ?? {}) }),
     output: def.output ?? null,
     secrets: Object.freeze([...((def.secrets as readonly Secret[] | undefined) ?? [])]),
-    config: Object.freeze([...((def.config as readonly AnyConfigEntry[] | undefined) ?? [])]),
+    config: Object.freeze([...config.values()]),
     ...(def.timeoutSeconds !== undefined ? { timeoutSeconds: def.timeoutSeconds } : {}),
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
+    ...(def.clusterAccess === true ? { clusterAccess: true } : {}),
     ...(builtin ? { builtin } : {}),
   };
   return Object.freeze(s) as unknown as AnyStep;

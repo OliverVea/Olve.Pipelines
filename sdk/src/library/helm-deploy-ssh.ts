@@ -8,6 +8,8 @@ import { join } from "node:path";
 import type { Ctx } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
+import type { Configurable } from "../core/config.ts";
+import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
 import type { Simplify } from "../core/types.ts";
 import { httpHealthCheck, type HttpHealthCheckOptions } from "./http-health.ts";
@@ -50,21 +52,21 @@ export interface HelmDeployOverSshDef<
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
   /** SSH target, `user@host`. The user needs passwordless sudo for nerdctl, and helm/kubectl with a kubeconfig. */
-  host: string;
+  host: Configurable<string>;
   /** Private key for `host`. */
   sshKey: Secret<K>;
   /** Helm release name. */
-  release: string;
-  namespace: string;
+  release: Configurable<string>;
+  namespace: Configurable<string>;
   /** Chart directory inside the source tree, e.g. `helm`. */
   chart: string;
   /** Values files, relative to the chart directory (`-f`, in order). */
-  values?: readonly string[];
+  values?: Configurable<readonly string[]>;
   /**
    * Chart-specific `--set` flags (e.g. `{ "ingress.enabled": "false" }`). The image flags are added by
    * the step and always win: `<prefix>.repository`, `<prefix>.tag`, `<prefix>.pullPolicy`.
    */
-  set?: Readonly<Record<string, string>>;
+  set?: Configurable<Readonly<Record<string, string>>>;
   /**
    * The images to deploy: step input key → the chart's values prefix for that image. Each input is a
    * `BuiltImage` (or `PushedImage` with `fromRegistry`). Default `{ image: "image" }`; several images
@@ -89,7 +91,7 @@ export interface HelmDeployOverSshDef<
   /** Per rollout (`kubectl rollout status --timeout`). Default 120. */
   rolloutTimeoutSeconds?: number;
   /** After the rollouts, GET this URL until it returns 2xx (`httpHealthCheck`: 5 × 5 s unless given), or fail the step. */
-  healthUrl?: string | ({ url: string } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
+  healthUrl?: Configurable<string> | ({ url: Configurable<string> } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
   timeoutSeconds?: number;
 }
 
@@ -98,6 +100,8 @@ export interface HelmImageFlags {
   repository: string;
   tag: string;
   pullPolicy: "Never" | "IfNotPresent";
+  /** Pins the image: `<prefix>.digest` (the chart renders `repository:tag@digest`). */
+  digest?: string;
 }
 
 /** A registry image the chart only references (`imageRefs`). */
@@ -108,16 +112,15 @@ export interface HelmImageRefFlags {
   digest: string;
 }
 
-/** Remote `helm upgrade --install`, run from inside the copied chart directory. */
-export function helmUpgradeCommand(o: {
-  remoteChart: string;
-  release: string;
-  namespace: string;
+export interface HelmFlagOptions {
   values: readonly string[];
   set: Readonly<Record<string, string>>;
   images: readonly HelmImageFlags[];
   imageRefs?: readonly HelmImageRefFlags[];
-}): string {
+}
+
+/** `helm upgrade` flags: values files, `--set`, then the image flags (which win). */
+export function helmFlags(o: HelmFlagOptions): string[] {
   // Chart-relative values paths (`-f values-beta.yaml`) resolve because helm runs from inside the
   // copied chart dir. Extra flags come before the image flags, so the image overrides win.
   // --set-string: a tag like `2026.10` or `1e5` would otherwise be parsed as a number.
@@ -128,6 +131,7 @@ export function helmUpgradeCommand(o: {
       "--set", `${i.prefix}.repository=${i.repository}`,
       "--set", `${i.prefix}.tag=${i.tag}`,
       "--set", `${i.prefix}.pullPolicy=${i.pullPolicy}`,
+      ...(i.digest ? ["--set-string", `${i.prefix}.digest=${i.digest}`] : []),
     ]),
     ...(o.imageRefs ?? []).flatMap((i) => [
       "--set-string", `${i.prefix}.repository=${i.repository}`,
@@ -135,11 +139,75 @@ export function helmUpgradeCommand(o: {
       "--set-string", `${i.prefix}.digest=${i.digest}`,
     ]),
   ];
+  return flags;
+}
+
+/** Remote `helm upgrade --install`, run from inside the copied chart directory. */
+export function helmUpgradeCommand(o: HelmFlagOptions & { remoteChart: string; release: string; namespace: string }): string {
+  const flags = helmFlags(o);
   return [
     `cd ${shq(o.remoteChart)}`,
     ["helm", "upgrade", "--install", o.release, ".", "-n", o.namespace, ...flags].map(shq).join(" "),
     `cd / && rm -rf ${shq(o.remoteChart)}`,
   ].join(" && ");
+}
+
+/** One image to get onto the host before the upgrade. */
+export interface HostImage {
+  repository: string;
+  tag: string;
+  digest?: string;
+  /** An image tarball to stream in; without one the image is pulled from its registry. */
+  tar?: string;
+}
+
+/**
+ * Over SSH: get each image into the host's k3s containerd, copy the chart (with any generated values
+ * files in it), `helm upgrade --install`, then wait for each rollout.
+ */
+export async function deployOverSsh(
+  ctx: Ctx,
+  o: {
+    host: string;
+    key: string;
+    chartDir: string;
+    release: string;
+    namespace: string;
+    hostImages: readonly HostImage[];
+    flags: HelmFlagOptions;
+    deployments: readonly string[];
+    rolloutTimeoutSeconds: number;
+  },
+): Promise<void> {
+  const ssh = await sshSession(ctx, { host: o.host, key: o.key });
+  for (const image of o.hostImages) {
+    if (image.tar) {
+      ctx.log("importing image", { image: `${image.repository}:${image.tag}`, host: o.host });
+      // Streamed over ssh's stdin (ctx.exec has none, hence the shell redirect).
+      await ctx.sh(`${ssh.shell(K3S_IMAGE_IMPORT)} < ${shq(image.tar)}`);
+    } else {
+      const ref = image.digest ? `${image.repository}@${image.digest}` : `${image.repository}:${image.tag}`;
+      ctx.log("pulling image", { image: ref, host: o.host });
+      await ssh.run(`${K3S_IMAGE_PULL} ${shq(ref)}`);
+    }
+  }
+  const remoteChart = `/tmp/${o.release}-helm-${o.namespace}`;
+  ctx.log("helm upgrade", { release: o.release, namespace: o.namespace, host: o.host });
+  await ssh.run(`rm -rf ${shq(remoteChart)}`);
+  await ssh.copy(o.chartDir, remoteChart);
+  await ssh.run(helmUpgradeCommand({ ...o.flags, remoteChart, release: o.release, namespace: o.namespace }));
+  for (const d of o.deployments) {
+    const target = d.includes("/") ? d : `deploy/${d}`;
+    ctx.log("waiting for rollout", { deployment: target });
+    await ssh.run(`kubectl -n ${shq(o.namespace)} rollout status ${shq(target)} --timeout=${o.rolloutTimeoutSeconds}s`);
+  }
+}
+
+/** The chart directory inside a fetched source tree, or an error naming it. */
+export function chartDirectory(tree: string, chart: string): string {
+  const dir = join(tree, chart);
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) throw new Error(`chart directory '${chart}' not found in the source tree`);
+  return dir;
 }
 
 /**
@@ -154,17 +222,13 @@ export function helmDeployOverSsh<
   const R extends boolean = false,
   const Rf extends Record<string, string> = {},
 >(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K> & LibraryStep {
-  const values = def.values ?? [];
-  const set = def.set ?? {};
   const images: Record<string, string> = def.images ?? { image: "image" };
   const imageEntries = Object.entries(images);
   const fromRegistry = def.fromRegistry === true;
-  const deployments = def.deployments ?? [def.release];
   const rolloutTimeout = def.rolloutTimeoutSeconds ?? DEFAULT_ROLLOUT_TIMEOUT_SECONDS;
-  const health = typeof def.healthUrl === "string" ? { url: def.healthUrl } : def.healthUrl;
   if (imageEntries.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': images must not be empty`);
   if ("source" in images) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
-  if (deployments.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': deployments must not be empty`);
+  if (def.deployments?.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': deployments must not be empty`);
   const imageRefs: Record<string, string> = def.imageRefs ?? {};
   const refEntries = Object.entries(imageRefs);
   if ("source" in imageRefs) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
@@ -176,64 +240,51 @@ export function helmDeployOverSsh<
     ...Object.fromEntries(refEntries.map(([key]) => [key, PushedImage])),
   };
   const isDefaultImages = imageEntries.length === 1 && images.image === "image";
+  const configurable = { host: def.host, release: def.release, namespace: def.namespace, values: def.values ?? [], set: def.set ?? {}, healthUrl: def.healthUrl };
 
   return makeStep(
     "helmDeployOverSsh",
     { name: def.name, description: def.description, image: HELM_DEPLOY_IMAGE, input, output: HelmRelease, secrets: [def.sshKey], timeoutSeconds: def.timeoutSeconds },
     {
       manifestConfig: () => ({
-        host: def.host,
+        host: recordConfigRefs(def.host),
         sshKey: def.sshKey.name,
-        release: def.release,
-        namespace: def.namespace,
+        release: recordConfigRefs(def.release),
+        namespace: recordConfigRefs(def.namespace),
         chart: def.chart,
-        values: [...values],
-        set: { ...set },
+        values: recordConfigRefs(configurable.values),
+        set: recordConfigRefs(configurable.set),
         ...(isDefaultImages ? {} : { images: { ...images } }),
         ...(fromRegistry ? { fromRegistry: true } : {}),
         ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
         ...(def.deployments ? { deployments: [...def.deployments] } : {}),
         ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
-        ...(def.healthUrl !== undefined ? { healthUrl: typeof def.healthUrl === "string" ? def.healthUrl : { ...def.healthUrl } } : {}),
+        ...(def.healthUrl !== undefined ? { healthUrl: recordConfigRefs(def.healthUrl) } : {}),
       }),
       async run(input: Record<string, { repository: string; tag: string; digest: string; tar?: FileRef }> & { source: { tree: FileRef } }, ctx: Ctx) {
-        const tree = await ctx.files.fetch(input.source.tree);
-        const chartDir = join(tree, def.chart);
-        if (!existsSync(chartDir) || !statSync(chartDir).isDirectory()) throw new Error(`chart directory '${def.chart}' not found in the source tree`);
-
-        const ssh = await sshSession(ctx, { host: def.host, key: ctx.secrets[def.sshKey.name]! });
+        const d = resolveConfigRefs(configurable, ctx.config ?? {}) as {
+          host: string; release: string; namespace: string; values: string[]; set: Record<string, string>;
+          healthUrl?: string | ({ url: string } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
+        };
+        const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
+        const hostImages: HostImage[] = [];
         const flags: HelmImageFlags[] = [];
         for (const [key, prefix] of imageEntries) {
           const image = input[key]!;
-          const ref = `${image.repository}:${image.tag}`;
-          if (fromRegistry) {
-            ctx.log("pulling image", { image: ref, host: def.host });
-            await ssh.run(`${K3S_IMAGE_PULL} ${shq(ref)}`);
-          } else {
-            const tar = await ctx.files.fetch(image.tar!);
-            ctx.log("importing image", { image: ref, host: def.host });
-            // Streamed over ssh's stdin (ctx.exec has none, hence the shell redirect).
-            await ctx.sh(`${ssh.shell(K3S_IMAGE_IMPORT)} < ${shq(tar)}`);
-          }
+          hostImages.push({ repository: image.repository, tag: image.tag, ...(fromRegistry ? {} : { tar: await ctx.files.fetch(image.tar!) }) });
           flags.push({ prefix, repository: image.repository, tag: image.tag, pullPolicy: fromRegistry ? "IfNotPresent" : "Never" });
         }
-
-        const remoteChart = `/tmp/${def.release}-helm-${def.namespace}`;
-        ctx.log("helm upgrade", { release: def.release, namespace: def.namespace, images: flags.map((f) => `${f.repository}:${f.tag}`).join(" ") });
-        await ssh.run(`rm -rf ${shq(remoteChart)}`);
-        await ssh.copy(chartDir, remoteChart);
         const refs: HelmImageRefFlags[] = refEntries.map(([key, prefix]) => ({ prefix, repository: input[key]!.repository, tag: input[key]!.tag, digest: input[key]!.digest }));
-        await ssh.run(helmUpgradeCommand({ remoteChart, release: def.release, namespace: def.namespace, values, set, images: flags, imageRefs: refs }));
-
-        for (const d of deployments) {
-          const target = d.includes("/") ? d : `deploy/${d}`;
-          ctx.log("waiting for rollout", { deployment: target });
-          await ssh.run(`kubectl -n ${shq(def.namespace)} rollout status ${shq(target)} --timeout=${rolloutTimeout}s`);
-        }
-
+        await deployOverSsh(ctx, {
+          host: d.host, key: ctx.secrets[def.sshKey.name]!, chartDir, release: d.release, namespace: d.namespace, hostImages,
+          flags: { values: d.values, set: d.set, images: flags, imageRefs: refs },
+          deployments: def.deployments ?? [d.release], rolloutTimeoutSeconds: rolloutTimeout,
+        });
+        const health = typeof d.healthUrl === "string" ? { url: d.healthUrl } : d.healthUrl;
         if (health) await httpHealthCheck(ctx, health.url, { attempts: health.attempts, delaySeconds: health.delaySeconds });
-        return { release: def.release, namespace: def.namespace, image: `${flags[0]!.repository}:${flags[0]!.tag}` };
+        return { release: d.release, namespace: d.namespace, image: `${flags[0]!.repository}:${flags[0]!.tag}` };
       },
     },
+    configurable,
   ) as never;
 }

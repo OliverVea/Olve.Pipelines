@@ -339,11 +339,16 @@
     "Step": {
       "additionalProperties": false,
       "properties": {
+        "clusterAccess": {
+          "const": true,
+          "description": "The step pod gets the instance's step ServiceAccount token (Kubernetes:StepServiceAccount), if the instance grants one. Omitted = no token.",
+          "type": "boolean"
+        },
         "config": {
           "additionalProperties": {
             "$ref": "#/$defs/Json"
           },
-          "description": "Library-step configuration (display only; already covered by handlerHash).",
+          "description": "Library-step configuration (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries.",
           "propertyNames": {
             "type": "string"
           },
@@ -399,7 +404,8 @@
             "script",
             "gitHubSource",
             "imageBuild",
-            "helmDeployOverSsh"
+            "helmDeployOverSsh",
+            "helmDeploy"
           ],
           "type": "string"
         },

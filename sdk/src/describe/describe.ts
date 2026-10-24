@@ -2,6 +2,7 @@
 // every describe-time check. All problems are collected and reported together.
 import { z } from "zod";
 import { CONFIG_NAME, isConfigEntry, SECRET_REF_KIND } from "../core/config.ts";
+import { CONFIG_REF_KEY } from "../core/config-refs.ts";
 import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
 import { SECRET_NAME, type Secret } from "../core/secrets.ts";
 import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
@@ -236,6 +237,11 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
         problems.push(`${at}: invalid ${s.kind} configuration (${(e as Error).message})`);
         config = {};
       }
+      for (const ref of recordedConfigRefs(config)) {
+        const [entry, ...path] = ref.split(".") as [string, ...string[]];
+        if (!configNames.includes(entry)) problems.push(`${at}: config reference '${ref}': the step does not receive config entry '${entry}'`);
+        else if (!resolveField(configs.get(entry)?.schema, path)) problems.push(`${at}: config reference '${ref}': config '${entry}' has no field '${path.join(".")}'`);
+      }
       handlerHash = libraryHandlerHash(s.kind, config, opts.harness);
     } else {
       problems.push(`${at}: library step of kind '${s.kind}' has no implementation`);
@@ -259,7 +265,9 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       ...(s.retries !== undefined ? { retries: s.retries } : {}),
       ...(config !== undefined ? { config: config as Record<string, z.core.util.JSONType> } : {}),
       ...(configNames.length ? { configEntries: configNames } : {}),
+      ...(s.clusterAccess === true ? { clusterAccess: true as const } : {}),
     };
+    if (s.clusterAccess !== undefined && typeof s.clusterAccess !== "boolean") problems.push(`${at}: clusterAccess must be a boolean`);
     if (s.output && !isModel(s.output)) problems.push(`${at}: output must be a model`);
     return out;
   };
@@ -432,6 +440,18 @@ export function secretRefsOf(schema: unknown): string[] {
   };
   walk(schema);
   return [...out].sort();
+}
+
+/** The `{"$config": "<entry>.<path>"}` references in a library step's recorded configuration. */
+export function recordedConfigRefs(v: unknown, out: string[] = []): string[] {
+  if (Array.isArray(v)) v.forEach((x) => recordedConfigRefs(x, out));
+  else if (v !== null && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o);
+    if (keys.length === 1 && keys[0] === CONFIG_REF_KEY && typeof o[CONFIG_REF_KEY] === "string") out.push(o[CONFIG_REF_KEY] as string);
+    else Object.values(o).forEach((x) => recordedConfigRefs(x, out));
+  }
+  return out;
 }
 
 function camel(name: string): string {

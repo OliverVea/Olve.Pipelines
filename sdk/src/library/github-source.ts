@@ -7,6 +7,8 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { Ctx } from "../ctx/types.ts";
 import type { Secret } from "../core/secrets.ts";
+import type { Configurable } from "../core/config.ts";
+import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
 import { extractTar } from "../util/tar.ts";
 import { Source } from "./models.ts";
@@ -23,11 +25,16 @@ export interface GitHubSourceDef<N extends string, T extends string> {
   description: string;
   /** Token sent to the GitHub API (needed for private repositories; raises the rate limit). */
   token?: Secret<T>;
+  /** GitHub API base (default `https://api.github.com`; GitHub Enterprise: `https://<host>/api/v3`). */
+  apiUrl?: Configurable<string | undefined>;
   timeoutSeconds?: number;
 }
 
+export const GITHUB_API_URL = "https://api.github.com";
+
 /** Tarball URL of `repo` at `sha` (the API redirects to codeload.github.com). */
-export const gitHubTarballUrl = (repo: string, sha: string): string => `https://api.github.com/repos/${repo}/tarball/${encodeURIComponent(sha)}`;
+export const gitHubTarballUrl = (repo: string, sha: string, apiUrl = GITHUB_API_URL): string =>
+  `${apiUrl.replace(/\/+$/, "")}/repos/${repo}/tarball/${encodeURIComponent(sha)}`;
 
 /**
  * Downloads `repo` at `sha` from GitHub as a tarball and outputs it as a `Source` whose `tree` is the
@@ -41,11 +48,11 @@ export function gitHubSource<const N extends string, const T extends string = ne
     "gitHubSource",
     { name: def.name, description: def.description, image: GITHUB_SOURCE_IMAGE, input, output: Source, secrets: def.token ? [def.token] : [], timeoutSeconds: def.timeoutSeconds },
     {
-      manifestConfig: () => ({ ...(def.token ? { token: def.token.name } : {}) }),
+      manifestConfig: () => ({ ...(def.token ? { token: def.token.name } : {}), ...(def.apiUrl !== undefined ? { apiUrl: recordConfigRefs(def.apiUrl) } : {}) }),
       async run({ repo, sha }: { repo: string; sha: string }, ctx: Ctx) {
         const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
         if (def.token) headers.authorization = `Bearer ${ctx.secrets[def.token.name]}`;
-        const url = gitHubTarballUrl(repo, sha);
+        const url = gitHubTarballUrl(repo, sha, resolveConfigRefs(def.apiUrl, ctx.config ?? {}) ?? GITHUB_API_URL);
         mkdirSync(ctx.tmpDir, { recursive: true });
         const dir = mkdtempSync(join(ctx.tmpDir, "github-source-"));
         const archive = join(dir, "repo.tar.gz");
@@ -73,5 +80,6 @@ export function gitHubSource<const N extends string, const T extends string = ne
         return { repo, sha, tree };
       },
     },
+    { apiUrl: def.apiUrl },
   ) as never;
 }

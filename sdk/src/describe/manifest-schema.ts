@@ -51,7 +51,7 @@ export const StepDescriptor = z
   .strictObject({
     name: stepName,
     description: z.string().describe("What the step does, shown in the UI (may be empty)."),
-    kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
+    kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh", "helmDeploy"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
     image: z.string().min(1).describe("Container image the step runs in."),
     inputTypes: z.record(z.string(), InputType).describe("Declared input entries, keyed like input.json."),
     input: z.record(z.string(), Mapping).describe("How the service assembles input.json: one mapping per input key (same keys as inputTypes)."),
@@ -60,11 +60,18 @@ export const StepDescriptor = z
     handlerHash: hash.describe("Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for library steps kind + config + harness."),
     timeoutSeconds: z.number().int().positive().optional(),
     retries: z.number().int().nonnegative().optional(),
-    config: z.record(z.string(), Json).optional().describe("Library-step configuration (display only; already covered by handlerHash)."),
+    config: z
+      .record(z.string(), Json)
+      .optional()
+      .describe("Library-step configuration (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries."),
     configEntries: z
       .array(configName)
       .optional()
       .describe("Config entries the step receives (sorted; omitted when none). The service delivers them in input.json under '$config'."),
+    clusterAccess: z
+      .literal(true)
+      .optional()
+      .describe("The step pod gets the instance's step ServiceAccount token (Kubernetes:StepServiceAccount), if the instance grants one. Omitted = no token."),
   })
   .meta({ id: "Step" });
 

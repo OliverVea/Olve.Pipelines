@@ -1,7 +1,8 @@
 # Olve.Pipelines v2 — typed pipeline config
 
 Status: **steps 1–4 implemented** (2026-10-24; SDK 2.0.0-beta.5, server, `pl config`, the Config
-page); step 5 open. What was built differs from this text in the places listed in
+page); **step 5 implemented except the Dex switch** (2026-10-24, SDK 2.0.0-beta.6; see
+[§14](#14-step-5-notes)). What was built differs from this text in the places listed in
 [§13](#13-implementation-notes). Extends [pipelines-v2.md](pipelines-v2.md);
 section references like §6.2 point there.
 
@@ -214,7 +215,9 @@ Olve.Pipelines' own pipeline declares its deployment config instead of hard-codi
 - `auth`, as in §4. **Prod moves from Authentik to Dex.**
   - `mode: none` is a supported variant (local, throwaway or trusted-network setups). It replaces
     `Auth__Disable` (and makes `Auth:AnonymousReads` a field of the variants that have users).
-  - In `dex` mode the server needs an **authorization rule** (`allow.groups` / `allow.emails`).
+  - In `dex` mode the server needs an **authorization rule** (`allow.users` (GitHub logins, the
+    `preferred_username` claim) / `allow.orgs` (orgs or `org:team`, the `groups` claim) /
+    `allow.emails`; as built in step 5, §14).
     Today any valid token is accepted, which is only safe while the identity provider itself
     limits who can sign in. Dex with an upstream connector (GitHub, Google) does not.
   - `pl login --device` needs the provider to advertise a device-authorization endpoint. Enable
@@ -335,11 +338,94 @@ satisfy yet), in `pl config check` and the save result, and as reconcile warning
 activates straight away.
 
 **Not built (deferred):**
-- Library steps reading config values in their typed definitions (`host: TARGET.host`). Config is
-  delivered to custom steps (and failure handlers) only. Step 5 needs this, for
-  `helmDeployOverSsh`.
 - An escape hatch for held runs.
 - Schema completion beyond keys and enum/const/boolean values in the editor.
 
 **Testing seam.** `GitHub:ApiUrl` / `GitHub:CodeloadUrl` (default github.com) let a local stack read
 unpushed commits from a stand-in server; the e2e of this feature used one.
+
+## 14. Step 5 notes
+
+What step 5 built, and where it differs from §9 and §11.
+
+**Library steps read config.**
+- `config()` returns the entry as a typed proxy: `TARGET.beta.host` is a `ConfigRef<string>`, and
+  library definitions take `Configurable<T> = T | ConfigRef<T>` wherever a field doesn't change the
+  step's inputs or output. A reference must have the field's output type, so an optional field
+  can't go where a value is required.
+- The entry's own properties (`kind`, `name`, `description`, `schema`) win over same-named config
+  fields; those fields are reached through `$` (`TARGET.$.name`). A typo that names an entry property
+  (`release: TARGET.name`) type-checks as the entry's name: accepted, documented.
+- The manifest records a reference as `{"$config": "target.beta.host"}` in the step's `config`. The
+  referenced entry is added to the step's `configEntries` automatically (rather than rejecting a
+  step that forgot it). describe and `ManifestValidator` both check that each reference names an
+  entry the step receives and a field of its schema (`config-ref-not-received`,
+  `config-ref-field-unknown`). Literal `$` keys in library config are reserved.
+- **Resolution happens in the harness**, not the service: the library step's handler resolves its
+  references from `ctx.config`, which is the run's effective config the service already delivers in
+  `$config`. The values are the same ones the service would substitute, and the step binary never
+  reads its manifest config anyway (it runs its own definition). The service only validates.
+- An entry that contains a `secretRef` makes every step receiving it declare the secret (the
+  existing check). Hence `imageBuild` gained `secrets: [...]`, and a config `registryAuth` names its
+  password as `{ secret: NAME }`.
+
+**Olve.Pipelines' own pipeline (§9).**
+- Entries: `target` (`beta`/`prod`, each a `helmTarget()`: `inCluster | ssh`, namespace, release,
+  values files, `set`, plus optional per-target `auth`/`telemetry` overrides), `auth`
+  (`none | dex | authentik`), `telemetry` (`none | otlp`), `publish` (server and harness image
+  repositories, logins, image tags, npm on/off and dist-tags, CLI on/off) and `source` (GitHub API).
+- **Per-target `auth`/`telemetry`**: beta and prod use different Authentik applications and OTLP
+  endpoints today, so a single top-level value can't reproduce both. The deploy step writes
+  `{auth, telemetry}` then the target's overrides as two values files; helm's merge makes the
+  override win.
+- **`telemetry.auth.clientSecret` is a Kubernetes Secret reference** (`{ kubernetesSecret: { name,
+  key } }`), not a `secretRef`: the server reads it from a Secret in its own namespace, and copying a
+  pipeline secret into the target namespace is a separate feature. The chart maps it only when the
+  values files don't already map `OpenTelemetry__OAuth2__ClientSecret` (prod's do).
+- `auth.allow` is schema-only; the server doesn't enforce it yet. No `header` telemetry auth: the
+  server only has OAuth2.
+- Defaults: `target.*.namespace` defaults to `olve-pipelines` (prod) and `olve-pipelines-beta`
+  (beta); `auth` is required (no insecure default); `telemetry` defaults to `none`; the image
+  repositories are required (no default publishes anywhere) and `publish.npm.enabled` defaults to
+  false.
+- [prod-config.example.yaml](prod-config.example.yaml) reproduces today's prod. `helm template` of
+  beta and prod renders byte-identically with the old chart and values and with the new chart plus
+  the values this document produces (checked 2026-10-24). One behaviour changes, by design of the
+  release flow: the server image is pushed to `registry.ovea.pro/olve-pipelines-v2` and pulled on
+  the host by digest, instead of a tarball imported over SSH.
+- **The chart** maps `auth.mode` and `telemetry` onto `Auth__*`/`OpenTelemetry__*` in a helper that
+  merges them into `config` before rendering, so unchanged values files render identically.
+  `mode: none` sets `Auth__Disable=true`. `image.digest` pins the server image.
+
+**Deploying in-cluster.** `steps.helmDeploy` runs helm in the step pod against its own cluster
+(`kind: inCluster`) or on a host over SSH (`kind: ssh`), chosen by config. In-cluster needs a token:
+- A step declares `clusterAccess: true` (manifest key, omitted when false). The instance names the
+  one ServiceAccount such steps get (`Kubernetes:StepServiceAccount`); unset = no token for any
+  step, so prod is unchanged. The manifest never names the ServiceAccount: in the compose stack the
+  controller's own ServiceAccount lives in the runner namespace, and a step that could pick it would
+  read every pipeline's secrets.
+- RBAC is the operator's: the compose bootstrap creates `olve-deployer` with no rights in the runner
+  namespace and the built-in `admin` role in `selfdeploy-beta` and `selfdeploy-prod`.
+- **Trade-off.** There is one step ServiceAccount per instance: every step of every pipeline on the
+  instance that declares `clusterAccess` gets the same token and so shares its whole RBAC reach. Admin
+  of a namespace can also create Roles there (the chart's own RBAC needs it) and read its Secrets.
+  Grant it only where every bound repository may deploy, and keep the target namespaces free of
+  anything else.
+- **Roadmap (2.3):** per-pipeline ServiceAccounts with namespace-scoped Roles, so a pipeline's deploy
+  steps reach only its own targets. Decided 2026-10-24; not built now.
+
+**build-harness in a step.** kaniko building `harness/base` inside a step pod failed ("text file
+busy"): the image put its loader in `/olve/lib`, where the step pod's emptyDir and running loader
+are, and kaniko leaves mount points out of its snapshots anyway. The image now keeps its files under
+`/opt/olve` (olve-init still copies them to the shared emptyDir's `lib/`), content tag
+`src-8d80fb6d74fc`. Verified by the local self-deploy's `build-harness`. Until this pushes, a
+`harness/base` change could not have been published by prod's pipeline either.
+
+**Pushing this to v2 takes two pushes.** The running prod server reconciles the new `.pipelines`
+before it deploys anything, and it rejects the new manifest (step kind `helmDeploy`, key
+`clusterAccess`), which would hold every run. First push the server, SDK and chart changes with
+the old `.pipelines` (prod then deploys the new server with the old pipeline), set the config
+document and secrets on prod, then push the new `.pipelines`.
+
+**Not done in step 5:** deploying Dex and switching prod to it, the `allow` rule in the server, and
+Dex client credentials for telemetry (§12).

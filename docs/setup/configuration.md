@@ -63,6 +63,29 @@ export default implement(deploy, async (_, ctx) => {
 - A changed entry schema is a manifest change (a new pipeline version) and bumps the step versions
   of the steps that declare that entry.
 
+### In library steps
+
+Library steps take a config reference wherever they take a value:
+
+```ts
+export const TARGET = config("target", "Where to deploy.", z.object({ beta: helmTarget(), prod: helmTarget() }));
+export const PUBLISH = config("publish", "Where images go.", z.object({ repository: z.string() }));
+
+export const build = steps.imageBuild({ name: "build", description: "", repository: PUBLISH.repository, push: true });
+export const deployBeta = steps.helmDeploy({ name: "deploy-beta", description: "", target: TARGET.beta, chart: "helm" });
+```
+
+- `PUBLISH.repository` is a typed reference: it must have the field's type (a `number` field or an
+  optional one can't go where a `string` is required). Union fields that every variant has are
+  reachable (`AUTH.mode`). A field named `kind`, `name`, `description` or `schema` is reached through
+  `$` (`PUBLISH.$.name`), since those are the entry's own properties.
+- The step receives the referenced entry automatically (its `configEntries`), and reads the value from
+  the run's config, defaults applied, when it runs. The manifest records
+  `{"$config": "publish.repository"}`; reconcile checks the entry is one the step receives and the
+  field exists.
+- An entry that contains a `secretRef` must have its secrets declared by every step that receives it
+  (`imageBuild` takes `secrets: [...]` for that).
+
 ## The config document
 
 One YAML document per pipeline, with one top-level key per entry:

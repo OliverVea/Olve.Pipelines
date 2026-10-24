@@ -78,6 +78,10 @@ pipeline declares, with values stored on the instance as one YAML document per p
 whose config isn't satisfied yet stays pending instead of activating. Full page:
 [Pipeline Config](configuration.md).
 
+Library steps take **config references** where they take values: `host: TARGET.host`. The reference
+is typed (it must have the field's type), the step receives the entry automatically, and the value
+is read from the run's config when the step runs. See [Library steps](#library-steps).
+
 ## Steps
 
 ```ts
@@ -91,6 +95,7 @@ export const deployBeta = step({
   config: [TARGET],                     // optional: config entries, read as ctx.config
   timeoutSeconds: 900,                  // optional; default 3600, capped at 21600
   retries: 1,                           // optional: retry a failed attempt (fresh pod) up to n times
+  clusterAccess: true,                  // optional: a Kubernetes API token in the pod, if the instance grants one
 });
 ```
 
@@ -106,6 +111,14 @@ export const deployBeta = step({
   attempt in a fresh pod, until the step has failed 1 + n times in a row. Cancelled and obsolete
   attempts and scheduler-side failures are never retried; a continue resets the count. Without it,
   nothing is retried automatically.
+- **`clusterAccess: true`** asks for a Kubernetes API token in the step pod: the instance's step
+  ServiceAccount (`Kubernetes:StepServiceAccount`), with whatever RBAC the operator gave it (e.g.
+  admin of the namespaces it deploys to). On an instance that grants none the pod gets no token, like
+  every other step pod. `steps.helmDeploy` declares it.
+  **There is one such account per instance:** every step that declares `clusterAccess`, in every
+  pipeline bound on the instance, runs with the same token and so has that account's whole RBAC
+  reach. Grant it only rights every bound repository may use, and keep the namespaces it can write
+  to free of anything else.
 
 ## Library steps
 
@@ -114,11 +127,16 @@ SDK steps with a built-in handler and typed config. The set grows from real use.
 | Step | Image | Input → output | Config |
 |---|---|---|---|
 | `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
-| `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`), `insecureRegistry?` |
+| `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?` |
+| `steps.helmDeploy` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (a `helmTarget()` value, usually a config reference), `sshKey?` (ssh targets), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 
-All take `name`, `description` and `timeoutSeconds?`.
+All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
+output take a config reference instead of a literal (`repository: PUBLISH.server.repository`); `push`,
+`contentTag`, `images`, `imageRefs`, `fromRegistry` and `chart` stay literals. A reference is recorded
+in the manifest as `{"$config": "publish.server.repository"}`; keys starting with `$` in literal
+config are reserved.
 
 - **`steps.script`** — the zero-TypeScript path. The script gets `$OLVE_INPUT` (the validated input
   as JSON) and one `INPUT_<KEY>` env var per input key (`deployTo` → `INPUT_DEPLOY_TO`; strings raw,
@@ -163,11 +181,30 @@ All take `name`, `description` and `timeoutSeconds?`.
   // two BuiltImage producers, so a mapper picks them:
   .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], web: from["build-web"] })])
   ```
+- **`steps.helmDeploy`** deploys registry images, pinned by digest (`<prefix>.repository`, `.tag`,
+  `.digest`, `.pullPolicy=IfNotPresent`), to a target chosen by config. `helmTarget(defaults?,
+  extend?)` is the target's schema for your config entry: `kind: inCluster` runs
+  `helm upgrade --install --wait` in the step pod against its own cluster with the step
+  ServiceAccount's token (`clusterAccess`); `kind: ssh` pulls the images on the host (`host`) and runs
+  helm there, as `helmDeployOverSsh`. Both take `namespace`, `release`, `values` (chart-relative
+  files) and `set`. `inlineValues` are written as values files after the target's (config references
+  resolved, undefined members dropped). With `healthPath` it GETs
+  `http://<release>.<namespace>.svc.cluster.local<healthPath>` until 2xx.
+
+  ```ts
+  export const TARGET = config("target", "Where to deploy.", z.object({ beta: helmTarget({ release: "app" }) }));
+  export const deployBeta = steps.helmDeploy({
+    name: "deploy-beta", description: "…", target: TARGET.beta, sshKey: SSH_PRIVATE_KEY, chart: "helm",
+    inlineValues: [{ auth: AUTH }], images: { server: "image" }, healthPath: "/api/health",
+  });
+  ```
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
   `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
-  as `helmDeployOverSsh` uses it).
+  as `helmDeployOverSsh` uses it); `registryTag(ctx.http, repository, digest, tag, access?)` (adds a
+  tag to a pushed image without rebuilding it); `npmDistTag(ctx, { name, version, tag, token })` and
+  `npmHasVersion(ctx, name, version)`.
 
 Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#library-steps).
 

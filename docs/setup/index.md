@@ -108,9 +108,10 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 ## Real pipelines to copy from
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
-  deploys itself: `gitHubSource` → `imageBuild` ∥ custom `test` →
-  `helmDeployOverSsh` (beta) → custom `beta-test` (smoke test of the new beta) → when
-  `deployTo: "prod"`: `helmDeployOverSsh` (prod) → custom `publish-cli` ∥ custom `publish-sdk` (npm).
+  deploys itself, driven by config (`config.ts`): `gitHubSource` → `imageBuild` (server, harness) ∥
+  custom `test`, `frontend-lint`, `build-sdk`, `build-cli` → prereleases (`publish-images`,
+  `publish-sdk`, `publish-cli`) → `helmDeploy` (beta) → custom `beta-test` → when
+  `deployTo: "prod"`: `helmDeploy` (prod) → custom `promote`.
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

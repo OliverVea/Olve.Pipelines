@@ -370,6 +370,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Kubernetes:Namespace` | — | Runner namespace for step Jobs and pipeline Secrets |
 | `Kubernetes:AuthMode` | OpenBao | `InCluster` = the pod's ServiceAccount; otherwise OpenBao (`Kubernetes:OpenBaoUrl`) |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
+| `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |
 | `Harness:BunImage` | `oven/bun:1.4.3-slim` | Build/describe Job image (glibc, never alpine) |
 | `GitHub:ApiUrl` / `GitHub:CodeloadUrl` | `https://api.github.com` / `https://codeload.github.com` | Where bindings read config cursors and the build Job fetches tarballs (GitHub Enterprise, or a local stand-in for tests) |
@@ -390,6 +391,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Retention:ClusterGraceMinutes` / `FinishedJobMaxAgeDays` | `60` / `7` | URL Secrets and leaked step Jobs / TTL-less finished Jobs |
 | `Retention:IntervalHours` / `StartupDelayMinutes` | `24` / `2` | Sweep schedule |
 | `Distribution:CliPipeline` / `Distribution:CliStep` | — / `publish-cli` | Pipeline (name or id) whose latest successful `CliStep` attempt `/download` serves; unset = nothing served. Retention keeps that run |
+| `Distribution:CliPromotedBy` | — | Only runs in which this step (e.g. `promote`) also succeeded count for `/download` |
 | `Distribution:LocalDirectory` | — | Serve `/download` assets from this directory when it has them (the compose stack builds `pl` from source) |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint; unset or empty = no exporter |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
@@ -454,7 +456,7 @@ dotnet run --project src/Olve.Pipelines
 
 ```
 
-On Kubernetes the chart in `helm/` is deployed by the pipeline itself (`steps.helmDeployOverSsh`):
+On Kubernetes the chart in `helm/` is deployed by the pipeline itself (`steps.helmDeploy`, targets from its config):
 v2 beta is the release `olve-pipelines-v2` in `apps-beta`, installed by `deploy-beta` (values
 `values-beta.yaml` then `values-v2-beta.yaml`); v2 prod is `olve-pipelines-v2` in `apps`, installed
 by `deploy-prod` (`values.yaml` then `values-v2-prod.yaml`). A cold install of a minimal controller is
@@ -481,7 +483,7 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
 ```bash
 docker compose up -d --build     # first run builds everything: several minutes
 docker compose down -v           # stop and wipe all state (the reset between eval runs)
-
+```
 
 - **Auth is on by default and uses Dex.** `pl login` and the dashboard both log in through it.
   `pl login` uses the device flow when there is no local browser, as in WSL or a container.
@@ -535,3 +537,45 @@ docker compose down -v           # stop and wipe all state (the reset between ev
   ```
 
 - **Inspecting the cluster:** `docker compose exec k3s kubectl -n olve-runners get jobs,pods`.
+
+#### Watch it deploy itself
+
+The stack can run Olve.Pipelines' own deploy pipeline (`.pipelines/`), the one that deploys prod,
+against itself: beta and prod are the namespaces `selfdeploy-beta` and `selfdeploy-prod` of the
+compose k3s. Only the config differs from prod
+([compose/selfdeploy.config.yaml](compose/selfdeploy.config.yaml)):
+
+- `helmDeploy` targets are `inCluster`. The deploy steps run helm in their own pod as the step
+  ServiceAccount `olve-deployer` (`Kubernetes__StepServiceAccount`), which the bootstrap makes admin
+  of the two `selfdeploy-*` namespaces and nothing else (`compose/k3s-selfdeploy.yaml`).
+- Images go to the compose registry (`registry:5000`); `next` and `latest` are tags moved there.
+  npm publishing is off, so `publish-sdk` is skipped and `promote` moves no dist-tag. No step talks
+  to npm's registry for publishing, or to ghcr.io.
+- `auth: none` and `telemetry: none` for the deployed copies.
+
+```bash
+export PIPELINES_CONFIG=/tmp/pl-local.json PIPELINES_PROFILE=local   # and log in, as above
+pl binding create OliverVea/Olve.Pipelines --branch <a branch you pushed> --path .pipelines
+pl binding status "Olve.Pipelines v2"        # reconciled; pending until it has config
+printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
+pl config set "Olve.Pipelines v2" -f compose/selfdeploy.config.yaml   # activates the version
+pl trigger "Olve.Pipelines v2" --field sha=<the branch head>           # or push a commit
+pl wait run "Olve.Pipelines v2#1" --until finished
+docker compose exec k3s kubectl -n selfdeploy-prod get pods
+docker compose exec k3s kubectl -n selfdeploy-prod port-forward svc/olve-pipelines 8081:80 &
+docker compose exec k3s wget -qO- http://127.0.0.1:8081/api/ready
+```
+
+The run builds every component (the server image, `pl`, the SDK; minutes of AOT compiling and
+several GB of memory in k3s), publishes the prereleases, deploys beta, smoke-tests it, deploys prod
+and promotes: about 11 minutes on a laptop, most of it the server image's AOT compile. A first run
+on a fresh stack also pulls the build images. Each deployed copy has its own Garage and runs its
+own step Jobs in its namespace, with the harness image this run built.
+
+- The deploy poll checks the branch every 15 minutes (`Reconcile:PollIntervalSeconds`), and webhooks
+  are off in the stack: after a push, `pl binding reconcile` picks it up at once.
+- On the first install the server restarts a few times until its new Garage answers; that is
+  the readiness gate working, not a failure.
+- Each deployed copy runs steps: `kubectl -n selfdeploy-beta port-forward --address 0.0.0.0
+  svc/olve-pipelines 18081:80` inside the k3s container, then point `pl` (auth is off) at
+  `http://k3s:18081` from a container on the compose network.

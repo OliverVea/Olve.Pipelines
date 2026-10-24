@@ -9,21 +9,20 @@ repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Con
 
 ## Installing on a cluster
 
-The server image isn't published to a public registry. Build it from a checkout of the repo and
-push it to a registry the cluster pulls from:
+Released images are public: the server at `ghcr.io/olivervea/olve-pipelines` (`latest`, `next`
+and one tag per release, e.g. `2026.10.24.59`) and the step pods' init image at
+`ghcr.io/olivervea/olve-pipelines-harness-base`. The chart defaults to the server's `latest`.
+
+`pl bootstrap`, run from a checkout of the repo, installs the chart's minimal profile: the server
+and its Garage, with no ingress and auth off. It is idempotent, and `pl teardown` removes it (the
+Garage data is kept unless `--purge-data`).
 
 ```bash
-docker build -t <registry>/olve-pipelines:<tag> .
-docker push <registry>/olve-pipelines:<tag>
+pl bootstrap -n <namespace> --chart helm                 # --image-tag <release> pins a version
 ```
 
-`pl bootstrap` installs the chart's minimal profile with that image: the server and its Garage,
-with no ingress and auth off. It is idempotent, and `pl teardown` removes it (the Garage data is
-kept unless `--purge-data`).
-
-```bash
-pl bootstrap -n <namespace> --chart helm --image-repository <registry>/olve-pipelines --image-tag <tag>
-```
+To run your own build instead, `docker build -t <registry>/olve-pipelines:<tag> .`, push it, and
+pass `--image-repository <registry>/olve-pipelines --image-tag <tag>`.
 
 For anything beyond trying it, set the [server configuration](#server-configuration) below through
 the chart's `config.*` values: auth (`Auth:*`), storage, the runner namespace, an ingress. A local

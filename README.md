@@ -32,13 +32,11 @@ docker compose up -d --build      # first run: several minutes. UI and API at ht
 Log in as `dev@example.com` / `password` (Dex). Details:
 [a local instance](docs/setup/self-hosting.md#a-local-instance-with-docker-compose).
 
-**On your own cluster.** The server image isn't published yet, so build it and push it to a
-registry your cluster pulls from, then install the chart with its minimal profile (the server and
-its Garage, no ingress, auth off):
+**On your own cluster.** From a checkout, install the chart with its minimal profile (the server
+and its Garage, no ingress, auth off). It runs the released image, `ghcr.io/olivervea/olve-pipelines`:
 
 ```bash
-docker build -t <registry>/olve-pipelines:<tag> . && docker push <registry>/olve-pipelines:<tag>
-pl bootstrap -n <namespace> --chart helm --image-repository <registry>/olve-pipelines --image-tag <tag>
+pl bootstrap -n <namespace> --chart helm          # --image-tag <version> pins a release
 ```
 
 Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hosting.md).

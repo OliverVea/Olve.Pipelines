@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: olve-pipelines
+  repository: ghcr.io/olivervea/olve-pipelines
   tag: latest
   # Pins the image (repository:tag@digest); empty = by tag.
   digest: ""

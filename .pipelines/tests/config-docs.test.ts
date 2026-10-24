@@ -17,7 +17,7 @@ const load = (path: string) => {
 };
 
 describe("config documents", () => {
-  test("prod example: today's targets, Authentik, OTLP, the harness on ghcr", () => {
+  test("prod example: today's targets, Authentik, OTLP, builds staged on registry.ovea.pro and released to ghcr and npm", () => {
     const c = load("docs/design/prod-config.example.yaml");
     expect(c.target.beta).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps-beta", release: "olve-pipelines-v2", values: ["values-beta.yaml", "values-v2-beta.yaml"], set: { "slo.enabled": "false" } });
     expect(c.target.prod).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps", release: "olve-pipelines-v2", values: ["values-v2-prod.yaml"], set: {} });
@@ -40,7 +40,8 @@ describe("config documents", () => {
     if (beta.kind === "none") throw new Error("the prod example has a beta");
     expect(beta.auth).toMatchObject({ mode: "authentik", audience: "olve-pipelines-beta", anonymousReads: true });
     expect(beta.telemetry).toEqual({ exporter: "otlp", endpoint: "http://otel-beta.ovea.pro", protocol: "http", auth: { type: "none" } });
-    expect(c.publish).toMatchObject({ harness: { push: true, repository: "ghcr.io/olivervea/olve-pipelines-harness-base", auth: { username: "OliverVea", password: { secret: "GHCR_TOKEN" } } }, npm: { enabled: false, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
+    const ghcr = { username: "OliverVea", password: { secret: "GHCR_TOKEN" } };
+    expect(c.publish).toMatchObject({ server: { repository: "registry.ovea.pro/olve-pipelines-v2", release: [{ repository: "ghcr.io/olivervea/olve-pipelines", auth: ghcr }] }, harness: { push: true, repository: "registry.ovea.pro/olve-pipelines-v2/harness-base", release: [{ repository: "ghcr.io/olivervea/olve-pipelines-harness-base", auth: ghcr }] }, npm: { enabled: true, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
     expect(c.source.apiUrl).toBe("https://api.github.com");
   });
 

@@ -1,7 +1,8 @@
 # Config document for "Olve.Pipelines v2" on the prod instance (pipelines-v2-private.ovea.pro):
 #
 #   pl config set "Olve.Pipelines v2" -f docs/design/prod-config.example.yaml
-#   (secrets: GHCR_TOKEN pushes the harness to ghcr.io; registry.ovea.pro takes anonymous pushes; npm is off)
+#   (secrets: GHCR_TOKEN copies released images to ghcr.io, NPM_TOKEN publishes the SDK;
+#   registry.ovea.pro takes anonymous pushes)
 #
 # It reproduces what the pipeline deployed before it read config: the same hosts, namespaces,
 # releases, values files, Authentik and OTLP settings (helm template renders the same manifests,
@@ -61,17 +62,21 @@ telemetry:
       kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
 
 publish:
+  # Builds go to registry.ovea.pro (staging, unverified); verified digests are copied to ghcr.
   server:
     repository: registry.ovea.pro/olve-pipelines-v2
     cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
+    release:
+      - repository: ghcr.io/olivervea/olve-pipelines
+        auth: { username: OliverVea, password: { secret: GHCR_TOKEN } }
   harness:
     push: true
-    repository: ghcr.io/olivervea/olve-pipelines-harness-base
-    auth:
-      username: OliverVea
-      password: { secret: GHCR_TOKEN }
+    repository: registry.ovea.pro/olve-pipelines-v2/harness-base
+    release:
+      - repository: ghcr.io/olivervea/olve-pipelines-harness-base
+        auth: { username: OliverVea, password: { secret: GHCR_TOKEN } }
   npm:
-    enabled: false                  # turn on to publish the SDK (needs NPM_TOKEN)
+    enabled: true                   # needs NPM_TOKEN
     prereleaseTag: next
     releaseTag: beta                # the SDK is a 2.0 beta: promote moves `beta`, as publishing did
   cli:

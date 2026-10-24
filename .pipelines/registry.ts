@@ -57,5 +57,5 @@ export async function releaseImage(
   if (kept) ctx.log("content tag already released", { image: built });
   else await ctx.exec(["crane", "copy", `${image.repository}@${image.digest}`, built, ...insecure], opts);
   for (const tag of tags) await ctx.exec(["crane", "tag", built, tag, ...insecure], opts);
-  ctx.log("released image", { from: `${image.repository}@${image.digest}`, to: to.repository, tags: [image.tag, ...tags] });
+  ctx.log("released image", { from: kept ? built : `${image.repository}@${image.digest}`, to: to.repository, tags: [image.tag, ...tags] });
 }

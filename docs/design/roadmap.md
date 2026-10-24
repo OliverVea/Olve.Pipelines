@@ -26,8 +26,8 @@ The milestone scope agreed with Oliver on 2026-10-24. The detail behind each ite
      otherwise use a static `header` token. Don't keep Authentik only for telemetry.
 2. ~~**ghcr harness.**~~ Done 2026-10-24: config #2 pushes it with `GHCR_TOKEN` (run `#52`), the
    package is public, config #3 drops the pinned image (run `#53`).
-3. **npm.** Decide whether prod publishes the SDK: `publish.npm.enabled`, `releaseTag: beta`
-   until a real 2.0.0.
+3. ~~**npm.**~~ On since config #5 (2026-10-24): `next` on publish, `beta` on promote until a real 2.0.0.
+   `NPM_TOKEN` expires 2026-10-29: replace it (scoped to the package) or move to trusted publishing.
 4. **Retention live**, after checking the dry-run logs.
 5. **`pl dev run --from`** (M2's open item).
 6. **E3: migrate the remaining v1 repos, one at a time.** Order:
@@ -43,6 +43,9 @@ Small follow-ups found on the way:
 - Fix the `contentTag` cache key: it must cover build options, not just the context.
 - Measure build-server per kaniko instruction.
 - Pin `KANIKO_IMAGE`.
+- Done 2026-10-24: the server image is public on ghcr, copied from staging after verification
+  (`publish.*.release`); the chart defaults to it.
+- Beta never runs a step with the new harness before prod: beta-test could run a fixture pipeline on beta.
 
 ## 2.1
 

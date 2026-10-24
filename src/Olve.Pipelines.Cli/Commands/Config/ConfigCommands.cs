@@ -202,7 +202,11 @@ internal static class ConfigCommandSupport
         if (saved.Active is { } active && !active.Satisfied)
             o.Line($"active v{active.Version}: {string.Join("; ", Reasons(active))}");
         if (saved.Pending is { } pending)
+        {
             o.Line($"pending v{pending.Version}: {(pending.Satisfied ? "satisfied" : string.Join("; ", Reasons(pending)))}");
+            foreach (var d in pending.ChangedDefaults)
+                o.Line($"  v{pending.Version} changes the default of {d.Path} ({d.From} → {d.To})");
+        }
     }
 
     public static void PrintCheck(IOutputWriter o, ConfigCheckResponse c)

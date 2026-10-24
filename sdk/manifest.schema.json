@@ -47,6 +47,42 @@
           "const": "2.0",
           "type": "string"
         },
+        "config": {
+          "description": "Config entries used by steps, sorted by name (omitted when none). Fields of kind secretRef ({secret: NAME}) name a secret.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "name": {
+                "description": "Config entry name; a key of the pipeline's config document.",
+                "pattern": "^[a-z][a-zA-Z0-9]*$",
+                "type": "string"
+              },
+              "required": {
+                "description": "False when the schema accepts a missing value (optional, or a default).",
+                "type": "boolean"
+              },
+              "schema": {
+                "additionalProperties": {},
+                "description": "z.input view: validates the config document's value for this entry (defaults listed).",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "required",
+              "schema"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "description": {
           "type": "string"
         },
@@ -312,6 +348,15 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "configEntries": {
+          "description": "Config entries the step receives (sorted; omitted when none). The service delivers them in input.json under '$config'.",
+          "items": {
+            "description": "Config entry name; a key of the pipeline's config document.",
+            "pattern": "^[a-z][a-zA-Z0-9]*$",
+            "type": "string"
+          },
+          "type": "array"
         },
         "description": {
           "description": "What the step does, shown in the UI (may be empty).",

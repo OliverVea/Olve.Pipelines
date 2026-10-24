@@ -1,6 +1,6 @@
 import { IMPLEMENTATION, SKIPPED, type SkippedBrand } from "./brands.ts";
 import type { Ctx } from "../ctx/types.ts";
-import type { AnyStep, LibraryStep, OutputValue, SecretsOf, StepInput } from "./steps.ts";
+import type { AnyStep, ConfigOf, LibraryStep, OutputValue, SecretsOf, StepInput } from "./steps.ts";
 import type { Awaitable } from "./types.ts";
 
 /** Returned by `ctx.skip(reason)`: the step produced no output on purpose. */
@@ -16,7 +16,7 @@ export function isSkipped(v: unknown): v is Skipped {
 }
 
 export type HandlerResult<S extends AnyStep> = OutputValue<S> | Skipped;
-export type Handler<S extends AnyStep> = (input: StepInput<S["input"]>, ctx: Ctx<SecretsOf<S>>) => Awaitable<HandlerResult<S>>;
+export type Handler<S extends AnyStep> = (input: StepInput<S["input"]>, ctx: Ctx<SecretsOf<S>, ConfigOf<S>>) => Awaitable<HandlerResult<S>>;
 
 export interface Implementation<S extends AnyStep = AnyStep> {
   readonly step: S;
@@ -34,7 +34,7 @@ type NoExtraFields<R, T> = R extends Skipped | void
  */
 export function implement<S extends AnyStep, R extends HandlerResult<S>>(
   step: S & (S extends LibraryStep ? "❌ library steps already carry their implementation" : unknown),
-  handler: (input: StepInput<S["input"]>, ctx: Ctx<SecretsOf<S>>) => Awaitable<R & NoExtraFields<R, OutputValue<S>>>,
+  handler: (input: StepInput<S["input"]>, ctx: Ctx<SecretsOf<S>, ConfigOf<S>>) => Awaitable<R & NoExtraFields<R, OutputValue<S>>>,
 ): Implementation<S> {
   return Object.freeze({ [IMPLEMENTATION]: true, step, handler: handler as unknown as Handler<S> }) as Implementation<S>;
 }

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 // olve-dev — run a pipeline from source through the same harness path as the compiled binary.
 //   olve-dev describe <dir> [--sentinels]
-//   olve-dev run <dir> <step> [--input-file f] [--olve-dir d] [--secret NAME=value]...
+//   olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
 //   olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 // $OLVE_DIR defaults to <dir>/.olve; outputs land in <dir>/.olve/work/.
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runHarness, type HarnessConfig } from "../harness/main.ts";
@@ -13,7 +13,7 @@ import { handlerHashes } from "../build/hashes.ts";
 import { harnessInfo, loadProject, ProjectError } from "../build/project.ts";
 
 const USAGE = `usage: olve-dev describe <dir> [--sentinels]
-       olve-dev run <dir> <step> [--input-file f] [--olve-dir d] [--secret NAME=value]...
+       olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
        olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]`;
 
 export async function devConfig(dir: string, withHashes: boolean): Promise<HarnessConfig> {
@@ -38,6 +38,7 @@ export async function devMain(argv: string[]): Promise<number> {
       allowPositionals: true,
       options: {
         "input-file": { type: "string" },
+        "config-file": { type: "string" },
         "event-file": { type: "string" },
         "olve-dir": { type: "string" },
         secret: { type: "string", multiple: true },
@@ -68,6 +69,12 @@ export async function devMain(argv: string[]): Promise<number> {
     }
     const file = mode === "run" ? values["input-file"] : values["event-file"];
     if (file) copyFileSync(resolve(file), join(olveDir, "input.json"));
+    if (mode === "run" && values["config-file"]) {
+      const inputFile = join(olveDir, "input.json");
+      const input = JSON.parse(readFileSync(inputFile, "utf8")) as Record<string, unknown>;
+      input.$config = JSON.parse(readFileSync(resolve(values["config-file"]), "utf8"));
+      writeFileSync(inputFile, JSON.stringify(input));
+    }
     else if (mode === "map-trigger") return console.error("--event-file is required"), EXIT.usage;
     return await runHarness(await devConfig(dir, false), [mode, name]);
   } catch (e) {

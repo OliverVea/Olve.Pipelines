@@ -1,5 +1,6 @@
 import type { Skipped } from "../core/handlers.ts";
 import type { FileRef } from "../core/models.ts";
+import type { AnyConfigEntry, ConfigValues } from "../core/config.ts";
 import type { DeclaredSecrets } from "../core/secrets.ts";
 
 /** Facts about the current execution, from the service (see README "Environment"). */
@@ -79,9 +80,11 @@ export interface OutputFileOptions {
   name?: string;
 }
 
-export interface Ctx<Sec extends string = string> {
+export interface Ctx<Sec extends string = string, Cfg extends AnyConfigEntry = never> {
   /** Exactly the secrets the step declares, read from the environment. */
   readonly secrets: DeclaredSecrets<Sec>;
+  /** Exactly the config entries the step declares, from the run's config snapshot (defaults applied). */
+  readonly config: ConfigValues<Cfg>;
   readonly sh: Sh;
   /** Run a binary directly, without a shell (works in shell-less images). Rejects on non-zero exit. */
   exec(argv: readonly string[], opts?: ExecOptions): Promise<void>;

@@ -12,6 +12,8 @@ export interface CtxOptions {
   secrets: readonly Secret[];
   /** Secret values that take precedence over the environment (tests). */
   secretValues?: Readonly<Record<string, string>>;
+  /** Parsed config entries of the step (`ctx.config`). */
+  config?: Readonly<Record<string, unknown>>;
   paths: { root: string; workFiles: string; tmp: string };
   signal: AbortSignal;
   /** Where log lines go (default stderr). */
@@ -102,6 +104,7 @@ export function createCtx(o: CtxOptions): Ctx {
   const filesDeps = { run: o.run, workFiles: o.paths.workFiles, tmpDir: o.paths.tmp, root: o.paths.root, signal: o.signal, log };
   return {
     secrets: createSecrets(o.secrets, o.secretValues) as Ctx["secrets"],
+    config: Object.freeze({ ...o.config }) as Ctx["config"],
     sh,
     exec,
     readText: async (p) => readFileSync(resolve(p), "utf8"),

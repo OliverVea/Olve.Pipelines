@@ -1,6 +1,7 @@
 // `describe`: evaluates the contracts (models + pipeline, never handlers) into the manifest and runs
 // every describe-time check. All problems are collected and reported together.
 import { z } from "zod";
+import { CONFIG_NAME, isConfigEntry, SECRET_REF_KIND } from "../core/config.ts";
 import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
 import { SECRET_NAME, type Secret } from "../core/secrets.ts";
 import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
@@ -127,6 +128,27 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     return s.name;
   };
 
+  // ── config entries ──
+  const configs = new Map<string, { description: string; required: boolean; schema: JsonSchema; key: string; secretRefs: string[] }>();
+  const useConfig = (e: unknown, at: string): string | undefined => {
+    if (!isConfigEntry(e)) return void problems.push(`${at}: config entries must be config("name", "description", schema)`);
+    if (!CONFIG_NAME.test(e.name)) problems.push(`${at}: config name '${e.name}' must match ${CONFIG_NAME}`);
+    let schema: JsonSchema;
+    try {
+      schema = z.toJSONSchema(e.schema, { io: "input", target: "draft-2020-12" }) as JsonSchema;
+      delete schema.$schema;
+      schema = canonicalize(schema) as JsonSchema;
+    } catch (err) {
+      problems.push(`${at}: config '${e.name}' is not representable as JSON Schema (${(err as Error).message})`);
+      return e.name;
+    }
+    const key = JSON.stringify([e.description, schema]);
+    const prev = configs.get(e.name);
+    if (!prev) configs.set(e.name, { description: e.description, required: !e.schema.safeParse(undefined).success, schema, key, secretRefs: secretRefsOf(schema) });
+    else if (prev.key !== key) problems.push(`two different config entries are named '${e.name}' (one description and schema per config name)`);
+    return e.name;
+  };
+
   // ── step identity ──
   const steps = new Map<string, AnyStep>();
   const registerStep = (s: AnyStep, where: string) => {
@@ -194,7 +216,13 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       }
     }
 
+    for (const key of Object.keys(s.input as Record<string, unknown>))
+      if (key.startsWith("$")) problems.push(`${at}: input '${key}': keys starting with '$' are reserved`);
     const secretNames = s.secrets.map((x) => useSecret(x, at)).sort();
+    const configNames = [...new Set((s.config ?? []).map((c) => useConfig(c, at)).filter((n): n is string => n !== undefined))].sort();
+    for (const name of configNames)
+      for (const ref of configs.get(name)?.secretRefs ?? [])
+        if (!secretNames.includes(ref)) problems.push(`${at}: config '${name}' references secret '${ref}' (secretRef), so the step must declare it in secrets`);
     let handlerHash: string;
     let config: Record<string, unknown> | undefined;
     if (s.kind === "custom") {
@@ -230,6 +258,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
       ...(s.retries !== undefined ? { retries: s.retries } : {}),
       ...(config !== undefined ? { config: config as Record<string, z.core.util.JSONType> } : {}),
+      ...(configNames.length ? { configEntries: configNames } : {}),
     };
     if (s.output && !isModel(s.output)) problems.push(`${at}: output must be a model`);
     return out;
@@ -369,6 +398,13 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     harness: opts.harness,
     models: Object.fromEntries([...models].map(([k, v]) => [k, v.schemas])),
     secrets: [...secrets].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, description]) => ({ name, description })),
+    ...(configs.size
+      ? {
+          config: [...configs]
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+            .map(([name, c]) => ({ name, description: c.description, required: c.required, schema: c.schema })),
+        }
+      : {}),
     triggers,
     stages,
     failureHandlers,
@@ -380,6 +416,23 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
 
 /** Canonical manifest text (what `describe` prints and the service hashes). */
 export const manifestText = (m: ManifestT): string => canonicalJson(m);
+
+/** Secret names of every secretRef inside a config entry's JSON Schema. */
+export function secretRefsOf(schema: unknown): string[] {
+  const out = new Set<string>();
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (v === null || typeof v !== "object") return;
+    const o = v as JsonSchema;
+    if (o["x-olve-kind"] === SECRET_REF_KIND) {
+      const name = (o.properties as { secret?: { const?: unknown } } | undefined)?.secret?.const;
+      if (typeof name === "string") out.add(name);
+    }
+    Object.values(o).forEach(walk);
+  };
+  walk(schema);
+  return [...out].sort();
+}
 
 function camel(name: string): string {
   return name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());

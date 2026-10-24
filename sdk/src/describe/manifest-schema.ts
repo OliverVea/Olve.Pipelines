@@ -7,6 +7,7 @@ export const API_VERSION = "2.0";
 const stepName = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/).describe("Step name: lower-case kebab, 1-63 chars. The step's identity.");
 const modelName = z.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/).describe("Model name (key of `models`).");
 const secretName = z.string().regex(/^[A-Z_][A-Z0-9_]*$/).describe("Secret name; also the env var name in the step container.");
+const configName = z.string().regex(/^[a-z][a-zA-Z0-9]*$/).describe("Config entry name; a key of the pipeline's config document.");
 const hash = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const Json = z.json().meta({ id: "Json", description: "Any JSON value." });
 const jsonSchema = z.record(z.string(), z.unknown()).describe("A JSON Schema (draft 2020-12) object, canonical (sorted keys, no $schema).");
@@ -60,6 +61,10 @@ export const StepDescriptor = z
     timeoutSeconds: z.number().int().positive().optional(),
     retries: z.number().int().nonnegative().optional(),
     config: z.record(z.string(), Json).optional().describe("Library-step configuration (display only; already covered by handlerHash)."),
+    configEntries: z
+      .array(configName)
+      .optional()
+      .describe("Config entries the step receives (sorted; omitted when none). The service delivers them in input.json under '$config'."),
   })
   .meta({ id: "Step" });
 
@@ -123,6 +128,17 @@ export const Manifest = z
       .describe("Harness identity. Already folded into every handlerHash."),
     models: z.record(modelName, ModelSchemas).describe("Every model referenced by the pipeline (input, step inputs/outputs)."),
     secrets: z.array(z.strictObject({ name: secretName, description: z.string() })).describe("All declared secrets (steps + poll triggers), sorted by name."),
+    config: z
+      .array(
+        z.strictObject({
+          name: configName,
+          description: z.string(),
+          required: z.boolean().describe("False when the schema accepts a missing value (optional, or a default)."),
+          schema: jsonSchema.describe("z.input view: validates the config document's value for this entry (defaults listed)."),
+        }),
+      )
+      .optional()
+      .describe("Config entries used by steps, sorted by name (omitted when none). Fields of kind secretRef ({secret: NAME}) name a secret."),
     triggers: z.array(Trigger),
     stages: z.array(Stage),
     failureHandlers: z.array(

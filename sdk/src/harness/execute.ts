@@ -8,7 +8,7 @@ import type { Ctx, RunInfo } from "../ctx/types.ts";
 import { objectPath } from "../ctx/files.ts";
 import { sha256File } from "../util/hash.ts";
 import { EXIT } from "./exit.ts";
-import { validateInput, validateOutput } from "./validate.ts";
+import { validateConfig, validateInput, validateOutput } from "./validate.ts";
 
 export type FailureKind = "handler" | "input" | "output";
 export type Envelope =
@@ -58,13 +58,16 @@ export async function executeStep(args: {
   workFiles: string;
   log: (line: string) => void;
 }): Promise<Execution> {
-  const { step, ctx, log } = args;
+  const { step, log } = args;
   const input = validateInput(step, args.rawInput);
-  if (!input.ok) {
-    const message = `step '${step.name}': input does not match the step's inputs:\n  ${input.issues.join("\n  ")}`;
+  const config = validateConfig(step, args.rawInput);
+  if (!input.ok || !config.ok) {
+    const issues = [...(input.ok ? [] : input.issues), ...(config.ok ? [] : config.issues)];
+    const message = `step '${step.name}': input does not match the step's inputs:\n  ${issues.join("\n  ")}`;
     log(message);
     return { envelope: { status: "failed", error: { kind: "input", message } }, exitCode: EXIT.inputInvalid };
   }
+  const ctx: Ctx = { ...args.ctx, config: Object.freeze(config.value) as Ctx["config"] };
 
   let value: unknown;
   try {

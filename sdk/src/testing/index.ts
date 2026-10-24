@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isImplementation, type Implementation } from "../core/handlers.ts";
 import type { FileRef } from "../core/models.ts";
-import { isStep, type AnyStep, type LibraryStep, type OutputValue, type SecretsOf, type StepInput } from "../core/steps.ts";
+import { isStep, type AnyStep, type ConfigOf, type LibraryStep, type OutputValue, type SecretsOf, type StepInput } from "../core/steps.ts";
 import { createCtx } from "../ctx/index.ts";
 import type { Ctx, RunInfo } from "../ctx/types.ts";
 import { executeStep, type FailureKind, type StepFunction } from "../harness/execute.ts";
@@ -13,7 +13,9 @@ import { sha256Hex } from "../util/hash.ts";
 
 export interface TestHandlerOptions<S extends AnyStep> {
   /** Replace parts of ctx (e.g. `sh`, `http`, `files`). The rest is the real implementation. */
-  ctx?: Partial<Ctx<SecretsOf<S>>>;
+  ctx?: Partial<Ctx<SecretsOf<S>, ConfigOf<S>>>;
+  /** The step's config entries (z.input view: defaults are applied), like `$config` in input.json. */
+  config?: Record<string, unknown>;
   /** Secret values (instead of reading the environment). */
   secrets?: Partial<Record<SecretsOf<S>, string>>;
   run?: Partial<Omit<RunInfo, "step">>;
@@ -69,7 +71,7 @@ export async function testHandler<S extends AnyStep>(
   });
   const ctx = { ...real, ...opts.ctx } as Ctx;
   // Round-trip through JSON like input.json does (drops undefined, rejects non-JSON values early).
-  const raw = JSON.parse(JSON.stringify(input ?? {}));
+  const raw = JSON.parse(JSON.stringify({ ...input, ...(opts.config ? { $config: opts.config } : {}) }));
   const exec = await executeStep({ step, fn, rawInput: raw, ctx, workFiles: filesDir, log: (l) => logs.push(l) });
   return { dir, filesDir, logs, exitCode: exec.exitCode, ...exec.envelope } as TestResult<S>;
 }

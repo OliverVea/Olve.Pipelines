@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { STEP, type StepBrand } from "./brands.ts";
 import type { AnyModel, Infer, Optional } from "./models.ts";
+import type { AnyConfigEntry } from "./config.ts";
 import type { Secret } from "./secrets.ts";
 import type { Simplify } from "./types.ts";
 
@@ -24,6 +25,7 @@ export interface Step<
   I extends InputSpec = InputSpec,
   O extends AnyModel | null = AnyModel | null,
   Sec extends string = string,
+  Cfg extends AnyConfigEntry = never,
 > {
   readonly [StepBrand]: true;
   readonly kind: StepKind;
@@ -33,6 +35,8 @@ export interface Step<
   readonly input: I;
   readonly output: O;
   readonly secrets: readonly Secret<Sec>[];
+  /** Config entries the step receives as `ctx.config`. */
+  readonly config: readonly Cfg[];
   readonly timeoutSeconds?: number;
   readonly retries?: number;
   /** Library steps carry their own implementation and config. */
@@ -47,10 +51,12 @@ export interface LibraryImplementation {
 }
 export type LibraryStep = { readonly builtin: LibraryImplementation };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyStep = Step<string, any, AnyModel | null, any>;
+export type AnyStep = Step<string, any, AnyModel | null, any, any>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type SecretsOf<S> = S extends Step<any, any, any, infer Sec> ? Sec : never;
+export type SecretsOf<S> = S extends Step<any, any, any, infer Sec, any> ? Sec : never;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ConfigOf<S> = S extends Step<any, any, any, any, infer C> ? C : never;
 export type OutputValue<S extends AnyStep> = S["output"] extends AnyModel ? Infer<S["output"]> : void;
 
 /** Step names must be literals (identity, duplicate detection and mapper keys depend on it). */
@@ -61,7 +67,7 @@ export const STEP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 /** Names that cannot be steps: `input` is the pipeline input's root in mappings. */
 export const RESERVED_STEP_NAMES: readonly string[] = ["input"];
 
-export interface StepDef<N extends string, I extends InputSpec, O extends AnyModel | null, Sec extends readonly Secret[]> {
+export interface StepDef<N extends string, I extends InputSpec, O extends AnyModel | null, Sec extends readonly Secret[], Cfg extends readonly AnyConfigEntry[] = []> {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
@@ -70,6 +76,8 @@ export interface StepDef<N extends string, I extends InputSpec, O extends AnyMod
   input?: I;
   output?: O;
   secrets?: Sec;
+  /** Config entries delivered as `ctx.config` (typed to exactly these). */
+  config?: Cfg;
   timeoutSeconds?: number;
   /** Automatic retries (an idempotency claim). Default 0. */
   retries?: number;
@@ -85,6 +93,7 @@ export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?:
     input: Object.freeze({ ...((def.input as object | undefined) ?? {}) }),
     output: def.output ?? null,
     secrets: Object.freeze([...((def.secrets as readonly Secret[] | undefined) ?? [])]),
+    config: Object.freeze([...((def.config as readonly AnyConfigEntry[] | undefined) ?? [])]),
     ...(def.timeoutSeconds !== undefined ? { timeoutSeconds: def.timeoutSeconds } : {}),
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
     ...(builtin ? { builtin } : {}),
@@ -102,6 +111,7 @@ export function step<
   const I extends InputSpec = {},
   O extends AnyModel | null = null,
   const Sec extends readonly Secret[] = [],
->(def: StepDef<N, I, O, Sec>): Step<N, I, O, Sec[number]["name"]> {
+  const Cfg extends readonly AnyConfigEntry[] = [],
+>(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]["name"], Cfg[number]> {
   return makeStep("custom", def as never) as never;
 }

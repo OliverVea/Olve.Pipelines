@@ -307,7 +307,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
         ? unknown
         : "❌ a failure handler's inputs must all be FailureContext"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    opts?: { steps?: readonly Step<StepNames<A>, any, any, any>[] },
+    opts?: { steps?: readonly Step<StepNames<A>, any, any, any, any>[] },
   ): this {
     this[PIPELINE].failureHandlers.push({ step: handler as AnyStep, steps: opts?.steps ? [...(opts.steps as readonly AnyStep[])] : null });
     return this.next();

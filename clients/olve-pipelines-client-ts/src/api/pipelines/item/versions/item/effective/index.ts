@@ -19,17 +19,20 @@ export interface EffectiveRequestBuilder extends BaseRequestBuilder<EffectiveReq
      * @throws {ApiProblem} error when the service returns a 500 status code
      * @throws {ApiProblem} error when the service returns a 503 status code
      */
-     get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<EffectivePipelineResponse | undefined>;
+     get(requestConfiguration?: RequestConfiguration<EffectiveRequestBuilderGetQueryParameters> | undefined) : Promise<EffectivePipelineResponse | undefined>;
     /**
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toGetRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toGetRequestInformation(requestConfiguration?: RequestConfiguration<EffectiveRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
+}
+export interface EffectiveRequestBuilderGetQueryParameters {
+    snapshot?: number;
 }
 /**
  * Uri template for the request builder.
  */
-export const EffectiveRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/versions/{number}/effective";
+export const EffectiveRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/versions/{number}/effective{?snapshot*}";
 /**
  * Metadata for all the requests in the request builder.
  */

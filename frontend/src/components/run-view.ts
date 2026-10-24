@@ -31,7 +31,12 @@ import {
   stepLogsPath,
   isActiveStatus,
 } from '../v2/ui.js';
-import { loadVersion, type LoadedVersion } from '../v2/versions.js';
+import {
+  loadEffective,
+  loadVersion,
+  type EffectivePipeline,
+  type LoadedVersion,
+} from '../v2/versions.js';
 import {
   type Manifest,
   stepsByName,
@@ -175,6 +180,8 @@ export class RunView extends LitElement {
   @state() declare private _detail: RunDetail | null;
   @state() declare private _attempts: Attempt[];
   @state() declare private _version: LoadedVersion | null;
+  /** The run's pinned version as its pinned config snapshot ran it. */
+  @state() declare private _effective: EffectivePipeline | null;
   @state() declare private _pipelineName: string;
   @state() declare private _error: string | null;
   @state() declare private _actionErrors: string[];
@@ -266,8 +273,12 @@ export class RunView extends LitElement {
       const vn = detail?.run?.versionNumber;
       if (vn !== undefined && vn !== null && this._version?.number !== vn) {
         const version = await loadVersion(this.pipelineId, vn);
+        const effective = version
+          ? await loadEffective(this.pipelineId, version, detail?.run?.configSnapshot)
+          : null;
         if (!current()) return;
         this._version = version;
+        this._effective = effective;
       }
       this._loadFiles();
     } catch (e) {
@@ -287,6 +298,13 @@ export class RunView extends LitElement {
     const list = this._stepAttempts(this._step);
     if (!list.length) return null;
     return list.find((a) => a.number === this._attempt) ?? list[list.length - 1];
+  }
+
+  /** The run's pipeline: its pinned version with selects resolved by its pinned config; the version itself if that fails. */
+  private _runManifest(): Manifest | null {
+    return this._effective?.ok
+      ? this._effective.manifest
+      : (this._version?.manifest ?? null);
   }
 
   private async _loadFiles() {
@@ -328,7 +346,7 @@ export class RunView extends LitElement {
     if (!d) return html`<p class="muted">Loading run…</p>`;
     const r = d.run!;
     const input = untypedToJson(d.input) as Record<string, unknown>;
-    const m = this._version?.manifest ?? null;
+    const m = this._runManifest();
     const states = new Map<string, StepState>();
     for (const stage of d.stages ?? []) {
       for (const s of stage.steps ?? []) {
@@ -456,6 +474,7 @@ export class RunView extends LitElement {
         ${m
           ? html`<stage-graph
               .manifest=${m}
+              .cases=${this._effective?.ok ? this._effective.cases : null}
               .states=${states}
               .selected=${sheet ? this._step : ''}
               @step-select=${(e: CustomEvent<{ step: string }>) =>
@@ -672,7 +691,7 @@ export class RunView extends LitElement {
   }
 
   private _renderContinueDialog(input: Record<string, unknown>) {
-    const m = this._version?.manifest ?? null;
+    const m = this._runManifest();
     return html`<dialog id="continue-dialog" @close=${() => (this._continueErrors = [])}>
       <h3>Continue run #${this.run}</h3>
       <p class="continue-help">

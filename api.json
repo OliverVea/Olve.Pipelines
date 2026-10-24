@@ -3997,6 +3997,18 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -4796,7 +4808,8 @@
           "version",
           "configSnapshot",
           "selected",
-          "manifest"
+          "manifest",
+          "cases"
         ],
         "type": "object",
         "properties": {
@@ -4821,6 +4834,15 @@
           },
           "manifest": {
             "type": "string"
+          },
+          "cases": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       },

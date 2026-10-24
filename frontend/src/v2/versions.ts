@@ -76,3 +76,45 @@ export function loadVersion(
   }
   return p;
 }
+
+export type EffectivePipeline =
+  | {
+      ok: true;
+      manifest: Manifest | null;
+      /** Step name → the select cases that picked it ("target.beta.kind=inCluster"). */
+      cases: Record<string, string[]>;
+    }
+  | { ok: false; reason: string };
+
+/**
+ * The pipeline a version runs with a config snapshot (default: the pipeline's latest): each `select`
+ * resolved to its case. Versions without a select are returned as they are.
+ */
+export async function loadEffective(
+  pipelineId: string,
+  version: LoadedVersion,
+  snapshot?: number | null,
+): Promise<EffectivePipeline> {
+  const hasSelect = (version.manifest?.stages ?? []).some(function walk(s): boolean {
+    return 'select' in s || ('stages' in s && s.stages.some(walk));
+  });
+  if (!hasSelect) return { ok: true, manifest: version.manifest, cases: {} };
+  try {
+    const r = await client.api.pipelines
+      .byId(pipelineId)
+      .versions.byNumber(version.number)
+      .effective.get(snapshot ? { queryParameters: { snapshot } } : undefined);
+    const raw = (r?.cases?.additionalData ?? {}) as Record<string, unknown>;
+    const cases = Object.fromEntries(
+      Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v.map(String) : []]),
+    );
+    return { ok: true, manifest: parseManifest(r?.manifest), cases };
+  } catch (e) {
+    return {
+      ok: false,
+      reason:
+        (e as { errors?: { message?: string }[] })?.errors?.[0]?.message ??
+        (e as Error).message,
+    };
+  }
+}

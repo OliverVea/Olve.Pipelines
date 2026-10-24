@@ -348,6 +348,15 @@ export class StageGraph extends LitElement {
       .t-run .badge {
         animation: pulse 1.6s ease-in-out infinite;
       }
+      .case {
+        display: inline-block;
+        margin-top: 4px;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        color: var(--muted, #888);
+        border: 1px solid var(--border, #ccc);
+      }
       .meta {
         margin-top: 0.3rem;
         min-height: 1.15rem;
@@ -491,6 +500,8 @@ export class StageGraph extends LitElement {
   @property({ attribute: false }) declare blocked: Set<string> | null;
   @property() declare selected: string;
   @property({ type: Boolean }) declare stepControls: boolean;
+  /** Step name → the select cases that picked it, shown as a chip (effective pipelines). */
+  @property({ attribute: false }) declare cases: Record<string, string[]> | null;
   @state() declare private _hover: string | null;
   @state() declare private _card: { step: string; anchor: DOMRect } | null;
   @state() declare private _level: Level;
@@ -936,6 +947,12 @@ export class StageGraph extends LitElement {
               : ''}
           </div>`
         : nothing}
+      ${(this.cases?.[step.name] ?? []).map(
+        (c) =>
+          html`<div class="case" title="picked by the config">
+            ${c.replace('=', ' = ')}
+          </div>`,
+      )}
     </div>`;
   }
 

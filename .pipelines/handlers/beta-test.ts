@@ -7,7 +7,7 @@ function check(ok: boolean, what: string): asserts ok {
 
 export default implement(betaTest, async ({ release }, ctx) => {
   const BETA_URL = serviceUrl(release);
-  const auth = ctx.config.target.beta.auth ?? ctx.config.auth;
+  const auth = ctx.config.auth;
   await httpHealthCheck(ctx, `${BETA_URL}/api/ready`, { attempts: 12, delaySeconds: 5 });
 
   const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`);

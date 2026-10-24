@@ -10,6 +10,7 @@ import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
 import type { FileRef } from "../core/models.ts";
 import { optional } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
+import { secretRef } from "../core/config.ts";
 import { makeStep, type LibraryStep, type LiteralName, type Step, type StepKind } from "../core/steps.ts";
 import type { Simplify } from "../core/types.ts";
 import { serviceUrl } from "./checks.ts";
@@ -23,25 +24,62 @@ export const HELM_IMAGE = "alpine/helm:3.16.2";
 /** Where the step pod finds its ServiceAccount token (mounted only with the instance's step ServiceAccount). */
 export const SERVICE_ACCOUNT_TOKEN = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 
-/**
- * The config schema of a deploy target, for a pipeline's own config entry:
- * `config("target", "…", z.object({ beta: helmTarget(), prod: helmTarget() }))`. A discriminated union
- * on `kind`, so a pipeline can `select` on it. `defaults` fill `namespace` and `release`; `extend`
- * adds fields to both kinds.
- */
-export function helmTarget<const E extends z.ZodRawShape = {}>(defaults: { namespace?: string; release?: string } = {}, extend?: E) {
+function targetVariants<const E extends z.ZodRawShape, const K extends string>(o: Omit<DeployTargetOptions<E, K>, "composeToken"> & { composeToken?: Secret<K> }) {
   const name = (d: string | undefined) => (d === undefined ? z.string() : z.string().default(d));
   const common = {
-    namespace: name(defaults.namespace).describe("Namespace the release is installed into."),
-    release: name(defaults.release).describe("Helm release name."),
+    namespace: name(o.namespace).describe("Namespace the release is installed into."),
+    release: name(o.release).describe("Helm release name."),
     values: z.array(z.string()).default([]).describe("Values files, relative to the chart directory (-f, in order)."),
     set: z.record(z.string(), z.string()).default({}).describe("Extra --set flags."),
-    ...(extend ?? ({} as E)),
+    ...(o.extend ?? ({} as E)),
   };
-  return z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("inCluster").describe("helm runs in the step pod against its own cluster (needs the instance's step ServiceAccount)."), ...common }),
-    z.object({ kind: z.literal("ssh").describe("helm runs on a k3s host over SSH."), host: z.string().describe("user@host"), ...common }),
-  ]);
+  const inCluster = z.object({ kind: z.literal("inCluster").describe("helm runs in the step pod against its own cluster (needs the instance's step ServiceAccount)."), ...common });
+  const ssh = z.object({ kind: z.literal("ssh").describe("helm runs on a k3s host over SSH."), host: z.string().describe("user@host"), ...common });
+  const compose = z.object({
+    kind: z.literal("compose").describe("A Docker Compose deployer recreates a service with the image."),
+    deployerUrl: z.string().describe("The deployer's base URL (POST <deployerUrl>/v1/deploy)."),
+    service: z.string().describe("The compose service to recreate."),
+    token: secretRef(o.composeToken ?? ({ kind: "secret", name: "DEPLOYER_TOKEN", description: "" } as Secret<K>)).describe("The deployer's bearer token."),
+    healthUrl: z.string().optional().describe("Checked by the step after the deployer's own health check, when the step can reach it."),
+    ...(o.extend ?? ({} as E)),
+  });
+  const none = z.object({ kind: z.literal("none").describe("Not deployed: the target's steps are left out.") });
+  return { inCluster, ssh, compose, none };
+}
+
+export interface DeployTargetOptions<E extends z.ZodRawShape, K extends string> {
+  /** Default namespace (helm targets). */
+  namespace?: string;
+  /** Default release name (helm targets). */
+  release?: string;
+  /** Fields added to every kind but `none` (e.g. per-target auth overrides). */
+  extend?: E;
+  /** The secret holding the compose deployer's token (`kind: compose`'s `token: { secret: … }`). */
+  composeToken: Secret<K>;
+  /** Adds `kind: none`, a target that isn't deployed (e.g. an optional beta). */
+  optional?: boolean;
+}
+
+/**
+ * The config schema of a deploy target, a union on `kind` to `select` on: `inCluster` and `ssh` (helm),
+ * `compose` (a Docker Compose deployer), and with `optional: true` also `none` (not deployed).
+ * `config("target", "…", z.object({ beta: deployTarget({ optional: true, composeToken: T }), prod: deployTarget({ composeToken: T }) }))`
+ */
+export function deployTarget<const K extends string, const E extends z.ZodRawShape = {}>(o: DeployTargetOptions<E, K> & { optional: true }): z.ZodDiscriminatedUnion<[
+  ReturnType<typeof targetVariants<E, K>>["inCluster"], ReturnType<typeof targetVariants<E, K>>["ssh"], ReturnType<typeof targetVariants<E, K>>["compose"], ReturnType<typeof targetVariants<E, K>>["none"],
+]>;
+export function deployTarget<const K extends string, const E extends z.ZodRawShape = {}>(o: DeployTargetOptions<E, K>): z.ZodDiscriminatedUnion<[
+  ReturnType<typeof targetVariants<E, K>>["inCluster"], ReturnType<typeof targetVariants<E, K>>["ssh"], ReturnType<typeof targetVariants<E, K>>["compose"],
+]>;
+export function deployTarget(o: DeployTargetOptions<z.ZodRawShape, string>): unknown {
+  const v = targetVariants(o);
+  return z.discriminatedUnion("kind", o.optional ? [v.inCluster, v.ssh, v.compose, v.none] : [v.inCluster, v.ssh, v.compose]);
+}
+
+/** A helm-only deploy target (`inCluster | ssh`). */
+export function helmTarget<const E extends z.ZodRawShape = {}>(defaults: { namespace?: string; release?: string } = {}, extend?: E) {
+  const v = targetVariants({ ...defaults, extend });
+  return z.discriminatedUnion("kind", [v.inCluster, v.ssh]);
 }
 
 interface TargetCommon {

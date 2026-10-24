@@ -581,7 +581,17 @@ public static partial class ManifestValidator
                     Error(ManifestIssueCodes.ConfigUnknown, cp, $"step '{s.Name}' uses config entry '{name}', which is not in the pipeline's config", s.Name);
                     continue;
                 }
-                foreach (var secret in ConfigSecretRefs.Declared(entry.Schema))
+                // A library step that references parts of the entry needs the secrets those parts name; any other step
+                // receiving the entry needs every secret it names.
+                var refs = (s.Config ?? new Dictionary<string, JsonElement>())
+                    .SelectMany(kv => ConfigRefs.Find(kv.Value, ""))
+                    .Where(r => r.Reference.Split('.')[0] == name)
+                    .ToList();
+                var needed = refs.Count == 0
+                    ? ConfigSecretRefs.Declared(entry.Schema)
+                    : refs.SelectMany(r => ConfigRefs.SubSchemas(entry.Schema, r.Reference.Split('.')[1..], r.Case, name))
+                        .SelectMany(ConfigSecretRefs.Declared).Distinct(StringComparer.Ordinal);
+                foreach (var secret in needed)
                     if (!stepSecrets.Contains(secret))
                         Error(ManifestIssueCodes.ConfigSecretRefNotInStep, cp,
                             $"step '{s.Name}' receives config entry '{name}', which references secret '{secret}'; the step must also declare that secret", s.Name);

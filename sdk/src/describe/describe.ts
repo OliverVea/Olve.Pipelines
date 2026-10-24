@@ -233,9 +233,22 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       if (key.startsWith("$")) problems.push(`${at}: input '${key}': keys starting with '$' are reserved`);
     const secretNames = s.secrets.map((x) => useSecret(x, at)).sort();
     const configNames = [...new Set((s.config ?? []).map((c) => useConfig(c, at)).filter((n): n is string => n !== undefined))].sort();
-    for (const name of configNames)
-      for (const ref of configs.get(name)?.secretRefs ?? [])
+    // A library step that references parts of an entry needs the secrets those parts name; any other
+    // step receiving an entry needs every secret the entry names.
+    let refs: { ref: string; case?: string }[] = [];
+    try {
+      refs = s.builtin ? recordedConfigRefs(s.builtin.manifestConfig()) : [];
+    } catch {
+      // reported with the library configuration below
+    }
+    for (const name of configNames) {
+      const into = refs.filter((r) => r.ref.split(".")[0] === name);
+      const needed = into.length === 0
+        ? configs.get(name)?.secretRefs ?? []
+        : [...new Set(into.flatMap((r) => secretRefsOf(subSchemas(configs.get(name)?.schema, r.ref.split(".").slice(1), r.case, name))))].sort();
+      for (const ref of needed)
         if (!secretNames.includes(ref)) problems.push(`${at}: config '${name}' references secret '${ref}' (secretRef), so the step must declare it in secrets`);
+    }
     let handlerHash: string;
     let config: Record<string, unknown> | undefined;
     if (s.kind === "custom") {
@@ -473,6 +486,36 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
 
 /** Canonical manifest text (what `describe` prints and the service hashes). */
 export const manifestText = (m: ManifestT): string => canonicalJson(m);
+
+/**
+ * The schemas at `path` inside an entry's schema: every union branch that has the field, except where
+ * `kase` (`<entry>.<path>.<discriminator>=<value>`) narrows a union to one branch.
+ */
+export function subSchemas(schema: unknown, path: readonly string[], kase: string | undefined, entry: string): unknown[] {
+  let narrow: { at: string; discriminator: string; value: string } | undefined;
+  if (kase) {
+    const eq = kase.lastIndexOf("=");
+    const left = kase.slice(0, eq);
+    const dot = left.lastIndexOf(".");
+    narrow = { at: left.slice(0, dot), discriminator: left.slice(dot + 1), value: kase.slice(eq + 1) };
+  }
+  const walk = (node: unknown, rest: readonly string[], here: string): unknown[] => {
+    if (node === null || typeof node !== "object") return [];
+    const o = node as JsonSchema;
+    const branches = (o.oneOf ?? o.anyOf) as JsonSchema[] | undefined;
+    if (Array.isArray(branches)) {
+      const chosen = narrow && narrow.at === here
+        ? branches.filter((b) => ((b.properties as Record<string, JsonSchema> | undefined)?.[narrow!.discriminator] as JsonSchema | undefined)?.const === narrow!.value)
+        : branches;
+      return chosen.flatMap((b) => walk(b, rest, here));
+    }
+    if (rest.length === 0) return [node];
+    const props = o.properties as Record<string, JsonSchema> | undefined;
+    if (props && Object.hasOwn(props, rest[0]!)) return walk(props[rest[0]!], rest.slice(1), `${here}.${rest[0]}`);
+    return [];
+  };
+  return walk(schema, path, entry);
+}
 
 /** Secret names of every secretRef inside a config entry's JSON Schema. */
 export function secretRefsOf(schema: unknown): string[] {

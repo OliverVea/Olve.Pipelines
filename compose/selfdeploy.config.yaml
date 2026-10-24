@@ -1,36 +1,22 @@
 # Config document for Olve.Pipelines deploying itself into the local compose stack (README, "Watch it
-# deploy itself"). Beta and prod are two namespaces of the compose k3s, deployed in-cluster by the step
-# ServiceAccount olve-deployer; images go to the compose registry; nothing is published to npm or ghcr.
+# deploy itself"): one instance, no beta. deploy-prod asks the compose deployer (compose/deployer) to
+# recreate the `pipelines` service, the instance running the pipeline, with the image the run built.
+# Images go to the compose registry; nothing is published to npm or ghcr.
 #
 #   pl config set "Olve.Pipelines v2" -f compose/selfdeploy.config.yaml
 #   printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
+#   printf local-deployer | pl secret set "Olve.Pipelines v2" DEPLOYER_TOKEN
+#
+# compose/selfdeploy-incluster.config.yaml deploys to two k3s namespaces instead (tests the helm chart).
 
 target:
   beta:
-    kind: inCluster
-    namespace: selfdeploy-beta
-    values: [values-minimal.yaml]
-    set:
-      # Each deployed copy has its own Garage, in its own namespace.
-      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
-      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
-      config.Kubernetes__Namespace: selfdeploy-beta
-      config.Kubernetes__RuntimeClassName: ""
-      config.Webhooks__PublicBaseUrl: ""
-      garage.metaStorage: 1Gi
-      garage.dataStorage: 2Gi
+    kind: none
   prod:
-    kind: inCluster
-    namespace: selfdeploy-prod
-    values: [values-minimal.yaml]
-    set:
-      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
-      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
-      config.Kubernetes__Namespace: selfdeploy-prod
-      config.Kubernetes__RuntimeClassName: ""
-      config.Webhooks__PublicBaseUrl: ""
-      garage.metaStorage: 1Gi
-      garage.dataStorage: 2Gi
+    kind: compose
+    deployerUrl: http://deployer:8080
+    service: pipelines
+    token: { secret: DEPLOYER_TOKEN }
 
 auth:
   mode: none
@@ -48,7 +34,6 @@ publish:
       username: local
       password: { secret: REGISTRY_PASSWORD }
   harness:
-    # build-harness pushes it here; the deploys set it as the deployed copies' step-pod init image.
     repository: registry:5000/olve-pipelines-harness-base
     insecure: true
     auth:

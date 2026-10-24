@@ -5,7 +5,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { config, helmTarget, HelmRelease, model, npmDistTag, pipeline, registryTag, secret, secretRef, step, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { config, deployTarget, helmTarget, HelmRelease, model, npmDistTag, pipeline, registryTag, secret, secretRef, step, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
 import { pipelineData } from "../../src/builder/pipeline.ts";
 import { findStep } from "../../src/harness/main.ts";
 import { configRefPath, isConfigRef } from "../../src/core/config.ts";
@@ -87,7 +87,9 @@ describe("config references", () => {
     expect(problems(base().stage(steps.imageBuild({ name: "build", description: "", repository: "x" })).stage(bad))).toEqual([
       "step 'deploy': config reference 'target.beta.nope': config 'target' has no field 'beta.nope'",
     ]);
-    const noSecret = steps.imageBuild({ name: "build", description: "", repository: PUBLISH.repository, push: true });
+    // Referencing only publish.repository needs no secret; publish.auth names REGISTRY_PASSWORD.
+    expect(problems(base().stage(steps.imageBuild({ name: "build", description: "", repository: PUBLISH.repository, push: true })))).toEqual([]);
+    const noSecret = steps.imageBuild({ name: "build", description: "", repository: PUBLISH.repository, push: true, registryAuth: PUBLISH.auth });
     expect(problems(base().stage(noSecret))).toEqual([
       "step 'build': config 'publish' references secret 'REGISTRY_PASSWORD' (secretRef), so the step must declare it in secrets",
     ]);
@@ -281,5 +283,38 @@ describe("registryTag and npmDistTag", () => {
     await npmDistTag(ctx, { name: "@olivervea/pipelines", version: "2.0.0", tag: "latest", token: "t" });
     expect(seen[0]!.url).toBe("https://registry.npmjs.org/-/package/@olivervea%2fpipelines/dist-tags/latest");
     expect(seen[0]!.init).toMatchObject({ method: "PUT", body: '"2.0.0"' });
+  });
+});
+
+describe("steps.composeDeploy and deployTarget", () => {
+  const TOKEN = secret("DEPLOYER_TOKEN", "deployer token");
+  const T = config("target", "Where to deploy.", z.object({
+    beta: deployTarget({ composeToken: TOKEN, optional: true }),
+    prod: deployTarget({ composeToken: TOKEN, release: "app" }),
+  }));
+  const image = { repository: "registry:5000/app", tag: "2026.10.24.9", digest: "sha256:" + "ef".repeat(32) };
+  const deploy = steps.composeDeploy({ name: "deploy-prod", description: "", target: T.prod as any, token: TOKEN });
+  const docConfig = { target: { beta: { kind: "none" }, prod: { kind: "compose", deployerUrl: "http://deployer:8080/", service: "pipelines", token: { secret: "DEPLOYER_TOKEN" } } } };
+
+  test("contract: only the token, no cluster access; the schema has compose, and none only where optional", () => {
+    expect(deploy).toMatchObject({ kind: "composeDeploy", image: "alpine:3.22", secrets: [TOKEN] });
+    expect("clusterAccess" in deploy).toBe(false);
+    expect(T.schema.safeParse({ beta: { kind: "none" }, prod: docConfig.target.prod }).success).toBe(true);
+    expect(T.schema.safeParse({ beta: { kind: "none" }, prod: { kind: "none" } }).success).toBe(false);
+  });
+
+  test("POSTs the image by digest with the token and reports the deployer's answer", async () => {
+    const seen: { url: string; init?: RequestInit }[] = [];
+    let answer: { status: number; body: unknown } = { status: 200, body: { status: "deployed", service: "pipelines", image: "x", previousImage: "old", log: ["pulled", "healthy"] } };
+    const ctx = { http: { fetch: async (url: string, init?: RequestInit) => (seen.push({ url, init }), Response.json(answer.body, { status: answer.status })) } as unknown as Ctx["http"] };
+    const r = await testHandler(deploy as any, { image }, { ctx, config: docConfig, secrets: { DEPLOYER_TOKEN: "tok" } });
+    expect(r).toMatchObject({ status: "succeeded", output: { release: "pipelines", namespace: "compose", image: `registry:5000/app@${image.digest}` } });
+    expect(seen[0]!.url).toBe("http://deployer:8080/v1/deploy");
+    expect(new Headers(seen[0]!.init?.headers).get("authorization")).toBe("Bearer tok");
+    expect(JSON.parse(String(seen[0]!.init?.body))).toEqual({ service: "pipelines", image: `registry:5000/app@${image.digest}` });
+    answer = { status: 502, body: { status: "rolled-back", message: "health timed out" } };
+    const failed = await testHandler(deploy as any, { image }, { ctx, config: docConfig, secrets: { DEPLOYER_TOKEN: "tok" } });
+    if (failed.status !== "failed") throw new Error("expected failure");
+    expect(failed.error.message).toContain("the deployer answered HTTP 502: rolled-back: health timed out");
   });
 });

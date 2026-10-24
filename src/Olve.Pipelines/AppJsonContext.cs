@@ -43,6 +43,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<PipelineVersionsResponse>))]
 [JsonSerializable(typeof(Result<PipelineVersion>))]
 [JsonSerializable(typeof(Result<EffectivePipelineResponse>))]
+[JsonSerializable(typeof(Olve.Pipelines.Health.HealthResponse))]
 [JsonSerializable(typeof(Result<PipelineActivation>))]
 [JsonSerializable(typeof(SwitchVersionRequest))]
 [JsonSerializable(typeof(PipelineConfigBinding))]

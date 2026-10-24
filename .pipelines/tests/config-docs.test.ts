@@ -36,14 +36,25 @@ describe("config documents", () => {
         auth: { type: "oauth2", tokenUrl: "https://auth.ovea.pro/application/o/token/", clientId: "otel", clientSecret: { kubernetesSecret: { name: "authentik-oidc-secrets", key: "otel-client-secret" } } },
       },
     });
-    expect(c.target.beta.auth).toMatchObject({ mode: "authentik", audience: "olve-pipelines-beta", anonymousReads: true });
-    expect(c.target.beta.telemetry).toEqual({ exporter: "otlp", endpoint: "http://otel-beta.ovea.pro", protocol: "http", auth: { type: "none" } });
+    const beta = c.target.beta;
+    if (beta.kind === "none") throw new Error("the prod example has a beta");
+    expect(beta.auth).toMatchObject({ mode: "authentik", audience: "olve-pipelines-beta", anonymousReads: true });
+    expect(beta.telemetry).toEqual({ exporter: "otlp", endpoint: "http://otel-beta.ovea.pro", protocol: "http", auth: { type: "none" } });
     expect(c.publish).toMatchObject({ npm: { enabled: true, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
     expect(c.source.apiUrl).toBe("https://api.github.com");
   });
 
-  test("local self-deploy: in-cluster namespaces, the compose registry, nothing published to npm", () => {
+  test("local self-deploy: one instance redeployed by the compose deployer, no beta, nothing published to npm", () => {
     const c = load("compose/selfdeploy.config.yaml");
+    expect(c.target.beta).toEqual({ kind: "none" });
+    expect(c.target.prod).toMatchObject({ kind: "compose", deployerUrl: "http://deployer:8080", service: "pipelines", token: { secret: "DEPLOYER_TOKEN" } });
+    expect(c.auth).toEqual({ mode: "none" });
+    expect(c.publish.server.repository.startsWith("registry:5000/")).toBe(true);
+    expect(c.publish.npm.enabled).toBe(false);
+  });
+
+  test("local in-cluster variant: two k3s namespaces, the compose registry, nothing published to npm", () => {
+    const c = load("compose/selfdeploy-incluster.config.yaml");
     expect(c.target.beta).toMatchObject({ kind: "inCluster", namespace: "selfdeploy-beta", release: "olve-pipelines" });
     expect(c.target.prod).toMatchObject({ kind: "inCluster", namespace: "selfdeploy-prod", release: "olve-pipelines" });
     expect(c.auth).toEqual({ mode: "none" });

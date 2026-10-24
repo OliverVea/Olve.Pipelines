@@ -1,10 +1,11 @@
-import { config, helmTarget, secret, secretRef, z } from "@olivervea/pipelines";
+import { config, deployTarget, secret, secretRef, z } from "@olivervea/pipelines";
 
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for ssh deploy targets: pulling the images and running helm on the host.");
 export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines and moves its dist-tags.");
 export const GHCR_TOKEN = secret("GHCR_TOKEN", "GitHub token with write:packages, for images published to ghcr.io.");
 export const REGISTRY_PASSWORD = secret("REGISTRY_PASSWORD", "Password of another image registry, when publish names it.");
+export const DEPLOYER_TOKEN = secret("DEPLOYER_TOKEN", "Bearer token of the Docker Compose deployer, for compose targets.");
 
 const Auth = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("none").describe("Every endpoint is anonymous. Only for local or trusted-network instances.") }),
@@ -58,9 +59,9 @@ const stageOverrides = {
   auth: Auth.optional().describe("Replaces `auth` for this target."),
   telemetry: Telemetry.optional().describe("Replaces `telemetry` for this target."),
 };
-export const TARGET = config("target", "Where beta and prod are deployed, and how (inCluster or ssh).", z.object({
-  beta: helmTarget({ namespace: "olve-pipelines-beta", release: "olve-pipelines" }, stageOverrides),
-  prod: helmTarget({ namespace: "olve-pipelines", release: "olve-pipelines" }, stageOverrides),
+export const TARGET = config("target", "Where beta and prod are deployed, and how: inCluster, ssh or compose; beta may be none.", z.object({
+  beta: deployTarget({ namespace: "olve-pipelines-beta", release: "olve-pipelines", extend: stageOverrides, composeToken: DEPLOYER_TOKEN, optional: true }),
+  prod: deployTarget({ namespace: "olve-pipelines", release: "olve-pipelines", extend: stageOverrides, composeToken: DEPLOYER_TOKEN }),
 }));
 
 export const SOURCE = config("source", "Where the source tarball is fetched from.", z.object({

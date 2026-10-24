@@ -10,6 +10,7 @@
         "tags": [
           "Olve.Pipelines"
         ],
+        "operationId": "GetHealth",
         "responses": {
           "200": {
             "description": "OK"

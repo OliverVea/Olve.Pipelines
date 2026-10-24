@@ -11,7 +11,9 @@ target:
     namespace: selfdeploy-beta
     values: [values-minimal.yaml]
     set:
-      config.Storage__Endpoint: http://olve-pipelines-garage:3900
+      # Each deployed copy has its own Garage, in its own namespace.
+      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
+      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
       config.Kubernetes__Namespace: selfdeploy-beta
       config.Kubernetes__RuntimeClassName: ""
       config.Webhooks__PublicBaseUrl: ""
@@ -22,7 +24,8 @@ target:
     namespace: selfdeploy-prod
     values: [values-minimal.yaml]
     set:
-      config.Storage__Endpoint: http://olve-pipelines-garage:3900
+      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
+      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
       config.Kubernetes__Namespace: selfdeploy-prod
       config.Kubernetes__RuntimeClassName: ""
       config.Webhooks__PublicBaseUrl: ""
@@ -44,9 +47,7 @@ publish:
       username: local
       password: { secret: REGISTRY_PASSWORD }
   harness:
-    # Off: kaniko can't build harness/base inside a step pod (its /olve/lib collides with the running
-    # harness's). The deployed copies use the server's built-in harness image.
-    push: false
+    # build-harness pushes it here; the deploys set it as the deployed copies' step-pod init image.
     repository: registry:5000/olve-pipelines-harness-base
     insecure: true
     auth:

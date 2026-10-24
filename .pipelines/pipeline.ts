@@ -16,8 +16,8 @@ export const source = steps.gitHubSource({
   apiUrl: SOURCE.apiUrl,
 });
 
-export const serverImage = steps.imageBuild({
-  name: "server-image",
+export const buildServer = steps.imageBuild({
+  name: "build-server",
   description: "Builds the server image (API, frontend, docs) with kaniko and pushes it under this run's version tag.",
   repository: PUBLISH.server.repository,
   push: true,
@@ -29,8 +29,8 @@ export const serverImage = steps.imageBuild({
   timeoutSeconds: 1800,
 });
 
-export const harness = steps.imageBuild({
-  name: "harness",
+export const buildHarness = steps.imageBuild({
+  name: "build-harness",
   description: "Builds the step pods' init image (harness/base) when its content changed, under its content tag.",
   repository: PUBLISH.harness.repository,
   context: "harness/base",
@@ -59,8 +59,8 @@ export const frontendLint = step({
   timeoutSeconds: 900,
 });
 
-export const sdk = step({
-  name: "sdk",
+export const buildSdk = step({
+  name: "build-sdk",
   description: "Checks sdk/ (tsc, compile-fail cases, bun test) and packs it.",
   image: "oven/bun:1.4.3-slim",
   input: { source: Source },
@@ -68,8 +68,8 @@ export const sdk = step({
   timeoutSeconds: 1200,
 });
 
-export const cli = step({
-  name: "cli",
+export const buildCli = step({
+  name: "build-cli",
   description: "Builds the pl CLI for Linux and Windows.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
@@ -160,10 +160,10 @@ export default pipeline({
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
-  .stage(serverImage, harness, test, frontendLint, sdk, cli)
-  .stage([publishImages, from => ({ server: from["server-image"], harness: from.harness })], publishSdk, publishCli)
-  .stage([deployBeta, from => ({ source: from.source, server: from["server-image"], harness: from.harness })])
+  .stage(buildServer, buildHarness, test, frontendLint, buildSdk, buildCli)
+  .stage([publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })], publishSdk, publishCli)
+  .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] })])
   .stage(betaTest)
   .when({ deployTo: "prod" }, p => p
-    .stage([deployProd, from => ({ source: from.source, server: from["server-image"], harness: from.harness })])
-    .stage([promote, from => ({ server: from["server-image"], harness: from.harness, sdk: from["publish-sdk"] })]));
+    .stage([deployProd, from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] })])
+    .stage([promote, from => ({ server: from["build-server"], harness: from["build-harness"], sdk: from["publish-sdk"] })]));

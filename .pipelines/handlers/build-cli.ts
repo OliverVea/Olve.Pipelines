@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import { implement } from "@olivervea/pipelines";
-import { cli } from "../pipeline";
+import { buildCli } from "../pipeline";
 
 const CLI = "src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj";
 
-export default implement(cli, async ({ source }, ctx) => {
+export default implement(buildCli, async ({ source }, ctx) => {
   const apt = { DEBIAN_FRONTEND: "noninteractive" };
   await ctx.exec(["apt-get", "update", "-qq"], { env: apt });
   await ctx.exec(["apt-get", "install", "-y", "-qq", "--no-install-recommends", "clang", "zlib1g-dev"], { env: apt });

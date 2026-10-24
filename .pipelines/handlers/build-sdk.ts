@@ -1,9 +1,9 @@
 import { mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { implement } from "@olivervea/pipelines";
-import { sdk } from "../pipeline";
+import { buildSdk } from "../pipeline";
 
-export default implement(sdk, async ({ source }, ctx) => {
+export default implement(buildSdk, async ({ source }, ctx) => {
   const dir = join(await ctx.files.fetch(source.tree), "sdk");
   const { name, version } = await ctx.readJson<{ name: string; version: string }>(join(dir, "package.json"));
 

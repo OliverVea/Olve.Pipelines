@@ -3,7 +3,7 @@ import type { Ctx } from "@olivervea/pipelines";
 import { testFileRef, testHandler } from "@olivervea/pipelines/testing";
 import publishSdk from "../handlers/publish-sdk";
 
-const pkg = { name: "@olivervea/pipelines", version: "2.0.0-beta.9", tarball: testFileRef({ step: "sdk", path: "package.tgz" }) };
+const pkg = { name: "@olivervea/pipelines", version: "2.0.0-beta.9", tarball: testFileRef({ step: "build-sdk", path: "package.tgz" }) };
 const publish = (npm: { enabled: boolean }) => ({ publish: { server: { repository: "r/s" }, harness: { repository: "r/h" }, npm } });
 
 function fakes(result: { exitCode: number; output: string }) {

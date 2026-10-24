@@ -103,6 +103,7 @@ export const runPath = (id: string, n: number | null | undefined) => `/pipeline/
 export const runsPath = (id: string) => `/pipeline/${id}/runs`;
 export const versionsPath = (id: string) => `/pipeline/${id}/versions`;
 export const secretsPath = (id: string) => `/pipeline/${id}/secrets`;
+export const configPath = (id: string) => `/pipeline/${id}/config`;
 export const bindingPath = (id: string) => `/pipeline/${id}/binding`;
 export const stepLogsPath = (id: string, run: number | null | undefined, step: string, attempt?: number | null) =>
   `/pipeline/${id}/run/${run ?? ''}/step/${encodeURIComponent(step)}/logs${attempt ? `?attempt=${attempt}` : ''}`;

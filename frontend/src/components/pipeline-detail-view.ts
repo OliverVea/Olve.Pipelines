@@ -20,6 +20,7 @@ import {
   runsPath,
   versionsPath,
   secretsPath,
+  configPath,
   bindingPath,
   stepPath,
   stepLogsPath,
@@ -394,6 +395,7 @@ export class PipelineDetailView extends LitElement {
       ${(h?.heldRuns ?? []).length ? html`<span class="warn">${h!.heldRuns!.length} held</span>` : nothing}
       <a href=${runsPath(this.pipelineId)} @click=${navClick}>Runs</a>
       <a href=${versionsPath(this.pipelineId)} @click=${navClick}>Versions</a>
+      <a href=${configPath(this.pipelineId)} @click=${navClick}>Config</a>
       <a href=${secretsPath(this.pipelineId)} @click=${navClick}>Secrets</a>
       ${this._binding ? html`<a href=${bindingPath(this.pipelineId)} @click=${navClick}>Binding</a>` : nothing}
     </div>`;
@@ -417,6 +419,12 @@ export class PipelineDetailView extends LitElement {
               : html`<span>${where} waiting for first sync</span>`}
         ${unset.length
           ? html`<a class="bad" href=${secretsPath(this.pipelineId)} @click=${navClick}>unset secrets: ${unset.join(', ')}</a>`
+          : nothing}
+        ${this._health?.pending
+          ? html`<a class="warn" href=${configPath(this.pipelineId)} @click=${navClick}
+              >${this._health.pending.held ? 'held' : 'pending'} v${this._health.pending.version}:
+              ${(this._health.pending.reasons ?? []).join('; ')}</a
+            >`
           : nothing}
       </div>
       ${b.result === 2 && b.problems?.length ? html`<ul class="problems">${b.problems.map((x) => html`<li>${x}</li>`)}</ul>` : nothing}`;

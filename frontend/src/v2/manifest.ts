@@ -22,6 +22,7 @@ export type JsonSchema = {
   description?: string;
   items?: JsonSchema;
   anyOf?: JsonSchema[];
+  oneOf?: JsonSchema[];
   additionalProperties?: boolean | JsonSchema;
   'x-olve-kind'?: string;
   [k: string]: unknown;
@@ -45,6 +46,8 @@ export type ManifestStep = {
   timeoutSeconds?: number;
   handlerHash?: string;
   config?: unknown;
+  /** Config entries delivered to the step as ctx.config. */
+  configEntries?: string[];
   [k: string]: unknown;
 };
 
@@ -72,6 +75,8 @@ export type Manifest = {
   triggers: Trigger[];
   stages: Stage[];
   failureHandlers: { step: ManifestStep; steps: string[] | null }[];
+  /** Typed config entries (one key each in the pipeline's config document). */
+  config?: { name: string; description: string; required: boolean; schema: JsonSchema }[];
 };
 
 export function parseManifest(json: string | null | undefined): Manifest | null {

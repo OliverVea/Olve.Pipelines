@@ -6,6 +6,7 @@ import { sharedStyles, shortSha } from '../v2/ui.js';
 import { loadVersion, type Activation } from '../v2/versions.js';
 import { canonicalJson } from '../v2/manifest.js';
 import { diffLines, foldDiff, type DiffHunk } from '../v2/diff.js';
+import './diff-view.js';
 import './relative-time.js';
 
 type EntityChange = { name: string; from: number | null; to: number | null };
@@ -66,41 +67,6 @@ export class VersionsPanel extends LitElement {
         gap: 0.3rem 1.2rem;
         font-size: 0.8rem;
         margin-bottom: 0.6rem;
-      }
-      .diff {
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius);
-        background: var(--color-code-bg);
-        font-family: var(--font-mono);
-        font-size: 0.74rem;
-        line-height: 1.45;
-        overflow: auto;
-        max-height: 34rem;
-      }
-      .ln {
-        display: grid;
-        grid-template-columns: 3rem 3rem 1.2rem minmax(0, 1fr);
-        white-space: pre;
-      }
-      .ln span:nth-child(-n + 2) {
-        color: var(--color-text-muted);
-        text-align: right;
-        padding-right: 0.5rem;
-        user-select: none;
-      }
-      .ln.add {
-        background: var(--color-diff-add);
-      }
-      .ln.del {
-        background: var(--color-diff-del);
-      }
-      .skip {
-        padding: 0.15rem 0.75rem;
-        color: var(--color-text-muted);
-        background: var(--color-surface);
-        border-top: 1px solid var(--color-border);
-        border-bottom: 1px solid var(--color-border);
-        font-family: var(--font-sans);
       }
       label.check {
         display: flex;
@@ -272,17 +238,7 @@ export class VersionsPanel extends LitElement {
     if (!this._diff) return html`<p class="muted">Loading manifests…</p>`;
     if (this._from === this._to) return html`<p class="muted">Pick two different versions.</p>`;
     if (!this._diff.some((h) => 'lines' in h)) return html`<p class="muted">The manifests are identical.</p>`;
-    return html`<div class="diff" role="table" aria-label="Manifest diff">
-      ${this._diff.map((h) =>
-        'skipped' in h
-          ? html`<div class="skip">${h.skipped} unchanged lines</div>`
-          : h.lines.map(
-              (l) => html`<div class="ln ${l.kind}">
-                <span>${l.a ?? ''}</span><span>${l.b ?? ''}</span><span>${l.kind === 'add' ? '+' : l.kind === 'del' ? '−' : ''}</span><span>${l.text}</span>
-              </div>`,
-            ),
-      )}
-    </div>`;
+    return html`<diff-view label="Manifest diff" .hunks=${this._diff}></diff-view>`;
   }
 
   private _renderDialog() {

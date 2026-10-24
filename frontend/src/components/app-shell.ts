@@ -178,6 +178,10 @@ export class AppShell extends LitElement {
         return html`<pipeline-runs-view .pipelineId=${this._route.params.pipelineId}></pipeline-runs-view>`;
       case 'pipeline-versions-view':
         return html`<pipeline-versions-view .pipelineId=${this._route.params.pipelineId}></pipeline-versions-view>`;
+      case 'pipeline-config-view':
+        // Loaded on demand: the YAML editor is the bulk of its size.
+        void import('./pipeline-config-view.js');
+        return html`<pipeline-config-view .pipelineId=${this._route.params.pipelineId}></pipeline-config-view>`;
       case 'pipeline-secrets-view':
         return html`<pipeline-secrets-view .pipelineId=${this._route.params.pipelineId}></pipeline-secrets-view>`;
       case 'pipeline-binding-view':

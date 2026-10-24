@@ -49,8 +49,18 @@ describe("config documents", () => {
     expect(c.auth).toEqual({ mode: "none" });
     expect(c.telemetry).toEqual({ exporter: "none" });
     expect(c.publish.server.repository.startsWith("registry:5000/")).toBe(true);
-    expect(c.publish.harness).toMatchObject({ push: false, repository: "registry:5000/olve-pipelines-harness-base" });
+    expect(c.publish.harness).toMatchObject({ push: true, repository: "registry:5000/olve-pipelines-harness-base" });
     expect(c.publish.npm.enabled).toBe(false);
+  });
+
+  test("auth: the commented Dex variant of the prod example parses, allow lists default to empty", () => {
+    const text = readFileSync(join(repo, "docs/design/prod-config.example.yaml"), "utf8");
+    const lines = text.split(/\r?\n/);
+    const start = lines.findIndex((l) => l.startsWith("# After the switch to Dex")) + 1;
+    const end = lines.findIndex((l, i) => i >= start && !l.startsWith("#"));
+    const dex = lines.slice(start, end).map((l) => l.replace(/^# ?/, "")).join("\n");
+    const auth = AUTH.schema.parse((Bun.YAML.parse(dex) as { auth: unknown }).auth);
+    expect(auth).toMatchObject({ mode: "dex", allow: { users: ["OliverVea"], orgs: [], emails: [] } });
   });
 
   test("publishing is off unless the document turns it on", () => {

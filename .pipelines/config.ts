@@ -14,8 +14,11 @@ const Auth = z.discriminatedUnion("mode", [
     clientId: z.string().default("olve-pipelines"),
     frontendClientId: z.string().optional(),
     anonymousReads: z.boolean().default(false),
-    allow: z.object({ groups: z.array(z.string()).default([]), emails: z.array(z.string()).default([]) }).prefault({})
-      .describe("Who may sign in. Not enforced by the server yet."),
+    allow: z.object({
+      users: z.array(z.string()).default([]).describe("GitHub logins, matched against Dex's preferred_username claim."),
+      orgs: z.array(z.string()).default([]).describe("GitHub orgs or org:team, matched against the groups claim."),
+      emails: z.array(z.string()).default([]),
+    }).prefault({}).describe("Who may sign in. Not enforced by the server yet."),
   }),
   z.object({
     mode: z.literal("authentik"),

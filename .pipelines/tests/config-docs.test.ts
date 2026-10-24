@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { AUTH, PUBLISH, SOURCE, TARGET, TELEMETRY } from "../config";
 
 const repo = join(import.meta.dir, "../..");
-const HARNESS_PIN = { "config.Harness__HarnessBaseImage": "registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf" };
 const load = (path: string) => {
   const doc = Bun.YAML.parse(readFileSync(join(repo, path), "utf8")) as Record<string, unknown>;
   return {
@@ -18,10 +17,10 @@ const load = (path: string) => {
 };
 
 describe("config documents", () => {
-  test("prod example: today's targets, Authentik, OTLP, and the real registries", () => {
+  test("prod example: today's targets, Authentik, OTLP, the harness on ghcr", () => {
     const c = load("docs/design/prod-config.example.yaml");
-    expect(c.target.beta).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps-beta", release: "olve-pipelines-v2", values: ["values-beta.yaml", "values-v2-beta.yaml"], set: { "slo.enabled": "false", ...HARNESS_PIN } });
-    expect(c.target.prod).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps", release: "olve-pipelines-v2", values: ["values-v2-prod.yaml"], set: HARNESS_PIN });
+    expect(c.target.beta).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps-beta", release: "olve-pipelines-v2", values: ["values-beta.yaml", "values-v2-beta.yaml"], set: { "slo.enabled": "false" } });
+    expect(c.target.prod).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps", release: "olve-pipelines-v2", values: ["values-v2-prod.yaml"], set: {} });
     // What deploy-prod renders into its values files (beta layers target.beta's auth/telemetry on top).
     expect({ auth: c.auth, telemetry: c.telemetry }).toEqual({
       auth: {
@@ -41,7 +40,7 @@ describe("config documents", () => {
     if (beta.kind === "none") throw new Error("the prod example has a beta");
     expect(beta.auth).toMatchObject({ mode: "authentik", audience: "olve-pipelines-beta", anonymousReads: true });
     expect(beta.telemetry).toEqual({ exporter: "otlp", endpoint: "http://otel-beta.ovea.pro", protocol: "http", auth: { type: "none" } });
-    expect(c.publish).toMatchObject({ harness: { push: false }, npm: { enabled: false, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
+    expect(c.publish).toMatchObject({ harness: { push: true, repository: "ghcr.io/olivervea/olve-pipelines-harness-base", auth: { username: "OliverVea", password: { secret: "GHCR_TOKEN" } } }, npm: { enabled: false, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
     expect(c.source.apiUrl).toBe("https://api.github.com");
   });
 

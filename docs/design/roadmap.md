@@ -9,8 +9,8 @@ The milestone scope agreed with Oliver on 2026-10-24. The detail behind each ite
 - Typed config, `select`, the build-once/promote release flow, the ghcr-ready harness and the
   self-contained compose stack are live on v2 prod. The rollout was deployed from a local instance:
   run `#7`, then prod's own run `Olve.Pipelines v2#47` (v13, config #1).
-- Prod's config document is `prod-config.example.yaml`: Authentik, today's harness image pinned,
-  npm off, images on registry.ovea.pro.
+- Prod's config document is `prod-config.example.yaml` (config #3): Authentik, npm off, the server
+  image on registry.ovea.pro, the harness on ghcr.io (public, pushed with `GHCR_TOKEN`).
 - Parked branches:
   - `wip/compose-deploy`: the compose deploy target plus deployer, which gives a single local
     instance that redeploys itself
@@ -24,10 +24,8 @@ The milestone scope agreed with Oliver on 2026-10-24. The detail behind each ite
    - Dex must advertise the device flow (`pl login --device`).
    - Telemetry: if the deployed Dex supports client_credentials, use `oauth2` against Dex;
      otherwise use a static `header` token. Don't keep Authentik only for telemetry.
-2. **ghcr harness.**
-   - Create `GHCR_TOKEN` (write:packages) and run `harness/base/build.sh` once.
-   - Make the package public, then turn `publish.harness.push` on and drop the pinned
-     `Harness__HarnessBaseImage` from prod's config.
+2. ~~**ghcr harness.**~~ Done 2026-10-24: config #2 pushes it with `GHCR_TOKEN` (run `#52`), the
+   package is public, config #3 drops the pinned image (run `#53`).
 3. **npm.** Decide whether prod publishes the SDK: `publish.npm.enabled`, `releaseTag: beta`
    until a real 2.0.0.
 4. **Retention live**, after checking the dry-run logs.

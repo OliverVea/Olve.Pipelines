@@ -13,7 +13,7 @@ The manifest format is in [`manifest.schema.json`](manifest.schema.json), genera
 ```
 sdk/
   src/index.ts            authoring API (`@olivervea/pipelines`)
-  src/core/               models, secrets, steps, implement()
+  src/core/               models, secrets, config, steps, implement()
   src/builder/            pipeline builder (types + runtime records), Ref<T>
   src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh), their exported helpers (httpHealthCheck) and SDK models
   src/describe/           describe: manifest, checks, mapper recording + source analysis, manifest schema
@@ -108,6 +108,39 @@ Rules:
 - A **plain-schema input** has no model to match on, so the step needs a mapper.
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
 
+### Config
+
+Values that differ per deployment (hosts, namespaces, which identity provider) are **config**: typed entries the pipeline declares, whose values live on the instance (one YAML document per pipeline, edited with `pl config` or the dashboard), not in the repo.
+
+```ts
+import { config, secret, secretRef, step, z } from "@olivervea/pipelines";
+
+export const DEX_CLIENT_SECRET = secret("DEX_CLIENT_SECRET", "Dex client secret.");
+export const AUTH = config("auth", "How users authenticate.", z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("none") }),
+  z.object({ mode: z.literal("dex"), issuer: z.string().url(), clientSecret: secretRef(DEX_CLIENT_SECRET) }),
+]));
+export const TARGET = config("target", "Where the release is deployed.",
+  z.object({ host: z.string(), namespace: z.string().default("olve-pipelines") }));
+
+export const deploy = step({ name: "deploy", description: "Deploys the release.", image: "alpine:3.22",
+  config: [AUTH, TARGET],              // ctx.config is typed to exactly these
+  secrets: [DEX_CLIENT_SECRET] });     // a secretRef's secret must be declared too
+```
+
+```yaml
+# the instance's config document for this pipeline
+auth: { mode: dex, issuer: https://dex.example.com, clientSecret: { secret: DEX_CLIENT_SECRET } }
+target: { host: deploy@box }
+```
+
+- `config(name, description, schema)` mirrors `secret(...)`. Names match `^[a-z][a-zA-Z0-9]*$` (they are YAML keys).
+- An entry whose schema accepts `undefined` (`.optional()`, `.default(…)`) is optional; every other entry is required. Defaults are applied when config is read, never written into the document.
+- Handlers see `ctx.config` with the output view (defaults applied); a discriminated union narrows as usual.
+- `secretRef(S)` is a field whose value is `{ secret: "<S.name>" }`: it names a secret, never holds its value. The handler reads the value from `ctx.secrets`. A step that receives an entry containing a `secretRef` must declare that secret.
+- Config is per **run**: the run pins a config snapshot at start; continues and step reruns reuse it. Secrets are per attempt.
+- Library steps take no config.
+
 **`steps.script` contract** (for the script):
 
 | Name | What it holds |
@@ -180,6 +213,7 @@ export default implement(deployBeta, async ({ artifact }, ctx) => {
 | `http.fetch`, `http.getJson(url, { headers })`, `http.expectOk(url, { method, headers })` | Bound to `ctx.signal`. A non-2xx status throws a readable error, with the URL redacted after `?`. |
 | `retry({ attempts, delaySeconds, backoff? }, fn)` | Retries `fn`. Can be cancelled. |
 | `secrets.NAME` | Typed to the step's declared secrets. Read from the env var `NAME`. Throws if the variable is missing. |
+| `config.<entry>` | Typed to the step's declared config entries (output view, defaults applied). From input.json's `$config`. An optional entry that is not set is `undefined`. |
 | `log(message, fields?)` | Writes a `message k=v …` line to stderr. |
 | `signal` | Aborted on SIGTERM/SIGINT. Running commands are sent SIGTERM. |
 | `run` | `{ pipeline, id, number, attempt, step, version }` (from the env, see below). |
@@ -214,7 +248,7 @@ export default pipeline({ name: "Olve.Pipelines", description: "…", input: M.D
 import { testHandler, testFileRef } from "@olivervea/pipelines/testing";
 import deployBeta from "../handlers/deploy-beta";
 
-const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: { http: fakeHttp }, run: { number: 412 } });
+const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, config: { target: { host: "h" } }, ctx: { http: fakeHttp }, run: { number: 412 } });
 expect(r).toMatchObject({ status: "succeeded", output: { release: "olve-pipelines" } });   // r.filesDir, r.logs, r.exitCode
 ```
 
@@ -242,7 +276,7 @@ This section is everything the C# side needs in order to run the binary.
 
 | Path | Who | What |
 |---|---|---|
-| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. **map-trigger push**: `{"ref": "refs/heads/<branch>", "after": "<sha>", "repository": {"full_name": "<owner>/<repo>"}}` (`PushEvent`). **map-trigger poll**: `{"value": "<extracted value as string>"}`. **map-trigger webhook**: `{"headers": {…}, "body": …}` (`WebhookEvent`). |
+| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. For a step with `configEntries`, the reserved key `"$config"` holds `{ <entry>: <value> }` from the run's config (entries that are not set are left out); each entry is parsed with its schema, and a missing required entry or an invalid value → exit 65 (`config.<entry>…`). Other steps ignore `$config`. **map-trigger push**: `{"ref": "refs/heads/<branch>", "after": "<sha>", "repository": {"full_name": "<owner>/<repo>"}}` (`PushEvent`). **map-trigger poll**: `{"value": "<extracted value as string>"}`. **map-trigger webhook**: `{"headers": {…}, "body": …}` (`WebhookEvent`). |
 | `work/output.json` | harness | The envelope. Any stale copy is deleted at start, and the new file is written atomically. |
 | `work/files/<object path>` | harness | Output files and directory tars (see "File references"). |
 | `tmp/` | harness | Scratch space. Point `TMPDIR` here. |
@@ -293,7 +327,7 @@ For `map-trigger`, `output` is the pipeline input after it has been parsed by th
 | 0 | ok (succeeded or skipped) | yes |
 | 1 | the handler or trigger mapper threw | failed / `handler` |
 | 64 | usage: unknown mode, step or trigger | none |
-| 65 | `input.json` missing, not JSON, or invalid for the step (or event) | failed / `input` |
+| 65 | `input.json` missing, not JSON, or invalid for the step (or event), including its `$config` | failed / `input` |
 | 66 | the return value failed strict validation, or an own file ref is missing or changed | failed / `output` |
 | 74 | the `result.tar.gz` upload failed after retries. Used only when the step itself succeeded; otherwise the step's own code wins. | yes (printed) |
 | 78 | the pipeline is invalid (describe problems, or a missing or wrong handler module) | none |
@@ -336,7 +370,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
-- **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
+- **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `configEntries` (and those entries' schemas) + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
   - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
   - Library steps: `sha256(canonical {library: kind, config, harness})`.
   - Because `harness` is part of both hashes, a Bun or SDK bump changes every handler.
@@ -347,6 +381,8 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   - `{kind: "webhook", name, verify: {scheme: "hmac-sha256", secret, header, prefix} | {scheme: "bearer", secret}}`. The `map-trigger` event is `{headers, body}`; a `null` mapping yields a `skipped` envelope (the delivery is ignored).
 - **`failureHandlers`** is a list of `{step: Step, steps: [names] | null}`. Each handler's inputs are all FailureContext (`{"ref": "failure"}`).
 - **`secrets`** lists every secret used by steps, polls and webhooks, sorted, as `{name, description}`.
+- **`config`** lists every config entry steps declare, sorted by name, as `{name, description, required, schema}`. `schema` is the `z.input` view (defaults listed); it validates the entry's value in the config document. `required` is false when the schema accepts a missing value. A `secretRef` field is marked `"x-olve-kind": "secretRef"`, with the secret's name as `properties.secret.const`. Omitted when there are no entries.
+- **Step `configEntries`** names the entries the step receives (sorted; omitted when none). It is part of the step's content, like `secrets`. The step key `config` is the library-step configuration.
 
 Describe runs these checks; reconcile should re-run the manifest-level ones:
 
@@ -358,6 +394,7 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 - `when` on an unknown or non-literal field, or with an invalid value;
 - a poll header referencing an undeclared secret, duplicate triggers;
 - conflicting secret descriptions;
+- config names, one description and schema per config name, a step receiving a `secretRef` without declaring its secret, and input keys starting with `$` (reserved);
 - an `onFailure` scope naming an unknown step, and failure-handler inputs.
 
 ## Build tool
@@ -397,11 +434,11 @@ The manifest is the text between the sentinels in the pod log. The manifest text
 
 ```
 olve-dev describe <dir> [--sentinels]                     # same bytes as the compiled binary's describe
-olve-dev run <dir> <step> [--input-file f] [--olve-dir d] [--secret NAME=value]...
+olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
 olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 ```
 
-`olve-dev` runs handlers from source, through the same validation path as the binary. `$OLVE_DIR` defaults to `<dir>/.olve`, and outputs land in `<dir>/.olve/work/`. Set `OLVE_FILES_DIR` to a local pool to fetch file refs.
+`olve-dev` runs handlers from source, through the same validation path as the binary. `$OLVE_DIR` defaults to `<dir>/.olve`, and outputs land in `<dir>/.olve/work/`. Set `OLVE_FILES_DIR` to a local pool to fetch file refs. `--config-file` (a JSON object of config entries) becomes the input's `$config`.
 
 ## Development
 

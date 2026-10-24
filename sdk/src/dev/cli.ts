@@ -4,7 +4,7 @@
 //   olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
 //   olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 // $OLVE_DIR defaults to <dir>/.olve; outputs land in <dir>/.olve/work/.
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runHarness, type HarnessConfig } from "../harness/main.ts";
@@ -71,7 +71,7 @@ export async function devMain(argv: string[]): Promise<number> {
     if (file) copyFileSync(resolve(file), join(olveDir, "input.json"));
     if (mode === "run" && values["config-file"]) {
       const inputFile = join(olveDir, "input.json");
-      const input = JSON.parse(readFileSync(inputFile, "utf8")) as Record<string, unknown>;
+      const input = (existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, "utf8")) : {}) as Record<string, unknown>;
       input.$config = JSON.parse(readFileSync(resolve(values["config-file"]), "utf8"));
       writeFileSync(inputFile, JSON.stringify(input));
     }

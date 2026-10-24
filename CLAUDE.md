@@ -52,7 +52,7 @@ Each pipeline has a K8s Secret `olve-pipeline-{id:N}` in the runner namespace. V
 
 ### Persistence
 
-State survives restarts (notably v2's own self-deploy). Garage objects: `configuration.json` (pipelines + bindings), `binding-hooks.json`, and from `RunPersistenceService` `pipeline-versions.json`, `versions/<p>/<n>/manifest.json`, `pipeline-state.json` (activations, sequences, blocked steps, queued run starts, poll values), `runs.json`, `runs/<p>/<n>/run.json` (a run + all its attempts). Binaries: `versions/<p>/builds/<sha>/step.tar.gz`. Layout helpers: `StorageLayout`. `/api/ready` reports when persisted state is loaded.
+State survives restarts (notably v2's own self-deploy). Garage objects: `configuration.json` (pipelines + bindings), `binding-hooks.json`, and from `RunPersistenceService` `pipeline-versions.json`, `versions/<p>/<n>/manifest.json`, `pipeline-state.json` (activations, sequences, blocked steps, queued run starts, poll values, pending versions), `runs.json`, `runs/<p>/<n>/run.json` (a run + all its attempts), `pipeline-config.json` + `config/<p>/<n>.yaml` (config snapshots, write-once). Binaries: `versions/<p>/builds/<sha>/step.tar.gz`. Layout helpers: `StorageLayout`. `/api/ready` reports when persisted state is loaded.
 
 ### Service map
 
@@ -62,6 +62,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Sync` | `PipelineConfigBinding(Service)`, `DeployPollService`, `PipelineReconcileService`, `BindingWebhookReceiver`, `BindingHook*`, `GitHubConfigSource` |
 | `Pipelines.Manifests` | `Manifest`, `ManifestParser`, `ManifestValidator`, `ManifestVersioning`, `JsonSchemaValidator`, `CanonicalJson` |
 | `Pipelines.Versions` | `PipelineVersion(Service)`, `PipelineActivationService` |
+| `Pipelines.Configs` | `ConfigSnapshot(Service)`, `ConfigService`, `ConfigValidation`, `ConfigActivationService` (the activation gate, `PendingVersion`), `YamlJson` |
 | `Pipelines.Triggers` | `PushTriggerService`, `PushTriggerHandler`, `PollTriggerService`, `WebhookTriggerService`, `TriggerMappingService`, `RunInputService` |
 | `Pipelines.Scheduling` | `RunStartService`, `StageScheduler`, `RunPlan`, `AttemptInputBuilder`, `RunContinuationService`, `RunCancellationService`, `StepBlockService`, `SwitchService`, `AttemptLaunchService` |
 | `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `AttemptFileService`, `RunCleanupService` |

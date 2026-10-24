@@ -14,6 +14,7 @@ attempts, every step's output (the **pool**). Runs are numbered per pipeline —
 |---|---|
 | number | monotonic per pipeline: `my-app#12` |
 | version | the pipeline version it pinned at start (never changes) |
+| config | the config snapshot it pinned at start (`config #5`) and its effective config; see [Pipeline Config](configuration.md#runs-pin-their-config) |
 | version stamp | `yyyy.MM.dd.<number>` (UTC creation date), e.g. `2026.10.22.6`; `ctx.run.version`, the `imageBuild` tag |
 | trigger | `Push`, `Poll`, `Webhook` or `Manual` |
 | status | `Running`, `Succeeded`, `Failed`, `Cancelled`, `Superseded` |
@@ -68,7 +69,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 |---|---|---|
 | Start a run | `pl trigger <pipeline> [--input json\|@file] [--field k=v …]` — prints `<pipeline>#<run>` | Pipeline view → trigger form (run plan preview) |
 | List runs | `pl run list <pipeline>` | Pipeline view → recent runs |
-| Inspect a run | `pl run get <pipeline>#<run>` — input, version, stages, each step's status/reason, blocked/held | Run view |
+| Inspect a run | `pl run get <pipeline>#<run>` — input, version and config snapshot (`v8, config #5`), stages, each step's status/reason, blocked/held | Run view |
 | Cancel | `pl run cancel <pipeline>#<run>` | Run view → Cancel |
 | Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Rerun |
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |
@@ -84,7 +85,8 @@ shows the latest attempt whatever its status; output and files use the latest su
 - **Cancel** cancels the run and its scheduled *and in-progress* attempts (their Jobs are deleted). On a run that already finished but still has active attempts (e.g. a superseded
   run's deploy), only those attempts are cancelled.
 - **Rerun run** creates a new run with the same input on the version a run started now would use,
-  linked via `rerunOf`. The input is re-validated against that version.
+  linked via `rerunOf`. The input is re-validated against that version; the new run pins the current
+  config snapshot.
 - **Continue** keeps the completed stages and re-evaluates `when` for the rest. Changed fields are
   merged over the stored input and validated against the run's pinned input model. A field a
   completed step already consumed (e.g. `sha`) can't change — this is "promote what you tested".
@@ -97,6 +99,7 @@ shows the latest attempt whatever its status; output and files use the latest su
   steps of its stage keep running, and once the stage settles the run ends Cancelled. To carry on,
   `pl step rerun <address> --continue`.
 - **Continue and rerun need the run's version to be active.** After a switch, re-trigger instead.
+- **Continue and step rerun keep the run's config snapshot.** To use newer config, start a new run.
 
 Health (`pl pipeline list`):
 
@@ -144,7 +147,8 @@ Each attempt is a Kubernetes Job in the instance's runner namespace, under the r
 
 1. **Init container** (`harness-base`, a 2.4 MB static busybox image with a bundled glibc loader)
    downloads the version's compiled binary (`step.tar.gz`) and the attempt's `input.json` through
-   pre-signed URLs into a shared `/olve` volume.
+   pre-signed URLs into a shared `/olve` volume. A step that declares config gets its entries of the
+   run's effective config in `input.json` under `$config` (`ctx.config`).
 2. **Step container** — the step's declared image — runs
    `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>`. That works on
    debian, Alpine (musl), kaniko and distroless images; child processes use the image's own libc and

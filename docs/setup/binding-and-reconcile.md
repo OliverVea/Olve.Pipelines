@@ -56,7 +56,9 @@ Per binding, the deploy poll (or a webhook, or `pl binding reconcile`) does, in 
    2. **Validate** the manifest with every [reconcile check](pipeline-reference.md#checks-that-reject-a-pipeline).
       Errors fail the reconcile; warnings are reported.
    3. If the manifest matches the active (or latest) version, reuse it; otherwise add a **new
-      version** (with step and model entity versions). Then **switch** to it.
+      version** (with step and model entity versions). Then **switch** to it, if the pipeline's
+      config document and the secrets it references satisfy the version; otherwise the version is
+      **pending** ([below](#pending-versions)).
 2. **Runs.** If the branch head moved past `lastPushSha`, record it and fire the `onPush`
    trigger. The first observation only records the head.
 
@@ -88,6 +90,15 @@ pl pipeline manifest my-app [--version 3]   # a version's manifest (--json: the 
 
 The UI's pipeline view shows the versions, a manifest diff between any two, and a switch button.
 
+## Pending versions
+
+A version whose config isn't satisfied is stored as **pending**: a required config entry is missing
+or invalid, or a secret the config references (`secretRef`) isn't set. The active version stays
+active. Saving config (`pl config set`) or setting the secret re-checks, and the version activates
+on its own once satisfied; the push that produced it then starts its run. While a version is
+pending, automatic triggers wait (config-before-run); manual triggers start on the active version.
+Details: [Pipeline Config](configuration.md#versions-pending-until-satisfied).
+
 ## Switch and rollback
 
 One version is **active**: new runs start on it. Switching is immediate:
@@ -103,6 +114,8 @@ pl pipeline switch my-app 7 --cancel-running   # also cancel the runs still on o
 
 - Reconcile switches automatically. A manual `switch` (e.g. a rollback) holds until the next config
   commit is reconciled — that switches to the commit's version again, even if it is unchanged.
+- A switch is refused, with the reasons, when the pipeline's config doesn't satisfy the target
+  version. A successful switch drops any pending version.
 - Runs already going carry on with the version they pinned; nothing is cancelled. Runs never
   overtake each other: a run doesn't start a step a newer run already started, it is superseded
   instead, so an old-version run can't deploy after a newer one.
@@ -130,11 +143,13 @@ Reconcile:   Success (last sync 2026-10-22 08:10:00Z)
   commit:    <sha> (in progress)
   version:   v14
 Active:      active v14
+Pending:     pending v15: config config.target.host: is required
 Last push:   <sha>
 Reconciled:  <sha>
 ```
 
-`commit` is the config commit of the last attempt, `version` the version it switched to. Which
+`commit` is the config commit of the last attempt, `version` the version it produced (switched to,
+or pending). `Pending` shows only while a version waits for its config or secrets. Which
 declared secrets are set: `pl secret list <pipeline>`.
 
 | Result | Meaning |

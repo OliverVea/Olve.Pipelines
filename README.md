@@ -137,7 +137,7 @@ listing/downloads. Errors (any non-2xx but 401/403) are `application/problem+jso
 |--------|------|-------------|
 | GET | `/api/pipelines/{pipelineId}/versions` | Versions (commit, step/model versions) + activation |
 | GET | `/api/pipelines/{pipelineId}/versions/{number}` | One version, including its canonical manifest |
-| POST | `/api/pipelines/{pipelineId}/switch` | Switch the active version (`{ version, cancelRunning? }`) |
+| POST | `/api/pipelines/{pipelineId}/switch` | Switch the active version (`{ version, cancelRunning? }`); 409 with the reasons when the config document or a secret it references does not satisfy that version |
 | POST | `/api/manifests/validate` | Run the reconcile checks on a manifest (`pl dev validate`); always 200 with `{ valid, manifestHash, errors, warnings }` |
 
 ### Runs
@@ -183,7 +183,12 @@ All under `/api/pipelines/{pipelineId}/runs`.
 |--------|------|-------------|
 | GET | `/api/pipelines/{pipelineId}/secrets` | `[{name, description, declaredBy, isSet}]`: secrets the active version (steps, onFailure handlers, poll triggers) or the binding uses, plus set-but-unused ones; `isSet` null when K8s is unreadable. Values are never returned |
 | PUT | `/api/pipelines/{pipelineId}/secrets/{name}` | Set a value |
-| DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete |
+| DELETE | `/api/pipelines/{pipelineId}/secrets/{name}` | Delete (`?force=true` for a secret the current config references; 409 without). Setting or deleting re-checks a pending version |
+| GET | `/api/pipelines/{pipelineId}/config[?snapshot=N]` | The config document: `{snapshot: {number, author, createdAt, restoredFrom}, yaml}` (YAML as saved; `yaml: ""` before the first save) |
+| PUT | `/api/pipelines/{pipelineId}/config` | Save `{yaml}` as the next snapshot; 400 with each problem when the active version rejects it. → `{snapshot, active, pending, activatedVersion}` (checks against the active and the pending version) |
+| GET | `/api/pipelines/{pipelineId}/config/history` | Snapshots, newest first |
+| POST | `/api/pipelines/{pipelineId}/config/rollback` | `{snapshot: N}`: save N's content again as the newest |
+| GET | `/api/pipelines/{pipelineId}/config/check[?version=V]` | The current document against V (default: pending, else active): `{valid, satisfied, problems, referencedSecrets, missingSecrets, changedDefaults, effective}` |
 | POST | `/api/pipelines/{pipelineId}/secrets/copy` | Copy secrets from another pipeline on this instance, server-side (`{ sourcePipelineId, names? (omit = all), targetName? (one name only), overwrite? }` → `{ copied }`, names only; refuses existing names without `overwrite`). Caveat: whoever can write the target pipeline can read the copied values from its steps |
 
 ### Live events (SSE)
@@ -297,11 +302,18 @@ pl wait reconcile <pipeline> <sha>                         # the binding applied
 # secrets and bindings
 pl secret list <pipeline>                              # declared-by and set/unset per secret
 pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
-pl secret delete <pipeline> <name>
+pl secret delete <pipeline> <name> [--force]           # --force: a secret the current config references
 pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]
 pl binding get|status|reconcile <pipeline>
 pl binding set-credentials <pipeline> [key]
+
+# config (one YAML document per pipeline, saved as immutable snapshots)
+pl config get <pipeline> [--snapshot N]                # the YAML as saved
+pl config set <pipeline> -f app.yml                    # validate against the active version, save as config #N+1
+pl config history <pipeline>
+pl config rollback <pipeline> <N>                      # save snapshot N again as the newest
+pl config check <pipeline> [--version V]               # problems, missing secrets, changed defaults; exit 1 if V can't activate
 
 # local development (no service, except dev validate)
 pl dev describe [--dir <path>] [--json]

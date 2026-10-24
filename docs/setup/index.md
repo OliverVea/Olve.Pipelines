@@ -56,11 +56,13 @@ continuing, blocking a step, switching versions, setting secret values — go th
    run steps from source before you push.
 4. **[Binding, Reconcile & Versions](binding-and-reconcile.md)** — the binding, how changes are noticed
    modes, how a commit becomes a version, `switch` and rollback, reading the status.
-5. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
+5. **[Pipeline Config](configuration.md)** — typed per-instance values (`config(…)`), the YAML
+   document and its snapshots, pending versions, `pl config`.
+6. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
-6. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
+7. **[Blocking Steps](blocking-steps.md)** — hold a pipeline's runs at a step while you work on
    the pipeline or its target (`pl step block`), and let them resume.
-7. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
+8. **[Troubleshooting](troubleshooting.md)** — symptoms → causes → fixes.
 
 **Looking for a specific subject?** The **[Subject Index](subjects.md)** maps topics to pages.
 

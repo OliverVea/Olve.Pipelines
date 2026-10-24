@@ -34,14 +34,28 @@ reconcile; `pl binding status --json` lists them.
   are never de-duplicated.
 - **The config commit failed to reconcile.** While the newest commit under the binding path is
   unapplied, runs are held. Check `pl binding status`.
+- **The new version is pending.** Its config isn't satisfied (a missing or invalid entry, or a
+  referenced secret that isn't set). `pl binding status` shows `Pending: …` with the reasons; fix
+  them with `pl config set` or `pl secret set` and the version activates and the push runs.
 - **Queued behind a `--cancel-running` switch.** For the moment it takes, new runs wait and start on
   the new version. `pl pipeline health <pipeline>` shows the activation.
+
+## A version stays pending, or new runs are refused as held
+
+- **Pending:** the config document doesn't satisfy the version. `pl config check <pipeline>` lists
+  the problems and the missing secrets; save a fixed document (`pl config set`) or set the secret.
+- **Held:** a secret the active version's config references was deleted. Set it again
+  (`pl secret set`); new runs are refused until then.
+- **`pl config set` is refused:** the document is invalid for the *active* version. Fix the listed
+  fields; keys the active version doesn't declare are fine.
 
 ## My change didn't take effect
 
 - **Only commits that touch the binding path or its local package dependencies** (`file:` / `link:`
   entries in its `package.json`) build a new binary. A change anywhere else — app code, the chart —
   is picked up by the *run* (it builds from the pushed commit), not by the pipeline definition.
+- **A run uses the config it started with.** Continue and step rerun keep the run's config
+  snapshot (`pl run get` shows `config #N`); start a new run to use newer config.
 - **The run pinned an older version.** A run always uses the version it started on.
   `pl run get` shows it; `pl pipeline versions` shows which one is active.
 - **Someone switched back.** A manual `pl pipeline switch` holds until the next config commit.

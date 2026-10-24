@@ -14,6 +14,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [pipeline-reference.md](pipeline-reference.md) | Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, checks, versioning |
 | [local-development.md](local-development.md) | `pl dev describe \| validate \| run \| pipeline`, `--docker`, the local pool, `testHandler` |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
+| [configuration.md](configuration.md) | Typed config entries, the YAML document and snapshots, secretRefs, pending versions, runs pinning config, defaults, `pl config` |
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, latest-wins, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
 | [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |
 | [troubleshooting.md](troubleshooting.md) | Symptoms → cause → fix |
@@ -29,6 +30,9 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Bun, `bun.lock`, `package.json` | [getting-started.md#step-1--add-pipelines-to-your-repo](getting-started.md#step-1--add-pipelines-to-your-repo) |
 | Cancel a run | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | Checks that reject a pipeline | [pipeline-reference.md#checks-that-reject-a-pipeline](pipeline-reference.md#checks-that-reject-a-pipeline) |
+| Config (typed per-instance values, `config(…)`, `ctx.config`) | [configuration.md](configuration.md) |
+| Config document, snapshots, rollback (`pl config`) | [configuration.md#the-config-document](configuration.md#the-config-document) |
+| Config defaults, changed defaults | [configuration.md#defaults](configuration.md#defaults) |
 | Config-before-run | [binding-and-reconcile.md#the-reconcile-cycle](binding-and-reconcile.md#the-reconcile-cycle) |
 | Continue a run (promote what you tested) | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | `ctx` (handler context) | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |

@@ -64,6 +64,20 @@ Declared by name and description only. Values are set with `pl secret set <pipel
 live in the pipeline's Kubernetes Secret. **A step gets only the secrets it declares**, as env vars
 of the same name; `ctx.secrets` is typed to exactly that set.
 
+## Config
+
+```ts
+export const TARGET = config("target", "Where the release goes.",
+  z.object({ host: z.string(), namespace: z.string().default("olve-pipelines") }));
+```
+
+Values that differ per instance (hosts, namespaces, domains) are **config**: typed entries the
+pipeline declares, with values stored on the instance as one YAML document per pipeline
+(`pl config set`). A step lists the entries it uses (`config: [TARGET]`) and reads them as
+`ctx.config`, typed to exactly that set. A field can name a secret with `secretRef(SECRET)`. A version
+whose config isn't satisfied yet stays pending instead of activating. Full page:
+[Pipeline Config](configuration.md).
+
 ## Steps
 
 ```ts
@@ -74,6 +88,7 @@ export const deployBeta = step({
   input: { artifact: M.BuildArtifact }, // model | optional(model) | plain zod schema
   output: M.BetaDeployment,             // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],
+  config: [TARGET],                     // optional: config entries, read as ctx.config
   timeoutSeconds: 900,                  // optional; default 3600, capped at 21600
   retries: 1,                           // optional: retry a failed attempt (fresh pod) up to n times
 });
@@ -328,6 +343,10 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | Undeclared secret; poll `$SECRET:` header not in the poll's `secrets` | TS, reconcile |
 | Duplicate step name; reserved name | TS, describe, reconcile |
 | Two schemas under one model name | describe |
+| Config entry name not `^[a-z][a-zA-Z0-9]*$`; two schemas or descriptions under one entry name | describe, reconcile |
+| A step uses a config entry the pipeline doesn't declare | TS, reconcile |
+| A step receives a config entry with a `secretRef` but doesn't declare that secret; a `secretRef` to an undeclared secret | describe, reconcile |
+| An input key starting with `$` (reserved) | describe |
 | Custom step without a handler file; handler file without a step | describe |
 | Output nothing consumes | reconcile **warning** only (fine for gate steps like `test`) |
 
@@ -337,7 +356,7 @@ The service hashes the manifest. Any change adds a version; steps and models als
 versions (`deploy-beta.3`, `BuildArtifact.2`), bumped only when *that* entity changes:
 
 - a model: its JSON Schema;
-- a step: image, input/output model versions, secrets, mappings, and its **handler hash** — the
+- a step: image, input/output model versions, secrets, the schemas of its config entries, mappings, and its **handler hash** — the
   handler bundled on its own, tree-shaken, including embedded scripts and the code it imports;
 - a lockfile, Bun or SDK change bumps every handler;
 - stage placement and `when` wrapping are pipeline changes, not step changes.

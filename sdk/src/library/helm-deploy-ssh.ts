@@ -15,6 +15,7 @@ import type { Simplify } from "../core/types.ts";
 import { httpHealthCheck, type HttpHealthCheckOptions } from "./http-health.ts";
 import { BuiltImage, HelmRelease, PushedImage, Source } from "./models.ts";
 import { shq, sshSession } from "./ssh.ts";
+import { helmDeployOverSshTarget, type HelmDeploySshTargetDef, type HelmTargetDeployInput } from "./helm-deploy.ts";
 
 export { shq } from "./ssh.ts";
 
@@ -219,9 +220,22 @@ export function helmDeployOverSsh<
   const N extends string,
   const K extends string,
   const Im extends Record<string, string> = DefaultImages,
+  const Rf extends Record<string, string> = {},
+>(def: HelmDeploySshTargetDef<N, K, Im, Rf>): Step<N, HelmTargetDeployInput<Im, Rf>, typeof HelmRelease, K> & LibraryStep;
+export function helmDeployOverSsh<
+  const N extends string,
+  const K extends string,
+  const Im extends Record<string, string> = DefaultImages,
   const R extends boolean = false,
   const Rf extends Record<string, string> = {},
->(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K> & LibraryStep {
+>(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K> & LibraryStep;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function helmDeployOverSsh(def: any): Step & LibraryStep {
+  return "target" in def ? helmDeployOverSshTarget(def) : helmDeployOverSshLiteral(def);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any, boolean, any>): Step & LibraryStep {
   const images: Record<string, string> = def.images ?? { image: "image" };
   const imageEntries = Object.entries(images);
   const fromRegistry = def.fromRegistry === true;

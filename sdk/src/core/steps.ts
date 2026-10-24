@@ -19,7 +19,7 @@ export type InferEntry<E> =
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
 /** `custom` steps have a handler file; the others are library steps implemented by the SDK. */
-export type StepKind = "custom" | "script" | "gitHubSource" | "imageBuild" | "helmDeployOverSsh" | "helmDeploy";
+export type StepKind = "custom" | "script" | "gitHubSource" | "imageBuild" | "helmDeployOverSsh" | "helmDeployInCluster";
 
 export interface Step<
   N extends string = string,

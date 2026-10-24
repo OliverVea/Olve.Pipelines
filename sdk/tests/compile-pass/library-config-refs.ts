@@ -1,4 +1,4 @@
-import { config, helmTarget, secret, secretRef, type ConfigRef } from "@olivervea/pipelines";
+import { config, HelmRelease, helmTarget, secret, secretRef, step, type ConfigRef, type SshTargetValue } from "@olivervea/pipelines";
 import { base, checkout, steps, z } from "../fixtures2";
 import type { Equal, Expect } from "../type-assert";
 
@@ -25,14 +25,22 @@ const build = steps.imageBuild({
   name: "build", description: "", repository: PUBLISH.repository, push: true, enabled: PUBLISH.push,
   registryAuth: PUBLISH.auth, secrets: [REG],
 });
-const deploy = steps.helmDeploy({
-  name: "deploy", description: "", target: TARGET.beta, sshKey: KEY, chart: "helm",
-  inlineValues: [{ auth: AUTH }], images: { image: "image" },
-});
-const ssh = steps.helmDeployOverSsh({ name: "ssh", description: "", host: PUBLISH.repository, sshKey: KEY, release: "a", namespace: TARGET.prod.namespace, chart: "helm", values: TARGET.prod.values });
-void ssh;
+const literal = steps.helmDeployOverSsh({ name: "ssh", description: "", host: PUBLISH.repository, sshKey: KEY, release: "a", namespace: TARGET.prod.namespace, chart: "helm", values: TARGET.prod.values });
+void literal;
+const check = step({ name: "check", description: "", image: "alpine", input: { release: HelmRelease } });
 
+// select: each case gets the reference narrowed to its variant, typed exactly as that variant.
 base()
   .stage([checkout, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(build)
-  .stage([deploy, from => ({ source: from.checkout, image: from.build })]);
+  .select(TARGET.beta, {
+    ssh: (p, beta) => {
+      const host: ConfigRef<string> = beta.host;
+      const _v: ConfigRef<SshTargetValue> = beta;
+      void host, _v;
+      return p.stage([steps.helmDeployOverSsh({ name: "deploy", description: "", target: beta, sshKey: KEY, chart: "helm", inlineValues: [{ auth: AUTH }] }), from => ({ source: from.checkout, image: from.build })]);
+    },
+    inCluster: (p, beta) => p.stage([steps.helmDeployInCluster({ name: "deploy", description: "", target: beta, chart: "helm" }), from => ({ source: from.checkout, image: from.build })]),
+  })
+  // `deploy` is in every case, so it is definitely available afterwards.
+  .stage(check);

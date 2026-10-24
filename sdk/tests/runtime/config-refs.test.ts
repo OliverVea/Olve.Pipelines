@@ -5,7 +5,9 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { config, helmTarget, model, npmDistTag, pipeline, registryTag, secret, secretRef, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { config, helmTarget, HelmRelease, model, npmDistTag, pipeline, registryTag, secret, secretRef, step, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { pipelineData } from "../../src/builder/pipeline.ts";
+import { findStep } from "../../src/harness/main.ts";
 import { configRefPath, isConfigRef } from "../../src/core/config.ts";
 import { configRefsIn, recordConfigRefs, resolveConfigRefs } from "../../src/core/config-refs.ts";
 import { describePipeline, DescribeError } from "../../src/describe/describe.ts";
@@ -28,7 +30,7 @@ const NAME = config("name", "A plain string entry.", z.string());
 
 const Req = model("Req", z.object({ sha: z.string() }));
 const source = { repo: "o/r", sha: SHA, tree: testFileRef({ step: "source", path: "tree/" }) };
-const describeOf = (p: unknown) => describePipeline(p, { handlerNames: [], handlerHashes: {}, harness });
+const describeOf = (p: unknown, handlers: string[] = []) => describePipeline(p, { handlerNames: handlers, handlerHashes: Object.fromEntries(handlers.map((h) => [h, "sha256:" + "b".repeat(64)])), harness });
 const problems = (p: unknown): string[] => {
   try {
     describeOf(p);
@@ -128,47 +130,88 @@ describe("config references", () => {
   });
 });
 
-describe("steps.helmDeploy", () => {
+describe("target deploys and select", () => {
   const server = { repository: "registry:5000/app", tag: "2026.10.24.7", digest: "sha256:" + "ab".repeat(32) };
   const harnessImage = { repository: "registry:5000/harness", tag: "src-0123456789ab", digest: "sha256:" + "cd".repeat(32) };
   const AUTH = config("auth", "Auth.", z.discriminatedUnion("mode", [z.object({ mode: z.literal("none") }), z.object({ mode: z.literal("dex"), issuer: z.string() })]));
-  const deploy = steps.helmDeploy({
-    name: "deploy-beta", description: "", target: TARGET.beta, sshKey: KEY, chart: "helm",
-    inlineValues: [{ auth: AUTH }, { extra: { ns: TARGET.beta.namespace } }],
+  const opts = (target: any) => ({
+    target, chart: "helm", inlineValues: [{ auth: AUTH }, { extra: { ns: target.namespace } }],
     images: { server: "image" }, imageRefs: { harness: "harness.image" }, healthPath: "/api/health",
-  });
+  }) as const;
+  const builds = () => [
+    steps.imageBuild({ name: "server", description: "", repository: "registry:5000/app", push: true }),
+    steps.imageBuild({ name: "harness", description: "", repository: "registry:5000/harness", push: true, contentTag: true }),
+  ] as const;
+  const selectPipeline = () => base()
+    .stage(...builds())
+    .select(TARGET.prod, {
+      ssh: (p, prod) => p.stage([steps.helmDeployOverSsh({ name: "deploy-prod", description: "", sshKey: KEY, ...opts(prod) }), (from) => ({ source: from.source, server: from.server, harness: from.harness })]),
+      inCluster: (p, prod) => p.stage([steps.helmDeployInCluster({ name: "deploy-prod", description: "", ...opts(prod) }), (from) => ({ source: from.source, server: from.server, harness: from.harness })]),
+    });
   const fakes = () => {
     const tree = tmp("helm-deploy-tree");
     mkdirSync(join(tree, "helm"));
     const calls: (string[] | { cwd?: string })[] = [];
     const ctx: Partial<Ctx> = {
       files: { fetch: async (_ref: FileRef) => tree },
-      exec: async (argv, opts) => void calls.push([...argv], { cwd: opts?.cwd }),
+      exec: async (argv, o) => void calls.push([...argv], { cwd: o?.cwd }),
       sh: Object.assign(async (cmd: string | { script: string }) => void calls.push([cmd as string]), { text: async () => "" }),
       http: { expectOk: async (url: string) => (calls.push(["GET", url]), new Response("ok")) } as unknown as Ctx["http"],
       retry: async (_o, fn) => fn(1),
     };
     return { tree, calls, ctx };
   };
+  const stepsOf = (m: any, value: string) => m.stages[2].cases[value][0].steps[0];
 
-  test("contract: registry images, optional imageRefs, cluster access, the target's entry", () => {
-    expect(deploy).toMatchObject({ kind: "helmDeploy", image: "alpine/helm:3.16.2", clusterAccess: true, secrets: [KEY] });
-    expect((deploy.config as readonly any[]).map((e) => e.name)).toEqual(["target", "auth"]);
-    const m = describeOf(base()
-      .stage(steps.imageBuild({ name: "server", description: "", repository: "registry:5000/app", push: true }),
-        steps.imageBuild({ name: "harness", description: "", repository: "registry:5000/harness", push: true, contentTag: true }))
-      .stage([deploy, (from) => ({ source: from.source, server: from.server, harness: from.harness })])) as any;
+  test("select is recorded with every case; the same step name in exclusive cases; each step declares only what it uses", () => {
+    const m = describeOf(selectPipeline()) as any;
     expect(Manifest.safeParse(m).success).toBe(true);
-    const s = m.stages[2].steps[0];
-    expect(s).toMatchObject({ kind: "helmDeploy", clusterAccess: true, configEntries: ["auth", "target"] });
-    expect(s.inputTypes.harness).toEqual({ model: "PushedImage", optional: true });
-    expect(s.config.target).toEqual({ $config: "target.beta" });
-    expect(s.config.inlineValues).toEqual([{ auth: { $config: "auth" } }, { extra: { ns: { $config: "target.beta.namespace" } } }]);
+    expect(m.stages[2]).toMatchObject({ select: "target.prod", discriminator: "kind" });
+    expect(Object.keys(m.stages[2].cases).sort()).toEqual(["inCluster", "ssh"]);
+    const ssh = stepsOf(m, "ssh");
+    const inCluster = stepsOf(m, "inCluster");
+    expect(ssh).toMatchObject({ name: "deploy-prod", kind: "helmDeployOverSsh", image: "alpine:3.22", secrets: ["SSH_PRIVATE_KEY"] });
+    expect("clusterAccess" in ssh).toBe(false);
+    expect(inCluster).toMatchObject({ name: "deploy-prod", kind: "helmDeployInCluster", image: "alpine/helm:3.16.2", secrets: [], clusterAccess: true });
+    expect(ssh.config.target).toEqual({ $config: "target.prod", $case: "target.prod.kind=ssh" });
+    expect(inCluster.config.inlineValues).toEqual([{ auth: { $config: "auth" } }, { extra: { ns: { $config: "target.prod.namespace", $case: "target.prod.kind=inCluster" } } }]);
+    expect(inCluster.inputTypes.harness).toEqual({ model: "PushedImage", optional: true });
+    expect(m.config.map((c: any) => c.name)).toEqual(["auth", "target"]);
+  });
+
+  test("describe: duplicate names outside exclusive cases, narrowed references outside their case, missing cases", () => {
+    const deploy = (name: string) => steps.helmDeployInCluster({ name: name as "x", description: "", ...opts(TARGET.beta as any) });
+    expect(problems(selectPipeline().stage([deploy("deploy-prod"), (from: any) => ({ source: from.source, server: from.server, harness: from.harness })] as any))).toContain("duplicate step name 'deploy-prod'");
+    let leaked: unknown;
+    const p = base().stage(...builds())
+      .select(TARGET.prod, {
+        ssh: (q, prod) => ((leaked = prod), q),
+        inCluster: (q) => q,
+      });
+    const after = (p as any).stage([steps.helmDeployInCluster({ name: "late", description: "", ...opts(leaked) }), (from: any) => ({ source: from.source, server: from.server, harness: from.harness })]);
+    expect(problems(after).some((x) => x.includes("is narrowed to the select case 'target.prod.kind=ssh' and can only be used inside it"))).toBe(true);
+    const missing = base().select(TARGET.prod as any, { ssh: (q: any) => q } as any);
+    expect(problems(missing)).toContain("select 'target.prod': no case for kind 'inCluster'");
+  });
+
+  test("a step every case has stays available after the select", () => {
+    const check = step({ name: "check", description: "", image: "alpine", input: { release: HelmRelease } });
+    const m = describeOf(selectPipeline().stage(check), ["check"]) as any;
+    expect(m.stages[3].steps[0].input).toEqual({ release: { ref: "deploy-prod" } });
+  });
+
+  test("the harness runs the variant of the selected case (OLVE_CASES)", () => {
+    const data = pipelineData(selectPipeline());
+    expect(findStep(data, "server", [])).toMatchObject({ kind: "imageBuild" });
+    expect(findStep(data, "deploy-prod", ["target.prod.kind=inCluster"])).toMatchObject({ kind: "helmDeployInCluster" });
+    expect(findStep(data, "deploy-prod", ["target.prod.kind=ssh"])).toMatchObject({ kind: "helmDeployOverSsh" });
+    expect(findStep(data, "deploy-prod", [])).toContain("OLVE_CASES must name the selected one");
   });
 
   test("ssh target: pulls by digest on the host, helm with the target's values, generated values and image flags", async () => {
     const f = fakes();
-    const r = await testHandler(deploy, { source, server, harness: undefined } as any, {
+    const deploy = steps.helmDeployOverSsh({ name: "deploy-beta", description: "", sshKey: KEY, ...opts(TARGET.beta) });
+    const r = await testHandler(deploy as any, { source, server, harness: undefined }, {
       ctx: f.ctx, secrets: { SSH_PRIVATE_KEY: "k" },
       config: { target: { beta: { kind: "ssh", host: "u@h", namespace: "apps-beta", values: ["values-beta.yaml"], set: { "slo.enabled": "false" } }, prod: { kind: "ssh", host: "u@h", namespace: "apps" } }, auth: { mode: "none" } },
     });
@@ -182,14 +225,16 @@ describe("steps.helmDeploy", () => {
     expect(JSON.parse(readFileSync(join(f.tree, "helm", "olve-values-0.json"), "utf8"))).toEqual({ auth: { mode: "none" } });
     expect(JSON.parse(readFileSync(join(f.tree, "helm", "olve-values-1.json"), "utf8"))).toEqual({ extra: { ns: "apps-beta" } });
     expect(flat.at(-1)).toBe("GET http://app.apps-beta.svc.cluster.local/api/health");
+    const wrong = await testHandler(deploy as any, { source, server }, { ctx: fakes().ctx, secrets: { SSH_PRIVATE_KEY: "k" }, config: { target: { beta: { kind: "inCluster", namespace: "x" }, prod: { kind: "inCluster", namespace: "y" } }, auth: { mode: "none" } } });
+    if (wrong.status !== "failed") throw new Error("expected failure");
+    expect(wrong.error.message).toContain("the target is kind 'inCluster', not 'ssh'");
   });
 
   test("inCluster target: needs the ServiceAccount token, then helm --wait in the step pod", async () => {
+    const deploy = steps.helmDeployInCluster({ name: "deploy-beta", description: "", ...opts(TARGET.beta) });
     const config = { target: { beta: { kind: "inCluster", namespace: "selfdeploy-beta" }, prod: { kind: "inCluster", namespace: "selfdeploy-prod" } }, auth: { mode: "none" } };
-    const tokenExists = existsSync(SERVICE_ACCOUNT_TOKEN);
-    if (!tokenExists) {
-      const f = fakes();
-      const r = await testHandler(deploy, { source, server, harness: harnessImage }, { ctx: f.ctx, config });
+    if (!existsSync(SERVICE_ACCOUNT_TOKEN)) {
+      const r = await testHandler(deploy as any, { source, server, harness: harnessImage }, { ctx: fakes().ctx, config });
       if (r.status !== "failed") throw new Error("expected failure");
       expect(r.error.message).toContain("no ServiceAccount token in the step pod");
       try {
@@ -200,7 +245,7 @@ describe("steps.helmDeploy", () => {
       }
     }
     const f = fakes();
-    const r = await testHandler(deploy, { source, server, harness: harnessImage }, { ctx: f.ctx, config });
+    const r = await testHandler(deploy as any, { source, server, harness: harnessImage }, { ctx: f.ctx, config });
     expect(r).toMatchObject({ status: "succeeded", output: { namespace: "selfdeploy-beta" } });
     const helm = f.calls.find((c) => Array.isArray(c) && c[0] === "helm") as string[];
     expect(helm.slice(0, 6)).toEqual(["helm", "upgrade", "--install", "app", ".", "-n"]);

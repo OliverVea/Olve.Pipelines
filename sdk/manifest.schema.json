@@ -333,6 +333,40 @@
             "stages"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "cases": {
+              "additionalProperties": {
+                "items": {
+                  "$ref": "#/$defs/Stage"
+                },
+                "type": "array"
+              },
+              "description": "Discriminator value → stages. Exactly one case runs; a step name may repeat across cases, nowhere else.",
+              "propertyNames": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "discriminator": {
+              "description": "The union's literal field whose value names the case.",
+              "minLength": 1,
+              "type": "string"
+            },
+            "select": {
+              "description": "Config reference (`<entry>.<field>…`) to a discriminated union; the run's config snapshot picks the case.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "select",
+            "discriminator",
+            "cases"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -405,7 +439,7 @@
             "gitHubSource",
             "imageBuild",
             "helmDeployOverSsh",
-            "helmDeploy"
+            "helmDeployInCluster"
           ],
           "type": "string"
         },

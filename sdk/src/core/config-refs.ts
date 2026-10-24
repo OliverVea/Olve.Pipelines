@@ -15,6 +15,8 @@ export type Resolved<T> = T extends ConfigRef<infer U>
 
 /** Manifest key of a recorded config reference. */
 export const CONFIG_REF_KEY = "$config";
+/** Beside it on a reference narrowed by a `select` case: the case's condition, `<ref>.<discriminator>=<value>`. */
+export const CONFIG_CASE_KEY = "$case";
 
 function isPlain(v: unknown): v is Record<string, unknown> {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
@@ -35,9 +37,9 @@ export function configRefsIn(v: unknown, into = new Map<string, AnyConfigEntry>(
 /** `v` as manifest JSON: references become `{"$config": "target.beta.host"}`; literal keys starting with `$` are reserved. */
 export function recordConfigRefs(v: unknown): unknown {
   if (isConfigRef(v)) {
-    const { path } = configRefTarget(v);
+    const { path, case: kase } = configRefTarget(v);
     for (const seg of path) if (seg === "" || seg.includes(".")) throw new Error(`config reference '${configRefPath(v)}': field names must not be empty or contain '.'`);
-    return { [CONFIG_REF_KEY]: configRefPath(v) };
+    return { [CONFIG_REF_KEY]: configRefPath(v), ...(kase ? { [CONFIG_CASE_KEY]: kase } : {}) };
   }
   if (Array.isArray(v)) return v.map(recordConfigRefs);
   if (isPlain(v)) {

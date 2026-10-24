@@ -1,7 +1,7 @@
 // Olve.Pipelines deploying itself: build and verify every component once, publish prereleases,
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
-import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps } from "@olivervea/pipelines";
+import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
 import { AUTH, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
@@ -109,9 +109,8 @@ export const publishCli = step({
   timeoutSeconds: 300,
 });
 
-const deployTo = (target: typeof TARGET.beta) => ({
-  target,
-  sshKey: SSH_PRIVATE_KEY,
+/** What both deploy steps take; the target and how it is reached come from the select case. */
+const deployOptions = (target: { auth: ConfigRef; telemetry: ConfigRef }) => ({
   chart: "helm",
   inlineValues: [{ auth: AUTH, telemetry: TELEMETRY }, { auth: target.auth, telemetry: target.telemetry }],
   images: { server: "image" },
@@ -120,18 +119,7 @@ const deployTo = (target: typeof TARGET.beta) => ({
   healthPath: "/api/health",
   timeoutSeconds: 900,
 }) as const;
-
-export const deployBeta = steps.helmDeploy({
-  name: "deploy-beta",
-  description: "Deploys this run's images with Helm to the beta target and checks its health.",
-  ...deployTo(TARGET.beta),
-});
-
-export const deployProd = steps.helmDeploy({
-  name: "deploy-prod",
-  description: "Deploys this run's images with Helm to the prod target and checks its health.",
-  ...deployTo(TARGET.prod),
-});
+const describeDeploy = (stage: string) => `Deploys this run's images with Helm to the ${stage} target and checks its health.`;
 
 export const betaTest = step({
   name: "beta-test",
@@ -162,8 +150,26 @@ export default pipeline({
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(buildServer, buildHarness, test, frontendLint, buildSdk, buildCli)
   .stage([publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })], publishSdk, publishCli)
-  .stage([deployBeta, from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] })])
+  .select(TARGET.beta, {
+    ssh: (p, beta) => p.stage([
+      steps.helmDeployOverSsh({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, sshKey: SSH_PRIVATE_KEY, ...deployOptions(beta) }),
+      from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+    ]),
+    inCluster: (p, beta) => p.stage([
+      steps.helmDeployInCluster({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, ...deployOptions(beta) }),
+      from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+    ]),
+  })
   .stage(betaTest)
   .when({ deployTo: "prod" }, p => p
-    .stage([deployProd, from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] })])
+    .select(TARGET.prod, {
+      ssh: (q, prod) => q.stage([
+        steps.helmDeployOverSsh({ name: "deploy-prod", description: describeDeploy("prod"), target: prod, sshKey: SSH_PRIVATE_KEY, ...deployOptions(prod) }),
+        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+      ]),
+      inCluster: (q, prod) => q.stage([
+        steps.helmDeployInCluster({ name: "deploy-prod", description: describeDeploy("prod"), target: prod, ...deployOptions(prod) }),
+        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+      ]),
+    })
     .stage([promote, from => ({ server: from["build-server"], harness: from["build-harness"], sdk: from["publish-sdk"] })]));

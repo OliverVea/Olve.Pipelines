@@ -5,6 +5,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isImplementation } from "../core/handlers.ts";
+import { configRefPath, isConfigRef, unionAt } from "../core/config.ts";
 import type { AnyStep } from "../core/steps.ts";
 import type { WebhookEvent } from "../core/webhooks.ts";
 import { pipelineData, type PipelineData, type StageNode } from "../builder/pipeline.ts";
@@ -46,13 +47,42 @@ const USAGE = "usage: step describe [--sentinels] | step run <step> | step map-t
 
 export function allSteps(data: PipelineData): AnyStep[] {
   const out: AnyStep[] = [];
-  const walk = (nodes: readonly StageNode[]) => {
-    for (const n of nodes) n.kind === "stage" ? out.push(...n.steps.map((s) => s.step)) : walk(n.nodes);
-  };
-  walk(data.nodes);
-  for (const fh of data.failureHandlers) if (!out.includes(fh.step)) out.push(fh.step);
+  for (const { step } of stepsWithCases(data)) if (!out.includes(step)) out.push(step);
   return out;
 }
+
+/** Every step with the `select` case conditions (`<ref>.<discriminator>=<value>`) it sits in. */
+export function stepsWithCases(data: PipelineData): { step: AnyStep; cases: string[] }[] {
+  const out: { step: AnyStep; cases: string[] }[] = [];
+  const walk = (nodes: readonly StageNode[], cases: string[]) => {
+    for (const n of nodes) {
+      if (n.kind === "stage") out.push(...n.steps.map((s) => ({ step: s.step, cases })));
+      else if (n.kind === "when") walk(n.nodes, cases);
+      else {
+        const union = isConfigRef(n.on) ? unionAt(n.on) : undefined;
+        for (const [value, inner] of Object.entries(n.cases))
+          walk(inner, union ? [...cases, `${configRefPath(n.on)}.${union.discriminator}=${value}`] : cases);
+      }
+    }
+  };
+  walk(data.nodes, []);
+  for (const fh of data.failureHandlers) out.push({ step: fh.step, cases: [] });
+  return out;
+}
+
+/** The step `run <name>` executes: the only one so named, or the one in the cases the service selected (`OLVE_CASES`). */
+export function findStep(data: PipelineData, name: string, selected: readonly string[]): AnyStep | string {
+  const candidates = stepsWithCases(data).filter((c) => c.step.name === name);
+  const distinct = candidates.filter((c, i) => candidates.findIndex((d) => d.step === c.step) === i);
+  if (distinct.length === 0) return `unknown step '${name}'`;
+  if (distinct.length === 1) return distinct[0]!.step;
+  const chosen = distinct.filter((c) => c.cases.every((k) => selected.includes(k)));
+  if (chosen.length === 1) return chosen[0]!.step;
+  return `step '${name}' is in several select cases; ${ENV_CASES} must name the selected one (got ${JSON.stringify(selected)})`;
+}
+
+/** The select case conditions of the step being run (JSON array), set by the service for steps inside a select. */
+export const ENV_CASES = "OLVE_CASES";
 
 /** Installs SIGTERM/SIGINT handlers that abort the returned signal (PID 1 ignores signals without them). */
 export function cancellation(): { signal: AbortSignal; dispose(): void } {
@@ -136,8 +166,8 @@ async function describeMode(cfg: HarnessConfig, args: string[], io: HarnessIO): 
 async function runMode(cfg: HarnessConfig, name: string | undefined, io: HarnessIO): Promise<number> {
   if (!name) return io.stderr(USAGE), EXIT.usage;
   const data = pipelineData(cfg.pipeline);
-  const step = allSteps(data).find((s) => s.name === name);
-  if (!step) return io.stderr(`unknown step '${name}'`), EXIT.usage;
+  const step = findStep(data, name, selectedCases());
+  if (typeof step === "string") return io.stderr(step), EXIT.usage;
   const fn = await resolveStepFunction(step, cfg.handlers);
   if (typeof fn === "string") return io.stderr(fn), EXIT.configInvalid;
 
@@ -230,3 +260,12 @@ export async function runHarness(cfg: HarnessConfig, argv: readonly string[], io
 }
 
 export { formatIssues, formatLog };
+
+function selectedCases(): string[] {
+  try {
+    const v = JSON.parse(process.env[ENV_CASES] ?? "[]") as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}

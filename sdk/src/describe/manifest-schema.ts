@@ -51,7 +51,7 @@ export const StepDescriptor = z
   .strictObject({
     name: stepName,
     description: z.string().describe("What the step does, shown in the UI (may be empty)."),
-    kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh", "helmDeploy"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
+    kind: z.enum(["custom", "script", "gitHubSource", "imageBuild", "helmDeployOverSsh", "helmDeployInCluster"]).describe("'custom' = handlers/<name>.ts; others are SDK library steps."),
     image: z.string().min(1).describe("Container image the step runs in."),
     inputTypes: z.record(z.string(), InputType).describe("Declared input entries, keyed like input.json."),
     input: z.record(z.string(), Mapping).describe("How the service assembles input.json: one mapping per input key (same keys as inputTypes)."),
@@ -75,7 +75,10 @@ export const StepDescriptor = z
   })
   .meta({ id: "Step" });
 
-export type Stage = { steps: z.infer<typeof StepDescriptor>[] } | { when: Record<string, (string | number | boolean)[]>; stages: Stage[] };
+export type Stage =
+  | { steps: z.infer<typeof StepDescriptor>[] }
+  | { when: Record<string, (string | number | boolean)[]>; stages: Stage[] }
+  | { select: string; discriminator: string; cases: Record<string, Stage[]> };
 export const Stage: z.ZodType<Stage> = z
   .union([
     z.strictObject({ steps: z.array(StepDescriptor).min(1).describe("Steps run in parallel; the stage is a barrier.") }),
@@ -84,6 +87,13 @@ export const Stage: z.ZodType<Stage> = z
         "Pipeline-input field → accepted values (all fields must match). Empty object = always.",
       ),
       stages: z.array(z.lazy(() => Stage)),
+    }),
+    z.strictObject({
+      select: z.string().min(1).describe("Config reference (`<entry>.<field>…`) to a discriminated union; the run's config snapshot picks the case."),
+      discriminator: z.string().min(1).describe("The union's literal field whose value names the case."),
+      cases: z
+        .record(z.string(), z.array(z.lazy(() => Stage)))
+        .describe("Discriminator value → stages. Exactly one case runs; a step name may repeat across cases, nowhere else."),
     }),
   ])
   .meta({ id: "Stage" });

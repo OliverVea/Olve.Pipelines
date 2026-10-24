@@ -2,7 +2,8 @@
 // every describe-time check. All problems are collected and reported together.
 import { z } from "zod";
 import { CONFIG_NAME, isConfigEntry, SECRET_REF_KIND } from "../core/config.ts";
-import { CONFIG_REF_KEY } from "../core/config-refs.ts";
+import { CONFIG_CASE_KEY, CONFIG_REF_KEY } from "../core/config-refs.ts";
+import { configRefPath, configRefTarget, isConfigRef, unionAt } from "../core/config.ts";
 import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
 import { SECRET_NAME, type Secret } from "../core/secrets.ts";
 import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
@@ -152,12 +153,23 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
 
   // ── step identity ──
   const steps = new Map<string, AnyStep>();
-  const registerStep = (s: AnyStep, where: string) => {
+  const placements = new Map<string, { step: AnyStep; cases: readonly CaseOf[] }[]>();
+  // Two places are mutually exclusive when they sit in different cases of the same select.
+  const exclusive = (a: readonly CaseOf[], b: readonly CaseOf[]) => a.some((x) => b.some((y) => y.select === x.select && y.value !== x.value));
+  const registerStep = (s: AnyStep, where: string, cases: readonly CaseOf[] = []) => {
     if (typeof s.name !== "string" || !STEP_NAME.test(s.name))
       problems.push(`${where}: step name '${String(s.name)}' must be lower-case kebab (${STEP_NAME})`);
     if (RESERVED.has(s.name)) problems.push(`${where}: '${s.name}' is reserved and cannot be a step name`);
-    if (steps.has(s.name)) problems.push(`duplicate step name '${s.name}'`);
-    steps.set(s.name, s);
+    const prev = placements.get(s.name) ?? [];
+    if (prev.some((p) => !exclusive(p.cases, cases))) problems.push(`duplicate step name '${s.name}'`);
+    else if (prev.length) {
+      if (prev.some((p) => p.step !== s && p.step.kind === "custom" && s.kind === "custom"))
+        problems.push(`step '${s.name}': two different custom steps share the name across select cases; handlers pair by name, so use one step or different names`);
+      if (prev.some((p) => (p.step.output?.name ?? null) !== (s.output?.name ?? null)))
+        problems.push(`step '${s.name}': its select cases must give it the same output model`);
+    }
+    placements.set(s.name, [...prev, { step: s, cases }]);
+    if (!steps.has(s.name)) steps.set(s.name, s);
   };
 
   const inputModel = data.input;
@@ -167,7 +179,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
   const outputViewOf = (modelName: string | null): JsonSchema | undefined => (modelName ? models.get(modelName)?.schemas.output : undefined);
 
   // ── one step ──
-  const describeStep = (node: StageStepNode, avail: Map<string, Avail>, failureHandler: boolean): StepDescriptorT => {
+  const describeStep = (node: StageStepNode, avail: Map<string, Avail>, failureHandler: boolean, cases: readonly CaseOf[] = []): StepDescriptorT => {
     const s = node.step;
     const at = `step '${s.name}'`;
     if (typeof s.image !== "string" || s.image.trim() === "") problems.push(`${at}: image must be a non-empty string`);
@@ -237,8 +249,10 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
         problems.push(`${at}: invalid ${s.kind} configuration (${(e as Error).message})`);
         config = {};
       }
-      for (const ref of recordedConfigRefs(config)) {
+      for (const { ref, case: kase } of recordedConfigRefs(config)) {
         const [entry, ...path] = ref.split(".") as [string, ...string[]];
+        if (kase !== undefined && !cases.some((c) => c.cond === kase))
+          problems.push(`${at}: config reference '${ref}' is narrowed to the select case '${kase}' and can only be used inside it`);
         if (!configNames.includes(entry)) problems.push(`${at}: config reference '${ref}': the step does not receive config entry '${entry}'`);
         else if (!resolveField(configs.get(entry)?.schema, path)) problems.push(`${at}: config reference '${ref}': config '${entry}' has no field '${path.join(".")}'`);
       }
@@ -312,17 +326,22 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
   };
 
   // ── stages ──
-  const walk = (nodes: readonly StageNode[], avail: Map<string, Avail>): Stage[] => {
+  let selects = 0;
+  const walk = (nodes: readonly StageNode[], avail: Map<string, Avail>, cases: readonly CaseOf[] = []): Stage[] => {
     const out: Stage[] = [];
     for (const n of nodes) {
+      if (n.kind === "select") {
+        out.push(describeSelect(n, avail, cases, ++selects));
+        continue;
+      }
       if (n.kind === "stage") {
         const descs = n.steps.map((ss) => {
           if (!isStep(ss.step)) {
             problems.push("a stage entry is not a step");
             return undefined;
           }
-          registerStep(ss.step, "stage");
-          return describeStep(ss, avail, false);
+          registerStep(ss.step, "stage", cases);
+          return describeStep(ss, avail, false, cases);
         }).filter((d): d is StepDescriptorT => d !== undefined);
         // Outputs become available only after the barrier (same-stage siblings can't see each other).
         for (const ss of n.steps) if (isStep(ss.step)) avail.set(ss.step.name, { model: ss.step.output?.name ?? null, maybe: false });
@@ -342,12 +361,42 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
           when[field] = values;
         }
         const inner = new Map(avail);
-        const stages = walk(n.nodes, inner);
+        const stages = walk(n.nodes, inner, cases);
         for (const [name, a] of inner) if (!avail.has(name)) avail.set(name, { model: a.model, maybe: true });
         out.push({ when, stages });
       }
     }
     return out;
+  };
+  const describeSelect = (n: Extract<StageNode, { kind: "select" }>, avail: Map<string, Avail>, cases: readonly CaseOf[], id: number): Stage => {
+    if (!isConfigRef(n.on)) {
+      problems.push("select: the first argument must be a config reference");
+      return { select: "", discriminator: "", cases: {} };
+    }
+    const ref = configRefPath(n.on);
+    const { entry, case: kase } = configRefTarget(n.on);
+    useConfig(entry, `select '${ref}'`);
+    if (kase !== undefined && !cases.some((c) => c.cond === kase))
+      problems.push(`select '${ref}': the reference is narrowed to the case '${kase}' and can only be used inside it`);
+    const union = unionAt(n.on);
+    if (!union) problems.push(`select '${ref}': it must reference a z.discriminatedUnion in config '${entry.name}'`);
+    else {
+      for (const v of union.values) if (!Object.hasOwn(n.cases, v)) problems.push(`select '${ref}': no case for ${union.discriminator} '${v}'`);
+      for (const v of Object.keys(n.cases)) if (!union.values.includes(v)) problems.push(`select '${ref}': '${v}' is not a value of ${union.discriminator} (${union.values.join(", ")})`);
+    }
+    const discriminator = union?.discriminator ?? "";
+    const branches = Object.entries(n.cases).map(([value, nodes]) => {
+      const inner = new Map(avail);
+      const stages = walk(nodes, inner, [...cases, { select: id, value, cond: `${ref}.${discriminator}=${value}` }]);
+      return { value, inner, stages };
+    });
+    // A step every case has is as available as in its cases; one only some cases have is maybe-available.
+    const added = new Set(branches.flatMap((b) => [...b.inner.keys()].filter((k) => !avail.has(k))));
+    for (const name of added) {
+      const present = branches.map((b) => b.inner.get(name)).filter((a): a is Avail => a !== undefined);
+      avail.set(name, { model: present[0]!.model, maybe: present.length < branches.length || present.some((a) => a.maybe) });
+    }
+    return { select: ref, discriminator, cases: Object.fromEntries(branches.map((b) => [b.value, b.stages])) };
   };
   const stages = walk(data.nodes, new Map([["input", { model: inputModel.name, maybe: false }]]));
 
@@ -442,16 +491,25 @@ export function secretRefsOf(schema: unknown): string[] {
   return [...out].sort();
 }
 
-/** The `{"$config": "<entry>.<path>"}` references in a library step's recorded configuration. */
-export function recordedConfigRefs(v: unknown, out: string[] = []): string[] {
+/** The `{"$config": "<entry>.<path>"[, "$case": …]}` references in a library step's recorded configuration. */
+export function recordedConfigRefs(v: unknown, out: { ref: string; case?: string }[] = []): { ref: string; case?: string }[] {
   if (Array.isArray(v)) v.forEach((x) => recordedConfigRefs(x, out));
   else if (v !== null && typeof v === "object") {
     const o = v as Record<string, unknown>;
-    const keys = Object.keys(o);
-    if (keys.length === 1 && keys[0] === CONFIG_REF_KEY && typeof o[CONFIG_REF_KEY] === "string") out.push(o[CONFIG_REF_KEY] as string);
+    const keys = Object.keys(o).sort();
+    const isRef = typeof o[CONFIG_REF_KEY] === "string"
+      && (keys.length === 1 ? keys[0] === CONFIG_REF_KEY : keys.length === 2 && keys[0] === CONFIG_CASE_KEY && keys[1] === CONFIG_REF_KEY && typeof o[CONFIG_CASE_KEY] === "string");
+    if (isRef) out.push({ ref: o[CONFIG_REF_KEY] as string, ...(keys.length === 2 ? { case: o[CONFIG_CASE_KEY] as string } : {}) });
     else Object.values(o).forEach((x) => recordedConfigRefs(x, out));
   }
   return out;
+}
+
+/** A select case a step sits in: which select (numbered in describe order), which value, and its condition text. */
+interface CaseOf {
+  select: number;
+  value: string;
+  cond: string;
 }
 
 function camel(name: string): string {

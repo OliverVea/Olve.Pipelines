@@ -8,6 +8,7 @@ import type { IsUnion, OrError, Simplify } from "../core/types.ts";
 import type { Optional } from "../core/models.ts";
 import type { FailureContext } from "../library/models.ts";
 import type { MapperResult, Ref } from "./refs.ts";
+import { isConfigRef, narrowConfigRef, unionAt, type ConfigNode, type ConfigRef, type DiscriminatorOf, type VariantOf } from "../core/config.ts";
 
 // ─── Availability (builder state, type level) ────────────────────────────────────────────────
 
@@ -96,6 +97,29 @@ type OutputsOf<E extends readonly unknown[], Maybe extends boolean> = {
 };
 type MakeMaybe<X extends AvailMap> = { [K in keyof X]: Slot<X[K]["model"], X[K]["value"], true> };
 
+// ─── select (branching on config) ────────────────────────────────────────────────────────────
+
+type KeysOfUnion<T> = T extends unknown ? keyof T : never;
+type SlotIn<B, K extends PropertyKey> = B extends { [P in K]: infer X extends Slot } ? X : never;
+/** A case function: the pipeline so far, and the select's reference narrowed to the case's variant. */
+export type SelectCase<In extends AnyModel, A extends AvailMap, R> = (p: Pipeline<In, A>, ref: R) => Pipeline<In, AvailMap>;
+export type SelectCases<In extends AnyModel, A extends AvailMap, U, D extends string> = {
+  readonly [V in Extract<U[D & keyof U], string>]: SelectCase<In, A, ConfigNode<VariantOf<U, D, V>>>;
+};
+type CaseAvail<C> = { [K in keyof C]: C[K] extends (...args: never[]) => Pipeline<AnyModel, infer B> ? B : never }[keyof C];
+/**
+ * After a select: a step every case has is as available as in its cases (one case always runs);
+ * a step only some cases have is maybe-available.
+ */
+export type AfterSelect<A extends AvailMap, B> = Simplify<
+  A &
+    { [K in Exclude<keyof B, keyof A>]: Slot<SlotIn<B, K>["model"], SlotIn<B, K>["value"], SlotIn<B, K>["maybe"]> } &
+    { [K in Exclude<KeysOfUnion<B>, keyof B | keyof A>]: Slot<SlotIn<B, K>["model"], SlotIn<B, K>["value"], true> }
+>;
+type SelectOnError<U> = [DiscriminatorOf<U>] extends [never]
+  ? "❌ select needs a reference to a discriminated union in config (z.discriminatedUnion)"
+  : IsUnion<DiscriminatorOf<U>> extends true ? "❌ the union has more than one literal field; select can't tell which is the discriminator" : never;
+
 // ─── Conditions / triggers ───────────────────────────────────────────────────────────────────
 
 type IsLiteralLike<T> = [T] extends [string | number | boolean]
@@ -134,7 +158,8 @@ export interface StageStepNode {
 }
 export type StageNode =
   | { readonly kind: "stage"; readonly steps: readonly StageStepNode[] }
-  | { readonly kind: "when"; readonly cond: Readonly<Record<string, unknown>>; readonly nodes: readonly StageNode[] };
+  | { readonly kind: "when"; readonly cond: Readonly<Record<string, unknown>>; readonly nodes: readonly StageNode[] }
+  | { readonly kind: "select"; readonly on: ConfigRef; readonly cases: Readonly<Record<string, readonly StageNode[]>> };
 
 export type TriggerNode =
   | { readonly kind: "push"; readonly name: string; readonly map: (event: unknown) => unknown }
@@ -297,6 +322,34 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
     if (!isPipeline(returned) || pipelineData(returned) !== inner[PIPELINE])
       data.problems.push("a when block must return the pipeline it was given (p => p.stage(...))");
     data.nodes.push({ kind: "when", cond: { ...(cond as object) }, nodes: inner[PIPELINE].nodes });
+    return this.next();
+  }
+
+  /**
+   * Branch on config: `on` references a discriminated union in a config entry, and each case gets the
+   * pipeline and `on` narrowed to its variant. Exactly one case runs, chosen by the run's config
+   * snapshot (not by run input; that is `when`). The same step name may appear in several cases.
+   */
+  select<U, const C extends SelectCases<In, A, U, DiscriminatorOf<U>>>(
+    on: ConfigRef<U> & ([SelectOnError<U>] extends [never] ? unknown : SelectOnError<U>),
+    cases: C & { readonly [K in Exclude<keyof C, keyof SelectCases<In, A, U, DiscriminatorOf<U>>>]: `❌ '${K & string}' is not a case of this select` },
+  ): Pipeline<In, AfterSelect<A, CaseAvail<C>>> {
+    const data = this[PIPELINE];
+    const recorded: Record<string, StageNode[]> = {};
+    const union = isConfigRef(on) ? unionAt(on) : undefined;
+    if (!union) data.problems.push("select: the first argument must reference a z.discriminatedUnion in a config entry");
+    for (const [value, fn] of Object.entries(cases as Record<string, unknown>)) {
+      if (typeof fn !== "function") {
+        data.problems.push(`select: case '${value}' is not a function`);
+        continue;
+      }
+      const inner = new Pipeline<In, A>({ name: data.name, input: data.input as In }, data);
+      const returned = (fn as (p: unknown, ref: unknown) => unknown)(inner, union ? narrowConfigRef(on, union.discriminator, value) : on);
+      if (!isPipeline(returned) || pipelineData(returned) !== inner[PIPELINE])
+        data.problems.push(`select: case '${value}' must return the pipeline it was given ((p, ref) => p.stage(...))`);
+      recorded[value] = inner[PIPELINE].nodes;
+    }
+    data.nodes.push({ kind: "select", on, cases: recorded });
     return this.next();
   }
 

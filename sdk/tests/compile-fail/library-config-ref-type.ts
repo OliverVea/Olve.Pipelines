@@ -4,19 +4,13 @@ import { steps, z } from "../fixtures2";
 const KEY = secret("SSH_PRIVATE_KEY", "ssh key");
 const TARGET = config("target", "Where to deploy.", z.object({ port: z.number(), host: z.string().optional(), beta: helmTarget() }));
 
-steps.helmDeployOverSsh({
-  name: "deploy", description: "", sshKey: KEY, release: "a", namespace: "n", chart: "helm",
-  // a reference must have the field's type
-  // @ts-expect-error -- expect: Type 'ConfigRef<number>' is not assignable to type 'Configurable<string>'
-  host: TARGET.port,
-});
+// a reference must have the field's type (one line: TS 5.9 reports overloads at the call, TS 7 at the field)
+// @ts-expect-error -- expect: is not assignable to type 'Configurable<string>'
+steps.helmDeployOverSsh({ name: "deploy", description: "", sshKey: KEY, release: "a", namespace: "n", chart: "helm", host: TARGET.port });
 
-steps.helmDeployOverSsh({
-  name: "deploy", description: "", sshKey: KEY, release: "a", namespace: "n", chart: "helm",
-  // an optional field may be undefined
-  // @ts-expect-error -- expect: is not assignable to type 'Configurable<string>'
-  host: TARGET.host,
-});
+// an optional field may be undefined
+// @ts-expect-error -- expect: is not assignable to type 'Configurable<string>'
+steps.helmDeployOverSsh({ name: "deploy", description: "", sshKey: KEY, release: "a", namespace: "n", chart: "helm", host: TARGET.host });
 
 steps.imageBuild({
   name: "build", description: "",
@@ -25,9 +19,9 @@ steps.imageBuild({
   repository: TARGET.repository,
 });
 
-steps.helmDeploy({
+steps.helmDeployInCluster({
   name: "deploy", description: "", chart: "helm",
-  // the target must be a helmTarget() value
-  // @ts-expect-error -- expect: is not assignable to type 'Configurable<HelmTargetValue>'
-  target: TARGET.port,
+  // the target must be an in-cluster target; the unnarrowed union is not one
+  // @ts-expect-error -- expect: is not assignable to type 'Configurable<InClusterTargetValue>'
+  target: TARGET.beta,
 });

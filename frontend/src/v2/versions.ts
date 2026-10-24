@@ -13,14 +13,21 @@ export type LoadedVersion = {
 
 export type Activation =
   | { kind: 'active'; version: number; since: Date | null }
-  | { kind: 'draining'; from: number; to: number; cancelRunning: boolean; since: Date | null }
+  | {
+      kind: 'draining';
+      from: number;
+      to: number;
+      cancelRunning: boolean;
+      since: Date | null;
+    }
   | { kind: 'none' };
 
 /** Normalise the API's polymorphic `PipelineActivation` (`active` / `draining`). */
 export function toActivation(a: unknown): Activation {
   const o = (a ?? {}) as Record<string, unknown>;
   const since = (o.since as Date | undefined) ?? null;
-  if (o.type === 'active') return { kind: 'active', version: Number(o.versionNumber), since };
+  if (o.type === 'active')
+    return { kind: 'active', version: Number(o.versionNumber), since };
   if (o.type === 'draining')
     return {
       kind: 'draining',
@@ -40,7 +47,10 @@ export function currentVersion(a: Activation): number | null {
 // Versions are immutable, so a per-session cache is safe.
 const cache = new Map<string, Promise<LoadedVersion | null>>();
 
-export function loadVersion(pipelineId: string, number: number): Promise<LoadedVersion | null> {
+export function loadVersion(
+  pipelineId: string,
+  number: number,
+): Promise<LoadedVersion | null> {
   const key = `${pipelineId}#${number}`;
   let p = cache.get(key);
   if (!p) {

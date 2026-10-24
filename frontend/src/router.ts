@@ -9,16 +9,56 @@ const routes: Route[] = [
   { pattern: /^\/callback/, params: [], view: 'callback' },
   { pattern: /^\/docs\/([\w-]+)$/, params: ['page'], view: 'docs-view' },
   { pattern: /^\/docs\/?$/, params: [], view: 'docs-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)\/step\/([^/]+)\/logs$/, params: ['pipelineId', 'run', 'step'], view: 'step-logs-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)$/, params: ['pipelineId', 'run'], view: 'run-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)\/runs$/, params: ['pipelineId', 'step'], view: 'step-runs-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/, params: ['pipelineId', 'step'], view: 'step-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/runs$/, params: ['pipelineId'], view: 'pipeline-runs-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/versions$/, params: ['pipelineId'], view: 'pipeline-versions-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/secrets$/, params: ['pipelineId'], view: 'pipeline-secrets-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/config$/, params: ['pipelineId'], view: 'pipeline-config-view' },
-  { pattern: /^\/pipeline\/([^/]+)\/binding$/, params: ['pipelineId'], view: 'pipeline-binding-view' },
-  { pattern: /^\/pipeline\/([^/]+)$/, params: ['pipelineId'], view: 'pipeline-detail-view' },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)\/step\/([^/]+)\/logs$/,
+    params: ['pipelineId', 'run', 'step'],
+    view: 'step-logs-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/run\/(\d+)$/,
+    params: ['pipelineId', 'run'],
+    view: 'run-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)\/runs$/,
+    params: ['pipelineId', 'step'],
+    view: 'step-runs-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/,
+    params: ['pipelineId', 'step'],
+    view: 'step-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/runs$/,
+    params: ['pipelineId'],
+    view: 'pipeline-runs-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/versions$/,
+    params: ['pipelineId'],
+    view: 'pipeline-versions-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/secrets$/,
+    params: ['pipelineId'],
+    view: 'pipeline-secrets-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/config$/,
+    params: ['pipelineId'],
+    view: 'pipeline-config-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)\/binding$/,
+    params: ['pipelineId'],
+    view: 'pipeline-binding-view',
+  },
+  {
+    pattern: /^\/pipeline\/([^/]+)$/,
+    params: ['pipelineId'],
+    view: 'pipeline-detail-view',
+  },
 ];
 
 export interface ResolvedRoute {

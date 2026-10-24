@@ -47,7 +47,8 @@ export class ApiError extends Error {
 
 /** Messages of an error body: `{ errors: [{ message, field? }] }` (also as a Kiota error), or a legacy problem array. */
 function problemsFromBody(body: unknown): string[] {
-  const errors = body && typeof body === 'object' ? (body as { errors?: unknown }).errors : undefined;
+  const errors =
+    body && typeof body === 'object' ? (body as { errors?: unknown }).errors : undefined;
   if (Array.isArray(errors)) {
     return errors
       .map((e) => {
@@ -57,7 +58,11 @@ function problemsFromBody(body: unknown): string[] {
       })
       .filter((m) => m.length > 0);
   }
-  const list = Array.isArray(body) ? body : body && typeof body === 'object' ? [body] : [];
+  const list = Array.isArray(body)
+    ? body
+    : body && typeof body === 'object'
+      ? [body]
+      : [];
   return list
     .map((p) => {
       if (p && typeof p === 'object') {
@@ -90,7 +95,10 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = { ...(await authHeaders()), Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    ...(await authHeaders()),
+    Accept: 'application/json',
+  };
   let body: string | undefined;
   if (init.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -108,7 +116,8 @@ export async function apiFetch<T = unknown>(
   }
   if (!res.ok) {
     const problems = problemsFromBody(parsed);
-    if (!problems.length && res.status === 401) problems.push('Sign in to do this (HTTP 401).');
+    if (!problems.length && res.status === 401)
+      problems.push('Sign in to do this (HTTP 401).');
     if (!problems.length && res.status === 403) problems.push('Not allowed (HTTP 403).');
     throw new ApiError(res.status, problems);
   }
@@ -119,9 +128,16 @@ export async function apiFetch<T = unknown>(
  * Server-sent events from an authenticated endpoint. `EventSource` can't send the bearer token, so this
  * reads the stream with fetch. Ends when the server closes the stream or `signal` aborts.
  */
-export async function* apiEvents(path: string, signal: AbortSignal): AsyncGenerator<{ event: string; data: string }> {
-  const res = await fetch(path, { headers: { ...(await authHeaders()), Accept: 'text/event-stream' }, signal });
-  if (!res.ok || !res.body) throw new ApiError(res.status, [`Event stream answered HTTP ${res.status}.`]);
+export async function* apiEvents(
+  path: string,
+  signal: AbortSignal,
+): AsyncGenerator<{ event: string; data: string }> {
+  const res = await fetch(path, {
+    headers: { ...(await authHeaders()), Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!res.ok || !res.body)
+    throw new ApiError(res.status, [`Event stream answered HTTP ${res.status}.`]);
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';
   try {
@@ -206,20 +222,27 @@ export async function apiText(path: string): Promise<string> {
  */
 export function untypedToJson(node: unknown): unknown {
   if (node === null || node === undefined) return node ?? null;
-  if (typeof node === 'object' && 'getValue' in node && typeof (node as { getValue: unknown }).getValue === 'function') {
+  if (
+    typeof node === 'object' &&
+    'getValue' in node &&
+    typeof (node as { getValue: unknown }).getValue === 'function'
+  ) {
     return untypedToJson((node as { getValue: () => unknown }).getValue());
   }
   if (Array.isArray(node)) return node.map(untypedToJson);
   if (typeof node === 'object') {
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(node as Record<string, unknown>)) out[k] = untypedToJson(v);
+    for (const [k, v] of Object.entries(node as Record<string, unknown>))
+      out[k] = untypedToJson(v);
     return out;
   }
   return node;
 }
 
 /** Numeric map from a Kiota additionalData holder (`stepVersions` etc.). */
-export function numberMap(holder: { additionalData?: Record<string, unknown> } | null | undefined): Record<string, number> {
+export function numberMap(
+  holder: { additionalData?: Record<string, unknown> } | null | undefined,
+): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(holder?.additionalData ?? {})) {
     const n = typeof v === 'number' ? v : Number(v);
@@ -247,7 +270,9 @@ export function extractErrorMessage(err: unknown): string {
       additionalData?: Record<string, unknown>;
       responseStatusCode?: unknown;
     };
-    const fromBody = Array.isArray((err as { errors?: unknown }).errors) ? problemsFromBody(err) : [];
+    const fromBody = Array.isArray((err as { errors?: unknown }).errors)
+      ? problemsFromBody(err)
+      : [];
     if (fromBody.length) return fromBody.join('\n');
     const fromArray = problemsFromBody(Object.values(p.additionalData ?? {}));
     if (fromArray.length) return fromArray.join('\n');
@@ -255,7 +280,8 @@ export function extractErrorMessage(err: unknown): string {
     if (p.responseStatusCode === 403) return 'Not allowed (HTTP 403).';
     const candidate = p.messageEscaped ?? p.message ?? p.exceptionSummary;
     if (typeof candidate === 'string' && candidate.length > 0) return candidate;
-    if (typeof p.responseStatusCode === 'number') return `Request failed (HTTP ${p.responseStatusCode}).`;
+    if (typeof p.responseStatusCode === 'number')
+      return `Request failed (HTTP ${p.responseStatusCode}).`;
   }
   if (err instanceof Error && err.message) return err.message;
   const s = String(err);

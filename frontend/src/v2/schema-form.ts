@@ -73,7 +73,9 @@ export function toText(field: FormField, value: unknown): string {
   return String(value);
 }
 
-export type Parsed = { ok: true; value: unknown; empty: boolean } | { ok: false; error: string };
+export type Parsed =
+  | { ok: true; value: unknown; empty: boolean }
+  | { ok: false; error: string };
 
 /** Parse and validate one field's text against its schema. */
 export function parseField(field: FormField, text: string): Parsed {
@@ -105,10 +107,14 @@ export function parseField(field: FormField, text: string): Parsed {
     case 'integer':
     case 'number': {
       const n = Number(text.trim());
-      if (text.trim() === '' || Number.isNaN(n)) return { ok: false, error: 'Not a number.' };
-      if (field.kind === 'integer' && !Number.isInteger(n)) return { ok: false, error: 'Must be a whole number.' };
-      if (s.minimum !== undefined && n < s.minimum) return { ok: false, error: `At least ${s.minimum}.` };
-      if (s.maximum !== undefined && n > s.maximum) return { ok: false, error: `At most ${s.maximum}.` };
+      if (text.trim() === '' || Number.isNaN(n))
+        return { ok: false, error: 'Not a number.' };
+      if (field.kind === 'integer' && !Number.isInteger(n))
+        return { ok: false, error: 'Must be a whole number.' };
+      if (s.minimum !== undefined && n < s.minimum)
+        return { ok: false, error: `At least ${s.minimum}.` };
+      if (s.maximum !== undefined && n > s.maximum)
+        return { ok: false, error: `At most ${s.maximum}.` };
       if (s.exclusiveMinimum !== undefined && n <= s.exclusiveMinimum)
         return { ok: false, error: `Greater than ${s.exclusiveMinimum}.` };
       if (s.exclusiveMaximum !== undefined && n >= s.exclusiveMaximum)
@@ -128,7 +134,8 @@ export function parseField(field: FormField, text: string): Parsed {
 export function constraintHint(field: FormField): string {
   const s = field.schema;
   const parts: string[] = [];
-  if (field.kind === 'string' && field.patternSource) parts.push(`pattern ${field.patternSource}`);
+  if (field.kind === 'string' && field.patternSource)
+    parts.push(`pattern ${field.patternSource}`);
   if (s.minLength !== undefined) parts.push(`min length ${s.minLength}`);
   if (s.maxLength !== undefined) parts.push(`max length ${s.maxLength}`);
   const big = 2 ** 53 - 1;

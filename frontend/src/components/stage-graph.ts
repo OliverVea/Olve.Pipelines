@@ -1,6 +1,14 @@
 import { LitElement, html, css, nothing, svg, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { type Manifest, type ManifestStep, type Stage, isWhen, formatWhen, allSteps, producersOf } from '../v2/manifest.js';
+import {
+  type Manifest,
+  type ManifestStep,
+  type Stage,
+  isWhen,
+  formatWhen,
+  allSteps,
+  producersOf,
+} from '../v2/manifest.js';
 import { sharedStyles, toneOf, statusLabel, formatDuration, navClick } from '../v2/ui.js';
 import { sheetHeight } from './step-sheet.js';
 import { formatRelative } from './relative-time.js';
@@ -41,7 +49,8 @@ function storedLevel(): Level {
   }
 }
 
-const currentOrientation = (): Orientation => (innerHeight > innerWidth ? 'vertical' : 'horizontal');
+const currentOrientation = (): Orientation =>
+  innerHeight > innerWidth ? 'vertical' : 'horizontal';
 const canHover = () => matchMedia('(hover: hover)').matches;
 
 const STOP = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>`;
@@ -480,11 +489,11 @@ export class StageGraph extends LitElement {
   @property({ attribute: false }) declare blocked: Set<string> | null;
   @property() declare selected: string;
   @property({ type: Boolean }) declare stepControls: boolean;
-  @state() private declare _hover: string | null;
-  @state() private declare _card: { step: string; anchor: DOMRect } | null;
-  @state() private declare _level: Level;
-  @state() private declare _orientation: Orientation;
-  @state() private declare _overflow: boolean;
+  @state() declare private _hover: string | null;
+  @state() declare private _card: { step: string; anchor: DOMRect } | null;
+  @state() declare private _level: Level;
+  @state() declare private _orientation: Orientation;
+  @state() declare private _overflow: boolean;
 
   /** Centre the selected card in the scroller after the next render (horizontal). */
   private _centre = false;
@@ -530,12 +539,16 @@ export class StageGraph extends LitElement {
     const rel = this._related(m);
     const vertical = this._orientation === 'vertical';
     return html`${this._bar()}
-      ${vertical
-        ? html`<div class="vflow lv-${this._level}">${this._rows(m.stages, rel, { n: 0 })}</div>`
-        : html`<div class="flow lv-${this._level}">
-            <div class="scroller"><div class="row">${this._stages(m.stages, rel)}</div></div>
-          </div>`}
-      ${this._hovercard()}`;
+    ${vertical
+      ? html`<div class="vflow lv-${this._level}">
+          ${this._rows(m.stages, rel, { n: 0 })}
+        </div>`
+      : html`<div class="flow lv-${this._level}">
+          <div class="scroller">
+            <div class="row">${this._stages(m.stages, rel)}</div>
+          </div>
+        </div>`}
+    ${this._hovercard()}`;
   }
 
   protected updated(changed: Map<string, unknown>) {
@@ -552,7 +565,11 @@ export class StageGraph extends LitElement {
     }
     if (this.selected && (changed.has('selected') || this._reveal)) {
       // After the sheet below has rendered.
-      requestAnimationFrame(() => (this._orientation === 'vertical' ? this._centreVertically() : this._revealAboveSheet()));
+      requestAnimationFrame(() =>
+        this._orientation === 'vertical'
+          ? this._centreVertically()
+          : this._revealAboveSheet(),
+      );
     }
     this._centre = this._reveal = this._levelChanged = false;
     this._measureOverflow();
@@ -564,7 +581,9 @@ export class StageGraph extends LitElement {
   }
 
   private _el(step: string) {
-    return this.renderRoot.querySelector<HTMLElement>(`[data-step="${CSS.escape(step)}"]`);
+    return this.renderRoot.querySelector<HTMLElement>(
+      `[data-step="${CSS.escape(step)}"]`,
+    );
   }
 
   private _measureOverflow() {
@@ -600,7 +619,8 @@ export class StageGraph extends LitElement {
     } catch {
       /* storage unavailable */
     }
-    this._centre = level === 'cards' && !!this.selected && this._orientation === 'horizontal';
+    this._centre =
+      level === 'cards' && !!this.selected && this._orientation === 'horizontal';
     this._reveal = !!this.selected && this._orientation === 'vertical';
     this._levelChanged = true;
     this._card = null;
@@ -609,7 +629,11 @@ export class StageGraph extends LitElement {
   private _onKey = (e: KeyboardEvent) => {
     if (e.ctrlKey || e.metaKey || e.altKey || (e.key !== '[' && e.key !== ']')) return;
     const t = e.composedPath()[0];
-    if (t instanceof HTMLElement && (t.isContentEditable || t.matches('input, textarea, select'))) return;
+    if (
+      t instanceof HTMLElement &&
+      (t.isContentEditable || t.matches('input, textarea, select'))
+    )
+      return;
     e.preventDefault();
     this._choose(e.key === ']' ? 'cards' : 'chips');
   };
@@ -627,21 +651,25 @@ export class StageGraph extends LitElement {
     const chips = this._level === 'chips';
     const note = `${chips ? 'Chips' : 'Cards'} · ${this._orientation}${this._overflow && this._orientation === 'horizontal' ? ' · scroll sideways for more' : ''}`;
     return html`<div class="bar">
-      <span class="muted">Click a step for its details.${chips && canHover() ? ' Hover for run and duration.' : ''}</span>
+      <span class="muted"
+        >Click a step for its
+        details.${chips && canHover() ? ' Hover for run and duration.' : ''}</span
+      >
       <span class="note muted" aria-live="polite">${note}</span>
       <span class="seg" role="group" aria-label="Detail level">
         ${LEVELS.map(
-          ([v, label]) => html`<button
-            aria-pressed=${this._level === v}
-            @click=${async (e: Event) => {
-              const b = e.currentTarget as HTMLElement;
-              this._choose(v);
-              await this.updateComplete;
-              b.focus({ preventScroll: true });
-            }}
-          >
-            ${label}
-          </button>`,
+          ([v, label]) =>
+            html`<button
+              aria-pressed=${this._level === v}
+              @click=${async (e: Event) => {
+                const b = e.currentTarget as HTMLElement;
+                this._choose(v);
+                await this.updateComplete;
+                b.focus({ preventScroll: true });
+              }}
+            >
+              ${label}
+            </button>`,
         )}
       </span>
     </div>`;
@@ -654,7 +682,9 @@ export class StageGraph extends LitElement {
     if (!hovered) return null;
     return {
       src: producersOf(hovered),
-      dst: new Set(steps.filter((s) => producersOf(s).has(hovered.name)).map((s) => s.name)),
+      dst: new Set(
+        steps.filter((s) => producersOf(s).has(hovered.name)).map((s) => s.name),
+      ),
     };
   }
 
@@ -663,24 +693,36 @@ export class StageGraph extends LitElement {
     stages.forEach((stage, i) => {
       if (i > 0) out.push(html`<div class="barrier" aria-hidden="true"></div>`);
       if (isWhen(stage)) {
-        out.push(html`<div class="when">
-          <span class="when-label">when ${formatWhen(stage.when)}</span>
-          <div class="when-body">${this._stages(stage.stages, rel)}</div>
-        </div>`);
+        out.push(
+          html`<div class="when">
+            <span class="when-label">when ${formatWhen(stage.when)}</span>
+            <div class="when-body">${this._stages(stage.stages, rel)}</div>
+          </div>`,
+        );
       } else {
-        out.push(html`<div class="col">${stage.steps.map((s) => this._node(s, rel))}</div>`);
+        out.push(
+          html`<div class="col">${stage.steps.map((s) => this._node(s, rel))}</div>`,
+        );
       }
     });
     return out;
   }
 
-  private _rows(stages: Stage[], rel: Related | null, counter: { n: number }): TemplateResult[] {
+  private _rows(
+    stages: Stage[],
+    rel: Related | null,
+    counter: { n: number },
+  ): TemplateResult[] {
     return stages.map((stage, i) => {
       const down = i > 0 ? html`<div class="down" aria-hidden="true"></div>` : nothing;
       if (isWhen(stage)) {
         return html`${down}
           <div class="vwhen">
-            <span class="vlabel">when ${formatWhen(stage.when)}</span>${this._rows(stage.stages, rel, counter)}
+            <span class="vlabel">when ${formatWhen(stage.when)}</span>${this._rows(
+              stage.stages,
+              rel,
+              counter,
+            )}
           </div>`;
       }
       counter.n++;
@@ -698,7 +740,13 @@ export class StageGraph extends LitElement {
 
   private _relation(step: string, rel: Related | null) {
     if (!rel || this._hover === step) return '';
-    return rel.src.has(step) ? 'src' : rel.dst.has(step) ? 'dst' : step === this.selected ? '' : 'dim';
+    return rel.src.has(step)
+      ? 'src'
+      : rel.dst.has(step)
+        ? 'dst'
+        : step === this.selected
+          ? ''
+          : 'dim';
   }
 
   /** Shared attributes and handlers of a step node. */
@@ -707,7 +755,10 @@ export class StageGraph extends LitElement {
       enter: (e: Event) => {
         this._hover = step;
         if (hovercard && e.type === 'mouseenter' && canHover())
-          this._card = { step, anchor: (e.currentTarget as HTMLElement).getBoundingClientRect() };
+          this._card = {
+            step,
+            anchor: (e.currentTarget as HTMLElement).getBoundingClientRect(),
+          };
       },
       leave: () => {
         this._hover = null;
@@ -732,13 +783,16 @@ export class StageGraph extends LitElement {
     const tone = st && st.status !== 'not-run' ? toneOf(st.status) : 'plain';
     const ev = this._nodeEvents(step.name, true);
     return html`<div
-      class="chip t-${tone} ${tone === 'plain' ? 'plain' : ''} ${this._relation(step.name, rel)} ${this.selected === step.name
-        ? 'selected'
-        : ''}"
+      class="chip t-${tone} ${tone === 'plain' ? 'plain' : ''} ${this._relation(
+        step.name,
+        rel,
+      )} ${this.selected === step.name ? 'selected' : ''}"
       role="button"
       tabindex="0"
       data-step=${step.name}
-      aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}${blocked ? ', blocked' : ''}"
+      aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}${blocked
+        ? ', blocked'
+        : ''}"
       @mouseenter=${ev.enter}
       @mouseleave=${ev.leave}
       @focus=${ev.enter}
@@ -747,7 +801,9 @@ export class StageGraph extends LitElement {
       @keydown=${ev.key}
     >
       <span class="dot"></span><span class="label">${step.name}</span>
-      ${(st?.attemptCount ?? 0) > 1 ? html`<span class="att">@${st!.latestAttempt}</span>` : nothing}
+      ${(st?.attemptCount ?? 0) > 1
+        ? html`<span class="att">@${st!.latestAttempt}</span>`
+        : nothing}
       ${blocked ? html`<span class="mark" title="blocked">${LOCK}</span>` : nothing}
     </div>`;
   }
@@ -767,10 +823,20 @@ export class StageGraph extends LitElement {
     ].filter(Boolean);
     const held = st?.heldRuns ?? [];
     return html`<div class="hovercard t-${tone}" role="tooltip">
-      <div class="hc-name">${c.step}${st && st.status !== 'not-run' ? html`<span class="badge">${statusLabel(st.status)}</span>` : nothing}</div>
+      <div class="hc-name">
+        ${c.step}${st && st.status !== 'not-run'
+          ? html`<span class="badge">${statusLabel(st.status)}</span>`
+          : nothing}
+      </div>
       <div class="hc-meta">${meta.map((x) => html`<span>${x}</span>`)}</div>
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
-      ${blocked ? html`<div class="block-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
+      ${blocked
+        ? html`<div class="block-note">
+            blocked${held.length
+              ? ` · holding ${held.map((n) => `#${n}`).join(', ')}`
+              : ''}
+          </div>`
+        : nothing}
     </div>`;
   }
 
@@ -778,7 +844,10 @@ export class StageGraph extends LitElement {
     const el = this.renderRoot.querySelector<HTMLElement>('.hovercard');
     const r = this._card?.anchor;
     if (!el || !r) return;
-    const left = Math.min(Math.max(8, r.left + r.width / 2 - el.offsetWidth / 2), innerWidth - el.offsetWidth - 8);
+    const left = Math.min(
+      Math.max(8, r.left + r.width / 2 - el.offsetWidth / 2),
+      innerWidth - el.offsetWidth - 8,
+    );
     let top = r.bottom + 8;
     if (top + el.offsetHeight > innerHeight - 8) top = r.top - el.offsetHeight - 8;
     el.style.left = `${left}px`;
@@ -794,9 +863,10 @@ export class StageGraph extends LitElement {
     const held = st?.heldRuns ?? [];
     const ev = this._nodeEvents(step.name, false);
     return html`<div
-      class="tile t-${tone} ${tone === 'plain' ? 'plain' : ''} ${this._relation(step.name, rel)} ${this.selected === step.name
-        ? 'selected'
-        : ''}"
+      class="tile t-${tone} ${tone === 'plain' ? 'plain' : ''} ${this._relation(
+        step.name,
+        rel,
+      )} ${this.selected === step.name ? 'selected' : ''}"
       role="button"
       tabindex="0"
       data-step=${step.name}
@@ -812,21 +882,37 @@ export class StageGraph extends LitElement {
         <span class="name">${step.name}</span>
         ${st && st.status !== 'not-run'
           ? st.logsHref
-            ? html`<a class="badge" href=${st.logsHref} @click=${this._link} @keydown=${this._link}>${statusLabel(st.status)}</a>`
+            ? html`<a
+                class="badge"
+                href=${st.logsHref}
+                @click=${this._link}
+                @keydown=${this._link}
+                >${statusLabel(st.status)}</a
+              >`
             : html`<span class="badge">${statusLabel(st.status)}</span>`
           : nothing}
       </div>
       <div class="meta">
         ${!st || st.status === 'not-run' ? html`<span>never run</span>` : nothing}
         ${st?.runNumber ? this._run(st) : nothing}
-        ${st?.runNumber && at ? html`<span title=${new Date(at).toLocaleString()}>${formatRelative(new Date(at))}</span>` : nothing}
+        ${st?.runNumber && at
+          ? html`<span title=${new Date(at).toLocaleString()}
+              >${formatRelative(new Date(at))}</span
+            >`
+          : nothing}
         ${duration ? html`<span>${duration}</span>` : nothing}
         ${this.stepControls ? this._cancel(step.name, st) : nothing}
         ${this.stepControls ? this._retry(step.name, st) : nothing}
         ${this.stepControls ? this._lock(step.name, blocked) : nothing}
       </div>
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
-      ${blocked ? html`<div class="block-note">blocked${held.length ? ` · holding ${held.map((n) => `#${n}`).join(', ')}` : ''}</div>` : nothing}
+      ${blocked
+        ? html`<div class="block-note">
+            blocked${held.length
+              ? ` · holding ${held.map((n) => `#${n}`).join(', ')}`
+              : ''}
+          </div>`
+        : nothing}
     </div>`;
   }
 
@@ -836,7 +922,13 @@ export class StageGraph extends LitElement {
 
   private _run(st: StepState) {
     if (!st.runHref) return html`<span>${this._runLabel(st)}</span>`;
-    return html`<a class="run" href=${st.runHref} @click=${this._link} @keydown=${this._link}>${this._runLabel(st)}</a>`;
+    return html`<a
+      class="run"
+      href=${st.runHref}
+      @click=${this._link}
+      @keydown=${this._link}
+      >${this._runLabel(st)}</a
+    >`;
   }
 
   /** Links inside a tile must not also select the tile. */
@@ -847,14 +939,22 @@ export class StageGraph extends LitElement {
 
   private _cancel(step: string, st: StepState | undefined) {
     if (!st?.cancellable) return nothing;
-    return html`<button class="icon stop" aria-label="Cancel ${step}" @click=${(e: Event) => this._emit(e, 'step-cancel', { step })}>
+    return html`<button
+      class="icon stop"
+      aria-label="Cancel ${step}"
+      @click=${(e: Event) => this._emit(e, 'step-cancel', { step })}
+    >
       ${STOP}
     </button>`;
   }
 
   private _retry(step: string, st: StepState | undefined) {
     if (!st?.retryable) return nothing;
-    return html`<button class="icon retry" aria-label="Retry ${step}" @click=${(e: Event) => this._emit(e, 'step-retry', { step })}>
+    return html`<button
+      class="icon retry"
+      aria-label="Retry ${step}"
+      @click=${(e: Event) => this._emit(e, 'step-retry', { step })}
+    >
       ${RETRY}
     </button>`;
   }

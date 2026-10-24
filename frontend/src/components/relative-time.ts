@@ -43,8 +43,7 @@ export class RelativeTime extends LitElement {
 
     const relative = formatRelative(date);
     const absolute = formatAbsolute(date);
-    return html`<span @click=${this._toggle}
-        >${this._absolute ? absolute : relative}</span
+    return html`<span @click=${this._toggle}>${this._absolute ? absolute : relative}</span
       >${nothing}`;
   }
 }

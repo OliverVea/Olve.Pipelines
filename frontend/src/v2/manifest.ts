@@ -116,14 +116,18 @@ export function inputSchemaOf(m: Manifest, model: string): JsonSchema | null {
   return ms ? (ms.input ?? ms.output) : null;
 }
 
-export function outputSchemaOf(m: Manifest, model: string | null | undefined): JsonSchema | null {
+export function outputSchemaOf(
+  m: Manifest,
+  model: string | null | undefined,
+): JsonSchema | null {
   if (!model) return null;
   return m.models[model]?.output ?? null;
 }
 
 function refRoots(mapping: Mapping): string[] {
   if (!mapping || typeof mapping !== 'object') return [];
-  if ('ref' in mapping && typeof mapping.ref === 'string') return [mapping.ref.split('.')[0]];
+  if ('ref' in mapping && typeof mapping.ref === 'string')
+    return [mapping.ref.split('.')[0]];
   if ('const' in mapping) return [];
   return Object.values(mapping as Record<string, Mapping>).flatMap(refRoots);
 }
@@ -137,7 +141,9 @@ export function producersOf(step: ManifestStep): Set<string> {
 export function formatWhen(when: Record<string, unknown[]>): string {
   return Object.entries(when)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([f, vs]) => (vs.length === 1 ? `${f} = ${fmt(vs[0])}` : `${f} ∈ {${vs.map(fmt).join(', ')}}`))
+    .map(([f, vs]) =>
+      vs.length === 1 ? `${f} = ${fmt(vs[0])}` : `${f} ∈ {${vs.map(fmt).join(', ')}}`,
+    )
     .join(' and ');
 }
 
@@ -154,7 +160,8 @@ function sortKeys(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(sortKeys);
   if (v && typeof v === 'object') {
     const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v as object).sort()) out[k] = sortKeys((v as Record<string, unknown>)[k]);
+    for (const k of Object.keys(v as object).sort())
+      out[k] = sortKeys((v as Record<string, unknown>)[k]);
     return out;
   }
   return v;
@@ -164,7 +171,8 @@ function sortKeys(v: unknown): unknown {
 export function stepInputSchema(m: Manifest, step: ManifestStep): JsonSchema {
   const properties: Record<string, JsonSchema> = {};
   for (const [name, t] of Object.entries(step.inputTypes ?? {})) {
-    properties[name] = 'model' in t ? (m.models[t.model]?.output ?? {}) : (t.schema.output ?? {});
+    properties[name] =
+      'model' in t ? (m.models[t.model]?.output ?? {}) : (t.schema.output ?? {});
   }
   return { type: 'object', properties };
 }

@@ -3,13 +3,24 @@ import { customElement, property } from 'lit/decorators.js';
 import type { JsonSchema } from '../v2/manifest.js';
 import { sharedStyles } from '../v2/ui.js';
 
-export type FileRefValue = { run: number; step: string; attempt: number; path: string; sha256?: string };
+export type FileRefValue = {
+  run: number;
+  step: string;
+  attempt: number;
+  path: string;
+  sha256?: string;
+};
 
 function isFileRef(schema: JsonSchema | undefined, v: unknown): v is FileRefValue {
   if (!v || typeof v !== 'object') return false;
   if (schema?.['x-olve-kind'] === 'fileRef') return true;
   const o = v as Record<string, unknown>;
-  return typeof o.run === 'number' && typeof o.step === 'string' && typeof o.attempt === 'number' && typeof o.path === 'string';
+  return (
+    typeof o.run === 'number' &&
+    typeof o.step === 'string' &&
+    typeof o.attempt === 'number' &&
+    typeof o.path === 'string'
+  );
 }
 
 /**
@@ -112,8 +123,9 @@ export class TypedValue extends LitElement {
       if (!keys.length) return html`<span class="absent">{}</span>`;
       return html`<dl>
         ${keys.map(
-          (k) => html`<dt>${k}</dt>
-            <dd>${this._render(o[k], s?.properties?.[k])}</dd>`,
+          (k) =>
+            html`<dt>${k}</dt>
+              <dd>${this._render(o[k], s?.properties?.[k])}</dd>`,
         )}
       </dl>`;
     }
@@ -128,11 +140,19 @@ export class TypedValue extends LitElement {
       <button
         class="btn small"
         @click=${() =>
-          this.dispatchEvent(new CustomEvent('file-download', { detail: { ref }, bubbles: true, composed: true }))}
+          this.dispatchEvent(
+            new CustomEvent('file-download', {
+              detail: { ref },
+              bubbles: true,
+              composed: true,
+            }),
+          )}
       >
         Download
       </button>
-      ${ref.sha256 ? html`<span class="src mono">${ref.sha256.slice(0, 10)}</span>` : nothing}
+      ${ref.sha256
+        ? html`<span class="src mono">${ref.sha256.slice(0, 10)}</span>`
+        : nothing}
     </span>`;
   }
 }

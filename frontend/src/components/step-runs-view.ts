@@ -42,9 +42,9 @@ export class StepRunsView extends LitElement {
   @property() declare pipelineId: string;
   @property() declare step: string;
 
-  @state() private declare _rows: StepHistoryItem[] | null;
-  @state() private declare _error: string | null;
-  @state() private declare _name: string;
+  @state() declare private _rows: StepHistoryItem[] | null;
+  @state() declare private _error: string | null;
+  @state() declare private _name: string;
 
   constructor() {
     super();
@@ -83,8 +83,12 @@ export class StepRunsView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a><span>/</span>
-        <a href=${stepPath(this.pipelineId, this.step)} @click=${navClick}>${this.step}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        ><span>/</span>
+        <a href=${stepPath(this.pipelineId, this.step)} @click=${navClick}
+          >${this.step}</a
+        >
       </div>
       <h2>Runs</h2>
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
@@ -117,18 +121,28 @@ export class StepRunsView extends LitElement {
     return html`
       <tr>
         <td>
-          <a href=${run} @click=${navClick}>#${r.runNumber}</a>${(r.attemptNumber ?? 1) > 1
+          <a href=${run} @click=${navClick}>#${r.runNumber}</a>${(r.attemptNumber ?? 1) >
+          1
             ? html`<span class="muted">@${r.attemptNumber}</span>`
             : nothing}
         </td>
         <td>
-          <a class="st t-${toneOf(r.status)}" href=${stepLogsPath(this.pipelineId, r.runNumber, this.step, r.attemptNumber)} @click=${navClick}
+          <a
+            class="st t-${toneOf(r.status)}"
+            href=${stepLogsPath(this.pipelineId, r.runNumber, this.step, r.attemptNumber)}
+            @click=${navClick}
             ><span class="dot"></span>${statusLabel(r.status)}</a
           >
           ${r.reason ? html`<div class="reason">${r.reason}</div>` : nothing}
         </td>
-        <td>${r.startedAt ? html`<relative-time .value=${r.startedAt}></relative-time>` : html`<span class="muted">—</span>`}</td>
-        <td class="num">${r.startedAt ? formatDuration(r.startedAt, r.finishedAt) : ''}</td>
+        <td>
+          ${r.startedAt
+            ? html`<relative-time .value=${r.startedAt}></relative-time>`
+            : html`<span class="muted">—</span>`}
+        </td>
+        <td class="num">
+          ${r.startedAt ? formatDuration(r.startedAt, r.finishedAt) : ''}
+        </td>
       </tr>
       ${r.stepVersionChanged
         ? html`<tr class="marker">

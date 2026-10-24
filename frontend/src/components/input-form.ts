@@ -1,7 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { JsonSchema } from '../v2/manifest.js';
-import { formFields, parseField, toText, constraintHint, type FormField } from '../v2/schema-form.js';
+import {
+  formFields,
+  parseField,
+  toText,
+  constraintHint,
+  type FormField,
+} from '../v2/schema-form.js';
 import { sharedStyles } from '../v2/ui.js';
 
 export type FormResult = { ok: true; value: Record<string, unknown> } | { ok: false };
@@ -94,8 +100,8 @@ export class InputForm extends LitElement {
   @property({ attribute: false }) declare schema: JsonSchema | null;
   @property({ attribute: false }) declare initial: Record<string, unknown> | null;
 
-  @state() private declare _text: Record<string, string>;
-  @state() private declare _touched: Set<string>;
+  @state() declare private _text: Record<string, string>;
+  @state() declare private _touched: Set<string>;
   private _fields: FormField[] = [];
   private _forSchema: JsonSchema | null = null;
 
@@ -108,7 +114,10 @@ export class InputForm extends LitElement {
   }
 
   willUpdate(changed: Map<string, unknown>) {
-    if ((changed.has('schema') || changed.has('initial')) && this.schema !== this._forSchema) {
+    if (
+      (changed.has('schema') || changed.has('initial')) &&
+      this.schema !== this._forSchema
+    ) {
       this._forSchema = this.schema;
       this._fields = formFields(this.schema);
       const text: Record<string, string> = {};
@@ -134,7 +143,11 @@ export class InputForm extends LitElement {
         continue;
       }
       if (r.empty) continue;
-      if (this.initial && JSON.stringify(this.initial[f.name]) === JSON.stringify(r.value)) continue;
+      if (
+        this.initial &&
+        JSON.stringify(this.initial[f.name]) === JSON.stringify(r.value)
+      )
+        continue;
       value[f.name] = r.value;
     }
     return ok ? { ok: true, value } : { ok: false };
@@ -155,7 +168,10 @@ export class InputForm extends LitElement {
     const parsed = parseField(f, text);
     const showError = this._touched.has(f.name) && !parsed.ok;
     const changed =
-      this.initial && parsed.ok && !parsed.empty && JSON.stringify(this.initial[f.name]) !== JSON.stringify(parsed.value);
+      this.initial &&
+      parsed.ok &&
+      !parsed.empty &&
+      JSON.stringify(this.initial[f.name]) !== JSON.stringify(parsed.value);
     const id = `f-${f.name}`;
     const hint = constraintHint(f);
     return html`
@@ -164,7 +180,9 @@ export class InputForm extends LitElement {
       >
       <div class="${showError ? 'invalid' : ''} ${changed ? 'changed' : ''}">
         ${this._control(f, id, text)}
-        ${showError && !parsed.ok ? html`<div class="field-error">${parsed.error}</div>` : nothing}
+        ${showError && !parsed.ok
+          ? html`<div class="field-error">${parsed.error}</div>`
+          : nothing}
         ${f.description ? html`<div class="hint">${f.description}</div>` : nothing}
         ${hint ? html`<div class="hint">${hint}</div>` : nothing}
       </div>
@@ -175,7 +193,10 @@ export class InputForm extends LitElement {
     const set = (v: string) => this._set(f.name, v);
     switch (f.kind) {
       case 'enum':
-        return html`<select id=${id} @change=${(e: Event) => set((e.target as HTMLSelectElement).value)}>
+        return html`<select
+          id=${id}
+          @change=${(e: Event) => set((e.target as HTMLSelectElement).value)}
+        >
           ${!f.required
             ? html`<option value="" ?selected=${text === ''}>
                 ${f.hasDefault ? `default (${String(f.default)})` : '—'}
@@ -183,20 +204,41 @@ export class InputForm extends LitElement {
             : html`<option value="" disabled ?selected=${text === ''}>choose…</option>`}
           ${(f.options ?? []).map((o) => {
             const v = JSON.stringify(o);
-            return html`<option value=${v} ?selected=${text === v}>${typeof o === 'string' ? o : v}</option>`;
+            return html`<option value=${v} ?selected=${text === v}>
+              ${typeof o === 'string' ? o : v}
+            </option>`;
           })}
         </select>`;
       case 'boolean':
         return html`<div class="bools" role="radiogroup" id=${id}>
           ${!f.required
             ? html`<label
-                ><input type="radio" name=${id} .checked=${text === ''} @change=${() => set('')} />
+                ><input
+                  type="radio"
+                  name=${id}
+                  .checked=${text === ''}
+                  @change=${() => set('')}
+                />
                 ${f.hasDefault ? `default (${String(f.default)})` : 'unset'}</label
               >`
             : nothing}
-          <label><input type="radio" name=${id} .checked=${text === 'true'} @change=${() => set('true')} /> true</label>
           <label
-            ><input type="radio" name=${id} .checked=${text === 'false'} @change=${() => set('false')} /> false</label
+            ><input
+              type="radio"
+              name=${id}
+              .checked=${text === 'true'}
+              @change=${() => set('true')}
+            />
+            true</label
+          >
+          <label
+            ><input
+              type="radio"
+              name=${id}
+              .checked=${text === 'false'}
+              @change=${() => set('false')}
+            />
+            false</label
           >
         </div>`;
       case 'json':
@@ -213,7 +255,11 @@ export class InputForm extends LitElement {
           id=${id}
           type="text"
           class=${f.patternSource || f.kind !== 'string' ? 'mono' : ''}
-          inputmode=${f.kind === 'integer' ? 'numeric' : f.kind === 'number' ? 'decimal' : 'text'}
+          inputmode=${f.kind === 'integer'
+            ? 'numeric'
+            : f.kind === 'number'
+              ? 'decimal'
+              : 'text'}
           .value=${text}
           placeholder=${f.hasDefault ? String(f.default) : ''}
           autocomplete="off"

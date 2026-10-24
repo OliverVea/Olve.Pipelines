@@ -19,7 +19,9 @@ const devUser: User | null = devAuthBypass
         aud: 'dev',
         exp: 0,
         iat: 0,
-        preferred_username: import.meta.env.VITE_DEV_TOKEN ? 'dev (token)' : 'dev (anonymous)',
+        preferred_username: import.meta.env.VITE_DEV_TOKEN
+          ? 'dev (token)'
+          : 'dev (anonymous)',
       },
       expires_at: Math.floor(Date.now() / 1000) + 365 * 24 * 3600,
     })

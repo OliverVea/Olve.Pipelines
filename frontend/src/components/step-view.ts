@@ -1,6 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { Attempt, PipelineBindingStatus, PipelineHealth, StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
+import type {
+  Attempt,
+  PipelineBindingStatus,
+  PipelineHealth,
+  StepHistoryItem,
+} from '@olve/olve-pipelines-client/src/models/index.js';
 import { client, apiPost, downloadFile, encodePath, errorMessages } from '../api.js';
 import type { FileRefValue } from './typed-value.js';
 import {
@@ -16,8 +21,19 @@ import {
   stepLogsPath,
   isActiveStatus,
 } from '../v2/ui.js';
-import { type JsonSchema, type Manifest, type ManifestStep, type Mapping, stepsByName } from '../v2/manifest.js';
-import { loadVersion, toActivation, currentVersion, type LoadedVersion } from '../v2/versions.js';
+import {
+  type JsonSchema,
+  type Manifest,
+  type ManifestStep,
+  type Mapping,
+  stepsByName,
+} from '../v2/manifest.js';
+import {
+  loadVersion,
+  toActivation,
+  currentVersion,
+  type LoadedVersion,
+} from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
 import './typed-value.js';
@@ -31,15 +47,22 @@ function typeOf(s: JsonSchema | undefined): string {
   if (s.anyOf) return s.anyOf.map(typeOf).join(' | ');
   const t = Array.isArray(s.type) ? s.type.join(' | ') : s.type;
   if (t === 'array') return `${typeOf(s.items)}[]`;
-  if (t === 'object' && s.properties) return `{ ${Object.keys(s.properties).join(', ')} }`;
+  if (t === 'object' && s.properties)
+    return `{ ${Object.keys(s.properties).join(', ')} }`;
   if (t === 'integer') return 'number';
   return t ?? 'any';
 }
 
-function fieldsOf(s: JsonSchema | null | undefined): { name: string; type: string; optional: boolean }[] {
+function fieldsOf(
+  s: JsonSchema | null | undefined,
+): { name: string; type: string; optional: boolean }[] {
   if (!s?.properties) return [];
   const required = new Set(s.required ?? []);
-  return Object.entries(s.properties).map(([name, p]) => ({ name, type: typeOf(p), optional: !required.has(name) }));
+  return Object.entries(s.properties).map(([name, p]) => ({
+    name,
+    type: typeOf(p),
+    optional: !required.has(name),
+  }));
 }
 
 function refsOf(m: Mapping): string[] {
@@ -201,15 +224,15 @@ export class StepView extends LitElement {
   @property() declare pipelineId: string;
   @property() declare step: string;
 
-  @state() private declare _name: string;
-  @state() private declare _health: PipelineHealth | null;
-  @state() private declare _binding: PipelineBindingStatus | null;
-  @state() private declare _version: LoadedVersion | null;
-  @state() private declare _history: StepHistoryItem[];
-  @state() private declare _output: Attempt | null;
-  @state() private declare _loaded: boolean;
-  @state() private declare _busy: boolean;
-  @state() private declare _errors: string[];
+  @state() declare private _name: string;
+  @state() declare private _health: PipelineHealth | null;
+  @state() declare private _binding: PipelineBindingStatus | null;
+  @state() declare private _version: LoadedVersion | null;
+  @state() declare private _history: StepHistoryItem[];
+  @state() declare private _output: Attempt | null;
+  @state() declare private _loaded: boolean;
+  @state() declare private _busy: boolean;
+  @state() declare private _errors: string[];
 
   constructor() {
     super();
@@ -274,17 +297,23 @@ export class StepView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        >
       </div>
       ${this._renderOverview(d)}
       ${m && d
         ? html`<div class="cards">
-            <section class="card">${this._renderIo(m, d)}</section>
-            <section class="card">${this._renderSecrets(m, d)}</section>
-          </div>
-          ${d.output ? html`<section class="card output">${this._renderOutput(m, d)}</section>` : nothing}`
+              <section class="card">${this._renderIo(m, d)}</section>
+              <section class="card">${this._renderSecrets(m, d)}</section>
+            </div>
+            ${d.output
+              ? html`<section class="card output">${this._renderOutput(m, d)}</section>`
+              : nothing}`
         : this._loaded
-          ? html`<p class="muted">This step isn't in the active version of the pipeline.</p>`
+          ? html`<p class="muted">
+              This step isn't in the active version of the pipeline.
+            </p>`
           : nothing}
     `;
   }
@@ -298,10 +327,26 @@ export class StepView extends LitElement {
         ${blocked ? html`<span class="pill t-wait">blocked</span>` : nothing}
         <span class="spacer"></span>
         ${isActiveStatus(this._history[0]?.status)
-          ? html`<button class="btn danger" ?disabled=${this._busy} @click=${this._cancel}>Cancel</button>`
+          ? html`<button
+              class="btn danger"
+              ?disabled=${this._busy}
+              @click=${this._cancel}
+            >
+              Cancel
+            </button>`
           : nothing}
-        ${this._retryable(blocked) ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}>Retry</button>` : nothing}
-        <button class="btn" ?disabled=${this._busy} @click=${() => this._setBlocked(!blocked)}>${blocked ? 'Unblock' : 'Block'}</button>
+        ${this._retryable(blocked)
+          ? html`<button class="btn" ?disabled=${this._busy} @click=${this._retry}>
+              Retry
+            </button>`
+          : nothing}
+        <button
+          class="btn"
+          ?disabled=${this._busy}
+          @click=${() => this._setBlocked(!blocked)}
+        >
+          ${blocked ? 'Unblock' : 'Block'}
+        </button>
       </div>
       ${d ? html`<div class="source">${this._source(d)}</div>` : nothing}
       ${d?.description ? html`<p class="desc">${d.description}</p>` : nothing}
@@ -309,10 +354,21 @@ export class StepView extends LitElement {
       ${held.length
         ? html`<p class="reason warn">
             Holding
-            ${held.map((r, i) => html`${i ? ', ' : ''}<a href=${runPath(this.pipelineId, r.number)} @click=${navClick}>#${r.number}</a>`)}
+            ${held.map(
+              (r, i) =>
+                html`${i ? ', ' : ''}<a
+                    href=${runPath(this.pipelineId, r.number)}
+                    @click=${navClick}
+                    >#${r.number}</a
+                  >`,
+            )}
           </p>`
         : nothing}
-      ${this._errors.length ? html`<div class="errors" role="alert">${this._errors.map((e) => html`<p>${e}</p>`)}</div>` : nothing}
+      ${this._errors.length
+        ? html`<div class="errors" role="alert">
+            ${this._errors.map((e) => html`<p>${e}</p>`)}
+          </div>`
+        : nothing}
     </section>`;
   }
 
@@ -322,24 +378,46 @@ export class StepView extends LitElement {
     const sha = this._version?.commitSha;
     const path = [b?.path, `handlers/${d.name}.ts`].filter(Boolean).join('/');
     if (!b?.repo || !sha) return html`<code>${path}</code>`;
-    return html`<a href="https://github.com/${b.repo}/blob/${sha}/${path}" target="_blank" rel="noopener"><code>${path}</code></a>`;
+    return html`<a
+      href="https://github.com/${b.repo}/blob/${sha}/${path}"
+      target="_blank"
+      rel="noopener"
+      ><code>${path}</code></a
+    >`;
   }
 
   private _renderLatest() {
     const a = this._history[0];
-    if (!a) return html`<div class="latest"><span class="muted">${this._loaded ? 'Never run' : 'Loading…'}</span></div>`;
+    if (!a)
+      return html`<div class="latest">
+        <span class="muted">${this._loaded ? 'Never run' : 'Loading…'}</span>
+      </div>`;
     const at = a.finishedAt ?? a.startedAt ?? a.createdAt;
     const count = this._history.length >= 200 ? '200+' : String(this._history.length);
     return html`<div class="latest">
-        <a class="st t-${toneOf(a.status)}" href=${stepLogsPath(this.pipelineId, a.runNumber, this.step, a.attemptNumber)} @click=${navClick}
+        <a
+          class="st t-${toneOf(a.status)}"
+          href=${stepLogsPath(this.pipelineId, a.runNumber, this.step, a.attemptNumber)}
+          @click=${navClick}
           ><span class="dot"></span>${statusLabel(a.status)}</a
         >
-        <a href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(this.step)}&attempt=${a.attemptNumber}" @click=${navClick}
+        <a
+          href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(
+            this.step,
+          )}&attempt=${a.attemptNumber}"
+          @click=${navClick}
           >#${a.runNumber}${(a.attemptNumber ?? 1) > 1 ? `@${a.attemptNumber}` : ''}</a
         >
         <span class="muted"><relative-time .value=${at}></relative-time></span>
-        ${a.startedAt ? html`<span class="muted">${formatDuration(a.startedAt, a.finishedAt)}</span>` : nothing}
-        <a class="runs" href=${stepRunsPath(this.pipelineId, this.step)} @click=${navClick}>${count} runs</a>
+        ${a.startedAt
+          ? html`<span class="muted">${formatDuration(a.startedAt, a.finishedAt)}</span>`
+          : nothing}
+        <a
+          class="runs"
+          href=${stepRunsPath(this.pipelineId, this.step)}
+          @click=${navClick}
+          >${count} runs</a
+        >
       </div>
       ${a.reason ? html`<p class="reason">${a.reason}</p>` : nothing}`;
   }
@@ -348,7 +426,9 @@ export class StepView extends LitElement {
     const inputs = Object.keys(d.inputTypes ?? {});
     return html`<h3>Inputs and output</h3>
       <div class="label">Reads</div>
-      ${inputs.length ? inputs.map((k) => this._input(m, d, k)) : html`<p class="muted empty">Nothing.</p>`}
+      ${inputs.length
+        ? inputs.map((k) => this._input(m, d, k))
+        : html`<p class="muted empty">Nothing.</p>`}
       <div class="label">Produces</div>
       ${d.output
         ? html`<div class="io">
@@ -361,14 +441,29 @@ export class StepView extends LitElement {
   private _input(m: Manifest, d: ManifestStep, key: string) {
     const t = d.inputTypes[key];
     const model = 'model' in t ? t.model : null;
-    const schema = model ? m.models[model]?.output : 'schema' in t ? t.schema.output : undefined;
+    const schema = model
+      ? m.models[model]?.output
+      : 'schema' in t
+        ? t.schema.output
+        : undefined;
     const refs = refsOf(d.input?.[key] ?? { const: null });
     return html`<div class="io">
       <div class="io-head">
         <code>${key}</code>
-        ${model ? html`<b>${model}</b>` : schema?.properties ? nothing : html`<span class="type mono">${typeOf(schema)}</span>`}
-        ${'optional' in t && t.optional ? html`<span class="muted">optional</span>` : nothing}
-        <span class="from">from ${refs.length ? refs.map((r, i) => html`${i ? ', ' : ''}${this._ref(r)}`) : 'a constant'}</span>
+        ${model
+          ? html`<b>${model}</b>`
+          : schema?.properties
+            ? nothing
+            : html`<span class="type mono">${typeOf(schema)}</span>`}
+        ${'optional' in t && t.optional
+          ? html`<span class="muted">optional</span>`
+          : nothing}
+        <span class="from"
+          >from
+          ${refs.length
+            ? refs.map((r, i) => html`${i ? ', ' : ''}${this._ref(r)}`)
+            : 'a constant'}</span
+        >
       </div>
       ${this._fields(schema)}
     </div>`;
@@ -379,20 +474,28 @@ export class StepView extends LitElement {
     const path = rest.length ? html` <code>${rest.join('.')}</code>` : nothing;
     if (root === 'input') return html`the pipeline input${path}`;
     if (root === 'failure') return 'the failure context';
-    return html`<a href=${stepPath(this.pipelineId, root)} @click=${navClick}>${root}</a>${path}`;
+    return html`<a href=${stepPath(this.pipelineId, root)} @click=${navClick}>${root}</a
+      >${path}`;
   }
 
   private _fields(s: JsonSchema | null | undefined) {
     const fields = fieldsOf(s);
     if (!fields.length) return nothing;
     return html`<ul class="fields">
-      ${fields.map((f) => html`<li>${f.name}${f.optional ? '?' : ''} <span class="type">${f.type}</span></li>`)}
+      ${fields.map(
+        (f) =>
+          html`<li>
+            ${f.name}${f.optional ? '?' : ''} <span class="type">${f.type}</span>
+          </li>`,
+      )}
     </ul>`;
   }
 
   private _renderOutput(m: Manifest, d: ManifestStep) {
     const a = this._output;
-    if (!a) return html`<h3>Latest output</h3><p class="muted empty">No successful run yet.</p>`;
+    if (!a)
+      return html`<h3>Latest output</h3>
+        <p class="muted empty">No successful run yet.</p>`;
     let value: unknown;
     try {
       value = JSON.parse(a.output?.json ?? 'null');
@@ -401,16 +504,26 @@ export class StepView extends LitElement {
     }
     return html`<h3>
         Latest output ·
-        <a href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(this.step)}&attempt=${a.number}" @click=${navClick}
+        <a
+          href="${runPath(this.pipelineId, a.runNumber)}?step=${encodeURIComponent(
+            this.step,
+          )}&attempt=${a.number}"
+          @click=${navClick}
           >#${a.runNumber}</a
         >
       </h3>
-      <typed-value .value=${value} .schema=${m.models[d.output!]?.output ?? null} @file-download=${this._onFileRef}></typed-value>`;
+      <typed-value
+        .value=${value}
+        .schema=${m.models[d.output!]?.output ?? null}
+        @file-download=${this._onFileRef}
+      ></typed-value>`;
   }
 
   private _onFileRef = (e: CustomEvent<{ ref: FileRefValue }>) => {
     const ref = e.detail.ref;
-    const name = ref.path.endsWith('/') ? `${ref.path.slice(0, -1).split('/').pop()}.tar` : (ref.path.split('/').pop() ?? ref.path);
+    const name = ref.path.endsWith('/')
+      ? `${ref.path.slice(0, -1).split('/').pop()}.tar`
+      : (ref.path.split('/').pop() ?? ref.path);
     const url = `/api/pipelines/${this.pipelineId}/runs/${ref.run}/steps/${encodeURIComponent(ref.step)}/files/${encodePath(ref.path)}?attempt=${ref.attempt}`;
     this._act(() => downloadFile(url, name));
   };
@@ -420,34 +533,57 @@ export class StepView extends LitElement {
     return html`<h3>Secrets</h3>
       ${d.secrets?.length
         ? d.secrets.map(
-            (s) => html`<div class="secret">
-              <code>${s}</code>
-              ${described.get(s) ? html`<p>${described.get(s)}</p>` : nothing}
-            </div>`,
+            (s) =>
+              html`<div class="secret">
+                <code>${s}</code>
+                ${described.get(s) ? html`<p>${described.get(s)}</p>` : nothing}
+              </div>`,
           )
         : html`<p class="muted empty">None.</p>`}`;
   }
 
   private _retryable(blocked: boolean) {
     const a = this._history[0];
-    return !!a && a.versionNumber === this._version?.number && !isActiveStatus(a.status) && !blocked;
+    return (
+      !!a &&
+      a.versionNumber === this._version?.number &&
+      !isActiveStatus(a.status) &&
+      !blocked
+    );
   }
 
   private _retry = () =>
     this._act(() =>
-      apiPost(`/api/pipelines/${this.pipelineId}/runs/${this._history[0]!.runNumber}/steps/${encodeURIComponent(this.step)}/rerun`, {
-        continue: true,
-      }),
+      apiPost(
+        `/api/pipelines/${this.pipelineId}/runs/${this._history[0]!.runNumber}/steps/${encodeURIComponent(this.step)}/rerun`,
+        {
+          continue: true,
+        },
+      ),
     );
 
   private _cancel = () => {
     const run = this._history[0]?.runNumber;
-    if (!run || !confirm(`Cancel ${this.step} in run #${run}? The run ends Cancelled once its stage settles.`)) return;
-    return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(this.step)}/cancel`));
+    if (
+      !run ||
+      !confirm(
+        `Cancel ${this.step} in run #${run}? The run ends Cancelled once its stage settles.`,
+      )
+    )
+      return;
+    return this._act(() =>
+      apiPost(
+        `/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(this.step)}/cancel`,
+      ),
+    );
   };
 
   private _setBlocked(block: boolean) {
-    return this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(this.step)}/${block ? 'block' : 'unblock'}`));
+    return this._act(() =>
+      apiPost(
+        `/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(this.step)}/${block ? 'block' : 'unblock'}`,
+      ),
+    );
   }
 
   private async _act(fn: () => Promise<unknown>) {

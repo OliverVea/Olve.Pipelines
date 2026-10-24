@@ -77,7 +77,9 @@ export class AppShell extends LitElement {
       background: var(--color-surface);
       color: var(--color-text);
       font-size: 0.8rem;
-      transition: background var(--transition), border-color var(--transition);
+      transition:
+        background var(--transition),
+        border-color var(--transition);
     }
 
     .auth-btn:hover {
@@ -91,9 +93,9 @@ export class AppShell extends LitElement {
     }
   `;
 
-  @state() private declare _route: ResolvedRoute;
-  @state() private declare _user: AuthUser | null;
-  @state() private declare _authReady: boolean;
+  @state() declare private _route: ResolvedRoute;
+  @state() declare private _user: AuthUser | null;
+  @state() declare private _authReady: boolean;
 
   private _unsubAuth?: () => void;
 
@@ -160,7 +162,11 @@ export class AppShell extends LitElement {
         <h1><a href="/" @click=${this._handleNav}>Olve Pipelines</a></h1>
         <span class="spacer"></span>
         <div class="user-info">
-          <span class="user-name">${this._user.profile.preferred_username ?? this._user.profile.name ?? 'User'}</span>
+          <span class="user-name"
+            >${this._user.profile.preferred_username ??
+            this._user.profile.name ??
+            'User'}</span
+          >
           <button class="auth-btn" @click=${this._logout}>Log out</button>
         </div>
       </header>
@@ -175,17 +181,27 @@ export class AppShell extends LitElement {
           .pipelineId=${this._route.params.pipelineId}
         ></pipeline-detail-view>`;
       case 'pipeline-runs-view':
-        return html`<pipeline-runs-view .pipelineId=${this._route.params.pipelineId}></pipeline-runs-view>`;
+        return html`<pipeline-runs-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></pipeline-runs-view>`;
       case 'pipeline-versions-view':
-        return html`<pipeline-versions-view .pipelineId=${this._route.params.pipelineId}></pipeline-versions-view>`;
+        return html`<pipeline-versions-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></pipeline-versions-view>`;
       case 'pipeline-config-view':
         // Loaded on demand: the YAML editor is the bulk of its size.
         void import('./pipeline-config-view.js');
-        return html`<pipeline-config-view .pipelineId=${this._route.params.pipelineId}></pipeline-config-view>`;
+        return html`<pipeline-config-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></pipeline-config-view>`;
       case 'pipeline-secrets-view':
-        return html`<pipeline-secrets-view .pipelineId=${this._route.params.pipelineId}></pipeline-secrets-view>`;
+        return html`<pipeline-secrets-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></pipeline-secrets-view>`;
       case 'pipeline-binding-view':
-        return html`<pipeline-binding-view .pipelineId=${this._route.params.pipelineId}></pipeline-binding-view>`;
+        return html`<pipeline-binding-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></pipeline-binding-view>`;
       case 'run-view':
         return html`<run-view
           .pipelineId=${this._route.params.pipelineId}
@@ -198,9 +214,15 @@ export class AppShell extends LitElement {
           .step=${this._route.params.step}
         ></step-logs-view>`;
       case 'step-view':
-        return html`<step-view .pipelineId=${this._route.params.pipelineId} .step=${this._route.params.step}></step-view>`;
+        return html`<step-view
+          .pipelineId=${this._route.params.pipelineId}
+          .step=${this._route.params.step}
+        ></step-view>`;
       case 'step-runs-view':
-        return html`<step-runs-view .pipelineId=${this._route.params.pipelineId} .step=${this._route.params.step}></step-runs-view>`;
+        return html`<step-runs-view
+          .pipelineId=${this._route.params.pipelineId}
+          .step=${this._route.params.step}
+        ></step-runs-view>`;
       case 'docs-view':
         return html`<docs-view .page=${this._route.params.page ?? 'index'}></docs-view>`;
       default:

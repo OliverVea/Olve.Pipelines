@@ -4,7 +4,12 @@ import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/ind
 import { client, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, pipelinePath, stepPath } from '../v2/ui.js';
 
-type SecretInfo = { name: string; description?: string | null; declaredBy: string[]; isSet?: boolean | null };
+type SecretInfo = {
+  name: string;
+  description?: string | null;
+  declaredBy: string[];
+  isSet?: boolean | null;
+};
 
 /** A pipeline's secrets: who uses each, whether it is set, and setting, deleting or copying values. */
 @customElement('pipeline-secrets-view')
@@ -107,13 +112,13 @@ export class PipelineSecretsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() private declare _name: string;
-  @state() private declare _secrets: SecretInfo[] | null;
-  @state() private declare _pipelines: PipelineSummary[];
-  @state() private declare _editing: string | null;
-  @state() private declare _busy: boolean;
-  @state() private declare _errors: string[];
-  @state() private declare _note: string;
+  @state() declare private _name: string;
+  @state() declare private _secrets: SecretInfo[] | null;
+  @state() declare private _pipelines: PipelineSummary[];
+  @state() declare private _editing: string | null;
+  @state() declare private _busy: boolean;
+  @state() declare private _errors: string[];
+  @state() declare private _note: string;
 
   constructor() {
     super();
@@ -155,16 +160,24 @@ export class PipelineSecretsView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        >
       </div>
       <h2>Secrets</h2>
-      ${this._errors.length ? html`<div class="errors" role="alert">${this._errors.map((e) => html`<p>${e}</p>`)}</div>` : nothing}
+      ${this._errors.length
+        ? html`<div class="errors" role="alert">
+            ${this._errors.map((e) => html`<p>${e}</p>`)}
+          </div>`
+        : nothing}
       ${secrets === null
         ? this._errors.length
           ? nothing
           : html`<p class="muted">Loading…</p>`
         : html`<section class="card">
-              ${secrets.length ? secrets.map((s) => this._row(s)) : html`<p class="muted">No secrets.</p>`}
+              ${secrets.length
+                ? secrets.map((s) => this._row(s))
+                : html`<p class="muted">No secrets.</p>`}
             </section>
             ${this._renderAdd()} ${this._renderCopy()}`}
     `;
@@ -180,19 +193,46 @@ export class PipelineSecretsView extends LitElement {
       <span class="used">
         ${s.declaredBy.length
           ? html`used by
-            ${s.declaredBy.map((d, i) => html`${i ? ', ' : ''}<a href=${stepPath(this.pipelineId, d)} @click=${navClick}>${d}</a>`)}`
+            ${s.declaredBy.map(
+              (d, i) =>
+                html`${i ? ', ' : ''}<a
+                    href=${stepPath(this.pipelineId, d)}
+                    @click=${navClick}
+                    >${d}</a
+                  >`,
+            )}`
           : 'not used by any step'}
       </span>
-      <span class="state ${s.isSet ? 'set' : s.declaredBy.length ? 'unset' : ''}">${s.isSet ? 'set' : 'not set'}</span>
+      <span class="state ${s.isSet ? 'set' : s.declaredBy.length ? 'unset' : ''}"
+        >${s.isSet ? 'set' : 'not set'}</span
+      >
       <span class="actions">
-        <button class="btn small" ?disabled=${this._busy} @click=${() => (this._editing = editing ? null : s.name)}>
+        <button
+          class="btn small"
+          ?disabled=${this._busy}
+          @click=${() => (this._editing = editing ? null : s.name)}
+        >
           ${editing ? 'Cancel' : s.isSet ? 'Change' : 'Set'}
         </button>
-        ${s.isSet ? html`<button class="btn small danger" ?disabled=${this._busy} @click=${() => this._delete(s.name)}>Delete</button>` : nothing}
+        ${s.isSet
+          ? html`<button
+              class="btn small danger"
+              ?disabled=${this._busy}
+              @click=${() => this._delete(s.name)}
+            >
+              Delete
+            </button>`
+          : nothing}
       </span>
       ${editing
         ? html`<form class="edit" @submit=${(e: Event) => this._submitValue(e, s.name)}>
-            <input type="password" name="value" placeholder="Value" autocomplete="off" required />
+            <input
+              type="password"
+              name="value"
+              placeholder="Value"
+              autocomplete="off"
+              required
+            />
             <button class="btn small primary" ?disabled=${this._busy}>Save</button>
           </form>`
         : nothing}
@@ -203,8 +243,21 @@ export class PipelineSecretsView extends LitElement {
     return html`<section class="card form">
       <h3>Add a secret</h3>
       <form class="edit" @submit=${(e: Event) => this._submitNew(e)}>
-        <input class="name" name="name" placeholder="NAME" autocomplete="off" required pattern="[A-Za-z_][A-Za-z0-9_]*" />
-        <input type="password" name="value" placeholder="Value" autocomplete="off" required />
+        <input
+          class="name"
+          name="name"
+          placeholder="NAME"
+          autocomplete="off"
+          required
+          pattern="[A-Za-z_][A-Za-z0-9_]*"
+        />
+        <input
+          type="password"
+          name="value"
+          placeholder="Value"
+          autocomplete="off"
+          required
+        />
         <button class="btn small primary" ?disabled=${this._busy}>Add</button>
       </form>
     </section>`;
@@ -216,9 +269,13 @@ export class PipelineSecretsView extends LitElement {
       <h3>Copy from another pipeline</h3>
       <form class="edit" @submit=${(e: Event) => this._submitCopy(e)}>
         <select name="source" required>
-          ${this._pipelines.map((p) => html`<option value=${p.id ?? ''}>${p.name}</option>`)}
+          ${this._pipelines.map(
+            (p) => html`<option value=${p.id ?? ''}>${p.name}</option>`,
+          )}
         </select>
-        <label class="note"><input type="checkbox" name="overwrite" /> overwrite existing</label>
+        <label class="note"
+          ><input type="checkbox" name="overwrite" /> overwrite existing</label
+        >
         <button class="btn small" ?disabled=${this._busy}>Copy all</button>
       </form>
       ${this._note ? html`<p class="note">${this._note}</p>` : nothing}
@@ -248,21 +305,38 @@ export class PipelineSecretsView extends LitElement {
     e.preventDefault();
     const data = new FormData(e.target as HTMLFormElement);
     this._act(async () => {
-      const res = await apiPost<{ copied: string[] }>(`/api/pipelines/${this.pipelineId}/secrets/copy`, {
-        sourcePipelineId: data.get('source'),
-        overwrite: data.get('overwrite') === 'on',
-      });
-      this._note = res?.copied?.length ? `Copied ${res.copied.join(', ')}.` : 'Nothing copied.';
+      const res = await apiPost<{ copied: string[] }>(
+        `/api/pipelines/${this.pipelineId}/secrets/copy`,
+        {
+          sourcePipelineId: data.get('source'),
+          overwrite: data.get('overwrite') === 'on',
+        },
+      );
+      this._note = res?.copied?.length
+        ? `Copied ${res.copied.join(', ')}.`
+        : 'Nothing copied.';
     });
   }
 
   private _put(name: string, value: string) {
-    return apiFetch(`/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`, { method: 'PUT', body: { value } });
+    return apiFetch(
+      `/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`,
+      { method: 'PUT', body: { value } },
+    );
   }
 
   private _delete(name: string) {
-    if (!confirm(`Delete the value of ${name}? Steps that use it will fail until it is set again.`)) return;
-    this._act(() => apiFetch(`/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`, { method: 'DELETE' }));
+    if (
+      !confirm(
+        `Delete the value of ${name}? Steps that use it will fail until it is set again.`,
+      )
+    )
+      return;
+    this._act(() =>
+      apiFetch(`/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      }),
+    );
   }
 
   private async _act(fn: () => Promise<unknown>) {

@@ -85,15 +85,15 @@ export class VersionsPanel extends LitElement {
   @property({ attribute: false }) declare versions: PipelineVersionSummary[];
   @property({ attribute: false }) declare activation: Activation;
 
-  @state() private declare _from: number | null;
-  @state() private declare _to: number | null;
-  @state() private declare _diff: DiffHunk[] | null;
-  @state() private declare _diffError: string | null;
-  @state() private declare _switchTarget: number | null;
-  @state() private declare _cancelRunning: boolean;
-  @state() private declare _switchErrors: string[];
-  @state() private declare _busy: boolean;
-  @query('dialog') private declare _dialog: HTMLDialogElement;
+  @state() declare private _from: number | null;
+  @state() declare private _to: number | null;
+  @state() declare private _diff: DiffHunk[] | null;
+  @state() declare private _diffError: string | null;
+  @state() declare private _switchTarget: number | null;
+  @state() declare private _cancelRunning: boolean;
+  @state() declare private _switchErrors: string[];
+  @state() declare private _busy: boolean;
+  @query('dialog') declare private _dialog: HTMLDialogElement;
 
   constructor() {
     super();
@@ -133,7 +133,10 @@ export class VersionsPanel extends LitElement {
     this._diff = null;
     this._diffError = null;
     try {
-      const [a, b] = await Promise.all([loadVersion(this.pipelineId, from), loadVersion(this.pipelineId, to)]);
+      const [a, b] = await Promise.all([
+        loadVersion(this.pipelineId, from),
+        loadVersion(this.pipelineId, to),
+      ]);
       if (from !== this._from || to !== this._to) return;
       const ta = a?.manifest ? canonicalJson(a.manifest) : (a?.manifestText ?? '');
       const tb = b?.manifest ? canonicalJson(b.manifest) : (b?.manifestText ?? '');
@@ -145,7 +148,10 @@ export class VersionsPanel extends LitElement {
 
   render() {
     const sorted = this._sorted();
-    if (!sorted.length) return html`<p class="muted">No versions yet. A version is added when reconcile describes the pipeline.</p>`;
+    if (!sorted.length)
+      return html`<p class="muted">
+        No versions yet. A version is added when reconcile describes the pipeline.
+      </p>`;
     const byNumber = new Map(sorted.map((v) => [v.number ?? 0, v]));
     return html`
       <div class="table-wrap">
@@ -177,9 +183,22 @@ export class VersionsPanel extends LitElement {
     `;
   }
 
-  private _select(value: number | null, set: (n: number) => void, sorted: PipelineVersionSummary[], label: string) {
-    return html`<select aria-label="Compare ${label}" @change=${(e: Event) => set(Number((e.target as HTMLSelectElement).value))}>
-      ${sorted.map((v) => html`<option value=${v.number ?? 0} ?selected=${v.number === value}>v${v.number}</option>`)}
+  private _select(
+    value: number | null,
+    set: (n: number) => void,
+    sorted: PipelineVersionSummary[],
+    label: string,
+  ) {
+    return html`<select
+      aria-label="Compare ${label}"
+      @change=${(e: Event) => set(Number((e.target as HTMLSelectElement).value))}
+    >
+      ${sorted.map(
+        (v) =>
+          html`<option value=${v.number ?? 0} ?selected=${v.number === value}>
+            v${v.number}
+          </option>`,
+      )}
     </select>`;
   }
 
@@ -189,8 +208,12 @@ export class VersionsPanel extends LitElement {
     const isActive = act.kind === 'active' && act.version === n;
     const isTarget = act.kind === 'draining' && act.to === n;
     const isDraining = act.kind === 'draining' && act.from === n;
-    const stepChanges = prev ? changes(numberMap(prev.stepVersions), numberMap(v.stepVersions)) : [];
-    const modelChanges = prev ? changes(numberMap(prev.modelVersions), numberMap(v.modelVersions)) : [];
+    const stepChanges = prev
+      ? changes(numberMap(prev.stepVersions), numberMap(v.stepVersions))
+      : [];
+    const modelChanges = prev
+      ? changes(numberMap(prev.modelVersions), numberMap(v.modelVersions))
+      : [];
     return html`<tr>
       <td>
         <b class="mono">v${n}</b>
@@ -204,13 +227,17 @@ export class VersionsPanel extends LitElement {
         ${!prev
           ? html`first version`
           : stepChanges.length || modelChanges.length
-            ? html`${[...stepChanges, ...modelChanges].map((c, i) => html`${i ? ', ' : ''}${this._chg(c)}`)}`
+            ? html`${[...stepChanges, ...modelChanges].map(
+                (c, i) => html`${i ? ', ' : ''}${this._chg(c)}`,
+              )}`
             : html`no step or model changes (layout, conditions or triggers)`}
       </td>
       <td>
         ${isActive || isTarget
           ? nothing
-          : html`<button class="btn small" @click=${() => this._openSwitch(n)}>Switch to v${n}</button>`}
+          : html`<button class="btn small" @click=${() => this._openSwitch(n)}>
+              Switch to v${n}
+            </button>`}
       </td>
     </tr>`;
   }
@@ -228,41 +255,67 @@ export class VersionsPanel extends LitElement {
     const steps = changes(numberMap(a.stepVersions), numberMap(b.stepVersions));
     const models = changes(numberMap(a.modelVersions), numberMap(b.modelVersions));
     return html`<div class="summary">
-      <span>Steps: ${steps.length ? steps.map((c, i) => html`${i ? ', ' : ''}${this._chg(c)}`) : html`<span class="muted">unchanged</span>`}</span>
-      <span>Models: ${models.length ? models.map((c, i) => html`${i ? ', ' : ''}${this._chg(c)}`) : html`<span class="muted">unchanged</span>`}</span>
+      <span
+        >Steps:
+        ${steps.length
+          ? steps.map((c, i) => html`${i ? ', ' : ''}${this._chg(c)}`)
+          : html`<span class="muted">unchanged</span>`}</span
+      >
+      <span
+        >Models:
+        ${models.length
+          ? models.map((c, i) => html`${i ? ', ' : ''}${this._chg(c)}`)
+          : html`<span class="muted">unchanged</span>`}</span
+      >
     </div>`;
   }
 
   private _renderDiff() {
     if (this._diffError) return html`<p class="error">${this._diffError}</p>`;
     if (!this._diff) return html`<p class="muted">Loading manifests…</p>`;
-    if (this._from === this._to) return html`<p class="muted">Pick two different versions.</p>`;
-    if (!this._diff.some((h) => 'lines' in h)) return html`<p class="muted">The manifests are identical.</p>`;
+    if (this._from === this._to)
+      return html`<p class="muted">Pick two different versions.</p>`;
+    if (!this._diff.some((h) => 'lines' in h))
+      return html`<p class="muted">The manifests are identical.</p>`;
     return html`<diff-view label="Manifest diff" .hunks=${this._diff}></diff-view>`;
   }
 
   private _renderDialog() {
     const act = this.activation;
-    const current = act.kind === 'active' ? act.version : act.kind === 'draining' ? act.to : null;
+    const current =
+      act.kind === 'active' ? act.version : act.kind === 'draining' ? act.to : null;
     return html`<dialog @close=${() => (this._switchErrors = [])}>
       <h3>Switch to v${this._switchTarget}</h3>
       <div class="dialog-body">
         <p>
-          ${current !== null ? html`v${current} stops starting new runs and drains;` : nothing} new runs start on
-          v${this._switchTarget} once in-flight work has finished. Paused runs on the old version can't be continued
-          afterwards.
+          ${current !== null
+            ? html`v${current} stops starting new runs and drains;`
+            : nothing}
+          new runs start on v${this._switchTarget} once in-flight work has finished.
+          Paused runs on the old version can't be continued afterwards.
         </p>
         <label class="check"
-          ><input type="checkbox" .checked=${this._cancelRunning} @change=${(e: Event) => (this._cancelRunning = (e.target as HTMLInputElement).checked)} />
-          <span>Cancel running work on the old version instead of waiting for it.</span></label
+          ><input
+            type="checkbox"
+            .checked=${this._cancelRunning}
+            @change=${(e: Event) =>
+              (this._cancelRunning = (e.target as HTMLInputElement).checked)}
+          />
+          <span
+            >Cancel running work on the old version instead of waiting for it.</span
+          ></label
         >
       </div>
       ${this._switchErrors.length
-        ? html`<div class="errors" role="alert">${this._switchErrors.map((e) => html`<p>${e}</p>`)}</div>`
+        ? html`<div class="errors" role="alert">
+            ${this._switchErrors.map((e) => html`<p>${e}</p>`)}
+          </div>`
         : nothing}
       <div class="dialog-actions">
         <button class="btn" @click=${() => this._dialog.close()}>Close</button>
-        <button class="btn primary" ?disabled=${this._busy} @click=${this._switch}>Switch to v${this._switchTarget}</button>
+        <button class="btn primary" ?disabled=${this._busy} @click=${this._switch}>
+          Switch to v${this._switchTarget}
+        </button>
       </div>
     </dialog>`;
   }

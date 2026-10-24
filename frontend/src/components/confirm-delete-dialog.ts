@@ -39,11 +39,11 @@ export class ConfirmDeleteDialog extends LitElement {
   @property() declare consequence: string;
   @property({ attribute: false }) declare onConfirm: () => Promise<void>;
 
-  @state() private declare _typed: string;
-  @state() private declare _busy: boolean;
-  @state() private declare _error: string | null;
-  @query('dialog') private declare _dialog: HTMLDialogElement;
-  @query('input') private declare _input: HTMLInputElement;
+  @state() declare private _typed: string;
+  @state() declare private _busy: boolean;
+  @state() declare private _error: string | null;
+  @query('dialog') declare private _dialog: HTMLDialogElement;
+  @query('input') declare private _input: HTMLInputElement;
 
   constructor() {
     super();
@@ -78,14 +78,23 @@ export class ConfirmDeleteDialog extends LitElement {
             autocomplete="off"
             spellcheck="false"
             @input=${(e: Event) => (this._typed = (e.target as HTMLInputElement).value)}
-            @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && matches && this._confirm()}
+            @keydown=${(e: KeyboardEvent) =>
+              e.key === 'Enter' && matches && this._confirm()}
           />
         </label>
       </div>
-      ${this._error ? html`<div class="errors" role="alert"><p>${this._error}</p></div>` : nothing}
+      ${this._error
+        ? html`<div class="errors" role="alert"><p>${this._error}</p></div>`
+        : nothing}
       <div class="dialog-actions">
         <button class="btn" @click=${() => this._dialog.close()}>Cancel</button>
-        <button class="btn danger" ?disabled=${!matches || this._busy} @click=${this._confirm}>Delete</button>
+        <button
+          class="btn danger"
+          ?disabled=${!matches || this._busy}
+          @click=${this._confirm}
+        >
+          Delete
+        </button>
       </div>
     </dialog>`;
   }

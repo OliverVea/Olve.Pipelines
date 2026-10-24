@@ -55,10 +55,19 @@ export function statusLabel(status: string | null | undefined): string {
 
 export function isActiveStatus(status: string | null | undefined): boolean {
   const s = (status ?? '').toLowerCase();
-  return s === 'running' || s === 'in-progress' || s === 'scheduled' || s === 'pending' || s === 'held';
+  return (
+    s === 'running' ||
+    s === 'in-progress' ||
+    s === 'scheduled' ||
+    s === 'pending' ||
+    s === 'held'
+  );
 }
 
-export function formatDuration(from: Date | string | null | undefined, to: Date | string | null | undefined): string {
+export function formatDuration(
+  from: Date | string | null | undefined,
+  to: Date | string | null | undefined,
+): string {
   if (!from) return '';
   const a = new Date(from).getTime();
   const b = to ? new Date(to).getTime() : Date.now();
@@ -90,7 +99,15 @@ export function formatSize(bytes: number | null | undefined): string {
 
 /** Click handler for in-app links: client-side navigation on plain left clicks. */
 export function navClick(e: MouseEvent): void {
-  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  if (
+    e.defaultPrevented ||
+    e.button !== 0 ||
+    e.metaKey ||
+    e.ctrlKey ||
+    e.shiftKey ||
+    e.altKey
+  )
+    return;
   const a = (e.currentTarget as HTMLElement).closest('a');
   const href = a?.getAttribute('href');
   if (!href || a?.target === '_blank') return;
@@ -99,15 +116,22 @@ export function navClick(e: MouseEvent): void {
 }
 
 export const pipelinePath = (id: string) => `/pipeline/${id}`;
-export const runPath = (id: string, n: number | null | undefined) => `/pipeline/${id}/run/${n ?? ''}`;
+export const runPath = (id: string, n: number | null | undefined) =>
+  `/pipeline/${id}/run/${n ?? ''}`;
 export const runsPath = (id: string) => `/pipeline/${id}/runs`;
 export const versionsPath = (id: string) => `/pipeline/${id}/versions`;
 export const secretsPath = (id: string) => `/pipeline/${id}/secrets`;
 export const configPath = (id: string) => `/pipeline/${id}/config`;
 export const bindingPath = (id: string) => `/pipeline/${id}/binding`;
-export const stepLogsPath = (id: string, run: number | null | undefined, step: string, attempt?: number | null) =>
+export const stepLogsPath = (
+  id: string,
+  run: number | null | undefined,
+  step: string,
+  attempt?: number | null,
+) =>
   `/pipeline/${id}/run/${run ?? ''}/step/${encodeURIComponent(step)}/logs${attempt ? `?attempt=${attempt}` : ''}`;
-export const stepPath = (id: string, step: string) => `/pipeline/${id}/step/${encodeURIComponent(step)}`;
+export const stepPath = (id: string, step: string) =>
+  `/pipeline/${id}/step/${encodeURIComponent(step)}`;
 export const stepRunsPath = (id: string, step: string) => `${stepPath(id, step)}/runs`;
 
 /** Shared styles for the v2 views (buttons, pills, status dots, panels). */

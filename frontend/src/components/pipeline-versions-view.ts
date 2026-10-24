@@ -13,10 +13,10 @@ export class PipelineVersionsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() private declare _name: string;
-  @state() private declare _versions: PipelineVersionSummary[];
-  @state() private declare _activation: Activation;
-  @state() private declare _error: string | null;
+  @state() declare private _name: string;
+  @state() declare private _versions: PipelineVersionSummary[];
+  @state() declare private _activation: Activation;
+  @state() declare private _error: string | null;
 
   constructor() {
     super();
@@ -49,7 +49,9 @@ export class PipelineVersionsView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        >
       </div>
       <h2>Versions</h2>
       ${this._error ? html`<p class="error">${this._error}</p>` : ''}

@@ -69,11 +69,11 @@ export class StepLogsView extends LitElement {
   @property() declare run: string;
   @property() declare step: string;
 
-  @state() private declare _name: string;
-  @state() private declare _attempts: Attempt[] | null;
-  @state() private declare _attempt: number | null;
-  @state() private declare _error: string | null;
-  @state() private declare _busy: boolean;
+  @state() declare private _name: string;
+  @state() declare private _attempts: Attempt[] | null;
+  @state() declare private _attempt: number | null;
+  @state() declare private _error: string | null;
+  @state() declare private _busy: boolean;
 
   constructor() {
     super();
@@ -105,7 +105,9 @@ export class StepLogsView extends LitElement {
         p.runs.byNumber(Number(this.run)).attempts.get(),
       ]);
       if (pipeline) this._name = pipeline.name ?? '';
-      this._attempts = (attempts ?? []).filter((a) => a.stepName === this.step).sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
+      this._attempts = (attempts ?? [])
+        .filter((a) => a.stepName === this.step)
+        .sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');
@@ -118,10 +120,17 @@ export class StepLogsView extends LitElement {
   }
 
   private _cancel = async () => {
-    if (!confirm(`Cancel ${this.step} in run #${this.run}? The run ends Cancelled once its stage settles.`)) return;
+    if (
+      !confirm(
+        `Cancel ${this.step} in run #${this.run}? The run ends Cancelled once its stage settles.`,
+      )
+    )
+      return;
     this._busy = true;
     try {
-      await apiPost(`/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(this.step)}/cancel`);
+      await apiPost(
+        `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(this.step)}/cancel`,
+      );
       await this.reload();
     } catch (e) {
       this._error = errorMessages(e).join(' ');
@@ -146,23 +155,45 @@ export class StepLogsView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a><span>/</span>
-        <a href="${run}?step=${encodeURIComponent(this.step)}" @click=${navClick}>Run #${this.run}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        ><span>/</span>
+        <a href="${run}?step=${encodeURIComponent(this.step)}" @click=${navClick}
+          >Run #${this.run}</a
+        >
       </div>
       <div class="head">
         <h2>${this.step}</h2>
-        ${st ? html`<span class="st t-${toneOf(st.type)}"><span class="dot"></span>${statusLabel(st.type)}</span>` : nothing}
-        ${st?.startedAt ? html`<span class="meta">${formatDuration(st.startedAt, st.finishedAt ?? st.cancelledAt)}</span>` : nothing}
+        ${st
+          ? html`<span class="st t-${toneOf(st.type)}"
+              ><span class="dot"></span>${statusLabel(st.type)}</span
+            >`
+          : nothing}
+        ${st?.startedAt
+          ? html`<span class="meta"
+              >${formatDuration(st.startedAt, st.finishedAt ?? st.cancelledAt)}</span
+            >`
+          : nothing}
         ${isActiveStatus(st?.type)
-          ? html`<button class="btn danger small cancel" ?disabled=${this._busy} @click=${this._cancel}>Cancel</button>`
+          ? html`<button
+              class="btn danger small cancel"
+              ?disabled=${this._busy}
+              @click=${this._cancel}
+            >
+              Cancel
+            </button>`
           : nothing}
       </div>
       ${list && list.length > 1
         ? html`<div class="attempts">
             ${list.map(
-              (x) => html`<button class="btn small ${x.id === a?.id ? 'primary' : ''}" @click=${() => this._select(x.number)}>
-                @${x.number} ${statusLabel(statusOf(x).type)}
-              </button>`,
+              (x) =>
+                html`<button
+                  class="btn small ${x.id === a?.id ? 'primary' : ''}"
+                  @click=${() => this._select(x.number)}
+                >
+                  @${x.number} ${statusLabel(statusOf(x).type)}
+                </button>`,
             )}
           </div>`
         : nothing}

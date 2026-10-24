@@ -45,10 +45,10 @@ export class LogPane extends LitElement {
   @property() declare url: string;
   @property({ type: Boolean }) declare live: boolean;
 
-  @state() private declare _text: string;
-  @state() private declare _error: string | null;
-  @state() private declare _loading: boolean;
-  @query('pre') private declare _pre: HTMLPreElement | null;
+  @state() declare private _text: string;
+  @state() declare private _error: string | null;
+  @state() declare private _loading: boolean;
+  @query('pre') declare private _pre: HTMLPreElement | null;
 
   private _timer?: ReturnType<typeof setInterval>;
   private _stream?: AbortController;
@@ -92,7 +92,10 @@ export class LogPane extends LitElement {
     this._stream = stream;
     const [path, query] = url.split('?');
     try {
-      for await (const { event, data } of apiEvents(`${path}/stream${query ? `?${query}` : ''}`, stream.signal)) {
+      for await (const { event, data } of apiEvents(
+        `${path}/stream${query ? `?${query}` : ''}`,
+        stream.signal,
+      )) {
         if (url !== this.url) return;
         if (event === 'log') {
           const chunk = JSON.parse(data) as { text: string; reset?: boolean };
@@ -103,7 +106,8 @@ export class LogPane extends LitElement {
       }
       if (!stream.signal.aborted) this._load(true); // the stored log, once the attempt is done
     } catch {
-      if (!stream.signal.aborted && url === this.url) this._timer = setInterval(() => this._load(true), 3000);
+      if (!stream.signal.aborted && url === this.url)
+        this._timer = setInterval(() => this._load(true), 3000);
     }
   }
 
@@ -139,7 +143,13 @@ export class LogPane extends LitElement {
       ${this.live ? html`<div class="bar"><span>Live</span></div>` : ''}
       ${this._error
         ? html`<p class="error">${this._error}</p>`
-        : html`<pre>${this._text ? unsafeHTML(ansi.ansi_to_html(this._text)) : this._loading ? 'Loading…' : 'No output.'}</pre>`}
+        : html`<pre>
+${this._text
+              ? unsafeHTML(ansi.ansi_to_html(this._text))
+              : this._loading
+                ? 'Loading…'
+                : 'No output.'}</pre
+          >`}
     `;
   }
 }

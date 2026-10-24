@@ -39,10 +39,10 @@ export class TriggerPanel extends LitElement {
   @property({ attribute: false }) declare manifest: Manifest | null;
   @property({ type: Number }) declare versionNumber: number | null;
 
-  @state() private declare _errors: string[];
-  @state() private declare _busy: boolean;
-  @state() private declare _outcome: string;
-  @query('input-form') private declare _form: InputForm;
+  @state() declare private _errors: string[];
+  @state() declare private _busy: boolean;
+  @state() declare private _outcome: string;
+  @query('input-form') declare private _form: InputForm;
 
   constructor() {
     super();
@@ -58,17 +58,26 @@ export class TriggerPanel extends LitElement {
     const m = this.manifest;
     if (!m) return html`<p class="muted">No active version to run.</p>`;
     const schema = inputSchemaOf(m, m.input);
-    return html`
-        <h4>Input <code>${m.input}</code>${this.versionNumber ? html` on v${this.versionNumber}` : nothing}</h4>
-        <input-form .schema=${schema}></input-form>
-        ${this._errors.length
-          ? html`<div class="errors" role="alert">${this._errors.map((e) => html`<p>${e}</p>`)}</div>`
+    return html` <h4>
+        Input <code>${m.input}</code>${this.versionNumber
+          ? html` on v${this.versionNumber}`
           : nothing}
-        <div class="actions">
-          <button class="btn primary" ?disabled=${this._busy} @click=${this._start}>Run</button>
-          <button class="btn" @click=${() => this.dispatchEvent(new CustomEvent('close'))}>Close</button>
-          ${this._outcome ? html`<span class="outcome">${this._outcome}</span>` : nothing}
-        </div>`;
+      </h4>
+      <input-form .schema=${schema}></input-form>
+      ${this._errors.length
+        ? html`<div class="errors" role="alert">
+            ${this._errors.map((e) => html`<p>${e}</p>`)}
+          </div>`
+        : nothing}
+      <div class="actions">
+        <button class="btn primary" ?disabled=${this._busy} @click=${this._start}>
+          Run
+        </button>
+        <button class="btn" @click=${() => this.dispatchEvent(new CustomEvent('close'))}>
+          Close
+        </button>
+        ${this._outcome ? html`<span class="outcome">${this._outcome}</span>` : nothing}
+      </div>`;
   }
 
   private _start = async () => {

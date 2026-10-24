@@ -1,6 +1,11 @@
 /** Line diff (LCS) with folded unchanged context, for manifest diffs. */
 
-export type DiffLine = { kind: 'same' | 'add' | 'del'; text: string; a?: number; b?: number };
+export type DiffLine = {
+  kind: 'same' | 'add' | 'del';
+  text: string;
+  a?: number;
+  b?: number;
+};
 export type DiffHunk = { lines: DiffLine[] } | { skipped: number };
 
 export function diffLines(aText: string, bText: string): DiffLine[] {
@@ -28,7 +33,8 @@ export function diffLines(aText: string, bText: string): DiffLine[] {
     }
   }
   const out: DiffLine[] = [];
-  for (let k = 0; k < start; k++) out.push({ kind: 'same', text: a[k], a: k + 1, b: k + 1 });
+  for (let k = 0; k < start; k++)
+    out.push({ kind: 'same', text: a[k], a: k + 1, b: k + 1 });
   let i = 0;
   let j = 0;
   while (i < n && j < m) {
@@ -62,7 +68,12 @@ export function foldDiff(lines: DiffLine[], context = 3): DiffHunk[] {
   const keep = new Array<boolean>(lines.length).fill(false);
   lines.forEach((l, idx) => {
     if (l.kind !== 'same') {
-      for (let k = Math.max(0, idx - context); k <= Math.min(lines.length - 1, idx + context); k++) keep[k] = true;
+      for (
+        let k = Math.max(0, idx - context);
+        k <= Math.min(lines.length - 1, idx + context);
+        k++
+      )
+        keep[k] = true;
     }
   });
   const hunks: DiffHunk[] = [];

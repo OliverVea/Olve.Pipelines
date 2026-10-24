@@ -2,7 +2,15 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { client, errorMessages } from '../api.js';
 import type { RunSummary } from '@olve/olve-pipelines-client/src/models/index.js';
-import { sharedStyles, toneOf, statusLabel, formatDuration, navClick, runPath, pipelinePath } from '../v2/ui.js';
+import {
+  sharedStyles,
+  toneOf,
+  statusLabel,
+  formatDuration,
+  navClick,
+  runPath,
+  pipelinePath,
+} from '../v2/ui.js';
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
 
@@ -24,10 +32,10 @@ export class PipelineRunsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() private declare _name: string;
-  @state() private declare _runs: RunSummary[] | null;
-  @state() private declare _total: number;
-  @state() private declare _error: string | null;
+  @state() declare private _name: string;
+  @state() declare private _runs: RunSummary[] | null;
+  @state() declare private _total: number;
+  @state() declare private _error: string | null;
 
   constructor() {
     super();
@@ -46,7 +54,10 @@ export class PipelineRunsView extends LitElement {
   async reload() {
     const p = client.api.pipelines.byId(this.pipelineId);
     try {
-      const [pipeline, runs] = await Promise.all([p.get(), p.runs.get({ queryParameters: { pageSize: 50 } })]);
+      const [pipeline, runs] = await Promise.all([
+        p.get(),
+        p.runs.get({ queryParameters: { pageSize: 50 } }),
+      ]);
       this._name = pipeline?.name ?? '';
       this._runs = runs?.items ?? [];
       this._total = runs?.totalCount ?? this._runs.length;
@@ -61,10 +72,14 @@ export class PipelineRunsView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        >
       </div>
       <h2>Runs</h2>
-      ${runs && this._total > runs.length ? html`<p class="hint">Latest ${runs.length} of ${this._total}</p>` : nothing}
+      ${runs && this._total > runs.length
+        ? html`<p class="hint">Latest ${runs.length} of ${this._total}</p>`
+        : nothing}
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
       ${runs === null
         ? html`<p class="muted">Loading…</p>`
@@ -93,21 +108,37 @@ export class PipelineRunsView extends LitElement {
 
   private _row(r: RunSummary) {
     return html`<tr>
-      <td><a href=${runPath(this.pipelineId, r.number)} @click=${navClick}><b>#${r.number}</b></a></td>
       <td>
-        <span class="st t-${toneOf(r.status)}"><span class="dot"></span>${statusLabel(r.status)}</span>
-        ${r.heldAt && r.status === 'Running' ? html`<span class="pill">held at ${r.heldAt}</span>` : nothing}
+        <a href=${runPath(this.pipelineId, r.number)} @click=${navClick}
+          ><b>#${r.number}</b></a
+        >
       </td>
-      <td class="mono">v${r.versionNumber} <span class="muted">${r.versionStamp}</span></td>
+      <td>
+        <span class="st t-${toneOf(r.status)}"
+          ><span class="dot"></span>${statusLabel(r.status)}</span
+        >
+        ${r.heldAt && r.status === 'Running'
+          ? html`<span class="pill">held at ${r.heldAt}</span>`
+          : nothing}
+      </td>
+      <td class="mono">
+        v${r.versionNumber} <span class="muted">${r.versionStamp}</span>
+      </td>
       <td>${(r.triggerKind ?? '').toLowerCase()}</td>
       <td><relative-time .value=${r.createdAt}></relative-time></td>
       <td class="num">${formatDuration(r.createdAt, r.finishedAt)}</td>
       <td class="links">
         ${r.rerunOfNumber
-          ? html`rerun of <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}>#${r.rerunOfNumber}</a>`
+          ? html`rerun of
+              <a href=${runPath(this.pipelineId, r.rerunOfNumber)} @click=${navClick}
+                >#${r.rerunOfNumber}</a
+              >`
           : nothing}
         ${r.supersededByNumber
-          ? html`superseded by <a href=${runPath(this.pipelineId, r.supersededByNumber)} @click=${navClick}>#${r.supersededByNumber}</a>`
+          ? html`superseded by
+              <a href=${runPath(this.pipelineId, r.supersededByNumber)} @click=${navClick}
+                >#${r.supersededByNumber}</a
+              >`
           : nothing}
       </td>
     </tr>`;

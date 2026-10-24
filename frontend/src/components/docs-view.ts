@@ -314,12 +314,12 @@ export class DocsView extends LitElement {
   /** The doc page slug, e.g. "index", "getting-started". */
   @property() declare page: string;
 
-  @state() private declare _html: string;
-  @state() private declare _loading: boolean;
-  @state() private declare _error: string | null;
-  @state() private declare _query: string;
-  @state() private declare _hits: DocHit[];
-  @state() private declare _activeHit: number;
+  @state() declare private _html: string;
+  @state() declare private _loading: boolean;
+  @state() declare private _error: string | null;
+  @state() declare private _query: string;
+  @state() declare private _hits: DocHit[];
+  @state() declare private _activeHit: number;
 
   /** Lazily built on first search (and cached) from /docs-index.json. */
   private _search: MiniSearch<DocRecord> | null = null;
@@ -374,7 +374,9 @@ export class DocsView extends LitElement {
         ? html`<p class="loading">Loading docs…</p>`
         : this._error
           ? html`<p class="error">${this._error}</p>`
-          : html`<article class="doc" @click=${this._onLinkClick}>${unsafeHTML(this._html)}</article>`}
+          : html`<article class="doc" @click=${this._onLinkClick}>
+              ${unsafeHTML(this._html)}
+            </article>`}
     `;
   }
 
@@ -405,7 +407,7 @@ export class DocsView extends LitElement {
                         <div class="hit-title">${hit.title}</div>
                         <div class="hit-excerpt">${hit.excerpt}</div>
                       </button>
-                    `
+                    `,
                   )}
             </div>`
           : null}

@@ -6,7 +6,12 @@ import { sharedStyles, navClick, pipelinePath, shortSha, secretsPath } from '../
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
 
-type Binding = { repo: string; branch: string; path: string; credentialsSecret?: string | null };
+type Binding = {
+  repo: string;
+  branch: string;
+  path: string;
+  credentialsSecret?: string | null;
+};
 
 /** A pipeline's git binding: where its definition lives, its reconcile status, and its credentials. */
 @customElement('pipeline-binding-view')
@@ -82,13 +87,13 @@ export class PipelineBindingView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() private declare _name: string;
-  @state() private declare _binding: Binding | null;
-  @state() private declare _status: PipelineBindingStatus | null;
-  @state() private declare _secretNames: string[];
-  @state() private declare _busy: boolean;
-  @state() private declare _errors: string[];
-  @state() private declare _loaded: boolean;
+  @state() declare private _name: string;
+  @state() declare private _binding: Binding | null;
+  @state() declare private _status: PipelineBindingStatus | null;
+  @state() declare private _secretNames: string[];
+  @state() declare private _busy: boolean;
+  @state() declare private _errors: string[];
+  @state() declare private _loaded: boolean;
 
   constructor() {
     super();
@@ -114,7 +119,9 @@ export class PipelineBindingView extends LitElement {
         this._name ? null : p.get(),
         apiFetch<Binding>(`/api/pipelines/${this.pipelineId}/binding`).catch(() => null),
         p.binding.status.get().catch(() => null),
-        apiFetch<{ name: string }[]>(`/api/pipelines/${this.pipelineId}/secrets`).catch(() => null),
+        apiFetch<{ name: string }[]>(`/api/pipelines/${this.pipelineId}/secrets`).catch(
+          () => null,
+        ),
       ]);
       if (pipeline) this._name = pipeline.name ?? '';
       this._binding = binding;
@@ -132,10 +139,16 @@ export class PipelineBindingView extends LitElement {
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}>${this._name || 'Pipeline'}</a>
+        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
+          >${this._name || 'Pipeline'}</a
+        >
       </div>
       <h2>Binding</h2>
-      ${this._errors.length ? html`<div class="errors" role="alert">${this._errors.map((e) => html`<p>${e}</p>`)}</div>` : nothing}
+      ${this._errors.length
+        ? html`<div class="errors" role="alert">
+            ${this._errors.map((e) => html`<p>${e}</p>`)}
+          </div>`
+        : nothing}
       ${b
         ? html`${this._renderSource(b)} ${this._renderCredentials(b)}`
         : this._loaded
@@ -149,54 +162,85 @@ export class PipelineBindingView extends LitElement {
     const tree = `https://github.com/${b.repo}/tree/${encodeURIComponent(b.branch)}/${b.path}`;
     return html`<section class="card">
       <div class="head">
-        <a href=${tree} target="_blank" rel="noopener"><code>${b.repo}@${b.branch}:${b.path}</code></a>
+        <a href=${tree} target="_blank" rel="noopener"
+          ><code>${b.repo}@${b.branch}:${b.path}</code></a
+        >
         <span class="spacer"></span>
-        <button class="btn" ?disabled=${this._busy || !!s?.reconcileInProgress} @click=${this._reconcile}>Reconcile now</button>
+        <button
+          class="btn"
+          ?disabled=${this._busy || !!s?.reconcileInProgress}
+          @click=${this._reconcile}
+        >
+          Reconcile now
+        </button>
       </div>
       ${s
         ? html`<p class="status">
               ${s.reconcileInProgress
                 ? html`Reconciling <code>${shortSha(s.reconcileSha)}</code>…`
                 : s.result === 2
-                  ? html`<span class="bad">Reconcile failed at <code>${shortSha(s.reconcileSha)}</code></span>
+                  ? html`<span class="bad"
+                        >Reconcile failed at
+                        <code>${shortSha(s.reconcileSha)}</code></span
+                      >
                       <relative-time .value=${s.lastSyncTime}></relative-time>`
                   : s.result === 1
-                    ? html`Synced at <code>${shortSha(s.lastReconciledSha)}</code> (version ${s.reconciledVersion})
+                    ? html`Synced at
+                        <code>${shortSha(s.lastReconciledSha)}</code> (version
+                        ${s.reconciledVersion})
                         <relative-time .value=${s.lastSyncTime}></relative-time>`
                     : 'Waiting for the first sync.'}
             </p>
-            ${s.result === 2 && s.problems?.length ? html`<ul class="problems">${s.problems.map((x) => html`<li>${x}</li>`)}</ul>` : nothing}
-            ${s.warnings?.length ? html`<ul class="warnings">${s.warnings.map((x) => html`<li>${x}</li>`)}</ul>` : nothing}`
+            ${s.result === 2 && s.problems?.length
+              ? html`<ul class="problems">
+                  ${s.problems.map((x) => html`<li>${x}</li>`)}
+                </ul>`
+              : nothing}
+            ${s.warnings?.length
+              ? html`<ul class="warnings">
+                  ${s.warnings.map((x) => html`<li>${x}</li>`)}
+                </ul>`
+              : nothing}`
         : nothing}
     </section>`;
   }
 
   private _renderCredentials(b: Binding) {
     const current = b.credentialsSecret ?? '';
-    const names = this._secretNames.includes(current) || !current ? this._secretNames : [current, ...this._secretNames];
+    const names =
+      this._secretNames.includes(current) || !current
+        ? this._secretNames
+        : [current, ...this._secretNames];
     return html`<section class="card">
       <h3>Credentials</h3>
       <form @submit=${this._saveCredentials}>
         <select name="secret" ?disabled=${this._busy}>
           <option value="" ?selected=${!current}>None (public repository)</option>
-          ${names.map((n) => html`<option value=${n} ?selected=${n === current}>${n}</option>`)}
+          ${names.map(
+            (n) => html`<option value=${n} ?selected=${n === current}>${n}</option>`,
+          )}
         </select>
         <button class="btn small" ?disabled=${this._busy}>Save</button>
         <p class="help">
-          A pipeline secret holding a GitHub read token, used to read the repository. Manage values on the
+          A pipeline secret holding a GitHub read token, used to read the repository.
+          Manage values on the
           <a href=${secretsPath(this.pipelineId)} @click=${navClick}>Secrets</a> page.
         </p>
       </form>
     </section>`;
   }
 
-  private _reconcile = () => this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/binding/reconcile`));
+  private _reconcile = () =>
+    this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/binding/reconcile`));
 
   private _saveCredentials = (e: Event) => {
     e.preventDefault();
     const secret = new FormData(e.target as HTMLFormElement).get('secret') as string;
     this._act(() =>
-      apiFetch(`/api/pipelines/${this.pipelineId}/binding`, { method: 'PATCH', body: { credentialsSecret: secret } }),
+      apiFetch(`/api/pipelines/${this.pipelineId}/binding`, {
+        method: 'PATCH',
+        body: { credentialsSecret: secret },
+      }),
     );
   };
 

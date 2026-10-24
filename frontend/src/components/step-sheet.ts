@@ -1,6 +1,12 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { type Manifest, type ManifestStep, allSteps, producersOf, stepsByName } from '../v2/manifest.js';
+import {
+  type Manifest,
+  type ManifestStep,
+  allSteps,
+  producersOf,
+  stepsByName,
+} from '../v2/manifest.js';
 import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../v2/ui.js';
 import type { StepState } from './stage-graph.js';
 
@@ -219,17 +225,32 @@ export class StepSheet extends LitElement {
       <div class="detail">
         <div class="d-head wide">
           <h3>${this.step}</h3>
-          ${tone ? html`<span class="st t-${tone}"><span class="dot"></span>${statusLabel(st!.status)}</span>` : html`<span class="muted">never run</span>`}
+          ${tone
+            ? html`<span class="st t-${tone}"
+                ><span class="dot"></span>${statusLabel(st!.status)}</span
+              >`
+            : html`<span class="muted">never run</span>`}
           ${st?.blocked ? html`<span class="pill blocked">blocked</span>` : nothing}
           <button class="d-close" aria-label="Close" @click=${this._close}>×</button>
         </div>
-        ${def?.description ? html`<p class="d-desc wide">${def.description}</p>` : nothing}
-        ${st?.reason ? html`<p class="d-reason wide t-${tone ?? 'idle'}">${st.reason}</p>` : nothing}
+        ${def?.description
+          ? html`<p class="d-desc wide">${def.description}</p>`
+          : nothing}
+        ${st?.reason
+          ? html`<p class="d-reason wide t-${tone ?? 'idle'}">${st.reason}</p>`
+          : nothing}
         ${held.length
           ? html`<p class="d-reason wide t-wait">
               Holding
-              ${held.map((n, i) => html`${i ? ', ' : ''}<a href=${runPath(this.pipelineId, n)} @click=${navClick}>#${n}</a>`)}. Unblock
-              to let ${held.length > 1 ? 'them' : 'it'} continue.
+              ${held.map(
+                (n, i) =>
+                  html`${i ? ', ' : ''}<a
+                      href=${runPath(this.pipelineId, n)}
+                      @click=${navClick}
+                      >#${n}</a
+                    >`,
+              )}.
+              Unblock to let ${held.length > 1 ? 'them' : 'it'} continue.
             </p>`
           : nothing}
         <div class="d-actions wide"><slot name="actions"></slot></div>
@@ -249,7 +270,17 @@ export class StepSheet extends LitElement {
     const list = (names: string[]) =>
       names.length
         ? html`<div class="rel-list">
-            ${names.map((n) => html`<button @click=${() => this.dispatchEvent(new CustomEvent('step-select', { detail: { step: n } }))}>${n}</button>`)}
+            ${names.map(
+              (n) =>
+                html`<button
+                  @click=${() =>
+                    this.dispatchEvent(
+                      new CustomEvent('step-select', { detail: { step: n } }),
+                    )}
+                >
+                  ${n}
+                </button>`,
+            )}
           </div>`
         : html`<span class="muted">—</span>`;
     return html`<h4 class="sheet-h">Reads from</h4>
@@ -266,10 +297,22 @@ export class StepSheet extends LitElement {
         <dd>${def.kind}</dd>
         <dt>Image</dt>
         <dd class="mono">${def.image}</dd>
-        ${def.output ? html`<dt>Output</dt><dd class="mono">${def.output}</dd>` : nothing}
-        ${def.timeoutSeconds ? html`<dt>Timeout</dt><dd>${Math.round(def.timeoutSeconds / 60)} min</dd>` : nothing}
-        ${retries ? html`<dt>Retries</dt><dd>${retries}</dd>` : nothing}
-        ${def.secrets?.length ? html`<dt>Secrets</dt><dd class="mono">${def.secrets.join(', ')}</dd>` : nothing}
+        ${def.output
+          ? html`<dt>Output</dt>
+              <dd class="mono">${def.output}</dd>`
+          : nothing}
+        ${def.timeoutSeconds
+          ? html`<dt>Timeout</dt>
+              <dd>${Math.round(def.timeoutSeconds / 60)} min</dd>`
+          : nothing}
+        ${retries
+          ? html`<dt>Retries</dt>
+              <dd>${retries}</dd>`
+          : nothing}
+        ${def.secrets?.length
+          ? html`<dt>Secrets</dt>
+              <dd class="mono">${def.secrets.join(', ')}</dd>`
+          : nothing}
       </dl>`;
   }
 

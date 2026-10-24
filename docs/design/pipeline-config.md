@@ -92,7 +92,7 @@ export const deploy = step({
   - a step that receives a config entry containing a `secretRef` must also declare that secret
   - a `secretRef` can only name a declared secret
 - Defaults are allowed (`.default(...)`). An entry whose schema accepts `undefined` is optional;
-  every other entry is required.
+  every other entry is required. When to give a default: §8.
 
 ## 5. Manifest
 
@@ -139,7 +139,9 @@ between any two snapshots.
 ## 7. Versions, activation and runs
 
 **Runs pin a config snapshot as they pin a version** (§5.2). `pl run get` shows
-`v8, config #5`. Later saves don't affect a run that has started.
+`v8, config #5`. Later saves don't affect a run that has started. The run also records its
+**effective config**: the snapshot with the pinned version's defaults applied (§8), so a run stays
+reproducible even if a later version changes a default.
 
 | Situation | Runs already going | New runs |
 |---|---|---|
@@ -170,7 +172,38 @@ the config snapshot the run pinned, like its version. There is deliberately **no
 
 Deleting a secret that the current config references asks for confirmation (`--force`).
 
-## 8. Applying it to Olve.Pipelines itself
+## 8. Defaults
+
+**Principle: a fresh self-hosted install works with the defaults.** Give a field a default when one
+value is right for most people *and* safe. Require it only when no value can work for everyone:
+which cluster or host, your domain. "Secure by default" outranks "just works": a default must never
+expose an instance (so `auth` does not default to `none`).
+
+- **Defaults live in the schema** (`.default(...)`), so they are part of the version and its
+  manifest, and the UI and `pl config check` can show them.
+- **The saved document stays as written.** Defaults are applied when config is read (validation,
+  run start), never written into the YAML. A later default change therefore still reaches instances
+  that never set the field.
+- **Changed defaults are surfaced.** `pl config check --version V` and the pending / activation
+  view list every default that differs from the active version's *and* that the current document
+  relies on, e.g. `v9 changes the default of telemetry.exporter (none → otlp)`. A changed default
+  doesn't block activation; it is shown so the switch is never a surprise.
+- **Runs record their effective config** (§7), not only the snapshot number.
+
+For Olve.Pipelines deploying itself (§9):
+
+| Entry | Default | Why |
+|---|---|---|
+| `target.cluster` / host | **required** | no sensible default |
+| `target.namespace` | `olve-pipelines` | a convention works |
+| `publicUrl` (links, webhooks) | none: no links or webhooks until set | depends on your DNS |
+| `storage` | the bundled Garage | nothing external needed |
+| `auth` | bundled Dex with a generated initial admin, stored as a secret and printed once by `pl bootstrap` | secure and works; `none` would leave an exposed instance open |
+| `telemetry` | `exporter: none` | a collector is something you set up |
+| harness image | the ghcr image this release published, pinned by digest | public and version-matched |
+| registry caches | none: images are pulled directly | an optimisation, not a requirement |
+
+## 9. Applying it to Olve.Pipelines itself
 
 Olve.Pipelines' own pipeline declares its deployment config instead of hard-coding it:
 
@@ -205,16 +238,16 @@ The deploy steps render these entries to helm values, which the chart turns into
 `Auth__*` / `OpenTelemetry__*` settings. Local compose and `pl bootstrap` set the same settings
 directly, with `auth: none` or the bundled Dex and `telemetry: none`.
 
-## 9. Security
+## 10. Security
 
 - Config is readable by anyone who can read the pipeline. Anything sensitive must be a secret,
   referenced by name.
 - Secret values never enter a config snapshot, the manifest, logs or run records. Masking in logs
-  follows §8.
+  follows pipelines-v2 §8.
 - Saving config and rolling it back are writes; they need the same authorization as
   `pl secret set`.
 
-## 10. Implementation order
+## 11. Implementation order
 
 1. SDK: `config()`, `secretRef()`, step `config: [...]`, typed `ctx.config`, build checks,
    manifest emission. Tests.
@@ -224,12 +257,12 @@ directly, with `auth: none` or the bundled Dex and `telemetry: none`.
 3. CLI: `pl config get|set|history|rollback|check`; show the snapshot in `pl run get`; show the
    pending reason in `pl binding status` / `pl pipeline health`.
 4. UI: Config tab (YAML editor with schema validation, history, snapshot diff).
-5. Olve.Pipelines' own pipeline (§8): declare `target`, `auth` and `telemetry`; add `auth.mode`
+5. Olve.Pipelines' own pipeline (§9): declare `target`, `auth` and `telemetry`; add `auth.mode`
    and the authorization rule to the server; make telemetry auth configurable; deploy Dex; switch
    prod.
 
-## 11. Open questions
+## 12. Open questions
 
 - Which Dex version, and does it support client credentials (decides `telemetry.auth` in prod)?
-- Masking approach for config-referenced secrets in logs (shares §8's open item).
+- Masking approach for config-referenced secrets in logs (shares pipelines-v2 §8's open item).
 - Whether a trigger mapper (`onPush`) may read config. Out of scope for the first cut.

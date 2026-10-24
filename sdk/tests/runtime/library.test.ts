@@ -186,6 +186,9 @@ describe("steps.imageBuild", () => {
         `--tar-path=${tarPath}`,
         `--digest-file=${tarPath.replace(/image\.tar$/, "digest")}`,
         "--destination=olve-pipelines-v2:2026.10.21.412",
+        "--snapshot-mode=redo",
+        "--use-new-run",
+        "--compressed-caching=false",
         "--cache=true",
         "--cache-repo=registry.ovea.pro/olve-pipelines-v2/cache",
         "--skip-push-permission-check",
@@ -490,6 +493,24 @@ describe("steps.imageBuild: registry login and plain-HTTP registries", () => {
     const denied = setup((url) => (url.includes("/token") ? new Response(null, { status: 403 }) : new Response(null, { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="https://ghcr.io/token"' } })));
     expect(await testHandler(anon, { source }, { ctx: denied.ctx })).toMatchObject({ status: "succeeded" });
     expect(denied.calls.some((c) => c[0] === "/kaniko/executor")).toBe(true);
+  });
+
+  test("kaniko speed options: defaults on the command line, non-defaults in the manifest; a plain-HTTP cache is probed over HTTP", async () => {
+    const fast = steps.imageBuild({ name: "b", description: "", repository: "x" });
+    const slow = steps.imageBuild({ name: "b", description: "", repository: "x", snapshotMode: "full", useNewRun: false, compressedCaching: true });
+    expect(fast.builtin.manifestConfig()).not.toHaveProperty("snapshotMode");
+    expect(slow.builtin.manifestConfig()).toMatchObject({ snapshotMode: "full", useNewRun: false, compressedCaching: true });
+    const s = setup(() => new Response(null, { status: 404 }));
+    await testHandler(slow, { source }, { ctx: s.ctx });
+    const argv = s.calls.find((c) => c[0] === "/kaniko/executor")!;
+    expect(argv).toContain("--snapshot-mode=full");
+    expect(argv).not.toContain("--use-new-run");
+    expect(argv).toContain("--compressed-caching=true");
+    const probed: string[] = [];
+    const http = { fetch: async (url: string) => (probed.push(url), new Response(null, { status: 401 })) } as unknown as Ctx["http"];
+    const got = await reachableCaches({ http, log: () => {}, signal: new AbortController().signal }, { registryMap: {}, cacheRepo: "registry:5000/app/cache" }, ["registry:5000"]);
+    expect(probed).toEqual(["http://registry:5000/v2/"]);
+    expect(got.cacheRepo).toBe("registry:5000/app/cache");
   });
 
   test("definition errors and challenge parsing", () => {

@@ -72,6 +72,15 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
    */
   stallTimeoutSeconds?: number;
   /**
+   * kaniko `--snapshot-mode`: `redo` (default) compares file metadata instead of hashing every file's
+   * content after each instruction; `full` hashes content (slower, and what kaniko defaults to).
+   */
+  snapshotMode?: "redo" | "full" | "time";
+  /** kaniko `--use-new-run`: snapshot only what a RUN changed (faster for big images). Default true. */
+  useNewRun?: boolean;
+  /** kaniko `--compressed-caching`: compress layers while caching (saves memory, costs time). Default false. */
+  compressedCaching?: boolean;
+  /**
    * Automatic retries of a failed attempt (a fresh pod: kaniko unpacks the base image over the
    * container root and does not clean up when killed, so retrying inside the same pod is unsafe).
    * A `--no-push` build is idempotent, so the default is 2 (three tries).
@@ -127,10 +136,10 @@ export function registryHost(ref: string): string {
 }
 
 /** Whether a registry answers its API root: 200, or 401 (it wants a token). Never throws. */
-export async function registryUp(http: Ctx["http"], host: string, signal?: AbortSignal, timeoutMs = CACHE_PROBE_TIMEOUT_MS): Promise<boolean> {
+export async function registryUp(http: Ctx["http"], host: string, signal?: AbortSignal, timeoutMs = CACHE_PROBE_TIMEOUT_MS, insecure = false): Promise<boolean> {
   try {
     const timeout = AbortSignal.timeout(timeoutMs);
-    const res = await http.fetch(`https://${host}/v2/`, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+    const res = await http.fetch(`${insecure ? "http" : "https"}://${host}/v2/`, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     await res.body?.cancel().catch(() => {});
     return res.status === 200 || res.status === 401;
   } catch {
@@ -145,9 +154,10 @@ export async function registryUp(http: Ctx["http"], host: string, signal?: Abort
 export async function reachableCaches(
   ctx: Pick<Ctx, "http" | "log" | "signal">,
   caches: { registryMap: Record<string, string>; cacheRepo?: string },
+  insecureHosts: readonly string[] = [],
 ): Promise<{ registryMap: Record<string, string>; cacheRepo?: string }> {
   const hosts = new Set([...Object.values(caches.registryMap), ...(caches.cacheRepo ? [caches.cacheRepo] : [])].map(registryHost));
-  const up = new Map(await Promise.all([...hosts].map(async (h) => [h, await registryUp(ctx.http, h, ctx.signal)] as const)));
+  const up = new Map(await Promise.all([...hosts].map(async (h) => [h, await registryUp(ctx.http, h, ctx.signal, undefined, insecureHosts.includes(h))] as const)));
   const registryMap: Record<string, string> = {};
   for (const [from, to] of Object.entries(caches.registryMap)) {
     if (up.get(registryHost(to))) registryMap[from] = to;
@@ -159,6 +169,9 @@ export async function reachableCaches(
   }
   return { registryMap, ...(caches.cacheRepo ? { cacheRepo: caches.cacheRepo } : {}) };
 }
+
+/** Default kaniko `--snapshot-mode`. */
+export const DEFAULT_SNAPSHOT_MODE = "redo";
 
 /** Default `retries`: a stalled or flaky build gets two fresh attempts before the run fails. */
 export const DEFAULT_RETRIES = 2;
@@ -334,6 +347,9 @@ export function imageBuild<const N extends string, const K extends string = neve
           ...(def.registryAuth && isConfigRef(def.registryAuth) ? { registryAuth: recordConfigRefs(def.registryAuth) } : {}),
           ...(def.insecureRegistry !== undefined && def.insecureRegistry !== false ? { insecureRegistry: recordConfigRefs(def.insecureRegistry) } : {}),
           ...(def.enabled !== undefined ? { enabled: recordConfigRefs(def.enabled) } : {}),
+          ...(def.snapshotMode !== undefined && def.snapshotMode !== DEFAULT_SNAPSHOT_MODE ? { snapshotMode: def.snapshotMode } : {}),
+          ...(def.useNewRun === false ? { useNewRun: false } : {}),
+          ...(def.compressedCaching === true ? { compressedCaching: true } : {}),
         };
       },
       async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
@@ -366,7 +382,7 @@ export function imageBuild<const N extends string, const K extends string = neve
           }
         }
 
-        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: d.cacheRepo as string | undefined });
+        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: d.cacheRepo as string | undefined }, insecure ? [host] : []);
         await ctx.exec(["mkdir", "-p", KANIKO_CONTEXT]);
         await ctx.exec(["cp", "-r", `${tree}/.`, KANIKO_CONTEXT]);
         const kanikoContext = context ? `${KANIKO_CONTEXT}/${context}` : KANIKO_CONTEXT;
@@ -390,6 +406,9 @@ export function imageBuild<const N extends string, const K extends string = neve
           `--digest-file=${digestPath}`,
           `--destination=${repository}:${tag}`,
           ...(insecure ? ["--insecure", `--insecure-registry=${host}`] : []),
+          `--snapshot-mode=${def.snapshotMode ?? DEFAULT_SNAPSHOT_MODE}`,
+          ...((def.useNewRun ?? true) ? ["--use-new-run"] : []),
+          `--compressed-caching=${def.compressedCaching ?? false}`,
           ...(caches.cacheRepo ? ["--cache=true", `--cache-repo=${caches.cacheRepo}`, "--skip-push-permission-check"] : []),
           ...Object.entries(caches.registryMap).map(([from, to]) => `--registry-map=${from}=${to}`),
         ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });

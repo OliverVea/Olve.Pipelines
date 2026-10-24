@@ -71,7 +71,7 @@ stringData:
   rpc-secret: "0000000000000000000000000000000000000000000000000000000000000003"
 ---
 # Pods resolve the compose registry by the same name k3s pulls from (registries.yaml), so kaniko in a
-# step pod pushes to registry:5000 and the node pulls registry:5000/... back.
+# step pod pushes to registry:5000 and the node pulls registry:5000/... back; and the compose deployer.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -82,5 +82,11 @@ data:
     registry:53 {
       hosts {
         172.29.80.201 registry
+      }
+    }
+  deployer.server: |
+    deployer:53 {
+      hosts {
+        172.29.80.202 deployer
       }
     }

@@ -126,10 +126,31 @@ services:
     volumes:
       - ./compose/registry.htpasswd:/auth/htpasswd:ro
       - registry-data:/var/lib/registry
+    # The Docker daemon pulls self-deployed images from here: localhost registries need no TLS.
+    ports:
+      - "127.0.0.1:5001:5000"
     # Fixed, like Garage: step pods resolve `registry` to it (coredns-custom in compose/k3s-selfdeploy.yaml).
     networks:
       default:
         ipv4_address: 172.29.80.201
+
+  # The only service with the Docker socket: recreates a compose service with a new image when the
+  # self-deploy pipeline asks (POST /v1/deploy), and rolls back if it doesn't come up healthy.
+  deployer:
+    build: ./compose/deployer
+    restart: unless-stopped
+    environment:
+      DEPLOYER_TOKEN: "${DEPLOYER_TOKEN:-local-deployer}"
+      DEPLOYER_PROJECT: olve-pipelines-local
+      DEPLOYER_SERVICES: '{"pipelines": {"health": "http://edge:${PIPELINES_LOCAL_PORT:-5080}/api/ready", "healthTimeoutSeconds": 180}}'
+      DEPLOYER_REGISTRY_ALIASES: '{"registry:5000": "localhost:5001"}'
+      DEPLOYER_REGISTRY_AUTH: '{"localhost:5001": {"username": "local", "password": "local-registry"}}'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Step pods reach it by name (coredns-custom), so its address is fixed.
+    networks:
+      default:
+        ipv4_address: 172.29.80.202
 
   # One-shot: build harness/base with kaniko and push it to the local registry.
   harness-build:

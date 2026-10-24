@@ -1,0 +1,61 @@
+# Opt-in variant of compose/selfdeploy.config.yaml, for testing the helm chart: Olve.Pipelines deploys
+# copies of itself into two namespaces of the compose k3s (selfdeploy-beta, selfdeploy-prod), in-cluster,
+# as the step ServiceAccount olve-deployer (compose/k3s-selfdeploy.yaml). Images go to the compose
+# registry; nothing is published to npm or ghcr.
+#
+#   pl config set "Olve.Pipelines v2" -f compose/selfdeploy-incluster.config.yaml
+#   printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
+
+target:
+  beta:
+    kind: inCluster
+    namespace: selfdeploy-beta
+    values: [values-minimal.yaml]
+    set:
+      # Each deployed copy has its own Garage, in its own namespace.
+      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
+      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-beta.svc.cluster.local:3900
+      config.Kubernetes__Namespace: selfdeploy-beta
+      config.Kubernetes__RuntimeClassName: ""
+      config.Webhooks__PublicBaseUrl: ""
+      garage.metaStorage: 1Gi
+      garage.dataStorage: 2Gi
+  prod:
+    kind: inCluster
+    namespace: selfdeploy-prod
+    values: [values-minimal.yaml]
+    set:
+      config.Storage__Endpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
+      config.Storage__InClusterEndpoint: http://olve-pipelines-garage.selfdeploy-prod.svc.cluster.local:3900
+      config.Kubernetes__Namespace: selfdeploy-prod
+      config.Kubernetes__RuntimeClassName: ""
+      config.Webhooks__PublicBaseUrl: ""
+      garage.metaStorage: 1Gi
+      garage.dataStorage: 2Gi
+
+auth:
+  mode: none
+
+telemetry:
+  exporter: none
+
+publish:
+  server:
+    repository: registry:5000/olve-pipelines
+    cacheRepo: registry:5000/olve-pipelines/cache
+    insecure: true
+    registryMap: {}
+    auth:
+      username: local
+      password: { secret: REGISTRY_PASSWORD }
+  harness:
+    # build-harness pushes it here; the deploys set it as the deployed copies' step-pod init image.
+    repository: registry:5000/olve-pipelines-harness-base
+    insecure: true
+    auth:
+      username: local
+      password: { secret: REGISTRY_PASSWORD }
+  npm:
+    enabled: false
+  cli:
+    enabled: true

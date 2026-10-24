@@ -2,7 +2,7 @@
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
 import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
-import { AUTH, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
+import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
 export * from "./config";
@@ -126,7 +126,7 @@ export const betaTest = step({
   description: "Smoke-tests the freshly deployed beta: readiness, the API, the frontend bundle, the error model and SSE.",
   image: "alpine:3.22",
   input: { release: HelmRelease },
-  config: [TARGET, AUTH],
+  config: [AUTH],
   timeoutSeconds: 180,
 });
 
@@ -143,7 +143,7 @@ export const promote = step({
 
 export default pipeline({
   name: "Olve.Pipelines v2",
-  description: "Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta and smoke-test it; deploy prod; promote the same artifacts. deployTo=beta stops after beta.",
+  description: "Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (and smoke-test a helm beta); deploy prod; promote the same artifacts. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.",
   input: M.DeployRequest,
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
@@ -151,16 +151,24 @@ export default pipeline({
   .stage(buildServer, buildHarness, test, frontendLint, buildSdk, buildCli)
   .stage([publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })], publishSdk, publishCli)
   .select(TARGET.beta, {
-    ssh: (p, beta) => p.stage([
-      steps.helmDeployOverSsh({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, sshKey: SSH_PRIVATE_KEY, ...deployOptions(beta) }),
-      from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+    ssh: (p, beta) => p
+      .stage([
+        steps.helmDeployOverSsh({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, sshKey: SSH_PRIVATE_KEY, ...deployOptions(beta) }),
+        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+      ])
+      .stage(betaTest),
+    inCluster: (p, beta) => p
+      .stage([
+        steps.helmDeployInCluster({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, ...deployOptions(beta) }),
+        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+      ])
+      .stage(betaTest),
+    compose: (p, beta) => p.stage([
+      steps.composeDeploy({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, token: DEPLOYER_TOKEN, timeoutSeconds: 900 }),
+      from => ({ image: from["build-server"] }),
     ]),
-    inCluster: (p, beta) => p.stage([
-      steps.helmDeployInCluster({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, ...deployOptions(beta) }),
-      from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
-    ]),
+    none: p => p,
   })
-  .stage(betaTest)
   .when({ deployTo: "prod" }, p => p
     .select(TARGET.prod, {
       ssh: (q, prod) => q.stage([
@@ -170,6 +178,10 @@ export default pipeline({
       inCluster: (q, prod) => q.stage([
         steps.helmDeployInCluster({ name: "deploy-prod", description: describeDeploy("prod"), target: prod, ...deployOptions(prod) }),
         from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+      ]),
+      compose: (q, prod) => q.stage([
+        steps.composeDeploy({ name: "deploy-prod", description: describeDeploy("prod"), target: prod, token: DEPLOYER_TOKEN, timeoutSeconds: 900 }),
+        from => ({ image: from["build-server"] }),
       ]),
     })
     .stage([promote, from => ({ server: from["build-server"], harness: from["build-harness"], sdk: from["publish-sdk"] })]));

@@ -132,7 +132,7 @@ a step only one pipeline needs stays a custom step there.
 |---|---|---|---|
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?`; or the target form: `target` (an ssh `helmTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`; or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
@@ -169,8 +169,12 @@ config are reserved.
   release; `rolloutTimeoutSeconds`, default 120), and with `healthUrl` GETs it until 2xx (5 × 5 s, or
   `{ url, attempts, delaySeconds }`). `images` maps step input keys to values prefixes (default
   `{ image: "image" }`). **`images: {}` deploys the chart alone** (no image inputs or flags, and no
-  rollout wait unless `deployments` names one; `HelmRelease.image` is left out). Two images of one
-  chart:
+  rollout wait unless `deployments` names one; `HelmRelease.image` is left out). `dependencies: true`
+  pulls the charts `Chart.yaml` lists into the chart's `charts/` on the host before installing
+  (`helm pull`; http(s) and `oci://` repositories), for a chart whose `charts/` isn't committed.
+  `helmWait: true` passes `helm --wait` (helm waits for all of the release's resources, within
+  `rolloutTimeoutSeconds`) and `atomic: true` `helm --atomic` (the same, and a failed upgrade is rolled
+  back); with either, `deployments` defaults to none. Two images of one chart:
 
   ```ts
   export const deployBeta = steps.helmDeployOverSsh({

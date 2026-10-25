@@ -733,6 +733,35 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
     expect(sshCmd(g.calls)[2]).toBe("kubectl -n apps rollout status deploy/authentik-server --timeout=120s");
   });
 
+  test("dependencies: Chart.yaml's charts are pulled on the host; atomic: helm waits and rolls back, no rollout waits", async () => {
+    const f = fakes();
+    writeFileSync(join(f.tree, "helm/Chart.yaml"), [
+      "name: edge", "version: 0.1.0", "dependencies:",
+      "  - name: cert-manager", '    version: "1.21.0"', "    repository: https://charts.jetstack.io", "    condition: cert-manager.enabled",
+      "  - name: tools", "    version: 2.0.0", "    repository: oci://registry.example/charts/",
+    ].join("\n"));
+    const step = steps.helmDeployOverSsh({
+      name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "edge", namespace: "apps", chart: "helm",
+      images: {}, dependencies: true, atomic: true, rolloutTimeoutSeconds: 600,
+    });
+    expect(settingsOf(step)).toMatchObject({ dependencies: true, atomic: true });
+    expect(await testHandler(step, { source }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx })).toMatchObject({ status: "succeeded" });
+    const remote = sshCmd(f.calls);
+    expect(remote.slice(1, 4)).toEqual([
+      "mkdir -p /tmp/edge-helm-apps/charts",
+      "helm pull cert-manager --repo https://charts.jetstack.io --version 1.21.0 --destination /tmp/edge-helm-apps/charts",
+      "helm pull oci://registry.example/charts/tools --version 2.0.0 --destination /tmp/edge-helm-apps/charts",
+    ]);
+    expect(remote[4]).toContain("helm upgrade --install edge . -n apps --atomic --timeout=600s");
+    expect(remote).toHaveLength(5);
+
+    const g = fakes();
+    writeFileSync(join(g.tree, "helm/Chart.yaml"), "name: x\nversion: 0.1.0\ndependencies:\n  - name: local\n    version: 1.0.0\n    repository: file://../local\n");
+    const bad = await testHandler(steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "x", namespace: "n", chart: "helm", images: {}, dependencies: true, helmWait: true }), { source }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: g.ctx });
+    if (bad.status !== "failed") throw new Error("expected failure");
+    expect(bad.error.message).toContain("an http(s) or oci repository");
+  });
+
   test("bad image config is a definition error", () => {
     expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", deployments: [] })).toThrow("deployments must not be empty");
   });

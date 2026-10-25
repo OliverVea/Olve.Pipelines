@@ -3,7 +3,7 @@
 //
 // Ported from v1's olve-lib.sh (olve_ssh_host, olve_image_import, olve_helm_deploy) and
 // deploy-beta.sh (rollout wait + health loop); the footguns are kept as comments below.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Ctx } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
@@ -86,10 +86,20 @@ export interface HelmDeployOverSshDef<
    * next to tarball `images`.
    */
   imageRefs?: Rf & { readonly source?: never };
-  /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name, or none without images. */
+  /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name, or none without images or with helm's wait. */
   deployments?: readonly string[];
-  /** Per rollout (`kubectl rollout status --timeout`). Default 120. */
+  /** Per rollout (`kubectl rollout status --timeout`), or for helm's own wait. Default 120. */
   rolloutTimeoutSeconds?: number;
+  /**
+   * Pull the dependencies `Chart.yaml` lists (`charts/` is usually not committed) into the chart on the
+   * host before installing: `helm pull <name> --repo <repository> --version <version>`, or the `oci://`
+   * reference. Default false.
+   */
+  dependencies?: boolean;
+  /** `helm upgrade --wait`: helm waits for all of the release's resources to be ready. Default false. */
+  helmWait?: boolean;
+  /** `helm upgrade --atomic`: wait like `helmWait`, and roll back when the upgrade fails. Default false. */
+  atomic?: boolean;
   /** After the rollouts, GET this URL until it returns 2xx (`httpHealthCheck`: 5 × 5 s unless given), or fail the step. */
   healthUrl?: Configurable<string> | ({ url: Configurable<string> } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
   timeoutSeconds?: number;
@@ -143,13 +153,43 @@ export function helmFlags(o: HelmFlagOptions): string[] {
 }
 
 /** Remote `helm upgrade --install`, run from inside the copied chart directory. */
-export function helmUpgradeCommand(o: HelmFlagOptions & { remoteChart: string; release: string; namespace: string }): string {
+export function helmUpgradeCommand(o: HelmFlagOptions & { remoteChart: string; release: string; namespace: string; wait?: HelmWait }): string {
   const flags = helmFlags(o);
+  const wait = o.wait ? [o.wait.atomic ? "--atomic" : "--wait", `--timeout=${o.wait.timeoutSeconds}s`] : [];
   return [
     `cd ${shq(o.remoteChart)}`,
-    ["helm", "upgrade", "--install", o.release, ".", "-n", o.namespace, ...flags].map(shq).join(" "),
+    ["helm", "upgrade", "--install", o.release, ".", "-n", o.namespace, ...flags, ...wait].map(shq).join(" "),
     `cd / && rm -rf ${shq(o.remoteChart)}`,
   ].join(" && ");
+}
+
+/** helm's own wait (`--wait`, or `--atomic` to roll back on failure). */
+export interface HelmWait {
+  atomic: boolean;
+  timeoutSeconds: number;
+}
+
+/** A dependency from `Chart.yaml`. */
+export interface ChartDependency {
+  name: string;
+  version: string;
+  repository: string;
+}
+
+/** The dependencies `<chartDir>/Chart.yaml` lists, checked to be pullable (an http(s) or oci repository). */
+export function chartDependencies(chartDir: string): ChartDependency[] {
+  const chart = Bun.YAML.parse(readFileSync(join(chartDir, "Chart.yaml"), "utf8")) as { dependencies?: Partial<ChartDependency>[] } | null;
+  return (chart?.dependencies ?? []).map((d) => {
+    if (!d.name || !d.version || !d.repository || !/^(https?|oci):\/\//.test(d.repository))
+      throw new Error(`chart dependency ${JSON.stringify(d)}: needs a name, a version and an http(s) or oci repository`);
+    return { name: d.name, version: d.version, repository: d.repository };
+  });
+}
+
+/** The remote `helm pull` of a dependency into `<remoteChart>/charts`. */
+export function helmPullCommand(dep: ChartDependency, remoteChart: string): string {
+  const ref = dep.repository.startsWith("oci://") ? [`${dep.repository.replace(/\/+$/, "")}/${dep.name}`] : [dep.name, "--repo", dep.repository];
+  return ["helm", "pull", ...ref, "--version", dep.version, "--destination", `${remoteChart}/charts`].map(shq).join(" ");
 }
 
 /** One image to get onto the host before the upgrade. */
@@ -177,6 +217,8 @@ export async function deployOverSsh(
     flags: HelmFlagOptions;
     deployments: readonly string[];
     rolloutTimeoutSeconds: number;
+    dependencies?: readonly ChartDependency[];
+    wait?: HelmWait;
   },
 ): Promise<void> {
   const ssh = await sshSession(ctx, { host: o.host, key: o.key });
@@ -195,7 +237,12 @@ export async function deployOverSsh(
   ctx.log("helm upgrade", { release: o.release, namespace: o.namespace, host: o.host });
   await ssh.run(`rm -rf ${shq(remoteChart)}`);
   await ssh.copy(o.chartDir, remoteChart);
-  await ssh.run(helmUpgradeCommand({ ...o.flags, remoteChart, release: o.release, namespace: o.namespace }));
+  if (o.dependencies?.length) await ssh.run(`mkdir -p ${shq(`${remoteChart}/charts`)}`);
+  for (const dep of o.dependencies ?? []) {
+    ctx.log("pulling chart dependency", { chart: `${dep.name}@${dep.version}`, repository: dep.repository });
+    await ssh.run(helmPullCommand(dep, remoteChart));
+  }
+  await ssh.run(helmUpgradeCommand({ ...o.flags, remoteChart, release: o.release, namespace: o.namespace, ...(o.wait ? { wait: o.wait } : {}) }));
   for (const d of o.deployments) {
     const target = d.includes("/") ? d : `deploy/${d}`;
     ctx.log("waiting for rollout", { deployment: target });
@@ -239,6 +286,7 @@ function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any,
   const imageEntries = Object.entries(images);
   const fromRegistry = def.fromRegistry === true;
   const rolloutTimeout = def.rolloutTimeoutSeconds ?? DEFAULT_ROLLOUT_TIMEOUT_SECONDS;
+  const wait: HelmWait | undefined = def.atomic || def.helmWait ? { atomic: def.atomic === true, timeoutSeconds: rolloutTimeout } : undefined;
   if ("source" in images) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
   if (def.deployments?.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': deployments must not be empty`);
   const imageRefs: Record<string, string> = def.imageRefs ?? {};
@@ -276,6 +324,8 @@ function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any,
       ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
       ...(def.deployments ? { deployments: [...def.deployments] } : {}),
       ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
+      ...(def.dependencies ? { dependencies: true } : {}),
+      ...(def.atomic ? { atomic: true } : def.helmWait ? { helmWait: true } : {}),
       ...(def.healthUrl !== undefined ? { healthUrl: def.healthUrl } : {}),
     },
   });
@@ -297,7 +347,9 @@ function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any,
     await deployOverSsh(ctx, {
       host: d.host, key: ctx.secrets[def.sshKey.name]!, chartDir, release: d.release, namespace: d.namespace, hostImages,
       flags: { values: d.values, set: d.set, images: flags, imageRefs: refs },
-      deployments: def.deployments ?? (imageEntries.length ? [d.release] : []), rolloutTimeoutSeconds: rolloutTimeout,
+      deployments: def.deployments ?? (imageEntries.length && !wait ? [d.release] : []), rolloutTimeoutSeconds: rolloutTimeout,
+      ...(def.dependencies ? { dependencies: chartDependencies(chartDir) } : {}),
+      ...(wait ? { wait } : {}),
     });
     const health = typeof d.healthUrl === "string" ? { url: d.healthUrl } : d.healthUrl;
     if (health) await httpHealthCheck(ctx, health.url, { attempts: health.attempts, delaySeconds: health.delaySeconds });

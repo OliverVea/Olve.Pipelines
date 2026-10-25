@@ -555,13 +555,28 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   `HTTP_HEALTH_DEFAULTS`, `NPM_REGISTRY` no longer exported. Single-use helpers moved to the deployer
   pipeline: `npmDistTag`/`npmHasVersion` (`.pipelines/npm.ts`), and `registryTag`/`registryDigest`
   replaced by `crane tag` / `crane digest` (its steps run in crane's image). Kept as self-hosting
-  surface: `composeDeploy`, `helmDeployInCluster`, `deployTarget`, `helmTarget`.
+  surface: `composeDeploy`, `helmDeployInCluster`, `deployTarget`. `helmTarget` was deleted (unused;
+  the SDK tests define their own helm-only union).
 - **For the remaining migrations**: `helmDeployOverSsh`/the target deploys take `images: {}` (the
   chart alone: Olve.Homelab, Olve.Authentik, crafty); without images nothing is waited on unless
   `deployments` names it, and `HelmRelease.image` is optional.
 - Manifests of all six pipelines (five repos + fixture) are identical before/after except
   `HelmRelease.image` and the hashes.
 - Open: a default `{repo, sha}` mapping for `gitHubSource` (every pipeline repeats the mapper).
+- **SDK 2.0.0-beta.9** (for Olve.Homelab and Olve.Authentik, whose charts vendor a subchart and
+  whose v1 deploys used helm's own wait): `helmDeployOverSsh` takes `dependencies: true` (`helm pull`
+  of each `Chart.yaml` dependency into the copied chart's `charts/` on the host: no `helm repo add`,
+  so no host state), `helmWait` (`--wait`) and `atomic` (`--atomic`, v1 Homelab's auto-rollback),
+  both with `--timeout=<rolloutTimeoutSeconds>s` and no default rollout waits. Checked on the host:
+  Homelab's chart rendered this way matches the live `olve-homelab-{beta,prod}` manifests.
+- **crafty migrated but held** (2026-10-25): pipeline `9c2e68d3-e6fa-4360-8f64-8a9b297f21dd` on v2
+  prod (public repo, no credentials; `SSH_PRIVATE_KEY` copied from v1, sha256 equal): source → check
+  (helm lint/template, pinned image) → deploy (`images: {}`, values-homelab) → verify (running image,
+  `/login` through the ingress). Crafty itself had been taken down (no release in `apps`, only the
+  `crafty-backups` PVC left), so `deploy` and `verify` are blocked on v2 and v1's `deploy`/`verify`
+  gates are blocked too; unblock both v2 steps to bring it back.
+- Gotcha: `pl-v1` and `pl` share `~/.pl`; a `pl-v1 login` replaces every v2 profile. Log `pl-v1` in
+  under a throwaway `HOME`.
 
 ### v2.2 — candidates
 

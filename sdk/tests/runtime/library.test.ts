@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkSpa, httpHealthCheck, implement, model, pipeline, secret, serviceUrl, steps, z, type AnyStep, type Ctx, type FileRef } from "../../src/index.ts";
 import { recordConfigRefs } from "../../src/core/config-refs.ts";
+import { SSH_CLIENT_INSTALL } from "../../src/library/ssh.ts";
 import { contentTagOf, dockerConfigJson, parseChallenge, reachableMirrors, registryUp, writeDockerConfig } from "../../src/library/image-build.ts";
 import { sha256File } from "../../src/util/hash.ts";
 import { dirEntries, writeTar } from "../../src/util/tar.ts";
@@ -573,7 +574,7 @@ describe("steps.helmDeployOverSsh", () => {
     const ssh = (remote: string) => ["ssh", ...o.split(" "), "oliver@bulwark-m2", remote];
     const remote = "/tmp/olve-pipelines-v2-helm-apps-beta";
     expect(f.calls).toEqual([
-      ["apk", "add", "--no-cache", "openssh-client"],
+      SSH_CLIENT_INSTALL,
       `ssh ${o} oliver@bulwark-m2 'sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load' < ${f.tar}`,
       ssh(`rm -rf ${remote}`),
       ["scp", ...o.split(" "), "-r", join(f.tree, "helm"), `oliver@bulwark-m2:${remote}`],

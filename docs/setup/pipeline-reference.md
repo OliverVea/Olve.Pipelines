@@ -217,7 +217,7 @@ config are reserved.
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
   `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
-  as `helmDeployOverSsh` uses it).
+  as `helmDeployOverSsh` uses it; installs openssh-client with apk or apt-get when the image has no `ssh`).
 
 Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#library-steps).
 

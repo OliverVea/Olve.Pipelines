@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { bearer, hmacSha256, model, optional, pipeline, secret, step, steps, z, Source } from "../../src/index.ts";
+import { bearer, hmacSha256, implement, model, optional, pipeline, secret, step, steps, z, Source } from "../../src/index.ts";
 import { describePipeline, DescribeError } from "../../src/describe/describe.ts";
 import { Manifest, manifestJsonSchema } from "../../src/describe/manifest-schema.ts";
 import { canonicalJson } from "../../src/util/canonical.ts";
@@ -87,10 +87,7 @@ describe("example manifest", async () => {
     expect(req.output.required).toEqual(["repo", "sha", "deployTo", "publishCli"]);
     expect(JSON.stringify(m)).not.toContain("$schema");
   });
-  test("library step config carries a content hash, never a path", () => {
-    const t = (m.stages as any[])[1].steps[1];
-    expect(t.kind).toBe("script");
-    expect(t.config.scriptSha256).toMatch(/^sha256:[0-9a-f]{64}$/);
+  test("the manifest holds no paths", () => {
     expect(JSON.stringify(m)).not.toMatch(/scripts\/|\$bunfs|\/home\//);
   });
   test("secrets sorted, harness included", () => {
@@ -118,10 +115,12 @@ describe("describe-time checks", () => {
     expect(problems(base().stage(make).when({ env: "prod" }, (q) => q.stage(use)))).toEqual([]);
   });
   test("custom step without handler", () => expectProblem(base().stage(make), /step 'make' has no handler/, []));
-  test("handler file without step / for a library step", () => {
+  test("handler file without step / for a step that carries its implementation; a carried step needs a kind", () => {
     expectProblem(base().stage(make), /implements step 'ghost', which is not in the pipeline/, ["make", "ghost"]);
-    const lib = steps.script({ name: "s", description: "", image: "alpine", script: join(EXAMPLE, "scripts/test.sh") });
-    expectProblem(base().stage(lib), /implements 's', a library step/, ["s"]);
+    const lib = implement(step({ name: "s", description: "", kind: "lib", image: "alpine" }), () => {});
+    expectProblem(base().stage(lib), /implements 's', a lib step that carries its own implementation/, ["s"]);
+    const custom = implement(step({ name: "s", description: "", image: "alpine" }), () => {});
+    expectProblem(base().stage(custom), /carries its implementation, so it needs a kind/, []);
   });
   test("two schemas under one model name", () => {
     const Art2 = model("Art", z.object({ other: z.number() }));

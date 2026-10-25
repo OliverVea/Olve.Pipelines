@@ -382,7 +382,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/Json"
           },
-          "description": "Library-step configuration (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries.",
+          "description": "The step's settings (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries.",
           "propertyNames": {
             "type": "string"
           },
@@ -402,7 +402,7 @@
           "type": "string"
         },
         "handlerHash": {
-          "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for library steps kind + config + harness.",
+          "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for a step that carries its implementation kind + config + harness + the hash of the code of its kind.",
           "pattern": "^sha256:[0-9a-f]{64}$",
           "type": "string"
         },
@@ -432,7 +432,7 @@
           "type": "object"
         },
         "kind": {
-          "description": "'custom' = handlers/<name>.ts; others are SDK library steps. A label: the service accepts any kind.",
+          "description": "'custom' = the handler is a handlers/*.ts file; any other kind is a step that carries its implementation (an SDK or package step). A label: the service accepts any kind.",
           "minLength": 1,
           "type": "string"
         },

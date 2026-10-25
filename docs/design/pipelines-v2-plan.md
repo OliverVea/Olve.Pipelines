@@ -525,6 +525,44 @@ kaniko unpacking and cached-layer extraction even when fully cached, then the Na
   parallel; `publish-cli` joins them. `publish-images` moved next to `deploy-beta`, so the extra
   crane stage costs no extra stage. `publish.server.cacheRepo` is gone.
 
+### One step mechanism (2026-10-25, SDK 2.0.0-beta.8)
+
+User: library steps should be useful to the other pipelines, single-use pieces stay custom steps, and
+library steps are defined with exactly the mechanism a pipeline uses, so steps can come from packages.
+
+- **Mechanism**: `step()` takes `kind` (default `custom`) and `settings`; `implement(step, handler)`
+  returns the step with its handler (an `Implementation` is itself a step) and can be staged
+  directly. Library steps are factories returning `implement(step({ kind, settings, … }), …)`;
+  `makeStep`, `builtin`, `LibraryStep`, `manifestConfig` and the closed `StepKind` union are gone.
+  Dispatch everywhere (harness, describe, `testHandler`) is "does the step carry an
+  implementation", not `kind !== "custom"`. `settings` replace `manifestConfig` + `configFrom`:
+  `step()` collects the config entries they reference, describe records them as the step's
+  manifest `config`. New public API: `resolveConfigRefs`, `isConfigRef`, `isLiteral`, `Resolved`,
+  `LiteralName`, `Simplify`. `tests/runtime/library-public.test.ts` fails when a library module
+  imports a non-public name from outside `src/library` (`src/util` excepted: tar/hash helpers, not
+  step mechanics).
+- **Identity**: library steps used to hash `kind + config + harness`, correct only because `sdkHash`
+  covers the code. Now `step()` and `implement()` record their caller's module from the stack; the
+  build bundles those modules per kind (contract files excluded, SDK external, like handlers) into
+  `kindHashes`, which describe folds into `handlerHash` (`code`). JavaScriptCore elides tail-call
+  frames, so `return implement(…)` records a module further up (often `pipeline.ts`, dropped as a
+  contract file); recording `step()` too, which is never in tail position in a factory, keeps the
+  defining module. Over-inclusion only adds hashing. A carried step with no non-contract module is a
+  build error; one without a kind is a describe error. No manifest or service change.
+- **Audit** (all five v2 pipelines): `steps.script` had no user, deleted with `inputEnvName`; unused
+  `imageBuild` options `cacheRepo`, `dockerfile`, `snapshotMode`, `useNewRun`, `compressedCaching`
+  deleted (kaniko keeps `--snapshot-mode=redo --use-new-run --compressed-caching=false`); `shq`,
+  `HTTP_HEALTH_DEFAULTS`, `NPM_REGISTRY` no longer exported. Single-use helpers moved to the deployer
+  pipeline: `npmDistTag`/`npmHasVersion` (`.pipelines/npm.ts`), and `registryTag`/`registryDigest`
+  replaced by `crane tag` / `crane digest` (its steps run in crane's image). Kept as self-hosting
+  surface: `composeDeploy`, `helmDeployInCluster`, `deployTarget`, `helmTarget`.
+- **For the remaining migrations**: `helmDeployOverSsh`/the target deploys take `images: {}` (the
+  chart alone: Olve.Homelab, Olve.Authentik, crafty); without images nothing is waited on unless
+  `deployments` names it, and `HelmRelease.image` is optional.
+- Manifests of all six pipelines (five repos + fixture) are identical before/after except
+  `HelmRelease.image` and the hashes.
+- Open: a default `{repo, sha}` mapping for `gitHubSource` (every pipeline repeats the mapper).
+
 ### v2.2 — candidates
 
 - **Spec-first API (TypeSpec)**, as in Olve.AgentRuntimeManager: the HTTP API is declared in `.tsp`

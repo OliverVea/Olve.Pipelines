@@ -1,5 +1,5 @@
 // npm registry calls for release steps (no npm CLI needed in the image).
-import type { Ctx } from "../ctx/types.ts";
+import type { Ctx } from "@olivervea/pipelines";
 
 export const NPM_REGISTRY = "https://registry.npmjs.org";
 

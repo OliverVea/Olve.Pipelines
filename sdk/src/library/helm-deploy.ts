@@ -6,12 +6,13 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { Ctx } from "../ctx/types.ts";
 import type { Configurable } from "../core/config.ts";
-import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
+import { resolveConfigRefs } from "../core/config-refs.ts";
+import { implement, type Implementation } from "../core/handlers.ts";
 import type { FileRef } from "../core/models.ts";
 import { optional } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
 import { secretRef } from "../core/config.ts";
-import { makeStep, type LibraryStep, type LiteralName, type Step, type StepKind } from "../core/steps.ts";
+import { step, type AnyStep, type LiteralName, type Step } from "../core/steps.ts";
 import type { Simplify } from "../core/types.ts";
 import { serviceUrl } from "./checks.ts";
 import { chartDirectory, deployOverSsh, DEFAULT_ROLLOUT_TIMEOUT_SECONDS, HELM_DEPLOY_IMAGE, helmFlags, type HelmImageFlags, type HelmImageRefFlags } from "./helm-deploy-ssh.ts";
@@ -117,7 +118,8 @@ export interface HelmTargetDeployDef<N extends string, Im extends Record<string,
   inlineValues?: readonly Readonly<Record<string, unknown>>[];
   /**
    * The images to deploy: step input key → the chart's values prefix. Each input is a `PushedImage`;
-   * the step sets `<prefix>.repository`, `.tag`, `.digest` and `.pullPolicy=IfNotPresent`.
+   * the step sets `<prefix>.repository`, `.tag`, `.digest` and `.pullPolicy=IfNotPresent`. `{}` deploys
+   * the chart alone.
    */
   images?: Im & { readonly source?: never };
   /**
@@ -144,7 +146,7 @@ export interface HelmDeploySshTargetDef<N extends string, K extends string, Im e
   target: Configurable<SshTargetValue>;
   /** Private key for the target's host. */
   sshKey: Secret<K>;
-  /** Rollouts to wait for (`deploy/<name>` for a bare name). Default: the release name. */
+  /** Rollouts to wait for (`deploy/<name>` for a bare name). Default: the release name, or none without images. */
   deployments?: readonly string[];
 }
 
@@ -157,12 +159,12 @@ export function helmDeployInCluster<
   const N extends string,
   const Im extends Record<string, string> = DefaultImages,
   const Rf extends Record<string, string> = {},
->(def: HelmDeployInClusterDef<N, Im, Rf>): Step<N, HelmTargetDeployInput<Im, Rf>, typeof HelmRelease, never> & LibraryStep {
+>(def: HelmDeployInClusterDef<N, Im, Rf>): Implementation<Step<N, HelmTargetDeployInput<Im, Rf>, typeof HelmRelease, never>> {
   return targetDeploy("helmDeployInCluster", def as unknown as AnyTargetDef, undefined) as never;
 }
 
 /** The `target` form of `steps.helmDeployOverSsh`: an ssh target from config, registry images by digest. */
-export function helmDeployOverSshTarget(def: HelmDeploySshTargetDef<string, string, Record<string, string>, Record<string, string>>): Step & LibraryStep {
+export function helmDeployOverSshTarget(def: HelmDeploySshTargetDef<string, string, Record<string, string>, Record<string, string>>): Implementation {
   return targetDeploy("helmDeployOverSsh", def as unknown as AnyTargetDef, def.sshKey, def.deployments) as never;
 }
 
@@ -179,13 +181,12 @@ interface AnyTargetDef {
   timeoutSeconds?: number;
 }
 
-function targetDeploy(kind: StepKind, def: AnyTargetDef, sshKey: Secret | undefined, deployments?: readonly string[]): Step & LibraryStep {
+function targetDeploy(kind: "helmDeployInCluster" | "helmDeployOverSsh", def: AnyTargetDef, sshKey: Secret | undefined, deployments?: readonly string[]): Implementation {
   const images: Record<string, string> = { ...(def.images ?? { image: "image" }) };
   const imageEntries = Object.entries(images);
   const imageRefs: Record<string, string> = { ...(def.imageRefs ?? {}) };
   const refEntries = Object.entries(imageRefs);
   const rolloutTimeout = def.rolloutTimeoutSeconds ?? DEFAULT_ROLLOUT_TIMEOUT_SECONDS;
-  if (imageEntries.length === 0) throw new Error(`${kind} '${def.name}': images must not be empty`);
   if ("source" in images || "source" in imageRefs) throw new Error(`${kind} '${def.name}': 'source' can't be an image input`);
   for (const [key] of refEntries) if (key in images) throw new Error(`${kind} '${def.name}': '${key}' is both in images and imageRefs`);
   if (deployments?.length === 0) throw new Error(`${kind} '${def.name}': deployments must not be empty`);
@@ -198,71 +199,73 @@ function targetDeploy(kind: StepKind, def: AnyTargetDef, sshKey: Secret | undefi
   };
   const configurable = { target: def.target, inlineValues: def.inlineValues ?? [] };
 
-  return makeStep(
+  const contract = step({
+    name: def.name,
+    description: def.description,
     kind,
-    {
-      name: def.name, description: def.description, image: inCluster ? HELM_IMAGE : HELM_DEPLOY_IMAGE, input, output: HelmRelease,
-      secrets: sshKey ? [sshKey] : [], timeoutSeconds: def.timeoutSeconds, ...(inCluster ? { clusterAccess: true } : {}),
+    image: inCluster ? HELM_IMAGE : HELM_DEPLOY_IMAGE,
+    input,
+    output: HelmRelease,
+    secrets: sshKey ? [sshKey] : [],
+    timeoutSeconds: def.timeoutSeconds,
+    ...(inCluster ? { clusterAccess: true } : {}),
+    settings: {
+      target: def.target,
+      ...(sshKey ? { sshKey: sshKey.name } : {}),
+      chart: def.chart,
+      ...(def.inlineValues?.length ? { inlineValues: def.inlineValues } : {}),
+      images: { ...images },
+      ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
+      ...(deployments ? { deployments: [...deployments] } : {}),
+      ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
+      ...(def.healthPath !== undefined ? { healthPath: def.healthPath } : {}),
     },
-    {
-      manifestConfig: () => ({
-        target: recordConfigRefs(def.target),
-        ...(sshKey ? { sshKey: sshKey.name } : {}),
-        chart: def.chart,
-        ...(def.inlineValues?.length ? { inlineValues: recordConfigRefs(def.inlineValues) } : {}),
-        images: { ...images },
-        ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
-        ...(deployments ? { deployments: [...deployments] } : {}),
-        ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
-        ...(def.healthPath !== undefined ? { healthPath: def.healthPath } : {}),
-      }),
-      async run(input: Record<string, { repository: string; tag: string; digest: string } | undefined> & { source: { tree: FileRef } }, ctx: Ctx) {
-        const { target, inlineValues } = resolveConfigRefs(configurable, ctx.config ?? {}) as { target: HelmTargetValue; inlineValues: Record<string, unknown>[] };
-        const want = inCluster ? "inCluster" : "ssh";
-        if (target?.kind !== want) throw new Error(`${kind} '${def.name}': the target is kind '${String(target?.kind)}', not '${want}'`);
-        const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
+  } as never) as AnyStep;
+  return implement(contract, async (stepInput, ctx: Ctx) => {
+    const input = stepInput as unknown as Record<string, { repository: string; tag: string; digest: string } | undefined> & { source: { tree: FileRef } };
+    const { target, inlineValues } = resolveConfigRefs(configurable, ctx.config ?? {}) as { target: HelmTargetValue; inlineValues: Record<string, unknown>[] };
+    const want = inCluster ? "inCluster" : "ssh";
+    if (target?.kind !== want) throw new Error(`${kind} '${def.name}': the target is kind '${String(target?.kind)}', not '${want}'`);
+    const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
 
-        const generated = inlineValues.map((values, i) => {
-          const file = `olve-values-${i}.json`;
-          writeFileSync(join(chartDir, file), JSON.stringify(values));
-          return file;
-        });
-        const flags: HelmImageFlags[] = imageEntries.map(([key, prefix]) => {
-          const image = input[key]!;
-          return { prefix, repository: image.repository, tag: image.tag, digest: image.digest, pullPolicy: "IfNotPresent" };
-        });
-        const refs: HelmImageRefFlags[] = refEntries.flatMap(([key, prefix]) => {
-          const image = input[key];
-          return image ? [{ prefix, repository: image.repository, tag: image.tag, digest: image.digest }] : [];
-        });
-        const helm = { values: [...target.values, ...generated], set: target.set, images: flags, imageRefs: refs };
-        const { release, namespace } = target;
+    const generated = inlineValues.map((values, i) => {
+      const file = `olve-values-${i}.json`;
+      writeFileSync(join(chartDir, file), JSON.stringify(values));
+      return file;
+    });
+    const flags: HelmImageFlags[] = imageEntries.map(([key, prefix]) => {
+      const image = input[key]!;
+      return { prefix, repository: image.repository, tag: image.tag, digest: image.digest, pullPolicy: "IfNotPresent" };
+    });
+    const refs: HelmImageRefFlags[] = refEntries.flatMap(([key, prefix]) => {
+      const image = input[key];
+      return image ? [{ prefix, repository: image.repository, tag: image.tag, digest: image.digest }] : [];
+    });
+    const helm = { values: [...target.values, ...generated], set: target.set, images: flags, imageRefs: refs };
+    const { release, namespace } = target;
 
-        if (target.kind === "ssh") {
-          const key = ctx.secrets[sshKey!.name];
-          if (!key) throw new Error(`secret ${sshKey!.name} (sshKey) is not set`);
-          await deployOverSsh(ctx, {
-            host: target.host, key, chartDir, release, namespace,
-            hostImages: flags.map((f) => ({ repository: f.repository, tag: f.tag, digest: f.digest })),
-            flags: helm, deployments: deployments ?? [release], rolloutTimeoutSeconds: rolloutTimeout,
-          });
-        } else {
-          if (!existsSync(SERVICE_ACCOUNT_TOKEN))
-            throw new Error(`no ServiceAccount token in the step pod: the instance grants no step ServiceAccount (Kubernetes:StepServiceAccount), so an inCluster target can't be deployed`);
-          const home = join(ctx.tmpDir, "helm-home");
-          ctx.log("helm upgrade", { release, namespace, images: flags.map((f) => `${f.repository}@${f.digest}`).join(" ") });
-          await ctx.exec(["helm", "upgrade", "--install", release, ".", "-n", namespace, ...helmFlags(helm), "--wait", `--timeout=${rolloutTimeout}s`], {
-            cwd: chartDir,
-            env: { HOME: home, HELM_CACHE_HOME: join(home, "cache"), HELM_CONFIG_HOME: join(home, "config"), HELM_DATA_HOME: join(home, "data") },
-          });
-        }
+    if (target.kind === "ssh") {
+      const key = ctx.secrets[sshKey!.name];
+      if (!key) throw new Error(`secret ${sshKey!.name} (sshKey) is not set`);
+      await deployOverSsh(ctx, {
+        host: target.host, key, chartDir, release, namespace,
+        hostImages: flags.map((f) => ({ repository: f.repository, tag: f.tag, digest: f.digest })),
+        flags: helm, deployments: deployments ?? (imageEntries.length ? [release] : []), rolloutTimeoutSeconds: rolloutTimeout,
+      });
+    } else {
+      if (!existsSync(SERVICE_ACCOUNT_TOKEN))
+        throw new Error(`no ServiceAccount token in the step pod: the instance grants no step ServiceAccount (Kubernetes:StepServiceAccount), so an inCluster target can't be deployed`);
+      const home = join(ctx.tmpDir, "helm-home");
+      ctx.log("helm upgrade", { release, namespace, images: flags.map((f) => `${f.repository}@${f.digest}`).join(" ") });
+      await ctx.exec(["helm", "upgrade", "--install", release, ".", "-n", namespace, ...helmFlags(helm), "--wait", `--timeout=${rolloutTimeout}s`], {
+        cwd: chartDir,
+        env: { HOME: home, HELM_CACHE_HOME: join(home, "cache"), HELM_CONFIG_HOME: join(home, "config"), HELM_DATA_HOME: join(home, "data") },
+      });
+    }
 
-        const url = (target.url ?? serviceUrl({ release, namespace })).replace(/\/+$/, "");
-        if (def.healthPath !== undefined) await httpHealthCheck(ctx, `${url}${def.healthPath}`, { attempts: 12, delaySeconds: 5 });
-        const main = flags[0]!;
-        return { release, namespace, image: `${main.repository}:${main.tag}@${main.digest}`, ...(target.url ? { url } : {}) };
-      },
-    },
-    configurable,
-  ) as never;
+    const url = (target.url ?? serviceUrl({ release, namespace })).replace(/\/+$/, "");
+    if (def.healthPath !== undefined) await httpHealthCheck(ctx, `${url}${def.healthPath}`, { attempts: 12, delaySeconds: 5 });
+    const main = flags[0];
+    return { release, namespace, ...(main ? { image: `${main.repository}:${main.tag}@${main.digest}` } : {}), ...(target.url ? { url } : {}) } as never;
+  }) as never;
 }

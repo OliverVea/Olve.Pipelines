@@ -6,7 +6,8 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { build } from "../../src/build/build.ts";
 import { readInterpreter, GLIBC_INTERP } from "../../src/build/elf.ts";
-import { handlerHashes } from "../../src/build/hashes.ts";
+import { handlerHashes, kindHashes } from "../../src/build/hashes.ts";
+import { model, pipeline, z } from "../../src/index.ts";
 import { harnessInfo, loadProject } from "../../src/build/project.ts";
 import { devMain } from "../../src/dev/cli.ts";
 import { EXIT } from "../../src/harness/exit.ts";
@@ -53,6 +54,29 @@ describe("handler hashes (contract files and SDK external, function-level granul
   test("edit contract files (pipeline.ts, models.ts) → no handler hash changes", async () => {
     expect(await changed((d) => edit(join(d, "pipeline.ts"), 'image: "alpine:latest",\n  input: { artifact: M.BuildArtifact },\n  output: M.BetaDeployment', 'image: "alpine:3.20",\n  input: { artifact: M.BuildArtifact },\n  output: M.BetaDeployment'))).toEqual([]);
     expect(await changed((d) => edit(join(d, "models.ts"), "failed: z.number().int() }", "failed: z.number().int(), skipped: z.number().optional() }"))).toEqual([]);
+  });
+});
+
+describe("kind hashes (steps that carry their implementation)", () => {
+  const TAG = `import { implement, model, step, z } from "@olivervea/pipelines";
+export const Tag = model("Tag", z.object({ tag: z.string() }));
+export const tagStep = (prefix: string) =>
+  implement(step({ name: "tag", description: "", kind: "tag", image: "alpine", output: Tag, settings: { prefix } }), (_i, ctx) => ({ tag: \`\${prefix}-\${ctx.run.number}\` }));
+`;
+  const kindsOf = async (body: string, prefix = "app") => {
+    const dir = copyExample(join(tmp("kinds"), "p"));
+    mkdirSync(join(dir, "steps"));
+    writeFileSync(join(dir, "steps/tag.ts"), body);
+    const { tagStep } = (await import(join(dir, "steps/tag.ts"))) as { tagStep: (p: string) => never };
+    const p = pipeline({ name: "k", input: model("KIn", z.object({ x: z.string() })) }).stage(tagStep(prefix));
+    return kindHashes(await loadProject(dir), p);
+  };
+  test("one hash per kind, from the module that implements it; the settings stay out of it", async () => {
+    const a = await kindsOf(TAG);
+    expect(Object.keys(a)).toEqual(["tag"]);
+    expect(await kindsOf(TAG, "other")).toEqual(a);
+    expect(await kindsOf(TAG + "// a comment\n")).toEqual(a);
+    expect((await kindsOf(TAG.replace("ctx.run.number", "ctx.run.attempt"))).tag).not.toBe(a.tag);
   });
 });
 

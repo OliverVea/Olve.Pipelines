@@ -2,7 +2,6 @@
 // Handlers are offline fakes so the SDK tests can build and run every step locally.
 import { pipeline, step, steps, secret, optional, z, Source, FailureContext, githubSignature } from "@olivervea/pipelines";
 import * as M from "./models";
-import testSh from "./scripts/test.sh" with { type: "file" };
 
 // ── secrets ───────────────────────────────────────────────────────────────────────────────────
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token (repo tarball, poll, CLI release).");
@@ -28,11 +27,10 @@ export const build = step({
   timeoutSeconds: 1800,
 });
 
-export const test = steps.script({
+export const test = step({
   name: "test",
   description: "Runs the unit tests.",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
-  script: testSh,
   input: { source: Source },
   output: M.TestReport,
 });

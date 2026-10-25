@@ -1,4 +1,5 @@
-import { implement, npmDistTag } from "@olivervea/pipelines";
+import { implement } from "@olivervea/pipelines";
+import { npmDistTag } from "../npm";
 import { promote } from "../pipeline";
 import { githubRelease } from "../github-release";
 import { releaseImage, tagImage } from "../registry";

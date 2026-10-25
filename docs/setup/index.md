@@ -89,17 +89,27 @@ export const Request = model("Request", z.object({
 
 ```ts
 // .pipelines/pipeline.ts
-import { pipeline, steps, Source } from "@olivervea/pipelines";
-import testSh from "./scripts/test.sh" with { type: "file" };
+import { pipeline, step, steps, Source } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
-export const test = steps.script({ name: "test", description: "Runs the tests.", image: "alpine:3.22", script: testSh, input: { source: Source } });
+export const test = step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } });
 
 export default pipeline({ name: "my-app", input: M.Request })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(test);
+```
+
+```ts
+// .pipelines/handlers/test.ts
+import { implement } from "@olivervea/pipelines";
+import { test } from "../pipeline";
+import testSh from "../scripts/test.sh" with { type: "file" };
+
+export default implement(test, async ({ source }, ctx) => {
+  await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
+});
 ```
 
 Then:

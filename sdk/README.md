@@ -15,7 +15,7 @@ sdk/
   src/index.ts            authoring API (`@olivervea/pipelines`)
   src/core/               models, secrets, config, steps, implement()
   src/builder/            pipeline builder (types + runtime records), Ref<T>
-  src/library/            library steps (script, gitHubSource, imageBuild, helmDeployOverSsh, helmDeployInCluster, composeDeploy), their exported helpers (httpHealthCheck, registryTag, npmDistTag) and SDK models
+  src/library/            library steps (gitHubSource, imageBuild, helmDeployOverSsh, helmDeployInCluster, composeDeploy), their exported helpers (httpHealthCheck, sshSession, checkSpa) and SDK models; public API only
   src/describe/           describe: manifest, checks, mapper recording + source analysis, manifest schema
   src/harness/            harness CLI modes, env contract, envelope, result upload (`@olivervea/pipelines/harness`)
   src/ctx/                the ctx handed to handlers
@@ -93,10 +93,6 @@ export const deployBeta = step({
   timeoutSeconds: 900,                         // optional
   retries: 1,                                  // optional: a failed attempt is retried (fresh pod) up to n times
 });
-
-import testSh from "./scripts/test.sh" with { type: "file" };
-export const test = steps.script({ name: "test", description: "Runs the tests.", image: "…", script: testSh, input: { source: Source }, output: TestReport,
-  env: { TAG: ({ source }, run) => `${run.version}-${source.sha.slice(0, 7)}` } });   // env values may be functions of the inputs
 ```
 
 Rules:
@@ -139,37 +135,26 @@ target: { host: deploy@box }
 - Handlers see `ctx.config` with the output view (defaults applied); a discriminated union narrows as usual.
 - `secretRef(S)` is a field whose value is `{ secret: "<S.name>" }`: it names a secret, never holds its value. The handler reads the value from `ctx.secrets`. A step that receives an entry containing a `secretRef` must declare that secret.
 - Config is per **run**: the run pins a config snapshot at start; continues and step reruns reuse it. Secrets are per attempt.
-- Library steps take **config references** in place of values: `host: TARGET.host`, `target: TARGET.beta`. A reference is a typed proxy (`ConfigRef<T>`, `T` = the field's output type; `Configurable<T> = T | ConfigRef<T>`), so a `number` field or an optional field can't go where a `string` is required. Fields named `kind`, `name`, `description` or `schema` (the entry's own properties) are reached through `$` (`TARGET.$.name`); `TARGET.$` and `TARGET` itself reference the whole entry. The step's `config` gets every referenced entry (`configEntries` in the manifest); `manifestConfig` records each reference as `{"$config": "<entry>.<path>"}` (field names must not contain `.`; literal keys starting with `$` are reserved); `run()` resolves them from `ctx.config` (defaults applied) before doing anything. `describe` and reconcile reject a reference to an entry the step doesn't receive or a field the entry doesn't have.
+- Library steps (and any step's `settings`) take **config references** in place of values: `host: TARGET.host`, `target: TARGET.beta`. A reference is a typed proxy (`ConfigRef<T>`, `T` = the field's output type; `Configurable<T> = T | ConfigRef<T>`), so a `number` field or an optional field can't go where a `string` is required. Fields named `kind`, `name`, `description` or `schema` (the entry's own properties) are reached through `$` (`TARGET.$.name`); `TARGET.$` and `TARGET` itself reference the whole entry. The step's `config` gets every entry referenced in its `settings` (`configEntries` in the manifest); the manifest records each reference as `{"$config": "<entry>.<path>"}` (field names must not contain `.`; literal keys starting with `$` are reserved); the handler resolves them with `resolveConfigRefs(value, ctx.config)` (defaults applied). `describe` and reconcile reject a reference to an entry the step doesn't receive or a field the entry doesn't have.
 - `clusterAccess: true` on a step asks for the instance's step ServiceAccount token (`Kubernetes:StepServiceAccount`; manifest `clusterAccess: true`, omitted otherwise). Without the instance setting the pod gets no token, like every step.
-
-**`steps.script` contract** (for the script):
-
-| Name | What it holds |
-|---|---|
-| `$OLVE_INPUT` | Path to the validated input as JSON. |
-| `INPUT_<KEY>` | One variable per input key. `deployTo` becomes `INPUT_DEPLOY_TO`. Strings are passed raw; everything else is JSON. |
-| `$OLVE_OUTPUT` | Set only when the step has an output model. Write the output JSON to this path. |
-
-In the output JSON, an object of the form `{"$file": "<path>"}` or `{"$dir": "<path>"}` becomes a file reference. The step's declared secrets are environment variables named after the secrets.
 
 ### Library steps
 
-Library steps carry their own implementation and image; they take typed config and use the SDK models `Source`, `BuiltImage`, `PushedImage` and `HelmRelease`. The set grows from real use: a step or an option exists because a pipeline uses it.
+Library steps carry their own implementation and image; they take typed settings and use the SDK models `Source`, `BuiltImage`, `PushedImage` and `HelmRelease`. Each is a function returning `implement(step({ kind, settings, … }), handler)`, built on the public API only (a test enforces it), so a step package outside the SDK is written the same way (see [Reusable steps](#reusable-steps)). The set grows from real use: a step or an option exists because several pipelines use it; what one pipeline needs stays a custom step there.
 
 | Step | Image | Input → output | Config |
 |---|---|---|---|
-| `steps.script` | yours | yours | `script` (embedded), `env` (see above) |
 | `steps.gitHubSource` | `alpine:3.22` (work happens in the harness) | `{ repo: "owner/name", sha }` (plain schemas: needs a mapper) → `Source` | `token?: Secret` (sent as `Authorization: Bearer` when set; unset = anonymous; becomes the step's secret), `apiUrl?` (default `https://api.github.com`) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }`; with `push`: `PushedImage { repository, tag, digest }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `context?` (dir in the source tree; default the root), `dockerfile?` (relative to the context; default `Dockerfile`), `push?` (push to `repository` instead of a tarball), `contentTag?` (with `push`: tag `src-<context hash>`, skip when the registry has it), `cacheRepo?` (kaniko layer cache), `registryMap?` (kaniko `--registry-map`: registry → mirror prefix; default: the homelab pull-through caches, `{}` = off), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` (default 2), `registryAuth?` (`{ username, password: Secret }`: log in to the `repository` registry; or a config reference to `{ username, password: { secret: NAME } }`, with `NAME` in `secrets`), `insecureRegistry?` (that registry is plain HTTP), `secrets?` (declared secrets a config `registryAuth` may name), `enabled?` (`false` skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, <key>: BuiltImage }` per `images` (`PushedImage` with `fromRegistry`) → `HelmRelease { release, namespace, image }` (`image`: the first image) | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `images?` (input key → values prefix; default `{ image: "image" }`), `fromRegistry?`, `imageRefs?` (`PushedImage` input key → values prefix: set as `<prefix>.repository`/`.tag`/`.digest`, not pulled; works next to tarball `images`), `deployments?` (default `[release]`), `rolloutTimeoutSeconds?` (default 120), `healthUrl?` (URL or `{ url, attempts?, delaySeconds? }`) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage { repository, tag, digest, tar }`; with `push`: `PushedImage { repository, tag, digest }` | `repository` (image name; tag = run version, `-attempt<n>` on reruns), `context?` (dir in the source tree with the `Dockerfile`; default the root), `push?` (push to `repository` instead of a tarball), `contentTag?` (with `push`: tag `src-<context hash>`, skip when the registry has it), `registryMap?` (kaniko `--registry-map`: registry → mirror prefix; default: the homelab pull-through caches, `{}` = off), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?` (default 2), `registryAuth?` (`{ username, password: Secret }`: log in to the `repository` registry; or a config reference to `{ username, password: { secret: NAME } }`, with `NAME` in `secrets`), `insecureRegistry?` (that registry is plain HTTP), `secrets?` (declared secrets a config `registryAuth` may name), `enabled?` (`false` skips the step) |
+| `steps.helmDeployOverSsh` | `alpine:3.22` (+ `apk add openssh-client` at run time) | `{ source: Source, <key>: BuiltImage }` per `images` (`PushedImage` with `fromRegistry`) → `HelmRelease { release, namespace, image? }` (`image`: the first image; absent without images) | `host` (`user@host`), `sshKey: Secret`, `release`, `namespace`, `chart` (dir in the source), `values?` (chart-relative `-f`), `set?`, `images?` (input key → values prefix; default `{ image: "image" }`; `{}` = the chart alone), `fromRegistry?`, `imageRefs?` (`PushedImage` input key → values prefix: set as `<prefix>.repository`/`.tag`/`.digest`, not pulled; works next to tarball `images`), `deployments?` (default `[release]`, none without images), `rolloutTimeoutSeconds?` (default 120), `healthUrl?` (URL or `{ url, attempts?, delaySeconds? }`) |
 | `steps.helmDeployInCluster` (and the `target` form of `helmDeployOverSsh`) | `alpine/helm:3.16.2` (ssh: `alpine:3.22`) | `{ source: Source, <key>: PushedImage }` per `images`, `<key>: optional(PushedImage)` per `imageRefs` → `HelmRelease` (`image`: `repository:tag@digest` of the first image) | `target` (a `select` case's reference to a `helmTarget()` variant: `{ kind: "inCluster", namespace, release, values, set, url? }` for helmDeployInCluster, the same plus `host` with `kind: "ssh"` for helmDeployOverSsh; `url` is where step pods reach the release, default its in-cluster Service URL, and is passed on in `HelmRelease.url`), `sshKey: Secret` (ssh only), `chart`, `inlineValues?` (objects written as values files after the target's), `images?`, `imageRefs?`, `deployments?` (ssh), `rolloutTimeoutSeconds?` (default 120), `healthPath?`; helmDeployInCluster declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` (work happens in the harness) | `{ image: PushedImage }` → `HelmRelease { release: <service>, namespace: "compose", image: <repository>@<digest> }` | `target` (a `select` case's reference to the compose variant of `deployTarget()`: `{ kind: "compose", deployerUrl, service, token: { secret }, healthUrl? }`), `token: Secret` (must be the secret the target names; the step's only secret), `timeoutSeconds?` |
 
 - `gitHubSource` downloads `<apiUrl>/repos/<repo>/tarball/<sha>` (retrying 5xx), strips the top-level directory and outputs it as `tree`.
-- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `--context=/kaniko/build-context[/<context>] --dockerfile=<that>/<dockerfile>` with `--no-push --tar-path --digest-file`, and outputs the tarball. A missing context or Dockerfile fails the step before kaniko starts. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`). A **stall watchdog** kills kaniko when it prints nothing for `stallTimeoutSeconds` (a base-image pull can stall on an idle connection at "Unpacking rootfs", and kaniko has no read timeout), failing the attempt; `retries` then starts a fresh attempt. The retry is deliberately a new pod, never a second kaniko in the same container: kaniko unpacks the base image over the container root and does not clean up when killed.
-- **Caches never block a build.** `registryMap` defaults to the homelab pull-through caches (`DEFAULT_REGISTRY_MAP`: `mcr.microsoft.com` → `mcr-cache.ovea.pro`, `index.docker.io` → `hub-cache.ovea.pro`; kaniko under gVisor stalls pulling from mcr.microsoft.com directly). A map you pass replaces the default; `{}` turns mapping off. Before kaniko starts, every mirror host and the `cacheRepo` registry gets a 5 s `GET https://<host>/v2/` (200 or 401 = up); one that doesn't answer is dropped with a log line (`mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly`, or no `--cache` for the layer cache). After that, kaniko itself copes: it falls back to the original registry when a mirror can't serve an image's manifest (`RetrieveRemoteImage`; `--skip-default-registry-fallback` is never set), a layer-cache lookup error is a cache miss, a cache push error is a warning, and `--skip-push-permission-check` stops its startup check of the cache repo from exiting. A cache that dies mid-download (after the manifest came from it) fails or stalls the attempt; `retries` starts a fresh one, which probes again.
-- **Registry mode** (`push: true`, for images too big for the step's ~1 GiB scratch space and Garage): kaniko runs without `--no-push`/`--tar-path`, pushes to `repository` (it must start with a registry host; anonymous unless `registryAuth`) and the output is a `PushedImage` with the digest from `--digest-file`. With `contentTag`, the tag is `src-` + the first 12 hex of the sha256 of the context directory's deterministic tar (the bytes `ctx.output.dir` would write), computed from the fetched tree; a `HEAD https://<host>/v2/<path>/manifests/<tag>` (answering a Basic or Bearer challenge: anonymous token, or the `registryAuth` login; an anonymous lookup that is denied counts as "not there") that answers a `Docker-Content-Digest` skips kaniko and outputs that digest. With `registryAuth`, the step declares the password secret and writes `$DOCKER_CONFIG/config.json` (`/kaniko/.docker` in the kaniko image) for that registry before kaniko runs, so pushes, base-image and cache pulls from it are logged in. `insecureRegistry` makes the lookups plain HTTP and adds kaniko `--insecure --insecure-registry=<host>`.
-- `helmDeployOverSsh` gets each image into the host's **k3s** containerd: a `BuiltImage` tar is streamed in (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), a `PushedImage` (`fromRegistry`) is pulled there (`… pull -q`, so the rollout doesn't wait on the pull). It copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then per image `<prefix>.repository`/`.tag`/`.pullPolicy` — `Never` for tarballs, `IfNotPresent` for registry images — which always win), waits for `kubectl rollout status` of each of `deployments` in order (`deploy/<name>` for a bare name), and with `healthUrl` polls it (5 × 5 s unless given) from the harness. Several images (one chart, two Deployments):
+- `imageBuild` copies the tree to `/kaniko/build-context` (kaniko wipes other directories between multi-stage builds), builds `--context=/kaniko/build-context[/<context>] --dockerfile=<that>/Dockerfile` with `--no-push --tar-path --digest-file`, and outputs the tarball. A missing context or Dockerfile fails the step before kaniko starts. `repository` in the output is fully qualified the way a runtime names a loaded image (`x` → `docker.io/library/x`). A **stall watchdog** kills kaniko when it prints nothing for `stallTimeoutSeconds` (a base-image pull can stall on an idle connection at "Unpacking rootfs", and kaniko has no read timeout), failing the attempt; `retries` then starts a fresh attempt. The retry is deliberately a new pod, never a second kaniko in the same container: kaniko unpacks the base image over the container root and does not clean up when killed.
+- **Caches never block a build.** `registryMap` defaults to the homelab pull-through caches (`DEFAULT_REGISTRY_MAP`: `mcr.microsoft.com` → `mcr-cache.ovea.pro`, `index.docker.io` → `hub-cache.ovea.pro`; kaniko under gVisor stalls pulling from mcr.microsoft.com directly). A map you pass replaces the default; `{}` turns mapping off. Before kaniko starts, every mirror host gets a 5 s `GET https://<host>/v2/` (200 or 401 = up); one that doesn't answer is dropped with a log line (`mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly`). After that, kaniko itself copes: it falls back to the original registry when a mirror can't serve an image's manifest (`RetrieveRemoteImage`; `--skip-default-registry-fallback` is never set). A cache that dies mid-download (after the manifest came from it) fails or stalls the attempt; `retries` starts a fresh one, which probes again.
+- **Registry mode** (`push: true`, for images too big for the step's ~1 GiB scratch space and Garage): kaniko runs without `--no-push`/`--tar-path`, pushes to `repository` (it must start with a registry host; anonymous unless `registryAuth`) and the output is a `PushedImage` with the digest from `--digest-file`. With `contentTag`, the tag is `src-` + the first 12 hex of the sha256 of the context directory's deterministic tar (the bytes `ctx.output.dir` would write), computed from the fetched tree; a `HEAD https://<host>/v2/<path>/manifests/<tag>` (answering a Basic or Bearer challenge: anonymous token, or the `registryAuth` login; an anonymous lookup that is denied counts as "not there") that answers a `Docker-Content-Digest` skips kaniko and outputs that digest. With `registryAuth`, the step declares the password secret and writes `$DOCKER_CONFIG/config.json` (`/kaniko/.docker` in the kaniko image) for that registry before kaniko runs, so pushes and base-image pulls from it are logged in. `insecureRegistry` makes the lookups plain HTTP and adds kaniko `--insecure --insecure-registry=<host>`.
+- `helmDeployOverSsh` gets each image into the host's **k3s** containerd: a `BuiltImage` tar is streamed in (`nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load`), a `PushedImage` (`fromRegistry`) is pulled there (`… pull -q`, so the rollout doesn't wait on the pull). It copies the chart to `/tmp/<release>-helm-<namespace>`, runs `helm upgrade --install` from inside it (values, then `set`, then per image `<prefix>.repository`/`.tag`/`.pullPolicy` — `Never` for tarballs, `IfNotPresent` for registry images — which always win), waits for `kubectl rollout status` of each of `deployments` in order (`deploy/<name>` for a bare name), and with `healthUrl` polls it (5 × 5 s unless given) from the harness. `images: {}` deploys the chart alone: the step's only input is `source`, no image is imported and no image flag set, and nothing is waited on unless `deployments` names it. Several images (one chart, two Deployments):
 
   ```ts
   steps.helmDeployOverSsh({ name: "deploy-beta", description: "", host: "oliver@bulwark-m2", sshKey: SSH_PRIVATE_KEY,
@@ -187,12 +172,32 @@ Library steps carry their own implementation and image; they take typed config a
 | `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })` | GETs `url` until it returns 2xx (redirects followed), retrying network errors and non-2xx statuses; defaults 5 attempts, 5 s apart (v1's deploy-beta loop). Throws the last error when the attempts run out. Runs in the harness, so the image needs no curl. `helmDeployOverSsh`'s `healthUrl` uses it. |
 | `serviceUrl(release)` | `http://<release>.<namespace>.svc.cluster.local` for a `HelmRelease` (charts that name the Service after the release). |
 | `checkSpa(ctx, url)` | `GET <url>/` must reference an `/assets/*.js` bundle (Vite's layout) and the bundle must be served as JavaScript; returns `{ html, bundle }` for app-specific checks. |
-| `sshSession(ctx, { host, key })` | Installs openssh-client (apk), writes the key to `<tmpDir>/ssh/id` (trailing newline, mode 600; host key not verified) and returns `{ run(remote), text(remote), copy(local, remote), shell(remote) }`; `shell` is the quoted ssh command for pipes (`ctx.sh(`printf '%s' "$V" \| ${s.shell("kubectl apply -f -")}`)`). `helmDeployOverSsh` uses it. `shq(s)` is the POSIX quoting it uses. |
+| `sshSession(ctx, { host, key })` | Installs openssh-client (apk), writes the key to `<tmpDir>/ssh/id` (trailing newline, mode 600; host key not verified) and returns `{ run(remote), text(remote), copy(local, remote), shell(remote) }`; `shell` is the quoted ssh command for pipes (`ctx.sh(`printf '%s' "$V" \| ${s.shell("kubectl apply -f -")}`)`). `helmDeployOverSsh` uses it. |
 
 ```ts
 import { httpHealthCheck, implement } from "@olivervea/pipelines";
 export default implement(smoke, async (_, ctx) => { await httpHealthCheck(ctx, "http://app.ns.svc.cluster.local/api/health", { attempts: 10 }); });
 ```
+
+### Reusable steps
+
+A step several pipelines use is a function returning `implement(step(…), handler)`, staged directly: it carries its handler, so it has no `handlers/` file. The library steps are written this way, so a module in a repo or a package of its own works the same.
+
+```ts
+import { implement, resolveConfigRefs, serviceUrl, step, HelmRelease, type Configurable, type LiteralName } from "@olivervea/pipelines";
+
+export function smokeTest<const N extends string>(def: { name: LiteralName<N>; description: string; path: Configurable<string> }) {
+  return implement(
+    step({ name: def.name, description: def.description, kind: "smokeTest", image: "alpine:3.22", input: { release: HelmRelease }, settings: { path: def.path } }),
+    async ({ release }, ctx) => void (await ctx.http.expectOk(`${release.url ?? serviceUrl(release)}${resolveConfigRefs(def.path, ctx.config)}`)),
+  );
+}
+```
+
+- **`kind`**: a label, required for a step that carries its implementation (`custom` is a step with a handler file). Prefix a package's kinds (`acme/smokeTest`).
+- **`settings`**: what the step was set up with, recorded as the step's manifest `config` (so part of its version). JSON values and config references; the step receives every entry its settings reference.
+- **Identity**: `implement` and `step` record the module that called them (from the stack; a tail call can name a module further up, which only adds to what is hashed). The build bundles those modules, minus `pipeline.ts` and `models.ts`, like a handler, and the kind's hash (`kindHashes` in the generated `handlers.ts`) goes into each such step's `handlerHash`. A step that carries its implementation and has no other module (defined and implemented in a contract file) is a build error.
+- `implement` refuses a step that already carries an implementation; a `handlers/*.ts` file for such a step is a describe error.
 
 ### Handlers
 
@@ -259,7 +264,7 @@ const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_K
 expect(r).toMatchObject({ status: "succeeded", output: { release: "olve-pipelines" } });   // r.filesDir, r.logs, r.exitCode
 ```
 
-`testHandler` uses the same validation path as a real run. Invalid input gives `status: "failed"` with `kind: "input"`; an invalid return value gives `kind: "output"`. Any part of `ctx` can be replaced; whatever you don't replace is the real implementation. `testHandler` also accepts library steps.
+`testHandler` uses the same validation path as a real run. Invalid input gives `status: "failed"` with `kind: "input"`; an invalid return value gives `kind: "output"`. Any part of `ctx` can be replaced; whatever you don't replace is the real implementation. `testHandler` takes any implementation: a handler module's default export, a library step or a reusable step.
 
 ## Harness contract (service ⇄ step binary)
 
@@ -369,7 +374,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 - **`apiVersion`** is `"2.0"`.
 - **`harness`** is `{ bun, sdk, sdkHash }`.
 - **`models[name]`** is `{ output, input? }`.
-- **Step `kind`** is `custom` or the library step's name (`imageBuild`, `composeDeploy`, …). To the service it is a label: any non-empty kind is accepted, so a new library step needs no service change.
+- **Step `kind`** is `custom` (a handler file) or the kind of a step that carries its implementation (`imageBuild`, `composeDeploy`, a package's `acme/…`). To the service it is a label: any non-empty kind is accepted, so a new library or package step needs no service change.
   - `output` is the `z.output` view, with `additionalProperties: false` on every object. It validates outputs, the pool and trigger results.
   - `input` is the `z.input` view (defaults optional). Use it for trigger forms and manual input. It is emitted only when it differs from `output` beyond `additionalProperties`.
 - **Step `input`** maps each input key to a mapping:
@@ -381,7 +386,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
 - **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `configEntries` (and those entries' schemas) + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
   - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
-  - Library steps: `sha256(canonical {library: kind, config, harness})`.
+  - Steps that carry their implementation: `sha256(canonical {library: kind, config, harness, code})`, `code` being the hash of the modules that define and implement steps of that kind (see [Reusable steps](#reusable-steps)).
   - Because `harness` is part of both hashes, a Bun or SDK bump changes every handler.
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
 - **`triggers`**:
@@ -391,13 +396,13 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 - **`failureHandlers`** is a list of `{step: Step, steps: [names] | null}`. Each handler's inputs are all FailureContext (`{"ref": "failure"}`).
 - **`secrets`** lists every secret used by steps, polls and webhooks, sorted, as `{name, description}`.
 - **`config`** lists every config entry steps declare, sorted by name, as `{name, description, required, schema}`. `schema` is the `z.input` view (defaults listed); it validates the entry's value in the config document. `required` is false when the schema accepts a missing value. A `secretRef` field is marked `"x-olve-kind": "secretRef"`, with the secret's name as `properties.secret.const`. Omitted when there are no entries.
-- **Step `configEntries`** names the entries the step receives (sorted; omitted when none). It is part of the step's content, like `secrets`. The step key `config` is the library-step configuration.
+- **Step `configEntries`** names the entries the step receives (sorted; omitted when none). It is part of the step's content, like `secrets`. The step key `config` is the step's `settings`.
 
 Describe runs these checks; reconcile should re-run the manifest-level ones:
 
 - step name format and reserved names (`input`, `failure`), and duplicate step names;
 - one schema per model name, and JSON-representable models;
-- missing handler file, and a handler file without a step (or for a library step);
+- missing handler file, a handler file without a step (or for a step that carries its implementation), and a step that carries its implementation without a kind;
 - availability, ambiguity, maybe-available as required, `optional` without a producer, plain schema without a mapper;
 - mapper source analysis and recording, unknown fields in refs, mapper keys that are missing or extra;
 - `when` on an unknown or non-literal field, or with an invalid value;
@@ -413,7 +418,7 @@ olve-build <pipelineDir> --out <dir> [--target bun-linux-x64|bun-linux-x64-musl]
 olve-build <pipelineDir> --hash-only          # print handler hashes (diagnostics)
 ```
 
-1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash it (see `handlerHash`).
+1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash it (see `handlerHash`); hash the modules of each kind of step that carries its implementation.
 2. Generate `<pipelineDir>/.olve/gen/handlers.ts` (a registry of literal `import()` paths, plus hashes and harness info) and `entry.ts`. Add `.olve/` to `.gitignore`.
 3. Run `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig --bytecode --format=esm` → `<out>/step`. The output is never minified, because mapper source analysis needs real source.
 4. Check that `PT_INTERP` is `/lib64/ld-linux-x86-64.so.2`. On alpine, Bun silently produces a musl binary; the check fails it.

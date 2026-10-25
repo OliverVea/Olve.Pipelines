@@ -66,7 +66,8 @@ export default implement(deploy, async (_, ctx) => {
 
 ### In library steps
 
-Library steps take a config reference wherever they take a value:
+Library steps take a config reference wherever they take a value (and so can your own reusable
+steps, in their `settings`: [Reusable steps](pipeline-reference.md#reusable-steps)):
 
 ```ts
 export const TARGET = config("target", "Where to deploy.", z.object({ beta: helmTarget(), prod: helmTarget() }));

@@ -12,7 +12,7 @@ interface RefTarget {
 }
 
 /**
- * A typed reference to a config value (`TARGET.beta.host`), accepted by library steps in place of a
+ * A typed reference to a config value (`TARGET.beta.host`), accepted in a step's settings in place of a
  * literal. It is recorded in the manifest as `{"$config": "target.beta.host"}` and resolved from the
  * run's config when the step runs; the step receives the entry automatically.
  */

@@ -25,7 +25,8 @@ package.json, bun.lock, tsconfig.json
 - **A handler names its step**: each top-level `handlers/*.ts` default-exports `implement(step, fn)`,
   and that `step` reference is what pairs them; the file name is free (`handlers/deploy-prod.ts` by
   habit). A custom step no handler implements, two handlers for one step, or a top-level file that
-  isn't a handler is a describe error; library steps need none. Shared code goes in a subfolder.
+  isn't a handler is a describe error; a step that carries its implementation (a library step)
+  needs none. Shared code goes in a subfolder.
 - **Scripts are embedded** into the compiled binary. The repo is *not* in the step container — a
   step that needs the source gets it as a file reference (`Source.tree`).
 - Dependencies point one way: `models ← steps ← handlers`, `models ← pipeline`.
@@ -52,7 +53,7 @@ export const BuildArtifact = model("BuildArtifact", z.object({
   left out); handlers, mapper refs and `when` see `z.output` (defaults applied).
 - SDK models shared by the library steps: `Source { repo, sha, tree }`, `BuiltImage { repository,
   tag, digest, tar }` (an image tarball), `PushedImage { repository, tag, digest }` (an image in a
-  registry), `HelmRelease { release, namespace, image }`, `FailureContext`.
+  registry), `HelmRelease { release, namespace, image?, url? }`, `FailureContext`.
 
 ## Secrets
 
@@ -80,7 +81,8 @@ whose config isn't satisfied yet stays pending instead of activating. Full page:
 
 Library steps take **config references** where they take values: `host: TARGET.host`. The reference
 is typed (it must have the field's type), the step receives the entry automatically, and the value
-is read from the run's config when the step runs. See [Library steps](#library-steps).
+is read from the run's config when the step runs. See [Library steps](#library-steps) and
+[Reusable steps](#reusable-steps).
 
 ## Steps
 
@@ -122,14 +124,15 @@ export const deployBeta = step({
 
 ## Library steps
 
-SDK steps with a built-in handler and typed config. The set grows from real use.
+SDK steps that carry their own handler, with typed settings: stage them directly. They are written
+the same way as any [reusable step](#reusable-steps). The set grows from what several pipelines use;
+a step only one pipeline needs stays a custom step there.
 
 | Step | Image | Input → output | Config |
 |---|---|---|---|
-| `steps.script` | yours | yours | `script` (embedded), `env` (values may be functions of the inputs) |
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source), `dockerfile?` (relative to the context), `push?`, `contentTag?` (with `push`), `cacheRepo?` (kaniko layer cache), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?`, `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?`; or the target form: `target` (an ssh `helmTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image mirrors; defaults to the pull-through caches), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `healthUrl?`; or the target form: `target` (an ssh `helmTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
@@ -139,20 +142,15 @@ output take a config reference instead of a literal (`repository: PUBLISH.server
 in the manifest as `{"$config": "publish.server.repository"}`; keys starting with `$` in literal
 config are reserved.
 
-- **`steps.script`** — the zero-TypeScript path. The script gets `$OLVE_INPUT` (the validated input
-  as JSON) and one `INPUT_<KEY>` env var per input key (`deployTo` → `INPUT_DEPLOY_TO`; strings raw,
-  everything else JSON). With an output model it writes the output JSON to `$OLVE_OUTPUT`;
-  `{"$file": "<path>"}` / `{"$dir": "<path>"}` become file references.
-- **`steps.imageBuild`** builds `<context>/<dockerfile>` (default: `Dockerfile` at the source root,
-  with the root as context) with kaniko (`--no-push`) and outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
+- **`steps.imageBuild`** builds `<context>/Dockerfile` (default: the source root) with kaniko (`--no-push`) and outputs the image tarball. The tag is the run's version stamp (`2026.10.22.6`), plus
   `-attempt<n>` on reruns. A stall watchdog kills kaniko when it prints nothing for
   `stallTimeoutSeconds` (a base-image pull can hang at "Unpacking rootfs"), failing the attempt;
   with `retries` a fresh attempt follows. Base images come through the homelab pull-through caches
   by default (`mcr-cache.ovea.pro` for mcr.microsoft.com, `hub-cache.ovea.pro` for Docker Hub):
   under gVisor, kaniko's pulls from mcr.microsoft.com stall often; a nearby cache doesn't.
   `registryMap` (kaniko `--registry-map`) replaces that default; `{}` turns it off. Caches never
-  block a build: an unreachable cache (or `cacheRepo` registry) is skipped with a log line and
-  kaniko pulls upstream, and kaniko falls back upstream when a mirror lacks an image.
+  block a build: an unreachable cache is skipped with a log line and kaniko pulls upstream, and
+  kaniko falls back upstream when a mirror lacks an image.
   **`push: true`** is for images too big to travel as a file (the step's scratch space is ~1 GiB):
   kaniko pushes to `repository` (which must name a registry host) and the output is a `PushedImage`.
   With **`contentTag: true`** the tag is `src-<hash>` of the build context's content, and the build is
@@ -170,7 +168,9 @@ config are reserved.
   tarballs, `IfNotPresent` for registry images), waits for each rollout (`deployments`, default the
   release; `rolloutTimeoutSeconds`, default 120), and with `healthUrl` GETs it until 2xx (5 × 5 s, or
   `{ url, attempts, delaySeconds }`). `images` maps step input keys to values prefixes (default
-  `{ image: "image" }`); two images of one chart:
+  `{ image: "image" }`). **`images: {}` deploys the chart alone** (no image inputs or flags, and no
+  rollout wait unless `deployments` names one; `HelmRelease.image` is left out). Two images of one
+  chart:
 
   ```ts
   export const deployBeta = steps.helmDeployOverSsh({
@@ -213,11 +213,55 @@ config are reserved.
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
   `checkSpa(ctx, url)` (the page references an `/assets/*.js` bundle served as JavaScript; returns
   `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
-  as `helmDeployOverSsh` uses it); `registryTag(ctx.http, repository, digest, tag, access?)` (adds a
-  tag to a pushed image without rebuilding it); `npmDistTag(ctx, { name, version, tag, token })` and
-  `npmHasVersion(ctx, name, version)`.
+  as `helmDeployOverSsh` uses it).
 
 Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#library-steps).
+
+## Reusable steps
+
+A step that several pipelines use is written once, as a function that returns
+`implement(step(…), handler)`. That is how the library steps are written, with the public API only,
+so a module in your repo or a package of your own works the same way.
+
+```ts
+// steps/smoke.ts (or a package)
+import { HelmRelease, implement, resolveConfigRefs, serviceUrl, step, type Configurable, type LiteralName } from "@olivervea/pipelines";
+
+export function smokeTest<const N extends string>(def: { name: LiteralName<N>; description: string; path: Configurable<string> }) {
+  return implement(
+    step({
+      name: def.name,
+      description: def.description,
+      kind: "smokeTest",                         // a label; packages prefix theirs ("acme/smokeTest")
+      image: "alpine:3.22",
+      input: { release: HelmRelease },
+      settings: { path: def.path },             // shown in the manifest; part of the step's identity
+    }),
+    async ({ release }, ctx) => {
+      const path = resolveConfigRefs(def.path, ctx.config);
+      await ctx.http.expectOk(`${release.url ?? serviceUrl(release)}${path}`);
+    },
+  );
+}
+
+// pipeline.ts
+.stage(smokeTest({ name: "beta-smoke", description: "…", path: "/health" }))
+```
+
+- **Stage the result directly.** It carries its handler, so there is no `handlers/` file for it.
+  A step defined with `step()` alone has its handler in `handlers/`, as before.
+- **`kind`** is required for a step that carries its implementation (`custom` means a handler
+  file). To the service it is a label.
+- **`settings`** are what the step was set up with. They are recorded in the manifest's step
+  `config`, so a change makes a new step version. They may hold config references
+  (`path: TARGET.beta.healthPath`): the step receives each entry it references, and
+  `resolveConfigRefs(value, ctx.config)` reads the values in the handler.
+- **Identity:** the build hashes the module that defines the step (where `step()` is called) and
+  the one that calls `implement`, so a change to the step's code makes a new step version. Define
+  and implement it outside `pipeline.ts` and `models.ts`; a step that carries its implementation and
+  is defined in a contract file is a build error.
+- **Testing:** `testHandler(smokeTest({ … }), input)` from `@olivervea/pipelines/testing`, as for a
+  handler module.
 
 ## Handlers
 

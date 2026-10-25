@@ -35,6 +35,13 @@ export async function loadProject(dirArg: string): Promise<Project> {
   return { dir, pipelineFile, contractFiles, handlers: await resolveHandlers(hdir, files) };
 }
 
+/** The default export of pipeline.ts. */
+export async function loadPipeline(project: Project): Promise<unknown> {
+  const mod = (await import(project.pipelineFile)) as { default?: unknown };
+  if (!mod.default) throw new ProjectError(`${project.pipelineFile} has no default export (export default pipeline({...})...)`);
+  return mod.default;
+}
+
 /** Pairs each handler file with the step its default export implements (file names don't matter). */
 async function resolveHandlers(hdir: string, files: string[]): Promise<[string, string][]> {
   const byStep = new Map<string, string>();

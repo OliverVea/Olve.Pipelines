@@ -3,8 +3,9 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { checkSpa, httpHealthCheck, model, pipeline, secret, serviceUrl, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
-import { contentTagOf, dockerConfigJson, parseChallenge, reachableCaches, registryUp, writeDockerConfig } from "../../src/library/image-build.ts";
+import { checkSpa, httpHealthCheck, implement, model, pipeline, secret, serviceUrl, steps, z, type AnyStep, type Ctx, type FileRef } from "../../src/index.ts";
+import { recordConfigRefs } from "../../src/core/config-refs.ts";
+import { contentTagOf, dockerConfigJson, parseChallenge, reachableMirrors, registryUp, writeDockerConfig } from "../../src/library/image-build.ts";
 import { sha256File } from "../../src/util/hash.ts";
 import { dirEntries, writeTar } from "../../src/util/tar.ts";
 import { describePipeline } from "../../src/describe/describe.ts";
@@ -12,6 +13,8 @@ import { Manifest } from "../../src/describe/manifest-schema.ts";
 import { testFileRef, testHandler } from "../../src/testing/index.ts";
 import { writeTarGz } from "../../src/util/tar.ts";
 import { SHA, tmp } from "./helpers.ts";
+
+const settingsOf = (s: AnyStep) => recordConfigRefs(s.settings);
 
 const TOKEN = secret("GITHUB_TOKEN", "token");
 const KEY = secret("SSH_PRIVATE_KEY", "key");
@@ -83,7 +86,7 @@ describe("steps.gitHubSource", () => {
     if (r.status !== "succeeded") throw new Error(JSON.stringify(r));
     // Re-run a fetch of the produced ref through a real ctx bound to the same attempt.
     const check = await testHandler(
-      { ...step, builtin: { ...step.builtin, run: async (_i: unknown, ctx: Ctx) => { extracted = await ctx.files.fetch(r.output.tree); return r.output; } } } as typeof step,
+      implement(step.step, async (_i, ctx) => { extracted = await ctx.files.fetch(r.output.tree); return r.output; }),
       { repo: "a/b", sha: SHA },
       { dir: r.dir },
     );
@@ -164,8 +167,8 @@ describe("steps.imageBuild", () => {
     return { tree, calls, execOpts, exec, files, fetched, probed, http };
   };
 
-  test("kaniko build with layer cache: exact argv, BuiltImage output", async () => {
-    const step = steps.imageBuild({ name: "build", description: "", repository: "olve-pipelines-v2", cacheRepo: "registry.ovea.pro/olve-pipelines-v2/cache", timeoutSeconds: 3600 });
+  test("kaniko build: exact argv, BuiltImage output", async () => {
+    const step = steps.imageBuild({ name: "build", description: "", repository: "olve-pipelines-v2", timeoutSeconds: 3600 });
     expect(step).toMatchObject({ image: "gcr.io/kaniko-project/executor:debug", timeoutSeconds: 3600, retries: 2, secrets: [] });
     const k = fakeKaniko();
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http }, run: { version: "2026.10.21.412" } });
@@ -189,14 +192,11 @@ describe("steps.imageBuild", () => {
         "--snapshot-mode=redo",
         "--use-new-run",
         "--compressed-caching=false",
-        "--cache=true",
-        "--cache-repo=registry.ovea.pro/olve-pipelines-v2/cache",
-        "--skip-push-permission-check",
         "--registry-map=mcr.microsoft.com=mcr-cache.ovea.pro",
         "--registry-map=index.docker.io=hub-cache.ovea.pro",
       ],
     ]);
-    expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://mcr-cache.ovea.pro/v2/", "https://registry.ovea.pro/v2/"]);
+    expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://mcr-cache.ovea.pro/v2/"]);
     expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 300 }); // stall watchdog on by default
     if (r.status !== "succeeded") return;
     expect(r.output).toMatchObject({
@@ -208,10 +208,10 @@ describe("steps.imageBuild", () => {
     expect(readFileSync(join(r.filesDir, "image.tar"), "utf8")).toBe("image tar");
   });
 
-  test("no cache flags without cacheRepo, no mapping with registryMap: {}; reruns get a distinct tag", async () => {
+  test("no mapping with registryMap: {}; reruns get a distinct tag", async () => {
     const k = fakeKaniko();
     const step = steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app", registryMap: {} });
-    expect(step.builtin.manifestConfig()).toEqual({ repository: "registry.ovea.pro/app" });
+    expect(settingsOf(step)).toEqual({ repository: "registry.ovea.pro/app" });
     const r = await testHandler(step, { source }, {
       ctx: { exec: k.exec, files: k.files, http: k.http },
       run: { version: "2026.10.21.7", attempt: 2 },
@@ -224,22 +224,19 @@ describe("steps.imageBuild", () => {
   });
 
   test("registryMap defaults to the pull-through caches, recorded in the manifest config", () => {
-    expect(steps.imageBuild({ name: "build", description: "", repository: "x" }).builtin.manifestConfig()).toEqual({
+    expect(settingsOf(steps.imageBuild({ name: "build", description: "", repository: "x" }))).toEqual({
       repository: "x",
       registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" },
     });
   });
 
-  test("an unreachable cache never blocks the build: its mapping or the layer cache is dropped", async () => {
-    const step = steps.imageBuild({ name: "build", description: "", repository: "x", cacheRepo: "registry.ovea.pro/x/cache" });
-    const k = fakeKaniko({ down: ["mcr-cache.ovea.pro", "registry.ovea.pro"] });
+  test("an unreachable mirror never blocks the build: its mapping is dropped", async () => {
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x" });
+    const k = fakeKaniko({ down: ["mcr-cache.ovea.pro"] });
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
     expect(r.status).toBe("succeeded");
-    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map=") || a.startsWith("--cache"))).toEqual(["--registry-map=index.docker.io=hub-cache.ovea.pro"]);
-    expect(k.calls[2]).not.toContain("--skip-push-permission-check");
-    const logs = r.logs.join("\n");
-    expect(logs).toContain("mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly");
-    expect(logs).toContain("registry.ovea.pro unreachable; building without the layer cache");
+    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual(["--registry-map=index.docker.io=hub-cache.ovea.pro"]);
+    expect(r.logs.join("\n")).toContain("mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly");
   });
 
   test("cache probe: 200/401 = up, other statuses, errors and timeouts = down; one probe per host", async () => {
@@ -255,11 +252,8 @@ describe("steps.imageBuild", () => {
     const k = fakeKaniko({ down: ["registry.example"] });
     const logs: string[] = [];
     const ctx = { http: k.http, log: (m: string) => void logs.push(m), signal: new AbortController().signal } as unknown as Ctx;
-    const got = await reachableCaches(ctx, {
-      registryMap: { "mcr.microsoft.com": "registry.example/mirror/mcr", "index.docker.io": "registry.example/mirror/hub", "ghcr.io": "hub-cache.ovea.pro" },
-      cacheRepo: "hub-cache.ovea.pro/cache",
-    });
-    expect(got).toEqual({ registryMap: { "ghcr.io": "hub-cache.ovea.pro" }, cacheRepo: "hub-cache.ovea.pro/cache" });
+    const got = await reachableMirrors(ctx, { "mcr.microsoft.com": "registry.example/mirror/mcr", "index.docker.io": "registry.example/mirror/hub", "ghcr.io": "hub-cache.ovea.pro" });
+    expect(got).toEqual({ "ghcr.io": "hub-cache.ovea.pro" });
     expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://registry.example/v2/"]);
     expect(logs).toEqual(["registry.example unreachable; pulling from mcr.microsoft.com directly", "registry.example unreachable; pulling from index.docker.io directly"]);
   });
@@ -274,7 +268,7 @@ describe("steps.imageBuild", () => {
       "--registry-map=mcr.microsoft.com=registry.example/mirror/mcr.microsoft.com",
       "--registry-map=index.docker.io=registry.example/mirror/docker.io",
     ]);
-    expect(step.builtin.manifestConfig()).toEqual({ repository: "x", registryMap });
+    expect(settingsOf(step)).toEqual({ repository: "x", registryMap });
   });
 
   test("stallTimeoutSeconds and retries: passed to kaniko's exec and into the step contract", async () => {
@@ -299,11 +293,11 @@ describe("steps.imageBuild", () => {
   });
 });
 
-describe("steps.imageBuild: context, dockerfile, push", () => {
+describe("steps.imageBuild: context, push", () => {
   const kaniko = (opts: { tagDigest?: string } = {}) => {
     const tree = tmp("kaniko-ctx-tree");
     mkdirSync(join(tree, "src/frontend"), { recursive: true });
-    writeFileSync(join(tree, "src/frontend/Dockerfile.web"), "FROM nginx\n");
+    writeFileSync(join(tree, "src/frontend/Dockerfile"), "FROM nginx\n");
     writeFileSync(join(tree, "src/frontend/index.html"), "<html></html>\n");
     writeFileSync(join(tree, "Dockerfile"), "FROM scratch\n");
     const calls: string[][] = [];
@@ -329,21 +323,21 @@ describe("steps.imageBuild: context, dockerfile, push", () => {
     return { tree, calls, exec, heads, ctx: { exec, http, files: { fetch: async () => tree } } };
   };
 
-  test("context and dockerfile: kaniko builds the subdirectory, recorded in the manifest config", async () => {
-    const step = steps.imageBuild({ name: "build-web", description: "", repository: "web", context: "src/frontend", dockerfile: "Dockerfile.web", registryMap: {} });
-    expect(step.builtin.manifestConfig()).toEqual({ repository: "web", context: "src/frontend", dockerfile: "Dockerfile.web" });
+  test("context: kaniko builds the subdirectory, recorded in the manifest config", async () => {
+    const step = steps.imageBuild({ name: "build-web", description: "", repository: "web", context: "src/frontend", registryMap: {} });
+    expect(settingsOf(step)).toEqual({ repository: "web", context: "src/frontend" });
     const k = kaniko();
     const r = await testHandler(step, { source }, { ctx: k.ctx, run: { version: "2026.10.22.3" } });
     expect(r).toMatchObject({ status: "succeeded", output: { repository: "docker.io/library/web", tag: "2026.10.22.3" } });
     expect(k.calls[1]).toEqual(["cp", "-r", `${k.tree}/.`, "/kaniko/build-context"]);
-    expect(k.calls[2]!.slice(1, 3)).toEqual(["--context=/kaniko/build-context/src/frontend", "--dockerfile=/kaniko/build-context/src/frontend/Dockerfile.web"]);
+    expect(k.calls[2]!.slice(1, 3)).toEqual(["--context=/kaniko/build-context/src/frontend", "--dockerfile=/kaniko/build-context/src/frontend/Dockerfile"]);
   });
 
   test("a missing context or Dockerfile fails the step; a path outside the tree is a definition error", async () => {
     const missing = await testHandler(steps.imageBuild({ name: "b", description: "", repository: "x", context: "nope" }), { source }, { ctx: kaniko().ctx });
     if (missing.status !== "failed") throw new Error("expected failure");
     expect(missing.error.message).toContain("build context 'nope' not found");
-    const noFile = await testHandler(steps.imageBuild({ name: "b", description: "", repository: "x", context: "src", dockerfile: "Dockerfile" }), { source }, { ctx: kaniko().ctx });
+    const noFile = await testHandler(steps.imageBuild({ name: "b", description: "", repository: "x", context: "src" }), { source }, { ctx: kaniko().ctx });
     if (noFile.status !== "failed") throw new Error("expected failure");
     expect(noFile.error.message).toContain("Dockerfile not found in the build context 'src'");
     expect(() => steps.imageBuild({ name: "b", description: "", repository: "x", context: "../up" })).toThrow("relative path inside the source tree");
@@ -352,7 +346,7 @@ describe("steps.imageBuild: context, dockerfile, push", () => {
   test("push: kaniko pushes (no --no-push, no tarball) and the output is a PushedImage", async () => {
     const step = steps.imageBuild({ name: "build", description: "", repository: "registry.ovea.pro/app/api", push: true, registryMap: {} });
     expect(step.output.name).toBe("PushedImage");
-    expect(step.builtin.manifestConfig()).toEqual({ repository: "registry.ovea.pro/app/api", push: true });
+    expect(settingsOf(step)).toEqual({ repository: "registry.ovea.pro/app/api", push: true });
     const k = kaniko();
     const r = await testHandler(step, { source }, { ctx: k.ctx, run: { version: "2026.10.22.3" } });
     expect(r).toMatchObject({ status: "succeeded", output: { repository: "registry.ovea.pro/app/api", tag: "2026.10.22.3", digest: "sha256:" + "cd".repeat(32) } });
@@ -366,7 +360,7 @@ describe("steps.imageBuild: context, dockerfile, push", () => {
   });
 
   test("contentTag: tag from the context's deterministic tar; an existing tag skips kaniko", async () => {
-    const def = { name: "build-figures", description: "", repository: "registry.ovea.pro/qb/figures", context: "src/frontend", dockerfile: "Dockerfile.web", push: true, contentTag: true, registryMap: {} } as const;
+    const def = { name: "build-figures", description: "", repository: "registry.ovea.pro/qb/figures", context: "src/frontend", push: true, contentTag: true, registryMap: {} } as const;
     const k = kaniko();
     const ref = join(tmp("content-tag-ref"), "ref.tar");
     writeTar(ref, dirEntries(join(k.tree, "src/frontend")));
@@ -426,7 +420,7 @@ describe("steps.imageBuild: registry login and plain-HTTP registries", () => {
       push: true, contentTag: true, registryMap: {}, registryAuth: { username: "olivervea", password: GHCR },
     });
     expect(step.secrets).toEqual([GHCR]);
-    expect(step.builtin.manifestConfig()).toEqual({
+    expect(settingsOf(step)).toEqual({
       repository: "ghcr.io/olivervea/harness-base", context: "harness/base", push: true, contentTag: true,
       registryAuth: { username: "olivervea", password: "GHCR_TOKEN" },
     });
@@ -495,22 +489,12 @@ describe("steps.imageBuild: registry login and plain-HTTP registries", () => {
     expect(denied.calls.some((c) => c[0] === "/kaniko/executor")).toBe(true);
   });
 
-  test("kaniko speed options: defaults on the command line, non-defaults in the manifest; a plain-HTTP cache is probed over HTTP", async () => {
-    const fast = steps.imageBuild({ name: "b", description: "", repository: "x" });
-    const slow = steps.imageBuild({ name: "b", description: "", repository: "x", snapshotMode: "full", useNewRun: false, compressedCaching: true });
-    expect(fast.builtin.manifestConfig()).not.toHaveProperty("snapshotMode");
-    expect(slow.builtin.manifestConfig()).toMatchObject({ snapshotMode: "full", useNewRun: false, compressedCaching: true });
-    const s = setup(() => new Response(null, { status: 404 }));
-    await testHandler(slow, { source }, { ctx: s.ctx });
-    const argv = s.calls.find((c) => c[0] === "/kaniko/executor")!;
-    expect(argv).toContain("--snapshot-mode=full");
-    expect(argv).not.toContain("--use-new-run");
-    expect(argv).toContain("--compressed-caching=true");
+  test("a plain-HTTP mirror is probed over HTTP", async () => {
     const probed: string[] = [];
     const http = { fetch: async (url: string) => (probed.push(url), new Response(null, { status: 401 })) } as unknown as Ctx["http"];
-    const got = await reachableCaches({ http, log: () => {}, signal: new AbortController().signal }, { registryMap: {}, cacheRepo: "registry:5000/app/cache" }, ["registry:5000"]);
+    const got = await reachableMirrors({ http, log: () => {}, signal: new AbortController().signal }, { "index.docker.io": "registry:5000/hub" }, ["registry:5000"]);
     expect(probed).toEqual(["http://registry:5000/v2/"]);
-    expect(got.cacheRepo).toBe("registry:5000/app/cache");
+    expect(got).toEqual({ "index.docker.io": "registry:5000/hub" });
   });
 
   test("definition errors and challenge parsing", () => {
@@ -668,7 +652,7 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
       images: { server: "image", web: "web.image" }, deployments: ["slimes-server", "slimes-web"],
     });
     expect(Object.keys(step.input)).toEqual(["source", "server", "web"]);
-    expect(step.builtin.manifestConfig()).toMatchObject({ images: { server: "image", web: "web.image" }, deployments: ["slimes-server", "slimes-web"] });
+    expect(settingsOf(step)).toMatchObject({ images: { server: "image", web: "web.image" }, deployments: ["slimes-server", "slimes-web"] });
     const f = fakes();
     const r = await testHandler(step, { source, server: built("docker.io/library/slimes", "server.tar"), web: built("docker.io/library/slimes-web", "web.tar") }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
     expect(r).toMatchObject({ status: "succeeded", output: { release: "slimes", namespace: "apps-beta", image: "docker.io/library/slimes:2026.10.22.3" } });
@@ -691,7 +675,7 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
       fromRegistry: true, rolloutTimeoutSeconds: 300, healthUrl: { url: "http://figures.apps.svc.cluster.local/health", attempts: 6 },
     });
     expect(step.input.image.name).toBe("PushedImage");
-    expect(step.builtin.manifestConfig()).toEqual({
+    expect(settingsOf(step)).toEqual({
       host: "u@h", sshKey: "SSH_PRIVATE_KEY", release: "figures", namespace: "apps", chart: "services/figures/helm", values: [], set: {},
       fromRegistry: true, rolloutTimeoutSeconds: 300, healthUrl: { url: "http://figures.apps.svc.cluster.local/health", attempts: 6 },
     });
@@ -715,7 +699,7 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
     expect(Object.keys(step.input)).toEqual(["source", "image", "harness"]);
     expect(step.input.image.name).toBe("BuiltImage");
     expect(step.input.harness.name).toBe("PushedImage");
-    expect(step.builtin.manifestConfig()).toMatchObject({ imageRefs: { harness: "harness.image" } });
+    expect(settingsOf(step)).toMatchObject({ imageRefs: { harness: "harness.image" } });
     const f = fakes();
     const harness = { repository: "ghcr.io/olivervea/olve-pipelines-harness-base", tag: "src-0123456789ab", digest: "sha256:" + "cd".repeat(32) };
     const r = await testHandler(step, { source, image: built("docker.io/library/app", "app.tar"), harness }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
@@ -729,8 +713,27 @@ describe("steps.helmDeployOverSsh: several images, registry images, rollouts", (
     expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", imageRefs: { image: "x" } })).toThrow("both in images and imageRefs");
   });
 
+  test("images: {} deploys the chart alone: no image inputs, imports, flags or default rollout", async () => {
+    const step = steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "edge", namespace: "apps", chart: "helm", images: {}, values: ["values-prod.yaml"] });
+    expect(Object.keys(step.input)).toEqual(["source"]);
+    expect(settingsOf(step)).toMatchObject({ images: {} });
+    const f = fakes();
+    const r = await testHandler(step, { source }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: f.ctx });
+    expect(r).toMatchObject({ status: "succeeded", output: { release: "edge", namespace: "apps" } });
+    if (r.status === "succeeded") expect(r.output.image).toBeUndefined();
+    expect(f.calls.some((c) => typeof c === "string" && c.includes(" load"))).toBe(false);
+    const remote = sshCmd(f.calls);
+    expect(remote.some((c) => c.includes(" pull "))).toBe(false);
+    expect(remote[1]).toContain("helm upgrade --install edge . -n apps -f values-prod.yaml");
+    expect(remote[1]).not.toContain("--set");
+    expect(remote).toHaveLength(2);
+    const authentik = steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "authentik", namespace: "apps", chart: "helm", images: {}, deployments: ["authentik-server"] });
+    const g = fakes();
+    await testHandler(authentik, { source }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: g.ctx });
+    expect(sshCmd(g.calls)[2]).toBe("kubectl -n apps rollout status deploy/authentik-server --timeout=120s");
+  });
+
   test("bad image config is a definition error", () => {
-    expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", images: {} })).toThrow("images must not be empty");
     expect(() => steps.helmDeployOverSsh({ name: "d", description: "", host: "u@h", sshKey: KEY, release: "a", namespace: "n", chart: "helm", deployments: [] })).toThrow("deployments must not be empty");
   });
 });
@@ -812,7 +815,7 @@ describe("library steps in the manifest", () => {
     const Req = model("Req", z.object({ repo: z.string(), sha: z.string() }));
     const p = pipeline({ name: "t", input: Req })
       .stage([steps.gitHubSource({ name: "source", description: "", token: TOKEN }), (from) => ({ repo: from.input.repo, sha: from.input.sha })])
-      .stage(steps.imageBuild({ name: "build", description: "", repository: "app", cacheRepo: "registry.example/app/cache" }))
+      .stage(steps.imageBuild({ name: "build", description: "", repository: "app" }))
       .stage(steps.helmDeployOverSsh({ name: "deploy", description: "", host: "u@h", sshKey: KEY, release: "app", namespace: "ns", chart: "helm" }));
     const harness = { bun: "1.4.3", sdk: "0.0.0", sdkHash: "sha256:" + "a".repeat(64) };
     const m = describePipeline(p, { handlerNames: [], handlerHashes: {}, harness });
@@ -820,7 +823,7 @@ describe("library steps in the manifest", () => {
     const all = m.stages.flatMap((s) => ("steps" in s ? s.steps : []));
     expect(all.map((s) => [s.kind, s.image, s.secrets, s.config, s.input])).toEqual([
       ["gitHubSource", "alpine:3.22", ["GITHUB_TOKEN"], { token: "GITHUB_TOKEN" }, { repo: { ref: "input.repo" }, sha: { ref: "input.sha" } }],
-      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app", cacheRepo: "registry.example/app/cache", registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" } }, { source: { ref: "source" } }],
+      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app", registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" } }, { source: { ref: "source" } }],
       [
         "helmDeployOverSsh",
         "alpine:3.22",

@@ -26,6 +26,8 @@ export interface HarnessConfig {
   pipeline: unknown;
   handlers: HandlerRegistry;
   handlerHashes: Readonly<Record<string, string>>;
+  /** Kind → hash of the code of the steps of that kind that carry their implementation. */
+  kindHashes?: Readonly<Record<string, string>>;
   harness: HarnessInfo;
 }
 
@@ -100,12 +102,9 @@ export function cancellation(): { signal: AbortSignal; dispose(): void } {
   };
 }
 
-/** Resolves the function that implements `step` (library or handler module). */
+/** Resolves the function that implements `step` (carried by the step, or a handler module). */
 export async function resolveStepFunction(step: AnyStep, handlers: HandlerRegistry): Promise<StepFunction | string> {
-  if (step.kind !== "custom") {
-    if (!step.builtin) return `library step '${step.name}' (${step.kind}) has no implementation`;
-    return step.builtin.run as StepFunction;
-  }
+  if (isImplementation(step)) return step.handler as unknown as StepFunction;
   const load = handlers[step.name];
   if (!load) return `step '${step.name}' has no handler`;
   let mod: { default: unknown };
@@ -151,7 +150,7 @@ function readJson(path: string): { ok: true; value: unknown } | { ok: false; mes
 async function describeMode(cfg: HarnessConfig, args: string[], io: HarnessIO): Promise<number> {
   const sentinels = args.includes("--sentinels");
   try {
-    const text = manifestText(describePipeline(cfg.pipeline, { handlerNames: Object.keys(cfg.handlers), handlerHashes: cfg.handlerHashes, harness: cfg.harness }));
+    const text = manifestText(describePipeline(cfg.pipeline, { handlerNames: Object.keys(cfg.handlers), handlerHashes: cfg.handlerHashes, kindHashes: cfg.kindHashes, harness: cfg.harness }));
     await io.stdout(sentinels ? `${MANIFEST_BEGIN}\n${text}${MANIFEST_END}\n` : text);
     return EXIT.ok;
   } catch (e) {

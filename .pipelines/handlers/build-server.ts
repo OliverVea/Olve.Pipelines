@@ -1,4 +1,4 @@
-import { implement, registryDigest } from "@olivervea/pipelines";
+import { implement } from "@olivervea/pipelines";
 import { buildServer } from "../pipeline";
 import { dockerConfig } from "../registry";
 
@@ -36,9 +36,8 @@ export default implement(buildServer, async ({ server, frontend }, ctx) => {
     }
   }
 
-  const password = target.auth ? (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret] : undefined;
-  const digest = await registryDigest(ctx.http, repository, tag, { insecure, ...(target.auth && password ? { username: target.auth.username, password } : {}) });
-  if (!digest) throw new Error(`${repository}:${tag} is not in the registry after the push`);
+  const digest = (await ctx.sh.text(["crane", "digest", `${repository}:${tag}`, ...(insecure ? ["--insecure"] : [])].join(" "), opts)).trim();
+  if (!/^sha256:[0-9a-f]{64}$/.test(digest)) throw new Error(`crane digest ${repository}:${tag} answered '${digest}'`);
   ctx.log("image pushed", { image: `${repository}:${tag}`, digest, runtime: server.runtime, base });
   return { repository, tag, digest };
 });

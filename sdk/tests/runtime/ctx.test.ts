@@ -10,7 +10,7 @@ import { sha256File } from "../../src/util/hash.ts";
 import checkoutImpl from "../../examples/self-deploy/handlers/checkout.ts";
 import buildImpl from "../../examples/self-deploy/handlers/build.ts";
 import deployBetaImpl from "../../examples/self-deploy/handlers/deploy-beta.ts";
-import { test as testStep } from "../../examples/self-deploy/pipeline.ts";
+import testImpl from "../../examples/self-deploy/handlers/test.ts";
 import { EXAMPLE, SHA, tmp, withEnv } from "./helpers.ts";
 
 const Out = model("Out", z.object({ text: z.string() }));
@@ -281,18 +281,18 @@ describe("testHandler on the example handlers", () => {
     const badUrl = await withEnv({ EXAMPLE_BETA_URL: "not a url", OLVE_FILES_DIR: pool }, () => testHandler(deployBetaImpl, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" } }));
     expect(badUrl).toMatchObject({ status: "failed", error: { kind: "output" }, exitCode: 66 });
   });
-  test("library script step: env, input.json, output.json, file placeholders", async () => {
-    const r = await testHandler(testStep, { source: testFileRef as any } as any);
+  test("a handler running an embedded script; a step that carries its implementation", async () => {
+    const r = await testHandler(testImpl, { source: testFileRef as any } as any);
     expect(r).toMatchObject({ status: "failed", error: { kind: "input" } });
     const source = { repo: "r", sha: SHA, tree: testFileRef({ step: "checkout", path: "tree/" }) };
-    expect(await testHandler(testStep, { source })).toMatchObject({ status: "succeeded", output: { passed: 3, failed: 0 } });
-    const dir = tmp("lib");
-    const sh = join(dir, "files.sh");
-    writeFileSync(sh, '#!/bin/sh\nset -eu\necho "$INPUT_DEPLOY_TO" > "$TMPDIR_OUT/v.txt"\nprintf \'{"tag":"%s-%s","img":{"$file":"%s"}}\' "$INPUT_DEPLOY_TO" "$TAG" "$TMPDIR_OUT/v.txt" > "$OLVE_OUTPUT"\n');
-    const Img = model("Img", z.object({ tag: z.string(), img: fileRef() }));
-    const s = steps.script({ name: "lib", description: "", image: "alpine", script: sh, input: { deployTo: z.enum(["beta", "prod"]) }, output: Img, env: { TMPDIR_OUT: dir, TAG: ({ deployTo }, run) => `${deployTo}.${run.number}` } });
-    const r2 = await testHandler(s, { deployTo: "prod" }, { run: { number: 9 } });
-    expect(r2).toMatchObject({ status: "succeeded", output: { tag: "prod-prod.9", img: { path: "v.txt", run: 9, step: "lib" } } });
+    expect(await testHandler(testImpl, { source })).toMatchObject({ status: "succeeded", output: { passed: 3, failed: 0 } });
+    const Tag = model("Tag", z.object({ tag: z.string() }));
+    const tagStep = (prefix: string) =>
+      implement(step({ name: "tag", description: "", kind: "tag", image: "alpine", input: { deployTo: z.enum(["beta", "prod"]) }, output: Tag, settings: { prefix } }), ({ deployTo }, ctx) => ({
+        tag: `${prefix}-${deployTo}.${ctx.run.number}`,
+      }));
+    expect(tagStep("app").settings).toEqual({ prefix: "app" });
+    expect(await testHandler(tagStep("app"), { deployTo: "prod" }, { run: { number: 9 } })).toMatchObject({ status: "succeeded", output: { tag: "app-prod.9" } });
   });
   test("input is validated like input.json (unknown keys, wrong types)", async () => {
     const r = await testHandler(checkoutImpl, { repo: "r", sha: SHA, extra: 1 } as any);

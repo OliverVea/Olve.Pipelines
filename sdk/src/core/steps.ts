@@ -1,5 +1,6 @@
 import type { z } from "zod";
-import { STEP, type StepBrand } from "./brands.ts";
+import { ORIGIN, STEP, type StepBrand } from "./brands.ts";
+import { callerFile } from "./origin.ts";
 import type { AnyModel, Infer, Optional } from "./models.ts";
 import type { AnyConfigEntry } from "./config.ts";
 import { configRefsIn } from "./config-refs.ts";
@@ -18,8 +19,12 @@ export type InferEntry<E> =
 /** What a handler receives: the output view of every input entry. */
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
-/** `custom` steps have a handler file; the others are library steps implemented by the SDK. */
-export type StepKind = "custom" | "script" | "gitHubSource" | "imageBuild" | "helmDeployOverSsh" | "helmDeployInCluster" | "composeDeploy";
+/**
+ * A label for what a step is, shown in the UI. `custom` (the default) is a step whose handler is in
+ * `handlers/`; a step that carries its implementation (`implement(step, …)` staged directly) names its
+ * kind, e.g. `gitHubSource`. Packages prefix theirs (`acme/deploy`).
+ */
+export type StepKind = string;
 
 export interface Step<
   N extends string = string,
@@ -42,17 +47,9 @@ export interface Step<
   readonly retries?: number;
   /** The step pod gets the instance's step ServiceAccount token (`Kubernetes:StepServiceAccount`). */
   readonly clusterAccess?: boolean;
-  /** Library steps carry their own implementation and config. */
-  readonly builtin?: LibraryImplementation;
+  /** How the step is set up, as written in the definition (may hold config references). */
+  readonly settings?: Readonly<Record<string, unknown>>;
 }
-/** Runtime part of a library step (not part of the public contract). */
-export interface LibraryImplementation {
-  /** Config as emitted in the manifest (JSON only; must not contain paths). */
-  readonly manifestConfig: () => Record<string, unknown>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  readonly run: (input: any, ctx: any) => Promise<unknown>;
-}
-export type LibraryStep = { readonly builtin: LibraryImplementation };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyStep = Step<string, any, AnyModel | null, any, any>;
 
@@ -89,16 +86,23 @@ export interface StepDef<N extends string, I extends InputSpec, O extends AnyMod
    * (`Kubernetes:StepServiceAccount`), if it grants one. Default false (no token).
    */
   clusterAccess?: boolean;
+  /** A label for the step's kind (default `custom`). */
+  kind?: StepKind;
+  /**
+   * How the step is set up, shown in the manifest and part of the step's identity: the parameters of
+   * a reusable step. JSON values and config references (`target.prod.host`); every config entry it
+   * references is delivered to the step, and `resolveConfigRefs(value, ctx.config)` resolves them.
+   */
+  settings?: Readonly<Record<string, unknown>>;
 }
 
-/** `configFrom`: a library step's definition; the config entries it references are added to the step's `config`. */
-export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?: LibraryImplementation, configFrom?: unknown): AnyStep {
+function makeStep(def: Record<string, unknown>, origin: string | undefined): AnyStep {
   const config = new Map<string, AnyConfigEntry>();
   for (const e of (def.config as readonly AnyConfigEntry[] | undefined) ?? []) if (!config.has(e.name)) config.set(e.name, e);
-  configRefsIn(configFrom, config);
+  configRefsIn(def.settings, config);
   const s = {
     [STEP]: true,
-    kind,
+    kind: def.kind ?? "custom",
     name: def.name,
     description: def.description,
     image: def.image,
@@ -109,7 +113,8 @@ export function makeStep(kind: StepKind, def: Record<string, unknown>, builtin?:
     ...(def.timeoutSeconds !== undefined ? { timeoutSeconds: def.timeoutSeconds } : {}),
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
     ...(def.clusterAccess === true ? { clusterAccess: true } : {}),
-    ...(builtin ? { builtin } : {}),
+    ...(def.settings !== undefined ? { settings: def.settings } : {}),
+    [ORIGIN]: origin === undefined ? [] : [origin],
   };
   return Object.freeze(s) as unknown as AnyStep;
 }
@@ -118,7 +123,10 @@ export function isStep(v: unknown): v is AnyStep {
   return typeof v === "object" && v !== null && (v as Record<symbol, unknown>)[STEP] === true;
 }
 
-/** Define a custom step: a contract (name, image, inputs, output, secrets). Its handler lives in `handlers/<name>.ts`. */
+/**
+ * Define a step: a contract (name, image, inputs, output, secrets). Its handler is a `handlers/*.ts`
+ * default-exporting `implement(step, …)`, or, for a reusable step, `implement(step, …)` staged directly.
+ */
 export function step<
   const N extends string,
   const I extends InputSpec = {},
@@ -126,5 +134,5 @@ export function step<
   const Sec extends readonly Secret[] = [],
   const Cfg extends readonly AnyConfigEntry[] = [],
 >(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]["name"], Cfg[number]> {
-  return makeStep("custom", def as never) as never;
+  return makeStep(def as never, callerFile()) as never;
 }

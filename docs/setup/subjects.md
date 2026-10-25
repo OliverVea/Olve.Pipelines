@@ -11,7 +11,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 |---|---|
 | [index.md](index.md) | Overview, concepts, GitOps model, minimal example, real pipelines to copy |
 | [getting-started.md](getting-started.md) | Put a repo under CD: `.pipelines/`, local check, bind, secrets, first run |
-| [pipeline-reference.md](pipeline-reference.md) | Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, checks, versioning |
+| [pipeline-reference.md](pipeline-reference.md) | Models, secrets, steps, library steps, reusable steps, handlers, stages, mappers, `when`, triggers, `onFailure`, checks, versioning |
 | [local-development.md](local-development.md) | `pl dev describe \| validate \| run \| pipeline`, `--docker`, the local pool, `testHandler` |
 | [binding-and-reconcile.md](binding-and-reconcile.md) | Binding, how changes are noticed, the reconcile cycle, versions, switch/rollback, status |
 | [configuration.md](configuration.md) | Typed config entries, the YAML document and snapshots, secretRefs, pending versions, runs pinning config, defaults, `pl config` |
@@ -58,7 +58,9 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Health statuses | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
 | Kaniko hang ("Unpacking rootfs") | [troubleshooting.md#a-run-is-stuck](troubleshooting.md#a-run-is-stuck) |
 | Latest-wins, one attempt in progress per step | [runs-and-operations.md#scheduling-rules](runs-and-operations.md#scheduling-rules) |
-| Library steps (`script`, `gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
+| Library steps (`gitHubSource`, `imageBuild`, `helmDeployOverSsh`, `helmDeployInCluster`, `composeDeploy`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
+| Reusable steps (`implement(step(…))` staged directly, `kind`, `settings`, step packages) | [pipeline-reference.md#reusable-steps](pipeline-reference.md#reusable-steps) |
+| Chart-only Helm deploys (`images: {}`) | [pipeline-reference.md#library-steps](pipeline-reference.md#library-steps) |
 | Local pool (`.olve/pool.json`) | [local-development.md#2-run-one-step-from-source](local-development.md#2-run-one-step-from-source) |
 | Login (`pl login`, v2 instance URL) | [getting-started.md#prerequisites](getting-started.md#prerequisites) |
 | Mappers (`[step, from => …]`) | [pipeline-reference.md#input-matching-and-mappers](pipeline-reference.md#input-matching-and-mappers) |

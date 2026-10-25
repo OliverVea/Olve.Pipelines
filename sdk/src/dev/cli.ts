@@ -9,8 +9,8 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runHarness, type HarnessConfig } from "../harness/main.ts";
 import { EXIT } from "../harness/exit.ts";
-import { handlerHashes } from "../build/hashes.ts";
-import { harnessInfo, loadProject, ProjectError } from "../build/project.ts";
+import { handlerHashes, kindHashes } from "../build/hashes.ts";
+import { harnessInfo, loadPipeline, loadProject, ProjectError } from "../build/project.ts";
 
 const USAGE = `usage: olve-dev describe <dir> [--sentinels]
        olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
@@ -18,14 +18,14 @@ const USAGE = `usage: olve-dev describe <dir> [--sentinels]
 
 export async function devConfig(dir: string, withHashes: boolean): Promise<HarnessConfig> {
   const project = await loadProject(dir);
-  const mod = (await import(project.pipelineFile)) as { default?: unknown };
-  if (!mod.default) throw new ProjectError(`${project.pipelineFile} has no default export (export default pipeline({...})...)`);
+  const pipeline = await loadPipeline(project);
   const harness = harnessInfo();
   const hashes = withHashes ? await handlerHashes(project, harness) : {};
   return {
-    pipeline: mod.default,
+    pipeline,
     handlers: Object.fromEntries(project.handlers.map(([name, file]) => [name, () => import(file) as Promise<{ default: unknown }>])),
     handlerHashes: Object.fromEntries(Object.entries(hashes).map(([k, v]) => [k, v.handlerHash])),
+    ...(withHashes ? { kindHashes: await kindHashes(project, pipeline) } : {}),
     harness,
   };
 }

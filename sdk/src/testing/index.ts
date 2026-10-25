@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isImplementation, type Implementation } from "../core/handlers.ts";
 import type { FileRef } from "../core/models.ts";
-import { isStep, type AnyStep, type ConfigOf, type LibraryStep, type OutputValue, type SecretsOf, type StepInput } from "../core/steps.ts";
+import type { AnyStep, ConfigOf, OutputValue, SecretsOf, StepInput } from "../core/steps.ts";
 import { createCtx } from "../ctx/index.ts";
 import type { Ctx, RunInfo } from "../ctx/types.ts";
 import { executeStep, type FailureKind, type StepFunction } from "../harness/execute.ts";
@@ -38,24 +38,18 @@ export type TestResult<S extends AnyStep> = {
 );
 
 /**
- * Runs a handler (the default export of `handlers/<step>.ts`) or a library step with `input`.
+ * Runs an implementation (a handler module's default export, or a step that carries its own) with `input`.
  * Input is validated like `input.json`, the result like a real run: an invalid output gives
  * `{ status: "failed", error: { kind: "output" } }`, a throwing handler `kind: "handler"`.
  */
 export async function testHandler<S extends AnyStep>(
-  target: Implementation<S> | (S & LibraryStep),
+  target: Implementation<S>,
   input: StepInput<S["input"]>,
   opts: TestHandlerOptions<S> = {},
 ): Promise<TestResult<S>> {
-  let step: AnyStep;
-  let fn: StepFunction;
-  if (isImplementation(target)) {
-    step = target.step;
-    fn = target.handler as unknown as StepFunction;
-  } else if (isStep(target) && target.builtin) {
-    step = target;
-    fn = target.builtin.run as StepFunction;
-  } else throw new TypeError("testHandler expects implement(...) (a handler module's default export) or a library step");
+  if (!isImplementation(target)) throw new TypeError("testHandler expects implement(…): a handler module's default export or a step that carries its implementation");
+  const step: AnyStep = target.step;
+  const fn = target.handler as unknown as StepFunction;
 
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), `olve-test-${step.name}-`));
   const filesDir = join(dir, "work", "files");

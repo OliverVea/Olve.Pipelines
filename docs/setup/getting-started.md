@@ -11,7 +11,7 @@ A pipeline imports the SDK, published to npm as
 [`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines):
 
 ```json
-"dependencies": { "@olivervea/pipelines": "2.0.0-beta.4" }
+"dependencies": { "@olivervea/pipelines": "2.0.0-beta.8" }
 ```
 
 Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
@@ -53,7 +53,7 @@ first.
   tsconfig.json
   models.ts             data models          (contract file)
   pipeline.ts           steps + pipeline     (contract file)
-  handlers/*.ts         one per custom step: implement(step, fn)  (not needed for library steps)
+  handlers/*.ts         one per custom step: implement(step, fn)  (library steps carry their own)
   scripts/*.sh          embedded into the compiled binary
 ```
 
@@ -65,7 +65,7 @@ first.
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.4" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.8" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```
@@ -88,12 +88,11 @@ export const Request = model("Request", z.object({
 `pipeline.ts`:
 
 ```ts
-import { pipeline, steps, Source } from "@olivervea/pipelines";
-import testSh from "./scripts/test.sh" with { type: "file" };
+import { pipeline, step, steps, Source } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
-export const test = steps.script({ name: "test", description: "Runs the tests.", image: "alpine:3.22", script: testSh, input: { source: Source } });
+export const test = step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } });
 
 export default pipeline({ name: "my-app", input: M.Request })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
@@ -101,8 +100,19 @@ export default pipeline({ name: "my-app", input: M.Request })
   .stage(test);
 ```
 
-`scripts/test.sh` gets its inputs as `INPUT_<KEY>` env vars and `$OLVE_INPUT` (see
-[`steps.script`](pipeline-reference.md#library-steps)). Then:
+`handlers/test.ts` runs the repository's tests in the fetched source tree:
+
+```ts
+import { implement } from "@olivervea/pipelines";
+import { test } from "../pipeline";
+import testSh from "../scripts/test.sh" with { type: "file" };
+
+export default implement(test, async ({ source }, ctx) => {
+  await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
+});
+```
+
+Then:
 
 ```sh
 cd .pipelines && bun install      # installs the SDK from npm and creates bun.lock — commit it

@@ -7,6 +7,8 @@ import { configRefPath, configRefTarget, isConfigRef, unionAt } from "../core/co
 import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
 import { SECRET_NAME, type Secret } from "../core/secrets.ts";
 import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
+import { isImplementation } from "../core/handlers.ts";
+import { recordConfigRefs } from "../core/config-refs.ts";
 import { pipelineData, type MapperFunction, type StageNode, type StageStepNode } from "../builder/pipeline.ts";
 import { FailureContext } from "../library/models.ts";
 import { canonicalize, canonicalJson } from "../util/canonical.ts";
@@ -27,6 +29,8 @@ export interface DescribeOptions {
   handlerNames: Iterable<string>;
   /** Step name → handler hash (from the build; includes the harness identity). */
   handlerHashes: Readonly<Record<string, string>>;
+  /** Kind → hash of the code that implements the steps of that kind which carry their implementation (from the build). */
+  kindHashes?: Readonly<Record<string, string>>;
   harness: HarnessInfo;
 }
 
@@ -163,8 +167,8 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     const prev = placements.get(s.name) ?? [];
     if (prev.some((p) => !exclusive(p.cases, cases))) problems.push(`duplicate step name '${s.name}'`);
     else if (prev.length) {
-      if (prev.some((p) => p.step !== s && p.step.kind === "custom" && s.kind === "custom"))
-        problems.push(`step '${s.name}': two different custom steps share the name across select cases; handlers pair by name, so use one step or different names`);
+      if (prev.some((p) => p.step !== s && !isImplementation(p.step) && !isImplementation(s)))
+        problems.push(`step '${s.name}': two different steps with handler files share the name across select cases; handlers pair by name, so use one step or different names`);
       if (prev.some((p) => (p.step.output?.name ?? null) !== (s.output?.name ?? null)))
         problems.push(`step '${s.name}': its select cases must give it the same output model`);
     }
@@ -233,14 +237,20 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       if (key.startsWith("$")) problems.push(`${at}: input '${key}': keys starting with '$' are reserved`);
     const secretNames = s.secrets.map((x) => useSecret(x, at)).sort();
     const configNames = [...new Set((s.config ?? []).map((c) => useConfig(c, at)).filter((n): n is string => n !== undefined))].sort();
-    // A library step that references parts of an entry needs the secrets those parts name; any other
-    // step receiving an entry needs every secret the entry names.
-    let refs: { ref: string; case?: string }[] = [];
-    try {
-      refs = s.builtin ? recordedConfigRefs(s.builtin.manifestConfig()) : [];
-    } catch {
-      // reported with the library configuration below
+    const carried = isImplementation(s);
+    let settings: Record<string, unknown> | undefined;
+    let settingsProblem: string | undefined;
+    if (s.settings !== undefined || carried) {
+      try {
+        settings = canonicalize(recordConfigRefs(s.settings ?? {})) as Record<string, unknown>;
+      } catch (e) {
+        settingsProblem = (e as Error).message;
+        settings = {};
+      }
     }
+    const refs = settings ? recordedConfigRefs(settings) : [];
+    // A step whose settings reference parts of an entry needs the secrets those parts name; any other
+    // step receiving an entry needs every secret the entry names.
     for (const name of configNames) {
       const into = refs.filter((r) => r.ref.split(".")[0] === name);
       const needed = into.length === 0
@@ -250,29 +260,24 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
         if (!secretNames.includes(ref)) problems.push(`${at}: config '${name}' references secret '${ref}' (secretRef), so the step must declare it in secrets`);
     }
     let handlerHash: string;
-    let config: Record<string, unknown> | undefined;
-    if (s.kind === "custom") {
+    if (settingsProblem !== undefined) problems.push(`${at}: invalid ${s.kind} settings (${settingsProblem})`);
+    if (typeof s.kind !== "string" || s.kind === "") problems.push(`${at}: kind must be a non-empty string`);
+    if (carried && s.kind === "custom") problems.push(`${at} carries its implementation, so it needs a kind (step({ kind: "…", … })); a step with kind custom has its handler in handlers/`);
+    for (const { ref, case: kase } of refs) {
+      const [entry, ...path] = ref.split(".") as [string, ...string[]];
+      if (kase !== undefined && !cases.some((c) => c.cond === kase))
+        problems.push(`${at}: config reference '${ref}' is narrowed to the select case '${kase}' and can only be used inside it`);
+      if (!configNames.includes(entry)) problems.push(`${at}: config reference '${ref}': the step does not receive config entry '${entry}'`);
+      else if (!resolveField(configs.get(entry)?.schema, path)) problems.push(`${at}: config reference '${ref}': config '${entry}' has no field '${path.join(".")}'`);
+    }
+    if (carried) {
+      const code = opts.kindHashes?.[s.kind];
+      if (opts.kindHashes && !code) problems.push(`${at}: no hash was computed for the code of kind '${s.kind}'`);
+      handlerHash = libraryHandlerHash(s.kind, settings, opts.harness, code);
+    } else {
       if (!handlerNames.has(s.name)) problems.push(`${at} has no handler (add a handlers/*.ts default-exporting implement(${camel(s.name)}, …))`);
       handlerHash = opts.handlerHashes[s.name] ?? "";
       if (handlerNames.has(s.name) && !handlerHash) problems.push(`${at}: no handler hash was computed`);
-    } else if (s.builtin) {
-      try {
-        config = canonicalize(s.builtin.manifestConfig()) as Record<string, unknown>;
-      } catch (e) {
-        problems.push(`${at}: invalid ${s.kind} configuration (${(e as Error).message})`);
-        config = {};
-      }
-      for (const { ref, case: kase } of recordedConfigRefs(config)) {
-        const [entry, ...path] = ref.split(".") as [string, ...string[]];
-        if (kase !== undefined && !cases.some((c) => c.cond === kase))
-          problems.push(`${at}: config reference '${ref}' is narrowed to the select case '${kase}' and can only be used inside it`);
-        if (!configNames.includes(entry)) problems.push(`${at}: config reference '${ref}': the step does not receive config entry '${entry}'`);
-        else if (!resolveField(configs.get(entry)?.schema, path)) problems.push(`${at}: config reference '${ref}': config '${entry}' has no field '${path.join(".")}'`);
-      }
-      handlerHash = libraryHandlerHash(s.kind, config, opts.harness);
-    } else {
-      problems.push(`${at}: library step of kind '${s.kind}' has no implementation`);
-      handlerHash = "";
     }
     if (typeof s.description !== "string") problems.push(`${at}: description must be a string (it may be empty)`);
     if (s.timeoutSeconds !== undefined && !(Number.isInteger(s.timeoutSeconds) && s.timeoutSeconds > 0)) problems.push(`${at}: timeoutSeconds must be a positive integer`);
@@ -290,7 +295,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       handlerHash: handlerHash || "sha256:" + "0".repeat(64),
       ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
       ...(s.retries !== undefined ? { retries: s.retries } : {}),
-      ...(config !== undefined ? { config: config as Record<string, z.core.util.JSONType> } : {}),
+      ...(settings !== undefined ? { config: settings as Record<string, z.core.util.JSONType> } : {}),
       ...(configNames.length ? { configEntries: configNames } : {}),
       ...(s.clusterAccess === true ? { clusterAccess: true as const } : {}),
     };
@@ -432,7 +437,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
   for (const h of handlerNames) {
     const s = steps.get(h);
     if (!s) problems.push(`a handler implements step '${h}', which is not in the pipeline`);
-    else if (s.kind !== "custom") problems.push(`a handler implements '${h}', a library step (${s.kind}) that carries its own implementation`);
+    else if (isImplementation(s)) problems.push(`a handler implements '${h}', a ${s.kind} step that carries its own implementation`);
   }
 
   // ── triggers ──
@@ -534,7 +539,7 @@ export function secretRefsOf(schema: unknown): string[] {
   return [...out].sort();
 }
 
-/** The `{"$config": "<entry>.<path>"[, "$case": …]}` references in a library step's recorded configuration. */
+/** The `{"$config": "<entry>.<path>"[, "$case": …]}` references in a step's recorded settings. */
 export function recordedConfigRefs(v: unknown, out: { ref: string; case?: string }[] = []): { ref: string; case?: string }[] {
   if (Array.isArray(v)) v.forEach((x) => recordedConfigRefs(x, out));
   else if (v !== null && typeof v === "object") {

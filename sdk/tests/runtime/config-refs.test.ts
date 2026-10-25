@@ -1,11 +1,10 @@
-// Config references in library-step definitions (`host: TARGET.beta.host`): recorded in the manifest,
-// delivered to the step automatically, resolved from ctx.config when the step runs. Plus select, the target deploys,
-// registryTag and npmDistTag.
+// Config references in step settings (`host: TARGET.beta.host`): recorded in the manifest,
+// delivered to the step automatically, resolved from ctx.config when the step runs. Plus select and the target deploys.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { config, deployTarget, helmTarget, HelmRelease, model, npmDistTag, pipeline, registryTag, secret, secretRef, step, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
+import { config, deployTarget, helmTarget, HelmRelease, model, pipeline, secret, secretRef, step, steps, z, type Ctx, type FileRef } from "../../src/index.ts";
 import { pipelineData } from "../../src/builder/pipeline.ts";
 import { findStep } from "../../src/harness/main.ts";
 import { configRefPath, isConfigRef } from "../../src/core/config.ts";
@@ -254,35 +253,6 @@ describe("target deploys and select", () => {
     expect(helm).toContain("--wait");
     expect(helm.join(" ")).toContain(`--set-string harness.image.digest=${harnessImage.digest}`);
     expect(f.calls[f.calls.indexOf(helm) + 1]).toEqual({ cwd: join(f.tree, "helm") });
-  });
-});
-
-describe("registryTag and npmDistTag", () => {
-  test("registryTag re-PUTs the manifest bytes under the tag", async () => {
-    const digest = "sha256:" + "ef".repeat(32);
-    const body = '{"schemaVersion":2}';
-    const requests: { method: string; url: string; type?: string | null; body?: string }[] = [];
-    const http = {
-      fetch: async (url: string, init?: RequestInit) => {
-        const h = new Headers(init?.headers);
-        requests.push({ method: init?.method ?? "GET", url, type: h.get("content-type"), body: init?.body ? new TextDecoder().decode(init.body as Uint8Array) : undefined });
-        if (init?.method === "PUT") return new Response(null, { status: 201, headers: { "Docker-Content-Digest": digest } });
-        return new Response(body, { headers: { "Content-Type": "application/vnd.oci.image.manifest.v1+json" } });
-      },
-    } as unknown as Ctx["http"];
-    await registryTag(http, "registry:5000/app", digest, "next", { insecure: true });
-    expect(requests).toEqual([
-      { method: "GET", url: `http://registry:5000/v2/app/manifests/${digest}`, type: null, body: undefined },
-      { method: "PUT", url: "http://registry:5000/v2/app/manifests/next", type: "application/vnd.oci.image.manifest.v1+json", body },
-    ]);
-  });
-
-  test("npmDistTag PUTs the version to the dist-tag", async () => {
-    const seen: { url: string; init?: RequestInit }[] = [];
-    const ctx = { http: { fetch: async (url: string, init?: RequestInit) => (seen.push({ url, init }), new Response(null, { status: 200 })) }, log: () => {} } as unknown as Ctx;
-    await npmDistTag(ctx, { name: "@olivervea/pipelines", version: "2.0.0", tag: "latest", token: "t" });
-    expect(seen[0]!.url).toBe("https://registry.npmjs.org/-/package/@olivervea%2fpipelines/dist-tags/latest");
-    expect(seen[0]!.init).toMatchObject({ method: "PUT", body: '"2.0.0"' });
   });
 });
 

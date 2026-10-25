@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { implement, npmHasVersion, type Ctx } from "@olivervea/pipelines";
+import { implement, type Ctx } from "@olivervea/pipelines";
+import { npmHasVersion } from "../npm";
 import { publishSdk } from "../pipeline";
 
 export default implement(publishSdk, async ({ pkg }, ctx) => {

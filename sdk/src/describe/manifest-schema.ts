@@ -51,19 +51,19 @@ export const StepDescriptor = z
   .strictObject({
     name: stepName,
     description: z.string().describe("What the step does, shown in the UI (may be empty)."),
-    kind: z.string().min(1).describe("'custom' = handlers/<name>.ts; others are SDK library steps. A label: the service accepts any kind."),
+    kind: z.string().min(1).describe("'custom' = the handler is a handlers/*.ts file; any other kind is a step that carries its implementation (an SDK or package step). A label: the service accepts any kind."),
     image: z.string().min(1).describe("Container image the step runs in."),
     inputTypes: z.record(z.string(), InputType).describe("Declared input entries, keyed like input.json."),
     input: z.record(z.string(), Mapping).describe("How the service assembles input.json: one mapping per input key (same keys as inputTypes)."),
     output: modelName.nullable().describe("Output model, or null if the step produces no output."),
     secrets: z.array(secretName).describe("Declared secrets (sorted). Mount exactly these, as env vars of the same name."),
-    handlerHash: hash.describe("Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for library steps kind + config + harness."),
+    handlerHash: hash.describe("Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for a step that carries its implementation kind + config + harness + the hash of the code of its kind."),
     timeoutSeconds: z.number().int().positive().optional(),
     retries: z.number().int().nonnegative().optional(),
     config: z
       .record(z.string(), Json)
       .optional()
-      .describe("Library-step configuration (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries."),
+      .describe("The step's settings (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries."),
     configEntries: z
       .array(configName)
       .optional()

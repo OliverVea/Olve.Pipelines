@@ -7,8 +7,9 @@ import type { Ctx, RunInfo } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
 import { isConfigRef, type ConfigRef, type Configurable } from "../core/config.ts";
-import { isLiteral, recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
-import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
+import { isLiteral, resolveConfigRefs } from "../core/config-refs.ts";
+import { implement, type Implementation } from "../core/handlers.ts";
+import { step, type LiteralName, type Step } from "../core/steps.ts";
 import { sha256File } from "../util/hash.ts";
 import { dirEntries, writeTar } from "../util/tar.ts";
 import { BuiltImage, PushedImage, Source } from "./models.ts";
@@ -47,16 +48,8 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
    * (`registry.ovea.pro/app/api`). The tag is the run's version (see `imageTag`) unless `contentTag`.
    */
   repository: Configurable<string>;
-  /** Build context: a directory of the source tree (default: the root). */
+  /** Build context: a directory of the source tree with a `Dockerfile` (default: the root). */
   context?: string;
-  /** Dockerfile path, relative to the context (default `Dockerfile`). */
-  dockerfile?: string;
-  /**
-   * Registry repository for kaniko's layer cache (`--cache=true --cache-repo=…`), so unchanged
-   * layers (restore, apt, npm, …) are reused. kaniko pushes cache layers even with `--no-push`.
-   * A registry without GC grows with every changed layer — prune it when needed.
-   */
-  cacheRepo?: Configurable<string | undefined>;
   /**
    * kaniko `--registry-map` (registry → mirror prefix); kaniko falls back to the original registry if
    * the mirror lacks the image. Defaults to the homelab pull-through caches (`DEFAULT_REGISTRY_MAP`);
@@ -71,15 +64,6 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
    * the longest silent build phase (an AOT "Generating native code" runs ~2 min with no output).
    */
   stallTimeoutSeconds?: number;
-  /**
-   * kaniko `--snapshot-mode`: `redo` (default) compares file metadata instead of hashing every file's
-   * content after each instruction; `full` hashes content (slower, and what kaniko defaults to).
-   */
-  snapshotMode?: "redo" | "full" | "time";
-  /** kaniko `--use-new-run`: snapshot only what a RUN changed (faster for big images). Default true. */
-  useNewRun?: boolean;
-  /** kaniko `--compressed-caching`: compress layers while caching (saves memory, costs time). Default false. */
-  compressedCaching?: boolean;
   /**
    * Automatic retries of a failed attempt (a fresh pod: kaniko unpacks the base image over the
    * container root and does not clean up when killed, so retrying inside the same pod is unsafe).
@@ -147,31 +131,21 @@ export async function registryUp(http: Ctx["http"], host: string, signal?: Abort
   }
 }
 
-/**
- * Drops the caches that don't answer, so a cache outage (GC, maintenance) never blocks a build: an
- * unreachable mirror is left out of the registry map, an unreachable `cacheRepo` means no layer cache.
- */
-export async function reachableCaches(
+/** The registry map without the mirrors that don't answer, so a mirror outage (GC, maintenance) never blocks a build. */
+export async function reachableMirrors(
   ctx: Pick<Ctx, "http" | "log" | "signal">,
-  caches: { registryMap: Record<string, string>; cacheRepo?: string },
+  registryMap: Record<string, string>,
   insecureHosts: readonly string[] = [],
-): Promise<{ registryMap: Record<string, string>; cacheRepo?: string }> {
-  const hosts = new Set([...Object.values(caches.registryMap), ...(caches.cacheRepo ? [caches.cacheRepo] : [])].map(registryHost));
+): Promise<Record<string, string>> {
+  const hosts = new Set(Object.values(registryMap).map(registryHost));
   const up = new Map(await Promise.all([...hosts].map(async (h) => [h, await registryUp(ctx.http, h, ctx.signal, undefined, insecureHosts.includes(h))] as const)));
-  const registryMap: Record<string, string> = {};
-  for (const [from, to] of Object.entries(caches.registryMap)) {
-    if (up.get(registryHost(to))) registryMap[from] = to;
+  const reachable: Record<string, string> = {};
+  for (const [from, to] of Object.entries(registryMap)) {
+    if (up.get(registryHost(to))) reachable[from] = to;
     else ctx.log(`${registryHost(to)} unreachable; pulling from ${from} directly`);
   }
-  if (caches.cacheRepo && !up.get(registryHost(caches.cacheRepo))) {
-    ctx.log(`${registryHost(caches.cacheRepo)} unreachable; building without the layer cache`);
-    return { registryMap };
-  }
-  return { registryMap, ...(caches.cacheRepo ? { cacheRepo: caches.cacheRepo } : {}) };
+  return reachable;
 }
-
-/** Default kaniko `--snapshot-mode`. */
-export const DEFAULT_SNAPSHOT_MODE = "redo";
 
 /** Default `retries`: a stalled or flaky build gets two fresh attempts before the run fails. */
 export const DEFAULT_RETRIES = 2;
@@ -314,124 +288,115 @@ export function writeDockerConfig(dir: string, host: string, username: string, p
 }
 
 /**
- * Builds an image with kaniko from `<context>/<dockerfile>` in the source tree (default: `Dockerfile`
- * at the root). Default: into an image tarball, output `BuiltImage { repository, tag, digest, tar }`.
+ * Builds an image with kaniko from `<context>/Dockerfile` in the source tree (default: the root). Default: into an image tarball, output `BuiltImage { repository, tag, digest, tar }`.
  * With `push: true`: pushed to `repository`, output `PushedImage { repository, tag, digest }`.
  */
-export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildTarballDef<N, K>): Step<N, ImageBuildInput, typeof BuiltImage, K> & LibraryStep;
-export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildPushDef<N, K>): Step<N, ImageBuildInput, typeof PushedImage, K> & LibraryStep;
+export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildTarballDef<N, K>): Implementation<Step<N, ImageBuildInput, typeof BuiltImage, K>>;
+export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildPushDef<N, K>): Implementation<Step<N, ImageBuildInput, typeof PushedImage, K>>;
 export function imageBuild<const N extends string, const K extends string = never>(def: ImageBuildTarballDef<N, K> | ImageBuildPushDef<N, K>): AnyImageBuild {
   const push = def.push === true;
   const contentTag = push && def.contentTag === true;
   const context = checkRelative("context", def.context ?? "");
-  const dockerfile = checkRelative("dockerfile", def.dockerfile ?? "Dockerfile");
   const authSecret = def.registryAuth && !isConfigRef(def.registryAuth) ? def.registryAuth : undefined;
   if (isLiteral([def.repository, def.registryAuth, def.insecureRegistry])) checkRegistryHost(def.name, def.repository as string, push, def.registryAuth !== undefined, def.insecureRegistry === true);
   const secrets = [...(authSecret ? [authSecret.password] : []), ...(def.secrets ?? [])].filter((s, i, all) => all.findIndex((x) => x.name === s.name) === i);
-  return makeStep(
-    "imageBuild",
-    { name: def.name, description: def.description, image: KANIKO_IMAGE, input, output: push ? PushedImage : BuiltImage, secrets, timeoutSeconds: def.timeoutSeconds, retries: def.retries ?? DEFAULT_RETRIES },
-    {
-      manifestConfig: () => {
-        const registryMap = def.registryMap ?? DEFAULT_REGISTRY_MAP;
-        const mapped = isConfigRef(registryMap) || Object.keys(registryMap).length > 0;
-        return {
-          repository: recordConfigRefs(def.repository),
-          ...(context ? { context } : {}),
-          ...(dockerfile !== "Dockerfile" ? { dockerfile } : {}),
-          ...(push ? { push: true } : {}),
-          ...(contentTag ? { contentTag: true } : {}),
-          ...(def.cacheRepo !== undefined ? { cacheRepo: recordConfigRefs(def.cacheRepo) } : {}),
-          ...(mapped ? { registryMap: recordConfigRefs(registryMap) } : {}),
-          ...(authSecret ? { registryAuth: { username: authSecret.username, password: authSecret.password.name } } : {}),
-          ...(def.registryAuth && isConfigRef(def.registryAuth) ? { registryAuth: recordConfigRefs(def.registryAuth) } : {}),
-          ...(def.insecureRegistry !== undefined && def.insecureRegistry !== false ? { insecureRegistry: recordConfigRefs(def.insecureRegistry) } : {}),
-          ...(def.enabled !== undefined ? { enabled: recordConfigRefs(def.enabled) } : {}),
-          ...(def.snapshotMode !== undefined && def.snapshotMode !== DEFAULT_SNAPSHOT_MODE ? { snapshotMode: def.snapshotMode } : {}),
-          ...(def.useNewRun === false ? { useNewRun: false } : {}),
-          ...(def.compressedCaching === true ? { compressedCaching: true } : {}),
-        };
-      },
-      async run({ source }: { source: { tree: FileRef } }, ctx: Ctx) {
-        const d = resolveConfigRefs({
-          repository: def.repository, cacheRepo: def.cacheRepo, registryMap: def.registryMap, insecureRegistry: def.insecureRegistry,
-          registryAuth: def.registryAuth, enabled: def.enabled,
-        }, ctx.config ?? {});
-        const repository = d.repository as string;
-        if (d.enabled === false) return ctx.skip(`publishing ${repository} is turned off`);
-        const registryMap = (d.registryMap as Record<string, string> | undefined) ?? DEFAULT_REGISTRY_MAP;
-        const insecure = d.insecureRegistry === true;
-        const auth = registryLogin(d.registryAuth as RegistryAuth<string> | RegistryAuthConfig | undefined, ctx, secrets.map((s) => s.name));
-        checkRegistryHost(def.name, repository, push, auth !== undefined, insecure);
-        const host = registryHost(repository);
-
-        const tree = await ctx.files.fetch(source.tree);
-        const contextDir = context ? join(tree, context) : tree;
-        if (!existsSync(contextDir) || !statSync(contextDir).isDirectory()) throw new Error(`build context '${context}' not found in the source tree`);
-        if (!existsSync(join(contextDir, dockerfile))) throw new Error(`${dockerfile} not found in the build context${context ? ` '${context}'` : ""}`);
-
-        const access: RegistryAccess = { insecure, ...(auth ?? {}) };
-        if (auth) writeDockerConfig(process.env.DOCKER_CONFIG || KANIKO_DOCKER_CONFIG, host, auth.username, auth.password);
-
-        const tag = contentTag ? contentTagOf(contextDir, ctx.tmpDir) : imageTag(ctx.run);
-        if (contentTag) {
-          const digest = await registryDigest(ctx.http, repository, tag, access);
-          if (digest) {
-            ctx.log("image already in the registry", { image: `${repository}:${tag}`, digest });
-            return { repository, tag, digest };
-          }
-        }
-
-        const caches = await reachableCaches(ctx, { registryMap, cacheRepo: d.cacheRepo as string | undefined }, insecure ? [host] : []);
-        await ctx.exec(["mkdir", "-p", KANIKO_CONTEXT]);
-        await ctx.exec(["cp", "-r", `${tree}/.`, KANIKO_CONTEXT]);
-        const kanikoContext = context ? `${KANIKO_CONTEXT}/${context}` : KANIKO_CONTEXT;
-
-        // Outputs go to the harness's scratch dir (/olve/tmp, an emptyDir mount kaniko leaves alone;
-        // kaniko images have no /tmp), then into the step's files.
-        mkdirSync(ctx.tmpDir, { recursive: true });
-        const out = mkdtempSync(join(ctx.tmpDir, "image-build-"));
-        const tarPath = join(out, "image.tar");
-        const digestPath = join(out, "digest");
-        const output = push ? [] : ["--no-push", `--tar-path=${tarPath}`];
-        // No --single-snapshot: it is incompatible with multi-stage Dockerfiles whose later stages need
-        // the build context intact. --skip-push-permission-check: with --no-push kaniko otherwise checks
-        // the cache repo at startup and exits if it is down; later cache lookup and push errors are
-        // only warnings.
-        await ctx.exec([
-          "/kaniko/executor",
-          `--context=${kanikoContext}`,
-          `--dockerfile=${kanikoContext}/${dockerfile}`,
-          ...output,
-          `--digest-file=${digestPath}`,
-          `--destination=${repository}:${tag}`,
-          ...(insecure ? ["--insecure", `--insecure-registry=${host}`] : []),
-          `--snapshot-mode=${def.snapshotMode ?? DEFAULT_SNAPSHOT_MODE}`,
-          ...((def.useNewRun ?? true) ? ["--use-new-run"] : []),
-          `--compressed-caching=${def.compressedCaching ?? false}`,
-          ...(caches.cacheRepo ? ["--cache=true", `--cache-repo=${caches.cacheRepo}`, "--skip-push-permission-check"] : []),
-          ...Object.entries(caches.registryMap).map(([from, to]) => `--registry-map=${from}=${to}`),
-        ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
-
-        let digest: string;
-        try {
-          digest = readFileSync(digestPath, "utf8").trim();
-        } catch {
-          throw new Error(`kaniko did not write the image digest to ${digestPath}`);
-        }
-        if (!/^sha256:[0-9a-f]{64}$/.test(digest)) throw new Error(`kaniko wrote an unexpected digest: '${digest}'`);
-        if (push) {
-          ctx.log("image pushed", { image: `${repository}:${tag}`, digest });
-          return { repository, tag, digest };
-        }
-        const tar = await ctx.output.file(tarPath, { name: "image.tar" });
-        rmSync(tarPath); // the copy in the step's files is the one that counts; don't hold the image twice in /olve
-        ctx.log("image built", { image: `${repository}:${tag}`, digest });
-        return { repository: qualifyRepository(repository), tag, digest, tar };
-      },
+  const registryMap = def.registryMap ?? DEFAULT_REGISTRY_MAP;
+  const mapped = isConfigRef(registryMap) || Object.keys(registryMap).length > 0;
+  const contract = step({
+    name: def.name,
+    description: def.description,
+    kind: "imageBuild",
+    image: KANIKO_IMAGE,
+    input,
+    output: push ? PushedImage : BuiltImage,
+    secrets,
+    timeoutSeconds: def.timeoutSeconds,
+    retries: def.retries ?? DEFAULT_RETRIES,
+    settings: {
+      repository: def.repository,
+      ...(context ? { context } : {}),
+      ...(push ? { push: true } : {}),
+      ...(contentTag ? { contentTag: true } : {}),
+      ...(mapped ? { registryMap } : {}),
+      ...(authSecret ? { registryAuth: { username: authSecret.username, password: authSecret.password.name } } : {}),
+      ...(def.registryAuth && isConfigRef(def.registryAuth) ? { registryAuth: def.registryAuth } : {}),
+      ...(def.insecureRegistry !== undefined && def.insecureRegistry !== false ? { insecureRegistry: def.insecureRegistry } : {}),
+      ...(def.enabled !== undefined ? { enabled: def.enabled } : {}),
     },
-    def,
-  ) as never;
+  });
+  return implement(contract, async ({ source }, ctx: Ctx) => {
+    const d = resolveConfigRefs({
+      repository: def.repository, registryMap: def.registryMap, insecureRegistry: def.insecureRegistry,
+      registryAuth: def.registryAuth, enabled: def.enabled,
+    }, ctx.config ?? {});
+    const repository = d.repository as string;
+    if (d.enabled === false) return ctx.skip(`publishing ${repository} is turned off`);
+    const insecure = d.insecureRegistry === true;
+    const auth = registryLogin(d.registryAuth as RegistryAuth<string> | RegistryAuthConfig | undefined, ctx, secrets.map((s) => s.name));
+    checkRegistryHost(def.name, repository, push, auth !== undefined, insecure);
+    const host = registryHost(repository);
+
+    const tree = await ctx.files.fetch(source.tree);
+    const contextDir = context ? join(tree, context) : tree;
+    if (!existsSync(contextDir) || !statSync(contextDir).isDirectory()) throw new Error(`build context '${context}' not found in the source tree`);
+    if (!existsSync(join(contextDir, "Dockerfile"))) throw new Error(`Dockerfile not found in the build context${context ? ` '${context}'` : ""}`);
+
+    const access: RegistryAccess = { insecure, ...(auth ?? {}) };
+    if (auth) writeDockerConfig(process.env.DOCKER_CONFIG || KANIKO_DOCKER_CONFIG, host, auth.username, auth.password);
+
+    const tag = contentTag ? contentTagOf(contextDir, ctx.tmpDir) : imageTag(ctx.run);
+    if (contentTag) {
+      const digest = await registryDigest(ctx.http, repository, tag, access);
+      if (digest) {
+        ctx.log("image already in the registry", { image: `${repository}:${tag}`, digest });
+        return { repository, tag, digest };
+      }
+    }
+
+    const mirrors = await reachableMirrors(ctx, (d.registryMap as Record<string, string> | undefined) ?? DEFAULT_REGISTRY_MAP, insecure ? [host] : []);
+    await ctx.exec(["mkdir", "-p", KANIKO_CONTEXT]);
+    await ctx.exec(["cp", "-r", `${tree}/.`, KANIKO_CONTEXT]);
+    const kanikoContext = context ? `${KANIKO_CONTEXT}/${context}` : KANIKO_CONTEXT;
+
+    // Outputs go to the harness's scratch dir (/olve/tmp, an emptyDir mount kaniko leaves alone;
+    // kaniko images have no /tmp), then into the step's files.
+    mkdirSync(ctx.tmpDir, { recursive: true });
+    const out = mkdtempSync(join(ctx.tmpDir, "image-build-"));
+    const tarPath = join(out, "image.tar");
+    const digestPath = join(out, "digest");
+    const output = push ? [] : ["--no-push", `--tar-path=${tarPath}`];
+    // No --single-snapshot: it is incompatible with multi-stage Dockerfiles whose later stages need
+    // the build context intact.
+    await ctx.exec([
+      "/kaniko/executor",
+      `--context=${kanikoContext}`,
+      `--dockerfile=${kanikoContext}/Dockerfile`,
+      ...output,
+      `--digest-file=${digestPath}`,
+      `--destination=${repository}:${tag}`,
+      ...(insecure ? ["--insecure", `--insecure-registry=${host}`] : []),
+      "--snapshot-mode=redo",
+      "--use-new-run",
+      "--compressed-caching=false",
+      ...Object.entries(mirrors).map(([from, to]) => `--registry-map=${from}=${to}`),
+    ], { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS });
+
+    let digest: string;
+    try {
+      digest = readFileSync(digestPath, "utf8").trim();
+    } catch {
+      throw new Error(`kaniko did not write the image digest to ${digestPath}`);
+    }
+    if (!/^sha256:[0-9a-f]{64}$/.test(digest)) throw new Error(`kaniko wrote an unexpected digest: '${digest}'`);
+    if (push) {
+      ctx.log("image pushed", { image: `${repository}:${tag}`, digest });
+      return { repository, tag, digest };
+    }
+    const tar = await ctx.output.file(tarPath, { name: "image.tar" });
+    rmSync(tarPath); // the copy in the step's files is the one that counts; don't hold the image twice in /olve
+    ctx.log("image built", { image: `${repository}:${tag}`, digest });
+    return { repository: qualifyRepository(repository), tag, digest, tar };
+  }) as never;
 }
 
 function checkRegistryHost(name: string, repository: string, push: boolean, auth: boolean, insecure: boolean): void {
@@ -450,25 +415,4 @@ function registryLogin(auth: RegistryAuth<string> | RegistryAuthConfig | undefin
   return { username: auth.username, password };
 }
 
-/**
- * Adds `tag` to the image `repository@digest` without rebuilding it: the manifest is fetched by
- * digest and PUT back under the tag byte for byte, so the digest stays the same.
- */
-export async function registryTag(http: Ctx["http"], repository: string, digest: string, tag: string, access: RegistryAccess = {}): Promise<void> {
-  const [host, ...path] = repository.split("/");
-  const name = path.join("/");
-  const got = await registryFetch(http, host!, `/v2/${name}/manifests/${digest}`, { method: "GET", headers: { Accept: MANIFEST_TYPES } }, access);
-  if (!got.ok) {
-    await got.body?.cancel().catch(() => {});
-    throw new Error(`registry fetch of ${repository}@${digest} answered HTTP ${got.status}`);
-  }
-  const type = got.headers.get("content-type") ?? "application/vnd.oci.image.manifest.v1+json";
-  const body = new Uint8Array(await got.arrayBuffer());
-  const put = await registryFetch(http, host!, `/v2/${name}/manifests/${encodeURIComponent(tag)}`, { method: "PUT", headers: { "Content-Type": type }, body }, access);
-  await put.body?.cancel().catch(() => {});
-  if (!put.ok) throw new Error(`registry tag ${repository}:${tag} → ${digest} answered HTTP ${put.status}`);
-  const written = put.headers.get("docker-content-digest");
-  if (written && written !== digest) throw new Error(`registry stored ${repository}:${tag} as ${written}, not ${digest}`);
-}
-
-type AnyImageBuild = Step<string, ImageBuildInput, typeof BuiltImage | typeof PushedImage, any> & LibraryStep;
+type AnyImageBuild = Implementation<Step<string, ImageBuildInput, typeof BuiltImage | typeof PushedImage, any>>;

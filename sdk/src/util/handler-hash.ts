@@ -16,7 +16,7 @@ export function composeHandlerHash(bundleHash: string, harness: HarnessInfo): st
   return "sha256:" + sha256Hex(canonicalJson({ bundle: bundleHash, harness }));
 }
 
-/** Library step: kind + canonical config + harness. */
-export function libraryHandlerHash(kind: string, config: unknown, harness: HarnessInfo): string {
-  return "sha256:" + sha256Hex(canonicalJson({ library: kind, config, harness }));
+/** A step that carries its implementation: kind + canonical settings + harness, and the hash of the code that implements the kind. */
+export function libraryHandlerHash(kind: string, config: unknown, harness: HarnessInfo, code?: string): string {
+  return "sha256:" + sha256Hex(canonicalJson({ library: kind, config, harness, ...(code ? { code } : {}) }));
 }

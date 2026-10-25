@@ -9,15 +9,14 @@ import type { Ctx } from "../ctx/types.ts";
 import type { FileRef } from "../core/models.ts";
 import type { Secret } from "../core/secrets.ts";
 import type { Configurable } from "../core/config.ts";
-import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
-import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
+import { resolveConfigRefs } from "../core/config-refs.ts";
+import { implement, type Implementation } from "../core/handlers.ts";
+import { step, type LiteralName, type Step } from "../core/steps.ts";
 import type { Simplify } from "../core/types.ts";
 import { httpHealthCheck, type HttpHealthCheckOptions } from "./http-health.ts";
 import { BuiltImage, HelmRelease, PushedImage, Source } from "./models.ts";
 import { shq, sshSession } from "./ssh.ts";
 import { helmDeployOverSshTarget, type HelmDeploySshTargetDef, type HelmTargetDeployInput } from "./helm-deploy.ts";
-
-export { shq } from "./ssh.ts";
 
 /** Alpine: `apk add openssh-client` at run time gives ssh/scp (the health check runs in the harness). */
 export const HELM_DEPLOY_IMAGE = "alpine:3.22";
@@ -71,7 +70,7 @@ export interface HelmDeployOverSshDef<
   /**
    * The images to deploy: step input key → the chart's values prefix for that image. Each input is a
    * `BuiltImage` (or `PushedImage` with `fromRegistry`). Default `{ image: "image" }`; several images
-   * need a mapper, e.g. `{ server: "image", web: "web.image" }`.
+   * need a mapper, e.g. `{ server: "image", web: "web.image" }`. `{}` deploys the chart alone.
    */
   images?: Im & { readonly source?: never };
   /**
@@ -87,7 +86,7 @@ export interface HelmDeployOverSshDef<
    * next to tarball `images`.
    */
   imageRefs?: Rf & { readonly source?: never };
-  /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name. */
+  /** Rollouts to wait for, in order: `deploy/<name>` for a bare name. Default: the release name, or none without images. */
   deployments?: readonly string[];
   /** Per rollout (`kubectl rollout status --timeout`). Default 120. */
   rolloutTimeoutSeconds?: number;
@@ -221,26 +220,25 @@ export function helmDeployOverSsh<
   const K extends string,
   const Im extends Record<string, string> = DefaultImages,
   const Rf extends Record<string, string> = {},
->(def: HelmDeploySshTargetDef<N, K, Im, Rf>): Step<N, HelmTargetDeployInput<Im, Rf>, typeof HelmRelease, K> & LibraryStep;
+>(def: HelmDeploySshTargetDef<N, K, Im, Rf>): Implementation<Step<N, HelmTargetDeployInput<Im, Rf>, typeof HelmRelease, K>>;
 export function helmDeployOverSsh<
   const N extends string,
   const K extends string,
   const Im extends Record<string, string> = DefaultImages,
   const R extends boolean = false,
   const Rf extends Record<string, string> = {},
->(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K> & LibraryStep;
+>(def: HelmDeployOverSshDef<N, K, Im, R, Rf>): Implementation<Step<N, HelmDeployOverSshInput<Im, R, Rf>, typeof HelmRelease, K>>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function helmDeployOverSsh(def: any): Step & LibraryStep {
+export function helmDeployOverSsh(def: any): any {
   return "target" in def ? helmDeployOverSshTarget(def) : helmDeployOverSshLiteral(def);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any, boolean, any>): Step & LibraryStep {
+function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any, boolean, any>): Implementation {
   const images: Record<string, string> = def.images ?? { image: "image" };
   const imageEntries = Object.entries(images);
   const fromRegistry = def.fromRegistry === true;
   const rolloutTimeout = def.rolloutTimeoutSeconds ?? DEFAULT_ROLLOUT_TIMEOUT_SECONDS;
-  if (imageEntries.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': images must not be empty`);
   if ("source" in images) throw new Error(`helmDeployOverSsh '${def.name}': 'source' can't be an image input`);
   if (def.deployments?.length === 0) throw new Error(`helmDeployOverSsh '${def.name}': deployments must not be empty`);
   const imageRefs: Record<string, string> = def.imageRefs ?? {};
@@ -256,49 +254,53 @@ function helmDeployOverSshLiteral(def: HelmDeployOverSshDef<string, string, any,
   const isDefaultImages = imageEntries.length === 1 && images.image === "image";
   const configurable = { host: def.host, release: def.release, namespace: def.namespace, values: def.values ?? [], set: def.set ?? {}, healthUrl: def.healthUrl };
 
-  return makeStep(
-    "helmDeployOverSsh",
-    { name: def.name, description: def.description, image: HELM_DEPLOY_IMAGE, input, output: HelmRelease, secrets: [def.sshKey], timeoutSeconds: def.timeoutSeconds },
-    {
-      manifestConfig: () => ({
-        host: recordConfigRefs(def.host),
-        sshKey: def.sshKey.name,
-        release: recordConfigRefs(def.release),
-        namespace: recordConfigRefs(def.namespace),
-        chart: def.chart,
-        values: recordConfigRefs(configurable.values),
-        set: recordConfigRefs(configurable.set),
-        ...(isDefaultImages ? {} : { images: { ...images } }),
-        ...(fromRegistry ? { fromRegistry: true } : {}),
-        ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
-        ...(def.deployments ? { deployments: [...def.deployments] } : {}),
-        ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
-        ...(def.healthUrl !== undefined ? { healthUrl: recordConfigRefs(def.healthUrl) } : {}),
-      }),
-      async run(input: Record<string, { repository: string; tag: string; digest: string; tar?: FileRef }> & { source: { tree: FileRef } }, ctx: Ctx) {
-        const d = resolveConfigRefs(configurable, ctx.config ?? {}) as {
-          host: string; release: string; namespace: string; values: string[]; set: Record<string, string>;
-          healthUrl?: string | ({ url: string } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
-        };
-        const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
-        const hostImages: HostImage[] = [];
-        const flags: HelmImageFlags[] = [];
-        for (const [key, prefix] of imageEntries) {
-          const image = input[key]!;
-          hostImages.push({ repository: image.repository, tag: image.tag, ...(fromRegistry ? {} : { tar: await ctx.files.fetch(image.tar!) }) });
-          flags.push({ prefix, repository: image.repository, tag: image.tag, pullPolicy: fromRegistry ? "IfNotPresent" : "Never" });
-        }
-        const refs: HelmImageRefFlags[] = refEntries.map(([key, prefix]) => ({ prefix, repository: input[key]!.repository, tag: input[key]!.tag, digest: input[key]!.digest }));
-        await deployOverSsh(ctx, {
-          host: d.host, key: ctx.secrets[def.sshKey.name]!, chartDir, release: d.release, namespace: d.namespace, hostImages,
-          flags: { values: d.values, set: d.set, images: flags, imageRefs: refs },
-          deployments: def.deployments ?? [d.release], rolloutTimeoutSeconds: rolloutTimeout,
-        });
-        const health = typeof d.healthUrl === "string" ? { url: d.healthUrl } : d.healthUrl;
-        if (health) await httpHealthCheck(ctx, health.url, { attempts: health.attempts, delaySeconds: health.delaySeconds });
-        return { release: d.release, namespace: d.namespace, image: `${flags[0]!.repository}:${flags[0]!.tag}` };
-      },
+  const contract = step({
+    name: def.name,
+    description: def.description,
+    kind: "helmDeployOverSsh",
+    image: HELM_DEPLOY_IMAGE,
+    input,
+    output: HelmRelease,
+    secrets: [def.sshKey],
+    timeoutSeconds: def.timeoutSeconds,
+    settings: {
+      host: def.host,
+      sshKey: def.sshKey.name,
+      release: def.release,
+      namespace: def.namespace,
+      chart: def.chart,
+      values: configurable.values,
+      set: configurable.set,
+      ...(isDefaultImages ? {} : { images: { ...images } }),
+      ...(fromRegistry ? { fromRegistry: true } : {}),
+      ...(refEntries.length > 0 ? { imageRefs: { ...imageRefs } } : {}),
+      ...(def.deployments ? { deployments: [...def.deployments] } : {}),
+      ...(def.rolloutTimeoutSeconds !== undefined ? { rolloutTimeoutSeconds: def.rolloutTimeoutSeconds } : {}),
+      ...(def.healthUrl !== undefined ? { healthUrl: def.healthUrl } : {}),
     },
-    configurable,
-  ) as never;
+  });
+  return implement(contract, async (stepInput, ctx: Ctx) => {
+    const input = stepInput as unknown as Record<string, { repository: string; tag: string; digest: string; tar?: FileRef }> & { source: { tree: FileRef } };
+    const d = resolveConfigRefs(configurable, ctx.config ?? {}) as {
+      host: string; release: string; namespace: string; values: string[]; set: Record<string, string>;
+      healthUrl?: string | ({ url: string } & Pick<HttpHealthCheckOptions, "attempts" | "delaySeconds">);
+    };
+    const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
+    const hostImages: HostImage[] = [];
+    const flags: HelmImageFlags[] = [];
+    for (const [key, prefix] of imageEntries) {
+      const image = input[key]!;
+      hostImages.push({ repository: image.repository, tag: image.tag, ...(fromRegistry ? {} : { tar: await ctx.files.fetch(image.tar!) }) });
+      flags.push({ prefix, repository: image.repository, tag: image.tag, pullPolicy: fromRegistry ? "IfNotPresent" : "Never" });
+    }
+    const refs: HelmImageRefFlags[] = refEntries.map(([key, prefix]) => ({ prefix, repository: input[key]!.repository, tag: input[key]!.tag, digest: input[key]!.digest }));
+    await deployOverSsh(ctx, {
+      host: d.host, key: ctx.secrets[def.sshKey.name]!, chartDir, release: d.release, namespace: d.namespace, hostImages,
+      flags: { values: d.values, set: d.set, images: flags, imageRefs: refs },
+      deployments: def.deployments ?? (imageEntries.length ? [d.release] : []), rolloutTimeoutSeconds: rolloutTimeout,
+    });
+    const health = typeof d.healthUrl === "string" ? { url: d.healthUrl } : d.healthUrl;
+    if (health) await httpHealthCheck(ctx, health.url, { attempts: health.attempts, delaySeconds: health.delaySeconds });
+    return { release: d.release, namespace: d.namespace, ...(flags[0] ? { image: `${flags[0].repository}:${flags[0].tag}` } : {}) };
+  }) as never;
 }

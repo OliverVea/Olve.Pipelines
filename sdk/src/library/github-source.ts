@@ -8,8 +8,9 @@ import { z } from "zod";
 import type { Ctx } from "../ctx/types.ts";
 import type { Secret } from "../core/secrets.ts";
 import type { Configurable } from "../core/config.ts";
-import { recordConfigRefs, resolveConfigRefs } from "../core/config-refs.ts";
-import { makeStep, type LibraryStep, type LiteralName, type Step } from "../core/steps.ts";
+import { resolveConfigRefs } from "../core/config-refs.ts";
+import { implement, type Implementation } from "../core/handlers.ts";
+import { step, type LiteralName, type Step } from "../core/steps.ts";
 import { extractTar } from "../util/tar.ts";
 import { Source } from "./models.ts";
 
@@ -52,45 +53,48 @@ export const gitHubTarballUrl = (repo: string, sha: string, apiUrl = GITHUB_API_
  */
 export function gitHubSource<const N extends string, const T extends string = never>(
   def: GitHubSourceDef<N, T>,
-): Step<N, GitHubSourceInput, typeof Source, T> & LibraryStep {
-  return makeStep(
-    "gitHubSource",
-    { name: def.name, description: def.description, image: GITHUB_SOURCE_IMAGE, input, output: Source, secrets: def.token ? [def.token] : [], timeoutSeconds: def.timeoutSeconds },
-    {
-      manifestConfig: () => ({ ...(def.token ? { token: def.token.name } : {}), ...(def.apiUrl !== undefined ? { apiUrl: recordConfigRefs(def.apiUrl) } : {}) }),
-      async run({ repo, sha }: { repo: string; sha: string }, ctx: Ctx) {
-        const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
-        const token = def.token ? optionalSecret(ctx, def.token.name) : "";
-        if (token) headers.authorization = `Bearer ${token}`;
-        else if (def.token) ctx.log(`${def.token.name} is not set: fetching anonymously (public repositories only)`);
-        const url = gitHubTarballUrl(repo, sha, resolveConfigRefs(def.apiUrl, ctx.config ?? {}) ?? GITHUB_API_URL);
-        mkdirSync(ctx.tmpDir, { recursive: true });
-        const dir = mkdtempSync(join(ctx.tmpDir, "github-source-"));
-        const archive = join(dir, "repo.tar.gz");
+): Implementation<Step<N, GitHubSourceInput, typeof Source, T>> {
+  const contract = step({
+    name: def.name,
+    description: def.description,
+    kind: "gitHubSource",
+    image: GITHUB_SOURCE_IMAGE,
+    input,
+    output: Source,
+    secrets: def.token ? [def.token] : [],
+    timeoutSeconds: def.timeoutSeconds,
+    settings: { ...(def.token ? { token: def.token.name } : {}), ...(def.apiUrl !== undefined ? { apiUrl: def.apiUrl } : {}) },
+  });
+  return implement(contract, async ({ repo, sha }, ctx: Ctx) => {
+    const headers: Record<string, string> = { accept: "application/vnd.github+json", "user-agent": "olve-pipelines" };
+    const token = def.token ? optionalSecret(ctx, def.token.name) : "";
+    if (token) headers.authorization = `Bearer ${token}`;
+    else if (def.token) ctx.log(`${def.token.name} is not set: fetching anonymously (public repositories only)`);
+    const url = gitHubTarballUrl(repo, sha, resolveConfigRefs(def.apiUrl, ctx.config ?? {}) ?? GITHUB_API_URL);
+    mkdirSync(ctx.tmpDir, { recursive: true });
+    const dir = mkdtempSync(join(ctx.tmpDir, "github-source-"));
+    const archive = join(dir, "repo.tar.gz");
 
-        ctx.log("fetching source", { repo, sha });
-        // Retries network errors and 5xx; a 4xx (bad sha, no access) fails at once.
-        const status = await ctx.retry({ attempts: 4, delaySeconds: 2, backoff: 2 }, async () => {
-          const res = await ctx.http.fetch(url, { headers });
-          if (res.status >= 500) throw new Error(`HTTP ${res.status} from ${url}`);
-          if (res.ok) await Bun.write(archive, res);
-          return res.status;
-        });
-        if (status < 200 || status >= 300) {
-          throw new Error(`cannot fetch ${repo}@${sha}: HTTP ${status} from ${url}${def.token ? "" : " (no token configured: a private repository needs one)"}`);
-        }
+    ctx.log("fetching source", { repo, sha });
+    // Retries network errors and 5xx; a 4xx (bad sha, no access) fails at once.
+    const status = await ctx.retry({ attempts: 4, delaySeconds: 2, backoff: 2 }, async () => {
+      const res = await ctx.http.fetch(url, { headers });
+      if (res.status >= 500) throw new Error(`HTTP ${res.status} from ${url}`);
+      if (res.ok) await Bun.write(archive, res);
+      return res.status;
+    });
+    if (status < 200 || status >= 300) {
+      throw new Error(`cannot fetch ${repo}@${sha}: HTTP ${status} from ${url}${def.token ? "" : " (no token configured: a private repository needs one)"}`);
+    }
 
-        const extracted = join(dir, "x");
-        mkdirSync(extracted);
-        await extractTar(archive, extracted);
-        // GitHub tarballs hold one top-level directory, plus a pax_global_header entry (the commit id)
-        // that some extractors materialise as a file.
-        const roots = readdirSync(extracted).filter((e) => e !== "pax_global_header" && statSync(join(extracted, e)).isDirectory());
-        if (roots.length !== 1) throw new Error(`unexpected tarball layout for ${repo}@${sha}: top-level entries ${JSON.stringify(readdirSync(extracted))}`);
-        const tree = await ctx.output.dir(join(extracted, roots[0]!), { name: "tree" });
-        return { repo, sha, tree };
-      },
-    },
-    { apiUrl: def.apiUrl },
-  ) as never;
+    const extracted = join(dir, "x");
+    mkdirSync(extracted);
+    await extractTar(archive, extracted);
+    // GitHub tarballs hold one top-level directory, plus a pax_global_header entry (the commit id)
+    // that some extractors materialise as a file.
+    const roots = readdirSync(extracted).filter((e) => e !== "pax_global_header" && statSync(join(extracted, e)).isDirectory());
+    if (roots.length !== 1) throw new Error(`unexpected tarball layout for ${repo}@${sha}: top-level entries ${JSON.stringify(readdirSync(extracted))}`);
+    const tree = await ctx.output.dir(join(extracted, roots[0]!), { name: "tree" });
+    return { repo, sha, tree };
+  }) as never;
 }

@@ -14,7 +14,7 @@ directly (no auth, no repo clone needed) and parse the raw text.
 
 - [Setup Guide index](/docs/index.md): What the service does, the v2 concepts (model, step, handler, stage, version, run, attempt), the GitOps model and a minimal example.
 - [Getting Started](/docs/getting-started.md): Put a repo under CD: `.pipelines/` layout, local check, `pl binding create`, secrets, first run. Includes the current SDK-publishing limitation.
-- [Pipeline Reference](/docs/pipeline-reference.md): Models, secrets, steps, library steps, handlers, stages, mappers, `when`, triggers, `onFailure`, the checks that reject a pipeline, versioning.
+- [Pipeline Reference](/docs/pipeline-reference.md): Models, secrets, steps, library steps, reusable steps, handlers, stages, mappers, `when`, triggers, `onFailure`, the checks that reject a pipeline, versioning.
 - [Local Development](/docs/local-development.md): `pl dev describe | validate | run | pipeline`, running a step in its real image, the local pool.
 - [Pipeline Config](/docs/configuration.md): Typed per-instance config (`config(…)`, `secretRef`, `ctx.config`), the YAML document and its snapshots, pending versions until config is satisfied, runs pinning config, defaults, `pl config get|set|history|rollback|check`.
 - [Binding, Reconcile & Versions](/docs/binding-and-reconcile.md): The binding, how changes are noticed (poll + webhook), how a commit becomes a version, switch and rollback, reading the status.

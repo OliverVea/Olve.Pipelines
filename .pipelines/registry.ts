@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { registryTag, type Ctx } from "@olivervea/pipelines";
+import type { Ctx } from "@olivervea/pipelines";
 
 interface Published {
   repository: string;
@@ -13,13 +13,9 @@ interface Target {
 }
 
 /** Points `tag` at the image's digest in its registry, with the login `target` names. */
-export async function tagImage(ctx: Pick<Ctx, "http" | "log" | "secrets">, image: Published, tag: string, target: Target): Promise<void> {
-  const password = target.auth ? (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret] : undefined;
-  if (target.auth && !password) throw new Error(`secret ${target.auth.password.secret} (registry login for ${image.repository}) is not set`);
-  await registryTag(ctx.http, image.repository, image.digest, tag, {
-    insecure: target.insecure,
-    ...(target.auth && password ? { username: target.auth.username, password } : {}),
-  });
+export async function tagImage(ctx: Pick<Ctx, "exec" | "log" | "secrets" | "tmpDir">, image: Published, tag: string, target: Target): Promise<void> {
+  const opts = { env: { DOCKER_CONFIG: dockerConfig(ctx, [[image.repository, target]]) } };
+  await ctx.exec(["crane", "tag", `${image.repository}@${image.digest}`, tag, ...(target.insecure ? ["--insecure"] : [])], opts);
   ctx.log("tagged image", { image: `${image.repository}:${tag}`, digest: image.digest });
 }
 

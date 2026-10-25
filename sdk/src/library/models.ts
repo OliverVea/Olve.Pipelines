@@ -29,7 +29,8 @@ export const HelmRelease = model(
   z.object({
     release: z.string(),
     namespace: z.string(),
-    image: z.string(),
+    /** The release's main image; absent for a chart deployed without images. */
+    image: z.string().optional(),
     /** Where step pods reach the release (the target's `url`); absent = its in-cluster Service URL (`serviceUrl`). */
     url: z.string().optional(),
   }),

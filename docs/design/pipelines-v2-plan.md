@@ -618,7 +618,23 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   source instead of testing the published build (the pytest harness is hardwired to
   `bin/Release/net10.0` and `dotnet <dll>`). The binding was created before the push, so the first
   reconcile took the newest v1-only commit and failed; `pl binding reconcile` fixed it. Trains'
-  master requires a PR; pushed with the admin bypass at the user's say.
+  master requires a PR; pushed with the admin bypass at the user's say. Later the same day `test`
+  moved after `build` and runs the published linux build (`TRAINS_GAME_DIR` in the pytest harness,
+  runtime-deps image), so the shipped archive is the tested one.
+- **Cut-over: v1 is gone** (2026-10-25). All app repos run on v2; their `config.yaml` and v1 scripts
+  are deleted (docs rewritten for v2). v1's Helm releases `olve-pipelines` in `apps` and
+  `apps-beta` are uninstalled with their Garage and MinIO PVCs/PVs (the v1 run history went with
+  them), v1's Jobs and webhook too, and Trains' own MinIO. v2 shared nothing v1's release owned
+  (`olve-pipelines-minio`, `olve-pipelines-oidc`, `authentik-ca` are unowned); restarting v2 after
+  each uninstall proved it. Development moved to `main` (fast-forwarded from `v2`); the self-deploy
+  moved with `pl binding set-branch` (new `PUT …/binding/branch`, keeps runs, versions, secrets and
+  cursors). v2 serves on `pipelines-private` / `pipelines-beta` and the `pipelines-hooks(-beta)`
+  webhook hosts (Olve.Homelab edge chart); the `pipelines-v2-*` hosts and Authentik callbacks are
+  removed. A base-URL change does not re-register GitHub hooks (the hook state keeps only the hook
+  id), so the nine hooks' URLs were PATCHed by hand. The release stays `olve-pipelines-v2` (its PVC
+  names are release-scoped) and the pipeline stays "Olve.Pipelines v2" (`Distribution:CliPipeline`).
+  Found on the way: olve-build's stderr can land inside the manifest sentinels in the pod log
+  (Trains failed every reconcile); the server now drops `olve-build…` lines in the block.
 
 ### v2.2 — candidates
 

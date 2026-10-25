@@ -109,7 +109,7 @@ export default pipeline({
   input: M.TestInput,
 })
   .onPush(e => ({ sha: e.after }))
-  .onPoll({ name: "poll", url: "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2", valuePath: "sha", intervalSeconds: 600 },
+  .onPoll({ name: "poll", url: "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2", valuePath: "sha", intervalSeconds: 3600 },
           value => ({ sha: value }))
   .stage(hello)
   .stage(count, echo)

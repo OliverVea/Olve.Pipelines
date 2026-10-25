@@ -32,7 +32,7 @@ v2 test fixture — End-to-end fixture: file refs between steps, a parallel stag
 
 input:    TestInput { mode="normal" (normal|skip-last|fail), sha*, smoke=true, target="beta" (none|beta|prod) }
 secrets:  none
-triggers: push, poll (GET https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2 every 600s)
+triggers: push, poll (GET https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2 every 3600s)
 
 stages:
   1.  hello                alpine:3.22 -> Greeting

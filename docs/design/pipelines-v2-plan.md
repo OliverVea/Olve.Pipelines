@@ -594,6 +594,17 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   went beta → prod in 29 s with no restart. v1 (`ed764cb9…`) paused. v2 prod's Kubernetes
   token comes from Authentik: if a deploy breaks it, roll back by hand (`helm -n infra rollback
   authentik <rev>` over ssh); the pipeline can't launch Jobs meanwhile.
+- **Migrated: Olve.AgentRuntimeManager** (2026-10-25). Pipeline `bfe9de49-713a-4161-812f-fdbc5a7e1a82`
+  (five secrets copied from v1, sha256 equal): source → build (`imageBuild` tarball `olve-arm`) ∥ test
+  (`mise run ci`) ∥ claude-code (the v1 script, verified binary as a file) → deploy-beta → beta-test
+  (`mise run api:remote` through the host relay, then `beta-check.py` with beta Authentik's CA read over
+  ssh) → when prod: deploy-prod. The VM deploys are the first in-repo reusable step: `vmDeploy` in
+  `.pipelines/vm-deploy.ts` (kind `armVmDeploy`, settings `env`, `healthUrl`), `vm-deploy.sh` on the
+  host with the agents' token on stdin. SDK beta.10 made `sshSession` install ssh with apt-get too (the
+  dotnet image). Run #1 (beta): build 2m43s and claude-code pass; `test` fails on ARM's gVisor
+  signal tests (`Kill_InAToolCall_…`, `SignalIf_…`, `HeldMessages_…`), as v1's last runs did, so the
+  deploys are untested on v2 until ARM fixes them. v1 (`ec5fe7ef…`) paused (three gates blocked).
+  ARM's main requires a PR; the commit was pushed with the admin bypass.
 
 ### v2.2 — candidates
 

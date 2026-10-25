@@ -423,7 +423,7 @@ What step 5 built, and where it differs from §9 and §11.
   last commit that carried that version).
 - **`pl` on GitHub Releases (2026-10-24).** With `publish.cli.github.enabled`, `promote` creates the
   release `v<version>` on the run's commit with `pl-linux-x64` and `pl-win-x64.exe` (the files
-  `/download` serves, not rebuilt), using `GITHUB_RELEASE_TOKEN`. The repo's install scripts fetch
+  `/download` serves, not rebuilt), using `GHCR_TOKEN` (a classic token with `repo`). The repo's install scripts fetch
   GitHub's latest release; served by an instance they fetch that instance's `pl` (the server
   replaces the `__OLVE_INSTANCE__` placeholder). Releases are full releases, not prereleases, since
   GitHub's `releases/latest` skips prereleases. Instance serving stays for now: it is the `pl` that

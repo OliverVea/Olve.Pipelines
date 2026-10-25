@@ -2,7 +2,7 @@
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
 import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
-import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_RELEASE_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
+import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
 export * from "./config";
@@ -137,7 +137,7 @@ export const promote = step({
   image: CRANE_IMAGE,
   input: { source: Source, server: PushedImage, harness: optional(PushedImage), sdk: optional(M.SdkRelease), cli: optional(M.CliRelease) },
   config: [PUBLISH, SOURCE],
-  secrets: [NPM_TOKEN, GITHUB_RELEASE_TOKEN, ...REGISTRY_SECRETS],
+  secrets: [NPM_TOKEN, ...REGISTRY_SECRETS],
   timeoutSeconds: 300,
 });
 

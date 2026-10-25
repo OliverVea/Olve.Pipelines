@@ -24,8 +24,8 @@ export default implement(promote, async ({ source, server, harness, sdk, cli }, 
   const github = publish.cli.github;
   if (!github.enabled) return ctx.log("GitHub releases are turned off (publish.cli.github.enabled)");
   if (!cli) return ctx.log("no pl was released by this run (publish.cli.enabled): no GitHub release");
-  const token = process.env.GITHUB_RELEASE_TOKEN?.trim();
-  if (!token) throw new Error("GITHUB_RELEASE_TOKEN is not set");
+  const token = process.env.GHCR_TOKEN?.trim();
+  if (!token) throw new Error("GHCR_TOKEN is not set");
   const image = publish.server.release[0]?.repository ?? server.repository;
   const lines = [
     `\`pl\` ${cli.version}: \`pl-linux-x64\` and \`pl-win-x64.exe\` below.`,

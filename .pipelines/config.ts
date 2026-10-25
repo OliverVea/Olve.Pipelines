@@ -3,9 +3,8 @@ import { config, deployTarget, secret, secretRef, z } from "@olivervea/pipelines
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "GitHub read token used to fetch the repo tarball.");
 export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for ssh deploy targets: pulling the images and running helm on the host.");
 export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines and moves its dist-tags.");
-export const GHCR_TOKEN = secret("GHCR_TOKEN", "GitHub token with write:packages, for images published to ghcr.io.");
+export const GHCR_TOKEN = secret("GHCR_TOKEN", "Classic GitHub token: write:packages for images published to ghcr.io, repo for the GitHub releases promote creates.");
 export const REGISTRY_PASSWORD = secret("REGISTRY_PASSWORD", "Password of another image registry, when publish names it.");
-export const GITHUB_RELEASE_TOKEN = secret("GITHUB_RELEASE_TOKEN", "GitHub token with contents: write on the repo, for the GitHub releases promote creates.");
 export const DEPLOYER_TOKEN = secret("DEPLOYER_TOKEN", "Bearer token of the Docker Compose deployer, for compose targets.");
 
 const Auth = z.discriminatedUnion("mode", [
@@ -100,7 +99,7 @@ export const PUBLISH = config("publish", "Where releases go: images, the npm pac
   cli: z.object({
     enabled: z.boolean().default(true).describe("Serve the pl built by this run at /download."),
     github: z.object({
-      enabled: z.boolean().default(false).describe("Promote creates a GitHub release in the source repo, with pl attached (needs GITHUB_RELEASE_TOKEN)."),
+      enabled: z.boolean().default(false).describe("Promote creates a GitHub release in the source repo, with pl attached (needs GHCR_TOKEN with the repo scope)."),
       prerelease: z.boolean().default(false).describe("Mark releases as prereleases; GitHub's latest release then doesn't move."),
     }).prefault({}),
   }).prefault({}),

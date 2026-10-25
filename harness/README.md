@@ -27,6 +27,7 @@ The image is 2.4 MB compressed and contains:
 | path | what |
 |---|---|
 | `/bin/*` | `busybox:1.37-musl` (static): `sh`, `wget` (plain HTTP is fine), `tar`/`gzip`, `cp` |
+| `/opt/olve/zstd/` | `zstd` from Alpine with its musl loader and `libzstd` (run through the loader; busybox has no zstd) |
 | `/opt/olve/lib/` | `ld-linux-x86-64.so.2`, `libc.so.6`, `libpthread.so.0`, `libdl.so.2`, `libm.so.6`, copied with `cp -L` from `debian:bookworm-slim` |
 | `/opt/olve/bin/olve-init` | entrypoint |
 
@@ -51,7 +52,7 @@ of its snapshots.
 
 | env | required | meaning |
 |---|---|---|
-| `OLVE_STEP_URL` | yes | Pre-signed GET of a gzipped tar with `step` at its root |
+| `OLVE_STEP_URL` | yes | Pre-signed GET of a zstd- or gzip-compressed tar with `step` at its root (told apart by its first bytes) |
 | `OLVE_INPUT_URL` | no | Pre-signed GET of `input.json`. If unset, no `input.json` is written |
 | `OLVE_SHARED` | no | Shared mount (default `/shared`) |
 | `OLVE_FETCH_RETRIES` | no | Attempts per download (default 5, linear backoff 2s, 4s, …) |
@@ -80,7 +81,7 @@ Behaviour and exit codes:
   - Retries cover DNS errors, refused or reset connections, timeouts, 5xx, 408 and 429.
   - Any other **4xx fails immediately**, because an expired or tampered pre-signed URL never heals.
   - On cluster, a 403 failed in under 1 s, with a readable message.
-- `66`: the archive is not a valid gzipped tar, or has no `step` at its root.
+- `66`: the archive is neither zstd nor gzip, doesn't unpack, or has no `step` at its root.
 - `70`: a filesystem error.
 - Downloads go to a file first and are removed before each retry. Nothing is streamed into tar.
 - **URLs are never logged past the path.** Everything from `?` onwards, which includes
@@ -170,10 +171,9 @@ These were measured with a 42 MB `step.tar.gz` (a 91 MB binary) from v2 beta Gar
 | **olve-init total** | **1.7–1.8 s** | **2.4–2.9 s** |
 | pod created → step container done | ~5 s | ~5 s |
 
-Extraction dominates. If init time ever matters, the options are:
-
-- a cheaper compression, such as `gzip -1` or no compression, at the cost of storage;
-- the planned shared runtime plus a per-commit JS bundle (~1 MB), see spikes decision 9.
+Extraction dominated, so olve-init also unpacks zstd. Locally, the same binary as zstd -19 is 35 MB
+and unpacks in 0.4 s against 0.96 s for gzip, with the same busybox tar. Beyond that: the shared
+runtime plus a per-commit JS bundle (~1 MB), see spikes decision 9.
 
 ## Validation results
 

@@ -5,7 +5,7 @@
 # a shell) can run:  /olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <name>
 #
 # Env contract (see harness/README.md):
-#   OLVE_STEP_URL       required  pre-signed GET of a gzipped tar whose root contains `step`
+#   OLVE_STEP_URL       required  pre-signed GET of a zstd- or gzip-compressed tar whose root contains `step`
 #   OLVE_INPUT_URL      optional  pre-signed GET of input.json (saved as <shared>/input.json)
 #   OLVE_SHARED         optional  mount point of the shared emptyDir      (default /shared)
 #   OLVE_FETCH_RETRIES  optional  attempts per download                   (default 5)
@@ -22,12 +22,14 @@ SHARED=${OLVE_SHARED:-/shared}
 RETRIES=${OLVE_FETCH_RETRIES:-5}
 TIMEOUT=${OLVE_FETCH_TIMEOUT:-60}
 LIB_SRC=/opt/olve/lib
+ZSTD_DIR=/opt/olve/zstd
 
 log() { echo "olve-init: $*"; }
 die() { code=$1; shift; echo "olve-init: ERROR: $*" >&2; exit "$code"; }
 now() { cut -d' ' -f1 /proc/uptime; }
 elapsed() { awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'; }
 redact() { printf '%s' "${1%%\?*}"; }
+zstd_dc() { "$ZSTD_DIR/ld-musl-x86_64.so.1" --library-path "$ZSTD_DIR" "$ZSTD_DIR/zstd" -dc -- "$1"; }
 
 case $RETRIES in '' | *[!0-9]*) die 64 "OLVE_FETCH_RETRIES must be a positive integer" ;; esac
 case $TIMEOUT in '' | *[!0-9]*) die 64 "OLVE_FETCH_TIMEOUT must be a positive integer" ;; esac
@@ -68,13 +70,21 @@ fetch() {
 
 t0=$(now)
 log "fetching step archive $(redact "$OLVE_STEP_URL") into $SHARED"
-archive="$SHARED/.step.tar.gz"
+archive="$SHARED/.step.archive"
 fetch "$OLVE_STEP_URL" "$archive" "step archive"
 t1=$(now)
 size=$(wc -c <"$archive" | tr -d ' ')
 
-tar -xzf "$archive" -C "$SHARED" 2>"$SHARED/.olve-init.err" \
-  || die 66 "step archive is not a valid gzipped tar: $(head -c 300 "$SHARED/.olve-init.err")"
+# zstd (28 b5 2f fd) or gzip (1f 8b), by magic: versions built before zstd stay gzip.
+case $(head -c 4 "$archive" | od -An -tx1 | tr -d ' \n') in
+  28b52ffd)
+    format=zstd
+    { zstd_dc "$archive" | tar -xf - -C "$SHARED"; } 2>"$SHARED/.olve-init.err" && [ ! -s "$SHARED/.olve-init.err" ] ;;
+  1f8b*)
+    format=gzip
+    tar -xzf "$archive" -C "$SHARED" 2>"$SHARED/.olve-init.err" ;;
+  *) die 66 "step archive is neither zstd nor gzip" ;;
+esac || die 66 "step archive is not a valid $format-compressed tar: $(head -c 300 "$SHARED/.olve-init.err")"
 rm -f "$archive" "$SHARED/.olve-init.err"
 [ -f "$SHARED/step" ] || die 66 "step archive did not contain \`step\` at its root (found: $(ls -A "$SHARED" | tr '\n' ' '))"
 chmod 0755 "$SHARED/step" || die 70 "cannot chmod $SHARED/step"
@@ -96,5 +106,5 @@ mkdir -p "$SHARED/work/files" "$SHARED/tmp" || die 70 "cannot create work/ and t
 chmod 1777 "$SHARED/work" "$SHARED/work/files" "$SHARED/tmp"
 t4=$(now)
 
-log "ready: step=${size}B $(ls -A "$SHARED" | tr '\n' ' ')"
+log "ready: step=${size}B ($format) $(ls -A "$SHARED" | tr '\n' ' ')"
 log "timing step_fetch=$(elapsed "$t0" "$t1")s extract=$(elapsed "$t1" "$t2")s input_fetch=$(elapsed "$t2" "$t3")s lib=$(elapsed "$t3" "$t4")s total=$(elapsed "$t0" "$t4")s"

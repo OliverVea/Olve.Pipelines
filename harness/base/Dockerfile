@@ -2,7 +2,8 @@
 #
 #   /bin/busybox, /bin/sh ...   static busybox (musl build): sh, wget, tar, gzip, cp
 #   /opt/olve/lib/              glibc loader + libs the bun --compile (bun-linux-x64) binary needs
-#   /opt/olve/bin/olve-init     entrypoint: fetch step.tar.gz + input.json into the shared emptyDir
+#   /opt/olve/zstd/             zstd (musl) with its loader and libzstd, to unpack zstd step archives
+#   /opt/olve/bin/olve-init     entrypoint: fetch the step archive + input.json into the shared emptyDir
 #
 # Stable across commits: the per-commit step binary is NOT in this image; olve-init downloads it
 # from Garage via a pre-signed GET. Both bases are pinned by digest so the build is reproducible.
@@ -18,8 +19,14 @@ RUN mkdir -p /out/lib \
           /out/lib/ \
  && chmod 0755 /out/lib/*
 
+FROM alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f AS zstd
+RUN apk add --no-cache zstd \
+ && mkdir -p /out \
+ && cp -L /usr/bin/zstd /usr/lib/libzstd.so.1 /lib/ld-musl-x86_64.so.1 /out/
+
 FROM busybox:1.37-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092
 LABEL org.opencontainers.image.source="https://github.com/OliverVea/Olve.Pipelines"
 COPY --from=glibc /out/lib/ /opt/olve/lib/
+COPY --from=zstd /out/ /opt/olve/zstd/
 COPY --chmod=0755 olve-init /opt/olve/bin/olve-init
 ENTRYPOINT ["/opt/olve/bin/olve-init"]

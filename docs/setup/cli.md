@@ -54,7 +54,7 @@ pl run get <pipeline>#<run>
 pl run cancel <pipeline>#<run>
 pl run rerun <pipeline>#<run>
 pl run continue <pipeline>#<run> [--field k=v ...] [--input <json|@file|@->]
-pl run critical-path <pipeline> [--from <run>] [--to <run>] [--step <name>] [--all]   # where the time goes
+pl run critical-path <pipeline> [--from <run> | --since-version <v>] [--to <run>] [--step <name>] [--all]   # where the time goes
 
 # steps of a run (without @attempt: the latest successful attempt; logs: the latest attempt)
 pl step output <pipeline>#<run>/<step>[@<attempt>]

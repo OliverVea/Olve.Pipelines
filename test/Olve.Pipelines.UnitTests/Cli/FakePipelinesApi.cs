@@ -179,7 +179,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<TriggerRunResponse>? TriggerRunResult { get; set; }
     public Result<PageOfRunSummary>? ListRunsResult { get; set; }
     public Result<CriticalPathReport>? GetCriticalPathResult { get; set; }
-    public (int? From, int? To, bool IncludeUnsuccessful)? LastCriticalPathQuery { get; private set; }
+    public (int? From, int? To, bool IncludeUnsuccessful, int? SinceVersion)? LastCriticalPathQuery { get; private set; }
     public Result<RunDetail>? GetRunResult { get; set; }
     public Func<int, Result<RunDetail>?>? GetRunByNumber { get; set; }
     public Result<Run>? CancelRunResult { get; set; }
@@ -223,9 +223,9 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(ListRunsResult, nameof(ListRuns));
     }
 
-    public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, CancellationToken ct)
+    public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, int? sinceVersion, CancellationToken ct)
     {
-        (LastPipelineId, LastCriticalPathQuery) = (pipelineId, (from, to, includeUnsuccessful));
+        (LastPipelineId, LastCriticalPathQuery) = (pipelineId, (from, to, includeUnsuccessful, sinceVersion));
         return Record(GetCriticalPathResult, nameof(GetCriticalPath));
     }
 

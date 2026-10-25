@@ -479,7 +479,7 @@ public class RunCommandTests
 
         await Assert.That(result).Succeeded();
         await Assert.That(api.LastPipelineId).IsEqualTo(Id);
-        await Assert.That(api.LastCriticalPathQuery).IsEqualTo((3, 4, true));
+        await Assert.That(api.LastCriticalPathQuery).IsEqualTo((3, 4, true, (int?)null));
         await Assert.That(output).Contains("test×2 1m40s");
         await Assert.That(output).Contains("66.7%");
         await Assert.That(output).Contains("#4: build@2 left out");

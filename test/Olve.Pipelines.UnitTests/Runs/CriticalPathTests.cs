@@ -119,6 +119,23 @@ public class CriticalPathTests
     }
 
     [Test]
+    public async Task SinceVersion_StartsAtTheFirstRunOnThatVersion()
+    {
+        var s = new SchedulerScenario();
+        Complete(s, build: 1, test: 1);
+        var v2 = s.AddVersion();
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+        var first = Complete(s, build: 1, test: 1);
+        var second = Complete(s, build: 1, test: 1);
+
+        var report = TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false, sinceVersion: v2.Number));
+        var none = TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false, sinceVersion: v2.Number + 1));
+
+        await Assert.That(report.Runs.Select(r => r.Number)).IsEquivalentTo([first.Number, second.Number]);
+        await Assert.That(none.Runs).IsEmpty();
+    }
+
+    [Test]
     public async Task ARange_IsChecked()
     {
         var s = new SchedulerScenario();

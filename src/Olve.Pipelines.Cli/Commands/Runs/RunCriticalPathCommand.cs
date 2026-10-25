@@ -8,7 +8,7 @@ namespace Olve.Pipelines.Cli.Commands.Runs;
 /// <summary><c>pl run critical-path &lt;pipeline&gt; [--from N] [--to M] [--step X] [--all]</c> — where a range of runs spent its time.</summary>
 public sealed class RunCriticalPathCommand : ICliCommand
 {
-    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("from", "to", "step");
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("from", "to", "step", "since-version");
     public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "all" };
     public string Noun => "run";
     public string Verb => "critical-path";
@@ -16,18 +16,20 @@ public sealed class RunCriticalPathCommand : ICliCommand
     public string HelpLine => "The critical path of a range of runs: each step's time on it and share of it";
     public string? HelpDetail =>
         """
-        pl run critical-path <pipeline> [--from <run>] [--to <run>] [--step <name>] [--all]
+        pl run critical-path <pipeline> [--from <run> | --since-version <v>] [--to <run>] [--step <name>] [--all]
 
           Stages are barriers, so each stage's critical step is the one that finished last; it is
           charged from the stage's first attempt to that finish (WAIT: how much of it was spent
           before the step's first attempt started). Automatic retries count, later reruns don't.
 
           --from, --to   Run numbers (default: the latest 20 runs; at most 500)
+          --since-version <v>  From the first run on pipeline version v or later (instead of --from)
           --step <name>  Also list the runs that step was on the critical path in
           --all          Include failed and cancelled runs (default: succeeded only)
 
-          OVERHEAD is the part of a step's time outside its step container (queueing, pod start,
-          fetching, image pull, collecting the result); "-" for attempts from before it was recorded.
+          AVG OVERHEAD is the average part of a step's time on the path outside its step container
+          (queueing, pod start, fetching, image pull, collecting the result), over the runs that
+          recorded it; "-" when none did.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -36,10 +38,12 @@ public sealed class RunCriticalPathCommand : ICliCommand
             return fromProblems;
         if (Number(cli, "to").TryPickProblems(out var toProblems, out var to))
             return toProblems;
+        if (Number(cli, "since-version").TryPickProblems(out var versionProblems, out var sinceVersion))
+            return versionProblems;
 
         if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var pipeline))
             return problems;
-        if ((await ctx.Api.GetCriticalPath(pipeline.Id.ToString(), from, to, cli.HasFlag("all"), ct)).TryPickProblems(out var reportProblems, out var report))
+        if ((await ctx.Api.GetCriticalPath(pipeline.Id.ToString(), from, to, cli.HasFlag("all"), sinceVersion, ct)).TryPickProblems(out var reportProblems, out var report))
             return reportProblems;
 
         var step = cli.Option("step");
@@ -73,9 +77,9 @@ public sealed class RunCriticalPathCommand : ICliCommand
             [
                 s.Step, $"{s.Runs}/{report.Runs.Length}", Seconds(s.Seconds), (s.Share * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%",
                 Seconds(s.AverageSeconds), Seconds(s.WaitSeconds),
-                s.ActiveSeconds is { } active ? Seconds(s.Seconds - active) : "-",
+                s.OverheadSeconds is { } overhead ? Seconds(overhead) : "-",
             ]).ToList();
-            foreach (var line in Table.Render(["STEP", "ON PATH", "TOTAL", "SHARE", "AVG WHEN ON", "WAIT", "OVERHEAD"], stepRows))
+            foreach (var line in Table.Render(["STEP", "ON PATH", "TOTAL", "SHARE", "AVG WHEN ON", "WAIT", "AVG OVERHEAD"], stepRows))
                 ctx.Output.Line(line);
 
             var notes = report.Runs.SelectMany(r => r.Notes.Select(n => $"#{r.Number}: {n}"))
@@ -103,7 +107,7 @@ public sealed class RunCriticalPathCommand : ICliCommand
     {
         if (cli.Option(option) is not { } text)
             return (int?)null;
-        return int.TryParse(text.TrimStart('#'), out var n) && n > 0 ? n : new ResultProblem("--{0} must be a run number.", option);
+        return int.TryParse(text.TrimStart('#', 'v'), out var n) && n > 0 ? n : new ResultProblem("--{0} must be a positive number.", option);
     }
 
     private static string Seconds(double seconds) => Duration(DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(Math.Max(0, seconds)));

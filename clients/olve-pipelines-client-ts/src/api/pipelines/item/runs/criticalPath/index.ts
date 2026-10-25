@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CriticalPathRequestBuilder extends BaseRequestBuilder<CriticalPathRequestBuilder> {
     /**
-     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<CriticalPathReport>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -22,24 +22,25 @@ export interface CriticalPathRequestBuilder extends BaseRequestBuilder<CriticalP
      */
      get(requestConfiguration?: RequestConfiguration<CriticalPathRequestBuilderGetQueryParameters> | undefined) : Promise<CriticalPathReport | undefined>;
     /**
-     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<CriticalPathRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+ * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
  */
 export interface CriticalPathRequestBuilderGetQueryParameters {
     from?: number;
     includeUnsuccessful?: boolean;
+    sinceVersion?: number;
     to?: number;
 }
 /**
  * Uri template for the request builder.
  */
-export const CriticalPathRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/critical-path{?from*,includeUnsuccessful*,to*}";
+export const CriticalPathRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/critical-path{?from*,includeUnsuccessful*,sinceVersion*,to*}";
 /**
  * Metadata for all the requests in the request builder.
  */

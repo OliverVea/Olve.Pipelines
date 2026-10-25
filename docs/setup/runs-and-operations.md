@@ -118,7 +118,8 @@ scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`
 
 ## Where the time goes
 
-`pl run critical-path <pipeline> [--from <run>] [--to <run>]` (default: the latest 20 runs) shows each
+`pl run critical-path <pipeline> [--from <run> | --since-version <v>] [--to <run>]` (default: the latest
+20 runs; `--since-version` starts at the first run on that pipeline version) shows each
 run's critical path and each step's part in it:
 
 ```
@@ -135,7 +136,8 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   (scheduling, image pull, pod start).
 - Automatic retries count toward their stage (`test×2`); a later rerun of a step doesn't, and is
   noted. Time between stages (a held run, a later `continue`) is **IDLE**, charged to no step.
-- **OVERHEAD** is the part of a step's time spent outside its step container. An attempt's time splits
+- **AVG OVERHEAD** is the average part of a step's time on the path spent outside its step container,
+  over the runs that recorded it. An attempt's time splits
   into *queued* (created → picked up), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*
   (the init container downloading the step binary and input), *image* (pulling and starting the step's
   image), *active* (the step container), *notice* (until the server saw the pod finish) and *collect*
@@ -145,7 +147,8 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   reported unless `--all`. `--json` gives the whole report (`GET …/runs/critical-path`).
 
 In the UI, the overview's status card shows the median critical path of the latest 20 runs and
-links to `/pipeline/<id>/critical-path`: the same report for the last 20, 50 or 100 runs.
+links to `/pipeline/<id>/critical-path`: the same report for the last 20, 50 or 100 runs, or since a
+version.
 
 ## Live events
 

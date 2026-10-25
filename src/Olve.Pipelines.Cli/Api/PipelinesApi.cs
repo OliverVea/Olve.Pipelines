@@ -114,11 +114,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct) =>
         transport.GetAsync($"{Runs(pipelineId)}?Page={page}&PageSize={pageSize}", CliJsonContext.Default.PageOfRunSummary, ct);
 
-    public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, CancellationToken ct)
+    public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, int? sinceVersion, CancellationToken ct)
     {
         var query = string.Join("&", new[]
         {
             from is { } f ? $"from={f}" : null,
+            sinceVersion is { } v ? $"sinceVersion={v}" : null,
             to is { } t ? $"to={t}" : null,
             includeUnsuccessful ? "includeUnsuccessful=true" : null,
         }.Where(q => q is not null));

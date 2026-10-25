@@ -1307,13 +1307,13 @@ export interface CriticalPathStage extends AdditionalDataHolder, Parsable {
 }
 export interface CriticalPathStep extends AdditionalDataHolder, Parsable {
     /**
-     * The activeSeconds property
-     */
-    activeSeconds?: number | null;
-    /**
      * The averageSeconds property
      */
     averageSeconds?: number | null;
+    /**
+     * The overheadSeconds property
+     */
+    overheadSeconds?: number | null;
     /**
      * The runNumbers property
      */
@@ -1801,8 +1801,8 @@ export function deserializeIntoCriticalPathStage(criticalPathStage: Partial<Crit
 // @ts-ignore
 export function deserializeIntoCriticalPathStep(criticalPathStep: Partial<CriticalPathStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "activeSeconds": n => { criticalPathStep.activeSeconds = n.getNumberValue(); },
         "averageSeconds": n => { criticalPathStep.averageSeconds = n.getNumberValue(); },
+        "overheadSeconds": n => { criticalPathStep.overheadSeconds = n.getNumberValue(); },
         "runNumbers": n => { criticalPathStep.runNumbers = n.getCollectionOfPrimitiveValues<number>("number"); },
         "runs": n => { criticalPathStep.runs = n.getNumberValue(); },
         "seconds": n => { criticalPathStep.seconds = n.getNumberValue(); },
@@ -3741,8 +3741,8 @@ export function serializeCriticalPathStage(writer: SerializationWriter, critical
 // @ts-ignore
 export function serializeCriticalPathStep(writer: SerializationWriter, criticalPathStep: Partial<CriticalPathStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!criticalPathStep || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("activeSeconds", criticalPathStep.activeSeconds);
     writer.writeNumberValue("averageSeconds", criticalPathStep.averageSeconds);
+    writer.writeNumberValue("overheadSeconds", criticalPathStep.overheadSeconds);
     writer.writeCollectionOfPrimitiveValues<number>("runNumbers", criticalPathStep.runNumbers);
     writer.writeNumberValue("runs", criticalPathStep.runs);
     writer.writeNumberValue("seconds", criticalPathStep.seconds);

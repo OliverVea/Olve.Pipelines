@@ -398,7 +398,7 @@ Starts a manual run; the body is the pipeline input, validated against the input
 
 `GET /api/pipelines/{pipelineId}/runs/critical-path`
 
-Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500). Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
@@ -406,6 +406,7 @@ Per run, each stage's critical step (the one that finished last) and its time; p
 | `from` | query | integer |  |
 | `to` | query | integer |  |
 | `includeUnsuccessful` | query | boolean |  |
+| `sinceVersion` | query | integer |  |
 
 **Returns:** `200` [CriticalPathReport](#criticalpathreport)
 
@@ -1009,7 +1010,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `averageSeconds` | number | required |
 | `waitSeconds` | number | required |
 | `runNumbers` | integer[] | required |
-| `activeSeconds` | number? |  |
+| `overheadSeconds` | number? |  |
 
 ### EffectivePipelineResponse
 

@@ -208,7 +208,7 @@ public sealed class CriticalPathStep
     public double AverageSeconds { get; set; }
     public double WaitSeconds { get; set; }
     public int[] RunNumbers { get; set; } = [];
-    public double? ActiveSeconds { get; set; }
+    public double? OverheadSeconds { get; set; }
 }
 
 public sealed class CriticalPathSkip

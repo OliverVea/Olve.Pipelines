@@ -62,6 +62,19 @@ export class CriticalPathView extends LitElement {
         background: var(--color-primary);
         color: var(--color-surface);
       }
+      select.since {
+        padding: 0.22rem 0.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        background: var(--color-surface);
+        color: var(--color-text);
+        font: inherit;
+        font-size: 0.8rem;
+      }
+      select.since.on {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 1px var(--color-primary);
+      }
       label.check {
         display: inline-flex;
         align-items: center;
@@ -128,7 +141,10 @@ export class CriticalPathView extends LitElement {
 
   @state() declare private _report: CriticalPathReport | null;
   @state() declare private _error: string | null;
+  /** Latest N runs, or 0 when ranging by version. */
   @state() declare private _range: number;
+  @state() declare private _sinceVersion: number | null;
+  @state() declare private _versions: number[];
   @state() declare private _all: boolean;
 
   constructor() {
@@ -137,20 +153,33 @@ export class CriticalPathView extends LitElement {
     this._report = null;
     this._error = null;
     this._range = 20;
+    this._sinceVersion = null;
+    this._versions = [];
     this._all = false;
   }
 
   updated(changed: Map<string, unknown>) {
-    if (changed.has('pipelineId') || changed.has('_range') || changed.has('_all'))
+    if (changed.has('pipelineId')) void this._loadVersions();
+    if (
+      changed.has('pipelineId') ||
+      changed.has('_range') ||
+      changed.has('_sinceVersion') ||
+      changed.has('_all')
+    )
       this.reload();
   }
 
   async reload() {
     try {
       const api = client.api.pipelines.byId(this.pipelineId).runs.criticalPath;
-      let report = await api.get({ queryParameters: { includeUnsuccessful: this._all } });
+      let report = await api.get({
+        queryParameters: {
+          includeUnsuccessful: this._all,
+          sinceVersion: this._sinceVersion ?? undefined,
+        },
+      });
       const to = report?.to ?? 0;
-      if (this._range !== 20 && to > 0)
+      if (this._sinceVersion === null && this._range !== 20 && to > 0)
         report = await api.get({
           queryParameters: {
             from: Math.max(1, to - this._range + 1),
@@ -163,6 +192,24 @@ export class CriticalPathView extends LitElement {
     } catch (e) {
       this._error = errorMessages(e).join(' ');
     }
+  }
+
+  private async _loadVersions() {
+    const list = await client.api.pipelines
+      .byId(this.pipelineId)
+      .versions.get()
+      .catch(() => null);
+    this._versions = (list?.versions ?? [])
+      .map((v) => v.number ?? 0)
+      .filter((n) => n > 0)
+      .sort((a, b) => b - a);
+  }
+
+  private _pickVersion(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    this._sinceVersion = value ? Number(value) : null;
+    if (this._sinceVersion !== null) this._range = 0;
+    else if (this._range === 0) this._range = 20;
   }
 
   render() {
@@ -185,12 +232,29 @@ export class CriticalPathView extends LitElement {
             (n) =>
               html`<button
                 aria-pressed=${this._range === n}
-                @click=${() => (this._range = n)}
+                @click=${() => {
+                  this._range = n;
+                  this._sinceVersion = null;
+                }}
               >
                 Last ${n}
               </button>`,
           )}
         </span>
+        <select
+          class="since ${this._sinceVersion !== null ? 'on' : ''}"
+          aria-label="Since version"
+          .value=${this._sinceVersion === null ? '' : String(this._sinceVersion)}
+          @change=${this._pickVersion}
+        >
+          <option value="">Since version…</option>
+          ${this._versions.map(
+            (v) =>
+              html`<option value=${String(v)} ?selected=${this._sinceVersion === v}>
+                Since v${v}
+              </option>`,
+          )}
+        </select>
       </div>
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
       ${r === null
@@ -265,7 +329,7 @@ export class CriticalPathView extends LitElement {
               <th class="num">Total</th>
               <th class="num">Avg when on</th>
               <th class="num">Wait</th>
-              <th class="num">Overhead</th>
+              <th class="num">Avg overhead</th>
             </tr>
           </thead>
           <tbody>
@@ -292,9 +356,7 @@ export class CriticalPathView extends LitElement {
                   <td class="num">${formatSeconds(s.averageSeconds)}</td>
                   <td class="num">${formatSeconds(s.waitSeconds)}</td>
                   <td class="num">
-                    ${s.activeSeconds == null
-                      ? '—'
-                      : formatSeconds((s.seconds ?? 0) - s.activeSeconds)}
+                    ${s.overheadSeconds == null ? '—' : formatSeconds(s.overheadSeconds)}
                   </td>
                 </tr>`,
             )}

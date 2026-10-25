@@ -28,9 +28,9 @@ Job and prints the input model, secrets, triggers, stages, `when` blocks and fai
 
 ```text
 $ pl dev describe --dir .pipelines-test
-v2 test fixture — Tiny end-to-end fixture: file refs between steps, a parallel stage and a when block.
+v2 test fixture — End-to-end fixture: file refs between steps, a parallel stage, nested and multi-field when blocks, and a config select.
 
-input:    TestInput { mode="normal" (normal|skip-last|fail), sha* }
+input:    TestInput { mode="normal" (normal|skip-last|fail), sha*, smoke=true, target="beta" (none|beta|prod) }
 secrets:  none
 triggers: push, poll (GET https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/v2 every 600s)
 
@@ -40,6 +40,18 @@ stages:
       echo                 busybox:1.37
   when mode in ["normal"]:
     3.  last                 alpine:3.22 -> Summary
+    when target in ["beta", "prod"]:
+      4.  deploy-beta          alpine:3.22
+      when target in ["prod"]:
+        5.  deploy-prod          alpine:3.22
+        when mode in ["normal"] and smoke in [true]:
+          6.  smoke                alpine:3.22
+  select on config notify.channel:
+    log:
+      7.  notify-log           alpine:3.22
+    none:
+    webhook:
+      7.  notify-webhook       alpine:3.22
 
 failure handlers:
   log-failure            on any step
@@ -108,15 +120,21 @@ pl dev pipeline --input sha=<sha> --input deployTo=beta [--until <step>] [--only
 - A full run starts a fresh pool; `--only` reuses the pool for every step it doesn't run.
 - `--until <step>` stops after the stage containing `<step>`.
 - Failure handlers are not run.
+- A `select` runs every case's steps: there is no config locally.
 
 ```text
 $ pl dev pipeline --dir .pipelines-test --input sha=abcdef1 --input mode=skip-last
 …
 result:
-  hello  succeeded
-  count  succeeded
-  echo   succeeded
-  last   skipped   when mode in ["normal"] did not match (mode = "skip-last")
+  hello           succeeded
+  count           succeeded
+  echo            succeeded
+  last            skipped   when mode in ["normal"] did not match (mode = "skip-last")
+  deploy-beta     skipped   when mode in ["normal"] did not match (mode = "skip-last")
+  deploy-prod     skipped   when mode in ["normal"] did not match (mode = "skip-last")
+  smoke           skipped   when mode in ["normal"] did not match (mode = "skip-last")
+  notify-log      succeeded
+  notify-webhook  succeeded
 ```
 
 ## Unit-testing handlers

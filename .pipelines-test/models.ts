@@ -8,6 +8,9 @@ export const TestInput = model("TestInput", z.object({
    * throw, failing the run (exercises onFailure).
    */
   mode: z.enum(["normal", "skip-last", "fail"]).default("normal"),
+  /** Which of the fake deploy steps run (nested `when`s). */
+  target: z.enum(["none", "beta", "prod"]).default("beta"),
+  smoke: z.boolean().default(true),
 }));
 
 export const Greeting = model("Greeting", z.object({

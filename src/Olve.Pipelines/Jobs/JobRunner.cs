@@ -11,10 +11,14 @@ public class JobRunner(
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
-    public int MaxConcurrentJobs { get; init; } = 4;
+    public const int DefaultMaxConcurrentJobs = 4;
+
+    /// <summary>Step Jobs running at once, across all pipelines (<c>Jobs:MaxConcurrent</c>).</summary>
+    public int MaxConcurrentJobs { get; init; } = DefaultMaxConcurrentJobs;
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        logger.LogInformation("Job runner started: at most {MaxConcurrentJobs} step Jobs at once", MaxConcurrentJobs);
         while (!ct.IsCancellationRequested)
         {
             try

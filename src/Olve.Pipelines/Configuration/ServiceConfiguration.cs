@@ -153,7 +153,11 @@ public static class ServiceConfiguration
         services.AddSingleton<JobWatcherRegistry>();
         services.AddSingleton<IHostedLifecycleService>(sp => sp.GetRequiredService<JobWatcherRegistry>());
         services.AddSingleton<JobDispatchSignal>();
-        services.AddHostedService<JobRunner>();
+        services.AddHostedService(sp => new JobRunner(
+            sp, sp.GetRequiredService<JobWatcherRegistry>(), sp.GetRequiredService<JobDispatchSignal>(), sp.GetRequiredService<ILogger<JobRunner>>())
+        {
+            MaxConcurrentJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrent") ?? JobRunner.DefaultMaxConcurrentJobs),
+        });
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         // After every event registration: the sweep's writes must reach cleanup/obsoletion/scheduling.

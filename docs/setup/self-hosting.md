@@ -64,6 +64,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:BuildTimeoutSeconds` / `BuildScratchSizeLimit` | `900` / `4Gi` | Build/describe Job deadline and scratch size |
 | `Harness:BuildCpuRequest` / `BuildMemoryRequest` / `BuildMemoryLimit` | `500m` / `512Mi` / `3Gi` | Build/describe Job resources |
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
+| `Jobs:MaxConcurrent` | `4` | Step Jobs running at once across all pipelines; the rest wait in Scheduled |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes) |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |

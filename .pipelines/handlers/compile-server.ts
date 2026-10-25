@@ -10,10 +10,11 @@ export default implement(compileServer, async ({ source }, ctx) => {
   const tree = await ctx.files.fetch(source.tree);
   const root = join(ctx.tmpDir, "server");
   const env = { MSBUILDDISABLENODEREUSE: "1" };
-  // JIT keeps the AOT build's JSON behaviour (source-generated only), so both run the same code paths.
+  // JIT keeps the source generators PublishAot turns on (JSON, endpoints, config binding), so both run the same code paths.
   const flavour = runtime === "aot"
     ? ["-p:DebugType=none"]
-    : ["-p:PublishAot=false", "--self-contained", "false", "-p:JsonSerializerIsReflectionEnabledByDefault=false"];
+    : ["-p:PublishAot=false", "--self-contained", "false", "-p:JsonSerializerIsReflectionEnabledByDefault=false",
+      "-p:EnableRequestDelegateGenerator=true", "-p:EnableConfigurationBindingGenerator=true"];
   await ctx.exec(["dotnet", "publish", SERVER, "-c", "Release", "-r", "linux-x64", "-m:1", "-p:UseSharedCompilation=false",
     ...flavour, "-o", join(root, "app")], { cwd: tree, env });
 

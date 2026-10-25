@@ -147,6 +147,19 @@ export async function writeTarGz(out: string, entries: readonly TarEntry[], leve
   }
 }
 
+/** Writes a deterministic zstd-compressed tar (level 3: fast to write, and unpacks far faster than gzip). */
+export async function writeTarZst(out: string, entries: readonly TarEntry[], level = 3): Promise<void> {
+  const tar = `${out}.tar-tmp`;
+  const tmp = `${out}.partial`;
+  try {
+    writeTar(tar, entries);
+    await Bun.write(tmp, await Bun.zstdCompress(await Bun.file(tar).bytes(), { level }));
+    renameSync(tmp, out);
+  } finally {
+    rmSync(tar, { force: true });
+  }
+}
+
 /** Extracts a tar or tar.gz file into `dir`. */
 export async function extractTar(archive: string, dir: string): Promise<void> {
   const a = new Bun.Archive(await Bun.file(archive).bytes());

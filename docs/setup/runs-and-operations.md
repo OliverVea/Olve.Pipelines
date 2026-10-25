@@ -185,7 +185,7 @@ Each attempt is a Kubernetes Job in the instance's runner namespace, under the r
 (gVisor runtime class, Pod Security baseline, NetworkPolicy):
 
 1. **Init container** (`harness-base`, a 2.4 MB static busybox image with a bundled glibc loader)
-   downloads the version's compiled binary (`step.tar.gz`) and the attempt's `input.json` through
+   downloads the version's compiled binary (a zstd- or, from older SDKs, gzip-compressed tar) and the attempt's `input.json` through
    pre-signed URLs into a shared `/olve` volume. A step that declares config gets its entries of the
    run's effective config in `input.json` under `$config` (`ctx.config`).
 2. **Step container** — the step's declared image — runs

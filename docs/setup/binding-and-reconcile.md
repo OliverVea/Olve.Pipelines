@@ -51,8 +51,8 @@ Per binding, the deploy poll (or a webhook, or `pl binding reconcile`) does, in 
    1. Start a **build Job** `olve-build-<pipeline12>-<sha12>` on `oven/bun:<pinned>-slim` (under the
       runner hardening: gVisor, PSS baseline, NetworkPolicy). It fetches the repo tarball at the
       commit (anonymously, or with the binding's token key, default `GITHUB_TOKEN`), runs
-      `bun install --frozen-lockfile` and `olve-build`, uploads the compiled binary (`step.tar.gz`,
-      ~44 MB) to storage and prints the manifest.
+      `bun install --frozen-lockfile` and `olve-build`, uploads the compiled binary (a zstd-compressed tar,
+      ~42 MB) to storage and prints the manifest.
    2. **Validate** the manifest with every [reconcile check](pipeline-reference.md#checks-that-reject-a-pipeline).
       Errors fail the reconcile; warnings are reported.
    3. If the manifest matches the active (or latest) version, reuse it; otherwise add a **new

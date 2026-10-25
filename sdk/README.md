@@ -4,7 +4,7 @@ The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK. It has
 
 - the **authoring API**: models, steps, handlers and the typed pipeline builder;
 - the **step harness**: the runtime compiled into each pipeline's single executable (`describe`, `run`, `map-trigger`);
-- the **build tool** (`olve-build`), which turns a pipeline directory into `step.tar.gz` and `manifest.json`;
+- the **build tool** (`olve-build`), which turns a pipeline directory into `step.tar.zst` and `manifest.json`;
 - the **dev runner** (`olve-dev`), which runs the same harness path from source (used by `pl dev`).
 
 Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2-spikes.md).
@@ -418,8 +418,8 @@ olve-build <pipelineDir> --hash-only          # print handler hashes (diagnostic
 3. Run `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig --bytecode --format=esm` → `<out>/step`. The output is never minified, because mapper source analysis needs real source.
 4. Check that `PT_INTERP` is `/lib64/ld-linux-x86-64.so.2`. On alpine, Bun silently produces a musl binary; the check fails it.
 5. Run `<out>/step describe` → `<out>/manifest.json`. A describe problem is a build failure with exit 78. **A custom step without a handler file is an error.**
-6. Write `<out>/step.tar.gz` (deterministic, `step` at the root, mode 0755) and `<out>/build.json` (diagnostics).
-7. With `--upload-url`, PUT `step.tar.gz`, using the same retry rules as the result upload. With `--sentinels`, print the manifest between the manifest sentinels.
+6. Write `<out>/step.tar.zst` (a deterministic tar, `step` at the root, mode 0755, zstd level 3: it unpacks in the step pod far faster than gzip; harness-base also still unpacks the gzip archives of older SDKs; from 2.0.0-beta.7 the SDK needs an instance whose harness-base unpacks zstd, i.e. one deployed on or after 2026-10-25) and `<out>/build.json` (diagnostics).
+7. With `--upload-url`, PUT `step.tar.zst`, using the same retry rules as the result upload. With `--sentinels`, print the manifest between the manifest sentinels.
 
 Exit codes: 0 ok, 1 build failure, 64 usage, 78 pipeline invalid.
 
@@ -435,7 +435,7 @@ From npm, nothing else is needed. A local `file:`/`link:` dependency (`"@oliverv
 
 The repo depends on the SDK as a normal package. It resolves through `exports` (`@olivervea/pipelines`, `@olivervea/pipelines/harness`, `@olivervea/pipelines/testing`), and the tests cover this with a `file:` install. `bun` must be on `PATH`, because the bins use `#!/usr/bin/env bun`. A consumer `tsconfig.json` has to include the dot-directory explicitly (`"include": [".pipelines/**/*.ts"]`), and should exclude `.pipelines/.olve`.
 
-How the service runs it (reconcile, `BuildJobBuilder`): one Job per (pipeline, config commit), named `olve-build-<pipeline12>-<sha12>`. The repo tarball comes from `codeload.github.com/<repo>/tar.gz/<sha>` anonymously (public repos), or from the GitHub API tarball endpoint with the binding's credentials key from the pipeline Secret. The binary is PUT to `versions/<pipeline>/builds/<sha>/step.tar.gz`, and a version added from that build keeps this key as its `BinaryKey`. The in-repo fixture `.pipelines-test/` (bound on v2 beta) uses exactly this layout.
+How the service runs it (reconcile, `BuildJobBuilder`): one Job per (pipeline, config commit), named `olve-build-<pipeline12>-<sha12>`. The repo tarball comes from `codeload.github.com/<repo>/tar.gz/<sha>` anonymously (public repos), or from the GitHub API tarball endpoint with the binding's credentials key from the pipeline Secret. The archive is PUT to `versions/<pipeline>/builds/<sha>/step.tar.gz` (the key predates zstd; the init container tells the formats apart by content), and a version added from that build keeps this key as its `BinaryKey`. The in-repo fixture `.pipelines-test/` (bound on v2 beta) uses exactly this layout.
 
 The manifest is the text between the sentinels in the pod log. The manifest text is identical across checkouts. The binary and archive bytes are identical for the same checkout layout.
 

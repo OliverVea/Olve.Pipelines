@@ -1,10 +1,10 @@
-// olve-build: pipeline dir → single executable + step.tar.gz + manifest.json.
+// olve-build: pipeline dir → single executable + step.tar.zst + manifest.json.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { canonicalJson } from "../util/canonical.ts";
 import { sha256File } from "../util/hash.ts";
 import type { HarnessInfo } from "../util/handler-hash.ts";
-import { writeTarGz } from "../util/tar.ts";
+import { writeTarZst } from "../util/tar.ts";
 import { MANIFEST_BEGIN, MANIFEST_END, uploadFile } from "../harness/result.ts";
 import { GLIBC_INTERP, MUSL_INTERP, readInterpreter } from "./elf.ts";
 import { handlerHashes, type HandlerHash } from "./hashes.ts";
@@ -23,7 +23,7 @@ export class BuildError extends Error {
 export interface BuildOptions {
   out: string;
   target?: Target;
-  /** Pre-signed PUT for step.tar.gz. */
+  /** Pre-signed PUT for the step archive. */
   uploadUrl?: string;
   /** Print the manifest between sentinels on stdout (for the build Job's pod log). */
   sentinels?: boolean;
@@ -107,9 +107,9 @@ export async function build(dir: string, opts: BuildOptions): Promise<BuildResul
   const manifestFile = join(out, "manifest.json");
   writeFileSync(manifestFile, manifest);
 
-  // 4. step.tar.gz (deterministic: `step` at the root, 0755, mtime 0)
-  const archive = join(out, "step.tar.gz");
-  await writeTarGz(archive, [{ path: "step", type: "file", mode: 0o755, source: binary }]);
+  // 4. step.tar.zst (deterministic: `step` at the root, 0755, mtime 0)
+  const archive = join(out, "step.tar.zst");
+  await writeTarZst(archive, [{ path: "step", type: "file", mode: 0o755, source: binary }]);
   writeFileSync(
     join(out, "build.json"),
     canonicalJson({ target, flags: BUILD_FLAGS, harness, handlers: hashes, binarySha256: sha256File(binary), archiveSha256: sha256File(archive) }),
@@ -118,7 +118,7 @@ export async function build(dir: string, opts: BuildOptions): Promise<BuildResul
 
   if (opts.uploadUrl) {
     await uploadFile(opts.uploadUrl, archive, log);
-    log("olve-build: uploaded step.tar.gz");
+    log("olve-build: uploaded step.tar.zst");
   }
   if (opts.sentinels) await stdout(`${MANIFEST_BEGIN}\n${manifest}${MANIFEST_END}\n`);
   return { binary, archive, manifestFile, manifest, hashes, harness };

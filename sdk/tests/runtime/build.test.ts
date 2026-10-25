@@ -64,9 +64,11 @@ describe("compiled binary", () => {
     a = await build(dirA, { out: join(dirA, "..", "out"), log: () => {} });
   }, 60000);
 
-  test("PT_INTERP is the glibc loader; step.tar.gz holds `step` (0755)", async () => {
+  test("PT_INTERP is the glibc loader; step.tar.zst holds `step` (0755)", async () => {
     expect(readInterpreter(a.binary)).toBe(GLIBC_INTERP);
-    const tar = Bun.spawnSync(["tar", "-tvzf", a.archive]).stdout.toString().trim().split("\n");
+    const unpacked = `${a.archive}.tar`;
+    writeFileSync(unpacked, Bun.zstdDecompressSync(await Bun.file(a.archive).bytes()));
+    const tar = Bun.spawnSync(["tar", "-tvf", unpacked]).stdout.toString().trim().split("\n");
     expect(tar).toHaveLength(1);
     expect(tar[0]).toMatch(/^-rwxr-xr-x 0\/0 .* 1970-01-01 00:00 step$/);
   });

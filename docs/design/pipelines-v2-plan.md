@@ -605,6 +605,20 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   signal tests (`Kill_InAToolCall_…`, `SignalIf_…`, `HeldMessages_…`), as v1's last runs did, so the
   deploys are untested on v2 until ARM fixes them. v1 (`ec5fe7ef…`) paused (three gates blocked).
   ARM's main requires a PR; the commit was pushed with the admin bypass.
+- **Migrated: Olve.Trains** (2026-10-25). Pipeline `7f4d21a8-a1b6-46fb-970e-df0e0763a749`
+  (`GITHUB_TOKEN` and `ITCH_API_KEY` copied from v1, sha256 equal; `MINIO__*`, `S3__*` and
+  `SSH_PRIVATE_KEY` left behind): source (custom: clone at the sha + `git lfs pull`, since the GitHub
+  tarball has only LFS pointers; outputs a `Source`) → build (asset pipeline, self-contained linux-x64
+  tar.gz + win-x64 zip as files, v1's version format) ∥ test (xvfb screenshot suite; on failure the
+  diff/actual/baseline PNGs are the failed attempt's files) → when `publish`: publish-itch (butler).
+  Dropped: `bootstrap-minio` and `publish-minio`. The MinIO release buckets were in-cluster only and
+  nothing read them; the run's build files are the archive now. `olve-trains-minio` and its PVC are
+  still running, unwritten (removal is the user's call). Builds and tests run on the container's rootfs
+  (`/work`), not the 1 GiB `/olve`. Run #1 (manual, `publish=false`) passed. Open: `test` builds from
+  source instead of testing the published build (the pytest harness is hardwired to
+  `bin/Release/net10.0` and `dotnet <dll>`). The binding was created before the push, so the first
+  reconcile took the newest v1-only commit and failed; `pl binding reconcile` fixed it. Trains'
+  master requires a PR; pushed with the admin bypass at the user's say.
 
 ### v2.2 — candidates
 

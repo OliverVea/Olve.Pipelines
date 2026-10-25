@@ -16,15 +16,25 @@ public sealed class PodChangeSignals(TimeProvider timeProvider)
             waiter.TrySetResult();
     }
 
-    /// <summary>Returns when the Job's pod changes or after <paramref name="timeout"/>, whichever is first.</summary>
-    public async Task WaitAsync(string jobName, TimeSpan timeout, CancellationToken ct)
+    /// <summary>Registers interest in the Job's next pod change; arm before reading the pod's state so no change is missed.</summary>
+    public Task Arm(string jobName)
+        => _waiters.GetOrAdd(jobName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+
+    /// <summary>Returns when <paramref name="armed"/> fires or after <paramref name="timeout"/>, whichever is first.</summary>
+    public async Task WaitAsync(string jobName, Task armed, TimeSpan timeout, CancellationToken ct)
     {
-        var waiter = _waiters.GetOrAdd(jobName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var delay = Task.Delay(timeout, timeProvider, cts.Token);
-        await Task.WhenAny(waiter.Task, delay);
+        if (await Task.WhenAny(armed, delay) != armed)
+            ForgetIfUnchanged(jobName, armed);
         await cts.CancelAsync();
         ct.ThrowIfCancellationRequested();
+    }
+
+    private void ForgetIfUnchanged(string jobName, Task armed)
+    {
+        if (_waiters.TryGetValue(jobName, out var waiter) && waiter.Task == armed)
+            _waiters.TryRemove(new KeyValuePair<string, TaskCompletionSource>(jobName, waiter));
     }
 }
 
@@ -51,6 +61,8 @@ public sealed class PodWatchService(
                     if (pod.Metadata.Labels?.GetValueOrDefault(JobNameLabel) is { } job)
                         signals.Notify(job);
                 }
+                // A watch that ends at once must not spin.
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

@@ -77,6 +77,7 @@ public sealed class HarnessJobControl(
             if (shouldAbort?.Invoke() == true)
                 return new HarnessWait.Aborted();
 
+            var changed = podChanges.Arm(jobName);
             var state = await GetStateAsync(jobName, ct);
             if (state is null)
                 return new HarnessWait.Missing();
@@ -103,7 +104,7 @@ public sealed class HarnessJobControl(
             if (timeout is { } t && now - started >= t)
                 return new HarnessWait.TimedOut();
 
-            await podChanges.WaitAsync(jobName, pollInterval, ct);
+            await podChanges.WaitAsync(jobName, changed, pollInterval, ct);
         }
     }
 

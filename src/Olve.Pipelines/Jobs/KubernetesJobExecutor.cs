@@ -156,6 +156,12 @@ public class KubernetesJobExecutor(
             logText += $"controller: {HarnessExitCodes.Classify(finished.State)?.Message}; K8s Job deleted\n";
         await PutLogAsync(logKey, logText, ct);
 
+        var state = finished.State;
+        LogIfFailed(attempts.Update(attempt.Id, a => a with
+        {
+            Timings = new AttemptTimings(state.PodCreatedAt, state.Init?.StartedAt, state.Init?.FinishedAt, state.Main?.StartedAt, state.Main?.FinishedAt),
+        }), attempt.Id);
+
         var collection = await storage.CollectAsync(attempt, ct);
         var outcome = HarnessOutcome.Resolve(finished.State, collection.Archive, collection.FileKeys,
             HarnessSentinels.TryExtractResult(logs.Main));

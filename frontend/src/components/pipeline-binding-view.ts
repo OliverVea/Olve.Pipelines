@@ -2,9 +2,10 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { PipelineBindingStatus } from '@olve/olve-pipelines-client/src/models/index.js';
 import { client, apiFetch, apiPost, errorMessages } from '../api.js';
-import { sharedStyles, navClick, pipelinePath, shortSha, secretsPath } from '../v2/ui.js';
+import { sharedStyles, navClick, shortSha, secretsPath } from '../v2/ui.js';
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
+import './pipeline-header.js';
 
 type Binding = {
   repo: string;
@@ -87,7 +88,6 @@ export class PipelineBindingView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _name: string;
   @state() declare private _binding: Binding | null;
   @state() declare private _status: PipelineBindingStatus | null;
   @state() declare private _secretNames: string[];
@@ -98,7 +98,6 @@ export class PipelineBindingView extends LitElement {
   constructor() {
     super();
     this.pipelineId = '';
-    this._name = '';
     this._binding = null;
     this._status = null;
     this._secretNames = [];
@@ -115,15 +114,13 @@ export class PipelineBindingView extends LitElement {
   async reload() {
     const p = client.api.pipelines.byId(this.pipelineId);
     try {
-      const [pipeline, binding, status, secrets] = await Promise.all([
-        this._name ? null : p.get(),
+      const [binding, status, secrets] = await Promise.all([
         apiFetch<Binding>(`/api/pipelines/${this.pipelineId}/binding`).catch(() => null),
         p.binding.status.get().catch(() => null),
         apiFetch<{ name: string }[]>(`/api/pipelines/${this.pipelineId}/secrets`).catch(
           () => null,
         ),
       ]);
-      if (pipeline) this._name = pipeline.name ?? '';
       this._binding = binding;
       this._status = status ?? null;
       if (secrets) this._secretNames = secrets.map((s) => s.name);
@@ -137,13 +134,7 @@ export class PipelineBindingView extends LitElement {
   render() {
     const b = this._binding;
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
-          >${this._name || 'Pipeline'}</a
-        >
-      </div>
-      <h2>Binding</h2>
+      <pipeline-header .pipelineId=${this.pipelineId} tab="binding"></pipeline-header>
       ${this._errors.length
         ? html`<div class="errors" role="alert">
             ${this._errors.map((e) => html`<p>${e}</p>`)}

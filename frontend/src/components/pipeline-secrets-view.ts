@@ -2,7 +2,8 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/index.js';
 import { client, apiFetch, apiPost, errorMessages } from '../api.js';
-import { sharedStyles, navClick, pipelinePath, stepPath } from '../v2/ui.js';
+import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
+import './pipeline-header.js';
 
 type SecretInfo = {
   name: string;
@@ -112,7 +113,6 @@ export class PipelineSecretsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _name: string;
   @state() declare private _secrets: SecretInfo[] | null;
   @state() declare private _pipelines: PipelineSummary[];
   @state() declare private _editing: string | null;
@@ -123,7 +123,6 @@ export class PipelineSecretsView extends LitElement {
   constructor() {
     super();
     this.pipelineId = '';
-    this._name = '';
     this._secrets = null;
     this._pipelines = [];
     this._editing = null;
@@ -137,12 +136,6 @@ export class PipelineSecretsView extends LitElement {
   }
 
   async reload() {
-    if (!this._name)
-      client.api.pipelines
-        .byId(this.pipelineId)
-        .get()
-        .then((p) => (this._name = p?.name ?? ''))
-        .catch(() => {});
     try {
       const [secrets, pipelines] = await Promise.all([
         apiFetch<SecretInfo[]>(`/api/pipelines/${this.pipelineId}/secrets`),
@@ -158,13 +151,7 @@ export class PipelineSecretsView extends LitElement {
   render() {
     const secrets = this._secrets;
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
-          >${this._name || 'Pipeline'}</a
-        >
-      </div>
-      <h2>Secrets</h2>
+      <pipeline-header .pipelineId=${this.pipelineId} tab="secrets"></pipeline-header>
       ${this._errors.length
         ? html`<div class="errors" role="alert">
             ${this._errors.map((e) => html`<p>${e}</p>`)}

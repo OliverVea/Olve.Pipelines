@@ -136,6 +136,26 @@ public class KubernetesJobExecutorTests
     }
 
     [Test]
+    public async Task FinishedPod_RecordsItsTimings()
+    {
+        var h = Build();
+        var t0 = DateTimeOffset.Parse("2026-10-25T10:00:00Z");
+        h.K8s.States.Add(new HarnessPodState(null, null,
+            InitOk with { StartedAt = t0.AddSeconds(2), FinishedAt = t0.AddSeconds(3) },
+            new HarnessContainerState("step", 0, "Completed", null, t0.AddSeconds(5), t0.AddSeconds(15)),
+            t0));
+        var attempt = h.Hello;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Timings).IsEqualTo(new AttemptTimings(t0, t0.AddSeconds(2), t0.AddSeconds(3), t0.AddSeconds(5), t0.AddSeconds(15)));
+        var phases = AttemptPhases.From(h.Hello)!;
+        await Assert.That(phases.Fetch).IsEqualTo(1);
+        await Assert.That(phases.Image).IsEqualTo(2);
+        await Assert.That(phases.Active).IsEqualTo(10);
+    }
+
+    [Test]
     public async Task SkippedEnvelope_MarksSkipped()
     {
         var h = Build();

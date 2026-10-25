@@ -186,6 +186,7 @@ public sealed class CriticalPathRun
     public double IdleSeconds { get; set; }
     public CriticalPathStage[] Path { get; set; } = [];
     public string[] Notes { get; set; } = [];
+    public double? ActiveSeconds { get; set; }
 }
 
 public sealed class CriticalPathStage
@@ -195,6 +196,7 @@ public sealed class CriticalPathStage
     public int Attempts { get; set; }
     public double Seconds { get; set; }
     public double WaitSeconds { get; set; }
+    public double? ActiveSeconds { get; set; }
 }
 
 public sealed class CriticalPathStep
@@ -206,6 +208,7 @@ public sealed class CriticalPathStep
     public double AverageSeconds { get; set; }
     public double WaitSeconds { get; set; }
     public int[] RunNumbers { get; set; } = [];
+    public double? ActiveSeconds { get; set; }
 }
 
 public sealed class CriticalPathSkip

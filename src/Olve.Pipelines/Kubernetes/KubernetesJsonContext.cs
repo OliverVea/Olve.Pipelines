@@ -11,7 +11,8 @@ public record K8sJobManifest(
 
 public record K8sMetadata(
     [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("labels")] Dictionary<string, string>? Labels = null);
+    [property: JsonPropertyName("labels")] Dictionary<string, string>? Labels = null,
+    [property: JsonPropertyName("creationTimestamp"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? CreationTimestamp = null);
 
 public record K8sJobSpecBody(
     [property: JsonPropertyName("template")] K8sPodTemplateSpec Template,
@@ -142,7 +143,9 @@ public record K8sContainerStateWaiting(
 public record K8sContainerStateTerminated(
     [property: JsonPropertyName("exitCode")] int ExitCode,
     [property: JsonPropertyName("reason")] string? Reason = null,
-    [property: JsonPropertyName("message")] string? Message = null);
+    [property: JsonPropertyName("message")] string? Message = null,
+    [property: JsonPropertyName("startedAt")] DateTimeOffset? StartedAt = null,
+    [property: JsonPropertyName("finishedAt")] DateTimeOffset? FinishedAt = null);
 
 // K8s Secret
 public record K8sSecret(

@@ -18,7 +18,7 @@ pl step blocked my-app                 # the pipeline's blocked steps
 pl step unblock my-app/deploy-prod     # held runs resume
 ```
 
-In the UI, each step in the pipeline view has a lock toggle, and the step page has Block/Unblock.
+In the UI, each step in the pipeline view has a lock toggle, and the step's panel (click the step) has Block/Unblock.
 A held step shows as `held` in the run view (`pl run get` shows `held` / `blocked` per step).
 
 ## Rules

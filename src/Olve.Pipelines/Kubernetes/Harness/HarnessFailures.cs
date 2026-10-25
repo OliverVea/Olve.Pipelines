@@ -36,7 +36,9 @@ public sealed record HarnessFailure(HarnessFailureKind Kind, string Message);
 /// <summary>One container's last observed state.</summary>
 /// <param name="ExitCode">Set once terminated.</param>
 /// <param name="Reason">Terminated reason (<c>Completed</c>, <c>Error</c>, <c>OOMKilled</c>) or waiting reason (<c>ErrImagePull</c>, <c>CreateContainerConfigError</c>, …).</param>
-public sealed record HarnessContainerState(string Name, int? ExitCode, string? Reason, string? Message)
+/// <param name="StartedAt">When the container started, once terminated.</param>
+public sealed record HarnessContainerState(string Name, int? ExitCode, string? Reason, string? Message,
+    DateTimeOffset? StartedAt = null, DateTimeOffset? FinishedAt = null)
 {
     public bool Terminated => ExitCode is not null;
 }
@@ -47,11 +49,13 @@ public sealed record HarnessContainerState(string Name, int? ExitCode, string? R
 /// <see cref="IHarnessKubernetesClient.GetHarnessPodStateAsync"/>, or directly in tests.
 /// </summary>
 /// <param name="JobFailedReason">Reason of the Job's <c>Failed=True</c> condition (<c>DeadlineExceeded</c>, <c>BackoffLimitExceeded</c>).</param>
+/// <param name="PodCreatedAt">When the pod was created.</param>
 public sealed record HarnessPodState(
     string? JobFailedReason,
     string? JobFailedMessage,
     HarnessContainerState? Init,
-    HarnessContainerState? Main)
+    HarnessContainerState? Main,
+    DateTimeOffset? PodCreatedAt = null)
 {
     public static HarnessPodState From(K8sJobResponse? job, K8sPodItem? pod)
     {
@@ -60,14 +64,15 @@ public sealed record HarnessPodState(
             failed?.Reason,
             failed?.Message,
             ToState(pod?.Status?.InitContainerStatuses?.FirstOrDefault()),
-            ToState(pod?.Status?.ContainerStatuses?.FirstOrDefault()));
+            ToState(pod?.Status?.ContainerStatuses?.FirstOrDefault()),
+            pod?.Metadata.CreationTimestamp);
     }
 
     private static HarnessContainerState? ToState(K8sContainerStatus? status)
     {
         if (status is null) return null;
         if (status.State?.Terminated is { } t)
-            return new HarnessContainerState(status.Name, t.ExitCode, t.Reason, t.Message);
+            return new HarnessContainerState(status.Name, t.ExitCode, t.Reason, t.Message, t.StartedAt, t.FinishedAt);
         return new HarnessContainerState(status.Name, null, status.State?.Waiting?.Reason, status.State?.Waiting?.Message);
     }
 }

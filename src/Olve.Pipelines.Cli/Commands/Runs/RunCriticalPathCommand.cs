@@ -25,6 +25,9 @@ public sealed class RunCriticalPathCommand : ICliCommand
           --from, --to   Run numbers (default: the latest 20 runs; at most 500)
           --step <name>  Also list the runs that step was on the critical path in
           --all          Include failed and cancelled runs (default: succeeded only)
+
+          OVERHEAD is the part of a step's time outside its step container (queueing, pod start,
+          fetching, image pull, collecting the result); "-" for attempts from before it was recorded.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -59,15 +62,20 @@ public sealed class RunCriticalPathCommand : ICliCommand
                 ctx.Output.Line(line);
 
             ctx.Output.Line();
-            ctx.Output.Line($"{report.Runs.Length} run(s) in #{report.From}..#{report.To}: {Seconds(report.TotalSeconds)} on the critical path, {Seconds(report.AverageSeconds)} per run");
+            var known = report.Runs.Where(r => r.ActiveSeconds is not null).ToList();
+            var overhead = known.Count > 0
+                ? $"; overhead {Seconds(known.Sum(r => r.Seconds - r.ActiveSeconds!.Value) / known.Count)} per run ({known.Count} with timings)"
+                : "";
+            ctx.Output.Line($"{report.Runs.Length} run(s) in #{report.From}..#{report.To}: {Seconds(report.TotalSeconds)} on the critical path, {Seconds(report.AverageSeconds)} per run{overhead}");
             ctx.Output.Line();
 
             var stepRows = report.Steps.Select(s => (IReadOnlyList<string>)
             [
                 s.Step, $"{s.Runs}/{report.Runs.Length}", Seconds(s.Seconds), (s.Share * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%",
                 Seconds(s.AverageSeconds), Seconds(s.WaitSeconds),
+                s.ActiveSeconds is { } active ? Seconds(s.Seconds - active) : "-",
             ]).ToList();
-            foreach (var line in Table.Render(["STEP", "ON PATH", "TOTAL", "SHARE", "AVG WHEN ON", "WAIT"], stepRows))
+            foreach (var line in Table.Render(["STEP", "ON PATH", "TOTAL", "SHARE", "AVG WHEN ON", "WAIT", "OVERHEAD"], stepRows))
                 ctx.Output.Line(line);
 
             var notes = report.Runs.SelectMany(r => r.Notes.Select(n => $"#{r.Number}: {n}"))

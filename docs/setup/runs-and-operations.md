@@ -75,7 +75,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |
 | Rerun one step | `pl step rerun <pipeline>#<run>/<step> [--continue]` | Run view → step → Rerun |
 | Output, files, logs | `pl step output\|files\|file\|logs <address>` (`logs --follow`) | Run view → step |
-| A step's history | `pl step history <pipeline>/<step>` | `/pipeline/<id>/step/<name>` |
+| A step's history | `pl step history <pipeline>/<step>` | `/pipeline/<id>/step/<name>/runs` |
 | Health | `pl pipeline health <pipeline>`, `pl pipeline list` | Pipeline list |
 
 - **Trigger.** The body is the pipeline input. `--field` values are typed by the active version's
@@ -135,8 +135,16 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   (scheduling, image pull, pod start).
 - Automatic retries count toward their stage (`test×2`); a later rerun of a step doesn't, and is
   noted. Time between stages (a held run, a later `continue`) is **IDLE**, charged to no step.
+- **OVERHEAD** is the part of a step's time spent outside its step container. An attempt's time splits
+  into *queued* (created → picked up), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*
+  (the init container downloading the step binary and input), *image* (pulling and starting the step's
+  image), *active* (the step container) and *collect* (logs and result). Attempts from before these
+  timings were recorded show `-`. The API returns them as `phases` on step history and run steps.
 - `--step <name>` also lists the runs that step was on the critical path in. Only succeeded runs are
   reported unless `--all`. `--json` gives the whole report (`GET …/runs/critical-path`).
+
+In the UI, the overview's status card shows the median critical path of the latest 20 runs and
+links to `/pipeline/<id>/critical-path`: the same report for the last 20, 50 or 100 runs.
 
 ## Live events
 

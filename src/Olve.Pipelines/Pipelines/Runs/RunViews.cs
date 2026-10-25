@@ -61,7 +61,8 @@ public record RunStepView(
     int? SucceededAttempt,
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
-    bool Blocked);
+    bool Blocked,
+    AttemptPhases? Phases = null);
 
 /// <summary>
 /// One row of a step's history across runs (spec §6.3), newest first. <see cref="StepVersionChanged"/>
@@ -80,7 +81,8 @@ public record StepHistoryItem(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     int? StepVersion,
-    bool StepVersionChanged);
+    bool StepVersionChanged,
+    AttemptPhases? Phases = null);
 
 /// <summary>Query parameters of the run list (newest first).</summary>
 public record ListRunsRequest(int Page = 0, int PageSize = 50);

@@ -2,10 +2,11 @@ import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { client, errorMessages } from '../api.js';
 import type { PipelineVersionSummary } from '@olve/olve-pipelines-client/src/models/index.js';
-import { sharedStyles, navClick, pipelinePath } from '../v2/ui.js';
+import { sharedStyles } from '../v2/ui.js';
 import { toActivation, type Activation } from '../v2/versions.js';
 import { PollController } from '../v2/poll.js';
 import './versions-panel.js';
+import './pipeline-header.js';
 
 @customElement('pipeline-versions-view')
 export class PipelineVersionsView extends LitElement {
@@ -13,7 +14,6 @@ export class PipelineVersionsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _name: string;
   @state() declare private _versions: PipelineVersionSummary[];
   @state() declare private _activation: Activation;
   @state() declare private _error: string | null;
@@ -21,7 +21,6 @@ export class PipelineVersionsView extends LitElement {
   constructor() {
     super();
     this.pipelineId = '';
-    this._name = '';
     this._versions = [];
     this._activation = { kind: 'none' };
     this._error = null;
@@ -35,8 +34,7 @@ export class PipelineVersionsView extends LitElement {
   async reload() {
     const p = client.api.pipelines.byId(this.pipelineId);
     try {
-      const [pipeline, versions] = await Promise.all([p.get(), p.versions.get()]);
-      this._name = pipeline?.name ?? '';
+      const versions = await p.versions.get();
       this._versions = versions?.versions ?? [];
       this._activation = toActivation(versions?.activation);
       this._error = null;
@@ -47,13 +45,7 @@ export class PipelineVersionsView extends LitElement {
 
   render() {
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
-          >${this._name || 'Pipeline'}</a
-        >
-      </div>
-      <h2>Versions</h2>
+      <pipeline-header .pipelineId=${this.pipelineId} tab="versions"></pipeline-header>
       ${this._error ? html`<p class="error">${this._error}</p>` : ''}
       <section>
         <versions-panel

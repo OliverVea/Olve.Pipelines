@@ -116,7 +116,7 @@ export function allSteps(stages: Stage[]): ManifestStep[] {
 
 /** "target.prod.kind = ssh" */
 export function formatCase(stage: SelectStage, value: string): string {
-  return `${stage.select}.${stage.discriminator} = ${value}`;
+  return `${stage.select}.${stage.discriminator}: ${value}`;
 }
 
 /** Steps of the manifest keyed by name. */
@@ -159,9 +159,9 @@ export function formatWhen(when: Record<string, unknown[]>): string {
   return Object.entries(when)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([f, vs]) =>
-      vs.length === 1 ? `${f} = ${fmt(vs[0])}` : `${f} ∈ {${vs.map(fmt).join(', ')}}`,
+      vs.length === 1 ? `${f}: ${fmt(vs[0])}` : `${f}: ${vs.map(fmt).join(' | ')}`,
     )
-    .join(' and ');
+    .join(', ');
 }
 
 function fmt(v: unknown): string {

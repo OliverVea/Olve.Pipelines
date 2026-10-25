@@ -98,7 +98,8 @@ public class RunViewService(
                     list.LastOrDefault(a => a.Status is Succeeded)?.Number,
                     latest?.StartedAt(),
                     latest?.FinishedAt(),
-                    isBlocked);
+                    isBlocked,
+                    latest is null ? null : AttemptPhases.From(latest));
             }).ToArray())).ToArray();
     }
 
@@ -129,7 +130,7 @@ public class RunViewService(
 
             rows.Add(new StepHistoryItem(run.Number, run.Status, run.VersionNumber, run.VersionStamp, attempt.Id, attempt.Number,
                 attempt.Status.Discriminator(), Reason(attempt.Status), attempt.CreatedAt, attempt.StartedAt(), attempt.FinishedAt(),
-                stepVersion, StepVersionChanged: false));
+                stepVersion, StepVersionChanged: false, AttemptPhases.From(attempt)));
         }
 
         for (var i = 0; i < rows.Count - 1; i++)

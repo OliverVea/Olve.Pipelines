@@ -54,7 +54,8 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
                 total > 0 ? g.Sum(x => x.Stage.Seconds) / total : 0,
                 g.Average(x => x.Stage.Seconds),
                 g.Sum(x => x.Stage.WaitSeconds),
-                g.Select(x => x.Run).ToArray()))
+                g.Select(x => x.Run).ToArray(),
+                SumKnown(g.Select(x => x.Stage.ActiveSeconds))))
             .OrderByDescending(s => s.Seconds)
             .ThenBy(s => s.Step, StringComparer.Ordinal)
             .ToArray();
@@ -105,11 +106,26 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
                 last.StepName,
                 mine.Count,
                 Math.Max(0, (passEnd - start).TotalSeconds),
-                Math.Max(0, (firstStart - start).TotalSeconds)));
+                Math.Max(0, (firstStart - start).TotalSeconds),
+                SumKnown(mine.Select(a => AttemptPhases.From(a)?.Active))));
             previousEnd = passEnd;
         }
 
-        return new CriticalPathRun(run.Number, run.Status, run.VersionNumber, run.VersionStamp, path.Sum(p => p.Seconds), idle, path.ToArray(), notes.ToArray());
+        return new CriticalPathRun(run.Number, run.Status, run.VersionNumber, run.VersionStamp, path.Sum(p => p.Seconds), idle, path.ToArray(), notes.ToArray(),
+            SumKnown(path.Select(p => p.ActiveSeconds)));
+    }
+
+    /// <summary>The sum, or null when any part is unknown (attempts from before timings were recorded).</summary>
+    private static double? SumKnown(IEnumerable<double?> values)
+    {
+        var sum = 0.0;
+        foreach (var v in values)
+        {
+            if (v is null)
+                return null;
+            sum += v.Value;
+        }
+        return sum;
     }
 }
 
@@ -123,7 +139,7 @@ public record CriticalPathReport(
     double TotalSeconds,
     double AverageSeconds);
 
-/// <summary>One run's critical path: one entry per stage. <see cref="IdleSeconds"/> is time between stages charged to no step.</summary>
+/// <summary>One run's critical path: one entry per stage. <see cref="IdleSeconds"/> is time between stages charged to no step; <see cref="ActiveSeconds"/> the path's time in step containers.</summary>
 public record CriticalPathRun(
     int Number,
     RunStatus Status,
@@ -132,13 +148,17 @@ public record CriticalPathRun(
     double Seconds,
     double IdleSeconds,
     CriticalPathStage[] Path,
-    string[] Notes);
+    string[] Notes,
+    double? ActiveSeconds = null);
 
-/// <summary>A stage's critical step: <see cref="Seconds"/> from the stage's first attempt to its last finish, <see cref="WaitSeconds"/> of it before the step's first attempt started.</summary>
-public record CriticalPathStage(int Stage, string Step, int Attempts, double Seconds, double WaitSeconds);
+/// <summary>
+/// A stage's critical step: <see cref="Seconds"/> from the stage's first attempt to its last finish, <see cref="WaitSeconds"/>
+/// of it before the step's first attempt started, <see cref="ActiveSeconds"/> of it in the step container (null when unknown).
+/// </summary>
+public record CriticalPathStage(int Stage, string Step, int Attempts, double Seconds, double WaitSeconds, double? ActiveSeconds = null);
 
 /// <summary>A step's part in the critical path of the reported runs: in <see cref="RunNumbers"/>, for <see cref="Share"/> (0..1) of the total.</summary>
-public record CriticalPathStep(string Step, int Runs, double Seconds, double Share, double AverageSeconds, double WaitSeconds, int[] RunNumbers);
+public record CriticalPathStep(string Step, int Runs, double Seconds, double Share, double AverageSeconds, double WaitSeconds, int[] RunNumbers, double? ActiveSeconds = null);
 
 /// <summary>A run in the range that isn't reported, and why.</summary>
 public record CriticalPathSkip(int Number, string Reason);

@@ -146,33 +146,26 @@ export class StageGraph extends LitElement {
       .when {
         position: relative;
         display: flex;
-        --bracket: color-mix(in srgb, var(--color-when) 55%, transparent);
-        border-top: 1.5px dashed var(--bracket);
-        padding: 0.7rem 0 0;
-        margin-top: 0.5rem;
-      }
-      .when::before,
-      .when::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        height: 0.45rem;
-        border-left: 1.5px solid var(--bracket);
-      }
-      .when::before {
-        left: 0;
-      }
-      .when::after {
-        right: 0;
+        flex-direction: column;
+        padding: 0.75rem 0;
+        border-bottom: 2px solid var(--color-border);
       }
       .when-label {
         position: absolute;
-        top: -0.65rem;
-        left: 0.6rem;
-        padding: 0 0.35rem;
-        background: var(--graph-bg, var(--color-bg));
-        color: var(--color-when);
+        bottom: 0;
+        left: 50%;
+        transform: translate(-50%, calc(50% + 1px));
+        padding: 0 1rem;
+        background: linear-gradient(
+          to right,
+          transparent,
+          var(--graph-bg, var(--color-bg)) 0.9rem,
+          var(--graph-bg, var(--color-bg)) calc(100% - 0.9rem),
+          transparent
+        );
+        color: var(--color-text-muted);
         font-size: 0.72rem;
+        line-height: 1;
         white-space: nowrap;
       }
       .lv-chips .col {
@@ -180,9 +173,6 @@ export class StageGraph extends LitElement {
       }
       .lv-chips .barrier {
         width: 1.3rem;
-      }
-      .lv-chips .when {
-        padding-top: 0.8rem;
       }
 
       .vflow {
@@ -231,13 +221,13 @@ export class StageGraph extends LitElement {
         left: calc(var(--rail) - 0.6rem);
         top: 0.55rem;
         bottom: 0.2rem;
-        border-left: 1.5px dashed color-mix(in srgb, var(--color-when) 60%, transparent);
+        border-left: 2px solid var(--color-border);
       }
       .vlabel {
         display: block;
         margin: 0 var(--rail) 0.35rem;
         text-align: center;
-        color: var(--color-when);
+        color: var(--color-text-muted);
         font-size: 0.72rem;
       }
       .vflow .tile {
@@ -664,10 +654,6 @@ export class StageGraph extends LitElement {
     const chips = this._level === 'chips';
     const note = `${chips ? 'Chips' : 'Cards'} · ${this._orientation}${this._overflow && this._orientation === 'horizontal' ? ' · scroll sideways for more' : ''}`;
     return html`<div class="bar">
-      <span class="muted"
-        >Click a step for its
-        details.${chips && canHover() ? ' Hover for run and duration.' : ''}</span
-      >
       <span class="note muted" aria-live="polite">${note}</span>
       <span class="seg" role="group" aria-label="Detail level">
         ${LEVELS.map(
@@ -708,16 +694,16 @@ export class StageGraph extends LitElement {
       if (isWhen(stage)) {
         out.push(
           html`<div class="when">
-            <span class="when-label">when ${formatWhen(stage.when)}</span>
             <div class="when-body">${this._stages(stage.stages, rel)}</div>
+            <span class="when-label">${formatWhen(stage.when)}</span>
           </div>`,
         );
       } else if (isSelect(stage)) {
         for (const [value, inner] of Object.entries(stage.cases))
           out.push(
             html`<div class="when">
-              <span class="when-label">config ${formatCase(stage, value)}</span>
               <div class="when-body">${this._stages(inner, rel)}</div>
+              <span class="when-label">${formatCase(stage, value)}</span>
             </div>`,
           );
       } else {
@@ -739,7 +725,7 @@ export class StageGraph extends LitElement {
       if (isWhen(stage)) {
         return html`${down}
           <div class="vwhen">
-            <span class="vlabel">when ${formatWhen(stage.when)}</span>${this._rows(
+            <span class="vlabel">${formatWhen(stage.when)}</span>${this._rows(
               stage.stages,
               rel,
               counter,
@@ -751,7 +737,7 @@ export class StageGraph extends LitElement {
         return html`${down}${Object.entries(stage.cases).map(([value, inner]) => {
           counter.n = at;
           return html`<div class="vwhen">
-            <span class="vlabel">config ${formatCase(stage, value)}</span>${this._rows(
+            <span class="vlabel">${formatCase(stage, value)}</span>${this._rows(
               inner,
               rel,
               counter,

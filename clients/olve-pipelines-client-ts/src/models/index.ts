@@ -123,6 +123,10 @@ export interface Attempt extends AdditionalDataHolder, Parsable {
      * The stepName property
      */
     stepName?: string | null;
+    /**
+     * The timings property
+     */
+    timings?: AttemptTimings | null;
 }
 export interface AttemptFileEntry extends AdditionalDataHolder, Parsable {
     /**
@@ -191,6 +195,32 @@ export interface AttemptOutputResponse extends AdditionalDataHolder, Parsable {
      * The step property
      */
     step?: string | null;
+}
+export interface AttemptPhases extends AdditionalDataHolder, Parsable {
+    /**
+     * The active property
+     */
+    active?: number | null;
+    /**
+     * The collect property
+     */
+    collect?: number | null;
+    /**
+     * The fetch property
+     */
+    fetch?: number | null;
+    /**
+     * The image property
+     */
+    image?: number | null;
+    /**
+     * The podStart property
+     */
+    podStart?: number | null;
+    /**
+     * The queued property
+     */
+    queued?: number | null;
 }
 export interface AttemptStatus extends AdditionalDataHolder, Parsable {
     /**
@@ -263,6 +293,28 @@ export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
      * The startedAt property
      */
     startedAt?: Date | null;
+}
+export interface AttemptTimings extends AdditionalDataHolder, Parsable {
+    /**
+     * The initFinishedAt property
+     */
+    initFinishedAt?: Date | null;
+    /**
+     * The initStartedAt property
+     */
+    initStartedAt?: Date | null;
+    /**
+     * The podCreatedAt property
+     */
+    podCreatedAt?: Date | null;
+    /**
+     * The stepFinishedAt property
+     */
+    stepFinishedAt?: Date | null;
+    /**
+     * The stepStartedAt property
+     */
+    stepStartedAt?: Date | null;
 }
 export interface ChangedDefault extends AdditionalDataHolder, Parsable {
     /**
@@ -469,6 +521,15 @@ export function createAttemptOutputResponseFromDiscriminatorValue(parseNode: Par
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptPhases}
+ */
+// @ts-ignore
+export function createAttemptPhasesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptPhases;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {AttemptStatusCancelled}
  */
 // @ts-ignore
@@ -560,6 +621,15 @@ export function createAttemptStatusSkippedFromDiscriminatorValue(parseNode: Pars
 // @ts-ignore
 export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAttemptStatusSucceeded;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptTimings}
+ */
+// @ts-ignore
+export function createAttemptTimingsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptTimings;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1155,6 +1225,10 @@ export interface CriticalPathReport extends AdditionalDataHolder, Parsable {
 }
 export interface CriticalPathRun extends AdditionalDataHolder, Parsable {
     /**
+     * The activeSeconds property
+     */
+    activeSeconds?: number | null;
+    /**
      * The idleSeconds property
      */
     idleSeconds?: number | null;
@@ -1199,6 +1273,10 @@ export interface CriticalPathSkip extends AdditionalDataHolder, Parsable {
 }
 export interface CriticalPathStage extends AdditionalDataHolder, Parsable {
     /**
+     * The activeSeconds property
+     */
+    activeSeconds?: number | null;
+    /**
      * The attempts property
      */
     attempts?: number | null;
@@ -1220,6 +1298,10 @@ export interface CriticalPathStage extends AdditionalDataHolder, Parsable {
     waitSeconds?: number | null;
 }
 export interface CriticalPathStep extends AdditionalDataHolder, Parsable {
+    /**
+     * The activeSeconds property
+     */
+    activeSeconds?: number | null;
     /**
      * The averageSeconds property
      */
@@ -1315,6 +1397,7 @@ export function deserializeIntoAttempt(attempt: Partial<Attempt> | undefined = {
         "runNumber": n => { attempt.runNumber = n.getNumberValue(); },
         "status": n => { attempt.status = n.getObjectValue<AttemptStatus>(createAttemptStatusFromDiscriminatorValue); },
         "stepName": n => { attempt.stepName = n.getStringValue(); },
+        "timings": n => { attempt.timings = n.getObjectValue<AttemptTimings>(createAttemptTimingsFromDiscriminatorValue); },
     }
 }
 /**
@@ -1370,6 +1453,22 @@ export function deserializeIntoAttemptOutputResponse(attemptOutputResponse: Part
         "run": n => { attemptOutputResponse.run = n.getNumberValue(); },
         "status": n => { attemptOutputResponse.status = n.getStringValue(); },
         "step": n => { attemptOutputResponse.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptPhases The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptPhases(attemptPhases: Partial<AttemptPhases> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "active": n => { attemptPhases.active = n.getNumberValue(); },
+        "collect": n => { attemptPhases.collect = n.getNumberValue(); },
+        "fetch": n => { attemptPhases.fetch = n.getNumberValue(); },
+        "image": n => { attemptPhases.image = n.getNumberValue(); },
+        "podStart": n => { attemptPhases.podStart = n.getNumberValue(); },
+        "queued": n => { attemptPhases.queued = n.getNumberValue(); },
     }
 }
 /**
@@ -1471,6 +1570,21 @@ export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Pa
         ...deserializeIntoAttemptStatus(attemptStatusSucceeded),
         "finishedAt": n => { attemptStatusSucceeded.finishedAt = n.getDateValue(); },
         "startedAt": n => { attemptStatusSucceeded.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptTimings The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptTimings(attemptTimings: Partial<AttemptTimings> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "initFinishedAt": n => { attemptTimings.initFinishedAt = n.getDateValue(); },
+        "initStartedAt": n => { attemptTimings.initStartedAt = n.getDateValue(); },
+        "podCreatedAt": n => { attemptTimings.podCreatedAt = n.getDateValue(); },
+        "stepFinishedAt": n => { attemptTimings.stepFinishedAt = n.getDateValue(); },
+        "stepStartedAt": n => { attemptTimings.stepStartedAt = n.getDateValue(); },
     }
 }
 /**
@@ -1630,6 +1744,7 @@ export function deserializeIntoCriticalPathReport(criticalPathReport: Partial<Cr
 // @ts-ignore
 export function deserializeIntoCriticalPathRun(criticalPathRun: Partial<CriticalPathRun> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "activeSeconds": n => { criticalPathRun.activeSeconds = n.getNumberValue(); },
         "idleSeconds": n => { criticalPathRun.idleSeconds = n.getNumberValue(); },
         "notes": n => { criticalPathRun.notes = n.getCollectionOfPrimitiveValues<string>("string"); },
         "number": n => { criticalPathRun.number = n.getNumberValue(); },
@@ -1660,6 +1775,7 @@ export function deserializeIntoCriticalPathSkip(criticalPathSkip: Partial<Critic
 // @ts-ignore
 export function deserializeIntoCriticalPathStage(criticalPathStage: Partial<CriticalPathStage> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "activeSeconds": n => { criticalPathStage.activeSeconds = n.getNumberValue(); },
         "attempts": n => { criticalPathStage.attempts = n.getNumberValue(); },
         "seconds": n => { criticalPathStage.seconds = n.getNumberValue(); },
         "stage": n => { criticalPathStage.stage = n.getNumberValue(); },
@@ -1675,6 +1791,7 @@ export function deserializeIntoCriticalPathStage(criticalPathStage: Partial<Crit
 // @ts-ignore
 export function deserializeIntoCriticalPathStep(criticalPathStep: Partial<CriticalPathStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "activeSeconds": n => { criticalPathStep.activeSeconds = n.getNumberValue(); },
         "averageSeconds": n => { criticalPathStep.averageSeconds = n.getNumberValue(); },
         "runNumbers": n => { criticalPathStep.runNumbers = n.getCollectionOfPrimitiveValues<number>("number"); },
         "runs": n => { criticalPathStep.runs = n.getNumberValue(); },
@@ -2189,6 +2306,7 @@ export function deserializeIntoRunStepView(runStepView: Partial<RunStepView> | u
         "finishedAt": n => { runStepView.finishedAt = n.getDateValue(); },
         "latestAttempt": n => { runStepView.latestAttempt = n.getNumberValue(); },
         "name": n => { runStepView.name = n.getStringValue(); },
+        "phases": n => { runStepView.phases = n.getObjectValue<AttemptPhases>(createAttemptPhasesFromDiscriminatorValue); },
         "reason": n => { runStepView.reason = n.getStringValue(); },
         "startedAt": n => { runStepView.startedAt = n.getDateValue(); },
         "status": n => { runStepView.status = n.getStringValue(); },
@@ -2264,6 +2382,7 @@ export function deserializeIntoStepHistoryItem(stepHistoryItem: Partial<StepHist
         "attemptNumber": n => { stepHistoryItem.attemptNumber = n.getNumberValue(); },
         "createdAt": n => { stepHistoryItem.createdAt = n.getDateValue(); },
         "finishedAt": n => { stepHistoryItem.finishedAt = n.getDateValue(); },
+        "phases": n => { stepHistoryItem.phases = n.getObjectValue<AttemptPhases>(createAttemptPhasesFromDiscriminatorValue); },
         "reason": n => { stepHistoryItem.reason = n.getStringValue(); },
         "runNumber": n => { stepHistoryItem.runNumber = n.getNumberValue(); },
         "runStatus": n => { stepHistoryItem.runStatus = n.getEnumValue<RunStatus>(RunStatusObject); },
@@ -3011,6 +3130,10 @@ export interface RunStepView extends AdditionalDataHolder, Parsable {
      */
     name?: string | null;
     /**
+     * The phases property
+     */
+    phases?: AttemptPhases | null;
+    /**
      * The reason property
      */
     reason?: string | null;
@@ -3162,6 +3285,7 @@ export function serializeAttempt(writer: SerializationWriter, attempt: Partial<A
     writer.writeNumberValue("runNumber", attempt.runNumber);
     writer.writeObjectValue<AttemptStatus>("status", attempt.status, serializeAttemptStatus);
     writer.writeStringValue("stepName", attempt.stepName);
+    writer.writeObjectValue<AttemptTimings>("timings", attempt.timings, serializeAttemptTimings);
     writer.writeAdditionalData(attempt.additionalData);
 }
 /**
@@ -3222,6 +3346,23 @@ export function serializeAttemptOutputResponse(writer: SerializationWriter, atte
     writer.writeStringValue("status", attemptOutputResponse.status);
     writer.writeStringValue("step", attemptOutputResponse.step);
     writer.writeAdditionalData(attemptOutputResponse.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptPhases The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptPhases(writer: SerializationWriter, attemptPhases: Partial<AttemptPhases> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptPhases || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("active", attemptPhases.active);
+    writer.writeNumberValue("collect", attemptPhases.collect);
+    writer.writeNumberValue("fetch", attemptPhases.fetch);
+    writer.writeNumberValue("image", attemptPhases.image);
+    writer.writeNumberValue("podStart", attemptPhases.podStart);
+    writer.writeNumberValue("queued", attemptPhases.queued);
+    writer.writeAdditionalData(attemptPhases.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3347,6 +3488,22 @@ export function serializeAttemptStatusSucceeded(writer: SerializationWriter, att
     serializeAttemptStatus(writer, attemptStatusSucceeded, isSerializingDerivedType)
     writer.writeDateValue("finishedAt", attemptStatusSucceeded.finishedAt);
     writer.writeDateValue("startedAt", attemptStatusSucceeded.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptTimings The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptTimings(writer: SerializationWriter, attemptTimings: Partial<AttemptTimings> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptTimings || isSerializingDerivedType) { return; }
+    writer.writeDateValue("initFinishedAt", attemptTimings.initFinishedAt);
+    writer.writeDateValue("initStartedAt", attemptTimings.initStartedAt);
+    writer.writeDateValue("podCreatedAt", attemptTimings.podCreatedAt);
+    writer.writeDateValue("stepFinishedAt", attemptTimings.stepFinishedAt);
+    writer.writeDateValue("stepStartedAt", attemptTimings.stepStartedAt);
+    writer.writeAdditionalData(attemptTimings.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3517,6 +3674,7 @@ export function serializeCriticalPathReport(writer: SerializationWriter, critica
 // @ts-ignore
 export function serializeCriticalPathRun(writer: SerializationWriter, criticalPathRun: Partial<CriticalPathRun> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!criticalPathRun || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("activeSeconds", criticalPathRun.activeSeconds);
     writer.writeNumberValue("idleSeconds", criticalPathRun.idleSeconds);
     writer.writeCollectionOfPrimitiveValues<string>("notes", criticalPathRun.notes);
     writer.writeNumberValue("number", criticalPathRun.number);
@@ -3549,6 +3707,7 @@ export function serializeCriticalPathSkip(writer: SerializationWriter, criticalP
 // @ts-ignore
 export function serializeCriticalPathStage(writer: SerializationWriter, criticalPathStage: Partial<CriticalPathStage> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!criticalPathStage || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("activeSeconds", criticalPathStage.activeSeconds);
     writer.writeNumberValue("attempts", criticalPathStage.attempts);
     writer.writeNumberValue("seconds", criticalPathStage.seconds);
     writer.writeNumberValue("stage", criticalPathStage.stage);
@@ -3565,6 +3724,7 @@ export function serializeCriticalPathStage(writer: SerializationWriter, critical
 // @ts-ignore
 export function serializeCriticalPathStep(writer: SerializationWriter, criticalPathStep: Partial<CriticalPathStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!criticalPathStep || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("activeSeconds", criticalPathStep.activeSeconds);
     writer.writeNumberValue("averageSeconds", criticalPathStep.averageSeconds);
     writer.writeCollectionOfPrimitiveValues<number>("runNumbers", criticalPathStep.runNumbers);
     writer.writeNumberValue("runs", criticalPathStep.runs);
@@ -4120,6 +4280,7 @@ export function serializeRunStepView(writer: SerializationWriter, runStepView: P
     writer.writeDateValue("finishedAt", runStepView.finishedAt);
     writer.writeNumberValue("latestAttempt", runStepView.latestAttempt);
     writer.writeStringValue("name", runStepView.name);
+    writer.writeObjectValue<AttemptPhases>("phases", runStepView.phases, serializeAttemptPhases);
     writer.writeStringValue("reason", runStepView.reason);
     writer.writeDateValue("startedAt", runStepView.startedAt);
     writer.writeStringValue("status", runStepView.status);
@@ -4200,6 +4361,7 @@ export function serializeStepHistoryItem(writer: SerializationWriter, stepHistor
     writer.writeNumberValue("attemptNumber", stepHistoryItem.attemptNumber);
     writer.writeDateValue("createdAt", stepHistoryItem.createdAt);
     writer.writeDateValue("finishedAt", stepHistoryItem.finishedAt);
+    writer.writeObjectValue<AttemptPhases>("phases", stepHistoryItem.phases, serializeAttemptPhases);
     writer.writeStringValue("reason", stepHistoryItem.reason);
     writer.writeNumberValue("runNumber", stepHistoryItem.runNumber);
     writer.writeEnumValue<RunStatus>("runStatus", stepHistoryItem.runStatus);
@@ -4289,6 +4451,10 @@ export interface StepHistoryItem extends AdditionalDataHolder, Parsable {
      * The finishedAt property
      */
     finishedAt?: Date | null;
+    /**
+     * The phases property
+     */
+    phases?: AttemptPhases | null;
     /**
      * The reason property
      */

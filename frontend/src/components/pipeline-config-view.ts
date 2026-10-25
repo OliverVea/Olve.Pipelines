@@ -7,7 +7,7 @@ import type {
   ConfigSnapshotInfo,
   PendingVersionInfo,
 } from '@olve/olve-pipelines-client/src/models/index.js';
-import { sharedStyles, navClick, pipelinePath, secretsPath } from '../v2/ui.js';
+import { sharedStyles, navClick, secretsPath } from '../v2/ui.js';
 import { loadVersion, toActivation, currentVersion } from '../v2/versions.js';
 import { configEntries, documentSchema, type ConfigEntry } from '../v2/config-schema.js';
 import { diffLines, foldDiff, type DiffHunk } from '../v2/diff.js';
@@ -16,6 +16,7 @@ import type { ConfigEditor } from './config-editor.js';
 import './config-editor.js';
 import './diff-view.js';
 import './relative-time.js';
+import './pipeline-header.js';
 
 type Target = { version: number; role: 'active' | 'pending'; entries: ConfigEntry[] };
 
@@ -97,7 +98,6 @@ export class PipelineConfigView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _name: string;
   @state() declare private _yaml: string;
   @state() declare private _snapshot: ConfigSnapshotInfo | null;
   @state() declare private _history: ConfigSnapshotInfo[];
@@ -118,7 +118,6 @@ export class PipelineConfigView extends LitElement {
   constructor() {
     super();
     this.pipelineId = '';
-    this._name = '';
     this._yaml = '';
     this._snapshot = null;
     this._history = [];
@@ -144,14 +143,12 @@ export class PipelineConfigView extends LitElement {
   async reload(replaceText: boolean) {
     const p = client.api.pipelines.byId(this.pipelineId);
     try {
-      const [pipeline, doc, history, versions, health] = await Promise.all([
-        p.get(),
+      const [doc, history, versions, health] = await Promise.all([
         p.config.get(),
         p.config.history.get(),
         p.versions.get(),
         p.health.get(),
       ]);
-      this._name = pipeline?.name ?? '';
       this._snapshot = doc?.snapshot ?? null;
       if (replaceText || !this._dirty) {
         this._yaml = doc?.yaml ?? '';
@@ -262,13 +259,7 @@ export class PipelineConfigView extends LitElement {
   render() {
     const target = this._targets.find((t) => t.version === this._target);
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
-          >${this._name || 'Pipeline'}</a
-        >
-      </div>
-      <h2>Config</h2>
+      <pipeline-header .pipelineId=${this.pipelineId} tab="config"></pipeline-header>
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
       ${this._renderPending()}
       <section>

@@ -9,10 +9,10 @@ import {
   formatDuration,
   navClick,
   runPath,
-  pipelinePath,
 } from '../v2/ui.js';
 import { PollController } from '../v2/poll.js';
 import './relative-time.js';
+import './pipeline-header.js';
 
 @customElement('pipeline-runs-view')
 export class PipelineRunsView extends LitElement {
@@ -32,7 +32,6 @@ export class PipelineRunsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _name: string;
   @state() declare private _runs: RunSummary[] | null;
   @state() declare private _total: number;
   @state() declare private _error: string | null;
@@ -40,7 +39,6 @@ export class PipelineRunsView extends LitElement {
   constructor() {
     super();
     this.pipelineId = '';
-    this._name = '';
     this._runs = null;
     this._total = 0;
     this._error = null;
@@ -54,11 +52,7 @@ export class PipelineRunsView extends LitElement {
   async reload() {
     const p = client.api.pipelines.byId(this.pipelineId);
     try {
-      const [pipeline, runs] = await Promise.all([
-        p.get(),
-        p.runs.get({ queryParameters: { pageSize: 50 } }),
-      ]);
-      this._name = pipeline?.name ?? '';
+      const runs = await p.runs.get({ queryParameters: { pageSize: 50 } });
       this._runs = runs?.items ?? [];
       this._total = runs?.totalCount ?? this._runs.length;
       this._error = null;
@@ -70,13 +64,7 @@ export class PipelineRunsView extends LitElement {
   render() {
     const runs = this._runs;
     return html`
-      <div class="crumbs">
-        <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
-        <a href=${pipelinePath(this.pipelineId)} @click=${navClick}
-          >${this._name || 'Pipeline'}</a
-        >
-      </div>
-      <h2>Runs</h2>
+      <pipeline-header .pipelineId=${this.pipelineId} tab="runs"></pipeline-header>
       ${runs && this._total > runs.length
         ? html`<p class="hint">Latest ${runs.length} of ${this._total}</p>`
         : nothing}

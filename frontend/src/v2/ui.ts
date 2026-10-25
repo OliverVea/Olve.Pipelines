@@ -1,4 +1,4 @@
-import { css } from 'lit';
+import { css, html } from 'lit';
 import { navigate } from '../router.js';
 
 /**
@@ -80,6 +80,17 @@ export function formatDuration(
   return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`;
 }
 
+export function formatSeconds(s: number | null | undefined): string {
+  return s == null ? '—' : formatDuration(new Date(0), new Date(s * 1000));
+}
+
+export function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const v = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
 export function shortSha(sha: string | null | undefined): string {
   return sha ? sha.slice(0, 7) : '';
 }
@@ -130,9 +141,12 @@ export const stepLogsPath = (
   attempt?: number | null,
 ) =>
   `/pipeline/${id}/run/${run ?? ''}/step/${encodeURIComponent(step)}/logs${attempt ? `?attempt=${attempt}` : ''}`;
+/** The overview with the step's sheet open. */
 export const stepPath = (id: string, step: string) =>
-  `/pipeline/${id}/step/${encodeURIComponent(step)}`;
-export const stepRunsPath = (id: string, step: string) => `${stepPath(id, step)}/runs`;
+  `${pipelinePath(id)}?step=${encodeURIComponent(step)}`;
+export const stepRunsPath = (id: string, step: string) =>
+  `${pipelinePath(id)}/step/${encodeURIComponent(step)}/runs`;
+export const criticalPathPath = (id: string) => `${pipelinePath(id)}/critical-path`;
 
 /** Shared styles for the v2 views (buttons, pills, status dots, panels). */
 export const sharedStyles = css`
@@ -505,6 +519,142 @@ export const headerStyles = css`
       display: block;
       flex-basis: 100%;
       height: 0;
+    }
+  }
+`;
+
+export type PipelineTab =
+  | 'overview'
+  | 'runs'
+  | 'versions'
+  | 'config'
+  | 'secrets'
+  | 'binding';
+
+/** The tab bar shared by a pipeline's pages. */
+export function pipelineTabs(id: string, active: PipelineTab, bound = true) {
+  const tabs: [PipelineTab, string, string][] = [
+    ['overview', 'Overview', pipelinePath(id)],
+    ['runs', 'Runs', runsPath(id)],
+    ['versions', 'Versions', versionsPath(id)],
+    ['config', 'Config', configPath(id)],
+    ['secrets', 'Secrets', secretsPath(id)],
+    ...(bound
+      ? [['binding', 'Binding', bindingPath(id)] as [PipelineTab, string, string]]
+      : []),
+  ];
+  return html`<nav class="tabs" aria-label="Pipeline">
+    ${tabs.map(
+      ([key, label, href]) =>
+        html`<a
+          href=${href}
+          @click=${navClick}
+          aria-current=${key === active ? 'page' : 'false'}
+          >${label}</a
+        >`,
+    )}
+  </nav>`;
+}
+
+export const tabStyles = css`
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.9rem;
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs a {
+    flex: none;
+    padding: 0.45rem 0.7rem;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--color-text-muted);
+    font-size: 0.88rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      color var(--transition),
+      border-color var(--transition);
+  }
+  .tabs a:hover {
+    color: var(--color-text);
+    border-bottom-color: var(--color-border);
+  }
+  .tabs a[aria-current='page'] {
+    color: var(--color-text);
+    border-bottom-color: var(--color-primary);
+  }
+  .tabs a:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    border-radius: var(--radius);
+  }
+`;
+
+/** A card of labelled values: `.status` > `.cell` (`.grow` takes the rest) > `.label`, `.value`, `.sub`. */
+export const statusCardStyles = css`
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+  }
+  .cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+    padding: 0.55rem 1rem;
+  }
+  .cell:not(:last-child) {
+    border-right: 1px solid var(--color-border);
+  }
+  .cell.grow {
+    flex: 1;
+  }
+  .label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .value {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--color-text);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  a.value:hover {
+    color: var(--color-primary);
+  }
+  .value.st {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sub {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+  @media (max-width: 640px) {
+    .cell {
+      flex: 1 1 40%;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .cell:not(:last-child) {
+      border-right: 0;
+    }
+    .cell.grow {
+      flex-basis: 100%;
+      border-bottom: 0;
     }
   }
 `;

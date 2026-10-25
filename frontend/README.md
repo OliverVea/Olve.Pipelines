@@ -122,7 +122,7 @@ frontend/src/
   are dashed brackets labelled with their condition; hovering a step outlines where its inputs come
   from and what reads it. Clicking a step opens its details in a bottom sheet (`?step=`): status,
   reason, latest attempt, recent runs, what it reads and what reads it, its definition, and the
-  actions (logs, cancel, rerun and continue, block/unblock, step page).
+  actions (logs, cancel, rerun and continue, block/unblock, the step's runs).
 - **Run** (`/pipeline/:id/run/:n?step=&attempt=`) — a one-line header (run, status, duration,
   Details fold with rerun, continue, version and input; Cancel stays on the line while running) and
   the pinned version's graph coloured by step status. The selected step's sheet holds its attempts

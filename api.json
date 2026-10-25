@@ -4460,6 +4460,16 @@
               "null",
               "string"
             ]
+          },
+          "timings": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttemptTimings"
+              }
+            ]
           }
         }
       },
@@ -4575,6 +4585,72 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "AttemptPhases": {
+        "required": [
+          "queued",
+          "podStart",
+          "fetch",
+          "image",
+          "active",
+          "collect"
+        ],
+        "type": "object",
+        "properties": {
+          "queued": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "podStart": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "fetch": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "image": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "active": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "collect": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -4743,6 +4819,53 @@
           },
           "finishedAt": {
             "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptTimings": {
+        "required": [
+          "podCreatedAt",
+          "initStartedAt",
+          "initFinishedAt",
+          "stepStartedAt",
+          "stepFinishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "podCreatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "initStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "initFinishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "stepStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "stepFinishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -5125,6 +5248,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "activeSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -5179,6 +5311,15 @@
           "waitSeconds": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
             "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "activeSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
               "number",
               "string"
             ],
@@ -5248,6 +5389,15 @@
               ],
               "format": "int32"
             }
+          },
+          "activeSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -6449,6 +6599,16 @@
           },
           "blocked": {
             "type": "boolean"
+          },
+          "phases": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttemptPhases"
+              }
+            ]
           }
         }
       },
@@ -6659,6 +6819,16 @@
           },
           "stepVersionChanged": {
             "type": "boolean"
+          },
+          "phases": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttemptPhases"
+              }
+            ]
           }
         }
       },

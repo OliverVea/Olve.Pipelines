@@ -25,9 +25,9 @@ const routes: Route[] = [
     view: 'step-runs-view',
   },
   {
-    pattern: /^\/pipeline\/([^/]+)\/step\/([^/]+)$/,
-    params: ['pipelineId', 'step'],
-    view: 'step-view',
+    pattern: /^\/pipeline\/([^/]+)\/critical-path$/,
+    params: ['pipelineId'],
+    view: 'critical-path-view',
   },
   {
     pattern: /^\/pipeline\/([^/]+)\/runs$/,

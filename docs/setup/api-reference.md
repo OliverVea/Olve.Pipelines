@@ -763,6 +763,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `inputHash` | string? |  |
 | `output` | [AttemptOutput](#attemptoutput)? |  |
 | `input` | string? |  |
+| `timings` | [AttemptTimings](#attempttimings)? |  |
 
 ### AttemptFileEntry
 
@@ -798,6 +799,17 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `status` | string | required |
 | `output` | any? | required |
 | `outputKey` | string? | required |
+
+### AttemptPhases
+
+| Field | Type | |
+|---|---|---|
+| `queued` | number | required |
+| `podStart` | number? | required |
+| `fetch` | number? | required |
+| `image` | number? | required |
+| `active` | number? | required |
+| `collect` | number? | required |
 
 ### AttemptStatus
 
@@ -852,6 +864,16 @@ The OIDC authority and client id the web UI and `pl login` use.
 |---|---|---|
 | `startedAt` | string (date-time) | required |
 | `finishedAt` | string (date-time) | required |
+
+### AttemptTimings
+
+| Field | Type | |
+|---|---|---|
+| `podCreatedAt` | string (date-time)? | required |
+| `initStartedAt` | string (date-time)? | required |
+| `initFinishedAt` | string (date-time)? | required |
+| `stepStartedAt` | string (date-time)? | required |
+| `stepFinishedAt` | string (date-time)? | required |
 
 ### ChangedDefault
 
@@ -954,6 +976,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `idleSeconds` | number | required |
 | `path` | [CriticalPathStage](#criticalpathstage)[] | required |
 | `notes` | string[] | required |
+| `activeSeconds` | number? |  |
 
 ### CriticalPathSkip
 
@@ -971,6 +994,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `attempts` | integer | required |
 | `seconds` | number | required |
 | `waitSeconds` | number | required |
+| `activeSeconds` | number? |  |
 
 ### CriticalPathStep
 
@@ -983,6 +1007,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `averageSeconds` | number | required |
 | `waitSeconds` | number | required |
 | `runNumbers` | integer[] | required |
+| `activeSeconds` | number? |  |
 
 ### EffectivePipelineResponse
 
@@ -1283,6 +1308,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `startedAt` | string (date-time)? | required |
 | `finishedAt` | string (date-time)? | required |
 | `blocked` | boolean | required |
+| `phases` | [AttemptPhases](#attemptphases)? |  |
 
 ### RunSummary
 
@@ -1337,6 +1363,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `finishedAt` | string (date-time)? | required |
 | `stepVersion` | integer? | required |
 | `stepVersionChanged` | boolean | required |
+| `phases` | [AttemptPhases](#attemptphases)? |  |
 
 ### SwitchVersionRequest
 

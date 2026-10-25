@@ -290,7 +290,12 @@ export class CriticalPathView extends LitElement {
     const top = r.steps?.[0];
     const overheads = runs
       .filter((x) => x.activeSeconds != null)
-      .map((x) => (x.seconds ?? 0) - x.activeSeconds!);
+      .map(
+        (x) =>
+          (x.seconds ?? 0) -
+          (x.path ?? []).reduce((a, p) => a + (p.waitSeconds ?? 0), 0) -
+          x.activeSeconds!,
+      );
     const leads = runs.filter((x) => x.lead).map((x) => x.lead!.seconds ?? 0);
     return html`<div class="status">
       <div class="cell">

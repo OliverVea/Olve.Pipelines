@@ -119,6 +119,26 @@ public class CriticalPathTests
     }
 
     [Test]
+    public async Task Overhead_LeavesOutTheWait()
+    {
+        var s = new SchedulerScenario();
+        var run = Complete(s, build: 60, test: 90, testWait: 10);
+        foreach (var step in new[] { "checkout", "test", "deploy-beta", "summary" })
+        {
+            var a = s.Latest(run, step)!;
+            Ok(s.D.AttemptService.Update(a.Id, x => x with
+            {
+                Timings = new AttemptTimings(null, null, null, x.StartedAt()!.Value.AddSeconds(1), x.FinishedAt()!.Value.AddSeconds(-1)),
+            }));
+        }
+
+        var test = TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false)).Steps.Single(x => x.Step == "test");
+
+        await Assert.That(Math.Round(test.WaitSeconds)).IsEqualTo(10);
+        await Assert.That(Math.Round(test.OverheadSeconds!.Value)).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task SinceVersion_StartsAtTheFirstRunOnThatVersion()
     {
         var s = new SchedulerScenario();

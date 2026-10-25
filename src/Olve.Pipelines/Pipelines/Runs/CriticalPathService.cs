@@ -143,10 +143,13 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
             Span(mapped, first));
     }
 
-    /// <summary>The average time outside the step container, over the stages whose attempts have timings (null: none have).</summary>
+    /// <summary>
+    /// The average time outside the step container once the step was picked up (its WAIT excluded), over the stages
+    /// whose attempts have timings (null: none have).
+    /// </summary>
     private static double? AverageOverhead(IEnumerable<CriticalPathStage> stages)
     {
-        var known = stages.Where(s => s.ActiveSeconds is not null).Select(s => s.Seconds - s.ActiveSeconds!.Value).ToList();
+        var known = stages.Where(s => s.ActiveSeconds is not null).Select(s => Math.Max(0, s.Seconds - s.WaitSeconds - s.ActiveSeconds!.Value)).ToList();
         return known.Count > 0 ? known.Average() : null;
     }
 
@@ -202,7 +205,7 @@ public record CriticalPathLead(double Seconds, string Via, double? Detect, doubl
 public record CriticalPathStage(int Stage, string Step, int Attempts, double Seconds, double WaitSeconds, double? ActiveSeconds = null);
 
 /// <summary>A step's part in the critical path of the reported runs: in <see cref="RunNumbers"/>, for <see cref="Share"/> (0..1) of the total.</summary>
-/// <param name="OverheadSeconds">Average time outside the step container when on the path, over the runs with timings (null: none have).</param>
+/// <param name="OverheadSeconds">Average time outside the step container when on the path, its <see cref="WaitSeconds"/> excluded, over the runs with timings (null: none have).</param>
 public record CriticalPathStep(string Step, int Runs, double Seconds, double Share, double AverageSeconds, double WaitSeconds, int[] RunNumbers, double? OverheadSeconds = null);
 
 /// <summary>A run in the range that isn't reported, and why.</summary>

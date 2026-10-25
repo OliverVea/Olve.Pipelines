@@ -33,8 +33,8 @@ public sealed class RunCriticalPathCommand : ICliCommand
           included), map (the map-trigger Job) and start. Automatic runs only.
 
           AVG OVERHEAD is the average part of a step's time on the path outside its step container
-          (queueing, pod start, fetching, image pull, collecting the result), over the runs that
-          recorded it; "-" when none did.
+          once it was picked up (pod start, fetching, image pull, noticing the end, collecting the
+          result; WAIT is separate), over the runs that recorded it; "-" when none did.
         """;
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
@@ -73,7 +73,7 @@ public sealed class RunCriticalPathCommand : ICliCommand
             ctx.Output.Line();
             var known = report.Runs.Where(r => r.ActiveSeconds is not null).ToList();
             var overhead = known.Count > 0
-                ? $"; overhead {Seconds(known.Sum(r => r.Seconds - r.ActiveSeconds!.Value) / known.Count)} per run ({known.Count} with timings)"
+                ? $"; overhead {Seconds(known.Sum(r => r.Seconds - r.Path.Sum(p => p.WaitSeconds) - r.ActiveSeconds!.Value) / known.Count)} per run ({known.Count} with timings)"
                 : "";
             ctx.Output.Line($"{report.Runs.Length} run(s) in #{report.From}..#{report.To}: {Seconds(report.TotalSeconds)} on the critical path, {Seconds(report.AverageSeconds)} per run{overhead}");
             var leads = report.Runs.Where(r => r.Lead is not null).Select(r => r.Lead!).ToList();

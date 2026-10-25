@@ -24,7 +24,7 @@ public class TriggerMappingServiceTests
         var presigner = new S3UrlPresigner(
             new PresignOptions(new Uri("http://garage.test:3900"), "bucket", "us-east-1", TimeSpan.FromHours(1)),
             new StubS3CredentialsProvider(), TimeProvider.System);
-        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), TimeProvider.System, NullLogger<HarnessJobControl>.Instance);
+        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
         var inputs = new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations);
         var service = new TriggerMappingService(inputs, s.D.Starts, new HarnessJobFactory(presigner, new HarnessOptions()), control, storage,
             new HarnessOptions(), NullLogger<TriggerMappingService>.Instance) { PollInterval = TimeSpan.FromMilliseconds(5) };

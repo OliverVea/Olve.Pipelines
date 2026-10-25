@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Net.Http.Json;
 using Olve.Pipelines.Kubernetes.Harness;
 
@@ -23,6 +24,9 @@ public interface IHarnessKubernetesClient
 
     /// <summary>The Job's failure condition and its pod's container states; null when the Job does not exist.</summary>
     Task<HarnessPodState?> GetHarnessPodStateAsync(string ns, string jobName, CancellationToken ct = default);
+
+    /// <summary>Streams pod changes matching <paramref name="labelSelector"/> until the server ends the watch.</summary>
+    IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector, CancellationToken ct = default);
 }
 
 public partial class KubernetesClient : IHarnessKubernetesClient
@@ -85,5 +89,25 @@ public partial class KubernetesClient : IHarnessKubernetesClient
         var pods = await podsResponse.Content.ReadFromJsonAsync(KubernetesJsonContext.Default.K8sPodList, ct);
 
         return HarnessPodState.From(job, pods?.Items.FirstOrDefault());
+    }
+
+    public async IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+    {
+        // Under HttpClient's 100s timeout; the caller reconnects.
+        using var response = await _httpClient.GetAsync(
+            $"api/v1/namespaces/{ns}/pods?watch=true&timeoutSeconds=60&labelSelector={Uri.EscapeDataString(labelSelector)}",
+            HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(ct);
+        using var reader = new StreamReader(stream);
+        while (await reader.ReadLineAsync(ct) is { } line)
+        {
+            if (line.Length == 0)
+                continue;
+            var change = JsonSerializer.Deserialize(line, KubernetesJsonContext.Default.K8sPodWatchEvent);
+            if (change?.Object is { } pod)
+                yield return pod;
+        }
     }
 }

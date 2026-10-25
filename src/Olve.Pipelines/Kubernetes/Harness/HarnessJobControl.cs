@@ -42,6 +42,7 @@ public sealed class HarnessJobControl(
     IHarnessKubernetesClient harness,
     KubernetesOptions options,
     TimeProvider timeProvider,
+    PodChangeSignals podChanges,
     ILogger<HarnessJobControl> logger)
 {
     /// <summary>How long a fatal waiting reason (ErrImagePull, CreateContainerConfigError, …) may persist before the Job is failed.</summary>
@@ -60,7 +61,8 @@ public sealed class HarnessJobControl(
     }
 
     /// <summary>
-    /// Polls until the pod reaches a verdict. A container stuck in a fatal waiting state for longer than
+    /// Polls until the pod reaches a verdict, waking early when the pod watch reports a change.
+    /// A container stuck in a fatal waiting state for longer than
     /// <see cref="FatalWaitingGrace"/> ends the wait too, and its Job is deleted (it would otherwise sit
     /// until <c>activeDeadlineSeconds</c>).
     /// </summary>
@@ -101,7 +103,7 @@ public sealed class HarnessJobControl(
             if (timeout is { } t && now - started >= t)
                 return new HarnessWait.TimedOut();
 
-            await Task.Delay(pollInterval, timeProvider, ct);
+            await podChanges.WaitAsync(jobName, pollInterval, ct);
         }
     }
 

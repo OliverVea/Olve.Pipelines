@@ -31,6 +31,10 @@ internal sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClie
     public Dictionary<string, string> Logs { get; } = [];
     public Action? OnPoll { get; set; }
     public Action? OnCreateJob { get; set; }
+    public System.Threading.Channels.Channel<K8sPodItem> PodChanges { get; } = System.Threading.Channels.Channel.CreateUnbounded<K8sPodItem>();
+
+    public IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector, CancellationToken ct = default)
+        => PodChanges.Reader.ReadAllAsync(ct);
 
     public Task<bool> CreateJobAsync(string ns, K8sJobManifest manifest, CancellationToken ct = default)
     {

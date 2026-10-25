@@ -63,7 +63,7 @@ public class KubernetesJobExecutorTests
             new StubS3CredentialsProvider(), TimeProvider.System);
         var factory = new HarnessJobFactory(presigner, new HarnessOptions());
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"),
-            TimeProvider.System, NullLogger<HarnessJobControl>.Instance) { FatalWaitingGrace = TimeSpan.Zero };
+            TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance) { FatalWaitingGrace = TimeSpan.Zero };
 
         KubernetesJobExecutor? executor = null;
         var services = new ServiceCollection();

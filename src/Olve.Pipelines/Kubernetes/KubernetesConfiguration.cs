@@ -88,6 +88,7 @@ public static class KubernetesConfiguration
 
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
+        builder.Services.AddHostedService<PodWatchService>();
         builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
 
@@ -124,6 +125,7 @@ public static class KubernetesConfiguration
 
         builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
         builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
+        builder.Services.AddHostedService<PodWatchService>();
         builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
 }

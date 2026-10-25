@@ -626,6 +626,14 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
     runner namespace's pod count.
 - Environments/tags, problem types lifted into Olve.MinimalApi, a `pl` smoke step, Blazor revisit.
 
+### Later — teardown (idea, 2026-10-25)
+
+Every step states its teardown (`teardown: none` or a handler; library deploy steps bring theirs:
+`helm uninstall`, compose stop). Deleting a pipeline runs a `Teardown` run on the active version:
+the steps' teardowns forward in stage order (beta before prod, stop at the first failure), each fed
+the step's last successful output; never-run and excluded steps are skipped; data (`keep` PVCs) stays.
+Parked by the user ("like v4").
+
 ### v2.3 — output caching
 
 - Opt-in per step: `cache: true` keys on the whole input; `cache: { key: { cli: [source, s => s.hashes.cli] } }`

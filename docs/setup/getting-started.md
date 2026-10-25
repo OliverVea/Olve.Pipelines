@@ -70,7 +70,7 @@ first.
 }
 ```
 
-Copy `tsconfig.json` from [`.pipelines/tsconfig.json`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/.pipelines/tsconfig.json).
+Copy `tsconfig.json` from [`.pipelines/tsconfig.json`](https://github.com/OliverVea/Olve.Pipelines/blob/main/.pipelines/tsconfig.json).
 It needs `"types": ["bun", "@olivervea/pipelines/assets"]` so that `import x from "./scripts/x.sh" with { type: "file" }`
 type-checks, and it excludes `.olve` (the local work directory).
 

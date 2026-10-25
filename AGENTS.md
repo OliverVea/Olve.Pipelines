@@ -40,10 +40,7 @@ telemetry are the pipeline's config on the instance (`pl config get "Olve.Pipeli
 [docs/design/prod-config.example.yaml](docs/design/prod-config.example.yaml)). The deploy poll (no public webhook on
 v2) reconciles `.pipelines/` commits into versions and starts a run per push that goes beta, then
 prod (no manual promotion; block the `deploy-prod` gate only in special circumstances). `deploy-prod` restarts the pod running the run,
-and the new pod reattaches to the Job. The v1 pipeline that ran `.pipelines/config.yaml` for this
-branch is paused (blocked `deploy-beta` gate) and kept as the rollback — see the E2 notes in
-`docs/design/pipelines-v2-plan.md`. **v1 (`main`):** `.pipelines/config.yaml` on `main` deploys
-v1 beta → prod → `publish-cli`. In both, the chart is `helm upgrade`d imperatively — **helm values
+and the new pod reattaches to the Job. The chart is `helm upgrade`d imperatively — **helm values
 are NOT GitOps-reconciled; only the pipeline definition is.** Skills: `/deploy`, `/setup-pipeline`.
 
 ### Two-tier model
@@ -88,7 +85,3 @@ Garage, never buffered; anything else under `/download/` is a 404). Retention pi
 (`RetentionInputs.PinnedRuns`), so the served `pl` survives retention.
 `GET /install.sh` / `/install.ps1` serve the repo's scripts with the default instance rewritten
 to this one (`Links:BaseUrl`, else the request origin).
-
-**v1 (`main`):** the `publish-cli` processing step (`.pipelines/scripts/publish-cli.sh`, left
-untouched on this branch as the rollback) uploads to `cli/{latest,<version>}/` with the
-`MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` pipeline secrets; v2's endpoint no longer reads those keys.

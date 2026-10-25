@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "author": "Oliver Vea",
-  "homepage": "https://github.com/OliverVea/Olve.Pipelines/tree/v2/sdk#readme",
+  "homepage": "https://github.com/OliverVea/Olve.Pipelines/tree/main/sdk#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/OliverVea/Olve.Pipelines.git",

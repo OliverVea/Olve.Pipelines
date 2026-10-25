@@ -7,7 +7,7 @@ The [Olve.Pipelines](https://github.com/OliverVea/Olve.Pipelines) v2 SDK. It has
 - the **build tool** (`olve-build`), which turns a pipeline directory into `step.tar.zst` and `manifest.json`;
 - the **dev runner** (`olve-dev`), which runs the same harness path from source (used by `pl dev`).
 
-Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/docs/design/pipelines-v2-spikes.md).
+Design: [`docs/design/pipelines-v2.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/docs/design/pipelines-v2.md). Spike findings: [`pipelines-v2-spikes.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/docs/design/pipelines-v2-spikes.md).
 The manifest format is in [`manifest.schema.json`](manifest.schema.json), generated from [`src/describe/manifest-schema.ts`](src/describe/manifest-schema.ts).
 
 ```

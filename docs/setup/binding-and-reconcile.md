@@ -138,7 +138,7 @@ pl binding status <pipelineId>
 
 ```text
 Pipeline:    <id>
-Repo:        OliverVea/Olve.Pipelines@v2 (.pipelines)
+Repo:        OliverVea/Olve.Pipelines@main (.pipelines)
 Reconcile:   Success (last sync 2026-10-22 08:10:00Z)
   commit:    <sha> (in progress)
   version:   v14

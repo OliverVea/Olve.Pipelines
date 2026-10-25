@@ -11,8 +11,8 @@ Each release of Olve.Pipelines attaches `pl` to its
 fetch the latest one:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh   # to ~/.local/bin/pl (PL_INSTALL_DIR overrides)
-irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.ps1 | iex          # Windows
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh   # to ~/.local/bin/pl (PL_INSTALL_DIR overrides)
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex          # Windows
 pl --version                                                                               # the release's version stamp
 ```
 

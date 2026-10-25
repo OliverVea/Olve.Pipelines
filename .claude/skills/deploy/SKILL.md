@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Trigger the v2 self-deploy run of Olve.Pipelines (on v2 prod, from the v2 branch's .pipelines/pipeline.ts), and monitor it through beta and prod.
+description: Trigger the v2 self-deploy run of Olve.Pipelines (on v2 prod, from main's .pipelines/pipeline.ts), and monitor it through beta and prod.
 allowed-tools: Bash Read
 ---
 
@@ -8,21 +8,17 @@ allowed-tools: Bash Read
 
 The pipeline **"Olve.Pipelines v2"** lives on **v2 prod** (`https://pipelines-v2-private.ovea.pro`,
 Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
-`OliverVea/Olve.Pipelines@v2`, path `.pipelines`. Stages: `source` →
+`OliverVea/Olve.Pipelines@main`, path `.pipelines`. Stages: `source` →
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`: `deploy-prod` →
 `publish-cli` ∥ `publish-sdk`.
 
-- Every push to `v2` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
+- Every push to `main` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
   (`https://pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
   then deploys **v2 prod**. No manual promotion; `deployTo: "beta"` stops after beta.
 - Blocking a step is for special circumstances only (an incident, work on the pipeline, a change the user wants held). Never leave
   `deploy-prod` blocked as routine.
 - Claude Code's auto-mode classifier may refuse a trigger that deploys prod; then hand the command to
   the user.
-
-(v1 prod/beta are deployed by v1 from `main`'s `.pipelines/config.yaml`; the v1 pipeline bound to
-the `v2` branch is paused by its blocked `deploy-beta` step and must stay paused, or two deployers
-race.)
 
 ## Prerequisites
 
@@ -54,7 +50,7 @@ The input model requires a full 40-hex `sha`. `deployTo` defaults to `prod` (bet
 
 ```bash
 git fetch origin v2
-pl trigger "$P" --field sha=$(git rev-parse origin/v2)   # prints "Olve.Pipelines v2#<n>"
+pl trigger "$P" --field sha=$(git rev-parse origin/main)   # prints "Olve.Pipelines v2#<n>"
 ```
 
 An explicit trigger is never de-duplicated; it does not supersede a running automatic run (both

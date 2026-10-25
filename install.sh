@@ -2,7 +2,7 @@
 # Install the `pl` operator CLI on Linux.
 #
 #   curl -fsSL https://<instance>/install.sh | sh                                                    # the instance's pl
-#   curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh          # the latest release
+#   curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh          # the latest release
 #
 # Served by an instance, it installs the pl that instance was deployed with (/download/pl-linux-x64);
 # from the repo, the latest GitHub release. PL_API_URL picks an instance, PL_INSTALL_DIR the target dir.

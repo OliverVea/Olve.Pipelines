@@ -1,4 +1,4 @@
-# v2 beta overlay, layered after values-beta.yaml (deploy-beta.sh on the v2 branch). Deployed
+# v2 beta overlay, layered after values-beta.yaml (the pipeline's deploy-beta step). Deployed
 # as its own release (olve-pipelines-v2) in apps-beta beside v1 beta; every chart resource is
 # release-scoped, so only the storage wiring and webhook registration differ here. Auth, OIDC
 # (OpenBao cluster access) and the runner namespace (olve-runners-beta) are shared with v1

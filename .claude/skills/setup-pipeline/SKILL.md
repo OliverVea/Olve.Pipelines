@@ -1,6 +1,6 @@
 ---
 name: setup-pipeline
-description: Recreate the v2 self-deploy pipeline ("Olve.Pipelines v2") on the v2 prod instance by binding it to the repo's v2 branch (GitOps); reconcile builds .pipelines/pipeline.ts into a version.
+description: Recreate the v2 self-deploy pipeline ("Olve.Pipelines v2") on the v2 prod instance by binding it to the repo's main branch (GitOps); reconcile builds .pipelines/pipeline.ts into a version.
 allowed-tools: Bash Read
 ---
 
@@ -8,19 +8,17 @@ allowed-tools: Bash Read
 
 The **bootstrap runbook** for v2 prod (`https://pipelines-v2-private.ovea.pro`, release
 `olve-pipelines-v2` in `apps`, runners `olve-runners`, prod Authentik): it creates the pipeline
-bound to `OliverVea/Olve.Pipelines@v2`, path `.pipelines`, and sets its secrets. Reconcile then
+bound to `OliverVea/Olve.Pipelines@main`, path `.pipelines`, and sets its secrets. Reconcile then
 compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` →
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`:
 `deploy-prod` → `publish-cli` ∥ `publish-sdk`). How it works: `docs/setup/getting-started.md` and
 `docs/setup/binding-and-reconcile.md`.
 
 Only needed after a hard reset (v2 prod Garage state deleted). To change *what* the pipeline does,
-edit `.pipelines/pipeline.ts` (+ `handlers/`) and push to `v2` — there are no shape-mutation commands.
+edit `.pipelines/pipeline.ts` (+ `handlers/`) and push to `main` — there are no shape-mutation commands.
 
 **Never have two deployers active.** Exactly one "Olve.Pipelines v2" may run this pipeline, on
-v2 prod. Don't create it on v2 beta. The v1 pipeline "Olve.Pipelines v2" on v1 prod
-(`pipelines-private.ovea.pro`, bound to the `v2` branch, running `.pipelines/config.yaml`) is
-paused by its blocked `deploy-beta` step. Leave it blocked.
+v2 prod. Don't create it on v2 beta.
 
 ## Step 0: v2 `pl` and session
 
@@ -66,7 +64,7 @@ The build Job fetches the repo tarball with the `GITHUB_TOKEN` pipeline secret. 
 public webhook route, so it polls (every 15 minutes).
 
 ```bash
-PID=$(pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines --credentials-secret GITHUB_TOKEN --json | jq -r .pipelineId)
+PID=$(pl binding create OliverVea/Olve.Pipelines --branch main --path .pipelines --credentials-secret GITHUB_TOKEN --json | jq -r .pipelineId)
 echo "Pipeline: $PID"
 ```
 

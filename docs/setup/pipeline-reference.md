@@ -3,7 +3,7 @@
 [← Index](index.md) · [Subject Index](subjects.md)
 
 How to write a v2 pipeline. The SDK's own reference —
-[`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md) — has every
+[`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md) — has every
 `ctx` helper, the harness contract and the manifest format; this page covers what you need to author
 a pipeline.
 
@@ -219,7 +219,7 @@ config are reserved.
   `{ html, bundle }`); `sshSession(ctx, { host, key })` (`run`, `text`, `copy`, `shell` over SSH,
   as `helmDeployOverSsh` uses it; installs openssh-client with apk or apt-get when the image has no `ssh`).
 
-Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#library-steps).
+Exact behaviour: [sdk/README.md "Library steps"](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md#library-steps).
 
 ## Reusable steps
 

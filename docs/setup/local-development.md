@@ -148,6 +148,6 @@ expect(r).toMatchObject({ status: "succeeded" });
 ```
 
 `testHandler` uses the same validation path as a real run; replace any part of `ctx`. See
-[sdk/README.md "Testing handlers"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#testing-handlers).
+[sdk/README.md "Testing handlers"](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md#testing-handlers).
 
 There is no "run on the cluster from a laptop": pushing to the bound branch does that.

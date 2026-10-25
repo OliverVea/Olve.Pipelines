@@ -205,7 +205,7 @@ example because a step just redeployed it — it reattaches to running Jobs by n
 
 Harness exit codes in a failed attempt's reason: `1` handler threw, `65` input invalid, `66` output
 invalid, `74` result upload failed, `78` pipeline invalid, `130`/`143` cancelled or deadline. Full
-contract: [sdk/README.md "Harness contract"](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md#harness-contract-service--step-binary).
+contract: [sdk/README.md "Harness contract"](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md#harness-contract-service--step-binary).
 
 ## Storage
 

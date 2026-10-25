@@ -3,9 +3,9 @@
 > **Served live at `/docs/index.md`.** These pages are raw Markdown, served by the
 > Olve.Pipelines server itself so an agent (or a human) can fetch and read them without
 > cloning the repo. They are the *operator/setup* view. The *codebase* view is the repo's
-> [`README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/README.md). The SDK reference
+> [`README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/README.md). The SDK reference
 > (every `ctx` helper and the harness contract) is
-> [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/v2/sdk/README.md).
+> [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md).
 
 > **Instances:** `https://pipelines-v2-private.ovea.pro` (prod) and
 > `https://pipelines-v2-beta.ovea.pro` (beta), over Tailscale.
@@ -124,7 +124,7 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 
 ## Real pipelines to copy from
 
-- [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
+- [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/main/.pipelines) — Olve.Pipelines
   deploys itself, driven by config (`config.ts`): `gitHubSource` → custom `compile-server` (Native
   AOT or JIT, per `build.runtime`), `build-frontend`, `test`, `build-sdk`, `build-cli`,
   `build-cli-windows` ∥ `imageBuild` (harness) → custom `build-server` (crane puts the server and
@@ -132,6 +132,6 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
   `select` on `target.beta.kind`: `helmDeployOverSsh` or `helmDeployInCluster` then custom
   `beta-test`, `composeDeploy`, or nothing (`none`), each next to `publish-images` → when
   `deployTo: "prod"`: the same select for prod (without `none`) → custom `promote`.
-- [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
+- [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/main/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
   failure handler.

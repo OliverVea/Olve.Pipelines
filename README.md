@@ -20,8 +20,8 @@ beta, smoke-tests it, deploys prod and promotes the same artifacts.
 ## Install `pl`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.sh | sh   # Linux, to ~/.local/bin/pl
-irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.ps1 | iex          # Windows
+curl -fsSL https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.sh | sh   # Linux, to ~/.local/bin/pl
+irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex          # Windows
 ```
 
 That installs the latest [release](https://github.com/OliverVea/Olve.Pipelines/releases). An

@@ -144,7 +144,7 @@ docker compose down -v           # stop and wipe all state (the reset between ev
   ```bash
   export PIPELINES_CONFIG=/tmp/pl-local.json PIPELINES_PROFILE=local
   pl login --api-url http://localhost:5080        # Dex; device flow on a headless box
-  pl binding create OliverVea/Olve.Pipelines --branch v2 --path .pipelines-test   # the v2 fixture
+  pl binding create OliverVea/Olve.Pipelines --branch main --path .pipelines-test   # the v2 fixture
   pl binding reconcile <pipelineId>
   pl wait reconcile <pipelineId> <sha touching .pipelines-test or sdk>
   pl trigger <pipelineId> --field sha=<sha>
@@ -183,7 +183,7 @@ docker compose down -v           # stop and wipe all state (the reset between ev
 
 The stack can run Olve.Pipelines' own deploy pipeline (`.pipelines/`), the one that deploys prod,
 against itself: one instance that redeploys itself, with no beta. Only the config differs from prod
-([compose/selfdeploy.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/v2/compose/selfdeploy.config.yaml)):
+([compose/selfdeploy.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/compose/selfdeploy.config.yaml)):
 
 - `target.beta` is `kind: none`, so the beta deploy and `beta-test` are left out.
 - `target.prod` is `kind: compose`, so the pipeline's `select` picks `composeDeploy`: `deploy-prod`
@@ -218,7 +218,7 @@ same container config and the same Garage, only the image changes.
 - `docker compose up` names `olve-pipelines-v2:local` again, so it can put the locally built image
   back over a deployed one.
 
-**The in-cluster variant** ([compose/selfdeploy-incluster.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/v2/compose/selfdeploy-incluster.config.yaml))
+**The in-cluster variant** ([compose/selfdeploy-incluster.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/compose/selfdeploy-incluster.config.yaml))
 tests the helm chart instead: beta and prod are the namespaces `selfdeploy-beta` and
 `selfdeploy-prod` of the compose k3s, both `kind: inCluster`, so the pipeline's `select` picks
 `helmDeployInCluster`. It runs helm in its own pod as the step ServiceAccount `olve-deployer`

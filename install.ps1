@@ -1,7 +1,7 @@
 # Install the `pl` operator CLI on Windows.
 #
 #   irm https://<instance>/install.ps1 | iex                                                     # the instance's pl
-#   irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/v2/install.ps1 | iex           # the latest release
+#   irm https://raw.githubusercontent.com/OliverVea/Olve.Pipelines/main/install.ps1 | iex           # the latest release
 #
 # Served by an instance, it installs the pl that instance was deployed with (/download/pl-win-x64.exe);
 # from the repo, the latest GitHub release. $env:PL_API_URL picks an instance, $env:PL_INSTALL_DIR the

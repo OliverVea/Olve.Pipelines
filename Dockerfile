@@ -13,8 +13,7 @@ COPY src/Olve.Pipelines.Cli/ src/Olve.Pipelines.Cli/
 COPY docs/setup/ docs/setup/
 # The pl install scripts, served at /install.sh and /install.ps1 (the csproj copies them next to the binary).
 COPY install.sh install.ps1 ./
-# Tests are NOT run in the image build — they run in the `code-test` production step in
-# .pipelines/config.yaml, in parallel with this build rather than serialized inside it.
+# Tests are NOT run in the image build — the pipeline's `test` step runs them beside the build.
 RUN dotnet publish src/Olve.Pipelines -c Release -r linux-x64 -p:DebugType=none -o /app
 
 FROM node:22-slim AS frontend

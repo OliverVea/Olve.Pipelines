@@ -51,4 +51,15 @@ public class HarnessSentinelsTests
         await Assert.That(HarnessSentinels.TryExtractManifest(log)).IsEqualTo(manifest);
         await Assert.That(manifest.EndsWith('\n')).IsTrue();
     }
+
+    [Test]
+    public async Task Manifest_InterleavedBuildLogLine_IsDropped()
+    {
+        var manifest = await File.ReadAllTextAsync(ManifestFixture.Path);
+        var lines = manifest.Split('\n');
+        var interleaved = string.Join('\n', lines[..5].Append("olve-build: uploaded step.tar.zst").Concat(lines[5..]));
+        var log = $"{HarnessSentinels.ManifestBegin}\n{interleaved}{HarnessSentinels.ManifestEnd}\n";
+
+        await Assert.That(HarnessSentinels.TryExtractManifest(log)).IsEqualTo(manifest);
+    }
 }

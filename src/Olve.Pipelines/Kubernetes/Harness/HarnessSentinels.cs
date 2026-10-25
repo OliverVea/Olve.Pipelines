@@ -26,7 +26,20 @@ public static class HarnessSentinels
     /// The manifest text of the last manifest block, byte-exact (including its trailing newline) — the
     /// manifest hash is taken over the text as printed. Null when there is no complete block.
     /// </summary>
-    public static string? TryExtractManifest(string? log) => TryExtract(log, ManifestBegin, ManifestEnd);
+    public static string? TryExtractManifest(string? log) =>
+        TryExtract(log, ManifestBegin, ManifestEnd) is { } manifest ? WithoutBuildLogLines(manifest) : null;
+
+    /// <summary>
+    /// The pod log merges olve-build's stderr into its stdout by arrival, so a log line can land inside
+    /// the block. A line of the (indented) manifest never starts with a letter.
+    /// </summary>
+    private static string WithoutBuildLogLines(string manifest)
+    {
+        if (!manifest.Contains("\nolve-build", StringComparison.Ordinal) && !manifest.StartsWith("olve-build", StringComparison.Ordinal))
+            return manifest;
+        var lines = manifest.Split('\n').Where(l => !l.StartsWith("olve-build", StringComparison.Ordinal));
+        return string.Join('\n', lines);
+    }
 
     /// <summary>
     /// Text between a line that is exactly <paramref name="begin"/> and the next line starting with

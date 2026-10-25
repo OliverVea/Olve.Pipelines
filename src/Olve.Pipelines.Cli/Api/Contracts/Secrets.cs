@@ -31,4 +31,5 @@ public sealed class PipelineSecretInfo
     public string? Description { get; set; }
     public string[] DeclaredBy { get; set; } = [];
     public bool? IsSet { get; set; }
+    public bool? Needed { get; set; }
 }

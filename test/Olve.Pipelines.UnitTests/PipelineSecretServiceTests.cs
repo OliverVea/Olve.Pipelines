@@ -14,9 +14,9 @@ public class PipelineSecretServiceTests
 {
     private sealed record Fixture(SchedulerScenario S, PipelineSecretCopyServiceTests.FakeSecrets K8s, PipelineSecretService Service);
 
-    private static Fixture Create(bool kubernetes = true)
+    private static Fixture Create(bool kubernetes = true, string? manifest = null)
     {
-        var s = new SchedulerScenario(SchedulerScenario.Mutated(root =>
+        var s = new SchedulerScenario(manifest ?? SchedulerScenario.Mutated(root =>
         {
             ManifestFixture.Step(root, "build")["secrets"] = new System.Text.Json.Nodes.JsonArray("REGISTRY");
             root["secrets"]!.AsArray().Add(new System.Text.Json.Nodes.JsonObject { ["name"] = "REGISTRY", ["description"] = "registry creds" });
@@ -53,6 +53,35 @@ public class PipelineSecretServiceTests
         await Assert.That(secrets.Single(x => x.Name == "GITHUB_TOKEN").DeclaredBy).Contains("binding");
         await Assert.That(secrets.Single(x => x.Name == "GITHUB_TOKEN").IsSet).IsFalse();
         await Assert.That(secrets.Single(x => x.Name == "LEFTOVER").DeclaredBy).IsEmpty();
+    }
+
+    [Test]
+    public async Task ASecretTheConfigCanReference_IsNeededOnlyWhereItDoes()
+    {
+        var f = Create(manifest: Configs.ConfigManifests.Text());
+        var secret = Configs.ConfigManifests.Secret;
+
+        TestRunDomain.Pick(f.S.D.ConfigSnapshots.Add(f.S.Pipeline.Id, "auth: { mode: none }\ntarget: { host: h }\n", "dev"));
+        var unused = TestRunDomain.Pick(await f.Service.ListAsync(f.S.Pipeline.Id)).Single(x => x.Name == secret);
+        TestRunDomain.Pick(f.S.D.ConfigSnapshots.Add(f.S.Pipeline.Id,
+            $"auth: {{ mode: dex, clientId: c, clientSecret: {{ secret: {secret} }} }}\ntarget: {{ host: h }}\n", "dev"));
+        var used = TestRunDomain.Pick(await f.Service.ListAsync(f.S.Pipeline.Id)).Single(x => x.Name == secret);
+
+        await Assert.That(unused.DeclaredBy).IsEquivalentTo(["hello"]);
+        await Assert.That(unused.Needed).IsFalse();
+        await Assert.That(used.Needed).IsTrue();
+    }
+
+    [Test]
+    public async Task AStepSecret_IsNeeded_AndAnUndeclaredOneIsNot()
+    {
+        var f = Create();
+        f.K8s.Secrets[PipelineSecrets.Name(f.S.Pipeline.Id)] = new() { ["LEFTOVER"] = "y" };
+
+        var secrets = TestRunDomain.Pick(await f.Service.ListAsync(f.S.Pipeline.Id));
+
+        await Assert.That(secrets.Single(x => x.Name == "REGISTRY").Needed).IsTrue();
+        await Assert.That(secrets.Single(x => x.Name == "LEFTOVER").Needed).IsFalse();
     }
 
     [Test]

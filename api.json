@@ -6021,6 +6021,12 @@
               "null",
               "boolean"
             ]
+          },
+          "needed": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

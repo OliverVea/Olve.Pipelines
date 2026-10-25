@@ -161,7 +161,9 @@ export class PipelineHeader extends LitElement {
     const running = h?.runningRuns ?? 0;
     const held = h?.heldRuns?.length ?? 0;
     const unset = this._secrets
-      .filter((s) => s.isSet === false && (s.declaredBy?.length ?? 0) > 0)
+      .filter(
+        (s) => s.isSet === false && (s.declaredBy?.length ?? 0) > 0 && s.needed !== false,
+      )
       .map((s) => s.name);
     const failed = b?.result === 2;
     return html`<div class="status">

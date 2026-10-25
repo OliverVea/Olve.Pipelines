@@ -16,6 +16,9 @@ public static class PipelineSecrets
 /// <param name="DeclaredBy">Steps, failure handlers (<c>onFailure:&lt;step&gt;</c>), poll triggers (<c>trigger:&lt;name&gt;</c>)
 /// and the binding (<c>binding</c>, its GitHub credentials key) of the active version that use it; empty = set but unused.</param>
 /// <param name="IsSet">Null when K8s could not be read.</param>
+/// <param name="Needed">Whether the pipeline as the current config runs it uses the secret: a secret the config can reference
+/// (<c>{ secret: NAME }</c>) is needed only where the config references it; any other one where a step, handler, trigger or the
+/// binding declares it. Null when the config can't be evaluated.</param>
 /// <summary>Which of a pipeline's secrets have a value (K8s I/O, read before the activation gate runs).</summary>
 public interface IPipelineSecretNames
 {
@@ -23,7 +26,7 @@ public interface IPipelineSecretNames
     Task<IReadOnlySet<string>?> ListSetAsync(Id<Pipeline> pipelineId, CancellationToken ct = default);
 }
 
-public record PipelineSecretInfo(string Name, string? Description, string[] DeclaredBy, bool? IsSet);
+public record PipelineSecretInfo(string Name, string? Description, string[] DeclaredBy, bool? IsSet, bool? Needed = null);
 
 /// <summary>
 /// Lists, sets and deletes a pipeline's secret values in its K8s Secret. The K8s client is resolved
@@ -59,7 +62,7 @@ public class PipelineSecretService(
         if (!pipelines.TryGet(pipelineId, out _))
             return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
 
-        var declared = Declared(pipelineId);
+        var declared = Declared(pipelineId, out var configUse);
         Dictionary<string, string>? values = null;
         var known = true;
         try
@@ -78,7 +81,8 @@ public class PipelineSecretService(
                 n,
                 declared.TryGetValue(n, out var d) ? d.Description : null,
                 d?.Users.ToArray() ?? [],
-                known ? values?.ContainsKey(n) ?? false : null))
+                known ? values?.ContainsKey(n) ?? false : null,
+                Needed(n, declared.ContainsKey(n), configUse)))
             .ToArray();
     }
 
@@ -143,8 +147,21 @@ public class PipelineSecretService(
 
     private sealed record Declaration(string? Description, SortedSet<string> Users);
 
-    private Dictionary<string, Declaration> Declared(Id<Pipeline> pipelineId)
+    private static bool? Needed(string name, bool declared, ConfigUse? use)
     {
+        if (use is null)
+            return null;
+        if (use.Referenceable.Contains(name))
+            return use.Referenced?.Contains(name);
+        return declared;
+    }
+
+    /// <summary>Secrets the config schema can reference, and those the current config does (null when it doesn't validate).</summary>
+    private sealed record ConfigUse(IReadOnlySet<string> Referenceable, IReadOnlySet<string>? Referenced);
+
+    private Dictionary<string, Declaration> Declared(Id<Pipeline> pipelineId, out ConfigUse? configUse)
+    {
+        configUse = null;
         var result = new Dictionary<string, Declaration>(StringComparer.Ordinal);
         void Add(string name, string user, string? description = null)
         {
@@ -164,6 +181,12 @@ public class PipelineSecretService(
             }, snapshots).TryPickProblems(out _, out var plan))
         {
             var manifest = plan.Manifest;
+            var referenceable = manifest.Config.SelectMany(e => Manifests.ConfigSecretRefs.Declared(e.Schema)).ToHashSet(StringComparer.Ordinal);
+            snapshots.TryGetLatest(pipelineId, out var latest);
+            configUse = new ConfigUse(referenceable,
+                Configs.ConfigValidation.Effective(manifest, snapshots.Document(latest)).TryPickProblems(out _, out var effective)
+                    ? null
+                    : Configs.ConfigValidation.ReferencedSecrets(manifest, effective).ToHashSet(StringComparer.Ordinal));
             var descriptions = manifest.Secrets.ToDictionary(s => s.Name, s => s.Description, StringComparer.Ordinal);
             foreach (var step in plan.Stages.SelectMany(s => s.Steps))
                 foreach (var secret in step.Secrets)

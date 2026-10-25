@@ -175,7 +175,9 @@ some-command-printing-the-value | pl secret set <pipeline> API_KEY
 
 Don't pass a value through `$(…)`: command substitution strips trailing newlines, which breaks SSH
 keys. `pl secret list <pipeline>` lists every secret the active version declares (and which step
-uses it) or that is set, and whether it is set.
+uses it) or that is set, and whether it is set. A secret the config can point to (`{ secret: NAME }`)
+but currently doesn't, or one only a branch the config doesn't select declares, shows as `not needed`
+instead of `unset`.
 
 A value another pipeline on the same instance already has (a shared `GITHUB_TOKEN`, say) can be
 copied instead of set again. The service copies it; the value never reaches your machine:

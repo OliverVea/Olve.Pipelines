@@ -2062,6 +2062,7 @@ export function deserializeIntoPipelineSecretInfo(pipelineSecretInfo: Partial<Pi
         "description": n => { pipelineSecretInfo.description = n.getStringValue(); },
         "isSet": n => { pipelineSecretInfo.isSet = n.getBooleanValue(); },
         "name": n => { pipelineSecretInfo.name = n.getStringValue(); },
+        "needed": n => { pipelineSecretInfo.needed = n.getBooleanValue(); },
     }
 }
 /**
@@ -2806,6 +2807,10 @@ export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The needed property
+     */
+    needed?: boolean | null;
 }
 export interface PipelineStageSummary extends AdditionalDataHolder, Parsable {
     /**
@@ -4020,6 +4025,7 @@ export function serializePipelineSecretInfo(writer: SerializationWriter, pipelin
     writer.writeStringValue("description", pipelineSecretInfo.description);
     writer.writeBooleanValue("isSet", pipelineSecretInfo.isSet);
     writer.writeStringValue("name", pipelineSecretInfo.name);
+    writer.writeBooleanValue("needed", pipelineSecretInfo.needed);
     writer.writeAdditionalData(pipelineSecretInfo.additionalData);
 }
 /**

@@ -10,6 +10,7 @@ type SecretInfo = {
   description?: string | null;
   declaredBy: string[];
   isSet?: boolean | null;
+  needed?: boolean | null;
 };
 
 /** A pipeline's secrets: who uses each, whether it is set, and setting, deleting or copying values. */
@@ -190,8 +191,16 @@ export class PipelineSecretsView extends LitElement {
             )}`
           : 'not used by any step'}
       </span>
-      <span class="state ${s.isSet ? 'set' : s.declaredBy.length ? 'unset' : ''}"
-        >${s.isSet ? 'set' : 'not set'}</span
+      <span
+        class="state ${s.isSet
+          ? 'set'
+          : s.declaredBy.length && s.needed !== false
+            ? 'unset'
+            : ''}"
+        title=${!s.isSet && s.needed === false
+          ? "The current config doesn't use it."
+          : ''}
+        >${s.isSet ? 'set' : s.needed === false ? 'not needed' : 'not set'}</span
       >
       <span class="actions">
         <button

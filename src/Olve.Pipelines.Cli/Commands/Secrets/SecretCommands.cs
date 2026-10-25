@@ -37,7 +37,7 @@ public sealed class SecretListCommand : ICliCommand
 
             var rows = secrets.Select(s => (IReadOnlyList<string>)
             [
-                s.Name, s.IsSet switch { true => "set", false => "unset", null => "unknown" },
+                s.Name, s.IsSet switch { true => "set", false when s.Needed is false => "not needed", false => "unset", null => "unknown" },
                 s.DeclaredBy.Length == 0 ? "(unused)" : string.Join(", ", s.DeclaredBy), s.Description ?? "",
             ]).ToList();
             foreach (var line in Table.Render(["NAME", "SET", "USED BY", "DESCRIPTION"], rows))

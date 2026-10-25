@@ -1161,6 +1161,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `description` | string? | required |
 | `declaredBy` | string[] | required |
 | `isSet` | boolean? | required |
+| `needed` | boolean? |  |
 
 ### PipelineStageSummary
 

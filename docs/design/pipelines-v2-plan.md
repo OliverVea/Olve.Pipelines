@@ -588,8 +588,10 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
 - **Migrated: Olve.Authentik** (2026-10-25). Pipeline `6af1b67e-ee62-465a-8025-fc96ff906f46`, same
   shape: deploy-beta (`authentik`, `infra-beta`) → when prod: deploy-prod (`authentik`, `infra`),
   `images: {}`, `dependencies`, `helmWait` with v1's 15 min (not `atomic`: a rollback could meet a
-  migrated database), then `healthUrl` `https://auth[-beta].ovea.pro/-/health/ready/`. Run #1 (beta)
-  upgraded `infra-beta` to revision 19 with no restart. v1 (`ed764cb9…`) paused. v2 prod's Kubernetes
+  migrated database). No `healthUrl`: step pods can't reach `infra`, and `auth.ovea.pro` resolves
+  to another certificate from inside the cluster (run #1's prod check failed with "self signed
+  certificate" after a good upgrade); helm's wait covers the pods' readiness probes. Run #2 (push)
+  went beta → prod in 29 s with no restart. v1 (`ed764cb9…`) paused. v2 prod's Kubernetes
   token comes from Authentik: if a deploy breaks it, roll back by hand (`helm -n infra rollback
   authentik <rev>` over ssh); the pipeline can't launch Jobs meanwhile.
 

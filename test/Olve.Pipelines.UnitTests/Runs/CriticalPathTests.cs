@@ -136,6 +136,30 @@ public class CriticalPathTests
     }
 
     [Test]
+    public async Task APushedRun_ReportsItsLead()
+    {
+        var s = new SchedulerScenario();
+        var t = s.Clock.GetUtcNow();
+        var origin = new RunOrigin(t.AddSeconds(-10), "webhook", PushedAt: t.AddSeconds(-12), ConfigReadyAt: t.AddSeconds(-9),
+            MapStartedAt: t.AddSeconds(-9), MapFinishedAt: t.AddSeconds(-2));
+        var run = TestRunDomain.Pick(s.D.Starts.Start(s.Pipeline.Id, Input(deployTo: "beta"), new RunTrigger(RunTriggerKind.Push, Origin: origin)));
+        var started = ((Olve.Pipelines.Pipelines.Scheduling.RunStartOutcome.Started)run).Run;
+        Stage(s, started, ("checkout", 5, 0));
+        Stage(s, started, ("build", 1, 0), ("test", 1, 0));
+        Stage(s, started, ("deploy-beta", 1, 0));
+        Stage(s, started, ("summary", 1, 0));
+
+        var lead = TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false)).Runs.Single().Lead!;
+
+        await Assert.That(lead.Via).IsEqualTo("webhook");
+        await Assert.That(lead.Detect).IsEqualTo(2);
+        await Assert.That(lead.Check).IsEqualTo(1);
+        await Assert.That(lead.Map).IsEqualTo(7);
+        await Assert.That(Math.Round(lead.Start!.Value)).IsEqualTo(2);
+        await Assert.That(Math.Round(lead.Seconds)).IsEqualTo(12);
+    }
+
+    [Test]
     public async Task ARange_IsChecked()
     {
         var s = new SchedulerScenario();

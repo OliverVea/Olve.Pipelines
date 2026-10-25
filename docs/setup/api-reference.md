@@ -955,6 +955,17 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `path` | string? | required |
 | `credentialsSecret` | string? | required |
 
+### CriticalPathLead
+
+| Field | Type | |
+|---|---|---|
+| `seconds` | number | required |
+| `via` | string | required |
+| `detect` | number? | required |
+| `check` | number? | required |
+| `map` | number? | required |
+| `start` | number? | required |
+
 ### CriticalPathReport
 
 | Field | Type | |
@@ -980,6 +991,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `path` | [CriticalPathStage](#criticalpathstage)[] | required |
 | `notes` | string[] | required |
 | `activeSeconds` | number? |  |
+| `lead` | [CriticalPathLead](#criticalpathlead)? |  |
 
 ### CriticalPathSkip
 
@@ -1283,6 +1295,17 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `stages` | [RunStageView](#runstageview)[] | required |
 | `config` | string? |  |
 
+### RunOrigin
+
+| Field | Type | |
+|---|---|---|
+| `noticedAt` | string (date-time) | required |
+| `via` | string | required |
+| `pushedAt` | string (date-time)? |  |
+| `configReadyAt` | string (date-time)? |  |
+| `mapStartedAt` | string (date-time)? |  |
+| `mapFinishedAt` | string (date-time)? |  |
+
 ### RunStageCondition
 
 | Field | Type | |
@@ -1337,6 +1360,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 |---|---|---|
 | `kind` | `"Push"` \| `"Poll"` \| `"Manual"` \| `"Webhook"` | required |
 | `dedupKey` | string? |  |
+| `origin` | [RunOrigin](#runorigin)? |  |
 
 ### SetConfigRequest
 

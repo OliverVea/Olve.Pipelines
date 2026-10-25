@@ -74,6 +74,7 @@ public static class PipelineBindingEndpoints
                 BindingWebhookReceiver receiver,
                 PushTriggerService pushTriggers,
                 ILoggerFactory loggerFactory,
+                TimeProvider time,
                 Id<PipelineConfigBinding> bindingId,
                 HttpRequest httpRequest,
                 CancellationToken ct) =>
@@ -81,7 +82,8 @@ public static class PipelineBindingEndpoints
                 if ((await WebhookDelivery.ReadAsync(httpRequest, ct)).TryPickProblems(out _, out var delivery))
                     return HttpResults.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
-                var (action, pipelineId) = receiver.Evaluate(
+                var receivedAt = time.GetUtcNow();
+                var (action, pipelineId, push) = receiver.Evaluate(
                     bindingId, delivery.Body, delivery.Header(GitHubWebhookSignature.HeaderName), delivery.Header("X-GitHub-Event"));
                 switch (action)
                 {
@@ -95,7 +97,7 @@ public static class PipelineBindingEndpoints
 
                 // GitHub gives a delivery 10 s: queue the push check (config first) and acknowledge.
                 var logger = loggerFactory.CreateLogger("BindingWebhook");
-                if (pushTriggers.RequestCheck(pipelineId).TryPickProblems(out var problems))
+                if (pushTriggers.RequestCheck(pipelineId, new PushNotice(receivedAt, push)).TryPickProblems(out var problems))
                 {
                     logger.LogProblems(LogLevel.Warning, problems, "Binding webhook for '{BindingId}' could not queue a push check", bindingId);
                     return HttpResults.StatusCode(StatusCodes.Status503ServiceUnavailable);

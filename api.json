@@ -5162,6 +5162,66 @@
           }
         }
       },
+      "CriticalPathLead": {
+        "required": [
+          "seconds",
+          "via",
+          "detect",
+          "check",
+          "map",
+          "start"
+        ],
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "via": {
+            "type": "string"
+          },
+          "detect": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "check": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "map": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "start": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "CriticalPathReport": {
         "required": [
           "from",
@@ -5285,6 +5345,16 @@
               "string"
             ],
             "format": "double"
+          },
+          "lead": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CriticalPathLead"
+              }
+            ]
           }
         }
       },
@@ -6510,6 +6580,50 @@
           }
         }
       },
+      "RunOrigin": {
+        "required": [
+          "noticedAt",
+          "via"
+        ],
+        "type": "object",
+        "properties": {
+          "noticedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "via": {
+            "type": "string"
+          },
+          "pushedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "configReadyAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "mapStartedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "mapFinishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "RunStageCondition": {
         "required": [
           "field",
@@ -6740,6 +6854,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RunOrigin"
+              }
             ]
           }
         }

@@ -187,6 +187,18 @@ public sealed class CriticalPathRun
     public CriticalPathStage[] Path { get; set; } = [];
     public string[] Notes { get; set; } = [];
     public double? ActiveSeconds { get; set; }
+    public CriticalPathLead? Lead { get; set; }
+}
+
+/// <summary>The time before a run's first step (automatic runs only).</summary>
+public sealed class CriticalPathLead
+{
+    public double Seconds { get; set; }
+    public string Via { get; set; } = "";
+    public double? Detect { get; set; }
+    public double? Check { get; set; }
+    public double? Map { get; set; }
+    public double? Start { get; set; }
 }
 
 public sealed class CriticalPathStage

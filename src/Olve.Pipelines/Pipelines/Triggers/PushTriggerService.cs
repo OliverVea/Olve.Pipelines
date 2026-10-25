@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
@@ -16,10 +17,14 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 /// instead of starting on a version without its config. The first observation only seeds the cursor.
 /// Hosted only so shutdown cancels requested checks.
 /// </summary>
+/// <summary>A webhook delivery's arrival and the push it announced.</summary>
+public record PushNotice(DateTimeOffset ReceivedAt, AnnouncedPush? Push);
+
 public class PushTriggerService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
     IServiceProvider sp,
+    TimeProvider time,
     ILogger<PushTriggerService> logger) : IPollSourceProvider, IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _lifetime = new();
@@ -44,9 +49,11 @@ public class PushTriggerService(
             .ToList();
     }
 
-    /// <summary>Applies the pipeline's config (<paramref name="forceConfig"/>: also retry a failed commit), then checks the branch head.</summary>
-    public async Task CheckAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool forceConfig = false)
+    /// <summary>Applies the pipeline's config (<paramref name="forceConfig"/>: also retry a failed commit), then checks the branch head.
+    /// <paramref name="notice"/>: the webhook delivery that asked for the check (null: a poll).</summary>
+    public async Task CheckAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool forceConfig = false, PushNotice? notice = null)
     {
+        var noticedAt = notice?.ReceivedAt ?? time.GetUtcNow();
         using var scope = sp.CreateScope();
         var services = scope.ServiceProvider;
         if (services.GetRequiredService<PipelineConfigBindingService>().GetByPipelineId(pipelineId).TryPickProblems(out _, out var binding))
@@ -59,11 +66,14 @@ public class PushTriggerService(
             return;
         }
 
-        await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId, () => DetectAsync(services, pipelineId, head, ct), ct, forceConfig);
+        var origin = new RunOrigin(noticedAt, notice is null ? "poll" : "webhook",
+            PushedAt: notice?.Push is { } push && push.Sha == head ? push.PushedAt : null);
+        await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId,
+            () => DetectAsync(services, pipelineId, head, origin with { ConfigReadyAt = time.GetUtcNow() }, ct), ct, forceConfig);
     }
 
     /// <summary>Starts <see cref="CheckAsync"/> in the background (a webhook delivery must not wait for a build).</summary>
-    public Result RequestCheck(Id<Pipeline> pipelineId)
+    public Result RequestCheck(Id<Pipeline> pipelineId, PushNotice? notice = null)
     {
         if (bindings.List().All(b => b.PipelineId != pipelineId))
             return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
@@ -72,7 +82,7 @@ public class PushTriggerService(
         {
             try
             {
-                await CheckAsync(pipelineId, _lifetime.Token);
+                await CheckAsync(pipelineId, _lifetime.Token, notice: notice);
             }
             catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
             {
@@ -85,7 +95,7 @@ public class PushTriggerService(
         return Result.Success();
     }
 
-    private async Task DetectAsync(IServiceProvider services, Id<Pipeline> pipelineId, string head, CancellationToken ct)
+    private async Task DetectAsync(IServiceProvider services, Id<Pipeline> pipelineId, string head, RunOrigin origin, CancellationToken ct)
     {
         var bindingService = services.GetRequiredService<PipelineConfigBindingService>();
         if (bindingService.GetByPipelineId(pipelineId).TryPickProblems(out _, out var binding))
@@ -108,7 +118,7 @@ public class PushTriggerService(
 
         // The cursor moves only once the trigger fired, so a failed fire (mapping Job, K8s, a restart)
         // is retried on the next check; de-dup makes a repeat harmless.
-        var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct);
+        var fired = await services.GetRequiredService<IPushTriggerHandler>().FireAsync(binding, head, ct, origin);
         if (fired.TryPickProblems(out var fireProblems))
         {
             logger.LogProblems(LogLevel.Warning, fireProblems,

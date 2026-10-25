@@ -30,10 +30,23 @@ public class BindingWebhookReceiverTests
         var body = PushBody("main");
         var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
 
-        var (action, pipelineId) = receiver.Evaluate(binding.Id, body, sig, "push");
+        var (action, pipelineId, _) = receiver.Evaluate(binding.Id, body, sig, "push");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.Deploy);
         await Assert.That(pipelineId).IsEqualTo(binding.PipelineId);
+    }
+
+    [Test]
+    public async Task Evaluate_APush_AnnouncesItsCommitAndPushTime()
+    {
+        var (receiver, svc) = Create();
+        var binding = Pick(svc.Create(Id.New<Pipeline>(), "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        var body = Encoding.UTF8.GetBytes("""{"ref":"refs/heads/main","after":"abc123","repository":{"pushed_at":1761364800}}""");
+        var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
+
+        var (_, _, push) = receiver.Evaluate(binding.Id, body, sig, "push");
+
+        await Assert.That(push).IsEqualTo(new AnnouncedPush("abc123", DateTimeOffset.FromUnixTimeSeconds(1761364800)));
     }
 
     [Test]
@@ -44,7 +57,7 @@ public class BindingWebhookReceiverTests
         var body = PushBody("dev");
         var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
 
-        var (action, _) = receiver.Evaluate(binding.Id, body, sig, "push");
+        var (action, _, _) = receiver.Evaluate(binding.Id, body, sig, "push");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.Ignore);
     }
@@ -57,7 +70,7 @@ public class BindingWebhookReceiverTests
         var body = Encoding.UTF8.GetBytes("""{"zen":"x"}""");
         var sig = GitHubWebhookSignature.Compute(binding.WebhookSecret!, body);
 
-        var (action, _) = receiver.Evaluate(binding.Id, body, sig, "ping");
+        var (action, _, _) = receiver.Evaluate(binding.Id, body, sig, "ping");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.Ignore);
     }
@@ -70,7 +83,7 @@ public class BindingWebhookReceiverTests
         var body = PushBody("main");
         var sig = GitHubWebhookSignature.Compute("wrong", body);
 
-        var (action, _) = receiver.Evaluate(binding.Id, body, sig, "push");
+        var (action, _, _) = receiver.Evaluate(binding.Id, body, sig, "push");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.InvalidSignature);
     }
@@ -81,7 +94,7 @@ public class BindingWebhookReceiverTests
         var (receiver, _) = Create();
         var body = PushBody("main");
 
-        var (action, _) = receiver.Evaluate(Id.New<PipelineConfigBinding>(), body, "sig", "push");
+        var (action, _, _) = receiver.Evaluate(Id.New<PipelineConfigBinding>(), body, "sig", "push");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.NotFound);
     }

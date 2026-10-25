@@ -1,6 +1,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { CriticalPathReport } from '@olve/olve-pipelines-client/src/models/index.js';
+import type {
+  CriticalPathLead,
+  CriticalPathReport,
+} from '@olve/olve-pipelines-client/src/models/index.js';
 import { client, errorMessages } from '../api.js';
 import {
   sharedStyles,
@@ -16,6 +19,19 @@ import {
 import './pipeline-header.js';
 
 const RANGES = [20, 50, 100];
+
+function leadTitle(lead: CriticalPathLead | null | undefined): string {
+  if (!lead) return 'Manual runs and runs from before this was recorded have no lead.';
+  const part = (label: string, v: number | null | undefined) =>
+    `${label} ${v == null ? '?' : formatSeconds(v)}`;
+  return [
+    `via ${lead.via}`,
+    part('detect', lead.detect),
+    part('check', lead.check),
+    part('map', lead.map),
+    part('start', lead.start),
+  ].join(' · ');
+}
 
 /** Where a range of runs spent its time: each step's share of the critical path, and each run's path. */
 @customElement('critical-path-view')
@@ -275,6 +291,7 @@ export class CriticalPathView extends LitElement {
     const overheads = runs
       .filter((x) => x.activeSeconds != null)
       .map((x) => (x.seconds ?? 0) - x.activeSeconds!);
+    const leads = runs.filter((x) => x.lead).map((x) => x.lead!.seconds ?? 0);
     return html`<div class="status">
       <div class="cell">
         <span class="label">Median</span>
@@ -286,6 +303,13 @@ export class CriticalPathView extends LitElement {
             <span class="label">Overhead</span>
             <span class="value">${formatSeconds(median(overheads))}</span>
             <span class="sub">median, of ${overheads.length} runs with timings</span>
+          </div>`
+        : nothing}
+      ${leads.length
+        ? html`<div class="cell">
+            <span class="label">Lead</span>
+            <span class="value">${formatSeconds(median(leads))}</span>
+            <span class="sub">median push → first step, ${leads.length} runs</span>
           </div>`
         : nothing}
       <div class="cell">
@@ -377,6 +401,7 @@ export class CriticalPathView extends LitElement {
             <tr>
               <th>Run</th>
               <th>Status</th>
+              <th class="num">Lead</th>
               <th class="num">Critical path</th>
               <th class="num">Idle</th>
               <th>Path</th>
@@ -395,6 +420,9 @@ export class CriticalPathView extends LitElement {
                   <span class="st t-${toneOf(x.status)}"
                     ><span class="dot"></span>${statusLabel(x.status)}</span
                   >
+                </td>
+                <td class="num" title=${leadTitle(x.lead)}>
+                  ${x.lead ? formatSeconds(x.lead.seconds) : '—'}
                 </td>
                 <td class="num">${formatSeconds(x.seconds)}</td>
                 <td class="num">

@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Runs;
 using System.Collections.Concurrent;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
@@ -26,7 +27,7 @@ public interface IConfigLock
 /// <summary>Fires the pipeline's push trigger for a new branch head (seam over the trigger layer).</summary>
 public interface IPushTriggerHandler
 {
-    Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct);
+    Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct, RunOrigin? origin = null);
 }
 
 /// <summary>

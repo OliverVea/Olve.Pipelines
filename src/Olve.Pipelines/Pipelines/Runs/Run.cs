@@ -62,12 +62,28 @@ public enum RunTriggerKind
 /// What started a run. <see cref="DedupKey"/> is the automatic-trigger de-duplication key (spec §5.3:
 /// pipeline + mapped input); null for explicit (manual) runs, which always create work.
 /// </summary>
-public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null)
+/// <param name="Origin">For automatic triggers: when the event happened and how it reached the run.</param>
+public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin? Origin = null)
 {
     /// <summary>Webhook/poll triggers: de-duplicated and superseding (spec §5.3). Explicit actions are neither.</summary>
     [JsonIgnore]
     public bool IsAutomatic => Kind is RunTriggerKind.Push or RunTriggerKind.Poll or RunTriggerKind.Webhook;
 }
+
+/// <summary>
+/// How an automatic trigger's event reached its run. <see cref="NoticedAt"/>: the webhook delivery arrived or the
+/// poll check started (<see cref="Via"/> <c>webhook</c> | <c>poll</c>); <see cref="PushedAt"/>: GitHub's push time,
+/// when the webhook announced this commit; <see cref="ConfigReadyAt"/>: the pipeline's config commit was applied
+/// (after reading the branch head and any reconcile); <see cref="MapStartedAt"/>..<see cref="MapFinishedAt"/>: the
+/// map-trigger Job.
+/// </summary>
+public record RunOrigin(
+    DateTimeOffset NoticedAt,
+    string Via,
+    DateTimeOffset? PushedAt = null,
+    DateTimeOffset? ConfigReadyAt = null,
+    DateTimeOffset? MapStartedAt = null,
+    DateTimeOffset? MapFinishedAt = null);
 
 public static class RunStatusExtensions
 {

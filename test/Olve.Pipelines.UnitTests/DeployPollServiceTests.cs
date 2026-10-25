@@ -40,7 +40,7 @@ public class DeployPollServiceTests
         public List<string> Fired { get; } = [];
         public bool Fail { get; set; }
 
-        public Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct)
+        public Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct, Olve.Pipelines.Pipelines.Runs.RunOrigin? origin = null)
         {
             lock (Fired) Fired.Add(headSha);
             return Task.FromResult(Fail ? Result.Failure(new ResultProblem("map-trigger Job failed")) : Result.Success());

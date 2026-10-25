@@ -123,8 +123,24 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
             previousEnd = passEnd;
         }
 
+        var firstAttempt = stages.Count > 0 ? stages[0].Attempts[0].CreatedAt : (DateTimeOffset?)null;
         return new CriticalPathRun(run.Number, run.Status, run.VersionNumber, run.VersionStamp, path.Sum(p => p.Seconds), idle, path.ToArray(), notes.ToArray(),
-            SumKnown(path.Select(p => p.ActiveSeconds)));
+            SumKnown(path.Select(p => p.ActiveSeconds)), Lead(run.Trigger.Origin, firstAttempt));
+    }
+
+    private static CriticalPathLead? Lead(RunOrigin? origin, DateTimeOffset? firstAttempt)
+    {
+        if (origin is null || firstAttempt is not { } first)
+            return null;
+        static double? Span(DateTimeOffset? from, DateTimeOffset? to) => from is { } a && to is { } b ? Math.Max(0, (b - a).TotalSeconds) : null;
+        var mapped = origin.MapFinishedAt ?? origin.ConfigReadyAt ?? origin.NoticedAt;
+        return new CriticalPathLead(
+            Math.Max(0, (first - (origin.PushedAt ?? origin.NoticedAt)).TotalSeconds),
+            origin.Via,
+            Span(origin.PushedAt, origin.NoticedAt),
+            Span(origin.NoticedAt, origin.ConfigReadyAt),
+            Span(origin.MapStartedAt, origin.MapFinishedAt),
+            Span(mapped, first));
     }
 
     /// <summary>The average time outside the step container, over the stages whose attempts have timings (null: none have).</summary>
@@ -168,7 +184,16 @@ public record CriticalPathRun(
     double IdleSeconds,
     CriticalPathStage[] Path,
     string[] Notes,
-    double? ActiveSeconds = null);
+    double? ActiveSeconds = null,
+    CriticalPathLead? Lead = null);
+
+/// <summary>
+/// The time before a run's first step, from the push (GitHub's push time, when the webhook gave one) or else from when
+/// the server noticed: <see cref="Detect"/> (push → webhook or poll), <see cref="Check"/> (→ branch head read and the
+/// config commit applied, a reconcile included), <see cref="Map"/> (the map-trigger Job) and <see cref="Start"/> (→ the
+/// first stage's attempts created). Null parts are unknown. Only automatic runs recorded after this was added have one.
+/// </summary>
+public record CriticalPathLead(double Seconds, string Via, double? Detect, double? Check, double? Map, double? Start);
 
 /// <summary>
 /// A stage's critical step: <see cref="Seconds"/> from the stage's first attempt to its last finish, <see cref="WaitSeconds"/>

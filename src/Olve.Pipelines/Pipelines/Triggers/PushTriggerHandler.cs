@@ -23,7 +23,7 @@ public class PushTriggerHandler(
         ["repository"] = new JsonObject { ["full_name"] = repo },
     }.ToJsonString();
 
-    public async Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct)
+    public async Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct, RunOrigin? origin = null)
     {
         if (inputs.GetTarget(binding.PipelineId).TryPickProblems(out var problems, out var target))
             return Result.Failure(problems);
@@ -36,7 +36,7 @@ public class PushTriggerHandler(
         }
 
         var outcome = await mapping.MapAndStartAsync(binding.PipelineId, PushTrigger.PushName, RunTriggerKind.Push,
-            PushEvent(binding.Repo, binding.Branch, headSha), ct);
+            PushEvent(binding.Repo, binding.Branch, headSha), ct, origin);
         return outcome.TryPickProblems(out var startProblems) ? Result.Failure(startProblems) : Result.Success();
     }
 }

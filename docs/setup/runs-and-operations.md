@@ -136,6 +136,11 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   (scheduling, image pull, pod start).
 - Automatic retries count toward their stage (`test×2`); a later rerun of a step doesn't, and is
   noted. Time between stages (a held run, a later `continue`) is **IDLE**, charged to no step.
+- **LEAD** is the time before a run's first step: from the push (GitHub's push time, when the webhook
+  carried it) or from when the server noticed the new commit, through *detect* (push → webhook or
+  poll), *check* (branch head read and the config commit applied, a reconcile included), *map* (the
+  map-trigger Job) and *start* (→ the first stage's attempts). Automatic runs only; it is recorded on
+  the run as `trigger.origin`.
 - **AVG OVERHEAD** is the average part of a step's time on the path spent outside its step container,
   over the runs that recorded it. An attempt's time splits
   into *queued* (created → picked up), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*

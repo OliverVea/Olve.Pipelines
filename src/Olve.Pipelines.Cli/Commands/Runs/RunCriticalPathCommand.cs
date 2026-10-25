@@ -1,5 +1,6 @@
 using System.Globalization;
 using Olve.Pipelines.Cli.Api;
+using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Output;
 using static Olve.Pipelines.Cli.Commands.Runs.RunCommandSupport;
 
@@ -26,6 +27,10 @@ public sealed class RunCriticalPathCommand : ICliCommand
           --since-version <v>  From the first run on pipeline version v or later (instead of --from)
           --step <name>  Also list the runs that step was on the critical path in
           --all          Include failed and cancelled runs (default: succeeded only)
+
+          LEAD is the time from the push (or from when the server noticed it) to the first step:
+          detect (push to webhook or poll), check (branch head and config applied, a reconcile
+          included), map (the map-trigger Job) and start. Automatic runs only.
 
           AVG OVERHEAD is the average part of a step's time on the path outside its step container
           (queueing, pod start, fetching, image pull, collecting the result), over the runs that
@@ -59,10 +64,10 @@ public sealed class RunCriticalPathCommand : ICliCommand
 
             var runRows = report.Runs.Select(r => (IReadOnlyList<string>)
             [
-                $"#{r.Number}", r.Status, Seconds(r.Seconds), r.IdleSeconds >= 1 ? Seconds(r.IdleSeconds) : "-",
+                $"#{r.Number}", r.Status, r.Lead is { } lead ? Seconds(lead.Seconds) : "-", Seconds(r.Seconds), r.IdleSeconds >= 1 ? Seconds(r.IdleSeconds) : "-",
                 string.Join(" → ", r.Path.Select(p => $"{p.Step}{(p.Attempts > 1 ? $"×{p.Attempts}" : "")} {Seconds(p.Seconds)}")),
             ]).ToList();
-            foreach (var line in Table.Render(["RUN", "STATUS", "PATH", "IDLE", "CRITICAL PATH"], runRows))
+            foreach (var line in Table.Render(["RUN", "STATUS", "LEAD", "PATH", "IDLE", "CRITICAL PATH"], runRows))
                 ctx.Output.Line(line);
 
             ctx.Output.Line();
@@ -71,6 +76,9 @@ public sealed class RunCriticalPathCommand : ICliCommand
                 ? $"; overhead {Seconds(known.Sum(r => r.Seconds - r.ActiveSeconds!.Value) / known.Count)} per run ({known.Count} with timings)"
                 : "";
             ctx.Output.Line($"{report.Runs.Length} run(s) in #{report.From}..#{report.To}: {Seconds(report.TotalSeconds)} on the critical path, {Seconds(report.AverageSeconds)} per run{overhead}");
+            var leads = report.Runs.Where(r => r.Lead is not null).Select(r => r.Lead!).ToList();
+            if (leads.Count > 0)
+                ctx.Output.Line($"lead (push to first step), average of {leads.Count}: {Seconds(leads.Average(l => l.Seconds))} = detect {Part(leads, l => l.Detect)} + check {Part(leads, l => l.Check)} + map {Part(leads, l => l.Map)} + start {Part(leads, l => l.Start)}");
             ctx.Output.Line();
 
             var stepRows = report.Steps.Select(s => (IReadOnlyList<string>)
@@ -108,6 +116,12 @@ public sealed class RunCriticalPathCommand : ICliCommand
         if (cli.Option(option) is not { } text)
             return (int?)null;
         return int.TryParse(text.TrimStart('#', 'v'), out var n) && n > 0 ? n : new ResultProblem("--{0} must be a positive number.", option);
+    }
+
+    private static string Part(List<CriticalPathLead> leads, Func<CriticalPathLead, double?> part)
+    {
+        var known = leads.Select(part).Where(v => v is not null).Select(v => v!.Value).ToList();
+        return known.Count > 0 ? Seconds(known.Average()) : "?";
     }
 
     private static string Seconds(double seconds) => Duration(DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(Math.Max(0, seconds)));

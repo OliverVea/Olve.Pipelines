@@ -732,6 +732,15 @@ export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CriticalPathLead}
+ */
+// @ts-ignore
+export function createCriticalPathLeadFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCriticalPathLead;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {CriticalPathReport}
  */
 // @ts-ignore
@@ -1096,6 +1105,15 @@ export function createRunFromDiscriminatorValue(parseNode: ParseNode | undefined
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RunOrigin}
+ */
+// @ts-ignore
+export function createRunOriginFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunOrigin;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RunStageCondition}
  */
 // @ts-ignore
@@ -1201,6 +1219,32 @@ export function createTriggerRunResponseFromDiscriminatorValue(parseNode: ParseN
 export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoUpdateBindingRequest;
 }
+export interface CriticalPathLead extends AdditionalDataHolder, Parsable {
+    /**
+     * The check property
+     */
+    check?: number | null;
+    /**
+     * The detect property
+     */
+    detect?: number | null;
+    /**
+     * The map property
+     */
+    map?: number | null;
+    /**
+     * The seconds property
+     */
+    seconds?: number | null;
+    /**
+     * The start property
+     */
+    start?: number | null;
+    /**
+     * The via property
+     */
+    via?: string | null;
+}
 export interface CriticalPathReport extends AdditionalDataHolder, Parsable {
     /**
      * The averageSeconds property
@@ -1240,6 +1284,10 @@ export interface CriticalPathRun extends AdditionalDataHolder, Parsable {
      * The idleSeconds property
      */
     idleSeconds?: number | null;
+    /**
+     * The lead property
+     */
+    lead?: CriticalPathLead | null;
     /**
      * The notes property
      */
@@ -1731,6 +1779,22 @@ export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithR
 }
 /**
  * The deserialization information for the current model
+ * @param CriticalPathLead The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCriticalPathLead(criticalPathLead: Partial<CriticalPathLead> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "check": n => { criticalPathLead.check = n.getNumberValue(); },
+        "detect": n => { criticalPathLead.detect = n.getNumberValue(); },
+        "map": n => { criticalPathLead.map = n.getNumberValue(); },
+        "seconds": n => { criticalPathLead.seconds = n.getNumberValue(); },
+        "start": n => { criticalPathLead.start = n.getNumberValue(); },
+        "via": n => { criticalPathLead.via = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param CriticalPathReport The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1756,6 +1820,7 @@ export function deserializeIntoCriticalPathRun(criticalPathRun: Partial<Critical
     return {
         "activeSeconds": n => { criticalPathRun.activeSeconds = n.getNumberValue(); },
         "idleSeconds": n => { criticalPathRun.idleSeconds = n.getNumberValue(); },
+        "lead": n => { criticalPathRun.lead = n.getObjectValue<CriticalPathLead>(createCriticalPathLeadFromDiscriminatorValue); },
         "notes": n => { criticalPathRun.notes = n.getCollectionOfPrimitiveValues<string>("string"); },
         "number": n => { criticalPathRun.number = n.getNumberValue(); },
         "path": n => { criticalPathRun.path = n.getCollectionOfObjectValues<CriticalPathStage>(createCriticalPathStageFromDiscriminatorValue); },
@@ -2281,6 +2346,22 @@ export function deserializeIntoRunDetail(runDetail: Partial<RunDetail> | undefin
 }
 /**
  * The deserialization information for the current model
+ * @param RunOrigin The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRunOrigin(runOrigin: Partial<RunOrigin> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "configReadyAt": n => { runOrigin.configReadyAt = n.getDateValue(); },
+        "mapFinishedAt": n => { runOrigin.mapFinishedAt = n.getDateValue(); },
+        "mapStartedAt": n => { runOrigin.mapStartedAt = n.getDateValue(); },
+        "noticedAt": n => { runOrigin.noticedAt = n.getDateValue(); },
+        "pushedAt": n => { runOrigin.pushedAt = n.getDateValue(); },
+        "via": n => { runOrigin.via = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param RunStageCondition The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2357,6 +2438,7 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
     return {
         "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
         "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
+        "origin": n => { runTrigger.origin = n.getObjectValue<RunOrigin>(createRunOriginFromDiscriminatorValue); },
     }
 }
 /**
@@ -3098,6 +3180,32 @@ export interface RunDetail extends AdditionalDataHolder, Parsable {
      */
     versionId?: Guid | null;
 }
+export interface RunOrigin extends AdditionalDataHolder, Parsable {
+    /**
+     * The configReadyAt property
+     */
+    configReadyAt?: Date | null;
+    /**
+     * The mapFinishedAt property
+     */
+    mapFinishedAt?: Date | null;
+    /**
+     * The mapStartedAt property
+     */
+    mapStartedAt?: Date | null;
+    /**
+     * The noticedAt property
+     */
+    noticedAt?: Date | null;
+    /**
+     * The pushedAt property
+     */
+    pushedAt?: Date | null;
+    /**
+     * The via property
+     */
+    via?: string | null;
+}
 export interface RunStageCondition extends AdditionalDataHolder, Parsable {
     /**
      * The field property
@@ -3228,6 +3336,10 @@ export interface RunTrigger extends AdditionalDataHolder, Parsable {
      * The kind property
      */
     kind?: RunTriggerKind | null;
+    /**
+     * The origin property
+     */
+    origin?: RunOrigin | null;
 }
 export type RunTriggerKind = (typeof RunTriggerKindObject)[keyof typeof RunTriggerKindObject];
 /**
@@ -3666,6 +3778,23 @@ export function serializeCreatePipelineWithRepoRequest(writer: SerializationWrit
 }
 /**
  * Serializes information the current object
+ * @param CriticalPathLead The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCriticalPathLead(writer: SerializationWriter, criticalPathLead: Partial<CriticalPathLead> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!criticalPathLead || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("check", criticalPathLead.check);
+    writer.writeNumberValue("detect", criticalPathLead.detect);
+    writer.writeNumberValue("map", criticalPathLead.map);
+    writer.writeNumberValue("seconds", criticalPathLead.seconds);
+    writer.writeNumberValue("start", criticalPathLead.start);
+    writer.writeStringValue("via", criticalPathLead.via);
+    writer.writeAdditionalData(criticalPathLead.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param CriticalPathReport The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -3693,6 +3822,7 @@ export function serializeCriticalPathRun(writer: SerializationWriter, criticalPa
     if (!criticalPathRun || isSerializingDerivedType) { return; }
     writer.writeNumberValue("activeSeconds", criticalPathRun.activeSeconds);
     writer.writeNumberValue("idleSeconds", criticalPathRun.idleSeconds);
+    writer.writeObjectValue<CriticalPathLead>("lead", criticalPathRun.lead, serializeCriticalPathLead);
     writer.writeCollectionOfPrimitiveValues<string>("notes", criticalPathRun.notes);
     writer.writeNumberValue("number", criticalPathRun.number);
     writer.writeCollectionOfObjectValues<CriticalPathStage>("path", criticalPathRun.path, serializeCriticalPathStage);
@@ -4260,6 +4390,23 @@ export function serializeRunDetail(writer: SerializationWriter, runDetail: Parti
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RunOrigin The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRunOrigin(writer: SerializationWriter, runOrigin: Partial<RunOrigin> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runOrigin || isSerializingDerivedType) { return; }
+    writer.writeDateValue("configReadyAt", runOrigin.configReadyAt);
+    writer.writeDateValue("mapFinishedAt", runOrigin.mapFinishedAt);
+    writer.writeDateValue("mapStartedAt", runOrigin.mapStartedAt);
+    writer.writeDateValue("noticedAt", runOrigin.noticedAt);
+    writer.writeDateValue("pushedAt", runOrigin.pushedAt);
+    writer.writeStringValue("via", runOrigin.via);
+    writer.writeAdditionalData(runOrigin.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param RunStageCondition The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4340,6 +4487,7 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
     if (!runTrigger || isSerializingDerivedType) { return; }
     writer.writeStringValue("dedupKey", runTrigger.dedupKey);
     writer.writeEnumValue<RunTriggerKind>("kind", runTrigger.kind);
+    writer.writeObjectValue<RunOrigin>("origin", runTrigger.origin, serializeRunOrigin);
     writer.writeAdditionalData(runTrigger.additionalData);
 }
 /**

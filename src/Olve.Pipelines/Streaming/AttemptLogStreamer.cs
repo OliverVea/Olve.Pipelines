@@ -3,16 +3,17 @@ using System.Net.ServerSentEvents;
 using Amazon.Runtime;
 using System.Runtime.CompilerServices;
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Streaming;
 
 /// <summary>
 /// Live log of one attempt as SSE: polls the pod log (<see cref="IAttemptLiveLogs"/> returns a snapshot,
-/// not a follow) and sends what is new as <c>log</c> chunks; once the attempt is terminal, the persisted
-/// log's remainder and <c>end</c>. Transient.
+/// not a follow), waking early on a pod change, and sends what is new as <c>log</c> chunks; once the attempt
+/// is terminal, the persisted log's remainder and <c>end</c>. Transient.
 /// </summary>
-public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLogs, JobLogService logs, TimeProvider time)
+public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLogs, JobLogService logs, PodChangeSignals podChanges, TimeProvider time)
 {
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
 
@@ -31,9 +32,13 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
             }
 
             var terminal = attempt.Status.IsTerminal();
+            var changed = podChanges.Arm(attempt.KubernetesJobName);
             var text = await TryReadAsync(attempt, terminal, ct);
             if (ct.IsCancellationRequested)
+            {
+                await podChanges.WaitAsync(attempt.KubernetesJobName, changed, TimeSpan.Zero, CancellationToken.None);
                 yield break;
+            }
 
             if (text is not null && text != sent)
             {
@@ -46,6 +51,7 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
 
             if (terminal)
             {
+                await podChanges.WaitAsync(attempt.KubernetesJobName, changed, TimeSpan.Zero, CancellationToken.None);
                 yield return End(attempt.Status.Discriminator());
                 yield break;
             }
@@ -56,8 +62,14 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
                 idleSince = time.GetUtcNow();
             }
 
-            if (!await SseStreams.DelayAsync(PollInterval, time, ct))
+            try
+            {
+                await podChanges.WaitAsync(attempt.KubernetesJobName, changed, PollInterval, ct);
+            }
+            catch (OperationCanceledException)
+            {
                 yield break;
+            }
         }
     }
 

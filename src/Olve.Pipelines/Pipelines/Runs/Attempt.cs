@@ -40,22 +40,24 @@ public record Attempt(
     public string KubernetesJobName => $"olve-{Id.Value.Value:N}";
 }
 
-/// <summary>When the attempt's pod was created and its init (fetch) and step containers ran.</summary>
+/// <summary>When the attempt's pod was created, its init (fetch) and step containers ran, and the server saw it finish.</summary>
 public record AttemptTimings(
     DateTimeOffset? PodCreatedAt,
     DateTimeOffset? InitStartedAt,
     DateTimeOffset? InitFinishedAt,
     DateTimeOffset? StepStartedAt,
-    DateTimeOffset? StepFinishedAt);
+    DateTimeOffset? StepFinishedAt,
+    DateTimeOffset? ObservedAt = null);
 
 /// <summary>
 /// Where an attempt's time went, in seconds: <see cref="Queued"/> (created → picked up), then from the pod's
 /// timestamps <see cref="PodStart"/> (Job submitted, pod scheduled, sandbox up), <see cref="Fetch"/> (the init
 /// container downloading the binary and input), <see cref="Image"/> (pulling and starting the step's image),
-/// <see cref="Active"/> (the step container) and <see cref="Collect"/> (logs and result collected). Pod phases are
-/// null when the attempt has no timings.
+/// <see cref="Active"/> (the step container), <see cref="Notice"/> (until the server saw the pod finish) and
+/// <see cref="Collect"/> (logs and result collected). Pod phases are null when the attempt has no timings;
+/// <see cref="Notice"/> is null for attempts recorded before it was, whose <see cref="Collect"/> includes it.
 /// </summary>
-public record AttemptPhases(double Queued, double? PodStart, double? Fetch, double? Image, double? Active, double? Collect)
+public record AttemptPhases(double Queued, double? PodStart, double? Fetch, double? Image, double? Active, double? Collect, double? Notice = null)
 {
     public static AttemptPhases? From(Attempt attempt)
     {
@@ -69,7 +71,8 @@ public record AttemptPhases(double Queued, double? PodStart, double? Fetch, doub
             Seconds(t?.InitStartedAt, t?.InitFinishedAt),
             Seconds(t?.InitFinishedAt, t?.StepStartedAt),
             Seconds(t?.StepStartedAt, t?.StepFinishedAt),
-            Seconds(t?.StepFinishedAt, finished));
+            Seconds(t?.ObservedAt ?? t?.StepFinishedAt, finished),
+            Seconds(t?.StepFinishedAt, t?.ObservedAt));
     }
 
     private static double Seconds(DateTimeOffset from, DateTimeOffset to) => Math.Max(0, (to - from).TotalSeconds);

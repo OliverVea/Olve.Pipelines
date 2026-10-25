@@ -4651,6 +4651,15 @@
               "string"
             ],
             "format": "double"
+          },
+          "notice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -4862,6 +4871,13 @@
             "format": "date-time"
           },
           "stepFinishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "observedAt": {
             "type": [
               "null",
               "string"

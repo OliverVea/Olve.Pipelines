@@ -4,8 +4,9 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 public abstract record HarnessWait
 {
     /// <summary>The pod reached a verdict (<see cref="HarnessExitCodes.IsFinished"/>), or a container was
-    /// stuck in a fatal waiting state past the grace (<paramref name="DeletedStuck"/>: the Job was deleted).</summary>
-    public sealed record Finished(HarnessPodState State, bool DeletedStuck) : HarnessWait;
+    /// stuck in a fatal waiting state past the grace (<paramref name="DeletedStuck"/>: the Job was deleted).
+    /// <paramref name="ObservedAt"/> is when the server saw it.</summary>
+    public sealed record Finished(HarnessPodState State, bool DeletedStuck, DateTimeOffset? ObservedAt = null) : HarnessWait;
 
     /// <summary>The Job does not exist (deleted, or TTL-collected long ago).</summary>
     public sealed record Missing : HarnessWait;
@@ -82,7 +83,7 @@ public sealed class HarnessJobControl(
             if (state is null)
                 return new HarnessWait.Missing();
             if (HarnessExitCodes.IsFinished(state))
-                return new HarnessWait.Finished(state, DeletedStuck: false);
+                return new HarnessWait.Finished(state, DeletedStuck: false, timeProvider.GetUtcNow());
 
             var now = timeProvider.GetUtcNow();
             if (HarnessExitCodes.IsFatalWaiting(state))
@@ -93,7 +94,7 @@ public sealed class HarnessJobControl(
                     logger.LogWarning("K8s Job {JobName} is stuck ({Reason}); deleting it", jobName,
                         HarnessExitCodes.Classify(state)?.Message);
                     await DeleteJobAsync(jobName);
-                    return new HarnessWait.Finished(state, DeletedStuck: true);
+                    return new HarnessWait.Finished(state, DeletedStuck: true, now);
                 }
             }
             else

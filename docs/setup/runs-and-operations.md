@@ -138,7 +138,8 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
 - **OVERHEAD** is the part of a step's time spent outside its step container. An attempt's time splits
   into *queued* (created → picked up), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*
   (the init container downloading the step binary and input), *image* (pulling and starting the step's
-  image), *active* (the step container) and *collect* (logs and result). Attempts from before these
+  image), *active* (the step container), *notice* (until the server saw the pod finish) and *collect*
+  (logs and result). Attempts from before these
   timings were recorded show `-`. The API returns them as `phases` on step history and run steps.
 - `--step <name>` also lists the runs that step was on the critical path in. Only succeeded runs are
   reported unless `--all`. `--json` gives the whole report (`GET …/runs/critical-path`).

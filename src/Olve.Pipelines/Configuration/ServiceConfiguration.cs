@@ -1,3 +1,4 @@
+using Olve.Pipelines.Kubernetes.Harness;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Olve.Pipelines.Distribution;
 using Olve.Pipelines.GitHub;
@@ -151,6 +152,7 @@ public static class ServiceConfiguration
         // reverse-order StoppingAsync drains live watchers before persistence flushes.
         services.AddSingleton<JobWatcherRegistry>();
         services.AddSingleton<IHostedLifecycleService>(sp => sp.GetRequiredService<JobWatcherRegistry>());
+        services.AddSingleton<JobDispatchSignal>();
         services.AddHostedService<JobRunner>();
         services.AddTransient<JobQueueService>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
@@ -163,6 +165,7 @@ public static class ServiceConfiguration
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ChangeBroadcaster>();
         services.AddSingleton<IRunOnStartup, ChangeEventRegistration>();
+        services.AddSingleton<PodChangeSignals>();
         services.AddTransient<AttemptLogStreamer>();
         services.AddHostedService<StartupRunner>();
         services.AddTransient<PipelineService>();

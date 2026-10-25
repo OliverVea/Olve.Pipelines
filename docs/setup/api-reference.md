@@ -810,6 +810,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `image` | number? | required |
 | `active` | number? | required |
 | `collect` | number? | required |
+| `notice` | number? |  |
 
 ### AttemptStatus
 
@@ -874,6 +875,7 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `initFinishedAt` | string (date-time)? | required |
 | `stepStartedAt` | string (date-time)? | required |
 | `stepFinishedAt` | string (date-time)? | required |
+| `observedAt` | string (date-time)? |  |
 
 ### ChangedDefault
 

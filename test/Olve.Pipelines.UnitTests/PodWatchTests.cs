@@ -28,6 +28,18 @@ public class PodWatchTests
     }
 
     [Test]
+    public async Task OneWaiterTimingOut_LeavesTheOtherArmed()
+    {
+        var signals = new PodChangeSignals(TimeProvider.System);
+        var executor = signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromMinutes(5), CancellationToken.None);
+
+        await signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromMilliseconds(10), CancellationToken.None);
+        signals.Notify("olve-a");
+
+        await Assert.That(await Task.WhenAny(executor, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(executor);
+    }
+
+    [Test]
     public async Task AChangeBetweenArmingAndWaiting_IsNotMissed()
     {
         var signals = new PodChangeSignals(TimeProvider.System);

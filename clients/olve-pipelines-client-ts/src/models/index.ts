@@ -214,6 +214,10 @@ export interface AttemptPhases extends AdditionalDataHolder, Parsable {
      */
     image?: number | null;
     /**
+     * The notice property
+     */
+    notice?: number | null;
+    /**
      * The podStart property
      */
     podStart?: number | null;
@@ -303,6 +307,10 @@ export interface AttemptTimings extends AdditionalDataHolder, Parsable {
      * The initStartedAt property
      */
     initStartedAt?: Date | null;
+    /**
+     * The observedAt property
+     */
+    observedAt?: Date | null;
     /**
      * The podCreatedAt property
      */
@@ -1467,6 +1475,7 @@ export function deserializeIntoAttemptPhases(attemptPhases: Partial<AttemptPhase
         "collect": n => { attemptPhases.collect = n.getNumberValue(); },
         "fetch": n => { attemptPhases.fetch = n.getNumberValue(); },
         "image": n => { attemptPhases.image = n.getNumberValue(); },
+        "notice": n => { attemptPhases.notice = n.getNumberValue(); },
         "podStart": n => { attemptPhases.podStart = n.getNumberValue(); },
         "queued": n => { attemptPhases.queued = n.getNumberValue(); },
     }
@@ -1582,6 +1591,7 @@ export function deserializeIntoAttemptTimings(attemptTimings: Partial<AttemptTim
     return {
         "initFinishedAt": n => { attemptTimings.initFinishedAt = n.getDateValue(); },
         "initStartedAt": n => { attemptTimings.initStartedAt = n.getDateValue(); },
+        "observedAt": n => { attemptTimings.observedAt = n.getDateValue(); },
         "podCreatedAt": n => { attemptTimings.podCreatedAt = n.getDateValue(); },
         "stepFinishedAt": n => { attemptTimings.stepFinishedAt = n.getDateValue(); },
         "stepStartedAt": n => { attemptTimings.stepStartedAt = n.getDateValue(); },
@@ -3360,6 +3370,7 @@ export function serializeAttemptPhases(writer: SerializationWriter, attemptPhase
     writer.writeNumberValue("collect", attemptPhases.collect);
     writer.writeNumberValue("fetch", attemptPhases.fetch);
     writer.writeNumberValue("image", attemptPhases.image);
+    writer.writeNumberValue("notice", attemptPhases.notice);
     writer.writeNumberValue("podStart", attemptPhases.podStart);
     writer.writeNumberValue("queued", attemptPhases.queued);
     writer.writeAdditionalData(attemptPhases.additionalData);
@@ -3500,6 +3511,7 @@ export function serializeAttemptTimings(writer: SerializationWriter, attemptTimi
     if (!attemptTimings || isSerializingDerivedType) { return; }
     writer.writeDateValue("initFinishedAt", attemptTimings.initFinishedAt);
     writer.writeDateValue("initStartedAt", attemptTimings.initStartedAt);
+    writer.writeDateValue("observedAt", attemptTimings.observedAt);
     writer.writeDateValue("podCreatedAt", attemptTimings.podCreatedAt);
     writer.writeDateValue("stepFinishedAt", attemptTimings.stepFinishedAt);
     writer.writeDateValue("stepStartedAt", attemptTimings.stepStartedAt);

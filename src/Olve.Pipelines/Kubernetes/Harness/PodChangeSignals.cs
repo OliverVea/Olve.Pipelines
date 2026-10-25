@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace Olve.Pipelines.Kubernetes.Harness;
 
 /// <summary>
@@ -8,33 +6,62 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// </summary>
 public sealed class PodChangeSignals(TimeProvider timeProvider)
 {
-    private readonly ConcurrentDictionary<string, TaskCompletionSource> _waiters = new(StringComparer.Ordinal);
+    private sealed class Waiter
+    {
+        public readonly TaskCompletionSource Changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int Count;
+    }
+
+    private readonly Dictionary<string, Waiter> _waiters = new(StringComparer.Ordinal);
+    private readonly Lock _lock = new();
 
     public void Notify(string jobName)
     {
-        if (_waiters.TryRemove(jobName, out var waiter))
-            waiter.TrySetResult();
+        Waiter? waiter;
+        lock (_lock)
+        {
+            if (_waiters.Remove(jobName, out waiter) is false)
+                return;
+        }
+        waiter.Changed.TrySetResult();
     }
 
-    /// <summary>Registers interest in the Job's next pod change; arm before reading the pod's state so no change is missed.</summary>
+    /// <summary>Registers interest in the Job's next pod change; arm before reading the pod's state so no change is missed.
+    /// Every <see cref="Arm"/> must be followed by one <see cref="WaitAsync"/>.</summary>
     public Task Arm(string jobName)
-        => _waiters.GetOrAdd(jobName, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+    {
+        lock (_lock)
+        {
+            if (!_waiters.TryGetValue(jobName, out var waiter))
+                _waiters[jobName] = waiter = new Waiter();
+            waiter.Count++;
+            return waiter.Changed.Task;
+        }
+    }
 
     /// <summary>Returns when <paramref name="armed"/> fires or after <paramref name="timeout"/>, whichever is first.</summary>
     public async Task WaitAsync(string jobName, Task armed, TimeSpan timeout, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var delay = Task.Delay(timeout, timeProvider, cts.Token);
-        if (await Task.WhenAny(armed, delay) != armed)
-            ForgetIfUnchanged(jobName, armed);
-        await cts.CancelAsync();
+        try
+        {
+            await Task.WhenAny(armed, Task.Delay(timeout, timeProvider, cts.Token));
+        }
+        finally
+        {
+            await cts.CancelAsync();
+            Release(jobName, armed);
+        }
         ct.ThrowIfCancellationRequested();
     }
 
-    private void ForgetIfUnchanged(string jobName, Task armed)
+    private void Release(string jobName, Task armed)
     {
-        if (_waiters.TryGetValue(jobName, out var waiter) && waiter.Task == armed)
-            _waiters.TryRemove(new KeyValuePair<string, TaskCompletionSource>(jobName, waiter));
+        lock (_lock)
+        {
+            if (_waiters.TryGetValue(jobName, out var waiter) && waiter.Changed.Task == armed && --waiter.Count == 0)
+                _waiters.Remove(jobName);
+        }
     }
 }
 

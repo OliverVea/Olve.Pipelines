@@ -1,3 +1,4 @@
+using Olve.Pipelines.Kubernetes.Harness;
 using Amazon.Runtime;
 using Amazon.S3;
 using Olve.Pipelines.Configuration;
@@ -28,7 +29,7 @@ public class AttemptLogStreamerTests
         // Unreachable storage: the terminal read fails and the stream still ends.
         var s3 = new AmazonS3Client(new AnonymousAWSCredentials(), new AmazonS3Config { ServiceURL = "http://127.0.0.1:1", MaxErrorRetry = 0 });
         var streamer = new AttemptLogStreamer(domain.AttemptService, live,
-            new JobLogService(s3, new StorageOptions("b"), domain.AttemptService, live), TimeProvider.System)
+            new JobLogService(s3, new StorageOptions("b"), domain.AttemptService, live), new PodChangeSignals(TimeProvider.System), TimeProvider.System)
         {
             PollInterval = TimeSpan.FromMilliseconds(10),
         };

@@ -134,6 +134,7 @@ internal sealed class TestRunDomain
         services.AddTransient<RunContinuationService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
+        services.AddSingleton<JobDispatchSignal>();
         var sp = services.BuildServiceProvider();
         _services = sp;
 

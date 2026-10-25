@@ -6,6 +6,7 @@ namespace Olve.Pipelines.Jobs;
 public class JobRunner(
     IServiceProvider sp,
     JobWatcherRegistry registry,
+    JobDispatchSignal signal,
     ILogger<JobRunner> logger) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
@@ -25,7 +26,7 @@ public class JobRunner(
                 logger.LogError(ex, "Unhandled exception in JobRunner dispatch tick");
             }
 
-            await Task.Delay(PollInterval, ct);
+            await signal.WaitAsync(PollInterval, ct);
         }
     }
 

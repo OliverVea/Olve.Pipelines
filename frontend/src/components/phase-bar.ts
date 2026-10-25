@@ -9,6 +9,7 @@ const PHASES: [keyof AttemptPhases & string, string][] = [
   ['fetch', 'Fetch'],
   ['image', 'Image'],
   ['active', 'Active'],
+  ['notice', 'Notice'],
   ['collect', 'Collect'],
 ];
 
@@ -44,6 +45,9 @@ export class PhaseBar extends LitElement {
     }
     .active {
       background: var(--color-success);
+    }
+    .notice {
+      background: var(--coral-300);
     }
     .collect {
       background: var(--gold-300);

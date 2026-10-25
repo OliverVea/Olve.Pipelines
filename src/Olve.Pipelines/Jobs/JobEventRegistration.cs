@@ -9,6 +9,12 @@ public class JobEventRegistration(AttemptEvents attemptEvents, IServiceProvider 
     public Result Run()
     {
         attemptEvents.OnAdded.Subscribe(e => sp.GetRequiredService<JobObsoletionService>().HandleAttemptAdded(e.Id));
+        attemptEvents.OnAdded.Subscribe(_ => sp.GetRequiredService<JobDispatchSignal>().Nudge());
+        attemptEvents.OnUpdated.Subscribe(e =>
+        {
+            if (e.Before.Status.IsActive() && !e.After.Status.IsActive())
+                sp.GetRequiredService<JobDispatchSignal>().Nudge();
+        });
 
         return Result.Success();
     }

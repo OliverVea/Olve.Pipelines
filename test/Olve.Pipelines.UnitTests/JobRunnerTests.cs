@@ -53,7 +53,7 @@ public class JobRunnerTests
             NullLogger<NoOpJobExecutor>.Instance));
         var sp = services.BuildServiceProvider();
 
-        var runner = new JobRunner(sp, registry, NullLogger<JobRunner>.Instance)
+        var runner = new JobRunner(sp, registry, new JobDispatchSignal(), NullLogger<JobRunner>.Instance)
         {
             MaxConcurrentJobs = maxConcurrentJobs,
         };

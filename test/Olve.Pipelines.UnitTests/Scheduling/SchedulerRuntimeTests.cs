@@ -200,7 +200,7 @@ public class SchedulerRuntimeTests
             sp.GetRequiredService<IServiceScopeFactory>(), registry, lifetime, pending, d.AttemptService,
             NullLogger<NoOpJobExecutor>.Instance));
         await using var sp = services.BuildServiceProvider();
-        var runner = new JobRunner(sp, registry, NullLogger<JobRunner>.Instance);
+        var runner = new JobRunner(sp, registry, new JobDispatchSignal(), NullLogger<JobRunner>.Instance);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         _ = runner.StartAsync(cts.Token);
 

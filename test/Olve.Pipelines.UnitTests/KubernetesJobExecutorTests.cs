@@ -148,7 +148,8 @@ public class KubernetesJobExecutorTests
 
         await RunWatcher(h, attempt.Id);
 
-        await Assert.That(h.Hello.Timings).IsEqualTo(new AttemptTimings(t0, t0.AddSeconds(2), t0.AddSeconds(3), t0.AddSeconds(5), t0.AddSeconds(15)));
+        await Assert.That(h.Hello.Timings! with { ObservedAt = null }).IsEqualTo(new AttemptTimings(t0, t0.AddSeconds(2), t0.AddSeconds(3), t0.AddSeconds(5), t0.AddSeconds(15)));
+        await Assert.That(h.Hello.Timings!.ObservedAt).IsNotNull();
         var phases = AttemptPhases.From(h.Hello)!;
         await Assert.That(phases.Fetch).IsEqualTo(1);
         await Assert.That(phases.Image).IsEqualTo(2);

@@ -159,7 +159,8 @@ public class KubernetesJobExecutor(
         var state = finished.State;
         LogIfFailed(attempts.Update(attempt.Id, a => a with
         {
-            Timings = new AttemptTimings(state.PodCreatedAt, state.Init?.StartedAt, state.Init?.FinishedAt, state.Main?.StartedAt, state.Main?.FinishedAt),
+            Timings = new AttemptTimings(state.PodCreatedAt, state.Init?.StartedAt, state.Init?.FinishedAt, state.Main?.StartedAt, state.Main?.FinishedAt,
+                finished.ObservedAt),
         }), attempt.Id);
 
         var collection = await storage.CollectAsync(attempt, ct);

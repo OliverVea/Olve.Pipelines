@@ -46,6 +46,5 @@ public static class HarnessConfiguration
         services.AddTransient<HarnessResultCollector>();
         services.AddTransient<IHarnessStorage, S3HarnessStorage>();
         services.AddTransient<HarnessJobControl>();
-        services.AddSingleton<PodChangeSignals>();
     }
 }

@@ -41,8 +41,8 @@ public sealed class LoginCommand : ICliCommand
 
         Use --api-url (or PIPELINES_API_URL) to log in to a specific instance, and --profile to keep
         several logins side by side (the profile is 'default' unless given), e.g.
-          pl login --api-url https://pipelines-v2-private.ovea.pro
-          pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
+          pl login --api-url https://pipelines-private.ovea.pro
+          pl login --profile beta --api-url https://pipelines-beta.ovea.pro
         Then `pl pipeline list --profile beta`; `pl profile list` shows them.
         """;
 

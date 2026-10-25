@@ -8,7 +8,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, build and client/A
 
 ## Design
 
-Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This branch is **v2** (typed pipelines in TypeScript); it is fully breaking — v1's production/processing steps, ArtifactBundles, job groups, `config.yaml` and `StepConfiguration` are gone, not adapted.
+Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This is **v2** (typed pipelines in TypeScript); it is fully breaking — v1's production/processing steps, ArtifactBundles, job groups, `config.yaml` and `StepConfiguration` are gone, not adapted.
 
 ### Pipeline model
 
@@ -157,7 +157,7 @@ cd frontend && npm run build                                # Production build
 - **Agent playbook: keep the `ovea-olve-pipelines` skill current.** It lives in [OliverVea/ovea-skills](https://github.com/OliverVea/ovea-skills) (`ovea-workflow/skills/ovea-olve-pipelines/SKILL.md`) and tells agents how to use Olve.Pipelines: `pl` for everything, the user logs in, profiles, `pl wait`, what a push does, changing a pipeline safely. Any change here that alters how an agent should use the service, `pl` or the SDK updates that skill in the same piece of work, and bumps the `ovea-workflow` plugin version (clients update on a version bump).
 - **User docs (`docs/setup`) describe the current system only**: no v1, no history, no "replaced by"/"no longer". Keep them up to date with every change; migration notes and history go in `docs/design`.
 - **Comments: few and short.** Comment only what the code can't say (a non-obvious why, a gotcha). No narrative headers, no restating the code, no plan/track/spec-section references or history in comments; that belongs in docs and commit messages. Pipeline definitions (`.pipelines/`) and SDK examples especially must read cleanly.
-- Development happens on `main`. The deployer pipeline (`.pipelines/pipeline.ts`) lives on v2 prod (`pipelines-v2-private.ovea.pro`): every push deploys v2 beta, smoke-tests it (`beta-test`), then deploys v2 prod; `deployTo=beta` stops after beta. Block `deploy-prod` (`pl step block`) only in special circumstances.
+- Development happens on `main`. The deployer pipeline (`.pipelines/pipeline.ts`) lives on v2 prod (`pipelines-private.ovea.pro`): every push deploys v2 beta, smoke-tests it (`beta-test`), then deploys v2 prod; `deployTo=beta` stops after beta. Block `deploy-prod` (`pl step block`) only in special circumstances.
 - **Server first, then the pipeline that needs it.** Prod reconciles `.pipelines/` with the server code it is running, so a commit whose pipeline needs a new server rule (a validator check, a manifest field) fails reconcile and the deploy stalls. Push the server change on its own, let it reach prod, then push the pipeline change.
 - When reporting a pushed change to the user, give the run that deploys it (`pl wait push "Olve.Pipelines v2" <sha>` → `Olve.Pipelines v2#<n>`) and its state.
 

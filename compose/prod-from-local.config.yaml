@@ -18,7 +18,7 @@ target:
     set:
       slo.enabled: "false"
       config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
-    url: https://pipelines-v2-beta.ovea.pro
+    url: https://pipelines-beta.ovea.pro
     auth:
       mode: authentik
       authority: https://auth-beta.ovea.pro/application/o/olve-pipelines/
@@ -40,7 +40,7 @@ target:
       config.Harness__HarnessBaseImage: registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf
       # Prod's own runs have no promote step yet: keep serving its latest publish-cli at /download.
       config.Distribution__CliPromotedBy: ""
-    url: https://pipelines-v2-private.ovea.pro
+    url: https://pipelines-private.ovea.pro
 
 auth:
   mode: authentik

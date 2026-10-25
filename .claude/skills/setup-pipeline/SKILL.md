@@ -6,7 +6,7 @@ allowed-tools: Bash Read
 
 # Set up the v2 self-deploy pipeline (GitOps)
 
-The **bootstrap runbook** for v2 prod (`https://pipelines-v2-private.ovea.pro`, release
+The **bootstrap runbook** for v2 prod (`https://pipelines-private.ovea.pro`, release
 `olve-pipelines-v2` in `apps`, runners `olve-runners`, prod Authentik): it creates the pipeline
 bound to `OliverVea/Olve.Pipelines@main`, path `.pipelines`, and sets its secrets. Reconcile then
 compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` →
@@ -24,7 +24,7 @@ v2 prod. Don't create it on v2 beta.
 
 ```bash
 dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # a reset prod serves no pl yet
-export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-private.ovea.pro
+export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-private.ovea.pro
 pl login                                    # --device over SSH; depends on the Authentik worker being healthy
 ```
 
@@ -33,8 +33,8 @@ Keep these variables exported in every shell invocation below.
 ## Step 1: Verify the app is running
 
 ```bash
-curl -s https://pipelines-v2-private.ovea.pro/api/health
-curl -s https://pipelines-v2-private.ovea.pro/api/ready
+curl -s https://pipelines-private.ovea.pro/api/health
+curl -s https://pipelines-private.ovea.pro/api/ready
 ```
 
 If unreachable: `ssh oliver@bulwark-m2 "kubectl -n apps rollout restart deploy/olve-pipelines-v2 && kubectl -n apps rollout status deploy/olve-pipelines-v2 --timeout=120s"`.
@@ -43,7 +43,7 @@ If unreachable: `ssh oliver@bulwark-m2 "kubectl -n apps rollout restart deploy/o
 
 ```bash
 pl pipeline list
-curl -s https://pipelines-v2-beta.ovea.pro/api/pipelines | jq -r '.[].name'
+curl -s https://pipelines-beta.ovea.pro/api/pipelines | jq -r '.[].name'
 ```
 
 If "Olve.Pipelines v2" exists on either instance — **stop**: `pl binding create` mints a new id
@@ -73,7 +73,7 @@ echo "Pipeline: $PID"
 `pipeline.ts` declares `GITHUB_TOKEN` (repo tarball), `SSH_PRIVATE_KEY` (image import + helm on
 the host) and `NPM_TOKEN` (`publish-sdk`). Values live in `olve-pipeline-<id without dashes>` in
 `olve-runners`. Copy them from the previous pipeline's Secret (if it survived the reset).
-`olve-runners` also holds v1 prod's pipeline Secrets, so pick the old v2 deployer's by its id:
+`olve-runners` holds every pipeline's Secret, so pick the old deployer's by its id:
 
 ```bash
 ssh oliver@bulwark-m2 "kubectl get secrets -n olve-runners | grep olve-pipeline-"

@@ -1,16 +1,13 @@
-# v2 prod overlay, layered after values.yaml (v1 prod's defaults). Its own release
-# (olve-pipelines-v2) in apps beside v1 prod; every chart resource is release-scoped. Auth, OIDC,
-# OpenBao and the runner namespace (olve-runners) are shared with v1 prod, whose Jobs v2 never
-# sweeps (retention only touches Jobs labelled with a v2 role and one of this instance's pipelines).
+# Prod overlay, layered after values.yaml. Release olve-pipelines-v2 in apps; runners in
+# olve-runners.
 config:
   Storage__Endpoint: "http://olve-pipelines-v2-garage.apps:3900"
   # Host step pods dial for pre-signed URLs (signed into SigV4).
   Storage__InClusterEndpoint: "http://olve-pipelines-v2-garage.apps.svc.cluster.local:3900"
   Storage__Bucket: "olve-pipelines-v2"
-  # Own public webhook host (Cloudflare tunnel, routes only /api/webhooks/binding and /api/hooks);
-  # the inherited value is v1 prod's.
-  Webhooks__PublicBaseUrl: "https://pipelines-v2-hooks.ovea.pro"
-  Links__BaseUrl: "https://pipelines-v2-private.ovea.pro"
+  # Public webhook host (Cloudflare tunnel, routes only /api/webhooks/binding and /api/hooks).
+  Webhooks__PublicBaseUrl: "https://pipelines-hooks.ovea.pro"
+  Links__BaseUrl: "https://pipelines-private.ovea.pro"
   Telemetry__ServiceName: "olve-pipelines-v2"
   Distribution__CliPipeline: "Olve.Pipelines v2"
   # The pl release is built before beta; prod serves it once the run reaches promote.
@@ -18,8 +15,7 @@ config:
   # Stage 2 of the self-deploy runs seven steps; 4 queued three of them.
   Jobs__MaxConcurrent: "8"
 
-# The credentials Secret (olve-pipelines-minio) is shared with v1 prod's Garage; each Garage keeps
-# its own metadata, and --default-bucket creates this bucket and key on first boot.
+# --default-bucket creates this bucket and key (from the olve-pipelines-minio Secret) on first boot.
 garage:
   enabled: true
   bucket: olve-pipelines-v2

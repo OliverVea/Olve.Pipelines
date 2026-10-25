@@ -26,7 +26,7 @@ public sealed class ProfileListCommand : ICliCommand
 
           A profile is one instance and its login. Pick one with --profile <name> or
           PIPELINES_PROFILE; without either, commands use 'default'. Create or refresh one with
-            pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro
+            pl login --profile beta --api-url https://pipelines-beta.ovea.pro
         """;
 
     public Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)

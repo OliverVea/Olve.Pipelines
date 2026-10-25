@@ -21,7 +21,7 @@ history.
 npm install          # Install dependencies
 npm run dev          # Dev server with hot reload (proxies /api to localhost:5000)
 npm run dev:prod     # Dev server proxying /api to https://pipelines-private.ovea.pro
-npm run dev:v2beta   # Dev server proxying /api to https://pipelines-v2-beta.ovea.pro
+npm run dev:v2beta   # Dev server proxying /api to https://pipelines-beta.ovea.pro
 npm run build        # Type-check (tsc) + production build to dist/
 npm run preview      # Preview production build
 npm run typecheck    # Type-check src/ and the generated client it imports (also run by build)

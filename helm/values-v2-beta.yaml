@@ -1,19 +1,16 @@
-# v2 beta overlay, layered after values-beta.yaml (the pipeline's deploy-beta step). Deployed
-# as its own release (olve-pipelines-v2) in apps-beta beside v1 beta; every chart resource is
-# release-scoped, so only the storage wiring and webhook registration differ here. Auth, OIDC
-# (OpenBao cluster access) and the runner namespace (olve-runners-beta) are shared with v1
-# beta — v1 never lists or sweeps Jobs it did not create, so the two don't interfere.
+# Beta overlay, layered after values-beta.yaml (the pipeline's deploy-beta step). Release
+# olve-pipelines-v2 in apps-beta; runners in olve-runners-beta.
 config:
-  # This release's own Garage (olve-pipelines-v2-garage), not v1 beta's.
+  # This release's own Garage (olve-pipelines-v2-garage).
   Storage__Endpoint: "http://olve-pipelines-v2-garage.apps-beta:3900"
   # Host step pods dial for pre-signed URLs (signed into SigV4). The FQDN is what the harness
   # validation ran against (harness/README.md); the short form above relies on search domains.
   Storage__InClusterEndpoint: "http://olve-pipelines-v2-garage.apps-beta.svc.cluster.local:3900"
   Storage__Bucket: "olve-pipelines-v2-beta"
   # Public webhook host (Cloudflare tunnel, routes only /api/webhooks/binding and /api/hooks).
-  Webhooks__PublicBaseUrl: "https://pipelines-v2-beta-hooks.ovea.pro"
+  Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
   # Base of the run/log links in a failure handler's FailureContext.
-  Links__BaseUrl: "https://pipelines-v2-beta.ovea.pro"
+  Links__BaseUrl: "https://pipelines-beta.ovea.pro"
   # Beta only: reads without a session, for beta-test's smoke check and the dev server's auth bypass.
   Auth__AnonymousReads: "true"
   # Beta keeps little: a run goes once it is older than 14 days and outside its pipeline's latest 3

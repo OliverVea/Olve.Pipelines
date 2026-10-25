@@ -11,11 +11,10 @@ allowed-tools: Bash Read Grep
 | Environment | Base URL | Auth provider | Runner namespace |
 |---|---|---|---|
 | Local | `http://localhost:5000` | `auth-beta.ovea.pro` (or `Auth:Disable=true`) | as configured |
-| v2 beta | `https://pipelines-v2-beta.ovea.pro` | `auth-beta.ovea.pro` (shared with v1 beta) | `olve-runners-beta` |
-| v2 prod | `https://pipelines-v2-private.ovea.pro` | `auth.ovea.pro` (shared with v1 prod) | `olve-runners` |
-| v1 prod (main) | `https://pipelines-private.ovea.pro` | `auth.ovea.pro` | `olve-runners` |
+| beta | `https://pipelines-beta.ovea.pro` | `auth-beta.ovea.pro` | `olve-runners-beta` |
+| prod | `https://pipelines-private.ovea.pro` | `auth.ovea.pro` | `olve-runners` |
 
-v1 instances run v1 code from `main`; the v2 API below exists only on v2 instances. v2 beta is the
+v2 beta is the
 place to experiment; v2 prod hosts the self-deploy pipeline (see the end of section 3).
 
 ## 1. Start the app locally (optional)
@@ -31,12 +30,12 @@ Use `Development` — Production mode rejects the beta Authentik cert. Local con
 
 ## 2. Authenticate
 
-**Preferred: `pl`.** Use a v2 `pl` (`curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
+**Preferred: `pl`.** Use a v2 `pl` (`curl -fsSL https://pipelines-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
 or `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`) with its own
-config file so the v1 session in `~/.pl` survives:
+config file:
 
 ```bash
-export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-beta.ovea.pro
+export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-beta.ovea.pro
 pl login                                    # --device over SSH
 ```
 
@@ -67,7 +66,7 @@ Reads (`GET`) are anonymous except secret listing and step-file listing/download
 `pl` equivalent (`pl help`) — prefer it.
 
 ```bash
-BASE=https://pipelines-v2-beta.ovea.pro
+BASE=https://pipelines-beta.ovea.pro
 P=<pipelineId>          # pl pipeline list --json | jq -r '.[] | "\(.id) \(.name)"'
 
 # pipelines, versions, health
@@ -125,6 +124,5 @@ ssh oliver@bulwark-m2 "kubectl -n apps-beta logs deploy/olve-pipelines-v2 --sinc
 ```
 
 Job names: step attempts `olve-…` with labels `olve-role=step`, `olve-run`, `olve-step`,
-`olve-attempt`; build Jobs `olve-build-<p12>-<sha12>`; failure handlers `olve-fh-…`. The runner
-namespace is shared with v1 beta (v2 prod's, `olve-runners`, with v1 prod; same commands with
-`-n olve-runners` / `-n apps`).
+`olve-attempt`; build Jobs `olve-build-<p12>-<sha12>`; failure handlers `olve-fh-…`. Prod: the same
+commands with `-n olve-runners` / `-n apps`.

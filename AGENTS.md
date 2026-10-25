@@ -28,7 +28,7 @@ fixture), `frontend/` (Lit SPA), `docs/`.
 ## How it's deployed (self-deploy)
 
 Olve.Pipelines deploys itself. **v2 (this branch):** the v2 prod instance
-(`pipelines-v2-private.ovea.pro`, release `olve-pipelines-v2` in `apps`, runners `olve-runners`)
+(`pipelines-private.ovea.pro`, release `olve-pipelines-v2` in `apps`, runners `olve-runners`)
 runs the pipeline "Olve.Pipelines v2", bound to the `v2` branch, path `.pipelines`: `source` →
 `build-server` ∥ `build-harness` (the step pods' init image, set as the chart's `harness.image` by
 both deploys) ∥ `test` ∥ `frontend-lint` ∥ `build-sdk` ∥ `build-cli` → `publish-images` (tag `next`)

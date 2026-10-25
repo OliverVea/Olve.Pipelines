@@ -7,8 +7,8 @@
 > (every `ctx` helper and the harness contract) is
 > [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md).
 
-> **Instances:** `https://pipelines-v2-private.ovea.pro` (prod) and
-> `https://pipelines-v2-beta.ovea.pro` (beta), over Tailscale.
+> **Instances:** `https://pipelines-private.ovea.pro` (prod) and
+> `https://pipelines-beta.ovea.pro` (beta), over Tailscale.
 
 ## What this service does
 

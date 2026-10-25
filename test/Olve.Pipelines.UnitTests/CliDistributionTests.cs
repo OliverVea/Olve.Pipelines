@@ -91,9 +91,9 @@ public class CliDistributionTests
             // The rewrite anchors on the one placeholder; it must exist exactly once (the INSTANCE assignment).
             await Assert.That(script.Split(CliDownloadEndpoints.ScriptDefaultBaseUrl).Length - 1).IsEqualTo(1);
 
-            var rewritten = CliDownloadEndpoints.RewriteDefaultBaseUrl(script, "https://pipelines-v2-beta.ovea.pro");
+            var rewritten = CliDownloadEndpoints.RewriteDefaultBaseUrl(script, "https://pipelines-beta.ovea.pro");
             await Assert.That(rewritten).DoesNotContain(CliDownloadEndpoints.ScriptDefaultBaseUrl);
-            await Assert.That(rewritten).Contains("https://pipelines-v2-beta.ovea.pro");
+            await Assert.That(rewritten).Contains("https://pipelines-beta.ovea.pro");
             await Assert.That(rewritten).Contains("PL_API_URL");
         }
     }
@@ -107,11 +107,11 @@ public class CliDistributionTests
 
         var none = new ConfigurationBuilder().Build();
         var links = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["Links:BaseUrl"] = "https://pipelines-v2-beta.ovea.pro/" })
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Links:BaseUrl"] = "https://pipelines-beta.ovea.pro/" })
             .Build();
 
         await Assert.That(CliDownloadEndpoints.InstanceBaseUrl(http, none)).IsEqualTo("http://olve-pipelines-v2.apps-beta");
-        await Assert.That(CliDownloadEndpoints.InstanceBaseUrl(http, links)).IsEqualTo("https://pipelines-v2-beta.ovea.pro");
+        await Assert.That(CliDownloadEndpoints.InstanceBaseUrl(http, links)).IsEqualTo("https://pipelines-beta.ovea.pro");
     }
 
     [Test]

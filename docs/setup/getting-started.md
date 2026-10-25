@@ -29,16 +29,16 @@ first.
 - The **`pl` CLI**. Each instance serves the `pl` it was deployed with, set up to talk to that
   instance (installs to `~/.local/bin`; `PL_INSTALL_DIR` overrides):
   ```sh
-  curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | sh        # Linux
-  irm https://pipelines-v2-private.ovea.pro/install.ps1 | iex             # Windows
+  curl -fsSL https://pipelines-private.ovea.pro/install.sh | sh        # Linux
+  irm https://pipelines-private.ovea.pro/install.ps1 | iex             # Windows
   pl --version
   ```
   From source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin`.
 - A session. `pl login` stores the instance URL with the token in a **profile** of `~/.pl`
   (`default` unless you pass `--profile`), so name the instance once:
   ```sh
-  pl login --api-url https://pipelines-v2-private.ovea.pro                  # profile 'default'; add --device over SSH
-  pl login --profile beta --api-url https://pipelines-v2-beta.ovea.pro      # a second instance beside it
+  pl login --api-url https://pipelines-private.ovea.pro                  # profile 'default'; add --device over SSH
+  pl login --profile beta --api-url https://pipelines-beta.ovea.pro      # a second instance beside it
   pl pipeline list --profile beta                                          # or PIPELINES_PROFILE=beta
   pl profile list
   ```

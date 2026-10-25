@@ -6,14 +6,14 @@ allowed-tools: Bash Read
 
 # Deploy Olve.Pipelines v2
 
-The pipeline **"Olve.Pipelines v2"** lives on **v2 prod** (`https://pipelines-v2-private.ovea.pro`,
+The pipeline **"Olve.Pipelines v2"** lives on **v2 prod** (`https://pipelines-private.ovea.pro`,
 Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 `OliverVea/Olve.Pipelines@main`, path `.pipelines`. Stages: `source` →
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`: `deploy-prod` →
 `publish-cli` ∥ `publish-sdk`.
 
 - Every push to `main` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
-  (`https://pipelines-v2-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
+  (`https://pipelines-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
   then deploys **v2 prod**. No manual promotion; `deployTo: "beta"` stops after beta.
 - Blocking a step is for special circumstances only (an incident, work on the pipeline, a change the user wants held). Never leave
   `deploy-prod` blocked as routine.
@@ -22,11 +22,11 @@ Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 
 ## Prerequisites
 
-- A v2 `pl`: `curl -fsSL https://pipelines-v2-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
+- A v2 `pl`: `curl -fsSL https://pipelines-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
   or from source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
 - A session against v2 prod. `~/.pl` holds one session, so keep v2's separate:
   ```bash
-  export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-v2-private.ovea.pro
+  export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-private.ovea.pro
   pl login            # --device over SSH
   ```
   Every command below assumes these variables are exported in the same shell invocation.
@@ -91,17 +91,17 @@ publish` if `sdk/`'s version is new. A beta-only run can still go to prod later 
   ```
 - Rerun just the failed step and continue downstream: `pl step rerun "$R/<step>" --continue`.
 - Service logs: `ssh oliver@bulwark-m2 "kubectl -n apps logs deploy/olve-pipelines-v2 --since=10m | grep -v health"`.
-- Step pods (`olve-runners` is shared with v1 prod, so filter by label):
+- Step pods (filter by label):
   `ssh oliver@bulwark-m2 "kubectl -n olve-runners get jobs,pods -l olve-pipeline=6a395b723bb342a7b01ae28a6f138032,olve-run=<n>"`
   (labels `olve-pipeline`, `olve-run`, `olve-step`, `olve-attempt`, `olve-role=step`; containers `olve-init`, `step`).
 
 ## 6. Verify
 
 ```bash
-curl -s https://pipelines-v2-beta.ovea.pro/api/health
+curl -s https://pipelines-beta.ovea.pro/api/health
 ssh oliver@bulwark-m2 "kubectl -n apps-beta get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'"
 # and prod:
-curl -s https://pipelines-v2-private.ovea.pro/api/health
+curl -s https://pipelines-private.ovea.pro/api/health
 ssh oliver@bulwark-m2 "kubectl -n apps get deploy olve-pipelines-v2 -o jsonpath='{.spec.template.spec.containers[0].image}'"
 # expect olve-pipelines-v2:<the run's version stamp, e.g. 2026.10.22.6>
 ```

@@ -25,8 +25,12 @@ public interface IHarnessKubernetesClient
     /// <summary>The Job's failure condition and its pod's container states; null when the Job does not exist.</summary>
     Task<HarnessPodState?> GetHarnessPodStateAsync(string ns, string jobName, CancellationToken ct = default);
 
-    /// <summary>Streams pod changes matching <paramref name="labelSelector"/> until the server ends the watch.</summary>
-    IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector, CancellationToken ct = default);
+    /// <summary>
+    /// Streams the names of Jobs whose pods (<paramref name="pods"/>) or which themselves changed, among those matching
+    /// <paramref name="labelSelector"/>, until the server ends the watch. Throws <see cref="HttpRequestException"/> (with its
+    /// status code) when the watch is refused.
+    /// </summary>
+    IAsyncEnumerable<string> WatchJobChangesAsync(string ns, string labelSelector, bool pods, CancellationToken ct = default);
 }
 
 public partial class KubernetesClient : IHarnessKubernetesClient
@@ -91,23 +95,28 @@ public partial class KubernetesClient : IHarnessKubernetesClient
         return HarnessPodState.From(job, pods?.Items.FirstOrDefault());
     }
 
-    public async IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector,
+    private const string JobNameLabel = "batch.kubernetes.io/job-name";
+
+    public async IAsyncEnumerable<string> WatchJobChangesAsync(string ns, string labelSelector, bool pods,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
+        var path = pods ? $"api/v1/namespaces/{ns}/pods" : $"apis/batch/v1/namespaces/{ns}/jobs";
         // Under HttpClient's 100s timeout; the caller reconnects.
         using var response = await _httpClient.GetAsync(
-            $"api/v1/namespaces/{ns}/pods?watch=true&timeoutSeconds=60&labelSelector={Uri.EscapeDataString(labelSelector)}",
+            $"{path}?watch=true&timeoutSeconds=60&labelSelector={Uri.EscapeDataString(labelSelector)}",
             HttpCompletionOption.ResponseHeadersRead, ct);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Watching {(pods ? "pods" : "jobs")} in '{ns}' failed: {(int)response.StatusCode}", null, response.StatusCode);
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
         while (await reader.ReadLineAsync(ct) is { } line)
         {
             if (line.Length == 0)
                 continue;
-            var change = JsonSerializer.Deserialize(line, KubernetesJsonContext.Default.K8sPodWatchEvent);
-            if (change?.Object is { } pod)
-                yield return pod;
+            var metadata = JsonSerializer.Deserialize(line, KubernetesJsonContext.Default.K8sWatchEvent)?.Object?.Metadata;
+            var job = pods ? metadata?.Labels?.GetValueOrDefault(JobNameLabel) : metadata?.Name;
+            if (job is not null)
+                yield return job;
         }
     }
 }

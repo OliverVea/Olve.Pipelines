@@ -31,10 +31,18 @@ internal sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClie
     public Dictionary<string, string> Logs { get; } = [];
     public Action? OnPoll { get; set; }
     public Action? OnCreateJob { get; set; }
-    public System.Threading.Channels.Channel<K8sPodItem> PodChanges { get; } = System.Threading.Channels.Channel.CreateUnbounded<K8sPodItem>();
+    public System.Threading.Channels.Channel<string> JobChanges { get; } = System.Threading.Channels.Channel.CreateUnbounded<string>();
+    /// <summary>When set, a pod watch is refused with 403 (the service should fall back to watching Jobs).</summary>
+    public bool ForbidPodWatch { get; set; }
+    public List<bool> Watches { get; } = [];
 
-    public IAsyncEnumerable<K8sPodItem> WatchPodsAsync(string ns, string labelSelector, CancellationToken ct = default)
-        => PodChanges.Reader.ReadAllAsync(ct);
+    public IAsyncEnumerable<string> WatchJobChangesAsync(string ns, string labelSelector, bool pods, CancellationToken ct = default)
+    {
+        lock (Watches) Watches.Add(pods);
+        if (pods && ForbidPodWatch)
+            throw new HttpRequestException("forbidden", null, System.Net.HttpStatusCode.Forbidden);
+        return JobChanges.Reader.ReadAllAsync(ct);
+    }
 
     public Task<bool> CreateJobAsync(string ns, K8sJobManifest manifest, CancellationToken ct = default)
     {

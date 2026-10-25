@@ -155,14 +155,16 @@ public record K8sSecret(
     [property: JsonPropertyName("type")] string Type = "Opaque",
     [property: JsonPropertyName("data")] Dictionary<string, string>? Data = null);
 
-/// <summary>One line of a pod watch stream (<c>ADDED</c>, <c>MODIFIED</c>, <c>DELETED</c>, <c>ERROR</c>).</summary>
-public record K8sPodWatchEvent(
+/// <summary>One line of a watch stream (<c>ADDED</c>, <c>MODIFIED</c>, <c>DELETED</c>, <c>ERROR</c>); only the object's metadata is read.</summary>
+public record K8sWatchEvent(
     [property: JsonPropertyName("type")] string Type,
-    [property: JsonPropertyName("object")] K8sPodItem? Object = null);
+    [property: JsonPropertyName("object")] K8sWatchObject? Object = null);
+
+public record K8sWatchObject([property: JsonPropertyName("metadata")] K8sMetadata? Metadata = null);
 
 [JsonSerializable(typeof(K8sJobManifest))]
 [JsonSerializable(typeof(K8sJobResponse))]
 [JsonSerializable(typeof(K8sPodList))]
-[JsonSerializable(typeof(K8sPodWatchEvent))]
+[JsonSerializable(typeof(K8sWatchEvent))]
 [JsonSerializable(typeof(K8sSecret))]
 internal partial class KubernetesJsonContext : JsonSerializerContext;

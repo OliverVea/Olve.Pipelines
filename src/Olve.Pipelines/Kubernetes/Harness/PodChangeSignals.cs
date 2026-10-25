@@ -65,28 +65,31 @@ public sealed class PodChangeSignals(TimeProvider timeProvider)
     }
 }
 
-/// <summary>Watches the runner namespace's harness pods and signals <see cref="PodChangeSignals"/>; reconnects on any end or error.</summary>
+/// <summary>
+/// Watches the runner namespace's harness pods and signals <see cref="PodChangeSignals"/>; reconnects on any end or
+/// error. When watching pods is forbidden (a token granted only get/list on pods) it watches the Jobs instead: a Job's
+/// status changes when its pod finishes, though not when its containers start.
+/// </summary>
 public sealed class PodWatchService(
     IHarnessKubernetesClient kubernetes,
     KubernetesOptions options,
     PodChangeSignals signals,
     ILogger<PodWatchService> logger) : BackgroundService
 {
-    private const string JobNameLabel = "batch.kubernetes.io/job-name";
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var pods = true;
         var failures = 0;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await foreach (var pod in kubernetes.WatchPodsAsync(options.Namespace, "app=olve-pipelines", stoppingToken))
+                await foreach (var job in kubernetes.WatchJobChangesAsync(options.Namespace, "app=olve-pipelines", pods, stoppingToken))
                 {
                     failures = 0;
-                    if (pod.Metadata.Labels?.GetValueOrDefault(JobNameLabel) is { } job)
-                        signals.Notify(job);
+                    signals.Notify(job);
                 }
                 // A watch that ends at once must not spin.
                 await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
@@ -95,11 +98,16 @@ public sealed class PodWatchService(
             {
                 return;
             }
+            catch (HttpRequestException ex) when (pods && ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                pods = false;
+                logger.LogInformation("Watching pods in namespace {Namespace} is forbidden; watching Jobs instead", options.Namespace);
+            }
             catch (Exception ex)
             {
                 // Polling still collects every Job; only the first failure in a row is worth a warning.
                 if (failures++ == 0)
-                    logger.LogWarning(ex, "Pod watch in namespace {Namespace} failed; steps are collected by polling until it reconnects", options.Namespace);
+                    logger.LogWarning(ex, "Watch in namespace {Namespace} failed; steps are collected by polling until it reconnects", options.Namespace);
                 await Task.Delay(RetryDelay, stoppingToken).ContinueWith(_ => { }, TaskScheduler.Default);
             }
         }

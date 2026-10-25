@@ -150,6 +150,20 @@ Sets or clears the credentials secret key.
 
 **Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
 
+#### Move the binding to another branch
+
+`PUT /api/pipelines/{pipelineId}/binding/branch`
+
+Binds the pipeline to another branch of the same repo, keeping its runs, versions and secrets. The next poll reconciles if that branch's newest config commit differs, and fires the push trigger if its head differs from the last push.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string | yes |
+
+**Body** (`application/json`): [SetBindingBranchRequest](#setbindingbranchrequest)
+
+**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+
 #### GitHub push webhook
 
 `POST /api/webhooks/binding/{bindingId}/github`
@@ -1361,6 +1375,12 @@ The OIDC authority and client id the web UI and `pl login` use.
 | `kind` | `"Push"` \| `"Poll"` \| `"Manual"` \| `"Webhook"` | required |
 | `dedupKey` | string? |  |
 | `origin` | [RunOrigin](#runorigin)? |  |
+
+### SetBindingBranchRequest
+
+| Field | Type | |
+|---|---|---|
+| `branch` | string | required |
 
 ### SetConfigRequest
 

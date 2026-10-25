@@ -125,6 +125,37 @@ public sealed class BindingSetCredentialsCommand : ICliCommand
     }
 }
 
+/// <summary><c>pl binding set-branch &lt;pipeline&gt; &lt;branch&gt;</c>.</summary>
+public sealed class BindingSetBranchCommand : ICliCommand
+{
+    public string Noun => "binding";
+    public string Verb => "set-branch";
+    public int RequiredOperands => 2;
+    public string HelpLine => "Move the binding to another branch of the same repo";
+    public string? HelpDetail =>
+        """
+        pl binding set-branch <pipeline> <branch>
+
+          Keeps the pipeline's runs, versions and secrets. The next poll reconciles if the branch's
+          newest config commit differs, and fires the push trigger if its head differs from the
+          last push.
+        """;
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+
+        if ((await ctx.Api.SetPipelineBindingBranch(pipeline.Id.ToString(), cli.Operand(1)!, ct))
+            .TryPickProblems(out var problems, out var binding))
+            return problems;
+
+        ctx.Output.Emit(binding, CliJsonContext.Default.PipelineConfigBinding,
+            () => BindingPrinter.PrintBinding(ctx.Output, binding));
+        return Result.Success();
+    }
+}
+
 /// <summary><c>pl binding reconcile &lt;pipeline&gt;</c>.</summary>
 public sealed class BindingReconcileCommand : ICliCommand
 {

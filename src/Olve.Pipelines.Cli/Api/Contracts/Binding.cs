@@ -66,6 +66,12 @@ public sealed class CreatePipelineWithRepoRequest
     public string? CredentialsSecret { get; init; }
 }
 
+/// <summary>Body for <c>PUT /api/pipelines/{id}/binding/branch</c>.</summary>
+public sealed class SetBindingBranchRequest
+{
+    public required string Branch { get; init; }
+}
+
 /// <summary>Body for <c>PATCH /api/pipelines/{id}/binding</c> — set/clear the credentials secret key.</summary>
 public sealed class UpdateBindingRequest
 {

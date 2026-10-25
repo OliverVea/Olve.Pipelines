@@ -93,6 +93,24 @@ public class PipelineConfigBindingService(
         return updated;
     }
 
+    /// <summary>
+    /// Moves the binding to another branch of its repo. The cursors stay: the next poll reconciles if the
+    /// newest config commit differs and fires the push trigger if the head differs from the last push.
+    /// </summary>
+    public Result<PipelineConfigBinding> SetBranch(Id<Pipeline> pipelineId, string? branch)
+    {
+        if (string.IsNullOrWhiteSpace(branch))
+            return ValidationProblem.ForField("branch", "Binding requires a branch.");
+        if (GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
+            return problems;
+        if (binding.Branch == branch)
+            return binding;
+
+        var updated = binding with { Branch = branch };
+        store.Set(updated);
+        return updated;
+    }
+
     /// <summary>Records the outcome of the most recent reconcile attempt.</summary>
     public Result<PipelineConfigBinding> SetReconcileStatus(Id<PipelineConfigBinding> id, ReconcileStatus status)
     {

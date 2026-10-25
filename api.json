@@ -586,6 +586,98 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/binding/branch": {
+      "put": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Move the binding to another branch",
+        "description": "Binds the pipeline to another branch of the same repo, keeping its runs, versions and secrets. The next poll reconciles if that branch's newest config commit differs, and fires the push trigger if its head differs from the last push.",
+        "operationId": "SetPipelineBindingBranch",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBindingBranchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/webhooks/binding/{bindingId}/github": {
       "post": {
         "tags": [
@@ -6875,6 +6967,17 @@
           "Manual",
           "Webhook"
         ]
+      },
+      "SetBindingBranchRequest": {
+        "required": [
+          "branch"
+        ],
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string"
+          }
+        }
       },
       "SetConfigRequest": {
         "required": [

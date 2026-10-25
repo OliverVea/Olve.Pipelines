@@ -68,6 +68,16 @@ public static class PipelineBindingEndpoints
             .WithDescription("Sets or clears the credentials secret key.")
 ;
 
+        app.MapPut("/api/pipelines/{pipelineId}/binding/branch", Result<PipelineConfigBinding> (
+                PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetBindingBranchRequest request)
+                => Redacted(bindings.SetBranch(pipelineId, request.Branch)))
+            .WithApiResultMapping<PipelineConfigBinding>()
+            .WithName("SetPipelineBindingBranch")
+            .WithTags("Bindings")
+            .WithSummary("Move the binding to another branch")
+            .WithDescription("Binds the pipeline to another branch of the same repo, keeping its runs, versions and secrets. The next poll reconciles if that branch's newest config commit differs, and fires the push trigger if its head differs from the last push.")
+;
+
         // Authenticated by HMAC over the raw body (not Bearer), so it binds HttpRequest and returns raw
         // status codes. On the public ingress, with /api/hooks.
         app.MapPost("/api/webhooks/binding/{bindingId}/github", async Task<IResult> (
@@ -169,6 +179,8 @@ public static class PipelineBindingEndpoints
 public record CreatePipelineWithRepoRequest(string Repo, string? Branch, string? Path, string? CredentialsSecret);
 
 public record UpdateBindingRequest(string? CredentialsSecret);
+
+public record SetBindingBranchRequest(string Branch);
 
 /// <param name="ReconcileSha">The config commit the last reconcile attempt was for.</param>
 /// <param name="ReconciledVersion">The version the last successful reconcile switched to.</param>

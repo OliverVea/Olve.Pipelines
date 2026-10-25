@@ -1159,6 +1159,15 @@ export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | un
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetBindingBranchRequest}
+ */
+// @ts-ignore
+export function createSetBindingBranchRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetBindingBranchRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SetConfigRequest}
  */
 // @ts-ignore
@@ -2439,6 +2448,17 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
         "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
         "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
         "origin": n => { runTrigger.origin = n.getObjectValue<RunOrigin>(createRunOriginFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SetBindingBranchRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetBindingBranchRequest(setBindingBranchRequest: Partial<SetBindingBranchRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { setBindingBranchRequest.branch = n.getStringValue(); },
     }
 }
 /**
@@ -4493,6 +4513,18 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetBindingBranchRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetBindingBranchRequest(writer: SerializationWriter, setBindingBranchRequest: Partial<SetBindingBranchRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setBindingBranchRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", setBindingBranchRequest.branch);
+    writer.writeAdditionalData(setBindingBranchRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SetConfigRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4587,6 +4619,12 @@ export function serializeUpdateBindingRequest(writer: SerializationWriter, updat
     if (!updateBindingRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("credentialsSecret", updateBindingRequest.credentialsSecret);
     writer.writeAdditionalData(updateBindingRequest.additionalData);
+}
+export interface SetBindingBranchRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
 }
 export interface SetConfigRequest extends AdditionalDataHolder, Parsable {
     /**

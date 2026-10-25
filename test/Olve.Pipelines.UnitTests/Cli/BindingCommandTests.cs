@@ -146,6 +146,19 @@ public class BindingCommandTests
     }
 
     [Test]
+    public async Task BindingSetBranch_SendsBranch()
+    {
+        var api = new FakePipelinesApi { SetPipelineBindingBranchResult = Result.Success(SampleBinding()) };
+        var (ctx, _, cli) = Build(new BindingSetBranchCommand(), api, json: false,
+            "binding", "set-branch", "11111111-2222-3333-4444-555555555555", "main");
+
+        var result = await new BindingSetBranchCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.Invoked("SetPipelineBindingBranch(11111111-2222-3333-4444-555555555555,main)")).IsTrue();
+    }
+
+    [Test]
     public async Task BindingReconcile_CallsApi_AndConfirms()
     {
         var api = new FakePipelinesApi { ReconcilePipelineBindingResult = Result.Success() };

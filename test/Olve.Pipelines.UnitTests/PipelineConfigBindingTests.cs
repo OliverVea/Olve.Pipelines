@@ -74,6 +74,32 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
+    public async Task SetBranch_MovesTheBindingAndKeepsItsCursors()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        var binding = Pick(svc.Bindings.Create(pipeline.Id, "OliverVea/Olve.Pipelines", "v2", ".pipelines", null));
+        Pick(svc.Bindings.SetLastPushSha(binding.Id, "abc"));
+
+        var moved = Pick(svc.Bindings.SetBranch(pipeline.Id, "main"));
+
+        await Assert.That(moved.Id).IsEqualTo(binding.Id);
+        await Assert.That(moved.Branch).IsEqualTo("main");
+        await Assert.That(moved.LastPushSha).IsEqualTo("abc");
+        await Assert.That(Pick(svc.Bindings.GetByPipelineId(pipeline.Id)).Branch).IsEqualTo("main");
+    }
+
+    [Test]
+    public async Task SetBranch_BlankOrUnbound_Fails()
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, "main")).Failed();
+        await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
+        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, " ")).Failed();
+    }
+
+    [Test]
     public async Task SetCredentialsSecret_BlankClearsIt()
     {
         var svc = CreateFixture();

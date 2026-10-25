@@ -89,6 +89,7 @@ pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]
 pl binding get|status|reconcile <pipeline>
 pl binding set-credentials <pipeline> [key]
+pl binding set-branch <pipeline> <branch>             # same repo, keeps runs/versions/secrets
 
 # config (one YAML document per pipeline, saved as immutable snapshots)
 pl config get <pipeline> [--snapshot N]                # the YAML as saved

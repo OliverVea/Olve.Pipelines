@@ -38,6 +38,7 @@ public interface IPipelinesApi
         string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> UpdatePipelineBindingCredentials(
         string pipelineId, string? credentialsSecret, CancellationToken ct);
+    Task<Result<PipelineConfigBinding>> SetPipelineBindingBranch(string pipelineId, string branch, CancellationToken ct);
     Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct);
 
     // Config (one YAML document per pipeline, saved as snapshots)

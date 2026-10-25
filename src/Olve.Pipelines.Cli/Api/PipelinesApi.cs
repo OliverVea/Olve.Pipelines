@@ -97,6 +97,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
                 CliJsonContext.Default.UpdateBindingRequest),
             CliJsonContext.Default.PipelineConfigBinding, ct);
 
+    public Task<Result<PipelineConfigBinding>> SetPipelineBindingBranch(
+        string pipelineId, string branch, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Put, $"/api/pipelines/{Enc(pipelineId)}/binding/branch",
+            ApiTransport.JsonBody(new SetBindingBranchRequest { Branch = branch }, CliJsonContext.Default.SetBindingBranchRequest),
+            CliJsonContext.Default.PipelineConfigBinding, ct);
+
     public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/binding/reconcile", body: null, ct);
 

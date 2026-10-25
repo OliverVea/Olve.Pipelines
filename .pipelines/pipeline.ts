@@ -2,12 +2,13 @@
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
 import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
-import { AUTH, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
+import { AUTH, BUILD, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
 export * from "./config";
 
 const REGISTRY_SECRETS = [GHCR_TOKEN, REGISTRY_PASSWORD];
+const DOTNET_AOT_SDK = "mcr.microsoft.com/dotnet/sdk:10.0-noble-aot";
 const CRANE_IMAGE = "gcr.io/go-containerregistry/crane/debug:v0.21.9@sha256:ba318977330d2a41fdd4af7536d35567a4ceb204252b7dfcd19b01dad2567793";
 
 export const source = steps.gitHubSource({
@@ -17,17 +18,35 @@ export const source = steps.gitHubSource({
   apiUrl: SOURCE.apiUrl,
 });
 
-export const buildServer = steps.imageBuild({
-  name: "build-server",
-  description: "Builds the server image (API, frontend, docs) with kaniko and pushes it under this run's version tag.",
-  repository: PUBLISH.server.repository,
-  push: true,
-  cacheRepo: PUBLISH.server.cacheRepo,
-  registryMap: PUBLISH.server.registryMap,
-  insecureRegistry: PUBLISH.server.insecure,
-  registryAuth: PUBLISH.server.auth,
-  secrets: REGISTRY_SECRETS,
+export const compileServer = step({
+  name: "compile-server",
+  description: "Publishes the server (API and docs) as Native AOT or JIT, per build.runtime, as an image layer.",
+  image: DOTNET_AOT_SDK,
+  input: { source: Source },
+  output: M.ServerBuild,
+  config: [BUILD],
   timeoutSeconds: 1800,
+});
+
+export const buildFrontend = step({
+  name: "build-frontend",
+  description: "Lints the frontend, checks its formatting and builds it as an image layer.",
+  image: "node:22-slim",
+  input: { source: Source },
+  output: M.FrontendBuild,
+  timeoutSeconds: 900,
+});
+
+export const buildServer = step({
+  name: "build-server",
+  description: "Puts the server and frontend layers on the .NET base image with crane and pushes it under this run's version tag.",
+  image: CRANE_IMAGE,
+  input: { server: M.ServerBuild, frontend: M.FrontendBuild },
+  output: PushedImage,
+  config: [PUBLISH],
+  secrets: REGISTRY_SECRETS,
+  retries: 2,
+  timeoutSeconds: 600,
 });
 
 export const buildHarness = steps.imageBuild({
@@ -52,14 +71,6 @@ export const test = step({
   timeoutSeconds: 1800,
 });
 
-export const frontendLint = step({
-  name: "frontend-lint",
-  description: "Lints the frontend and checks its formatting (the server image builds and type-checks it).",
-  image: "node:22-slim",
-  input: { source: Source },
-  timeoutSeconds: 900,
-});
-
 export const buildSdk = step({
   name: "build-sdk",
   description: "Checks sdk/ (tsc, compile-fail cases, bun test) and packs it.",
@@ -71,10 +82,19 @@ export const buildSdk = step({
 
 export const buildCli = step({
   name: "build-cli",
-  description: "Builds the pl CLI for Linux and Windows.",
+  description: "Builds the pl CLI for Linux (Native AOT).",
+  image: DOTNET_AOT_SDK,
+  input: { source: Source },
+  output: M.CliBuild,
+  timeoutSeconds: 1800,
+});
+
+export const buildCliWindows = step({
+  name: "build-cli-windows",
+  description: "Builds the pl CLI for Windows (self-contained single file).",
   image: "mcr.microsoft.com/dotnet/sdk:10.0-noble",
   input: { source: Source },
-  output: M.CliRelease,
+  output: M.CliBuild,
   timeoutSeconds: 1800,
 });
 
@@ -103,7 +123,7 @@ export const publishCli = step({
   name: "publish-cli",
   description: "Releases this run's pl build: the instance serves it at /download once the run is promoted.",
   image: "alpine:3.22",
-  input: { build: M.CliRelease },
+  input: { linux: M.CliBuild, windows: M.CliBuild },
   output: M.CliRelease,
   config: [PUBLISH],
   secrets: REGISTRY_SECRETS,
@@ -149,26 +169,35 @@ export default pipeline({
 })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after, deployTo: "prod" }))
   .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
-  .stage(buildServer, buildHarness, test, frontendLint, buildSdk, buildCli)
-  .stage([publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })], publishSdk, publishCli)
+  .stage(compileServer, buildFrontend, buildHarness, test, buildSdk, buildCli, buildCliWindows)
+  .stage(buildServer, publishSdk, [publishCli, from => ({ linux: from["build-cli"], windows: from["build-cli-windows"] })])
   .select(TARGET.beta, {
     ssh: (p, beta) => p
-      .stage([
-        steps.helmDeployOverSsh({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, sshKey: SSH_PRIVATE_KEY, ...deployOptions(beta) }),
-        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
-      ])
+      .stage(
+        [
+          steps.helmDeployOverSsh({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, sshKey: SSH_PRIVATE_KEY, ...deployOptions(beta) }),
+          from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+        ],
+        [publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })],
+      )
       .stage(betaTest),
     inCluster: (p, beta) => p
-      .stage([
-        steps.helmDeployInCluster({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, ...deployOptions(beta) }),
-        from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
-      ])
+      .stage(
+        [
+          steps.helmDeployInCluster({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, ...deployOptions(beta) }),
+          from => ({ source: from.source, server: from["build-server"], harness: from["build-harness"] }),
+        ],
+        [publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })],
+      )
       .stage(betaTest),
-    compose: (p, beta) => p.stage([
-      steps.composeDeploy({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, token: DEPLOYER_TOKEN, timeoutSeconds: 900 }),
-      from => ({ image: from["build-server"] }),
-    ]),
-    none: p => p,
+    compose: (p, beta) => p.stage(
+      [
+        steps.composeDeploy({ name: "deploy-beta", description: describeDeploy("beta"), target: beta, token: DEPLOYER_TOKEN, timeoutSeconds: 900 }),
+        from => ({ image: from["build-server"] }),
+      ],
+      [publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })],
+    ),
+    none: p => p.stage([publishImages, from => ({ server: from["build-server"], harness: from["build-harness"] })]),
   })
   .when({ deployTo: "prod" }, p => p
     .select(TARGET.prod, {

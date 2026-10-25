@@ -27,6 +27,21 @@ interface Repository extends Target {
   repository: string;
 }
 
+/** A docker config directory (for crane's `DOCKER_CONFIG`) with the logins the targets name. */
+export function dockerConfig(ctx: Pick<Ctx, "secrets" | "tmpDir">, targets: readonly (readonly [string, Target])[]): string {
+  const dir = join(ctx.tmpDir, `docker-${createHash("sha256").update(targets.map(([r]) => r).join(" ")).digest("hex").slice(0, 8)}`);
+  mkdirSync(dir, { recursive: true });
+  const auths: Record<string, { auth: string }> = {};
+  for (const [repository, target] of targets) {
+    if (!target.auth) continue;
+    const password = (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret];
+    if (!password) throw new Error(`secret ${target.auth.password.secret} (registry login for ${repository}) is not set`);
+    auths[repository.split("/")[0]!] = { auth: Buffer.from(`${target.auth.username}:${password}`).toString("base64") };
+  }
+  writeFileSync(join(dir, "config.json"), JSON.stringify({ auths }), { mode: 0o600 });
+  return dir;
+}
+
 /**
  * Copies a verified image (same digest) from where it was built to a release repository and points
  * `tags` at it there. `tag` (the image's build tag) is copied first; a content tag (`src-…`) already
@@ -39,17 +54,7 @@ export async function releaseImage(
   to: Repository,
   tags: string[],
 ): Promise<void> {
-  const config = join(ctx.tmpDir, `docker-${createHash("sha256").update(to.repository).digest("hex").slice(0, 8)}`);
-  mkdirSync(config, { recursive: true });
-  const auths: Record<string, { auth: string }> = {};
-  for (const [repository, target] of [[image.repository, from], [to.repository, to]] as const) {
-    if (!target.auth) continue;
-    const password = (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret];
-    if (!password) throw new Error(`secret ${target.auth.password.secret} (registry login for ${repository}) is not set`);
-    auths[repository.split("/")[0]!] = { auth: Buffer.from(`${target.auth.username}:${password}`).toString("base64") };
-  }
-  writeFileSync(join(config, "config.json"), JSON.stringify({ auths }), { mode: 0o600 });
-  const opts = { env: { DOCKER_CONFIG: config } };
+  const opts = { env: { DOCKER_CONFIG: dockerConfig(ctx, [[image.repository, from], [to.repository, to]]) } };
   const insecure = from.insecure || to.insecure ? ["--insecure"] : [];
 
   const built = `${to.repository}:${image.tag}`;

@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AUTH, PUBLISH, SOURCE, TARGET, TELEMETRY } from "../config";
+import { AUTH, BUILD, PUBLISH, SOURCE, TARGET, TELEMETRY } from "../config";
 
 const repo = join(import.meta.dir, "../..");
 const load = (path: string) => {
@@ -11,6 +11,7 @@ const load = (path: string) => {
     target: TARGET.schema.parse(doc.target),
     auth: AUTH.schema.parse(doc.auth),
     telemetry: TELEMETRY.schema.parse(doc.telemetry),
+    build: BUILD.schema.parse(doc.build),
     publish: PUBLISH.schema.parse(doc.publish),
     source: SOURCE.schema.parse(doc.source),
   };
@@ -51,6 +52,7 @@ describe("config documents", () => {
     expect(c.target.prod).toMatchObject({ kind: "compose", deployerUrl: "http://deployer:8080", service: "pipelines", token: { secret: "DEPLOYER_TOKEN" } });
     expect(c.auth).toEqual({ mode: "none" });
     expect(c.publish.server.repository.startsWith("registry:5000/")).toBe(true);
+    expect(c.build.runtime).toBe("aot");
     expect(c.publish.npm.enabled).toBe(false);
   });
 

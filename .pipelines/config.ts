@@ -80,11 +80,16 @@ const Image = {
     .describe("Public repositories the verified image is copied to: its build tag and the prerelease tag when published, the release tag when promoted."),
 };
 
+export const BUILD = config("build", "How the server is compiled.", z.object({
+  runtime: z.enum(["aot", "jit"]).default("aot")
+    .describe("aot: Native AOT on runtime-deps (fastest start, least memory, minutes to compile). jit: framework-dependent on the ASP.NET image (compiles in seconds, starts in about a second)."),
+}).prefault({}));
+
 export const PUBLISH = config("publish", "Where releases go: images, the npm package and the pl CLI.", z.object({
   server: z.object({
     ...Image,
-    cacheRepo: z.string().optional().describe("kaniko layer cache repository."),
-    registryMap: z.record(z.string(), z.string()).optional().describe("kaniko --registry-map (pull-through caches); unset = the SDK default."),
+    registryMap: z.record(z.string(), z.string()).optional()
+      .describe("Pull-through caches for the base image (registry → mirror prefix); unset = mcr.microsoft.com through mcr-cache.ovea.pro."),
   }),
   harness: z.object({
     ...Image,

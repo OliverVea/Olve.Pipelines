@@ -61,11 +61,13 @@ telemetry:
     clientSecret:
       kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
 
+build:
+  runtime: jit                      # builds in seconds; AOT's faster start doesn't matter behind a rollout
+
 publish:
   # Builds go to registry.ovea.pro (staging, unverified); verified digests are copied to ghcr.
   server:
     repository: registry.ovea.pro/olve-pipelines-v2
-    cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
     release:
       - repository: ghcr.io/olivervea/olve-pipelines
         auth: { username: OliverVea, password: { secret: GHCR_TOKEN } }

@@ -27,7 +27,6 @@ telemetry:
 publish:
   server:
     repository: registry:5000/olve-pipelines
-    cacheRepo: registry:5000/olve-pipelines/cache
     insecure: true
     registryMap: {}
     auth:

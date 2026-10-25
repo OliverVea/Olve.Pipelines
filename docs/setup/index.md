@@ -115,10 +115,12 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 ## Real pipelines to copy from
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines) — Olve.Pipelines
-  deploys itself, driven by config (`config.ts`): `gitHubSource` → `imageBuild` (server, harness) ∥
-  custom `test`, `frontend-lint`, `build-sdk`, `build-cli` → prereleases (`publish-images`,
-  `publish-sdk`, `publish-cli`) → `select` on `target.beta.kind`: `helmDeployOverSsh` or
-  `helmDeployInCluster` then custom `beta-test`, `composeDeploy`, or nothing (`none`) → when
+  deploys itself, driven by config (`config.ts`): `gitHubSource` → custom `compile-server` (Native
+  AOT or JIT, per `build.runtime`), `build-frontend`, `test`, `build-sdk`, `build-cli`,
+  `build-cli-windows` ∥ `imageBuild` (harness) → custom `build-server` (crane puts the server and
+  frontend layers on the .NET base image; no Dockerfile build), `publish-sdk`, `publish-cli` →
+  `select` on `target.beta.kind`: `helmDeployOverSsh` or `helmDeployInCluster` then custom
+  `beta-test`, `composeDeploy`, or nothing (`none`), each next to `publish-images` → when
   `deployTo: "prod"`: the same select for prod (without `none`) → custom `promote`.
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/v2/.pipelines-test) — the
   v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a

@@ -62,7 +62,6 @@ telemetry:
 publish:
   server:
     repository: registry.ovea.pro/olve-pipelines-v2
-    cacheRepo: registry.ovea.pro/olve-pipelines-v2/cache
   harness:
     push: false
     repository: registry.ovea.pro/olve-pipelines-v2/harness-base

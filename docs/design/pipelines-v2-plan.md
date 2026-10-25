@@ -503,6 +503,28 @@ reads the former `Gates`). Blocking is for working on a pipeline or its target a
 sparingly, not an approval mechanism. **Gate** is reserved for gating inside a pipeline: a step or
 stage that decides whether a run goes on. The per-binding config-before-run lock is `IConfigLock`.
 
+### Self-deploy build without kaniko (2026-10-25)
+
+`build-server` set the critical path of every server-changing run (~4m23s, #46–#64): ~40s of
+kaniko unpacking and cached-layer extraction even when fully cached, then the Native AOT compile
+(IlcCompile ~75s locally, slower in the cluster beside five other stage-2 steps), plus an 89 MB
+`.dbg` copied into the image. OpenAPI generation was 1.4s, so spec-first wouldn't change build time.
+
+- `compile-server` publishes the server per config `build.runtime` (`aot` default, `jit` on our
+  prod: `-p:PublishAot=false`, framework-dependent, `JsonSerializerIsReflectionEnabledByDefault=false`
+  so JIT runs the same source-generated JSON paths), `build-frontend` (was `frontend-lint`) lints and
+  builds the frontend; each outputs a layer tarball. `build-server` is a crane step: `crane mutate
+  <base> --append …` onto `runtime-deps` (AOT) or `aspnet` (JIT) `10.0-noble-chiseled`, through
+  `mcr-cache.ovea.pro`, then pushes; ~5s. The image keeps the Dockerfile's layout (`/app`,
+  `./Olve.Pipelines`, port 5000). The Dockerfile stays for Compose and local builds.
+- JIT vs AOT measured locally: ready in ~1s vs ~0.1s, ~114 MB vs ~70 MB RSS; deploys take 15–18s
+  either way. The csproj keeps `PublishAot=true`, so `test`'s build still runs the AOT/trim analyzers
+  (warnings only the AOT compiler raises aren't checked in JIT mode).
+- AOT publishes pass `-p:DebugType=none`: no `.dbg`, a faster native link.
+- `build-cli` (Linux AOT, `sdk:10.0-noble-aot`, no apt install) and `build-cli-windows` run in
+  parallel; `publish-cli` joins them. `publish-images` moved next to `deploy-beta`, so the extra
+  crane stage costs no extra stage. `publish.server.cacheRepo` is gone.
+
 ### v2.2 — candidates
 
 - **Spec-first API (TypeSpec)**, as in Olve.AgentRuntimeManager: the HTTP API is declared in `.tsp`

@@ -147,6 +147,7 @@ export class StageGraph extends LitElement {
         position: relative;
         display: flex;
         flex-direction: column;
+        align-self: center;
         padding: 0.75rem 0;
         border-bottom: 2px solid var(--color-border);
       }

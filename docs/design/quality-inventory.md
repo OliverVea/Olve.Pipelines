@@ -59,7 +59,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 
 | # | Gap |
 |---|---|
-| T1 | No test covers the real endpoint auth table. `ReadPolicyTests` only checks a synthetic route; nine `AllowAnonymous` endpoints are unchecked. Walk `EndpointDataSource` and assert exactly which endpoints are anonymous and which need read access. |
+| T1 — **fixed** (ebec896) | No test covers the real endpoint auth table. `ReadPolicyTests` only checks a synthetic route; nine `AllowAnonymous` endpoints are unchecked. Walk `EndpointDataSource` and assert exactly which endpoints are anonymous and which need read access. |
 | T2 | No tests for `OpenBaoCredentialsProvider`, `OAuth2TokenProvider`, `InClusterCredentialsProvider`, `KubernetesPipelineSecretReader`, `FailureContextBuilder` or `ChangeEventRegistration` (the mapping `pl wait` depends on). `HarnessResultCollector`'s size limit and streaming into storage are untested. `beta-test` never runs a step, so real deploys are the only coverage. |
 | T3 | The CLI has no tests for login, the OIDC and device flows, the `pl wait` loop (only its parse helpers) or the dispatcher's exit codes. `RefreshingAuthHandler` has one test. |
 | T4 | `olve-dev`'s entry point `devMain` has no test; tests go through `runHarness`. That is how B1 slipped through. |

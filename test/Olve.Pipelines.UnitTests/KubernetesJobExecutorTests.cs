@@ -232,6 +232,21 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
     }
 
+    // Catches: a Job (and its pod) created for an attempt latest-wins already replaced, overlapping the newer one.
+    [Test]
+    public async Task ObsoletedBeforeTheJobIsCreated_CreatesNoJob()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.Storage.OnPut = _ => h.Attempts.Update(attempt.Id, a => a with { Status = new Obsolete(attempt.Id) }).DiscardResult();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Obsolete>();
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
+    }
+
     [Test]
     public async Task Reattach_ExistingJob_DoesNotSubmitAgain()
     {

@@ -79,9 +79,15 @@ public class KubernetesJobExecutor(
         }, ct);
     }
 
-    /// <summary>Uploads the input and creates the URL Secret + Job. False when the attempt was failed instead.</summary>
+    /// <summary>
+    /// Uploads the input and creates the URL Secret + Job. False when the attempt was failed instead, or was
+    /// cancelled or made obsolete meanwhile (then no Job is created).
+    /// </summary>
     private async Task<bool> SubmitAsync(Attempt attempt, CancellationToken ct)
     {
+        if (IsAbandoned(attempt.Id))
+            return false;
+
         if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
         {
             Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.FormattedMessage)));
@@ -100,6 +106,14 @@ public class KubernetesJobExecutor(
         if (specResult.TryPickProblems(out var specProblems, out var spec))
         {
             Fail(attempt, "cannot build the step Job: " + string.Join("; ", specProblems.Select(p => p.FormattedMessage)));
+            return false;
+        }
+
+        // The upload and the Secret took time: a newer attempt of the step may have made this one obsolete.
+        if (IsAbandoned(attempt.Id))
+        {
+            logger.LogInformation("Not creating K8s Job '{JobName}': attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete while it was being submitted",
+                spec.Job.Metadata.Name, attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId);
             return false;
         }
 

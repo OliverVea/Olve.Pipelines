@@ -110,10 +110,12 @@ internal sealed class FakeStorage : IHarnessStorage
     public List<string> Deleted { get; } = [];
     public HarnessCollection Collection { get; set; } = new(
         new HarnessResultContents(new HarnessEnvelope.Succeeded("""{"lines":3}"""), "{}", []), []);
+    public Action<string>? OnPut { get; set; }
 
     public Task PutTextAsync(string key, string content, string contentType, CancellationToken ct = default)
     {
         Objects[key] = content;
+        OnPut?.Invoke(key);
         return Task.CompletedTask;
     }
 

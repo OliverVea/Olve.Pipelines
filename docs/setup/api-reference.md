@@ -124,11 +124,12 @@ The only way to create a pipeline. The binding watches `path` (default `.pipelin
 
 `POST /api/pipelines/{pipelineId}/binding/reconcile`
 
-Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.
+Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
 | `pipelineId` | path | string | yes |
+| `wait` | query | boolean |  |
 
 **Returns:** `200`
 

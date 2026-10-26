@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileRequestBuilder> {
     /**
-     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.
+     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -20,18 +20,24 @@ export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileReq
      * @throws {ApiProblem} error when the service returns a 500 status code
      * @throws {ApiProblem} error when the service returns a 503 status code
      */
-     post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
+     post(requestConfiguration?: RequestConfiguration<ReconcileRequestBuilderPostQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
-     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.
+     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
-     toPostRequestInformation(requestConfiguration?: RequestConfiguration<object> | undefined) : RequestInformation;
+     toPostRequestInformation(requestConfiguration?: RequestConfiguration<ReconcileRequestBuilderPostQueryParameters> | undefined) : RequestInformation;
+}
+/**
+ * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
+ */
+export interface ReconcileRequestBuilderPostQueryParameters {
+    wait?: boolean;
 }
 /**
  * Uri template for the request builder.
  */
-export const ReconcileRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding/reconcile";
+export const ReconcileRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding/reconcile{?wait*}";
 /**
  * Metadata for all the requests in the request builder.
  */

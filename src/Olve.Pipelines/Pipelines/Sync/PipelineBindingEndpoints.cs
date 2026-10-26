@@ -47,14 +47,24 @@ public static class PipelineBindingEndpoints
 
         // Returns at once; the reconcile runs in the background (progress in GET .../binding/status).
         // Also retries a commit whose reconcile failed, which the poll loop never does.
-        app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", Result (
-                DeployPollService deployPoll, Id<Pipeline> pipelineId)
-                => deployPoll.RequestReconcile(pipelineId, force: true))
+        app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", async Task<Result> (
+                DeployPollService deployPoll, PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, bool? wait, CancellationToken ct) =>
+            {
+                if (wait != true)
+                    return deployPoll.RequestReconcile(pipelineId, force: true);
+                if ((await deployPoll.ReconcileNowAsync(pipelineId, ct)).TryPickProblems(out var problems))
+                    return problems;
+                if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var bindingProblems, out var binding))
+                    return bindingProblems;
+                return binding.Status.Result == ReconcileResult.Error
+                    ? new ConflictProblem("Reconcile of {0} failed: {1}", binding.Status.Sha ?? "the bound config", string.Join("; ", binding.Status.Problems))
+                    : Result.Success();
+            })
             .WithApiResultMapping()
             .WithName("ReconcilePipelineBinding")
             .WithTags("Bindings")
             .WithSummary("Reconcile now")
-            .WithDescription("Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit.")
+            .WithDescription("Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.")
 ;
 
         // The credentials key moves GitHub reads onto the authenticated rate limit; empty clears it.

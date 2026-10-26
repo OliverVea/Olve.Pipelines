@@ -8,7 +8,6 @@ function check(ok: boolean, what: string): asserts ok {
 const FIXTURE = "v2 test fixture";
 
 type RunDetail = { run: { number: number; status: string } };
-type BindingStatus = { result: number; lastSyncTime?: string; reconcileInProgress: boolean; problems: string[] };
 
 /**
  * Reconciles beta's test fixture and runs it at `sha`, as the deployer (BETA_TOKEN): its called-back and polled
@@ -23,18 +22,8 @@ async function runFixture(ctx: Ctx<"BETA_TOKEN">, base: string, sha: string) {
   const deadline = Date.now() + 12 * 60_000;
   const tick = () => new Promise((r) => setTimeout(r, 5_000));
 
-  const asked = new Date();
-  const reconcile = await ctx.http.fetch(`${api}/binding/reconcile`, { method: "POST", headers: auth });
-  check(reconcile.ok, `reconciling ${FIXTURE} answered ${reconcile.status}`);
-  for (;;) {
-    const status = await ctx.http.getJson<BindingStatus>(`${api}/binding/status`);
-    if (!status.reconcileInProgress && status.lastSyncTime && new Date(status.lastSyncTime) >= asked) {
-      check(status.result === 1, `reconciling ${FIXTURE} failed: ${status.problems.join("; ")}`);
-      break;
-    }
-    check(Date.now() < deadline, `${FIXTURE} did not reconcile in time`);
-    await tick();
-  }
+  const reconcile = await ctx.http.fetch(`${api}/binding/reconcile?wait=true`, { method: "POST", headers: auth });
+  check(reconcile.ok, `reconciling ${FIXTURE} answered ${reconcile.status}: ${await reconcile.text()}`);
 
   const trigger = await ctx.http.fetch(`${api}/runs`, { method: "POST", headers: auth, body: JSON.stringify({ sha }) });
   check(trigger.ok, `triggering ${FIXTURE} answered ${trigger.status}: ${await trigger.clone().text()}`);

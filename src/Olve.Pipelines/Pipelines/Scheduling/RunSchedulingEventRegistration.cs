@@ -67,14 +67,17 @@ public class RunSchedulingStartup(
             {
                 logger.LogInformation("Dropping run #{RunNumber} ('{RunId}'): its pipeline '{PipelineId}' no longer exists",
                     run.Number, run.Id, run.PipelineId);
-                _ = runs.Delete(run.Id);
+                if (runs.Delete(run.Id).TryPickProblems(out var problems))
+                    logger.LogProblems(LogLevel.Warning, problems, "Could not drop run #{RunNumber} ('{RunId}')", run.Number, run.Id);
             }
 
             foreach (var attempt in attempts.List().Where(a => !runStore.Contains(a.RunId)))
             {
                 logger.LogInformation("Dropping attempt {AttemptNumber} of step '{StepName}' ('{AttemptId}'): its run no longer exists",
                     attempt.Number, attempt.StepName, attempt.Id);
-                _ = attempts.Delete(attempt.Id);
+                if (attempts.Delete(attempt.Id).TryPickProblems(out var problems))
+                    logger.LogProblems(LogLevel.Warning, problems, "Could not drop attempt {AttemptNumber} of step '{StepName}' ('{AttemptId}')",
+                        attempt.Number, attempt.StepName, attempt.Id);
             }
 
             sweep.Sweep();

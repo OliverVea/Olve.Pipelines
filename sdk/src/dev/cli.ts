@@ -58,6 +58,8 @@ export async function devMain(argv: string[]): Promise<number> {
     if (mode === "describe") return await runHarness(await devConfig(dir, true), ["describe", ...(values.sentinels ? ["--sentinels"] : [])]);
     if (mode !== "run" && mode !== "map-trigger") return console.error(USAGE), EXIT.usage;
     if (!name) return console.error(USAGE), EXIT.usage;
+    const file = mode === "run" ? values["input-file"] : values["event-file"];
+    if (mode === "map-trigger" && !file) return console.error("--event-file is required"), EXIT.usage;
     const olveDir = resolve(values["olve-dir"] ?? join(dir, ".olve"));
     mkdirSync(olveDir, { recursive: true });
     process.env.OLVE_DIR = olveDir;
@@ -67,8 +69,6 @@ export async function devMain(argv: string[]): Promise<number> {
       if (i <= 0) return console.error(`--secret expects NAME=value, got '${s}'`), EXIT.usage;
       process.env[s.slice(0, i)] = s.slice(i + 1);
     }
-    const file = mode === "run" ? values["input-file"] : values["event-file"];
-    if (mode === "map-trigger" && !file) return console.error("--event-file is required"), EXIT.usage;
     if (file) copyFileSync(resolve(file), join(olveDir, "input.json"));
     if (mode === "run" && values["config-file"]) {
       const inputFile = join(olveDir, "input.json");

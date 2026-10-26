@@ -70,6 +70,7 @@ pl dev run <step> --field sha=<40 hex>       # pipeline-input fields, typed by t
 pl dev run build                             # next step: inputs come from the local pool
 pl dev run checkout --input-file in.json     # use input.json verbatim
 pl dev run deploy-beta                       # declared secrets come from your environment (or --secret NAME=value)
+pl dev run beta-test --config-from <pipeline>  # the config that pipeline's runs get
 ```
 
 The step runs through the same harness path as in the cluster: validate input → handler → validate
@@ -77,6 +78,12 @@ output → `<dir>/.olve/work/`. It prints the result envelope; the exit code is 
 skipped, 1 handler threw, 65 input invalid, 66 output invalid, 78 pipeline invalid). `--json` prints
 the raw envelope.
 
+- **Config.** A step that declares config entries reads them from `$config` in its `input.json`.
+  `--config-from <pipeline>` uses that pipeline's effective config (what `pl config check <pipeline>
+  --json` prints as `effective`: the saved document with defaults applied); `--config <file.json>`
+  takes one from a file. The config also picks each `select` case: a step several cases share (same
+  name) needs one, and the step learns its case through `OLVE_CASES` as in the cluster. Without a
+  config, a step that reads config fails its input validation.
 - **Local pool.** `<dir>/.olve/pool.json` holds the pipeline input and each step's latest local
   outcome. A step's `input.json` is built from its manifest mappings, the way the service builds it:
   `input.*` refs read the pipeline input (your `--field k=v` values over the pool's previous input,
@@ -118,7 +125,8 @@ pl dev pipeline --field sha=<sha> --field deployTo=beta [--until <step>] [--only
 - A full run starts a fresh pool; `--only` reuses the pool for every step it doesn't run.
 - `--until <step>` stops after the stage containing `<step>`.
 - Failure handlers are not run.
-- A `select` runs every case's steps: there is no config locally.
+- With `--config` / `--config-from`, each `select` runs only the case that config picks; without
+  one, every case's steps run.
 
 ```text
 $ pl dev pipeline --dir .pipelines-test --field sha=abcdef1 --field mode=skip-last

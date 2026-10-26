@@ -112,8 +112,8 @@ pl config check <pipeline> [--version V]               # problems, missing secre
 # local development (no service, except dev validate)
 pl dev describe [--dir <path>] [--json]
 pl dev validate [--dir <path>] [--json]
-pl dev run <step> [--field k=v ...] [--input-file <f>] [--secret NAME=value ...] [--docker] [--json]
-pl dev pipeline [--field k=v ...] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
+pl dev run <step> [--field k=v ...] [--input-file <f>] [--config <f.json> | --config-from <pipeline>] [--secret NAME=value ...] [--docker] [--json]
+pl dev pipeline [--field k=v ...] [--config <f.json> | --config-from <pipeline>] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
 
 # installation
 pl bootstrap / pl teardown                             # cold install / remove of an instance

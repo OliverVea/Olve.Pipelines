@@ -6,6 +6,70 @@ namespace Olve.Pipelines.Cli.Commands.Dev;
 /// <summary>Shared plumbing for the <c>pl dev</c> commands.</summary>
 public static class DevCommandSupport
 {
+    /// <summary>
+    /// The effective config from <c>--config &lt;file.json&gt;</c> or <c>--config-from &lt;pipeline&gt;</c> (what the
+    /// service gives that pipeline's runs, defaults applied); null when neither is passed.
+    /// </summary>
+    public static async Task<Result<JsonObject?>> ResolveConfigAsync(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        var file = cli.Option("config");
+        var from = cli.Option("config-from");
+        if (file is not null && from is not null)
+            return new ResultProblem("Use either --config or --config-from, not both.");
+
+        string? json = null;
+        if (file is not null)
+        {
+            if (!File.Exists(file))
+                return new ResultProblem("Config file '{0}' not found.", file);
+            json = File.ReadAllText(file);
+        }
+        else if (from is not null)
+        {
+            if ((await Runs.RunCommandSupport.ResolvePipelineAsync(ctx, from, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+                return resolveProblems;
+            if ((await ctx.Api.CheckPipelineConfig(pipeline.Id.ToString(), null, ct)).TryPickProblems(out var checkProblems, out var check))
+                return checkProblems;
+            if (check.Effective is null)
+                return new ResultProblem("{0} has no valid config ({1}); see `pl config check {0}`.", pipeline.Label, string.Join("; ", check.Problems));
+            json = check.Effective;
+        }
+
+        if (json is null)
+            return Result.Success<JsonObject?>(null);
+        try
+        {
+            return JsonNode.Parse(json) is JsonObject config
+                ? Result.Success<JsonObject?>(config)
+                : new ResultProblem("--config must be a JSON object of config entries.");
+        }
+        catch (JsonException ex)
+        {
+            return new ResultProblem("--config is not valid JSON ({0}); `pl config check <pipeline> --json` prints the effective config as JSON.", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Where <paramref name="stepName"/> runs under <paramref name="config"/>: the planned step (the variant the
+    /// selected <c>select</c> case uses) with its cases. A step several cases share needs a config to pick one.
+    /// </summary>
+    public static Result<PlannedStep> PlaceStep(DevManifest manifest, string stepName, JsonObject? config)
+    {
+        var placements = DevPlan.Flatten(manifest, config).Where(p => p.Step.Name == stepName).ToList();
+        if (placements.Count == 1)
+            return placements[0];
+        if (placements.Count > 1)
+        {
+            return new ResultProblem("'{0}' is in several select cases ({1}); pass --config or --config-from to pick one.",
+                stepName, string.Join(", ", placements.SelectMany(p => p.Cases).Distinct()));
+        }
+        if (manifest.FindStep(stepName) is { IsFailureHandler: true } handler)
+            return new PlannedStep(handler, 0, []);
+        return manifest.FindStep(stepName) is not null
+            ? new ResultProblem("'{0}' is not in the select case this config picks.", stepName)
+            : new ResultProblem("Unknown step '{0}' (steps: {1}).", stepName, string.Join(", ", manifest.AllSteps().Select(s => s.Name)));
+    }
+
     /// <summary><c>--field k=v</c>, as in <c>pl trigger</c>; <c>--input k=v</c> is still read for older scripts.</summary>
     public static IReadOnlyList<string> FieldPairs(CliArgs cli) => [.. cli.Options("field"), .. cli.Options("input")];
 
@@ -271,7 +335,7 @@ public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? tool
 /// <summary><c>pl dev run &lt;step&gt;</c> — one step from source (or in its image with --docker).</summary>
 public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
-    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "field", "from", "input", "input-file", "secret");
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("config", "config-from", "dir", "field", "from", "input", "input-file", "secret");
     public string Noun => "dev";
     public string Verb => "run";
     public bool UsesApi => false;
@@ -297,6 +361,9 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
           --dir <path>             Pipeline directory (default: .pipelines)
           --field k=v              Set a pipeline-input field (repeatable; typed by the input model)
           --input-file <file>      Use this file as input.json verbatim (skips assembly)
+          --config <file.json>     The config the step gets (a JSON object of config entries)
+          --config-from <pipeline> Use that pipeline's effective config, as its runs get it; also picks
+                                   the `select` case of a step several cases share
           --secret NAME=value      Secret value (repeatable). Default: the step's declared secrets
                                    from the environment; other pipeline secrets are not passed on
           --docker                 Compile with olve-build and run the binary in the step's image
@@ -324,6 +391,8 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
             return new ResultProblem("Input file '{0}' not found.", inputFile);
         if (DevCommandSupport.ParseSecrets(cli.Options("secret")).TryPickProblems(out var secretProblems, out var secrets))
             return secretProblems;
+        if ((await DevCommandSupport.ResolveConfigAsync(cli, ctx, ct)).TryPickProblems(out var configProblems, out var config))
+            return configProblems;
 
         var con = console ?? new DevConsole(ctx.Json);
         if ((await DevCommandSupport.OpenAsync(runner, toolchain, con, cli, ctx, ct)).TryPickProblems(out var problems, out var dev))
@@ -331,7 +400,7 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
         if (dev is null)
             return Result.Success();
 
-        var options = new DevRunOptions { SecretOverrides = secrets, Docker = cli.HasFlag("docker") };
+        var options = new DevRunOptions { SecretOverrides = secrets, Docker = cli.HasFlag("docker"), Config = config };
         if ((await RunAsync(dev, stepName, inputFile, inputPairs, options, ct)).TryPickProblems(out var runProblems, out var outcome))
             return runProblems;
 
@@ -345,11 +414,9 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
         DevContext dev, string stepName, string? inputFile, IReadOnlyList<string> inputPairs, DevRunOptions options, CancellationToken ct)
     {
         var (session, manifest, pool) = dev;
-        if (manifest.FindStep(stepName) is not { } step)
-        {
-            return new ResultProblem("Unknown step '{0}' (steps: {1}).",
-                stepName, string.Join(", ", manifest.AllSteps().Select(s => s.Name)));
-        }
+        if (DevCommandSupport.PlaceStep(manifest, stepName, options.Config).TryPickProblems(out var placeProblems, out var placed))
+            return placeProblems;
+        var step = placed.Step;
 
         if (PipelineInput.Build(manifest.InputSchema, pool.Input, inputPairs).TryPickProblems(out var inputProblems, out var pipelineInput))
             return inputProblems;
@@ -376,7 +443,7 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
             session.WriteInput(assembly.Input);
         }
 
-        var run = await session.RunStepAsync(manifest, step, pool, options, ct);
+        var run = await session.RunStepAsync(manifest, step, pool, options, ct, placed.Cases);
         pool.Save(session.Workspace.PoolJson);
         return run;
     }
@@ -389,7 +456,7 @@ public sealed record PipelineStepResult(string Step, string Status, string? Deta
 public sealed class DevPipelineCommand(
     IProcessRunner runner, IConfirmPrompt prompt, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
-    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "field", "input", "only", "secret", "until");
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("config", "config-from", "dir", "field", "input", "only", "secret", "until");
     public string Noun => "dev";
     public string Verb => "pipeline";
     public bool UsesApi => false;
@@ -410,6 +477,9 @@ public sealed class DevPipelineCommand(
 
           --dir <path>        Pipeline directory (default: .pipelines)
           --field k=v         Pipeline-input field (repeatable); the model's defaults fill the rest
+          --config <file.json>      The config every step gets; it also picks each `select` case
+          --config-from <pipeline>  Use that pipeline's effective config, as its runs get it
+                              (without a config, every case of a `select` runs)
           --until <step>      Stop after the stage containing <step>
           --only <a,b,...>    Run only these steps, reusing the pool's input and outputs for the rest
           --secret NAME=value Secret value (repeatable); default: from the environment
@@ -422,6 +492,8 @@ public sealed class DevPipelineCommand(
     {
         if (DevCommandSupport.ParseSecrets(cli.Options("secret")).TryPickProblems(out var secretProblems, out var secrets))
             return secretProblems;
+        if ((await DevCommandSupport.ResolveConfigAsync(cli, ctx, ct)).TryPickProblems(out var configProblems, out var config))
+            return configProblems;
 
         var con = console ?? new DevConsole(ctx.Json);
         if ((await DevCommandSupport.OpenAsync(runner, toolchain, con, cli, ctx, ct)).TryPickProblems(out var problems, out var dev))
@@ -435,7 +507,7 @@ public sealed class DevPipelineCommand(
             Until = cli.Option("until"),
             Only = DevCommandSupport.ParseList(cli.Options("only")),
             Yes = cli.HasFlag("yes"),
-            Run = new DevRunOptions { SecretOverrides = secrets, Docker = cli.HasFlag("docker"), WarnUndeclaredSecrets = false },
+            Run = new DevRunOptions { SecretOverrides = secrets, Docker = cli.HasFlag("docker"), WarnUndeclaredSecrets = false, Config = config },
         };
         foreach (var name in secrets.Keys.Where(k => dev.Manifest.Secrets.All(s => s.Name != k)))
             con.Status($"warning: --secret {name} ignored: no step of the pipeline declares it");
@@ -460,7 +532,7 @@ public sealed class DevPipelineCommand(
         var (session, manifest, pool) = dev;
         var workspace = session.Workspace;
 
-        if (DevPlan.Select(DevPlan.Flatten(manifest), options.Until, options.Only).TryPickProblems(out var planProblems, out var plan))
+        if (DevPlan.Select(DevPlan.Flatten(manifest, options.Run.Config), options.Until, options.Only).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
 
         // A full run starts a fresh pool; --only reuses it (input and the other steps' outputs).
@@ -518,7 +590,7 @@ public sealed class DevPipelineCommand(
             }
 
             session.WriteInput(assembly.Input);
-            var outcome = await session.RunStepAsync(manifest, step, pool, options.Run, ct);
+            var outcome = await session.RunStepAsync(manifest, step, pool, options.Run, ct, planned.Cases);
             pool.Save(workspace.PoolJson);
             if (outcome.TryPickProblems(out var runProblems, out var result))
                 return runProblems;

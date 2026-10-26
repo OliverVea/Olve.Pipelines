@@ -38,6 +38,9 @@ public sealed record DevRunOptions
 
     /// <summary>Warn about <c>--secret</c> names the step does not declare (off for whole-pipeline runs).</summary>
     public bool WarnUndeclaredSecrets { get; init; } = true;
+
+    /// <summary>The effective config (<c>--config</c> / <c>--config-from</c>): the step gets it under <c>$config</c>.</summary>
+    public JsonObject? Config { get; init; }
 }
 
 /// <summary>
@@ -53,6 +56,7 @@ public sealed class DevSession(
 {
     public const string HarnessBaseImage = Olve.Pipelines.Kubernetes.Harness.HarnessImage.Default;
     public const string HarnessBaseEnvVar = "OLVE_HARNESS_BASE";
+    public const string CasesEnvVar = "OLVE_CASES";
     public const string Loader = "/olve/lib/ld-linux-x86-64.so.2";
     public const string ResultBegin = "---OLVE-RESULT-BEGIN---";
     public const string ResultEnd = "---OLVE-RESULT-END---";
@@ -100,16 +104,19 @@ public sealed class DevSession(
     /// <paramref name="pool"/> (which the caller saves).
     /// </summary>
     public async Task<Result<StepRunOutcome>> RunStepAsync(
-        DevManifest manifest, DevStep step, DevPool pool, DevRunOptions options, CancellationToken ct)
+        DevManifest manifest, DevStep step, DevPool pool, DevRunOptions options, CancellationToken ct, IReadOnlyList<string>? cases = null)
     {
         var secrets = SecretEnvironment(manifest, step, options.SecretOverrides, options.WarnUndeclaredSecrets);
+        if (options.Config is not null)
+            AddConfigToInput(options.Config);
+        var casesJson = cases is { Count: > 0 } ? new JsonArray([.. cases.Select(c => (JsonNode)c)]).ToJsonString() : null;
         Directory.CreateDirectory(workspace.PoolFiles);
         if (File.Exists(workspace.OutputJson))
             File.Delete(workspace.OutputJson); // a usage/config failure writes none; never read a stale one
 
         var run = options.Docker
-            ? await RunInDockerAsync(manifest, step, secrets, ct)
-            : await RunFromSourceAsync(manifest, step, secrets, ct);
+            ? await RunInDockerAsync(manifest, step, secrets, casesJson, ct)
+            : await RunFromSourceAsync(manifest, step, secrets, casesJson, ct);
         if (run.TryPickProblems(out var problems, out var exitCode))
             return problems;
 
@@ -118,11 +125,21 @@ public sealed class DevSession(
         return new StepRunOutcome(envelope, exitCode);
     }
 
+    // As the service does: the step reads its config from $config in input.json (undeclared entries are ignored).
+    private void AddConfigToInput(JsonObject config)
+    {
+        var input = File.Exists(workspace.InputJson) ? JsonNode.Parse(File.ReadAllText(workspace.InputJson)) as JsonObject : null;
+        input ??= new JsonObject();
+        input["$config"] = config.DeepClone();
+        File.WriteAllText(workspace.InputJson, input.ToJsonString());
+    }
+
     private async Task<Result<int>> RunFromSourceAsync(
-        DevManifest manifest, DevStep step, Dictionary<string, string?> secrets, CancellationToken ct)
+        DevManifest manifest, DevStep step, Dictionary<string, string?> secrets, string? casesJson, CancellationToken ct)
     {
         console.Status($"running '{step.Name}' from source");
         var env = HarnessEnvironment(manifest, workspace.Root, workspace.Tmp, workspace.PoolFiles);
+        env[CasesEnvVar] = casesJson;
         foreach (var (k, v) in secrets)
             env[k] = v;
 
@@ -140,7 +157,7 @@ public sealed class DevSession(
     }
 
     private async Task<Result<int>> RunInDockerAsync(
-        DevManifest manifest, DevStep step, Dictionary<string, string?> secrets, CancellationToken ct)
+        DevManifest manifest, DevStep step, Dictionary<string, string?> secrets, string? casesJson, CancellationToken ct)
     {
         if (await BuildAsync(ct) is { } buildProblem)
             return buildProblem;
@@ -157,6 +174,9 @@ public sealed class DevSession(
             if (v is not null)
                 args.AddRange(["-e", $"{k}={v}"]);
         }
+
+        if (casesJson is not null)
+            args.AddRange(["-e", $"{CasesEnvVar}={casesJson}"]);
 
         var dockerEnv = new Dictionary<string, string?>(secrets);
         foreach (var name in step.Secrets)

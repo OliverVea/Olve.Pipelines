@@ -2,8 +2,14 @@ using System.Text.Json.Nodes;
 
 namespace Olve.Pipelines.Cli.Commands.Dev;
 
-/// <summary>A step in pipeline order with its stage number (1-based) and the <c>when</c> conditions guarding it.</summary>
-public sealed record PlannedStep(DevStep Step, int Stage, IReadOnlyList<WhenCondition> Conditions);
+/// <summary>
+/// A step in pipeline order with its stage number (1-based), the <c>when</c> conditions guarding it and the
+/// <c>select</c> cases it sits in (<c>target.prod.kind=ssh</c>, as the service passes them in <c>OLVE_CASES</c>).
+/// </summary>
+public sealed record PlannedStep(DevStep Step, int Stage, IReadOnlyList<WhenCondition> Conditions)
+{
+    public IReadOnlyList<string> Cases { get; init; } = [];
+}
 
 /// <summary>Flattens the manifest's stage tree and evaluates <c>when</c> blocks against the pipeline input.</summary>
 public static class DevPlan
@@ -14,10 +20,10 @@ public static class DevPlan
     {
         var result = new List<PlannedStep>();
         var stage = 0;
-        Walk(manifest.Stages, []);
+        Walk(manifest.Stages, [], []);
         return result;
 
-        void Walk(IReadOnlyList<DevStageNode> nodes, IReadOnlyList<WhenCondition> conditions)
+        void Walk(IReadOnlyList<DevStageNode> nodes, IReadOnlyList<WhenCondition> conditions, IReadOnlyList<string> cases)
         {
             foreach (var node in nodes)
             {
@@ -25,16 +31,16 @@ public static class DevPlan
                 {
                     case DevStage s:
                         stage++;
-                        result.AddRange(s.Steps.Select(step => new PlannedStep(step, stage, conditions)));
+                        result.AddRange(s.Steps.Select(step => new PlannedStep(step, stage, conditions) { Cases = cases }));
                         break;
                     case DevWhenBlock w:
-                        Walk(w.Nodes, [.. conditions, .. w.Conditions]);
+                        Walk(w.Nodes, [.. conditions, .. w.Conditions], cases);
                         break;
                     case DevSelectBlock sel:
                         var value = SelectedValue(sel, config);
                         foreach (var (key, caseNodes) in sel.Cases)
                             if (value is null || key == value)
-                                Walk(caseNodes, conditions);
+                                Walk(caseNodes, conditions, [.. cases, $"{sel.Select}.{sel.Discriminator}={key}"]);
                         break;
                 }
             }

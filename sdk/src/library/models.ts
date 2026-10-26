@@ -64,7 +64,7 @@ export const FailureContext = model(
       address: z.string(),
       /** The run's derived version, `yyyy.MM.dd.<run>`. */
       versionStamp: z.string(),
-      trigger: z.enum(["push", "poll", "manual"]),
+      trigger: z.enum(["push", "poll", "manual", "webhook"]),
       /** The run (`GET …/api/pipelines/<id>/runs/<n>`). */
       url: z.string(),
     }),

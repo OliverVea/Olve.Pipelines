@@ -7,8 +7,10 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results.TUnit;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests.Scheduling;
 
@@ -112,6 +114,32 @@ public class FailureHandlerTests
         // The harness validates input against the same model; so does the planner.
         var schema = TestFixtureManifest.Parse().Models["FailureContext"].Output;
         await Assert.That(JsonSchemaValidator.Validate(schema, failure)).Succeeded();
+    }
+
+    // Catches: a trigger kind the SDK's FailureContext doesn't allow, which skips every handler of such a run.
+    [Test]
+    public async Task EveryTriggerKind_GivesAContextTheSdkModelAccepts()
+    {
+        var schema = TestFixtureManifest.Parse().Models["FailureContext"].Output;
+        var pipeline = new Pipeline(Id.New<Pipeline>(), "p");
+        var version = new PipelineVersion(Id.New<PipelineVersion>(), pipeline.Id, 1, "{}", "sha256:x", "c", "k",
+            new Dictionary<string, int>(), new Dictionary<string, int>(), DateTimeOffset.UnixEpoch);
+        var failed = new Attempt(Id.New<Attempt>(), pipeline.Id, Id.New<Run>(), 1, "echo", 1,
+            new AttemptStatus.Failed(DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "boom"), DateTimeOffset.UnixEpoch);
+
+        var rejected = new List<RunTriggerKind>();
+        foreach (var kind in Enum.GetValues<RunTriggerKind>())
+        {
+            var run = new Run(failed.RunId, pipeline.Id, 1, version.Id, 1, """{"mode":"fail"}""", "2026.10.26.1", RunStatus.Failed,
+                new RunTrigger(kind), DateTimeOffset.UnixEpoch);
+
+            var context = FailureContextBuilder.Build(pipeline, run, version, [failed], LinkBase);
+
+            if (!JsonSchemaValidator.Validate(schema, context).Succeeded)
+                rejected.Add(kind);
+        }
+
+        await Assert.That(rejected).IsEmpty();
     }
 
     [Test]

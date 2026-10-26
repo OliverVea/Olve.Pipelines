@@ -17,6 +17,7 @@ import './config-editor.js';
 import './diff-view.js';
 import './relative-time.js';
 import './pipeline-header.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 
 type Target = { version: number; role: 'active' | 'pending'; entries: ConfigEntry[] };
 
@@ -117,6 +118,11 @@ export class PipelineConfigView extends LitElement {
 
   constructor() {
     super();
+    new LiveController(
+      this,
+      () => this.reload(false),
+      forPipeline(() => this.pipelineId, 'config', 'pending', 'version'),
+    );
     this.pipelineId = '';
     this._yaml = '';
     this._snapshot = null;

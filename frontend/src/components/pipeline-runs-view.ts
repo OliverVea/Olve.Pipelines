@@ -10,7 +10,7 @@ import {
   navClick,
   runPath,
 } from '../v2/ui.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 import './relative-time.js';
 import './pipeline-header.js';
 
@@ -42,7 +42,11 @@ export class PipelineRunsView extends LitElement {
     this._runs = null;
     this._total = 0;
     this._error = null;
-    new PollController(this, () => this.reload());
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId, 'run', 'attempt'),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

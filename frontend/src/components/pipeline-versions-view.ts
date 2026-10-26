@@ -4,7 +4,7 @@ import { client, errorMessages } from '../api.js';
 import type { PipelineVersionSummary } from '@olve/olve-pipelines-client/src/models/index.js';
 import { sharedStyles } from '../v2/ui.js';
 import { toActivation, type Activation } from '../v2/versions.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 import './versions-panel.js';
 import './pipeline-header.js';
 
@@ -24,7 +24,11 @@ export class PipelineVersionsView extends LitElement {
     this._versions = [];
     this._activation = { kind: 'none' };
     this._error = null;
-    new PollController(this, () => this.reload());
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId, 'version', 'pending', 'config'),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

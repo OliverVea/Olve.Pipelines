@@ -54,7 +54,7 @@ import './typed-value.js';
 import './input-form.js';
 import './log-pane.js';
 import './relative-time.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController } from '../v2/events.js';
 
 type AttemptStatusFields = {
   type?: string | null;
@@ -201,12 +201,17 @@ export class RunView extends LitElement {
 
   constructor() {
     super();
-    new PollController(
+    new LiveController(
       this,
       () => {
-        if (this._detail?.run?.status === 'Running' && !this._loading) this.reload();
+        if (!this._loading) this.reload();
       },
-      3000,
+      (n) =>
+        n.pipelineId === this.pipelineId &&
+        (((n.type === 'run' || n.type === 'attempt') &&
+          String(n.data.run) === this.run) ||
+          n.type === 'blocked' ||
+          n.type === 'version'),
     );
     this.pipelineId = '';
     this.run = '';

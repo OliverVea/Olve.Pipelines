@@ -107,7 +107,7 @@ frontend/src/
     ├── input-form.ts          # Form generated from an input model's JSON Schema
     ├── versions-panel.ts      # Versions list, manifest diff, switch dialog
     ├── typed-value.ts         # JSON rendered against its schema (file refs downloadable)
-    ├── log-pane.ts            # Attempt logs, polled while running
+    ├── log-pane.ts            # Attempt logs, streamed while running
     └── docs-view.ts           # Serves the /docs setup guide
 ```
 
@@ -137,6 +137,10 @@ instead, because the generated client maps a 400 to a single `ResultProblem` (th
 array — `apiFetch` shows every message), sends `JsonElement` bodies via `setContentFromScalar` (fails
 for objects) and would escape `/` in the file path catch-all. `JsonElement` members of responses
 arrive as Kiota `UntypedNode`s — convert with `untypedToJson`.
+
+Views refresh on `/api/events`, not on a timer: `LiveController` (`src/v2/events.ts`) reloads its
+view when a matching notice arrives (debounced), on every (re)connect or `resync`, and every 60 s as a
+safety net. One stream serves the tab, open while a view listens and the tab is visible.
 
 ## API Client
 

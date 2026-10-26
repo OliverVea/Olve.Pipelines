@@ -4,6 +4,7 @@ import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/ind
 import { client, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
 import './pipeline-header.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 
 type SecretInfo = {
   name: string;
@@ -123,6 +124,11 @@ export class PipelineSecretsView extends LitElement {
 
   constructor() {
     super();
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId, 'secrets', 'version', 'pending'),
+    );
     this.pipelineId = '';
     this._secrets = null;
     this._pipelines = [];

@@ -15,7 +15,7 @@ import {
   stepPath,
   stepLogsPath,
 } from '../v2/ui.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController } from '../v2/events.js';
 import './phase-bar.js';
 import './pipeline-header.js';
 import './relative-time.js';
@@ -138,7 +138,15 @@ export class StepRunsView extends LitElement {
     this._rows = null;
     this._error = null;
     this._filter = 'all';
-    new PollController(this, () => this.reload());
+    new LiveController(
+      this,
+      () => this.reload(),
+      (n) =>
+        n.pipelineId === this.pipelineId &&
+        (n.type === 'run' ||
+          n.type === 'blocked' ||
+          (n.type === 'attempt' && n.data.step === this.step)),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

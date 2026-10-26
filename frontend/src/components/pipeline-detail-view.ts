@@ -27,7 +27,7 @@ import {
   type Activation,
   type LoadedVersion,
 } from '../v2/versions.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 import type { StepState } from './stage-graph.js';
 import { sheetContentStyles } from './step-sheet.js';
 import './phase-bar.js';
@@ -129,7 +129,11 @@ export class PipelineDetailView extends LitElement {
     this._retrying = new Set();
     this._triggerOpen = new URLSearchParams(location.search).get('trigger') === '1';
     this._step = new URLSearchParams(location.search).get('step') ?? '';
-    new PollController(this, () => this.reload());
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { PipelineBindingStatus } from '@olve/olve-pipelines-client/src/models/index.js';
 import { client, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, shortSha, secretsPath } from '../v2/ui.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 import './relative-time.js';
 import './pipeline-header.js';
 
@@ -104,7 +104,11 @@ export class PipelineBindingView extends LitElement {
     this._busy = false;
     this._errors = [];
     this._loaded = false;
-    new PollController(this, () => this.reload(), 5000);
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId, 'binding', 'secrets'),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

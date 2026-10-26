@@ -34,7 +34,7 @@ import {
   currentVersion,
   type Activation,
 } from '../v2/versions.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController, forPipeline } from '../v2/events.js';
 import './clamped-text.js';
 import './relative-time.js';
 
@@ -105,7 +105,11 @@ export class PipelineHeader extends LitElement {
     this._health = null;
     this._activation = { kind: 'none' };
     this._critical = null;
-    new PollController(this, () => this.reload());
+    new LiveController(
+      this,
+      () => this.reload(),
+      forPipeline(() => this.pipelineId),
+    );
   }
 
   updated(changed: Map<string, unknown>) {

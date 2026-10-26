@@ -14,7 +14,7 @@ import {
   stepPath,
 } from '../v2/ui.js';
 import { toActivation } from '../v2/versions.js';
-import { PollController } from '../v2/poll.js';
+import { LiveController } from '../v2/events.js';
 import type {
   PipelineSummary,
   PipelineStepSummary,
@@ -304,7 +304,11 @@ export class PipelineListView extends LitElement {
     this._error = null;
     this._loaded = false;
     this._deleting = null;
-    new PollController(this, () => this._load(true));
+    new LiveController(
+      this,
+      () => this._load(true),
+      (n) => n.type !== 'poll',
+    );
   }
 
   connectedCallback(): void {

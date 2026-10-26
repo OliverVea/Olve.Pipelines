@@ -18,6 +18,23 @@ config:
   Retention__DryRun: "false"
   Retention__MinRunAgeDays: "14"
   Retention__KeepLatestRuns: "3"
+  # The controller reaches the cluster with its own ServiceAccount, not an OpenBao token.
+  Kubernetes__AuthMode: "InCluster"
+  Kubernetes__OpenBaoUrl: ""
+  Storage__AuthUrl: ""
+
+serviceAccount:
+  enabled: true
+
+# Only the Garage credentials; the OpenBao client Secret isn't needed with InCluster.
+secrets:
+  - name: olve-pipelines-minio
+    envMap:
+      Storage__AccessKey: root-user
+      Storage__SecretKey: root-password
+
+authentikCa:
+  enabled: false
 
 # Reuses the beta credentials Secret by reference — each Garage keeps its own metadata, so
 # sharing the access key is harmless.

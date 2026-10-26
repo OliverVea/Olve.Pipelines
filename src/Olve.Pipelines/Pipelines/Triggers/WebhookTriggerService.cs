@@ -48,6 +48,7 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
     private readonly ConcurrentDictionary<(Id<Pipeline>, string), (string Value, DateTimeOffset At)> _secrets = new();
     private readonly LinkedList<string> _deliveryOrder = new();
     private readonly HashSet<string> _deliveries = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Task, byte> _mappings = new();
     private int _inFlight;
 
     public async Task<WebhookTriggerReceipt> ReceiveAsync(Id<Pipeline> pipelineId, string triggerName, WebhookDelivery delivery, CancellationToken ct)
@@ -83,12 +84,6 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
             return WebhookTriggerReceipt.Unauthorized;
         }
 
-        if (delivery.Headers.TryGetValue("X-GitHub-Delivery", out var deliveryId) && !Remember($"{pipelineId}/{triggerName}/{deliveryId}"))
-        {
-            logger.LogInformation("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' ignored redelivery {DeliveryId}", triggerName, pipelineId, deliveryId);
-            return WebhookTriggerReceipt.Accepted;
-        }
-
         if (Interlocked.Increment(ref _inFlight) > MaxInFlight)
         {
             Interlocked.Decrement(ref _inFlight);
@@ -97,20 +92,35 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
             return WebhookTriggerReceipt.Busy;
         }
 
+        // A delivery is remembered only once admitted, and forgotten when it starts nothing, so the sender's
+        // redelivery (same X-GitHub-Delivery) of a turned-away or failed delivery is not ignored.
+        var deliveryKey = delivery.Headers.TryGetValue("X-GitHub-Delivery", out var deliveryId) ? $"{pipelineId}/{triggerName}/{deliveryId}" : null;
+        if (deliveryKey is not null && !Remember(deliveryKey))
+        {
+            Interlocked.Decrement(ref _inFlight);
+            logger.LogInformation("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' ignored redelivery {DeliveryId}", triggerName, pipelineId, deliveryId);
+            return WebhookTriggerReceipt.Accepted;
+        }
+
         var eventJson = EventJson(delivery, trigger.Verify);
-        _ = Task.Run(async () =>
+        var mapping = Task.Run(async () =>
         {
             try
             {
-                await MapAsync(pipelineId, triggerName, eventJson);
+                if (!await MapAsync(pipelineId, triggerName, eventJson) && deliveryKey is not null)
+                    Forget(deliveryKey);
             }
             finally
             {
                 Interlocked.Decrement(ref _inFlight);
             }
         }, CancellationToken.None);
+        _mappings[mapping] = 0;
+        _ = mapping.ContinueWith(t => _mappings.TryRemove(t, out _), TaskScheduler.Default);
         return WebhookTriggerReceipt.Accepted;
     }
+
+    internal Task WhenMappedAsync() => Task.WhenAll(_mappings.Keys);
 
     /// <summary>False when <paramref name="id"/> was seen among the recent deliveries.</summary>
     private bool Remember(string id)
@@ -129,11 +139,22 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
         }
     }
 
-    private async Task MapAsync(Id<Pipeline> pipelineId, string triggerName, string eventJson)
+    private void Forget(string id)
+    {
+        lock (_deliveries)
+        {
+            if (_deliveries.Remove(id))
+                _deliveryOrder.Remove(id);
+        }
+    }
+
+    /// <summary>True when a run was started or de-duplicated.</summary>
+    private async Task<bool> MapAsync(Id<Pipeline> pipelineId, string triggerName, string eventJson)
     {
         try
         {
             using var scope = sp.CreateScope();
+            var started = false;
             async Task StartAsync()
             {
                 var outcome = await scope.ServiceProvider.GetRequiredService<TriggerMappingService>()
@@ -141,6 +162,8 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
                 if (outcome.TryPickProblems(out var problems))
                     logger.LogProblems(LogLevel.Warning, problems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
                         triggerName, pipelineId);
+                else
+                    started = true;
             }
 
             if (scope.ServiceProvider.GetService<IConfigLock>() is not { } configLock)
@@ -148,13 +171,16 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
             else if (!await configLock.RunIfConfigCurrentAsync(pipelineId, StartAsync, _lifetime.Token))
                 logger.LogWarning("Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' dropped a delivery: the pipeline's config commit is not applied",
                     triggerName, pipelineId);
+            return started;
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
+            return false;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' failed", triggerName, pipelineId);
+            return false;
         }
     }
 

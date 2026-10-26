@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Sources;
 using Olve.Pipelines.UnitTests.Manifests;
@@ -47,13 +48,36 @@ public class WebhookTriggerTests
     private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(string? secretValue = Secret) =>
         Receiver(new Secrets(secretValue));
 
-    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(Secrets secrets)
+    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(Secrets secrets, IConfigLock? configLock = null)
     {
         var s = new SchedulerScenario(WithTrigger(Hmac));
         var services = new ServiceCollection();
         services.AddSingleton(new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations));
         services.AddSingleton<IPipelineSecretReader>(secrets);
+        if (configLock is not null)
+            services.AddSingleton(configLock);
         return (new WebhookTriggerService(services.BuildServiceProvider(), NullLogger<WebhookTriggerService>.Instance), s);
+    }
+
+    /// <summary>Counts mappings that reach the config gate; the config is never current, so none starts a run.</summary>
+    private sealed class StaleConfig(Task? hold = null) : IConfigLock
+    {
+        private int _calls;
+        public int Calls => _calls;
+
+        public async Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct, bool force = false)
+        {
+            Interlocked.Increment(ref _calls);
+            if (hold is not null)
+                await hold;
+            return false;
+        }
+    }
+
+    private static WebhookDelivery Signed(string deliveryId)
+    {
+        const string body = """{"release":{}}""";
+        return Delivery(body, ("X-Hub-Signature-256", GitHubWebhookSignature.Compute(Secret, Encoding.UTF8.GetBytes(body))), ("X-GitHub-Delivery", deliveryId));
     }
 
     private static WebhookDelivery Delivery(string body, params (string Name, string Value)[] headers) =>
@@ -134,5 +158,52 @@ public class WebhookTriggerTests
         await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", signed, CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
 
         await Assert.That(secrets.Reads).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Redelivery_OfADeliveryThatStartedNothing_IsMappedAgain()
+    {
+        var gate = new StaleConfig();
+        var (service, s) = Receiver(new Secrets(Secret), gate);
+
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("d1"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        await service.WhenMappedAsync();
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("d1"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        await service.WhenMappedAsync();
+
+        await Assert.That(gate.Calls).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Redelivery_WhileTheFirstIsBeingMapped_IsIgnored()
+    {
+        var release = new TaskCompletionSource();
+        var gate = new StaleConfig(release.Task);
+        var (service, s) = Receiver(new Secrets(Secret), gate);
+
+        await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("d1"), CancellationToken.None);
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("d1"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        release.SetResult();
+        await service.WhenMappedAsync();
+
+        await Assert.That(gate.Calls).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Redelivery_OfADeliveryTurnedAwayBusy_IsAdmitted()
+    {
+        var release = new TaskCompletionSource();
+        var gate = new StaleConfig(release.Task);
+        var (service, s) = Receiver(new Secrets(Secret), gate);
+
+        for (var i = 0; i < WebhookTriggerService.MaxInFlight; i++)
+            await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed($"fill-{i}"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("late"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Busy);
+        release.SetResult();
+        await service.WhenMappedAsync();
+
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("late"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        await service.WhenMappedAsync();
+        await Assert.That(gate.Calls).IsEqualTo(WebhookTriggerService.MaxInFlight + 1);
     }
 }

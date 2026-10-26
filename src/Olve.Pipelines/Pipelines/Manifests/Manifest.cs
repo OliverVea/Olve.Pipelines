@@ -125,6 +125,23 @@ public abstract record ExternalSource
 {
     /// <summary>A signed-in user, in the UI or with <c>pl input</c>.</summary>
     public sealed record Person : ExternalSource;
+
+    /// <summary>Another system, posting to the run's callback URL for the input (<c>ctx.inputUrl</c>).</summary>
+    public sealed record Callback : ExternalSource;
+
+    /// <summary>
+    /// The service GETs <see cref="Url"/> every <see cref="IntervalSeconds"/> while the step waits; the value at
+    /// <see cref="ValuePath"/> answers once it validates. <c>{run.id}</c> and <c>{run.number}</c> in the URL are filled in.
+    /// </summary>
+    public sealed record Poll(string Url, string ValuePath, int IntervalSeconds) : ExternalSource;
+
+    public string Kind => this switch
+    {
+        Person => "person",
+        Callback => "callback",
+        Poll => "poll",
+        _ => throw new InvalidOperationException($"Unknown external input source {GetType().Name}."),
+    };
 }
 
 public abstract record InputType;

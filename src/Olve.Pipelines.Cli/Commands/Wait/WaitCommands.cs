@@ -178,6 +178,10 @@ internal static class Waiter
         }
     }
 
+    /// <summary>A step only a person can move on (a callback or poll answers by itself).</summary>
+    internal static bool NeedsPerson(RunStepView step) =>
+        step.Status == "waiting" && (step.WaitingFor is null || step.WaitingFor.Contains("person"));
+
     internal static bool IsTerminal(string runStatus) => runStatus is "Succeeded" or "Failed" or "Cancelled" or "Superseded";
 
     internal static WaitCheck RunFinished(string label, RunSummary run) => IsTerminal(run.Status)
@@ -186,7 +190,7 @@ internal static class Waiter
 
     /// <summary><see cref="RunFinished(string, RunSummary)"/>, but a run that waits for input is reported as such.</summary>
     internal static WaitCheck RunFinished(string label, RunDetail detail) =>
-        !IsTerminal(detail.Run.Status) && detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(s => s.Status == "waiting") is { } waiting
+        !IsTerminal(detail.Run.Status) && detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(NeedsPerson) is { } waiting
             ? new WaitCheck.NeedsInput($"{RunAddress.Format(label, detail.Run.Number)}/{waiting.Name}  waiting for input")
             : RunFinished(label, detail.Run);
 }
@@ -215,7 +219,7 @@ public sealed class WaitRunCommand : ICliCommand
 
           --until finished  (default) run: Succeeded → exit 0; Failed or Cancelled → 1.
                             step: succeeded, skipped or excluded → 0; failed or cancelled, or the run
-                            ended without running it → 1. A step waiting for input → 3 (answer it
+                            ended without running it → 1. A step waiting for a person → 3 (answer it
                             with pl input answer, or decline it).
           --until started   the step has an attempt (or the run exists).
           --until held      the run is held at a blocked step; exits 1 if it finishes first.
@@ -266,7 +270,7 @@ public sealed class WaitRunCommand : ICliCommand
         var name = $"{RunAddress.Format(label, detail.Run.Number)}/{step}";
         var line = $"{name}  {view.Status}{(view.Reason is { } r ? $" ({r})" : "")}";
         var settled = view.Status is "succeeded" or "skipped" or "excluded" or "failed" or "cancelled" or "obsolete";
-        if (view.Status == "waiting" && until != "started")
+        if (Waiter.NeedsPerson(view) && until != "started")
             return new WaitCheck.NeedsInput($"{name}  waiting for input");
         if (until == "started")
             return view.AttemptCount > 0 || settled

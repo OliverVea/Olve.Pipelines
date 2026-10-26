@@ -411,17 +411,64 @@
               "from": {
                 "description": "Who or what may answer.",
                 "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "kind": {
-                      "const": "person",
-                      "type": "string"
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "person",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "const": "callback",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "intervalSeconds": {
+                          "maximum": 9007199254740991,
+                          "minimum": 10,
+                          "type": "integer"
+                        },
+                        "kind": {
+                          "const": "poll",
+                          "type": "string"
+                        },
+                        "url": {
+                          "description": "GET while waiting; {run.id} and {run.number} are filled in.",
+                          "type": "string"
+                        },
+                        "valuePath": {
+                          "description": "Dot path to the value; '.' is the whole body.",
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "url",
+                        "valuePath",
+                        "intervalSeconds"
+                      ],
+                      "type": "object"
                     }
-                  },
-                  "required": [
-                    "kind"
-                  ],
-                  "type": "object"
+                  ]
                 },
                 "minItems": 1,
                 "type": "array"

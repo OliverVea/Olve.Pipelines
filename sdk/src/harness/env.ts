@@ -13,6 +13,8 @@ export const ENV = {
   resultUrl: "OLVE_RESULT_URL",
   /** JSON object: file key (`<run>/<step>/<attempt>/<path>`) → pre-signed GET URL. Optional. */
   fileUrls: "OLVE_FILE_URLS",
+  /** JSON object: `<step>/<input>` → callback URL of that external input in this run (`ctx.inputUrl`). Optional. */
+  callbackUrls: "OLVE_CALLBACK_URLS",
   /** Base URL for file downloads: GET `<base>/<run>/<step>/<attempt>/<object path>`. Optional. */
   filesBaseUrl: "OLVE_FILES_BASE_URL",
   /** Bearer token sent with OLVE_FILES_BASE_URL requests. Optional. */
@@ -22,7 +24,19 @@ export const ENV = {
 } as const;
 
 /** Env vars never passed to child processes (they carry credentials for the harness only). */
-export const PRIVATE_ENV: readonly string[] = [ENV.resultUrl, ENV.fileUrls, ENV.filesToken];
+export const PRIVATE_ENV: readonly string[] = [ENV.resultUrl, ENV.fileUrls, ENV.filesToken, ENV.callbackUrls];
+
+/** `OLVE_CALLBACK_URLS`, parsed; empty when unset or malformed. */
+export function callbackUrlsFromEnv(): Record<string, string> {
+  const raw = process.env[ENV.callbackUrls];
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
 
 export const olveDir = () => process.env[ENV.dir] || "/olve";
 export const paths = () => {

@@ -96,6 +96,21 @@ public class DeployPollServiceTests
     }
 
     [Test]
+    public async Task BindingWithPollingOff_IsNotPolled_ButStillReconcilesWhenAsked()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        await Assert.That(c.Poll.Sources().Count()).IsEqualTo(1);
+
+        Pick(c.Bindings.SetPolls(c.Binding.PipelineId, false));
+
+        await Assert.That(c.Poll.Sources()).IsEmpty();
+        await Assert.That(c.Pushes.Sources()).IsEmpty();
+        await Assert.That(await c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None)).Succeeded();
+        await Assert.That(c.Reconciler.Calls).IsEquivalentTo(new[] { "cfg-1" });
+    }
+
+    [Test]
     public async Task AppliedConfigCommit_IsNotRebuilt()
     {
         await using var c = Build();

@@ -15,7 +15,11 @@ public sealed record HarnessUrls(
     string StepUrl,
     string? InputUrl,
     string? ResultUrl,
-    IReadOnlyDictionary<string, string> FileUrls);
+    IReadOnlyDictionary<string, string> FileUrls)
+{
+    /// <summary>The run's callback URL per <c>step/input</c> (<c>OLVE_CALLBACK_URLS</c>, read by <c>ctx.inputUrl</c>); empty = unset.</summary>
+    public IReadOnlyDictionary<string, string> CallbackUrls { get; init; } = new Dictionary<string, string>();
+}
 
 /// <summary>Everything one step attempt's harness Job is built from.</summary>
 /// <param name="JobName">K8s Job name (<see cref="Attempt.KubernetesJobName"/>).</param>
@@ -90,13 +94,14 @@ public static partial class HarnessJobBuilder
     public const string InputUrlKey = "OLVE_INPUT_URL";
     public const string ResultUrlKey = "OLVE_RESULT_URL";
     public const string FileUrlsKey = "OLVE_FILE_URLS";
+    public const string CallbackUrlsKey = "OLVE_CALLBACK_URLS";
     public const string CasesKey = "OLVE_CASES";
 
     /// <summary>Env names the service sets itself; a declared secret must not shadow them.</summary>
     private static readonly HashSet<string> ReservedEnv = new(StringComparer.Ordinal)
     {
         "OLVE_DIR", "TMPDIR", "OLVE_PIPELINE", "OLVE_RUN_ID", "OLVE_RUN", "OLVE_ATTEMPT", "OLVE_VERSION_STAMP",
-        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey, CasesKey,
+        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey, CallbackUrlsKey, CasesKey,
     };
 
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
@@ -137,6 +142,8 @@ public static partial class HarnessJobBuilder
                     request.StepName, request.Urls.FileUrls.Count, HarnessFileRefs.MaxFileUrlsJsonBytes);
             secretData[FileUrlsKey] = json;
         }
+        if (request.Urls.CallbackUrls.Count > 0)
+            secretData[CallbackUrlsKey] = HarnessFileRefs.ToJson(request.Urls.CallbackUrls);
 
         K8sEnvVar Url(string key) => K8sEnvVar.FromSecret(key, urlSecretName, key);
 
@@ -156,6 +163,7 @@ public static partial class HarnessJobBuilder
         if (request.Cases.Count > 0) stepEnv.Add(new K8sEnvVar(CasesKey, HarnessCases.ToJson(request.Cases)));
         if (secretData.ContainsKey(ResultUrlKey)) stepEnv.Add(Url(ResultUrlKey));
         if (secretData.ContainsKey(FileUrlsKey)) stepEnv.Add(Url(FileUrlsKey));
+        if (secretData.ContainsKey(CallbackUrlsKey)) stepEnv.Add(Url(CallbackUrlsKey));
         // Declared secrets only, one secretKeyRef each (key = name) — never envFrom of the whole Secret.
         // Optional: an unset secret leaves the variable unset, and ctx.secrets fails on access (a handler can check first).
         foreach (var secret in request.Secrets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))

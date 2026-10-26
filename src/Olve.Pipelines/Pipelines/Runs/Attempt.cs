@@ -43,7 +43,8 @@ public record Attempt(
 }
 
 /// <summary>A value given for an external input: the JSON as validated (defaults applied), who gave it and when.</summary>
-public record ExternalAnswer(string Value, string AnsweredBy, DateTimeOffset AnsweredAt);
+/// <param name="Source">The source kind that answered: <c>person</c>, <c>callback</c> or <c>poll</c>.</param>
+public record ExternalAnswer(string Value, string AnsweredBy, DateTimeOffset AnsweredAt, string Source = "person");
 
 /// <summary>When the attempt's pod was created, its init (fetch) and step containers ran, and the server saw it finish.</summary>
 public record AttemptTimings(

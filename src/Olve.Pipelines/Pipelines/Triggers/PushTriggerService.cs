@@ -34,7 +34,7 @@ public class PushTriggerService(
         using var scope = sp.CreateScope();
         var inputs = scope.ServiceProvider.GetRequiredService<RunInputService>();
         return bindings.List()
-            .Where(b => !inputs.GetTarget(b.PipelineId).TryPickProblems(out _, out var target) && target.Manifest.Triggers.OfType<PushTrigger>().Any())
+            .Where(b => b.Polls && !inputs.GetTarget(b.PipelineId).TryPickProblems(out _, out var target) && target.Manifest.Triggers.OfType<PushTrigger>().Any())
             .Select(b => new PollSource($"push:{b.Id}", options.PollInterval, async ct =>
             {
                 try

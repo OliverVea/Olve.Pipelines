@@ -46,6 +46,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Auth:Disable` | `false` | Disable auth (local dev, minimal install) |
 | `Auth:FrontendAuthority` / `Auth:FrontendAudience` | — | OIDC authority and client id served to the UI and `pl login` |
 | `Auth:RequireHttpsMetadata` | `true` | `false` allows a plain-HTTP OIDC provider (the local compose stack's Dex) |
+| `Auth:Tokens:<name>` | — | A machine token, for CI or another instance's pipeline: the sha256 (hex) of a bearer token that starts with `olvp_` (e.g. `t="olvp_$(openssl rand -hex 32)"`, then store `printf %s "$t" \| sha256sum`). It is allowed past `Auth:Allow` and acts as `<name>`. Only the hash is configured, so it may live in plain config |
 | `Auth:Allow:Subjects` / `Users` / `Orgs` / `Emails` | — | Who may use the API: subject ids (`sub`, exact), logins (`preferred_username`), orgs or `org:team` (`groups`), verified emails. A valid token outside the lists gets 403 and logs a warning with its login and subject, ready to copy into `Subjects`; prefer subjects to logins, which can be renamed and taken by someone else. With `Orgs` set, the UI and `pl login` also request the `groups` scope, and the chart's Dex loads each user's GitHub orgs and `org:team` slugs (GitHub then asks the user for `read:org`). With all four empty any valid token gets in, so set them when the provider lets anyone sign in (Dex with GitHub) |
 | `Storage:Mode` | `Persistent` | `Ephemeral` = in-memory only |
 | `Storage:Endpoint` | — | The instance's Garage (S3-compatible) endpoint |
@@ -72,6 +73,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
 | `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
+| `ExternalInputs:Poll:AllowedHosts` | — | Host names `poll()` inputs may reach although they resolve to private addresses (e.g. an in-cluster test service); empty = public addresses only. The server holds cluster and storage credentials, so list only hosts you trust |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
 | `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this |
 | `Retention:BuildGraceDays` | `7` | Unused compiled binaries are deleted after this |

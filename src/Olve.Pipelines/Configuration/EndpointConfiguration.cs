@@ -5,6 +5,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
@@ -31,6 +32,7 @@ public static class EndpointConfiguration
         app.MapPipelineVersionEndpoints();
         app.MapPipelineBindingEndpoints();
         app.MapWebhookTriggerEndpoints();
+        app.MapCallbackInputEndpoints();
         app.MapEventStreamEndpoints();
         app.MapFallbackToFile("index.html").AllowAnonymous();
     }

@@ -107,6 +107,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.JsonBody(new SetBindingBranchRequest { Branch = branch }, CliJsonContext.Default.SetBindingBranchRequest),
             CliJsonContext.Default.PipelineConfigBinding, ct);
 
+    public Task<Result<PipelineConfigBinding>> SetPipelineBindingPolling(
+        string pipelineId, bool polls, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Put, $"/api/pipelines/{Enc(pipelineId)}/binding/polling",
+            ApiTransport.JsonBody(new SetBindingPollingRequest { Polls = polls }, CliJsonContext.Default.SetBindingPollingRequest),
+            CliJsonContext.Default.PipelineConfigBinding, ct);
+
     public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"/api/pipelines/{Enc(pipelineId)}/binding/reconcile", body: null, ct);
 

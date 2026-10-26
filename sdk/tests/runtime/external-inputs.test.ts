@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { external, implement, model, pipeline, step, z } from "../../src/index.ts";
+import { callback, external, implement, model, pipeline, poll, step, z } from "../../src/index.ts";
 import { describePipeline, DescribeError } from "../../src/describe/describe.ts";
 import { Manifest } from "../../src/describe/manifest-schema.ts";
 import { validateInput } from "../../src/harness/validate.ts";
@@ -75,5 +75,59 @@ describe("a handler", () => {
     const no = await testHandler(review, { verdict: { accepted: false, comment: "button moved" } });
     expect(no.status).toBe("failed");
     expect(JSON.stringify(no)).toContain("button moved");
+  });
+});
+
+describe("callback and poll sources", () => {
+  const signalled = step({
+    name: "signalled",
+    description: "",
+    image: "alpine",
+    input: {
+      art: Art,
+      verdict: external(Verdict, { title: "Called back?", from: [callback()] }),
+      status: external(Verdict, { title: "Polled?", from: [poll({ url: "https://example.com/s/{run.id}", valuePath: "result" })] }),
+    },
+  });
+
+  test("are recorded with their settings", () => {
+    const m = describeIt(pipeline({ name: "t", input: Req }).stage(build).stage(signalled), ["build", "signalled"]);
+    expect(Manifest.safeParse(m).success).toBe(true);
+    expect(stepsOf(m)[1]!.externalInputs).toEqual({
+      verdict: { model: "Verdict", title: "Called back?", description: "", from: [{ kind: "callback" }] },
+      status: { model: "Verdict", title: "Polled?", description: "", from: [{ kind: "poll", url: "https://example.com/s/{run.id}", valuePath: "result", intervalSeconds: 30 }] },
+    });
+  });
+
+  test("bad sources are describe problems", () => {
+    const bad = step({
+      name: "bad",
+      description: "",
+      image: "alpine",
+      input: { "a.b": external(Verdict, { title: "?", from: [callback(), callback()] }), p: external(Verdict, { title: "?", from: [poll({ url: "ftp://x", valuePath: "v", intervalSeconds: 1 })] }) },
+    });
+    let problems: string[] = [];
+    try {
+      describeIt(pipeline({ name: "t", input: Req }).stage(bad), ["bad"]);
+    } catch (e) {
+      if (e instanceof DescribeError) problems = [...e.problems];
+      else throw e;
+    }
+    expect(problems.some((p) => /listed once/.test(p))).toBe(true);
+    expect(problems.some((p) => /part of the URL/.test(p))).toBe(true);
+    expect(problems.some((p) => /http\(s\)/.test(p))).toBe(true);
+    expect(problems.some((p) => /at least 10/.test(p))).toBe(true);
+  });
+
+  test("ctx.inputUrl gives the run's callback URL, and says why when there is none", async () => {
+    const send = implement(step({ name: "send", description: "", image: "alpine", input: { art: Art } }), async (_, ctx) => {
+      ctx.log("url", { url: ctx.inputUrl(signalled, "verdict") });
+    });
+    const ok = await testHandler(send, { art: { version: "1" } }, { callbackUrls: { "signalled/verdict": "https://hooks/x" } });
+    expect(ok.status).toBe("succeeded");
+    expect(ok.logs.join("\n")).toContain("https://hooks/x");
+    const missing = await testHandler(send, { art: { version: "1" } });
+    expect(missing.status).toBe("failed");
+    expect(JSON.stringify(missing)).toContain("no callback URL");
   });
 });

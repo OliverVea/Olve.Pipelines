@@ -5,8 +5,10 @@ import type { Attempt } from '@olve/olve-pipelines-client/src/models/index.js';
 import { apiPost, errorMessages, untypedToJson } from '../api.js';
 import { sharedStyles } from '../v2/ui.js';
 import {
+  byPerson,
   inputSchemaOf,
   stepsByName,
+  type ExternalInput,
   type JsonSchema,
   type Manifest,
 } from '../v2/manifest.js';
@@ -220,24 +222,26 @@ export class ExternalInputPanel extends LitElement {
                 Answered <code>${JSON.stringify(a.value)}</code>
                 <span class="muted">by ${a.answeredBy || 'unknown'}</span>
               </p>`
-            : kind === 'form'
-              ? keyed(
-                  `${this.run}/${this.step}/${name}`,
-                  html`<input-form data-input=${name} .schema=${schema}></input-form>`,
-                )
-              : kind === 'json'
-                ? html`<textarea
-                    rows="4"
-                    placeholder="JSON value of ${x.model}"
-                    aria-label=${x.title}
-                    .value=${this._json[name] ?? ''}
-                    @input=${(e: Event) =>
-                      (this._json = {
-                        ...this._json,
-                        [name]: (e.target as HTMLTextAreaElement).value,
-                      })}
-                  ></textarea>`
-                : nothing}
+            : !byPerson(x)
+              ? html`<p class="answered muted">${sourceLine(x)}</p>`
+              : kind === 'form'
+                ? keyed(
+                    `${this.run}/${this.step}/${name}`,
+                    html`<input-form data-input=${name} .schema=${schema}></input-form>`,
+                  )
+                : kind === 'json'
+                  ? html`<textarea
+                      rows="4"
+                      placeholder="JSON value of ${x.model}"
+                      aria-label=${x.title}
+                      .value=${this._json[name] ?? ''}
+                      @input=${(e: Event) =>
+                        (this._json = {
+                          ...this._json,
+                          [name]: (e.target as HTMLTextAreaElement).value,
+                        })}
+                    ></textarea>`
+                  : nothing}
           ${errors.length
             ? html`<div class="errors" role="alert">
                 ${errors.map((e) => html`<p>${e}</p>`)}
@@ -250,25 +254,36 @@ export class ExternalInputPanel extends LitElement {
             ${general.map((e) => html`<p>${e}</p>`)}
           </div>`
         : nothing}
-      <div class="actions">
-        <button class="btn primary" ?disabled=${this._busy} @click=${this._submit}>
-          ${inputs.every(([, x]) => formKind(inputSchemaOf(m, x.model)) === 'empty')
-            ? 'Confirm'
-            : 'Submit'}
+      ${inputs.some(([, x]) => byPerson(x))
+        ? this._actions(
+            m,
+            inputs.filter(([name, x]) => byPerson(x) && !answers[name]),
+          )
+        : nothing}
+    </div>`;
+  }
+
+  private _actions(m: Manifest, open: [string, ExternalInput][]) {
+    return html`<div class="actions">
+      ${open.length
+        ? html`<button class="btn primary" ?disabled=${this._busy} @click=${this._submit}>
+            ${open.every(([, x]) => formKind(inputSchemaOf(m, x.model)) === 'empty')
+              ? 'Confirm'
+              : 'Submit'}
+          </button>`
+        : nothing}
+      <span class="decline">
+        <input
+          type="text"
+          placeholder="Comment (optional)"
+          aria-label="Decline comment"
+          .value=${this._comment}
+          @input=${(e: Event) => (this._comment = (e.target as HTMLInputElement).value)}
+        />
+        <button class="btn danger" ?disabled=${this._busy} @click=${this._decline}>
+          Decline
         </button>
-        <span class="decline">
-          <input
-            type="text"
-            placeholder="Comment (optional)"
-            aria-label="Decline comment"
-            .value=${this._comment}
-            @input=${(e: Event) => (this._comment = (e.target as HTMLInputElement).value)}
-          />
-          <button class="btn danger" ?disabled=${this._busy} @click=${this._decline}>
-            Decline
-          </button>
-        </span>
-      </div>
+      </span>
     </div>`;
   }
 
@@ -302,7 +317,7 @@ export class ExternalInputPanel extends LitElement {
     const m = this.manifest;
     if (!m) return;
     const answers = answersOf(this.attempt);
-    const open = this._inputs.filter(([name]) => !answers[name]);
+    const open = this._inputs.filter(([name, x]) => byPerson(x) && !answers[name]);
     this._errors = {};
     const values: [string, unknown][] = [];
     for (const [name, x] of open) {
@@ -350,6 +365,18 @@ export class ExternalInputPanel extends LitElement {
   private _done(changed: boolean) {
     if (changed) this.dispatchEvent(new CustomEvent('answered'));
   }
+}
+
+function sourceLine(x: ExternalInput): string {
+  const poll = x.from.find((f) => f.kind === 'poll');
+  const callback = x.from.some((f) => f.kind === 'callback');
+  const parts = [
+    ...(callback ? ['a callback from another system'] : []),
+    ...(poll && poll.kind === 'poll'
+      ? [`a value from ${poll.url} (checked every ${poll.intervalSeconds}s)`]
+      : []),
+  ];
+  return `Waiting for ${parts.join(' or ')}.`;
 }
 
 declare global {

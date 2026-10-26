@@ -12,7 +12,7 @@ import { pipelineData, type PipelineData, type StageNode } from "../builder/pipe
 import { createCtx, formatLog } from "../ctx/index.ts";
 import { DescribeError, describePipeline, manifestText } from "../describe/describe.ts";
 import type { HarnessInfo } from "../util/handler-hash.ts";
-import { ENV, paths, runInfoFromEnv } from "./env.ts";
+import { callbackUrlsFromEnv, ENV, paths, runInfoFromEnv } from "./env.ts";
 import { EXIT } from "./exit.ts";
 import { executeStep, type Envelope, type Execution, type StepFunction } from "./execute.ts";
 import { MANIFEST_BEGIN, MANIFEST_END, packResult, removeStale, sentinelBlock, uploadFile, writeEnvelope } from "./result.ts";
@@ -183,7 +183,7 @@ async function runMode(cfg: HarnessConfig, name: string | undefined, io: Harness
       exec = { envelope: { status: "failed", error: { kind: "input", message: raw.message } }, exitCode: EXIT.inputInvalid };
     } else {
       const run = runInfoFromEnv(step.name);
-      const ctx = createCtx({ run, secrets: step.secrets, paths: { root: p.root, workFiles: p.files, tmp: p.tmp }, signal: cancel.signal, logSink: io.stderr });
+      const ctx = createCtx({ run, secrets: step.secrets, paths: { root: p.root, workFiles: p.files, tmp: p.tmp }, signal: cancel.signal, logSink: io.stderr, callbackUrls: callbackUrlsFromEnv() });
       exec = await executeStep({ step, fn, rawInput: raw.value, ctx, workFiles: p.files, log: io.stderr });
     }
     return await finish(exec, io);

@@ -26,6 +26,7 @@ public class EndpointAuthTests
         "GET /install.ps1",
         "GET /install.sh",
         "GET {*path:nonfile}",
+        "POST /api/hooks/inputs/{runId}/{step}/{input}/{mac}",
         "POST /api/hooks/{pipelineId}/{trigger}",
         "POST /api/webhooks/binding/{bindingId}/github",
     ];

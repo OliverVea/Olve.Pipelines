@@ -24,6 +24,7 @@ public sealed class PipelineConfigBinding
     public string? LastReconciledSha { get; set; }
     public ReconcileStatus Status { get; set; } = new();
     public DateTimeOffset CreatedAt { get; set; }
+    public bool Polls { get; set; } = true;
 }
 
 public sealed class ReconcileStatus
@@ -70,6 +71,12 @@ public sealed class CreatePipelineWithRepoRequest
 public sealed class SetBindingBranchRequest
 {
     public required string Branch { get; init; }
+}
+
+/// <summary>Body for <c>PUT /api/pipelines/{id}/binding/polling</c>.</summary>
+public sealed class SetBindingPollingRequest
+{
+    public bool Polls { get; init; }
 }
 
 /// <summary>Body for <c>PATCH /api/pipelines/{id}/binding</c> — set/clear the credentials secret key.</summary>

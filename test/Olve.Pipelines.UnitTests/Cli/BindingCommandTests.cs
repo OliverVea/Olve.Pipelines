@@ -159,6 +159,19 @@ public class BindingCommandTests
     }
 
     [Test]
+    [Arguments("off", false)]
+    [Arguments("on", true)]
+    public async Task BindingSetPolling_SendsTheFlag(string word, bool polls)
+    {
+        var api = new FakePipelinesApi { SetPipelineBindingPollingResult = Result.Success(SampleBinding()) };
+        var (ctx, _, cli) = Build(new BindingSetPollingCommand(), api, json: false,
+            "binding", "set-polling", "11111111-2222-3333-4444-555555555555", word);
+
+        await Assert.That((await new BindingSetPollingCommand().Execute(cli, ctx, CancellationToken.None)).Succeeded).IsTrue();
+        await Assert.That(api.Invoked($"SetPipelineBindingPolling(11111111-2222-3333-4444-555555555555,{polls})")).IsTrue();
+    }
+
+    [Test]
     public async Task BindingReconcile_CallsApi_AndConfirms()
     {
         var api = new FakePipelinesApi { ReconcilePipelineBindingResult = Result.Success() };

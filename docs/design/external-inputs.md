@@ -1,6 +1,6 @@
 # External inputs: steps that wait for the outside world
 
-Status: part 1 (person) built 2026-10-26; parts 2 (callback) and 3 (poll) not built. Replaces the "gating steps" candidate in the v2 plan.
+Status: built 2026-10-26 (person, callback, poll). Not built: per-input timeouts, `--reuse-input` on reruns, mappings in titles, callback HMAC secrets, poll headers. Callback URLs are `{Webhooks:PublicBaseUrl}/api/hooks/inputs/{run}/{step}/{input}/{mac}` (HMAC under an instance key kept in storage), not minted tokens; beta-test waits for the test fixture's callback and poll steps, answered by a signal-test service deployed next to beta. Replaces the "gating steps" candidate in the v2 plan.
 
 ## 1. Why
 

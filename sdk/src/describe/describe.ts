@@ -197,11 +197,20 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       if (failureHandler) problems.push(`${at}: failure handlers run unattended and cannot wait for input ('${key}')`);
       if (typeof e.title !== "string" || e.title.trim() === "") problems.push(`${at} external input '${key}': title must not be empty`);
       if (e.from.length === 0) problems.push(`${at} external input '${key}': from must list at least one source`);
+      if (new Set(e.from.map((f) => f.kind)).size !== e.from.length) problems.push(`${at} external input '${key}': each source kind may be listed once`);
+      if (e.from.some((f) => f.kind === "callback") && !/^[A-Za-z0-9_-]+$/.test(key))
+        problems.push(`${at} external input '${key}': a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)`);
+      for (const f of e.from) {
+        if (f.kind !== "poll") continue;
+        if (!/^https?:\/\//.test(f.url)) problems.push(`${at} external input '${key}': poll url must be an absolute http(s) URL`);
+        if (!Number.isInteger(f.intervalSeconds) || f.intervalSeconds < 10) problems.push(`${at} external input '${key}': poll intervalSeconds must be an integer of at least 10`);
+        if (f.valuePath.trim() === "") problems.push(`${at} external input '${key}': poll valuePath must not be empty`);
+      }
       externalInputs[key] = {
         model: useModel(e.model, `${at} external input '${key}'`),
         title: e.title,
         description: e.description,
-        from: e.from.map((f) => ({ kind: f.kind })),
+        from: e.from.map((f) => ({ ...f })),
       };
     }
     const entries = allEntries.filter(([, e]) => !isExternal(e));

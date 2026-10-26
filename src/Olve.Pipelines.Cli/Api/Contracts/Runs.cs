@@ -91,6 +91,7 @@ public sealed class RunStepView
     public string Name { get; set; } = "";
     public int? StepVersion { get; set; }
     public string Status { get; set; } = "";
+    public string[]? WaitingFor { get; set; }
     public string? Reason { get; set; }
     public int AttemptCount { get; set; }
     public int? LatestAttempt { get; set; }

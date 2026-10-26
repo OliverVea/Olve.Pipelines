@@ -38,8 +38,16 @@ export type ExternalInput = {
   model: string;
   title: string;
   description: string;
-  from: { kind: 'person' | string }[];
+  from: ExternalSource[];
 };
+
+export type ExternalSource =
+  | { kind: 'person' }
+  | { kind: 'callback' }
+  | { kind: 'poll'; url: string; valuePath: string; intervalSeconds: number };
+
+/** Whether a person may answer the input (the UI offers a form only then). */
+export const byPerson = (x: ExternalInput) => x.from.some((f) => f.kind === 'person');
 
 export type ManifestStep = {
   name: string;

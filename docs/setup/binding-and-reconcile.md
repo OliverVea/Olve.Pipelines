@@ -25,6 +25,8 @@ pipeline; every pipeline has exactly one.
 | `pl binding get <pipeline>` | Show the binding |
 | `pl binding status <pipeline>` | Reconcile result, commit, in-progress flag, resulting and active version, problems and warnings |
 | `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
+| `pl binding set-branch <pipeline> <branch>` | Move the binding to another branch of the same repo |
+| `pl binding set-polling <pipeline> on\|off` | Stop (or resume) polling GitHub for the binding |
 | `pl binding reconcile <pipeline>` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed) |
 
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
@@ -36,7 +38,10 @@ The service polls every binding's branch every 15 minutes (an unchanged branch c
 conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
 `credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub `push` hook, so changes
 are picked up within seconds; deliveries are authenticated by an HMAC secret the binding generates.
-There is nothing to choose per binding. When `Webhooks:PublicBaseUrl` changes, the registered hooks
+A binding with polling off (`pl binding set-polling <pipeline> off`) never polls: it syncs only on
+`pl binding reconcile` (`POST …/binding/reconcile`) or its webhook, and its push trigger fires only
+from the webhook. Use it for a pipeline something else drives, such as a test fixture another
+pipeline reconciles and triggers. When `Webhooks:PublicBaseUrl` changes, the registered hooks
 are pointed at the new URL (a hook deleted on GitHub is registered again); clearing it deletes them.
 
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are

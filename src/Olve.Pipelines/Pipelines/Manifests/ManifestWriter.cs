@@ -247,11 +247,17 @@ public static class ManifestWriter
             foreach (var source in input.From)
             {
                 w.WriteStartObject();
-                w.WriteString("kind", source switch
+                if (source is ExternalSource.Poll poll)
                 {
-                    ExternalSource.Person => "person",
-                    _ => throw new InvalidOperationException($"Unknown external input source {source.GetType().Name}."),
-                });
+                    w.WriteNumber("intervalSeconds", poll.IntervalSeconds);
+                    w.WriteString("kind", source.Kind);
+                    w.WriteString("url", poll.Url);
+                    w.WriteString("valuePath", poll.ValuePath);
+                }
+                else
+                {
+                    w.WriteString("kind", source.Kind);
+                }
                 w.WriteEndObject();
             }
             w.WriteEndArray();

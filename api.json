@@ -586,6 +586,98 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/binding/polling": {
+      "put": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Turn the binding's polling on or off",
+        "description": "Off, the binding no longer polls GitHub for config commits or branch heads; it syncs only on `POST …/binding/reconcile` or its webhook. For bindings driven from outside, such as a test fixture another pipeline reconciles and triggers.",
+        "operationId": "SetPipelineBindingPolling",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBindingPollingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineConfigBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/binding/branch": {
       "put": {
         "tags": [
@@ -804,6 +896,55 @@
           },
           {
             "name": "trigger",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/hooks/inputs/{runId}/{step}/{input}/{mac}": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Answer a callback input",
+        "description": "Another system answers a step's external input with `from: [callback()]`. The URL comes from `ctx.inputUrl(step, input)` and is the credential: anonymous, valid while the step waits for that input. The body is the value as JSON, or `{\"$decline\": \"reason\"}` to fail the step without running it. Answers 202.",
+        "operationId": "AnswerCallbackInput",
+        "parameters": [
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "input",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mac",
             "in": "path",
             "required": true,
             "schema": {
@@ -5931,6 +6072,10 @@
           "answeredAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "default": "person"
           }
         }
       },
@@ -6385,6 +6530,10 @@
               "null",
               "string"
             ]
+          },
+          "polls": {
+            "type": "boolean",
+            "default": true
           }
         }
       },
@@ -7149,6 +7298,15 @@
                 "$ref": "#/components/schemas/AttemptPhases"
               }
             ]
+          },
+          "waitingFor": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -7276,6 +7434,17 @@
         "properties": {
           "branch": {
             "type": "string"
+          }
+        }
+      },
+      "SetBindingPollingRequest": {
+        "required": [
+          "polls"
+        ],
+        "type": "object",
+        "properties": {
+          "polls": {
+            "type": "boolean"
           }
         }
       },
@@ -7468,6 +7637,9 @@
       "name": "Triggers"
     },
     {
+      "name": "Runs"
+    },
+    {
       "name": "Events"
     },
     {
@@ -7481,9 +7653,6 @@
     },
     {
       "name": "Config"
-    },
-    {
-      "name": "Runs"
     }
   ]
 }

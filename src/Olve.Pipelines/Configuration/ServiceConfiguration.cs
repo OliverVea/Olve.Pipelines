@@ -72,6 +72,11 @@ public static class ServiceConfiguration
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PollTriggerService>());
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<DeployPollService>());
         services.AddSingleton<IConfigLock>(sp => sp.GetRequiredService<DeployPollService>());
+        services.AddSingleton(sp => new ExternalInputPollOptions(sp.GetRequiredService<IConfiguration>()
+            .GetSection("ExternalInputs:Poll:AllowedHosts").GetChildren().Select(c => c.Value).OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)));
+        services.AddSingleton<ExternalInputPollService>();
+        services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<ExternalInputPollService>());
         services.AddSingleton<PushTriggerService>();
         services.AddSingleton<IPollSourceProvider>(sp => sp.GetRequiredService<PushTriggerService>());
         services.AddHostedService(sp => sp.GetRequiredService<PushTriggerService>());
@@ -119,6 +124,8 @@ public static class ServiceConfiguration
         services.AddTransient<RunContinuationService>();
         services.AddTransient<RunCancellationService>();
         services.AddTransient<ExternalInputService>();
+        services.AddSingleton<CallbackKeyStore>();
+        services.AddSingleton<CallbackInputUrls>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
 

@@ -24,4 +24,5 @@ public record PipelineConfigBinding(
     string? LastReconciledSha,
     ReconcileStatus Status,
     DateTimeOffset CreatedAt,
-    string? WebhookSecret = null) : IHasId<Id<PipelineConfigBinding>>;
+    string? WebhookSecret = null,
+    bool Polls = true) : IHasId<Id<PipelineConfigBinding>>;

@@ -99,7 +99,13 @@ public class RunViewService(
                     latest?.StartedAt(),
                     latest?.FinishedAt(),
                     isBlocked,
-                    latest is null ? null : AttemptPhases.From(latest));
+                    latest is null ? null : AttemptPhases.From(latest))
+                {
+                    WaitingFor = latest?.Status is Waiting
+                        ? step.ExternalInputs.Where(i => latest.Answers?.ContainsKey(i.Key) != true)
+                            .SelectMany(i => i.Value.From.Select(f => f.Kind)).Distinct().Order(StringComparer.Ordinal).ToArray()
+                        : null,
+                };
             }).ToArray())).ToArray();
     }
 

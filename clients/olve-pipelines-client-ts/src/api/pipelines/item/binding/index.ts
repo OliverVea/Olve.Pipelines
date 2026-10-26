@@ -6,6 +6,8 @@ import { createApiProblemFromDiscriminatorValue, createPipelineConfigBindingFrom
 // @ts-ignore
 import { BranchRequestBuilderRequestsMetadata, type BranchRequestBuilder } from './branch/index.js';
 // @ts-ignore
+import { PollingRequestBuilderRequestsMetadata, type PollingRequestBuilder } from './polling/index.js';
+// @ts-ignore
 import { ReconcileRequestBuilderRequestsMetadata, type ReconcileRequestBuilder } from './reconcile/index.js';
 // @ts-ignore
 import { StatusRequestBuilderRequestsMetadata, type StatusRequestBuilder } from './status/index.js';
@@ -20,6 +22,10 @@ export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequest
      * The branch property
      */
     get branch(): BranchRequestBuilder;
+    /**
+     * The polling property
+     */
+    get polling(): PollingRequestBuilder;
     /**
      * The reconcile property
      */
@@ -75,6 +81,9 @@ export const BindingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did
 export const BindingRequestBuilderNavigationMetadata: Record<Exclude<keyof BindingRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     branch: {
         requestsMetadata: BranchRequestBuilderRequestsMetadata,
+    },
+    polling: {
+        requestsMetadata: PollingRequestBuilderRequestsMetadata,
     },
     reconcile: {
         requestsMetadata: ReconcileRequestBuilderRequestsMetadata,

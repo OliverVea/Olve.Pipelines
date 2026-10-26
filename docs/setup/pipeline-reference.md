@@ -110,16 +110,23 @@ export const deployBeta = step({
 - An **external input** is answered from outside the run instead of by an earlier step:
 
   ```ts
-  input: { screenshots: M.Screenshots, verdict: external(M.Verdict, { title: "Screenshots accepted?" }) },
+  input: { screenshots: M.Screenshots, verdict: external(M.Verdict, { title: "Screenshots accepted?", from: [callback()] }) },
   ```
 
-  The step waits (status `waiting`) until it is answered: by a person in the UI or with
-  `pl input answer` (`from: [person()]`, the default). The value is validated against the model and
-  arrives in the handler like any other input. Declining fails the step without running it. A newer
-  run reaching the same step replaces the older waiting one, and there is no time limit. External
-  inputs need no producer and no mapper entry, and failure handlers can't have them. Keep them for
-  answers that only something outside the run can give; a manual "deploy to prod?" step defeats a
-  pipeline that should flow on its own.
+  The step waits (status `waiting`) until it is answered by one of the sources in `from`:
+
+  | Source | Answered by |
+  |---|---|
+  | `callback()` | another system, POSTing the value as JSON to the run's callback URL for the input. An earlier step hands it over: `ctx.inputUrl(reviewStep, "verdict")`. The URL is the credential (anonymous, under `Webhooks:PublicBaseUrl`) and works only while the step waits for that input: a POST before then gets 409, so callers retry. `{"$decline": "reason"}` declines. |
+  | `poll({ url, valuePath, intervalSeconds? })` | the service: it GETs `url` every `intervalSeconds` (default 30, at least 10) while the step waits, and answers with the JSON at `valuePath` (`.` = the whole body) once it validates. `{run.id}` and `{run.number}` in the URL are filled in. Like poll triggers it only reaches public addresses, unless the instance allows the host (`ExternalInputs:Poll:AllowedHosts`). |
+  | `person()` (the default) | a signed-in user, in the UI or with `pl input answer`. |
+
+  The first value that validates against the model answers; it arrives in the handler like any other
+  input, and the attempt records it with its source. Only a listed source may answer or decline.
+  Declining fails the step without running it. A newer run reaching the same step replaces the older
+  waiting one, and there is no time limit. External inputs need no producer and no mapper entry, and
+  failure handlers can't have them. Keep them for answers only something outside the run can give; a
+  manual "deploy to prod?" step defeats a pipeline that should flow on its own.
 - The image needs a shell only if the handler runs shell commands (`ctx.sh`); `ctx.exec` works on
   distroless images.
 - **`retries: n`** is an idempotency claim: a failed attempt is retried automatically, as a new

@@ -13,6 +13,10 @@ config:
   Links__BaseUrl: "https://pipelines-beta.ovea.pro"
   # Beta only: reads without a session, for beta-test's smoke check and the dev server's auth bypass.
   Auth__AnonymousReads: "true"
+  # The deployer's beta-test (its BETA_TOKEN secret on prod); sha256 of the token, not the token.
+  Auth__Tokens__deployer: "781d1d6226f589e48c8aad57fd05980cb60801b7f30cf87d033a9870f497323a"
+  # The signal-test companion below, for poll inputs (private addresses are otherwise refused).
+  ExternalInputs__Poll__AllowedHosts__0: "olve-signal-test.apps-beta.svc.cluster.local"
   # Beta keeps little: a run goes once it is older than 14 days and outside its pipeline's latest 3
   # (~55 MB per self-deploy run would fill the 20Gi Garage in weeks under the 183-day default).
   Retention__DryRun: "false"
@@ -29,3 +33,86 @@ garage:
 dex:
   enabled: true
   issuer: https://pipelines-beta.ovea.pro/dex
+
+# signal-test: a tiny external system for beta-test's fixture run. It answers callback inputs (POST
+# /callback {url, value, delaySeconds}) and serves values for poll inputs (PUT/GET /status/<key>).
+# Reachable only in the cluster; the beta server may poll it (ExternalInputs__Poll__AllowedHosts).
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: olve-signal-test
+    data:
+      server.ts: |
+        const allowed = process.env.CALLBACK_PREFIX ?? "";
+        const status = new Map<string, unknown>();
+        const later = (seconds: unknown, fn: () => void) => setTimeout(fn, Math.min(Number(seconds) || 0, 600) * 1000);
+
+        Bun.serve({
+          port: 8080,
+          async fetch(req) {
+            const { pathname } = new URL(req.url);
+            if (pathname === "/healthz") return new Response("ok");
+            const key = pathname.match(/^\/status\/([\w-]{1,100})$/)?.[1];
+            if (key && req.method === "GET")
+              return status.has(key) ? Response.json(status.get(key)) : new Response("not yet", { status: 404 });
+            if (key && req.method === "PUT") {
+              const { value, delaySeconds } = (await req.json()) as { value: unknown; delaySeconds?: number };
+              if (status.size > 1000) status.clear();
+              later(delaySeconds, () => status.set(key, value));
+              return new Response(null, { status: 202 });
+            }
+            if (pathname === "/callback" && req.method === "POST") {
+              const { url, value, delaySeconds } = (await req.json()) as { url: string; value: unknown; delaySeconds?: number };
+              if (!allowed || !url.startsWith(allowed)) return new Response("callback target not allowed", { status: 400 });
+              const step = url.split("/").slice(-4, -1).join("/");
+              const send = async (attempt: number) => {
+                const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(value) });
+                console.log(`callback ${step} #${attempt}: ${res.status}`);
+                if (!res.ok && attempt < 30) later(10, () => send(attempt + 1));
+              };
+              later(delaySeconds, () => send(1));
+              return new Response(null, { status: 202 });
+            }
+            return new Response("not found", { status: 404 });
+          },
+        });
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: olve-signal-test
+      labels: { app: olve-signal-test }
+    spec:
+      replicas: 1
+      selector:
+        matchLabels: { app: olve-signal-test }
+      template:
+        metadata:
+          labels: { app: olve-signal-test }
+          annotations:
+            checksum/server: signal-test-v1
+        spec:
+          containers:
+            - name: server
+              image: oven/bun:1.4.3-alpine
+              command: [bun, /app/server.ts]
+              env:
+                - name: CALLBACK_PREFIX
+                  value: https://pipelines-hooks-beta.ovea.pro/api/hooks/inputs/
+              ports: [{ containerPort: 8080 }]
+              readinessProbe:
+                httpGet: { path: /healthz, port: 8080 }
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits: { memory: 128Mi }
+              volumeMounts: [{ name: app, mountPath: /app }]
+          volumes:
+            - name: app
+              configMap: { name: olve-signal-test }
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: olve-signal-test
+    spec:
+      selector: { app: olve-signal-test }
+      ports: [{ port: 8080, targetPort: 8080 }]

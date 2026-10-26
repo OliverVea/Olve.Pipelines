@@ -34,6 +34,9 @@ public sealed record AttemptLaunchSpec(
 {
     /// <summary>The select cases the step sits in, from the run's effective plan (<c>OLVE_CASES</c>).</summary>
     public IReadOnlyList<string> Cases { get; init; } = [];
+
+    /// <summary>The run's effective plan (callback URLs cover its steps).</summary>
+    public RunPlan? Plan { get; init; }
 }
 
 /// <summary>Builds <see cref="AttemptLaunchSpec"/>s. Stateless query (transient).</summary>
@@ -66,6 +69,6 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
 
         return new AttemptLaunchSpec(
             attempt, run, version, step, ConfigDelivery.WithConfig(input, step, run.Config), attempt.InputHash,
-            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt)) { Cases = stage.Cases };
+            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt)) { Cases = stage.Cases, Plan = plan };
     }
 }

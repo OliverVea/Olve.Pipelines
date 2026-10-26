@@ -68,6 +68,16 @@ public static class PipelineBindingEndpoints
             .WithDescription("Sets or clears the credentials secret key.")
 ;
 
+        app.MapPut("/api/pipelines/{pipelineId}/binding/polling", Result<PipelineConfigBinding> (
+                PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetBindingPollingRequest request)
+                => Redacted(bindings.SetPolls(pipelineId, request.Polls)))
+            .WithApiResultMapping<PipelineConfigBinding>()
+            .WithName("SetPipelineBindingPolling")
+            .WithTags("Bindings")
+            .WithSummary("Turn the binding's polling on or off")
+            .WithDescription("Off, the binding no longer polls GitHub for config commits or branch heads; it syncs only on `POST …/binding/reconcile` or its webhook. For bindings driven from outside, such as a test fixture another pipeline reconciles and triggers.")
+;
+
         app.MapPut("/api/pipelines/{pipelineId}/binding/branch", Result<PipelineConfigBinding> (
                 PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, SetBindingBranchRequest request)
                 => Redacted(bindings.SetBranch(pipelineId, request.Branch)))
@@ -181,6 +191,8 @@ public record CreatePipelineWithRepoRequest(string Repo, string? Branch, string?
 public record UpdateBindingRequest(string? CredentialsSecret);
 
 public record SetBindingBranchRequest(string Branch);
+
+public record SetBindingPollingRequest(bool Polls);
 
 /// <param name="ReconcileSha">The config commit the last reconcile attempt was for.</param>
 /// <param name="ReconciledVersion">The version the last successful reconcile switched to.</param>

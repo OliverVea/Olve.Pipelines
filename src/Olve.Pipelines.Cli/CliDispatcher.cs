@@ -105,6 +105,7 @@ public sealed class CliDispatcher
         Register(new BindingStatusCommand());
         Register(new BindingSetCredentialsCommand());
         Register(new BindingSetBranchCommand());
+        Register(new BindingSetPollingCommand());
         Register(new BindingReconcileCommand());
 
         // dev (local development from source; no API)

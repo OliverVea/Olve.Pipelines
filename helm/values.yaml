@@ -146,3 +146,6 @@ slo:
       target: 99
       threshold: "0.5"
       description: "HTTP requests should complete within 500ms."
+
+# More Kubernetes objects to deploy with the release, as YAML (e.g. a test companion of a beta).
+extraObjects: []

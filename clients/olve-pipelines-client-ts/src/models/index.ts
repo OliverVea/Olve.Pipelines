@@ -1228,6 +1228,15 @@ export function createSetBindingBranchRequestFromDiscriminatorValue(parseNode: P
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SetBindingPollingRequest}
+ */
+// @ts-ignore
+export function createSetBindingPollingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetBindingPollingRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SetConfigRequest}
  */
 // @ts-ignore
@@ -2212,6 +2221,7 @@ export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Part
         "lastReconciledSha": n => { pipelineConfigBinding.lastReconciledSha = n.getStringValue(); },
         "path": n => { pipelineConfigBinding.path = n.getStringValue(); },
         "pipelineId": n => { pipelineConfigBinding.pipelineId = n.getGuidValue(); },
+        "polls": n => { pipelineConfigBinding.polls = n.getBooleanValue() ?? true; },
         "repo": n => { pipelineConfigBinding.repo = n.getStringValue(); },
         "status": n => { pipelineConfigBinding.status = n.getObjectValue<ReconcileStatus>(createReconcileStatusFromDiscriminatorValue); },
         "webhookSecret": n => { pipelineConfigBinding.webhookSecret = n.getStringValue(); },
@@ -2525,6 +2535,7 @@ export function deserializeIntoRunStepView(runStepView: Partial<RunStepView> | u
         "status": n => { runStepView.status = n.getStringValue(); },
         "stepVersion": n => { runStepView.stepVersion = n.getNumberValue(); },
         "succeededAttempt": n => { runStepView.succeededAttempt = n.getNumberValue(); },
+        "waitingFor": n => { runStepView.waitingFor = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -2571,6 +2582,17 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
 export function deserializeIntoSetBindingBranchRequest(setBindingBranchRequest: Partial<SetBindingBranchRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "branch": n => { setBindingBranchRequest.branch = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SetBindingPollingRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSetBindingPollingRequest(setBindingPollingRequest: Partial<SetBindingPollingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "polls": n => { setBindingPollingRequest.polls = n.getBooleanValue(); },
     }
 }
 /**
@@ -2953,6 +2975,10 @@ export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
      * The pipelineId property
      */
     pipelineId?: Guid | null;
+    /**
+     * The polls property
+     */
+    polls?: boolean | null;
     /**
      * The repo property
      */
@@ -3408,6 +3434,10 @@ export interface RunStepView extends AdditionalDataHolder, Parsable {
      * The succeededAttempt property
      */
     succeededAttempt?: number | null;
+    /**
+     * The waitingFor property
+     */
+    waitingFor?: string[] | null;
 }
 export interface RunSummary extends AdditionalDataHolder, Parsable {
     /**
@@ -4301,6 +4331,7 @@ export function serializePipelineConfigBinding(writer: SerializationWriter, pipe
     writer.writeStringValue("lastReconciledSha", pipelineConfigBinding.lastReconciledSha);
     writer.writeStringValue("path", pipelineConfigBinding.path);
     writer.writeGuidValue("pipelineId", pipelineConfigBinding.pipelineId);
+    writer.writeBooleanValue("polls", pipelineConfigBinding.polls ?? true);
     writer.writeStringValue("repo", pipelineConfigBinding.repo);
     writer.writeObjectValue<ReconcileStatus>("status", pipelineConfigBinding.status, serializeReconcileStatus);
     writer.writeStringValue("webhookSecret", pipelineConfigBinding.webhookSecret);
@@ -4635,6 +4666,7 @@ export function serializeRunStepView(writer: SerializationWriter, runStepView: P
     writer.writeStringValue("status", runStepView.status);
     writer.writeNumberValue("stepVersion", runStepView.stepVersion);
     writer.writeNumberValue("succeededAttempt", runStepView.succeededAttempt);
+    writer.writeCollectionOfPrimitiveValues<string>("waitingFor", runStepView.waitingFor);
     writer.writeAdditionalData(runStepView.additionalData);
 }
 /**
@@ -4685,6 +4717,18 @@ export function serializeSetBindingBranchRequest(writer: SerializationWriter, se
     if (!setBindingBranchRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branch", setBindingBranchRequest.branch);
     writer.writeAdditionalData(setBindingBranchRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SetBindingPollingRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSetBindingPollingRequest(writer: SerializationWriter, setBindingPollingRequest: Partial<SetBindingPollingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setBindingPollingRequest || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("polls", setBindingPollingRequest.polls);
+    writer.writeAdditionalData(setBindingPollingRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4789,6 +4833,12 @@ export interface SetBindingBranchRequest extends AdditionalDataHolder, Parsable 
      * The branch property
      */
     branch?: string | null;
+}
+export interface SetBindingPollingRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The polls property
+     */
+    polls?: boolean | null;
 }
 export interface SetConfigRequest extends AdditionalDataHolder, Parsable {
     /**

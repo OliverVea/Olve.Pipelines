@@ -62,7 +62,11 @@ public record RunStepView(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     bool Blocked,
-    AttemptPhases? Phases = null);
+    AttemptPhases? Phases = null)
+{
+    /// <summary>For a waiting step: the source kinds that may still answer it (<c>person</c>, <c>callback</c>, <c>poll</c>).</summary>
+    public string[]? WaitingFor { get; init; }
+}
 
 /// <summary>
 /// One row of a step's history across runs (spec §6.3), newest first. <see cref="StepVersionChanged"/>

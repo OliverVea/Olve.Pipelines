@@ -54,6 +54,7 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
 [JsonSerializable(typeof(UpdateBindingRequest))]
 [JsonSerializable(typeof(SetBindingBranchRequest))]
+[JsonSerializable(typeof(SetBindingPollingRequest))]
 [JsonSerializable(typeof(Result<PipelineBindingStatus>))]
 [JsonSerializable(typeof(DeletionResult))]
 [JsonSerializable(typeof(SetSecretRequest))]

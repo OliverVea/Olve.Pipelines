@@ -79,7 +79,21 @@ export const StepDescriptor = z
           model: modelName.describe("The value is validated against this model's input view."),
           title: z.string().min(1).describe("What is asked, shown to whoever answers."),
           description: z.string(),
-          from: z.array(z.strictObject({ kind: z.literal("person") })).min(1).describe("Who or what may answer."),
+          from: z
+            .array(
+              z.discriminatedUnion("kind", [
+                z.strictObject({ kind: z.literal("person") }),
+                z.strictObject({ kind: z.literal("callback") }),
+                z.strictObject({
+                  kind: z.literal("poll"),
+                  url: z.string().describe("GET while waiting; {run.id} and {run.number} are filled in."),
+                  valuePath: z.string().min(1).describe("Dot path to the value; '.' is the whole body."),
+                  intervalSeconds: z.int().min(10),
+                }),
+              ]),
+            )
+            .min(1)
+            .describe("Who or what may answer."),
         }),
       )
       .optional()

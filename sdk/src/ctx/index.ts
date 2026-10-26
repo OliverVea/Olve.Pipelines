@@ -18,6 +18,8 @@ export interface CtxOptions {
   signal: AbortSignal;
   /** Where log lines go (default stderr). */
   logSink?: (line: string) => void;
+  /** `<step>/<input>` → callback URL (`ctx.inputUrl`). */
+  callbackUrls?: Readonly<Record<string, string>>;
 }
 
 export function formatLog(message: string, fields?: Record<string, unknown>): string {
@@ -118,5 +120,12 @@ export function createCtx(o: CtxOptions): Ctx {
     run: Object.freeze({ ...o.run }),
     tmpDir: o.paths.tmp,
     skip: skipped,
+    inputUrl: (step, input) => {
+      const name = typeof step === "string" ? step : step.name;
+      const url = o.callbackUrls?.[`${name}/${input}`];
+      if (!url)
+        throw new Error(`no callback URL for input '${input}' of step '${name}': it must list callback() in from, and the instance needs a public base URL`);
+      return url;
+    },
   };
 }

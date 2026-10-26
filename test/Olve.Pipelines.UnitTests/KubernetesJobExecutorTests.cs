@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Scheduling;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -73,7 +74,9 @@ public class KubernetesJobExecutorTests
 
         executor = new KubernetesJobExecutor(
             sp.GetRequiredService<IServiceScopeFactory>(), registry, lifetime, control, factory, storage,
-            scenario.D.AttemptService, scenario.D.Launches, NullLogger<KubernetesJobExecutor>.Instance)
+            scenario.D.AttemptService, scenario.D.Launches,
+            new CallbackInputUrls(new CallbackKeyStore(new MemorySnapshotStore(), NullLogger<CallbackKeyStore>.Instance), new WebhookOptions(null)),
+            NullLogger<KubernetesJobExecutor>.Instance)
         {
             SubmissionRetryDelay = TimeSpan.Zero,
             PollInterval = TimeSpan.FromMilliseconds(5),

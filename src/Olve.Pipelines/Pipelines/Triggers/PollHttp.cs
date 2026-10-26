@@ -13,7 +13,8 @@ internal static class PollHttp
 {
     internal const int MaxResponseBytes = 1024 * 1024;
 
-    public static HttpClient Create(Func<IPAddress, bool>? allowed = null)
+    /// <param name="allowedHosts">Host names that may resolve to any address (an operator's explicit exception, e.g. an in-cluster service).</param>
+    public static HttpClient Create(Func<IPAddress, bool>? allowed = null, IReadOnlySet<string>? allowedHosts = null)
     {
         allowed ??= IsPublic;
         var handler = new SocketsHttpHandler
@@ -24,7 +25,7 @@ internal static class PollHttp
             {
                 var host = context.DnsEndPoint.Host;
                 var addresses = IPAddress.TryParse(host, out var literal) ? [literal] : await Dns.GetHostAddressesAsync(host, ct);
-                var permitted = addresses.Where(allowed).ToArray();
+                var permitted = allowedHosts?.Contains(host) == true ? addresses : addresses.Where(allowed).ToArray();
                 if (permitted.Length == 0)
                     throw new HttpRequestException($"'{host}' resolves only to addresses poll triggers may not reach (private, loopback, link-local)");
 

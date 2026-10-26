@@ -23,6 +23,8 @@ export interface TestHandlerOptions<S extends AnyStep> {
   dir?: string;
   /** Abort signal handed to ctx.signal. */
   signal?: AbortSignal;
+  /** `<step>/<input>` → URL returned by `ctx.inputUrl`. */
+  callbackUrls?: Record<string, string>;
 }
 
 export type TestResult<S extends AnyStep> = {
@@ -62,6 +64,7 @@ export async function testHandler<S extends AnyStep>(
     paths: { root: dir, workFiles: filesDir, tmp: join(dir, "tmp") },
     signal: opts.signal ?? new AbortController().signal,
     logSink: (l) => logs.push(l),
+    callbackUrls: opts.callbackUrls,
   });
   const ctx = { ...real, ...opts.ctx } as Ctx;
   // Round-trip through JSON like input.json does (drops undefined, rejects non-JSON values early).

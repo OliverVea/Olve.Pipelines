@@ -33,6 +33,7 @@ public class KubernetesJobExecutor(
     IHarnessStorage storage,
     AttemptService attempts,
     AttemptLaunchService launches,
+    CallbackInputUrls callbacks,
     ILogger<KubernetesJobExecutor> logger)
     : JobExecutorBase(scopeFactory, registry, lifetime, logger)
 {
@@ -96,11 +97,12 @@ public class KubernetesJobExecutor(
 
         await storage.PutTextAsync(HarnessStorageKeys.AttemptInputKey(attempt), launch.InputJson, "application/json", ct);
 
+        var callbackUrls = launch.Plan is { } plan ? await callbacks.ForRunAsync(launch.Run.Id, plan, ct) : null;
         Result<HarnessJobSpec> specResult;
         using (var input = JsonDocument.Parse(launch.InputJson))
         {
             specResult = await factory.CreateStepJobAsync(
-                attempt, launch.Version.BinaryKey, launch.Run.VersionStamp, launch.Step, input.RootElement, launch.Cases, ct);
+                attempt, launch.Version.BinaryKey, launch.Run.VersionStamp, launch.Step, input.RootElement, launch.Cases, callbackUrls, ct);
         }
 
         if (specResult.TryPickProblems(out var specProblems, out var spec))

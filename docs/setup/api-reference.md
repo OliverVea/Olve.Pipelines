@@ -156,6 +156,20 @@ Sets or clears the credentials secret key.
 
 **Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
 
+#### Turn the binding's polling on or off
+
+`PUT /api/pipelines/{pipelineId}/binding/polling`
+
+Off, the binding no longer polls GitHub for config commits or branch heads; it syncs only on `POST …/binding/reconcile` or its webhook. For bindings driven from outside, such as a test fixture another pipeline reconciles and triggers.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string | yes |
+
+**Body** (`application/json`): [SetBindingPollingRequest](#setbindingpollingrequest)
+
+**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+
 #### Move the binding to another branch
 
 `PUT /api/pipelines/{pipelineId}/binding/branch`
@@ -385,6 +399,21 @@ Copies values server-side from `sourcePipelineId` (`names`, default all; `target
 **Returns:** `200` [CopySecretsResponse](#copysecretsresponse)
 
 ### Runs
+
+#### Answer a callback input
+
+`POST /api/hooks/inputs/{runId}/{step}/{input}/{mac}`
+
+Another system answers a step's external input with `from: [callback()]`. The URL comes from `ctx.inputUrl(step, input)` and is the credential: anonymous, valid while the step waits for that input. The body is the value as JSON, or `{"$decline": "reason"}` to fail the step without running it. Answers 202.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `runId` | path | string | yes |
+| `step` | path | string | yes |
+| `input` | path | string | yes |
+| `mac` | path | string | yes |
+
+**Returns:** `200`
 
 #### List runs
 
@@ -1113,6 +1142,7 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `value` | string | required |
 | `answeredBy` | string | required |
 | `answeredAt` | string (date-time) | required |
+| `source` | string |  |
 
 ### ManifestIssueView
 
@@ -1231,6 +1261,7 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `status` | [ReconcileStatus](#reconcilestatus) | required |
 | `createdAt` | string (date-time) | required |
 | `webhookSecret` | string? |  |
+| `polls` | boolean |  |
 
 ### PipelineHealth
 
@@ -1416,6 +1447,7 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `finishedAt` | string (date-time)? | required |
 | `blocked` | boolean | required |
 | `phases` | [AttemptPhases](#attemptphases)? |  |
+| `waitingFor` | string[]? |  |
 
 ### RunSummary
 
@@ -1447,6 +1479,12 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | Field | Type | |
 |---|---|---|
 | `branch` | string | required |
+
+### SetBindingPollingRequest
+
+| Field | Type | |
+|---|---|---|
+| `polls` | boolean | required |
 
 ### SetConfigRequest
 

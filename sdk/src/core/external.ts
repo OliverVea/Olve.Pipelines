@@ -1,11 +1,36 @@
 import { isModel, type AnyModel } from "./models.ts";
 
 /** Who or what may supply an external input's value. */
-export type ExternalSource = { readonly kind: "person" };
+export type ExternalSource =
+  | { readonly kind: "person" }
+  | { readonly kind: "callback" }
+  | { readonly kind: "poll"; readonly url: string; readonly valuePath: string; readonly intervalSeconds: number };
 
 /** A signed-in user answers, in the UI or with `pl input`. */
 export function person(): ExternalSource {
   return Object.freeze({ kind: "person" as const });
+}
+
+/**
+ * Another system answers by POSTing to this run's callback URL for the input, which an earlier step hands it
+ * with `ctx.inputUrl(step, input)`. The body is the value as JSON, or `{"$decline": "reason"}`.
+ */
+export function callback(): ExternalSource {
+  return Object.freeze({ kind: "callback" as const });
+}
+
+export interface PollOptions {
+  /** GET while the step waits; `{run.id}` and `{run.number}` are filled in. */
+  url: string;
+  /** Dot path to the value in the JSON response; `.` is the whole body. */
+  valuePath: string;
+  /** Default 30; at least 10. */
+  intervalSeconds?: number;
+}
+
+/** The service polls `url` while the step waits and answers with the value at `valuePath` once it validates. */
+export function poll(options: PollOptions): ExternalSource {
+  return Object.freeze({ kind: "poll" as const, url: options.url, valuePath: options.valuePath, intervalSeconds: options.intervalSeconds ?? 30 });
 }
 
 /**

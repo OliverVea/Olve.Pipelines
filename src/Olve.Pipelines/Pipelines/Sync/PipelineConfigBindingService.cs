@@ -111,6 +111,22 @@ public class PipelineConfigBindingService(
         return updated;
     }
 
+    /// <summary>
+    /// Turns the binding's polling of GitHub on or off. Off, it syncs only when asked: <c>reconcile</c>, its webhook, or a
+    /// push trigger nudged by the webhook.
+    /// </summary>
+    public Result<PipelineConfigBinding> SetPolls(Id<Pipeline> pipelineId, bool polls)
+    {
+        if (GetByPipelineId(pipelineId).TryPickProblems(out var problems, out var binding))
+            return problems;
+        if (binding.Polls == polls)
+            return binding;
+
+        var updated = binding with { Polls = polls };
+        store.Set(updated);
+        return updated;
+    }
+
     /// <summary>Records the outcome of the most recent reconcile attempt.</summary>
     public Result<PipelineConfigBinding> SetReconcileStatus(Id<PipelineConfigBinding> id, ReconcileStatus status)
     {

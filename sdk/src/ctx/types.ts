@@ -113,4 +113,9 @@ export interface Ctx<Sec extends string = string, Cfg extends AnyConfigEntry = n
   readonly tmpDir: string;
   /** Runtime escape hatch: produce no output. Prefer `when` blocks. */
   skip(reason: string): Skipped;
+  /**
+   * This run's callback URL for an external input with `from: [callback()]` (of any step of the pipeline):
+   * hand it to the system that will answer. POST the value as JSON, or `{"$decline": "reason"}`.
+   */
+  inputUrl(step: string | { readonly name: string }, input: string): string;
 }

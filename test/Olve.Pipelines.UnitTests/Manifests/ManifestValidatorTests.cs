@@ -40,6 +40,10 @@ public class ManifestValidatorTests
         ["external input named like an input"] = (C.ExternalInputClash, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "artifact")),
         ["external input without a source"] = (C.ExternalInputNoSource, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: [])),
         ["external input with an empty title"] = (C.ExternalInputTitleEmpty, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", title: " ")),
+        ["external input listing a source twice"] = (C.ExternalInputSource, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: ["person", "person"])),
+        ["callback input with a key that isn't URL-safe"] = (C.ExternalInputSource, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "a.b", sources: ["callback"])),
+        ["poll input polling too often"] = (C.ExternalInputSource, r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("https://x.example/{run.id}", 5)),
+        ["poll input with a non-http url"] = (C.ExternalInputSource, r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("ftp://x.example", 30)),
 
         // mapping keys / paths / types
         ["mapping key extra"] = (C.MappingKeyExtra, r => Step(r, "checkout")["input"]!["extra"] = Const(1)),
@@ -135,6 +139,16 @@ public class ManifestValidatorTests
             ["model"] = model,
             ["title"] = title,
             ["from"] = new JsonArray((sources ?? ["person"]).Select(k => (JsonNode)new JsonObject { ["kind"] = k }).ToArray()),
+        },
+    };
+
+    private static JsonObject PollExternal(string url, int interval) => new()
+    {
+        ["decision"] = new JsonObject
+        {
+            ["model"] = "BuildArtifact",
+            ["title"] = "Go?",
+            ["from"] = new JsonArray(new JsonObject { ["kind"] = "poll", ["url"] = url, ["valuePath"] = "v", ["intervalSeconds"] = interval }),
         },
     };
 

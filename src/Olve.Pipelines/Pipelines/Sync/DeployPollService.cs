@@ -60,7 +60,7 @@ public class DeployPollService(
 
     private readonly CancellationTokenSource _lifetime = new();
 
-    public IEnumerable<PollSource> Sources() => bindings.List().Select(binding => new PollSource(
+    public IEnumerable<PollSource> Sources() => bindings.List().Where(b => b.Polls).Select(binding => new PollSource(
         $"binding:{binding.Id}",
         options.PollInterval,
         async ct =>

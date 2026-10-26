@@ -105,6 +105,8 @@ shows the latest attempt whatever its status; output and files use the latest su
   gave it are recorded on the attempt. **Decline** fails the step without running it (`declined by
   <you>: <comment>`), so the run fails at the stage barrier. A newer run reaching the same step
   makes the older waiting attempt obsolete; cancel works as on any attempt. There is no time limit.
+  Inputs answered by a callback or a poll need no one: the run view says what a waiting step waits
+  for, the UI offers a form only for inputs a person may answer, and `pl wait` exits 3 only then.
 - **Continue and rerun need the run's version to be active.** After a switch, re-trigger instead.
 - **Continue and step rerun keep the run's config snapshot.** To use newer config, start a new run.
 

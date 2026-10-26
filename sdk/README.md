@@ -103,7 +103,7 @@ Rules:
 - **Trigger mappers** produce `z.input`, so fields with defaults may be left out. **Handlers, mapper refs and `when`** see `z.output`.
 - A **plain-schema input** has no model to match on, so the step needs a mapper.
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
-- **`external(M, { title, description?, from? })`** is answered from outside the run (`from`: `person()`, the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one.
+- **`external(M, { title, description?, from? })`** is answered from outside the run; `from` lists `callback()` (another system POSTs to the URL an earlier step gets from `ctx.inputUrl(step, input)`), `poll({ url, valuePath, intervalSeconds? })` and `person()` (the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one.
 
 ### Config
 
@@ -309,11 +309,12 @@ This section is everything the C# side needs in order to run the binary.
 | `OLVE_CASES` | run | Only for a step inside a `select`: a JSON array of the case conditions it sits in (`["target.prod.kind=ssh"]`); `run <step>` uses it to pick the variant of a name several cases use. |
 | `<SECRET_NAME>` | per step | Each declared secret as an env var of the **same name**: `secretKeyRef` key = name. Mount only the step's `secrets` (for poll triggers, the poll's `secrets`). Child processes inherit them. The mount is optional: an unset secret leaves the variable unset and `ctx.secrets.<NAME>` throws on access, so a handler can check `process.env.<NAME>` first and skip. |
 | `OLVE_RESULT_URL` | optional | Pre-signed **PUT** for `result.tar.gz` (see below). Unset means no upload. |
+| `OLVE_CALLBACK_URLS` | optional | JSON object mapping `<step>/<input>` → this run's callback URL of that external input (`ctx.inputUrl`). Set when the pipeline has `callback()` inputs and the instance has a public base URL. |
 | `OLVE_FILE_URLS` | optional | JSON object mapping file key → pre-signed **GET** URL, one entry per file ref in the input. The key is `<run>/<step>/<attempt>/<path>` (`path` exactly as in the ref, including a trailing `/` for directories). The URL points at the stored object (see the storage rule). |
 | `OLVE_FILES_BASE_URL` (+ `OLVE_FILES_TOKEN`) | optional | Fallback: `GET <base>/<run>/<step>/<attempt>/<object path>` with an optional `Authorization: Bearer <token>`. |
 | `OLVE_FILES_DIR` | dev | Local pool laid out as `<run>/<step>/<attempt>/files/<object path>`. |
 
-`OLVE_RESULT_URL`, `OLVE_FILE_URLS` and `OLVE_FILES_TOKEN` are removed from the environment of child processes. URLs are never logged past `?`.
+`OLVE_RESULT_URL`, `OLVE_FILE_URLS`, `OLVE_FILES_TOKEN` and `OLVE_CALLBACK_URLS` are removed from the environment of child processes. URLs are never logged past `?`.
 
 `ctx.files.fetch` looks for a file in this order:
 
@@ -384,7 +385,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   - a nested object of mappings.
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
-- **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from: [{kind: "person"}]}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
+- **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
 - **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `configEntries` (and those entries' schemas) + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
   - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.

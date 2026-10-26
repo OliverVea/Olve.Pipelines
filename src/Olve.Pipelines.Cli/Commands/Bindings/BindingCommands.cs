@@ -156,6 +156,40 @@ public sealed class BindingSetBranchCommand : ICliCommand
     }
 }
 
+/// <summary><c>pl binding set-polling &lt;pipeline&gt; on|off</c>.</summary>
+public sealed class BindingSetPollingCommand : ICliCommand
+{
+    public string Noun => "binding";
+    public string Verb => "set-polling";
+    public int RequiredOperands => 2;
+    public string HelpLine => "Turn the binding's polling of GitHub on or off";
+    public string? HelpDetail =>
+        """
+        pl binding set-polling <pipeline> on|off
+
+          Off, the binding stops polling GitHub for config commits and branch heads: it syncs only
+          on `pl binding reconcile` or its webhook. For a pipeline driven from outside, such as a
+          test fixture another pipeline reconciles and triggers.
+        """;
+
+    public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
+    {
+        var polls = cli.Operand(1) switch { "on" => true, "off" => false, _ => (bool?)null };
+        if (polls is null)
+            return new ResultProblem("Polling must be on or off, got '{0}'.", cli.Operand(1)!);
+        if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
+            return resolveProblems;
+
+        if ((await ctx.Api.SetPipelineBindingPolling(pipeline.Id.ToString(), polls.Value, ct))
+            .TryPickProblems(out var problems, out var binding))
+            return problems;
+
+        ctx.Output.Emit(binding, CliJsonContext.Default.PipelineConfigBinding,
+            () => BindingPrinter.PrintBinding(ctx.Output, binding));
+        return Result.Success();
+    }
+}
+
 /// <summary><c>pl binding reconcile &lt;pipeline&gt;</c>.</summary>
 public sealed class BindingReconcileCommand : ICliCommand
 {
@@ -188,6 +222,7 @@ internal static class BindingPrinter
         output.Line($"Pipeline:    {b.PipelineId}");
         output.Line($"Repo:        {b.Repo}@{b.Branch} ({b.Path})");
         output.Line($"Credentials: {b.CredentialsSecret ?? "(none)"}");
+        if (!b.Polls) output.Line("Polling:     off (syncs only on reconcile or its webhook)");
         output.Line($"Last push:   {b.LastPushSha ?? "(none)"}");
         output.Line($"Reconciled:  {b.LastReconciledSha ?? "(none)"}");
         output.Line($"Reconcile:   {ReconcileText(b.Status.Result, b.Status.LastSyncTime)}");

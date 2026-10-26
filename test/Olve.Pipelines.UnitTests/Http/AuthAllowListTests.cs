@@ -73,7 +73,12 @@ public class AuthAllowListTests
         await Assert.That(allow.Allows(User(("email", "me@example.com")))).IsFalse();
     }
 
-    private static async Task<HttpStatusCode> Get(string path, string? user, params string[] allowedUsers)
+    private const string MachineToken = "olvp_0123456789abcdef0123456789abcdef";
+
+    private static Task<HttpStatusCode> Get(string path, string? user, params string[] allowedUsers) =>
+        Send(path, user is null ? null : Token(user), allowedUsers);
+
+    private static async Task<HttpStatusCode> Send(string path, string? bearer, params string[] allowedUsers)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
@@ -81,6 +86,7 @@ public class AuthAllowListTests
         builder.Configuration["Auth:SigningKey"] = SigningKey;
         builder.Configuration["Auth:Authority"] = Issuer;
         builder.Configuration["Auth:FrontendAuthority"] = Issuer;
+        builder.Configuration["Auth:Tokens:deployer"] = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(MachineToken)));
         for (var i = 0; i < allowedUsers.Length; i++)
             builder.Configuration[$"Auth:Allow:Users:{i}"] = allowedUsers[i];
         builder.ConfigureAuthentication();
@@ -88,12 +94,12 @@ public class AuthAllowListTests
         await using var app = builder.Build();
         app.MapAuthentication();
         app.MapGet("/api/read", () => "ok").RequireRead();
-        app.MapPost("/api/write", () => "ok");
+        app.MapPost("/api/write", (ClaimsPrincipal who) => Olve.Pipelines.Kubernetes.Api.SecretEndpoints.Actor(who));
         await app.StartAsync();
 
         var client = app.GetTestClient();
-        if (user is not null)
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(user));
+        if (bearer is not null)
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
         var response = path == "/api/write" ? await client.PostAsync(path, null) : await client.GetAsync(path);
         return response.StatusCode;
     }
@@ -122,4 +128,14 @@ public class AuthAllowListTests
     [Test]
     public async Task WithoutAnAllowList_AnyValidTokenGetsIn() =>
         await Assert.That(await Get("/api/write", "someone")).IsEqualTo(HttpStatusCode.OK);
+
+    [Test]
+    [Arguments("/api/read")]
+    [Arguments("/api/write")]
+    public async Task MachineToken_GetsIn_PastTheAllowList(string path) =>
+        await Assert.That(await Send(path, MachineToken, "OliverVea")).IsEqualTo(HttpStatusCode.OK);
+
+    [Test]
+    public async Task UnknownMachineToken_IsUnauthorized() =>
+        await Assert.That(await Send("/api/write", "olvp_wrong", "OliverVea")).IsEqualTo(HttpStatusCode.Unauthorized);
 }

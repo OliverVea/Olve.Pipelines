@@ -378,6 +378,20 @@ public static partial class ManifestValidator
                     Error(ManifestIssueCodes.ExternalInputNoSource, $"{xp}.from", $"{at}: from must list at least one source", n);
                 if (failureHandler)
                     Error(ManifestIssueCodes.ExternalInputInFailureHandler, xp, $"{at}: failure handlers run unattended and cannot wait for input", n);
+                if (external.From.GroupBy(f => f.Kind).Any(g => g.Count() > 1))
+                    Error(ManifestIssueCodes.ExternalInputSource, $"{xp}.from", $"{at}: each source kind may be listed once", n);
+                if (external.From.Any(f => f is ExternalSource.Callback) && !key.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-'))
+                    Error(ManifestIssueCodes.ExternalInputSource, xp, $"{at}: a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)", n);
+                foreach (var poll in external.From.OfType<ExternalSource.Poll>())
+                {
+                    var url = poll.Url.Replace("{run.id}", "x", StringComparison.Ordinal).Replace("{run.number}", "1", StringComparison.Ordinal);
+                    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+                        Error(ManifestIssueCodes.ExternalInputSource, $"{xp}.from", $"{at}: poll url must be an absolute http(s) URL", n);
+                    if (string.IsNullOrWhiteSpace(poll.ValuePath))
+                        Error(ManifestIssueCodes.ExternalInputSource, $"{xp}.from", $"{at}: poll valuePath must not be empty", n);
+                    if (poll.IntervalSeconds < 10)
+                        Error(ManifestIssueCodes.ExternalInputSource, $"{xp}.from", $"{at}: poll intervalSeconds must be at least 10", n);
+                }
             }
 
             foreach (var (key, type) in s.InputTypes)

@@ -22,7 +22,8 @@ public class PollSourceWiringTests
 
         var providers = provider.GetServices<IPollSourceProvider>().ToList();
 
-        await Assert.That(providers.Count).IsEqualTo(4);
+        await Assert.That(providers.Count).IsEqualTo(5);
+        await Assert.That(providers.OfType<ExternalInputPollService>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<RunSweep>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<PushTriggerService>().Count()).IsEqualTo(1);
         await Assert.That(providers.OfType<PollTriggerService>().Count()).IsEqualTo(1);

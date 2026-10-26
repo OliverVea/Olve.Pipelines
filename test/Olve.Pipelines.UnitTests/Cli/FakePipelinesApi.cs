@@ -37,6 +37,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Result<PipelineConfigBinding>? CreatePipelineWithRepoResult { get; set; }
     public Result<PipelineConfigBinding>? UpdatePipelineBindingCredentialsResult { get; set; }
     public Result<PipelineConfigBinding>? SetPipelineBindingBranchResult { get; set; }
+    public Result<PipelineConfigBinding>? SetPipelineBindingPollingResult { get; set; }
     public Result? ReconcilePipelineBindingResult { get; set; }
 
     // Info
@@ -180,6 +181,13 @@ public sealed class FakePipelinesApi : IPipelinesApi
         Calls.Add(nameof(CreatePipelineWithRepo));
         return Task.FromResult(
             CreatePipelineWithRepoResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(CreatePipelineWithRepo)}' called but not configured."));
+    }
+
+    public Task<Result<PipelineConfigBinding>> SetPipelineBindingPolling(string pipelineId, bool polls, CancellationToken ct)
+    {
+        Calls.Add($"{nameof(SetPipelineBindingPolling)}({pipelineId},{polls})");
+        return Task.FromResult(
+            SetPipelineBindingPollingResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(SetPipelineBindingPolling)}' called but not configured."));
     }
 
     public Task<Result<PipelineConfigBinding>> SetPipelineBindingBranch(string pipelineId, string branch, CancellationToken ct)

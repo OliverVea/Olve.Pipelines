@@ -81,6 +81,7 @@ public static class ManifestIssueCodes
     public const string ExternalInputNoSource = "external-input-no-source";
     public const string ExternalInputInFailureHandler = "external-input-in-failure-handler";
     public const string ExternalInputTitleEmpty = "external-input-title-empty";
+    public const string ExternalInputSource = "external-input-source";
 
     // ── when ──
     public const string WhenFieldUnknown = "when-field-unknown";

@@ -24,8 +24,13 @@ public static class AuthenticationConfiguration
             return;
         }
 
+        const string selector = "Bearer or machine token";
+        var tokens = MachineTokenOptions.From(builder.Configuration);
         builder.Services
-            .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddAuthentication(selector)
+            .AddPolicyScheme(selector, null, o => o.ForwardDefaultSelector = http =>
+                MachineTokenHandler.Carries(http.Request) ? MachineTokenHandler.SchemeName : JwtBearerDefaults.AuthenticationScheme)
+            .AddScheme<MachineTokenOptions, MachineTokenHandler>(MachineTokenHandler.SchemeName, o => o.Hashes = tokens)
             .AddJwtBearer(options =>
             {
                 var authority = builder.Configuration["Auth:Authority"];
@@ -82,7 +87,7 @@ public static class AuthenticationConfiguration
         var allow = AuthAllowList.From(builder.Configuration);
         var signedIn = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
-            .RequireAssertion(ctx => allow.Allows(ctx.User) || Refused(ctx))
+            .RequireAssertion(ctx => ctx.User.HasClaim(c => c.Type == MachineTokenHandler.NameClaim) || allow.Allows(ctx.User) || Refused(ctx))
             .Build();
 
         builder.Services.AddAuthorizationBuilder()

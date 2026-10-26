@@ -92,13 +92,12 @@ public sealed class LoginCommand : ICliCommand
         var challenge = OidcClient.CodeChallenge(verifier);
         var state = OidcClient.Base64Url(RandomNumberGenerator.GetBytes(16));
 
-        // 4. Loopback redirect listener on a random free port.
-        var port = GetFreePort();
+        // 4. Loopback redirect listener on the first free LoopbackPorts entry.
+        if (StartLoopbackListener() is not { } started)
+            return new ResultProblem("Could not start a loopback listener on any of the ports {0}; use --device.", string.Join(", ", LoopbackPorts));
+        using var listener = started.Listener;
+        var port = started.Port;
         var redirectUri = $"http://127.0.0.1:{port}/callback";
-        using var listener = new HttpListener();
-        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        try { listener.Start(); }
-        catch (HttpListenerException ex) { return new ResultProblem("Could not start loopback listener for {0}: {1}", redirectUri, ex.Message); }
 
         // 5. Open the browser (and always print the URL as an SSH/headless fallback).
         var authorizeUrl = BuildAuthorizeUrl(disco.AuthorizationEndpoint!, clientId, redirectUri, challenge, state);
@@ -295,12 +294,29 @@ public sealed class LoginCommand : ICliCommand
         return result;
     }
 
-    private static int GetFreePort()
+    /// <summary>
+    /// The browser flow's redirect ports. Fixed because an OIDC provider that lists redirect URIs
+    /// (the bundled Dex) accepts only those; the chart registers the same ports.
+    /// </summary>
+    public static readonly int[] LoopbackPorts = [48650, 48651, 48652, 48653, 48654];
+
+    private static (HttpListener Listener, int Port)? StartLoopbackListener()
     {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        try { return ((IPEndPoint)probe.LocalEndpoint).Port; }
-        finally { probe.Stop(); }
+        foreach (var port in LoopbackPorts)
+        {
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+            try
+            {
+                listener.Start();
+                return (listener, port);
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+            }
+        }
+        return null;
     }
 
     private static void TryOpenBrowser(string url, IConsoleLog log)

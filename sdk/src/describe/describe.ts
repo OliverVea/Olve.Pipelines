@@ -5,6 +5,7 @@ import { CONFIG_NAME, isConfigEntry, SECRET_REF_KIND } from "../core/config.ts";
 import { CONFIG_CASE_KEY, CONFIG_REF_KEY } from "../core/config-refs.ts";
 import { configRefPath, configRefTarget, isConfigRef, unionAt } from "../core/config.ts";
 import { isModel, isOptional, MODEL_NAME, type AnyModel } from "../core/models.ts";
+import { isExternal } from "../core/external.ts";
 import { SECRET_NAME, type Secret } from "../core/secrets.ts";
 import { RESERVED_STEP_NAMES, STEP_NAME, isStep, type AnyStep } from "../core/steps.ts";
 import { isImplementation } from "../core/handlers.ts";
@@ -189,7 +190,21 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     if (typeof s.image !== "string" || s.image.trim() === "") problems.push(`${at}: image must be a non-empty string`);
 
     const inputTypes: StepDescriptorT["inputTypes"] = {};
-    const entries = Object.entries(s.input as Record<string, unknown>);
+    const externalInputs: NonNullable<StepDescriptorT["externalInputs"]> = {};
+    const allEntries = Object.entries(s.input as Record<string, unknown>);
+    for (const [key, e] of allEntries) {
+      if (!isExternal(e)) continue;
+      if (failureHandler) problems.push(`${at}: failure handlers run unattended and cannot wait for input ('${key}')`);
+      if (typeof e.title !== "string" || e.title.trim() === "") problems.push(`${at} external input '${key}': title must not be empty`);
+      if (e.from.length === 0) problems.push(`${at} external input '${key}': from must list at least one source`);
+      externalInputs[key] = {
+        model: useModel(e.model, `${at} external input '${key}'`),
+        title: e.title,
+        description: e.description,
+        from: e.from.map((f) => ({ kind: f.kind })),
+      };
+    }
+    const entries = allEntries.filter(([, e]) => !isExternal(e));
     for (const [key, e] of entries) {
       if (isOptional(e)) inputTypes[key] = { model: useModel(e.model, `${at} input '${key}'`), optional: true };
       else if (isModel(e)) inputTypes[key] = { model: useModel(e, `${at} input '${key}'`), optional: false };
@@ -298,6 +313,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       ...(settings !== undefined ? { config: settings as Record<string, z.core.util.JSONType> } : {}),
       ...(configNames.length ? { configEntries: configNames } : {}),
       ...(s.clusterAccess === true ? { clusterAccess: true as const } : {}),
+      ...(Object.keys(externalInputs).length ? { externalInputs } : {}),
     };
     if (s.clusterAccess !== undefined && typeof s.clusterAccess !== "boolean") problems.push(`${at}: clusterAccess must be a boolean`);
     if (s.output && !isModel(s.output)) problems.push(`${at}: output must be a model`);
@@ -321,7 +337,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       else problems.push(`${at}: mapper threw: ${(e as Error)?.message ?? String(e)}`);
       return {};
     }
-    const declared = s.input as Record<string, unknown>;
+    const declared = Object.fromEntries(Object.entries(s.input as Record<string, unknown>).filter(([, e]) => !isExternal(e)));
     for (const k of Object.keys(declared)) if (!(k in recorded)) problems.push(`${at}: mapper does not provide input '${k}'`);
     for (const k of Object.keys(recorded)) if (!(k in declared)) problems.push(`${at}: mapper provides '${k}', which is not an input of the step`);
     for (const [k, m] of Object.entries(recorded)) checkMapping(`${at} input '${k}'`, m, avail, isOptional(declared[k]), true);

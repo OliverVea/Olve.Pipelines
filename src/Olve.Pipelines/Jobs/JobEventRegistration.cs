@@ -12,7 +12,7 @@ public class JobEventRegistration(AttemptEvents attemptEvents, IServiceProvider 
         attemptEvents.OnAdded.Subscribe(_ => sp.GetRequiredService<JobDispatchSignal>().Nudge());
         attemptEvents.OnUpdated.Subscribe(e =>
         {
-            if (e.Before.Status.IsActive() && !e.After.Status.IsActive())
+            if ((e.Before.Status.IsActive() && !e.After.Status.IsActive()) || (e.Before.Status is AttemptStatus.Waiting && e.After.Status is AttemptStatus.Scheduled))
                 sp.GetRequiredService<JobDispatchSignal>().Nudge();
         });
 

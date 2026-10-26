@@ -6,7 +6,7 @@ import { navigate } from '../router.js';
  * discriminators plus the run view's derived `held` / `pending` / `not-run`;
  * run statuses are capitalised enums from the API and normalised here.
  */
-export type Tone = 'ok' | 'fail' | 'run' | 'wait' | 'skip' | 'idle' | 'off';
+export type Tone = 'ok' | 'fail' | 'run' | 'ask' | 'wait' | 'skip' | 'idle' | 'off';
 
 export function toneOf(status: string | null | undefined): Tone {
   switch ((status ?? '').toLowerCase()) {
@@ -22,6 +22,8 @@ export function toneOf(status: string | null | undefined): Tone {
     case 'running (healthy)':
     case 'scheduled':
       return 'run';
+    case 'waiting':
+      return 'ask';
     case 'held':
     case 'blocked':
     case 'draining':
@@ -44,6 +46,8 @@ export function statusLabel(status: string | null | undefined): string {
       return 'running';
     case 'not-run':
       return 'not run';
+    case 'waiting':
+      return 'waiting for input';
     case 'excluded':
       return 'not in run';
     case '':
@@ -60,8 +64,14 @@ export function isActiveStatus(status: string | null | undefined): boolean {
     s === 'in-progress' ||
     s === 'scheduled' ||
     s === 'pending' ||
-    s === 'held'
+    s === 'held' ||
+    s === 'waiting'
   );
+}
+
+/** Whether an attempt status has a log to follow live (a waiting attempt has no pod yet). */
+export function isLiveStatus(status: string | null | undefined): boolean {
+  return isActiveStatus(status) && (status ?? '').toLowerCase() !== 'waiting';
 }
 
 export function formatDuration(
@@ -293,6 +303,13 @@ export const sharedStyles = css`
   }
   .t-run {
     --tone: var(--color-primary);
+  }
+  .t-ask {
+    --tone: var(--color-primary);
+  }
+  .t-ask .dot,
+  .dot.t-ask {
+    background: transparent;
   }
   .t-wait {
     --tone: var(--color-warning);

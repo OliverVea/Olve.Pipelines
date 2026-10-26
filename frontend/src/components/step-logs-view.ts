@@ -11,6 +11,7 @@ import {
   runPath,
   pipelinePath,
   isActiveStatus,
+  isLiveStatus,
 } from '../v2/ui.js';
 import { LiveController } from '../v2/events.js';
 import './log-pane.js';
@@ -207,7 +208,7 @@ export class StepLogsView extends LitElement {
       ${st?.reason ? html`<p class="reason">${st.reason}</p>` : nothing}
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
       ${a
-        ? html`<log-pane .url=${url} ?live=${isActiveStatus(st?.type)}></log-pane>`
+        ? html`<log-pane .url=${url} ?live=${isLiveStatus(st?.type)}></log-pane>`
         : list
           ? html`<p class="muted">This step has no attempt in run #${this.run}.</p>`
           : html`<p class="muted">Loading…</p>`}

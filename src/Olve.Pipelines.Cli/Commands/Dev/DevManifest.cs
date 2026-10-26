@@ -12,7 +12,11 @@ public sealed record DevStep(
     IReadOnlyList<string> Secrets,
     JsonObject Input,
     IReadOnlyDictionary<string, bool> OptionalInputs,
-    bool IsFailureHandler);
+    bool IsFailureHandler)
+{
+    /// <summary>External inputs: key → model. The step waits until each is answered.</summary>
+    public IReadOnlyDictionary<string, string> ExternalInputs { get; init; } = new Dictionary<string, string>();
+}
 
 /// <summary>A <c>when</c> block condition: the pipeline-input field must equal one of the values.</summary>
 public sealed record WhenCondition(string Field, IReadOnlyList<JsonNode?> Values)
@@ -183,7 +187,10 @@ public sealed class DevManifest
             Secrets: (step["secrets"] as JsonArray ?? []).Select(Str).OfType<string>().ToList(),
             Input: step["input"] is JsonObject input ? (JsonObject)input.DeepClone() : [],
             OptionalInputs: optional,
-            IsFailureHandler: isFailureHandler);
+            IsFailureHandler: isFailureHandler)
+        {
+            ExternalInputs = (step["externalInputs"] as JsonObject ?? []).ToDictionary(p => p.Key, p => Str(p.Value?["model"]) ?? "?"),
+        };
     }
 
     internal static string? Str(JsonNode? node) =>

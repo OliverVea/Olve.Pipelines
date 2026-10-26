@@ -35,6 +35,12 @@ public class ManifestValidatorTests
         ["failure root outside handler"] = (C.RefFailureOutsideHandler, r => Step(r, "checkout")["input"]!["sha"] = Ref("failure.step")),
         ["ref syntax"] = (C.RefSyntaxInvalid, r => Step(r, "checkout")["input"]!["sha"] = Ref("input..sha")),
 
+        // external inputs
+        ["external input of an unknown model"] = (C.ModelUnknown, r => Step(r, "deploy-beta")["externalInputs"] = External("Nope")),
+        ["external input named like an input"] = (C.ExternalInputClash, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "artifact")),
+        ["external input without a source"] = (C.ExternalInputNoSource, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: [])),
+        ["external input with an empty title"] = (C.ExternalInputTitleEmpty, r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", title: " ")),
+
         // mapping keys / paths / types
         ["mapping key extra"] = (C.MappingKeyExtra, r => Step(r, "checkout")["input"]!["extra"] = Const(1)),
         ["mapping key missing"] = (C.MappingKeyMissing, r => Step(r, "checkout")["input"]!.AsObject().Remove("sha")),
@@ -120,6 +126,16 @@ public class ManifestValidatorTests
             copy["step"]!["image"] = "busybox";
             r["failureHandlers"]!.AsArray().Add(copy);
         }),
+    };
+
+    private static JsonObject External(string model, string key = "decision", string title = "Go?", string[]? sources = null) => new()
+    {
+        [key] = new JsonObject
+        {
+            ["model"] = model,
+            ["title"] = title,
+            ["from"] = new JsonArray((sources ?? ["person"]).Select(k => (JsonNode)new JsonObject { ["kind"] = k }).ToArray()),
+        },
     };
 
     private static JsonNode CommitSchema() => new JsonObject

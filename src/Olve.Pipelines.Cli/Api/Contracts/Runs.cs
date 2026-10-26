@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
@@ -147,6 +148,19 @@ public sealed class StepHistoryItem
 public sealed class RerunStepRequest
 {
     public bool Continue { get; init; }
+}
+
+/// <summary>Body for <c>POST …/steps/{step}/input</c>.</summary>
+public sealed class AnswerInputRequest
+{
+    public string? Name { get; init; }
+    public required JsonNode Value { get; init; }
+}
+
+/// <summary>Body for <c>POST …/steps/{step}/input/decline</c>.</summary>
+public sealed class DeclineInputRequest
+{
+    public string? Comment { get; init; }
 }
 
 /// <summary>An error body (<c>ApiProblem</c>): every non-2xx response but 401/403.</summary>

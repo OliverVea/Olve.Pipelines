@@ -21,7 +21,7 @@ attempts, every step's output (the **pool**). Runs are numbered per pipeline —
 | links | `supersededBy`, `rerunOf` |
 
 An **attempt** is one execution of one step in a run, run as **one Kubernetes Job**. Reruns add
-attempts (`@1`, `@2`, …). Attempt statuses: `Scheduled`, `InProgress`, `Succeeded`, `Failed`,
+attempts (`@1`, `@2`, …). Attempt statuses: `Waiting` (for its external inputs), `Scheduled`, `InProgress`, `Succeeded`, `Failed`,
 `Skipped` (with a reason), `Cancelled`, `Obsolete`. Later stages consume a step's **latest
 successful attempt**.
 
@@ -74,6 +74,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 | Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Rerun |
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |
 | Rerun one step | `pl step rerun <pipeline>#<run>/<step> [--continue]` | Run view → step → Rerun |
+| Answer a waiting step | `pl input answer <pipeline>#<run>/<step> [--field k=v …\|--value json]`, `pl input decline … [--comment]`, `pl input list` | Run view → the answer form above the stages; a "waiting for input" chip in the pipeline list |
 | Output, files, logs | `pl step output\|files\|file\|logs <address>` (`logs --follow`) | Run view → step |
 | A step's history | `pl step history <pipeline>/<step>` | `/pipeline/<id>/step/<name>/runs` |
 | Health | `pl pipeline health <pipeline>`, `pl pipeline list` | Pipeline list |
@@ -98,6 +99,12 @@ shows the latest attempt whatever its status; output and files use the latest su
   in-progress attempt (its Job is deleted). A cancelled attempt is treated like any other: the other
   steps of its stage keep running, and once the stage settles the run ends Cancelled. To carry on,
   `pl step rerun <address> --continue`.
+- **Answer** gives a step's [external input](pipeline-reference.md#steps): a step with external
+  inputs gets a `Waiting` attempt when its stage starts, and runs once every input is answered. The
+  value is validated against the input's model; `--field` values are typed by it. The answer and who
+  gave it are recorded on the attempt. **Decline** fails the step without running it (`declined by
+  <you>: <comment>`), so the run fails at the stage barrier. A newer run reaching the same step
+  makes the older waiting attempt obsolete; cancel works as on any attempt. There is no time limit.
 - **Continue and rerun need the run's version to be active.** After a switch, re-trigger instead.
 - **Continue and step rerun keep the run's config snapshot.** To use newer config, start a new run.
 
@@ -114,7 +121,8 @@ Health (`pl pipeline list`):
 Cancelled and superseded runs are ignored; skipped steps never count as unhealthy.
 
 What's running across all pipelines: `pl attempts` (`GET /api/attempts?status=active`) lists every
-scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`).
+waiting, scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<attempt>`);
+`pl input list` (`?status=waiting`) only the ones waiting for input.
 
 ## Where the time goes
 

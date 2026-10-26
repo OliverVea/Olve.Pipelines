@@ -168,7 +168,7 @@ public class StageScheduler(
         logger.LogInformation("Run #{RunNumber} ('{RunId}') superseded by run #{NewerRunNumber}: the newer run already started step '{StepName}'",
             run.Number, run.Id, newer.Number, stepName);
         LogIfFailed(runs.Supersede(run.Id, newer.Id), run, "supersede");
-        foreach (var waiting in attempts.ListByRun(run.Id).Where(a => a.Status is Scheduled))
+        foreach (var waiting in attempts.ListByRun(run.Id).Where(a => a.Status is Scheduled or Waiting))
         {
             if (attempts.Cancel(waiting.Id).TryPickProblems(out var problems))
                 logger.LogProblems(LogLevel.Warning, problems, "Could not cancel step '{StepName}' of superseded run #{RunNumber}", waiting.StepName, run.Number);
@@ -230,7 +230,8 @@ public class StageScheduler(
                 break;
 
             case StepDecision.Schedule schedule:
-                if (attempts.Schedule(run.Id, step.Name, schedule.Hash, schedule.Json).TryPickProblems(out var scheduleProblems, out var attempt))
+                if (attempts.Schedule(run.Id, step.Name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
+                    .TryPickProblems(out var scheduleProblems, out var attempt))
                 {
                     logger.LogProblems(LogLevel.Warning, scheduleProblems, "Could not schedule step '{StepName}' in run #{RunNumber} ('{RunId}'); failing it",
                         step.Name, run.Number, run.Id);

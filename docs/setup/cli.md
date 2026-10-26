@@ -74,10 +74,15 @@ pl step unblock <pipeline>/<step>
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts
 
+# steps waiting for external input: answer (typed by the input's model) or decline
+pl input list
+pl input answer <pipeline>#<run>/<step> [--field k=v ...] [--value <json|@file|@->] [--name <input>]
+pl input decline <pipeline>#<run>/<step> [--comment <text>]
+
 # live change events (GET /api/events) until Ctrl+C
 pl watch [<pipeline>] [--json]
 
-# block until something happens (re-checks on live events; rides out the server restarting or a 5xx); exit 0 ok, 1 failed, 124 --timeout
+# block until something happens (re-checks on live events; rides out the server restarting or a 5xx); exit 0 ok, 1 failed, 3 a step waits for input, 124 --timeout
 pl wait run <pipeline>#<run>[/<step>] [--until finished|started|held] [--timeout 45m]
 pl wait push <pipeline> <sha> [--until started|finished]   # prints the run's address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit

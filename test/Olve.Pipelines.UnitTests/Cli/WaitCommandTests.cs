@@ -39,6 +39,20 @@ public class WaitCommandTests
             await Assert.That(((WaitCheck.Done)Waiter.RunFinished("p", Run(status))).Success).IsFalse();
     }
 
+    [Test]
+    public async Task RunWaitingForInput_EndsTheWaitWithItsOwnOutcome()
+    {
+        static RunDetail Detail(string runStatus, string stepStatus) => new()
+        {
+            Run = new RunSummary { Number = 7, Status = runStatus },
+            Stages = [new RunStageView { Steps = [new RunStepView { Name = "build", Status = "succeeded" }, new RunStepView { Name = "approve", Status = stepStatus }] }],
+        };
+
+        await Assert.That(Waiter.RunFinished("p", Detail("Running", "waiting"))).IsEqualTo(new WaitCheck.NeedsInput("p#7/approve  waiting for input"));
+        await Assert.That(Waiter.RunFinished("p", Detail("Running", "in-progress"))).IsTypeOf<WaitCheck.Pending>();
+        await Assert.That(Waiter.RunFinished("p", Detail("Succeeded", "succeeded"))).IsTypeOf<WaitCheck.Done>();
+    }
+
     private static (CliArgs Cli, CommandContext Ctx, StringWriter Stdout) Wait()
     {
         var stdout = new StringWriter();

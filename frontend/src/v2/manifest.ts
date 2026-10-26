@@ -34,6 +34,13 @@ export type Mapping = { ref: string } | { const: unknown } | { [field: string]: 
 
 export type InputType = { model: string; optional: boolean } | { schema: ModelSchemas };
 
+export type ExternalInput = {
+  model: string;
+  title: string;
+  description: string;
+  from: { kind: 'person' | string }[];
+};
+
 export type ManifestStep = {
   name: string;
   description?: string;
@@ -48,6 +55,8 @@ export type ManifestStep = {
   config?: unknown;
   /** Config entries delivered to the step as ctx.config. */
   configEntries?: string[];
+  /** Inputs answered from outside the run; the attempt waits until each has a value. */
+  externalInputs?: Record<string, ExternalInput>;
   [k: string]: unknown;
 };
 
@@ -191,5 +200,7 @@ export function stepInputSchema(m: Manifest, step: ManifestStep): JsonSchema {
     properties[name] =
       'model' in t ? (m.models[t.model]?.output ?? {}) : (t.schema.output ?? {});
   }
+  for (const [name, x] of Object.entries(step.externalInputs ?? {}))
+    properties[name] = m.models[x.model]?.output ?? {};
   return { type: 'object', properties };
 }

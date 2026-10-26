@@ -64,7 +64,8 @@ internal static class DevFixtures
                            "input": { "artifact": { "ref": "build" } }, "inputTypes": { "artifact": { "model": "Artifact", "optional": false } } } ] },
             { "when": { "publish": [true] }, "stages": [
                 { "steps": [ { "name": "publish", "kind": "custom", "image": "alpine", "output": null, "secrets": ["TOKEN"],
-                               "input": { "release": { "ref": "deploy" } }, "inputTypes": { "release": { "model": "Release", "optional": false } } } ] } ] } ] },
+                               "input": { "release": { "ref": "deploy" } }, "inputTypes": { "release": { "model": "Release", "optional": false } },
+                               "externalInputs": { "verdict": { "model": "Verdict", "title": "Accepted?", "description": "", "from": [ { "kind": "person" } ] } } } ] } ] } ] },
         { "steps": [ { "name": "summary", "kind": "custom", "image": "alpine", "output": null, "secrets": [],
                        "input": { "artifact": { "ref": "build" }, "release": { "ref": "deploy" } },
                        "inputTypes": { "artifact": { "model": "Artifact", "optional": false }, "release": { "model": "Release", "optional": true } } } ] },

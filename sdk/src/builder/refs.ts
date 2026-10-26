@@ -1,5 +1,6 @@
 import type { RefBrand } from "../core/brands.ts";
 import type { AnyStep, InferEntry } from "../core/steps.ts";
+import type { External } from "../core/external.ts";
 import type { Primitive } from "../core/types.ts";
 
 /**
@@ -23,4 +24,7 @@ export type Mappable<T> =
         ? never
         : { [K in keyof T]: Mappable<T[K]> } & { readonly [RefBrand]?: never }); // a Ref of another model can't sneak in structurally
 
-export type MapperResult<S extends AnyStep> = { [K in keyof S["input"]]: Mappable<InferEntry<S["input"][K]>> };
+/** What a mapper provides: every input except the external ones, which come from outside the run. */
+export type MapperResult<S extends AnyStep> = {
+  [K in keyof S["input"] as S["input"][K] extends External ? never : K]: Mappable<InferEntry<S["input"][K]>>;
+};

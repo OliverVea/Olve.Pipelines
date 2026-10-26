@@ -228,6 +228,35 @@ public static class ManifestWriter
         }
         if (s.ConfigEntries.Count > 0) WriteStrings(w, "configEntries", s.ConfigEntries);
         if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
+        WriteExternalInputs(w, s, model => model);
+        w.WriteEndObject();
+    }
+
+    /// <summary>Writes <c>externalInputs</c> when the step has any; <paramref name="model"/> names each input's model.</summary>
+    public static void WriteExternalInputs(Utf8JsonWriter w, StepDescriptor s, Func<string, string> model)
+    {
+        if (s.ExternalInputs.Count == 0) return;
+        w.WriteStartObject("externalInputs");
+        foreach (var (key, input) in s.ExternalInputs)
+        {
+            w.WriteStartObject(key);
+            w.WriteString("model", model(input.Model));
+            w.WriteString("title", input.Title);
+            w.WriteString("description", input.Description);
+            w.WriteStartArray("from");
+            foreach (var source in input.From)
+            {
+                w.WriteStartObject();
+                w.WriteString("kind", source switch
+                {
+                    ExternalSource.Person => "person",
+                    _ => throw new InvalidOperationException($"Unknown external input source {source.GetType().Name}."),
+                });
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
         w.WriteEndObject();
     }
 

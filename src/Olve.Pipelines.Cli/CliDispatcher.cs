@@ -5,6 +5,7 @@ using Olve.Pipelines.Cli.Commands.Attempts;
 using Olve.Pipelines.Cli.Commands.Bindings;
 using Olve.Pipelines.Cli.Commands.Config;
 using Olve.Pipelines.Cli.Commands.Dev;
+using Olve.Pipelines.Cli.Commands.Inputs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Profiles;
 using Olve.Pipelines.Cli.Commands.Runs;
@@ -80,6 +81,9 @@ public sealed class CliDispatcher
 
         // attempts across pipelines (what's running)
         Register(new AttemptListCommand());
+        Register(new InputListCommand());
+        Register(new InputAnswerCommand());
+        Register(new InputDeclineCommand());
         Register(new WatchCommand());
 
         // secret

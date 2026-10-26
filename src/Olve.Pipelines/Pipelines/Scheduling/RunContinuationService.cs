@@ -69,7 +69,8 @@ public class RunContinuationService(
                 if (continueAfter && run.Status.IsTerminal() && runs.Reopen(run.Id).TryPickProblems(out var reopenProblems))
                     return reopenProblems;
 
-                if (attempts.Schedule(run.Id, stepName, schedule.Hash, schedule.Json).TryPickProblems(out var problems, out var attempt))
+                if (attempts.Schedule(run.Id, stepName, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
+                    .TryPickProblems(out var problems, out var attempt))
                     return problems;
 
                 scheduler.Advance(run.Id);

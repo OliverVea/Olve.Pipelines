@@ -554,6 +554,38 @@ Cancels the step's scheduled or in-progress attempt (its Job is deleted). The ru
 
 **Returns:** `200` [Attempt](#attempt)
 
+#### Answer a step's external input
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input`
+
+Gives the value of an external input of a step that waits for it (`name` may be omitted when the step has one). The value is validated against the input's model; once every external input is answered the step is scheduled.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+
+**Body** (`application/json`): [AnswerInputRequest](#answerinputrequest)
+
+**Returns:** `200` [Attempt](#attempt)
+
+#### Decline a step's external input
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline`
+
+Fails a step that waits for input without running it; the reason names who declined and the comment.
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+
+**Body** (`application/json`): [DeclineInputRequest](#declineinputrequest)?
+
+**Returns:** `200` [Attempt](#attempt)
+
 #### List a step's files
 
 `GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files`
@@ -671,7 +703,7 @@ The step's attempts across runs, with markers where the step's definition change
 
 `GET /api/attempts`
 
-With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.
+`status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
@@ -750,6 +782,13 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `createdAt` | string (date-time) | required |
 | `startedAt` | string (date-time)? | required |
 
+### AnswerInputRequest
+
+| Field | Type | |
+|---|---|---|
+| `value` | any | required |
+| `name` | string? |  |
+
 ### ApiProblem
 
 | Field | Type | |
@@ -785,6 +824,7 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `output` | [AttemptOutput](#attemptoutput)? |  |
 | `input` | string? |  |
 | `timings` | [AttemptTimings](#attempttimings)? |  |
+| `answers` | map of [ExternalAnswer](#externalanswer)? |  |
 
 ### AttemptFileEntry
 
@@ -886,6 +926,12 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 |---|---|---|
 | `startedAt` | string (date-time) | required |
 | `finishedAt` | string (date-time) | required |
+
+### AttemptStatusWaiting
+
+| Field | Type | |
+|---|---|---|
+| `since` | string (date-time) | required |
 
 ### AttemptTimings
 
@@ -1044,6 +1090,12 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `runNumbers` | integer[] | required |
 | `overheadSeconds` | number? |  |
 
+### DeclineInputRequest
+
+| Field | Type | |
+|---|---|---|
+| `comment` | string? |  |
+
 ### EffectivePipelineResponse
 
 | Field | Type | |
@@ -1053,6 +1105,14 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `selected` | map of string | required |
 | `manifest` | string | required |
 | `cases` | map of string[] | required |
+
+### ExternalAnswer
+
+| Field | Type | |
+|---|---|---|
+| `value` | string | required |
+| `answeredBy` | string | required |
+| `answeredAt` | string (date-time) | required |
 
 ### ManifestIssueView
 

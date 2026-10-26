@@ -34,6 +34,8 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<AttemptFilesResponse>))]
 [JsonSerializable(typeof(Result<PipelineHealth>))]
 [JsonSerializable(typeof(RerunStepRequest))]
+[JsonSerializable(typeof(AnswerInputRequest))]
+[JsonSerializable(typeof(DeclineInputRequest))]
 [JsonSerializable(typeof(ContinueRunRequest))]
 [JsonSerializable(typeof(TriggerRunRequest))]
 [JsonSerializable(typeof(ManifestValidationResponse))]

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Olve.Pipelines.Cli.Api.Contracts;
 
 namespace Olve.Pipelines.Cli.Api;
@@ -20,6 +21,9 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     // Attempts across pipelines
     public Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct) =>
         transport.GetAsync("/api/attempts?status=active", CliJsonContext.Default.ActiveAttemptArray, ct);
+
+    public Task<Result<ActiveAttempt[]>> ListWaitingAttempts(CancellationToken ct) =>
+        transport.GetAsync("/api/attempts?status=waiting", CliJsonContext.Default.ActiveAttemptArray, ct);
 
     // Secrets
     public Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct) =>
@@ -153,6 +157,16 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result<Attempt>> CancelStep(string pipelineId, int run, string step, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/cancel", body: null, CliJsonContext.Default.Attempt, ct);
+
+    public Task<Result<Attempt>> AnswerStepInput(string pipelineId, int run, string step, string? name, JsonNode value, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/input",
+            ApiTransport.JsonBody(new AnswerInputRequest { Name = name, Value = value }, CliJsonContext.Default.AnswerInputRequest),
+            CliJsonContext.Default.Attempt, ct);
+
+    public Task<Result<Attempt>> DeclineStepInput(string pipelineId, int run, string step, string? comment, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/input/decline",
+            ApiTransport.JsonBody(new DeclineInputRequest { Comment = comment }, CliJsonContext.Default.DeclineInputRequest),
+            CliJsonContext.Default.Attempt, ct);
 
     public Task<Result<Attempt>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"{StepPath(pipelineId, run, step)}/rerun",

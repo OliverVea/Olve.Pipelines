@@ -8,6 +8,8 @@ import { CancelRequestBuilderRequestsMetadata, type CancelRequestBuilder } from 
 // @ts-ignore
 import { FilesRequestBuilderNavigationMetadata, FilesRequestBuilderRequestsMetadata, type FilesRequestBuilder } from './files/index.js';
 // @ts-ignore
+import { InputRequestBuilderNavigationMetadata, InputRequestBuilderRequestsMetadata, type InputRequestBuilder } from './input/index.js';
+// @ts-ignore
 import { LogsRequestBuilderNavigationMetadata, LogsRequestBuilderRequestsMetadata, type LogsRequestBuilder } from './logs/index.js';
 // @ts-ignore
 import { OutputRequestBuilderRequestsMetadata, type OutputRequestBuilder } from './output/index.js';
@@ -32,6 +34,10 @@ export interface WithStepItemRequestBuilder extends BaseRequestBuilder<WithStepI
      * The files property
      */
     get files(): FilesRequestBuilder;
+    /**
+     * The input property
+     */
+    get input(): InputRequestBuilder;
     /**
      * The logs property
      */
@@ -62,6 +68,10 @@ export const WithStepItemRequestBuilderNavigationMetadata: Record<Exclude<keyof 
     files: {
         requestsMetadata: FilesRequestBuilderRequestsMetadata,
         navigationMetadata: FilesRequestBuilderNavigationMetadata,
+    },
+    input: {
+        requestsMetadata: InputRequestBuilderRequestsMetadata,
+        navigationMetadata: InputRequestBuilderNavigationMetadata,
     },
     logs: {
         requestsMetadata: LogsRequestBuilderRequestsMetadata,

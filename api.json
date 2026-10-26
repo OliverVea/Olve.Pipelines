@@ -56,7 +56,7 @@
           "Attempts"
         ],
         "summary": "List running attempts",
-        "description": "With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.",
+        "description": "`status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.",
         "operationId": "ListActiveAttempts",
         "parameters": [
           {
@@ -3109,6 +3109,232 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Answer a step's external input",
+        "description": "Gives the value of an external input of a step that waits for it (`name` may be omitted when the step has one). The value is validated against the input's model; once every external input is answered the step is scheduled.",
+        "operationId": "AnswerStepInput",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerInputRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Decline a step's external input",
+        "description": "Fails a step that waits for input without running it; the reason names who declined and the comment.",
+        "operationId": "DeclineStepInput",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeclineInputRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files": {
       "get": {
         "tags": [
@@ -4438,6 +4664,23 @@
           }
         }
       },
+      "AnswerInputRequest": {
+        "required": [
+          "value"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "$ref": "#/components/schemas/JsonElement"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ApiProblem": {
         "required": [
           "type",
@@ -4574,6 +4817,15 @@
                 "$ref": "#/components/schemas/AttemptTimings"
               }
             ]
+          },
+          "answers": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExternalAnswer"
+            }
           }
         }
       },
@@ -4780,6 +5032,7 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
+            "waiting": "#/components/schemas/AttemptStatusWaiting",
             "scheduled": "#/components/schemas/AttemptStatusScheduled",
             "in-progress": "#/components/schemas/AttemptStatusInProgress",
             "succeeded": "#/components/schemas/AttemptStatusSucceeded",
@@ -4931,6 +5184,22 @@
             "format": "date-time"
           },
           "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttemptStatusWaiting": {
+        "required": [
+          "since"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AttemptStatus"
+          }
+        ],
+        "properties": {
+          "since": {
             "type": "string",
             "format": "date-time"
           }
@@ -5591,6 +5860,17 @@
           }
         }
       },
+      "DeclineInputRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "EffectivePipelineResponse": {
         "required": [
           "version",
@@ -5631,6 +5911,26 @@
                 "type": "string"
               }
             }
+          }
+        }
+      },
+      "ExternalAnswer": {
+        "required": [
+          "value",
+          "answeredBy",
+          "answeredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "answeredBy": {
+            "type": "string"
+          },
+          "answeredAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

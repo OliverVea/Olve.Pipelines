@@ -22,6 +22,11 @@ public sealed class FakePipelinesApi : IPipelinesApi
 
     // Attempts across pipelines
     public Result<ActiveAttempt[]>? ListActiveAttemptsResult { get; set; }
+    public Result<ActiveAttempt[]>? ListWaitingAttemptsResult { get; set; }
+    public Result<Attempt>? AnswerStepInputResult { get; set; }
+    public Result<Attempt>? DeclineStepInputResult { get; set; }
+    public (string? Name, string Value)? LastAnswer { get; private set; }
+    public string? LastDeclineComment { get; private set; }
 
     // Secrets
     public Result<PipelineSecretInfo[]>? ListSecretsResult { get; set; }
@@ -70,6 +75,23 @@ public sealed class FakePipelinesApi : IPipelinesApi
     // Attempts across pipelines
     public Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct) =>
         Record(ListActiveAttemptsResult, nameof(ListActiveAttempts));
+
+    public Task<Result<ActiveAttempt[]>> ListWaitingAttempts(CancellationToken ct) =>
+        Record(ListWaitingAttemptsResult, nameof(ListWaitingAttempts));
+
+    public Task<Result<Attempt>> AnswerStepInput(string pipelineId, int run, string step, string? name, System.Text.Json.Nodes.JsonNode value, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep) = (pipelineId, run, step);
+        LastAnswer = (name, value.ToJsonString());
+        return Record(AnswerStepInputResult, nameof(AnswerStepInput));
+    }
+
+    public Task<Result<Attempt>> DeclineStepInput(string pipelineId, int run, string step, string? comment, CancellationToken ct)
+    {
+        (LastPipelineId, LastRun, LastStep) = (pipelineId, run, step);
+        LastDeclineComment = comment;
+        return Record(DeclineStepInputResult, nameof(DeclineStepInput));
+    }
 
     // Config
     public Result<ConfigDocument>? GetPipelineConfigResult { get; set; }

@@ -363,6 +363,23 @@ public static partial class ManifestValidator
             foreach (var key in s.Input.Keys.Where(k => !s.InputTypes.ContainsKey(k)))
                 Error(ManifestIssueCodes.MappingKeyExtra, $"{path}.input.{key}", $"step '{n}': mapping '{key}' is not an input of the step", n);
 
+            foreach (var (key, external) in s.ExternalInputs)
+            {
+                var xp = $"{path}.externalInputs.{key}";
+                var at = $"step '{n}' external input '{key}'";
+                UseModel(external.Model, $"{xp}.model", at, n);
+                if (s.InputTypes.ContainsKey(key) || s.Input.ContainsKey(key))
+                    Error(ManifestIssueCodes.ExternalInputClash, xp, $"{at}: '{key}' is also a regular input", n);
+                if (key.StartsWith('$'))
+                    Error(ManifestIssueCodes.ExternalInputClash, xp, $"{at}: keys starting with '$' are reserved", n);
+                if (string.IsNullOrWhiteSpace(external.Title))
+                    Error(ManifestIssueCodes.ExternalInputTitleEmpty, $"{xp}.title", $"{at}: title must not be empty", n);
+                if (external.From.Count == 0)
+                    Error(ManifestIssueCodes.ExternalInputNoSource, $"{xp}.from", $"{at}: from must list at least one source", n);
+                if (failureHandler)
+                    Error(ManifestIssueCodes.ExternalInputInFailureHandler, xp, $"{at}: failure handlers run unattended and cannot wait for input", n);
+            }
+
             foreach (var (key, type) in s.InputTypes)
             {
                 var tp = $"{path}.inputTypes.{key}";

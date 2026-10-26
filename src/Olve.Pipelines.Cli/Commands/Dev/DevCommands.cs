@@ -239,6 +239,8 @@ public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? tool
             line += $" -> {step.Output}";
         if (step.Secrets.Count > 0)
             line += $"  [secrets: {string.Join(", ", step.Secrets)}]";
+        if (step.ExternalInputs.Count > 0)
+            line += $"  [waits for: {string.Join(", ", step.ExternalInputs.Select(e => $"{e.Key} ({e.Value})"))}]";
         return line;
     }
 

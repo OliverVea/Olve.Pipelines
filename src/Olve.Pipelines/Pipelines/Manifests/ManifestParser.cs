@@ -318,7 +318,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -358,14 +358,45 @@ public static class ManifestParser
             clusterAccessOk = false;
         }
 
+        var externalInputs = e.TryGetProperty("externalInputs", out _)
+            ? ctx.Dictionary(e, "externalInputs", path, (v, xp) => ParseExternalInput(ctx, v, xp))
+            : new Dictionary<string, ExternalInput>();
+
         if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
-            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk)
+            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || externalInputs is null)
             return null;
         return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
         {
             ConfigEntries = configEntries,
             ClusterAccess = e.TryGetProperty("clusterAccess", out _),
+            ExternalInputs = externalInputs,
         };
+    }
+
+    private static ExternalInput? ParseExternalInput(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["model", "title", "from"], ["description"])) return null;
+        var model = ctx.String(e, "model", path);
+        var title = ctx.String(e, "title", path);
+        var description = e.TryGetProperty("description", out _) ? ctx.String(e, "description", path) : "";
+        var from = ctx.Array(e, "from", path, (v, sp) => ParseExternalSource(ctx, v, sp));
+        return model is null || title is null || description is null || from is null ? null : new ExternalInput(model, title, description, from!);
+    }
+
+    private static ExternalSource? ParseExternalSource(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["kind"], [])) return null;
+        var kind = ctx.String(e, "kind", path);
+        switch (kind)
+        {
+            case null:
+                return null;
+            case "person":
+                return new ExternalSource.Person();
+            default:
+                ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "kind"), $"unknown external input source '{kind}' (person)");
+                return null;
+        }
     }
 
     private static InputType? ParseInputType(Ctx ctx, JsonElement e, string path)

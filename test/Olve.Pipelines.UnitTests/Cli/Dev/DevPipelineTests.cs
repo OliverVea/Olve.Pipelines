@@ -35,6 +35,16 @@ public class DevPipelineTests
     }
 
     [Test]
+    public async Task Describe_ShowsWhatAStepWaitsFor()
+    {
+        var output = new StringWriter();
+        DevDescribeCommand.Render(output, DevFixtures.Manifest());
+
+        await Assert.That(output.ToString()).Contains("publish              alpine  [secrets: TOKEN]  [waits for: verdict (Verdict)]");
+        await Assert.That(output.ToString()).DoesNotContain("deploy               alpine -> Release  [secrets: SSH_KEY]  [waits");
+    }
+
+    [Test]
     public async Task WhenMismatch_MatchesAnyValue_AllConditions()
     {
         var conditions = DevPlan.Flatten(DevFixtures.Manifest()).Single(p => p.Step.Name == "publish").Conditions;

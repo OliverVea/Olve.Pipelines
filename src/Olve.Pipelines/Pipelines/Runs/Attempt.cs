@@ -14,6 +14,7 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// <param name="Input">The assembled <c>input.json</c> (compact JSON, capped at <see cref="AttemptService.MaxInputJsonBytes"/>)
 /// the executor uploads for the step; null for attempts the scheduler skipped or failed without running.</param>
 /// <param name="Timings">The pod's timestamps, recorded when its Job finished; null before that or when unknown.</param>
+/// <param name="Answers">The values given for the step's external inputs, by input name; null when it has none answered.</param>
 public record Attempt(
     Id<Attempt> Id,
     Id<Pipeline> PipelineId,
@@ -26,7 +27,8 @@ public record Attempt(
     string? InputHash = null,
     AttemptOutput? Output = null,
     string? Input = null,
-    AttemptTimings? Timings = null) : IHasId<Id<Attempt>>
+    AttemptTimings? Timings = null,
+    IReadOnlyDictionary<string, ExternalAnswer>? Answers = null) : IHasId<Id<Attempt>>
 {
     /// <summary>The scheduling key: at most one InProgress attempt per (pipeline, step name).</summary>
     [JsonIgnore]
@@ -39,6 +41,9 @@ public record Attempt(
     [JsonIgnore]
     public string KubernetesJobName => $"olve-{Id.Value.Value:N}";
 }
+
+/// <summary>A value given for an external input: the JSON as validated (defaults applied), who gave it and when.</summary>
+public record ExternalAnswer(string Value, string AnsweredBy, DateTimeOffset AnsweredAt);
 
 /// <summary>When the attempt's pod was created, its init (fetch) and step containers ran, and the server saw it finish.</summary>
 public record AttemptTimings(

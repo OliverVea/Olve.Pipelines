@@ -16,6 +16,7 @@ import {
 import { toActivation } from '../v2/versions.js';
 import { LiveController } from '../v2/events.js';
 import type {
+  ActiveAttempt,
   PipelineSummary,
   PipelineStepSummary,
 } from '@olve/olve-pipelines-client/src/models/index.js';
@@ -266,6 +267,11 @@ export class PipelineListView extends LitElement {
         color: var(--color-warning);
         border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
       }
+      .tag.ask {
+        color: var(--color-primary);
+        border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+        border-style: dashed;
+      }
       .tag.run {
         color: var(--color-primary);
         border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
@@ -291,6 +297,7 @@ export class PipelineListView extends LitElement {
   ];
 
   @state() declare private _pipelines: PipelineSummary[];
+  @state() declare private _waiting: ActiveAttempt[];
   @state() declare private _loading: boolean;
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
@@ -300,6 +307,7 @@ export class PipelineListView extends LitElement {
   constructor() {
     super();
     this._pipelines = [];
+    this._waiting = [];
     this._loading = true;
     this._error = null;
     this._loaded = false;
@@ -322,7 +330,14 @@ export class PipelineListView extends LitElement {
       this._error = null;
     }
     try {
-      this._pipelines = (await client.api.pipelines.summary.get()) ?? [];
+      const [pipelines, waiting] = await Promise.all([
+        client.api.pipelines.summary.get(),
+        client.api.attempts
+          .get({ queryParameters: { status: 'waiting' } })
+          .catch(() => null),
+      ]);
+      this._pipelines = pipelines ?? [];
+      this._waiting = waiting ?? [];
       this._loaded = true;
     } catch (e) {
       if (!silent) this._error = extractErrorMessage(e);
@@ -468,6 +483,7 @@ export class PipelineListView extends LitElement {
     const last = h.lastRun;
     const held = h.heldRuns ?? [];
     const blocked = h.blockedSteps ?? [];
+    const waiting = this._waiting.filter((w) => String(w.pipelineId) === p.id);
     return html`<div class="pc-foot">
       <span class="st t-${toneOf(h.status)}"
         ><span class="dot"></span>${statusLabel(h.status)}</span
@@ -487,6 +503,16 @@ export class PipelineListView extends LitElement {
       ${a.kind === 'none' ? html`<span class="tag">no version</span>` : nothing}
       ${(h.runningRuns ?? 0) > 1
         ? html`<span class="tag run">${h.runningRuns} running</span>`
+        : nothing}
+      ${waiting.length
+        ? html`<a
+            class="tag ask"
+            href="${runPath(p.id ?? '', waiting[0].run)}?step=${encodeURIComponent(
+              waiting[0].step ?? '',
+            )}"
+            @click=${navClick}
+            >${waiting.length} waiting for input</a
+          >`
         : nothing}
       ${held.length ? html`<span class="tag warn">${held.length} held</span>` : nothing}
       ${blocked.length

@@ -16,6 +16,9 @@ internal abstract record WaitCheck
 
     /// <summary>The condition holds: print <see cref="Output"/>; <see cref="Success"/> false exits 1 (e.g. the run failed).</summary>
     public sealed record Done(string Output, bool Success) : WaitCheck;
+
+    /// <summary>A step waits for external input: someone has to answer it (<c>pl input answer</c>). Exits 3.</summary>
+    public sealed record NeedsInput(string Output) : WaitCheck;
 }
 
 /// <summary>
@@ -27,6 +30,7 @@ internal abstract record WaitCheck
 internal static class Waiter
 {
     public const int TimeoutExitCode = 124;
+    public const int NeedsInputExitCode = 3;
     private static readonly TimeSpan Fallback = TimeSpan.FromMinutes(1);
 
     internal static TimeSpan RetryBackoff(int failures) =>
@@ -73,6 +77,10 @@ internal static class Waiter
                         ctx.Output.Line(done.Output);
                         if (!done.Success)
                             ctx.ExitCode = 1;
+                        return Result.Success();
+                    case WaitCheck.NeedsInput needs:
+                        ctx.Output.Line(needs.Output);
+                        ctx.ExitCode = NeedsInputExitCode;
                         return Result.Success();
                     case WaitCheck.Pending pending when pending.Progress != lastProgress:
                         Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss}  {pending.Progress}");
@@ -175,6 +183,12 @@ internal static class Waiter
     internal static WaitCheck RunFinished(string label, RunSummary run) => IsTerminal(run.Status)
         ? new WaitCheck.Done($"{RunAddress.Format(label, run.Number)}  {run.Status}", run.Status == "Succeeded")
         : new WaitCheck.Pending($"{RunAddress.Format(label, run.Number)}: {run.Status}");
+
+    /// <summary><see cref="RunFinished(string, RunSummary)"/>, but a run that waits for input is reported as such.</summary>
+    internal static WaitCheck RunFinished(string label, RunDetail detail) =>
+        !IsTerminal(detail.Run.Status) && detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(s => s.Status == "waiting") is { } waiting
+            ? new WaitCheck.NeedsInput($"{RunAddress.Format(label, detail.Run.Number)}/{waiting.Name}  waiting for input")
+            : RunFinished(label, detail.Run);
 }
 
 internal sealed class RunCursor(int value)
@@ -201,7 +215,8 @@ public sealed class WaitRunCommand : ICliCommand
 
           --until finished  (default) run: Succeeded → exit 0; Failed or Cancelled → 1.
                             step: succeeded, skipped or excluded → 0; failed or cancelled, or the run
-                            ended without running it → 1.
+                            ended without running it → 1. A step waiting for input → 3 (answer it
+                            with pl input answer, or decline it).
           --until started   the step has an attempt (or the run exists).
           --until held      the run is held at a blocked step; exits 1 if it finishes first.
           --timeout <dur>   give up after 90s / 30m / 2h: exit 124.
@@ -229,7 +244,7 @@ public sealed class WaitRunCommand : ICliCommand
                 return getProblems;
             return address.Step is { } step
                 ? StepState(address.Pipeline, detail, step, until)
-                : RunState(address.Pipeline, detail.Run, until);
+                : until == "finished" ? Waiter.RunFinished(address.Pipeline, detail) : RunState(address.Pipeline, detail.Run, until);
         }, ct);
     }
 
@@ -251,6 +266,8 @@ public sealed class WaitRunCommand : ICliCommand
         var name = $"{RunAddress.Format(label, detail.Run.Number)}/{step}";
         var line = $"{name}  {view.Status}{(view.Reason is { } r ? $" ({r})" : "")}";
         var settled = view.Status is "succeeded" or "skipped" or "excluded" or "failed" or "cancelled" or "obsolete";
+        if (view.Status == "waiting" && until != "started")
+            return new WaitCheck.NeedsInput($"{name}  waiting for input");
         if (until == "started")
             return view.AttemptCount > 0 || settled
                 ? new WaitCheck.Done(line, view.Status is not ("failed" or "cancelled"))
@@ -286,7 +303,8 @@ public sealed class WaitPushCommand : ICliCommand
 
           Blocks until a run whose input sha is <sha> (a prefix is enough) exists, and prints its
           address (e.g. olve-pipelines#412): addr=$(pl wait push olve-pipelines 6881313).
-          --until finished keeps waiting until that run finishes (exit as `pl wait run`). When a
+          --until finished keeps waiting until that run finishes or waits for input (exit as
+          `pl wait run`). When a
           newer push supersedes it, the wait follows the newer run, which contains the commit;
           --no-follow stops there instead (exit 1).
           Exits 1 when the binding's reconcile of that commit failed (no run will start).
@@ -306,13 +324,13 @@ public sealed class WaitPushCommand : ICliCommand
         var notIt = new HashSet<int>();
         RunCursor? found = null;
         var follow = !cli.HasFlag("no-follow");
-        return await Waiter.RunAsync(cli, ctx, id, new HashSet<string> { "run", "binding" }, async c =>
+        return await Waiter.RunAsync(cli, ctx, id, new HashSet<string> { "run", "attempt", "binding" }, async c =>
         {
             if (found is not null)
             {
                 if ((await Waiter.GetRunFollowingAsync(ctx, id, label, found, follow, c)).TryPickProblems(out var getProblems, out var detail))
                     return getProblems;
-                return Waiter.RunFinished(label, detail.Run);
+                return Waiter.RunFinished(label, detail);
             }
 
             if ((await ctx.Api.ListRuns(id, 0, Window, c)).TryPickProblems(out var listProblems, out var page))
@@ -334,7 +352,7 @@ public sealed class WaitPushCommand : ICliCommand
                 if (follow && detail.Run.Status == "Superseded"
                     && (await Waiter.GetRunFollowingAsync(ctx, id, label, found, follow, c)).TryPickProblems(out var followProblems, out detail))
                     return followProblems;
-                return Waiter.RunFinished(label, detail.Run);
+                return Waiter.RunFinished(label, detail);
             }
 
             if ((await ctx.Api.GetPipelineBindingStatus(id, c)).TryPickProblems(out _, out var binding))

@@ -112,6 +112,19 @@ public sealed record StepDescriptor(
 
     /// <summary>The step pod gets the instance's step ServiceAccount token (<c>Kubernetes:StepServiceAccount</c>), if it grants one.</summary>
     public bool ClusterAccess { get; init; }
+
+    /// <summary>Inputs whose values come from outside the run; the step waits for them before it runs.</summary>
+    public IReadOnlyDictionary<string, ExternalInput> ExternalInputs { get; init; } = new Dictionary<string, ExternalInput>();
+}
+
+/// <summary>An input answered from outside the run, validated against <see cref="Model"/>'s input view.</summary>
+public sealed record ExternalInput(string Model, string Title, string Description, IReadOnlyList<ExternalSource> From);
+
+/// <summary>Who or what may supply an external input's value.</summary>
+public abstract record ExternalSource
+{
+    /// <summary>A signed-in user, in the UI or with <c>pl input</c>.</summary>
+    public sealed record Person : ExternalSource;
 }
 
 public abstract record InputType;

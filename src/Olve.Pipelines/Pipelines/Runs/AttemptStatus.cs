@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace Olve.Pipelines.Pipelines.Runs;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(Waiting), "waiting")]
 [JsonDerivedType(typeof(Scheduled), "scheduled")]
 [JsonDerivedType(typeof(InProgress), "in-progress")]
 [JsonDerivedType(typeof(Succeeded), "succeeded")]
@@ -12,6 +13,8 @@ namespace Olve.Pipelines.Pipelines.Runs;
 [JsonDerivedType(typeof(Obsolete), "obsolete")]
 public abstract record AttemptStatus
 {
+    /// <summary>Waits for its external inputs; becomes <see cref="Scheduled"/> once all are answered.</summary>
+    public record Waiting(DateTimeOffset Since) : AttemptStatus;
     /// <param name="SubmissionAttempts">Failed K8s submissions so far (bounded retry of the submit, not of the step).</param>
     public record Scheduled(int SubmissionAttempts = 0) : AttemptStatus;
     public record InProgress(DateTimeOffset StartedAt) : AttemptStatus;
@@ -25,7 +28,7 @@ public abstract record AttemptStatus
 
 public static class AttemptStatusExtensions
 {
-    public static bool IsActive(this AttemptStatus status) => status is AttemptStatus.Scheduled or AttemptStatus.InProgress;
+    public static bool IsActive(this AttemptStatus status) => status is AttemptStatus.Waiting or AttemptStatus.Scheduled or AttemptStatus.InProgress;
 
     public static bool IsTerminal(this AttemptStatus status) => !status.IsActive();
 
@@ -35,9 +38,10 @@ public static class AttemptStatusExtensions
     /// </summary>
     public static bool IsSchedulerSkip(this Attempt attempt) => attempt.Status is AttemptStatus.Skipped && attempt.Input is null;
 
-    /// <summary>The wire discriminator (scheduled / in-progress / succeeded / failed / skipped / cancelled / obsolete).</summary>
+    /// <summary>The wire discriminator (waiting / scheduled / in-progress / succeeded / failed / skipped / cancelled / obsolete).</summary>
     public static string Discriminator(this AttemptStatus status) => status switch
     {
+        AttemptStatus.Waiting => "waiting",
         AttemptStatus.Scheduled => "scheduled",
         AttemptStatus.InProgress => "in-progress",
         AttemptStatus.Succeeded => "succeeded",

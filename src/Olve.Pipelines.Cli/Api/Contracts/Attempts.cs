@@ -16,9 +16,19 @@ public sealed class Attempt
     public int Number { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public AttemptStatus Status { get; set; } = new ScheduledStatus();
+    public Dictionary<string, ExternalAnswer>? Answers { get; set; }
+}
+
+/// <summary>A value given for an external input (<see cref="Value"/> is its JSON).</summary>
+public sealed class ExternalAnswer
+{
+    public string Value { get; set; } = "";
+    public string AnsweredBy { get; set; } = "";
+    public DateTimeOffset AnsweredAt { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(WaitingStatus), "waiting")]
 [JsonDerivedType(typeof(ScheduledStatus), "scheduled")]
 [JsonDerivedType(typeof(InProgressStatus), "in-progress")]
 [JsonDerivedType(typeof(SucceededStatus), "succeeded")]
@@ -29,6 +39,12 @@ public sealed class Attempt
 public abstract class AttemptStatus
 {
     [JsonIgnore] public abstract string Kind { get; }
+}
+
+public sealed class WaitingStatus : AttemptStatus
+{
+    public DateTimeOffset Since { get; set; }
+    [JsonIgnore] public override string Kind => "waiting";
 }
 
 public sealed class ScheduledStatus : AttemptStatus

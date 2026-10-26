@@ -2,17 +2,22 @@ import type { z } from "zod";
 import { ORIGIN, STEP, type StepBrand } from "./brands.ts";
 import { callerFile } from "./origin.ts";
 import type { AnyModel, Infer, Optional } from "./models.ts";
+import type { External } from "./external.ts";
 import type { AnyConfigEntry } from "./config.ts";
 import { configRefsIn } from "./config-refs.ts";
 import type { Secret } from "./secrets.ts";
 import type { Simplify } from "./types.ts";
 
-/** A step input entry: a model (matchable by model), `optional(model)`, or a plain zod schema (mapper required). */
-export type InputEntry = AnyModel | Optional | z.ZodType;
+/**
+ * A step input entry: a model (matchable by model), `optional(model)`, a plain zod schema (mapper required),
+ * or `external(model, …)`, answered from outside the run.
+ */
+export type InputEntry = AnyModel | Optional | External | z.ZodType;
 export type InputSpec = { readonly [key: string]: InputEntry };
 
 export type InferEntry<E> =
   E extends Optional<infer M> ? Infer<M> | undefined
+  : E extends External<infer M> ? Infer<M>
   : E extends AnyModel ? Infer<E>
   : E extends z.ZodType ? z.output<E>
   : never;

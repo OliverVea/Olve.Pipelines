@@ -74,7 +74,7 @@ Contract files hold contracts only. Describe evaluates them without loading hand
 ### Models, secrets, steps
 
 ```ts
-import { model, z, fileRef, optional, secret, step, steps, Source } from "@olivervea/pipelines";
+import { model, z, fileRef, optional, external, secret, step, steps, Source } from "@olivervea/pipelines";
 
 export const BuildArtifact = model("BuildArtifact", z.object({
   version: z.string(),
@@ -87,7 +87,7 @@ export const deployBeta = step({
   name: "deploy-beta",                         // identity: lower-case kebab, ≤ 63 chars
   description: "Deploys to beta.",             // required (may be ""); shown in the UI, not versioned
   image: "alpine:latest",                      // any image; the harness brings its own runtime
-  input: { artifact: BuildArtifact },          // model | optional(model) | plain zod schema
+  input: { artifact: BuildArtifact },          // model | optional(model) | plain zod schema | external(model, …)
   output: BetaDeployment,                      // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],                  // only these are mounted; ctx.secrets is typed to them
   timeoutSeconds: 900,                         // optional
@@ -103,6 +103,7 @@ Rules:
 - **Trigger mappers** produce `z.input`, so fields with defaults may be left out. **Handlers, mapper refs and `when`** see `z.output`.
 - A **plain-schema input** has no model to match on, so the step needs a mapper.
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
+- **`external(M, { title, description?, from? })`** is answered from outside the run (`from`: `person()`, the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one.
 
 ### Config
 
@@ -383,6 +384,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   - a nested object of mappings.
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
+- **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from: [{kind: "person"}]}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
 - **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `configEntries` (and those entries' schemas) + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
   - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.

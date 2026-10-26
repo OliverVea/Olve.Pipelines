@@ -77,6 +77,10 @@ public static class ManifestIssueCodes
     public const string InputTypeMismatch = "input-type-mismatch";
     public const string MappingFieldMissing = "mapping-field-missing";
     public const string MappingFieldUnknown = "mapping-field-unknown";
+    public const string ExternalInputClash = "external-input-clash";
+    public const string ExternalInputNoSource = "external-input-no-source";
+    public const string ExternalInputInFailureHandler = "external-input-in-failure-handler";
+    public const string ExternalInputTitleEmpty = "external-input-title-empty";
 
     // ── when ──
     public const string WhenFieldUnknown = "when-field-unknown";

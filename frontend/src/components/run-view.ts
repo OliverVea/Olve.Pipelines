@@ -29,7 +29,7 @@ import {
   runPath,
   stepPath,
   stepLogsPath,
-  isActiveStatus,
+  isLiveStatus,
 } from '../v2/ui.js';
 import {
   loadEffective,
@@ -53,6 +53,8 @@ import './step-sheet.js';
 import './typed-value.js';
 import './input-form.js';
 import './log-pane.js';
+import './external-input-panel.js';
+import { renderAnswers } from './external-input-panel.js';
 import './relative-time.js';
 import { LiveController } from '../v2/events.js';
 
@@ -471,7 +473,7 @@ export class RunView extends LitElement {
               to let the run continue.
             </p>`
           : nothing}
-        ${sheet ? nothing : errors}
+        ${this._renderWaiting(states, m)} ${sheet ? nothing : errors}
       </section>
 
       <section class="graph">
@@ -493,6 +495,24 @@ export class RunView extends LitElement {
     `;
   }
 
+  /** A form per step that waits for input, on the page itself so it's seen first. */
+  private _renderWaiting(states: Map<string, StepState>, m: Manifest | null) {
+    if (!m) return nothing;
+    return [...states]
+      .filter(([, s]) => s.status === 'waiting')
+      .map(([step]) => {
+        const list = this._stepAttempts(step);
+        return html`<external-input-panel
+          .pipelineId=${this.pipelineId}
+          .run=${this.run}
+          .step=${step}
+          .manifest=${m}
+          .attempt=${list[list.length - 1] ?? null}
+          @answered=${() => this._load()}
+        ></external-input-panel>`;
+      });
+  }
+
   private _toggleDetails = () => {
     this._detailsOpen = !this._detailsOpen;
     rememberDetails(this._detailsOpen);
@@ -505,7 +525,7 @@ export class RunView extends LitElement {
     const as = a ? attemptStatus(a) : null;
     const continuable = this._detail?.continuable ?? false;
     const active = attempts.some((x) =>
-      ['scheduled', 'in-progress'].includes(attemptStatus(x).type ?? ''),
+      ['waiting', 'scheduled', 'in-progress'].includes(attemptStatus(x).type ?? ''),
     );
     const logsUrl = a
       ? `${this._base}/steps/${encodeURIComponent(this._step)}/logs?attempt=${a.number}`
@@ -601,43 +621,48 @@ export class RunView extends LitElement {
                 ? html`<p class="reason">
                     <b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}
                   </p>`
-                : nothing}`
+                : nothing}
+              ${renderAnswers(a)}`
           : nothing}
       </div>
       ${errors}
-      ${a && as
-        ? html`<div class="io">
-              <div>
-                <h4 class="sheet-h">Input</h4>
-                ${a.input
-                  ? html`<typed-value
-                      .value=${parseJson(a.input)}
-                      .schema=${step ? stepInputSchema(m, step) : null}
-                      @file-download=${this._onFileRef}
-                    ></typed-value>`
-                  : html`<span class="muted">Not assembled.</span>`}
+      ${a && as?.type === 'waiting'
+        ? html`<p class="reason">
+            Waiting for input: answer it in the form above the stages.
+          </p>`
+        : a && as
+          ? html`<div class="io">
+                <div>
+                  <h4 class="sheet-h">Input</h4>
+                  ${a.input
+                    ? html`<typed-value
+                        .value=${parseJson(a.input)}
+                        .schema=${step ? stepInputSchema(m, step) : null}
+                        @file-download=${this._onFileRef}
+                      ></typed-value>`
+                    : html`<span class="muted">Not assembled.</span>`}
+                </div>
+                <div>
+                  <h4 class="sheet-h">
+                    Output${step?.output ? html` <code>${step.output}</code>` : nothing}
+                  </h4>
+                  ${a.output?.json
+                    ? html`<typed-value
+                        .value=${parseJson(a.output.json)}
+                        .schema=${outputSchemaOf(m, step?.output)}
+                        @file-download=${this._onFileRef}
+                      ></typed-value>`
+                    : html`<span class="muted"
+                        >${step && !step.output
+                          ? 'This step declares no output.'
+                          : 'No output.'}</span
+                      >`}
+                </div>
               </div>
-              <div>
-                <h4 class="sheet-h">
-                  Output${step?.output ? html` <code>${step.output}</code>` : nothing}
-                </h4>
-                ${a.output?.json
-                  ? html`<typed-value
-                      .value=${parseJson(a.output.json)}
-                      .schema=${outputSchemaOf(m, step?.output)}
-                      @file-download=${this._onFileRef}
-                    ></typed-value>`
-                  : html`<span class="muted"
-                      >${step && !step.output
-                        ? 'This step declares no output.'
-                        : 'No output.'}</span
-                    >`}
-              </div>
-            </div>
-            ${this._renderFiles(a)}
-            <h4 class="sheet-h">Logs</h4>
-            <log-pane .url=${logsUrl} ?live=${isActiveStatus(as.type)}></log-pane>`
-        : nothing}
+              ${this._renderFiles(a)}
+              <h4 class="sheet-h">Logs</h4>
+              <log-pane .url=${logsUrl} ?live=${isLiveStatus(as.type)}></log-pane>`
+          : nothing}
     </step-sheet>`;
   }
 

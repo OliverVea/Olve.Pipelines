@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Olve.Pipelines.Cli.Api.Contracts;
 
 namespace Olve.Pipelines.Cli.Api;
@@ -16,6 +17,7 @@ public interface IPipelinesApi
 
     // Attempts across pipelines (what's running)
     Task<Result<ActiveAttempt[]>> ListActiveAttempts(CancellationToken ct);
+    Task<Result<ActiveAttempt[]>> ListWaitingAttempts(CancellationToken ct);
 
     // Secrets
     Task<Result<PipelineSecretInfo[]>> ListSecrets(string pipelineId, CancellationToken ct);
@@ -62,6 +64,8 @@ public interface IPipelinesApi
     Task<Result<Attempt[]>> ListStepAttempts(string pipelineId, int run, string step, CancellationToken ct);
     Task<Result<Attempt>> RerunStep(string pipelineId, int run, string step, bool continueRun, CancellationToken ct);
     Task<Result<Attempt>> CancelStep(string pipelineId, int run, string step, CancellationToken ct);
+    Task<Result<Attempt>> AnswerStepInput(string pipelineId, int run, string step, string? name, JsonNode value, CancellationToken ct);
+    Task<Result<Attempt>> DeclineStepInput(string pipelineId, int run, string step, string? comment, CancellationToken ct);
     Task<Result<AttemptOutputResponse>> GetStepOutput(string pipelineId, int run, string step, int? attempt, CancellationToken ct);
     Task<Result<AttemptFilesResponse>> ListStepFiles(string pipelineId, int run, string step, int? attempt, CancellationToken ct);
     Task<Result<long>> DownloadStepFile(string pipelineId, int run, string step, string path, int? attempt, Stream destination, CancellationToken ct);

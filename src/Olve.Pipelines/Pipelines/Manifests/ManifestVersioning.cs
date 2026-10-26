@@ -128,6 +128,7 @@ public static class ManifestVersioning
                 }
                 w.WriteEndObject();
             }
+            ManifestWriter.WriteExternalInputs(w, s, Versioned);
             if (s.ConfigEntries.Count > 0)
             {
                 // Entry schemas count, so a changed config schema bumps the steps that receive it.

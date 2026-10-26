@@ -124,6 +124,25 @@ public static class RunEndpoints
             .WithSummary("Cancel a step")
             .WithDescription("Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.");
 
+        group.MapPost("/{number:int}/steps/{step}/input", Result<Attempt> (
+                ExternalInputService inputs, HttpContext http, Id<Pipeline> pipelineId, int number, string step, AnswerInputRequest request)
+                => inputs.Answer(pipelineId, number, step, request.Name, request.Value, Kubernetes.Api.SecretEndpoints.Actor(http.User)))
+            .WithApiResultMapping<Attempt>()
+            .WithName("AnswerStepInput")
+            .WithTags("Steps")
+            .WithSummary("Answer a step's external input")
+            .WithDescription("Gives the value of an external input of a step that waits for it (`name` may be omitted when the step has one). The value is validated against the input's model; once every external input is answered the step is scheduled.");
+
+        group.MapPost("/{number:int}/steps/{step}/input/decline", Result<Attempt> (
+                ExternalInputService inputs, HttpContext http, Id<Pipeline> pipelineId, int number, string step,
+                [FromBody] DeclineInputRequest? request)
+                => inputs.Decline(pipelineId, number, step, request?.Comment, Kubernetes.Api.SecretEndpoints.Actor(http.User)))
+            .WithApiResultMapping<Attempt>()
+            .WithName("DeclineStepInput")
+            .WithTags("Steps")
+            .WithSummary("Decline a step's external input")
+            .WithDescription("Fails a step that waits for input without running it; the reason names who declined and the comment.");
+
         // The stored files of an attempt (without ?attempt= the latest successful one).
         group.MapGet("/{number:int}/steps/{step}/files", async Task<Result<AttemptFilesResponse>> (
                 RunQueryService query, AttemptFileService files, Id<Pipeline> pipelineId, int number, string step, int? attempt,

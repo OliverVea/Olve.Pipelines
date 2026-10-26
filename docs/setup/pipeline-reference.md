@@ -91,7 +91,7 @@ export const deployBeta = step({
   name: "deploy-beta",                  // identity: lower-case kebab, ≤ 63 chars; not "input"/"failure"
   description: "Deploys to beta.",      // required (may be ""); shown in the UI
   image: "alpine:3.22",                 // any x86-64 image — the harness brings its own runtime
-  input: { artifact: M.BuildArtifact }, // model | optional(model) | plain zod schema
+  input: { artifact: M.BuildArtifact }, // model | optional(model) | plain zod schema | external(model, …)
   output: M.BetaDeployment,             // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],
   config: [TARGET],                     // optional: config entries, read as ctx.config
@@ -107,6 +107,19 @@ export const deployBeta = step({
   pipeline version but does not bump the step's version.
 - An input entry that is a **plain schema** (`{ repo: z.string() }`) has no model to match on, so the
   stage must give the step a mapper.
+- An **external input** is answered from outside the run instead of by an earlier step:
+
+  ```ts
+  input: { screenshots: M.Screenshots, verdict: external(M.Verdict, { title: "Screenshots accepted?" }) },
+  ```
+
+  The step waits (status `waiting`) until it is answered: by a person in the UI or with
+  `pl input answer` (`from: [person()]`, the default). The value is validated against the model and
+  arrives in the handler like any other input. Declining fails the step without running it. A newer
+  run reaching the same step replaces the older waiting one, and there is no time limit. External
+  inputs need no producer and no mapper entry, and failure handlers can't have them. Keep them for
+  answers that only something outside the run can give; a manual "deploy to prod?" step defeats a
+  pipeline that should flow on its own.
 - The image needs a shell only if the handler runs shell commands (`ctx.sh`); `ctx.exec` works on
   distroless images.
 - **`retries: n`** is an idempotency claim: a failed attempt is retried automatically, as a new

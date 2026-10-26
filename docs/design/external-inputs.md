@@ -1,19 +1,20 @@
 # External inputs: steps that wait for the outside world
 
-Status: design, 2026-10-26. Not built. Replaces the "gating steps" candidate in the v2 plan.
+Status: part 1 (person) built 2026-10-26; parts 2 (callback) and 3 (poll) not built. Replaces the "gating steps" candidate in the v2 plan.
 
 ## 1. Why
 
-Some steps can only run once something outside the pipeline has answered: a person approves a
-deploy, a review tool accepts screenshots, a smoke check elsewhere reports back. Today the only way to hold a run is to block a step, which is an
+Some steps can only run once something outside the pipeline has answered: a review tool accepts screenshots, a smoke check elsewhere reports back, a person
+supplies a value only they know. Today the only way to hold a run is to block a step, which is an
 operator hold, not an answer, and carries no value.
 
 Olve.Pipelines owns the waiting, not the domain. It doesn't know what a screenshot baseline is: a
 visual-regression tool does. The pipeline submits work to such a tool in one step and waits for the
 tool's verdict in the next.
 
-Pushes still go beta → prod on their own. External inputs are for the places where a decision or a
-signal really belongs in the run; they don't make approvals routine.
+Pushes still go beta → prod on their own. External inputs are for the places where a signal really
+belongs in the run. Manual promotion steps are not one of them: where promotion has to be manual,
+release builds (e.g. nightly) and promote a chosen version with a run of its own.
 
 ## 2. The idea: an input that comes from outside
 
@@ -21,27 +22,27 @@ A step's inputs come from earlier steps or the pipeline input today. An **extern
 more source: a typed value, validated against a model, that arrives from outside the run.
 
 ```ts
-const Approval = model("Approval", z.object({
-  approved: z.boolean(),
+const Verdict = model("Verdict", z.object({
+  accepted: z.boolean(),
   comment: z.string().optional(),
 }));
 
-export const approveProd = step({
-  name: "approve-prod",
-  description: "Waits for a person to approve the prod deploy.",
+export const review = step({
+  name: "review",
+  description: "Waits for the review tool's verdict on this run's screenshots.",
   image: "alpine:3.22",
   input: {
-    release: M.Release,
-    decision: external(Approval, {
-      title: "Deploy to prod?",
-      description: "Beta passed. Approve to deploy this release to prod.",
+    screenshots: M.Screenshots,
+    verdict: external(Verdict, {
+      title: "Screenshots accepted?",
+      description: "The visual-regression tool compares them with its baselines.",
       from: [person()],
     }),
   },
 });
-// handlers/approve-prod.ts
-export default implement(approveProd, async ({ decision }, ctx) => {
-  if (!decision.approved) throw new Error(`rejected: ${decision.comment ?? "no reason given"}`);
+// handlers/review.ts
+export default implement(review, async ({ verdict }) => {
+  if (!verdict.accepted) throw new Error(`rejected: ${verdict.comment ?? "no reason given"}`);
 });
 ```
 
@@ -56,7 +57,7 @@ like any other input. Consequences:
 - **The UI can render a form** for a person from the model's JSON Schema; `schema-form.ts` already
   renders input forms for manual triggers.
 
-A library step covers the plain case: `steps.approval({ name, title, from? })` is the step above.
+There is no library approval step: manual promotion inside a run is what this is not for.
 
 ## 3. Where a value can come from (`from`)
 
@@ -64,7 +65,7 @@ An external input lists one or more sources; the first value that arrives wins.
 
 | Source | Answered by | Use |
 |---|---|---|
-| `person()` | A signed-in user (allow-list) in the UI or `pl input <addr> --field …` | Approvals, choices, forms |
+| `person()` | A signed-in user (allow-list) in the UI or `pl input <addr> --field …` | Choices and forms only a person can give; testing |
 | `callback({ secret? })` | Another system: `POST /api/inputs/{token}` with the value as JSON. The token is a one-time URL handed to earlier steps (see below); `secret` adds an HMAC check like webhook triggers | Review tools (visual regression), CI elsewhere, chat bots |
 | `poll({ url, valuePath, headers?, intervalSeconds })` | The service polls a URL until the value at `valuePath` validates against the model | External checks that expose a status endpoint |
 
@@ -145,7 +146,7 @@ baseline" are the tool's rules.
 Each step ships on its own.
 
 1. **The primitive.** Waiting status, external inputs from `person()`, the API, `pl input`, UI form,
-   events, `steps.approval`. Server first; the SDK (with a version bump) after the server is on prod.
+   events. (Built 2026-10-26.)
 2. **`callback()`** with one-time URLs and `ctx.inputUrl`.
 3. **`poll()`**, reusing the poll-trigger machinery.
 

@@ -4,7 +4,7 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 namespace Olve.Pipelines.Jobs;
 
 /// <summary>
-/// Latest-wins among Scheduled attempts sharing a (pipeline, step name) key (spec §5.3). The loser
+/// Latest-wins among not-yet-started (Waiting or Scheduled) attempts sharing a (pipeline, step name) key (spec §5.3). The loser
 /// becomes Obsolete; the scheduler then supersedes the loser's run by the winner's run.
 /// </summary>
 public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletionService> logger)
@@ -16,7 +16,7 @@ public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletion
 
         // Every still-schedulable attempt sharing this (pipeline, step) key, newAttempt included.
         var contenders = attempts.ListByPipeline(newAttempt.PipelineId)
-            .Where(a => a.Status is Scheduled && a.Key == newAttempt.Key)
+            .Where(a => a.Status is Scheduled or Waiting && a.Key == newAttempt.Key)
             .ToList();
 
         if (contenders.Count < 2)
@@ -45,7 +45,7 @@ public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletion
             // since the snapshot (never clobber a running attempt), and re-obsoleting to the same
             // winner is idempotent under concurrent handlers.
             var result = attempts.Update(loser.Id, a =>
-                a.Status is Scheduled ? a with { Status = new Obsolete(winner.Id) } : a);
+                a.Status is Scheduled or Waiting ? a with { Status = new Obsolete(winner.Id) } : a);
 
             if (result.TryPickProblems(out var problems))
             {

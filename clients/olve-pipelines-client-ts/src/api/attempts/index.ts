@@ -11,7 +11,7 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface AttemptsRequestBuilder extends BaseRequestBuilder<AttemptsRequestBuilder> {
     /**
-     * With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.
+     * `status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ActiveAttempt[]>}
      * @throws {ApiProblem} error when the service returns a 400 status code
@@ -22,14 +22,14 @@ export interface AttemptsRequestBuilder extends BaseRequestBuilder<AttemptsReque
      */
      get(requestConfiguration?: RequestConfiguration<AttemptsRequestBuilderGetQueryParameters> | undefined) : Promise<ActiveAttempt[] | undefined>;
     /**
-     * With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.
+     * `status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<AttemptsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * With `status=active`: every scheduled or in-progress attempt across pipelines, oldest first.
+ * `status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.
  */
 export interface AttemptsRequestBuilderGetQueryParameters {
     status?: string;

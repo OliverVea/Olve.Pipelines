@@ -38,6 +38,16 @@ export interface ActiveAttempt extends AdditionalDataHolder, Parsable {
      */
     step?: string | null;
 }
+export interface AnswerInputRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The value property
+     */
+    value?: UntypedNode | null;
+}
 export interface ApiProblem extends AdditionalDataHolder, ApiError, Parsable {
     /**
      * The detail property
@@ -79,6 +89,10 @@ export interface ApiProblemError extends AdditionalDataHolder, Parsable {
     message?: string | null;
 }
 export interface Attempt extends AdditionalDataHolder, Parsable {
+    /**
+     * The answers property
+     */
+    answers?: Attempt_answers | null;
     /**
      * The createdAt property
      */
@@ -127,6 +141,8 @@ export interface Attempt extends AdditionalDataHolder, Parsable {
      * The timings property
      */
     timings?: AttemptTimings | null;
+}
+export interface Attempt_answers extends AdditionalDataHolder, Parsable {
 }
 export interface AttemptFileEntry extends AdditionalDataHolder, Parsable {
     /**
@@ -298,6 +314,12 @@ export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
+export interface AttemptStatusWaiting extends AttemptStatus, Parsable {
+    /**
+     * The since property
+     */
+    since?: Date | null;
+}
 export interface AttemptTimings extends AdditionalDataHolder, Parsable {
     /**
      * The initFinishedAt property
@@ -466,6 +488,15 @@ export function createActiveAttemptFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AnswerInputRequest}
+ */
+// @ts-ignore
+export function createAnswerInputRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAnswerInputRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {ApiProblemError}
  */
 // @ts-ignore
@@ -480,6 +511,15 @@ export function createApiProblemErrorFromDiscriminatorValue(parseNode: ParseNode
 // @ts-ignore
 export function createApiProblemFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoApiProblem;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {Attempt_answers}
+ */
+// @ts-ignore
+export function createAttempt_answersFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttempt_answers;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -580,6 +620,8 @@ export function createAttemptStatusFromDiscriminatorValue(parseNode: ParseNode |
                     return deserializeIntoAttemptStatusSkipped;
                 case "succeeded":
                     return deserializeIntoAttemptStatusSucceeded;
+                case "waiting":
+                    return deserializeIntoAttemptStatusWaiting;
             }
         }
     }
@@ -629,6 +671,15 @@ export function createAttemptStatusSkippedFromDiscriminatorValue(parseNode: Pars
 // @ts-ignore
 export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoAttemptStatusSucceeded;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusWaiting}
+ */
+// @ts-ignore
+export function createAttemptStatusWaitingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusWaiting;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -782,6 +833,15 @@ export function createCriticalPathStageFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createCriticalPathStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoCriticalPathStep;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {DeclineInputRequest}
+ */
+// @ts-ignore
+export function createDeclineInputRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoDeclineInputRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1396,6 +1456,12 @@ export interface CriticalPathStep extends AdditionalDataHolder, Parsable {
      */
     waitSeconds?: number | null;
 }
+export interface DeclineInputRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The comment property
+     */
+    comment?: string | null;
+}
 /**
  * The deserialization information for the current model
  * @param ActiveAttempt The instance to deserialize into.
@@ -1412,6 +1478,18 @@ export function deserializeIntoActiveAttempt(activeAttempt: Partial<ActiveAttemp
         "startedAt": n => { activeAttempt.startedAt = n.getDateValue(); },
         "status": n => { activeAttempt.status = n.getStringValue(); },
         "step": n => { activeAttempt.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AnswerInputRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAnswerInputRequest(answerInputRequest: Partial<AnswerInputRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "name": n => { answerInputRequest.name = n.getStringValue(); },
+        "value": n => { answerInputRequest.value = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
     }
 }
 /**
@@ -1451,6 +1529,7 @@ export function deserializeIntoApiProblemError(apiProblemError: Partial<ApiProbl
 // @ts-ignore
 export function deserializeIntoAttempt(attempt: Partial<Attempt> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "answers": n => { attempt.answers = n.getObjectValue<Attempt_answers>(createAttempt_answersFromDiscriminatorValue); },
         "createdAt": n => { attempt.createdAt = n.getDateValue(); },
         "id": n => { attempt.id = n.getGuidValue(); },
         "input": n => { attempt.input = n.getStringValue(); },
@@ -1463,6 +1542,16 @@ export function deserializeIntoAttempt(attempt: Partial<Attempt> | undefined = {
         "status": n => { attempt.status = n.getObjectValue<AttemptStatus>(createAttemptStatusFromDiscriminatorValue); },
         "stepName": n => { attempt.stepName = n.getStringValue(); },
         "timings": n => { attempt.timings = n.getObjectValue<AttemptTimings>(createAttemptTimingsFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param Attempt_answers The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttempt_answers(attempt_answers: Partial<Attempt_answers> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
     }
 }
 /**
@@ -1636,6 +1725,18 @@ export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Pa
         ...deserializeIntoAttemptStatus(attemptStatusSucceeded),
         "finishedAt": n => { attemptStatusSucceeded.finishedAt = n.getDateValue(); },
         "startedAt": n => { attemptStatusSucceeded.startedAt = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param AttemptStatusWaiting The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoAttemptStatusWaiting(attemptStatusWaiting: Partial<AttemptStatusWaiting> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        ...deserializeIntoAttemptStatus(attemptStatusWaiting),
+        "since": n => { attemptStatusWaiting.since = n.getDateValue(); },
     }
 }
 /**
@@ -1883,6 +1984,17 @@ export function deserializeIntoCriticalPathStep(criticalPathStep: Partial<Critic
         "share": n => { criticalPathStep.share = n.getNumberValue(); },
         "step": n => { criticalPathStep.step = n.getStringValue(); },
         "waitSeconds": n => { criticalPathStep.waitSeconds = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param DeclineInputRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoDeclineInputRequest(declineInputRequest: Partial<DeclineInputRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "comment": n => { declineInputRequest.comment = n.getStringValue(); },
     }
 }
 /**
@@ -3383,6 +3495,19 @@ export function serializeActiveAttempt(writer: SerializationWriter, activeAttemp
 }
 /**
  * Serializes information the current object
+ * @param AnswerInputRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAnswerInputRequest(writer: SerializationWriter, answerInputRequest: Partial<AnswerInputRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!answerInputRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", answerInputRequest.name);
+    writer.writeObjectValue("value", answerInputRequest.value);
+    writer.writeAdditionalData(answerInputRequest.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param ApiProblem The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -3421,6 +3546,7 @@ export function serializeApiProblemError(writer: SerializationWriter, apiProblem
 // @ts-ignore
 export function serializeAttempt(writer: SerializationWriter, attempt: Partial<Attempt> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!attempt || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<Attempt_answers>("answers", attempt.answers, serializeAttempt_answers);
     writer.writeDateValue("createdAt", attempt.createdAt);
     writer.writeGuidValue("id", attempt.id);
     writer.writeStringValue("input", attempt.input);
@@ -3434,6 +3560,17 @@ export function serializeAttempt(writer: SerializationWriter, attempt: Partial<A
     writer.writeStringValue("stepName", attempt.stepName);
     writer.writeObjectValue<AttemptTimings>("timings", attempt.timings, serializeAttemptTimings);
     writer.writeAdditionalData(attempt.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param Attempt_answers The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttempt_answers(writer: SerializationWriter, attempt_answers: Partial<Attempt_answers> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attempt_answers || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(attempt_answers.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3545,6 +3682,9 @@ export function serializeAttemptStatus(writer: SerializationWriter, attemptStatu
         case "succeeded":
             serializeAttemptStatusSucceeded(writer, attemptStatus, true);
         break;
+        case "waiting":
+            serializeAttemptStatusWaiting(writer, attemptStatus, true);
+        break;
     }
 }
 /**
@@ -3636,6 +3776,18 @@ export function serializeAttemptStatusSucceeded(writer: SerializationWriter, att
     serializeAttemptStatus(writer, attemptStatusSucceeded, isSerializingDerivedType)
     writer.writeDateValue("finishedAt", attemptStatusSucceeded.finishedAt);
     writer.writeDateValue("startedAt", attemptStatusSucceeded.startedAt);
+}
+/**
+ * Serializes information the current object
+ * @param AttemptStatusWaiting The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeAttemptStatusWaiting(writer: SerializationWriter, attemptStatusWaiting: Partial<AttemptStatusWaiting> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusWaiting || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusWaiting, isSerializingDerivedType)
+    writer.writeDateValue("since", attemptStatusWaiting.since);
 }
 /**
  * Serializes information the current object
@@ -3900,6 +4052,18 @@ export function serializeCriticalPathStep(writer: SerializationWriter, criticalP
     writer.writeStringValue("step", criticalPathStep.step);
     writer.writeNumberValue("waitSeconds", criticalPathStep.waitSeconds);
     writer.writeAdditionalData(criticalPathStep.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param DeclineInputRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeDeclineInputRequest(writer: SerializationWriter, declineInputRequest: Partial<DeclineInputRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!declineInputRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("comment", declineInputRequest.comment);
+    writer.writeAdditionalData(declineInputRequest.additionalData);
 }
 /**
  * Serializes information the current object

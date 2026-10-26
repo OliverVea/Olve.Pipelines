@@ -401,6 +401,56 @@
           "description": "What the step does, shown in the UI (may be empty).",
           "type": "string"
         },
+        "externalInputs": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "from": {
+                "description": "Who or what may answer.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "person",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "model": {
+                "description": "The value is validated against this model's input view.",
+                "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+                "type": "string"
+              },
+              "title": {
+                "description": "What is asked, shown to whoever answers.",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "model",
+              "title",
+              "description",
+              "from"
+            ],
+            "type": "object"
+          },
+          "description": "Inputs answered from outside the run (omitted when none): the step waits until every one has a value, which the service writes into input.json under its key.",
+          "propertyNames": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "handlerHash": {
           "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for a step that carries its implementation kind + config + harness + the hash of the code of its kind.",
           "pattern": "^sha256:[0-9a-f]{64}$",

@@ -21,6 +21,7 @@ public class AttemptContractTests
     public static IEnumerable<Func<AttemptStatus>> Statuses()
     {
         var t = DateTimeOffset.UtcNow;
+        yield return () => new Waiting(t);
         yield return () => new Scheduled(1);
         yield return () => new InProgress(t);
         yield return () => new Succeeded(t, t);
@@ -44,6 +45,21 @@ public class AttemptContractTests
         await Assert.That(job.RunNumber).IsEqualTo(412);
         await Assert.That(job.Number).IsEqualTo(2);
         await Assert.That(job.Status.Kind).IsEqualTo(status.Discriminator());
+    }
+
+    [Test]
+    public async Task Answers_ReadIntoTheCliContract()
+    {
+        var t = DateTimeOffset.UtcNow;
+        var attempt = TestAttempts.Make(stepName: "approve", status: new Succeeded(t, t)) with
+        {
+            Answers = new Dictionary<string, ExternalAnswer> { ["decision"] = new("""{"approved":true}""", "oliver", t) },
+        };
+
+        var cli = JsonSerializer.Deserialize(JsonSerializer.Serialize(attempt, ServerOptions), CliJsonContext.Default.Attempt)!;
+
+        await Assert.That(cli.Answers!["decision"].AnsweredBy).IsEqualTo("oliver");
+        await Assert.That(cli.Answers["decision"].Value).IsEqualTo("""{"approved":true}""");
     }
 }
 

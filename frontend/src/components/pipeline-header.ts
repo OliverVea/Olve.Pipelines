@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { client } from '../api.js';
 import type {
+  ActiveAttempt,
   CriticalPathReport,
   PipelineBindingStatus,
   PipelineHealth,
@@ -65,6 +66,9 @@ export class PipelineHeader extends LitElement {
       .bad {
         color: var(--color-danger);
       }
+      .ask {
+        color: var(--color-primary);
+      }
       .alerts {
         display: flex;
         flex-direction: column;
@@ -92,6 +96,7 @@ export class PipelineHeader extends LitElement {
   @state() declare private _health: PipelineHealth | null;
   @state() declare private _activation: Activation;
   @state() declare private _critical: CriticalPathReport | null;
+  @state() declare private _waiting: ActiveAttempt[];
 
   constructor() {
     super();
@@ -105,6 +110,7 @@ export class PipelineHeader extends LitElement {
     this._health = null;
     this._activation = { kind: 'none' };
     this._critical = null;
+    this._waiting = [];
     new LiveController(
       this,
       () => this.reload(),
@@ -119,13 +125,21 @@ export class PipelineHeader extends LitElement {
   async reload() {
     const p = client.api.pipelines.byId(this.pipelineId);
     const overview = this.tab === 'overview';
-    const [pipeline, binding, health, secrets, critical] = await Promise.all([
+    const [pipeline, binding, health, secrets, critical, waiting] = await Promise.all([
       p.get().catch(() => null),
       p.binding.status.get().catch(() => null),
       p.health.get().catch(() => null),
       overview ? p.secrets.get().catch(() => null) : null, // needs auth
       overview ? p.runs.criticalPath.get().catch(() => null) : null,
+      overview
+        ? client.api.attempts
+            .get({ queryParameters: { status: 'waiting' } })
+            .catch(() => null)
+        : null,
     ]);
+    this._waiting = (waiting ?? []).filter(
+      (a) => String(a.pipelineId) === this.pipelineId,
+    );
     this._critical = critical ?? null;
     if (pipeline?.name) this._name = pipeline.name;
     this._binding = binding ?? null;
@@ -248,8 +262,22 @@ export class PipelineHeader extends LitElement {
             </div>`
           : nothing}
       </div>
-      ${unset.length || h?.pending?.version != null || (failed && b?.problems?.length)
+      ${unset.length ||
+      h?.pending?.version != null ||
+      (failed && b?.problems?.length) ||
+      this._waiting.length
         ? html`<div class="alerts">
+            ${this._waiting.map(
+              (w) =>
+                html`<a
+                  class="alert ask"
+                  href="${runPath(this.pipelineId, w.run)}?step=${encodeURIComponent(
+                    w.step ?? '',
+                  )}"
+                  @click=${navClick}
+                  >Run #${w.run}: ${w.step} is waiting for input</a
+                >`,
+            )}
             ${unset.length
               ? html`<a
                   class="alert bad"

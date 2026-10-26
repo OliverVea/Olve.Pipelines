@@ -57,6 +57,8 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(AttemptFilesResponse))]
 [JsonSerializable(typeof(StepHistoryItem[]))]
 [JsonSerializable(typeof(RerunStepRequest))]
+[JsonSerializable(typeof(AnswerInputRequest))]
+[JsonSerializable(typeof(DeclineInputRequest))]
 [JsonSerializable(typeof(ServerProblem[]))]
 [JsonSerializable(typeof(ServerProblemBody))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement))]

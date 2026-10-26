@@ -9,7 +9,7 @@ the step is unblocked.
 Use it **sparingly**, for the times you need a pipeline to stop short of a step without changing
 its definition: while you work on the pipeline itself or on the environment a step deploys to, or
 during an incident. It is not an approval mechanism. A decision that a run may go on (tests, a
-visual-regression check, an approval) belongs in the pipeline as a step or stage of its own; see
+visual-regression check) belongs in the pipeline as a step or stage of its own; see
 [Stages](pipeline-reference.md#stages).
 
 ```sh

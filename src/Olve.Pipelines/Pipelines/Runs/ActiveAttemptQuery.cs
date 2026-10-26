@@ -1,7 +1,7 @@
 namespace Olve.Pipelines.Pipelines.Runs;
 
-/// <summary>A scheduled or in-progress attempt, addressed <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;@&lt;attempt&gt;</c>.</summary>
-/// <param name="Status">The attempt-status discriminator (<c>scheduled</c> / <c>in-progress</c>).</param>
+/// <summary>An unfinished attempt, addressed <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;@&lt;attempt&gt;</c>.</summary>
+/// <param name="Status">The attempt-status discriminator (<c>waiting</c> / <c>scheduled</c> / <c>in-progress</c>).</param>
 /// <param name="StartedAt">When its K8s Job started (null while scheduled).</param>
 public record ActiveAttempt(
     Id<Pipeline> PipelineId,
@@ -16,9 +16,10 @@ public record ActiveAttempt(
 /// <summary>Every active attempt across pipelines ("what's running"), oldest first. Stateless query; transient.</summary>
 public class ActiveAttemptQuery(AttemptService attempts, PipelineService pipelines)
 {
-    public IReadOnlyList<ActiveAttempt> List()
+    /// <param name="waitingOnly">Only attempts that wait for external input.</param>
+    public IReadOnlyList<ActiveAttempt> List(bool waitingOnly = false)
         => attempts.List()
-            .Where(a => a.Status.IsActive())
+            .Where(a => waitingOnly ? a.Status is AttemptStatus.Waiting : a.Status.IsActive())
             .OrderBy(a => a.CreatedAt)
             .Select(a => new ActiveAttempt(
                 a.PipelineId,

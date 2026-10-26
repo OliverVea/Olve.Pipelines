@@ -72,6 +72,18 @@ export const StepDescriptor = z
       .literal(true)
       .optional()
       .describe("The step pod gets the instance's step ServiceAccount token (Kubernetes:StepServiceAccount), if the instance grants one. Omitted = no token."),
+    externalInputs: z
+      .record(
+        z.string(),
+        z.strictObject({
+          model: modelName.describe("The value is validated against this model's input view."),
+          title: z.string().min(1).describe("What is asked, shown to whoever answers."),
+          description: z.string(),
+          from: z.array(z.strictObject({ kind: z.literal("person") })).min(1).describe("Who or what may answer."),
+        }),
+      )
+      .optional()
+      .describe("Inputs answered from outside the run (omitted when none): the step waits until every one has a value, which the service writes into input.json under its key."),
   })
   .meta({ id: "Step" });
 

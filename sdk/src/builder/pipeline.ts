@@ -6,6 +6,7 @@ import { isStep } from "../core/steps.ts";
 import type { WebhookEvent, WebhookVerify } from "../core/webhooks.ts";
 import type { IsUnion, OrError, Simplify } from "../core/types.ts";
 import type { Optional } from "../core/models.ts";
+import type { External } from "../core/external.ts";
 import type { FailureContext } from "../library/models.ts";
 import type { MapperResult, Ref } from "./refs.ts";
 import { isConfigRef, narrowConfigRef, unionAt, type ConfigNode, type ConfigRef, type DiscriminatorOf, type VariantOf } from "../core/config.ts";
@@ -33,7 +34,8 @@ type DefiniteProducersOf<A extends AvailMap, MN> = {
 }[keyof A];
 
 type EntryError<SN extends string, Key extends string, E, A extends AvailMap> =
-  E extends Optional<infer M>
+  E extends External ? never
+  : E extends Optional<infer M>
     ? [ProducersOf<A, M["name"]>] extends [never]
       ? `❌ ${M["name"]} (input '${Key}' of step '${SN}') is not available at this stage`
       : IsUnion<ProducersOf<A, M["name"]>> extends true

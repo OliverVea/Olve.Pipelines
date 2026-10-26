@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Text.Json.Nodes;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Shared;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
@@ -33,9 +34,10 @@ public class AttemptService(
 
     /// <summary>
     /// Schedules the next attempt of <paramref name="stepName"/> in a run, carrying its assembled
-    /// <c>input.json</c> (<paramref name="input"/>) and that input's canonical hash.
+    /// <c>input.json</c> (<paramref name="input"/>) and that input's canonical hash. With
+    /// <paramref name="awaitsInput"/> the attempt starts <see cref="Waiting"/> for the step's external inputs.
     /// </summary>
-    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null)
+    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null, bool awaitsInput = false)
     {
         if (input is not null)
         {
@@ -45,7 +47,7 @@ public class AttemptService(
                 return new ResultProblem("Input of step '{0}' is not well-formed JSON.", stepName);
         }
 
-        return Create(runId, stepName, inputHash, _ => new Scheduled(), input);
+        return Create(runId, stepName, inputHash, now => awaitsInput ? new Waiting(now) : new Scheduled(), input);
     }
 
     /// <summary>Records an attempt the scheduler failed without running (e.g. its input exceeds the cap).</summary>
@@ -181,6 +183,47 @@ public class AttemptService(
         return Update(id, a => a.Status.IsActive() ? a with { Status = new Skipped(reason, a.StartedAt(), now) } : a);
     }
 
+    /// <summary>
+    /// Records <paramref name="answer"/> for external input <paramref name="name"/> of a Waiting attempt and
+    /// writes it into the attempt's <c>input.json</c>; the attempt becomes Scheduled once every name in
+    /// <paramref name="required"/> is answered.
+    /// </summary>
+    public Result<Attempt> Answer(Id<Attempt> id, string name, ExternalAnswer answer, IReadOnlyCollection<string> required)
+    {
+        if (!store.TryGet(id, out var attempt))
+            return new NotFoundProblem("Attempt '{0}' not found.", id);
+        if (attempt.Status is not Waiting)
+            return new ConflictProblem("Step '{0}' is not waiting for input (it is {1}).", attempt.StepName, attempt.Status.Discriminator());
+
+        var value = JsonNode.Parse(answer.Value);
+        var input = (attempt.Input is null ? null : JsonNode.Parse(attempt.Input) as JsonObject) ?? new JsonObject();
+        input[name] = value;
+        var inputJson = input.ToJsonString();
+        if (Encoding.UTF8.GetByteCount(inputJson) > MaxInputJsonBytes)
+            return ValidationProblem.ForField("value", "The input of step '{0}' would exceed {1} bytes.", attempt.StepName, MaxInputJsonBytes);
+
+        if (Update(id, a =>
+            {
+                if (a.Status is not Waiting) return a;
+                var answers = new Dictionary<string, ExternalAnswer>(a.Answers ?? new Dictionary<string, ExternalAnswer>(), StringComparer.Ordinal) { [name] = answer };
+                var complete = required.All(answers.ContainsKey);
+                return a with { Input = inputJson, Answers = answers, Status = complete ? new Scheduled() : a.Status };
+            }).TryPickProblems(out var problems))
+            return problems;
+        return store.TryGet(id, out var after) ? after : new NotFoundProblem("Attempt '{0}' not found.", id);
+    }
+
+    /// <summary>Waiting → Failed with <paramref name="reason"/>, without running the step.</summary>
+    public Result Decline(Id<Attempt> id, string reason)
+    {
+        if (!store.TryGet(id, out var attempt))
+            return new NotFoundProblem("Attempt '{0}' not found.", id);
+        if (attempt.Status is not Waiting)
+            return new ConflictProblem("Step '{0}' is not waiting for input (it is {1}).", attempt.StepName, attempt.Status.Discriminator());
+        var now = timeProvider.GetUtcNow();
+        return Update(id, a => a.Status is Waiting w ? a with { Status = new Failed(w.Since, now, reason) } : a);
+    }
+
     /// <summary>Records one more failed K8s submission on a still-Scheduled attempt; returns the new count.</summary>
     public Result<int> RecordSubmissionFailure(Id<Attempt> id)
     {
@@ -205,7 +248,7 @@ public class AttemptService(
         var now = timeProvider.GetUtcNow();
         return store.Mutate(id, a => a.Status switch
         {
-            Scheduled => a with { Status = new Cancelled(null, now) },
+            Waiting or Scheduled => a with { Status = new Cancelled(null, now) },
             InProgress ip => a with { Status = new Cancelled(ip.StartedAt, now) },
             _ => a,
         });

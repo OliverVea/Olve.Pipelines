@@ -74,6 +74,8 @@ internal sealed class TestRunDomain
     public RunStartService Starts => Services.GetRequiredService<RunStartService>();
     public SwitchService Switches => Services.GetRequiredService<SwitchService>();
     public RunContinuationService Continuations => Services.GetRequiredService<RunContinuationService>();
+    public ExternalInputService Inputs => Services.GetRequiredService<ExternalInputService>();
+    public RunCancellationService Cancellations => Services.GetRequiredService<RunCancellationService>();
     public StepBlockService GateService => Services.GetRequiredService<StepBlockService>();
     public AttemptLaunchService Launches => Services.GetRequiredService<AttemptLaunchService>();
 
@@ -132,6 +134,8 @@ internal sealed class TestRunDomain
         services.AddTransient<RunStartService>();
         services.AddTransient<SwitchService>();
         services.AddTransient<RunContinuationService>();
+        services.AddTransient<ExternalInputService>();
+        services.AddTransient<RunCancellationService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
         services.AddSingleton<JobDispatchSignal>();

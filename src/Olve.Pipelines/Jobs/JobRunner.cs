@@ -41,6 +41,7 @@ public class JobRunner(
 
         foreach (var attempt in attempts)
         {
+            if (attempt.Status is Waiting) continue;
             if (registry.IsRunning(attempt.Id)) continue;
             if (registry.ActiveCount >= MaxConcurrentJobs) return;
 

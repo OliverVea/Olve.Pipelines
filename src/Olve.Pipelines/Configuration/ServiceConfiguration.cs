@@ -118,6 +118,7 @@ public static class ServiceConfiguration
         services.AddTransient<SwitchService>();
         services.AddTransient<RunContinuationService>();
         services.AddTransient<RunCancellationService>();
+        services.AddTransient<ExternalInputService>();
         services.AddTransient<AttemptLaunchService>();
         services.AddTransient<RunSchedulingHandler>();
 

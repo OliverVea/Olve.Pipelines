@@ -90,6 +90,11 @@ public record ListRunsRequest(int Page = 0, int PageSize = 50);
 /// <summary>Rerun one step: a new attempt; with <see cref="Continue"/> the run continues downstream (spec §5.2).</summary>
 public record RerunStepRequest(bool Continue = false);
 
+/// <param name="Name">The external input; may be omitted when the step has exactly one.</param>
+public record AnswerInputRequest(JsonElement Value, string? Name = null);
+
+public record DeclineInputRequest(string? Comment = null);
+
 /// <summary>
 /// Continue a run. <see cref="Input"/> (optional) holds the pipeline-input fields to change; they are merged
 /// over the run's stored input (top-level fields) and validated against the pinned input model. Typed as a

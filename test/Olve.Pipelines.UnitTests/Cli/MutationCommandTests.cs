@@ -4,6 +4,7 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Attempts;
+using Olve.Pipelines.Cli.Commands.Inputs;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Steps;
 using Olve.Pipelines.Cli.Diagnostics;
@@ -51,6 +52,80 @@ public class MutationCommandTests
         await Assert.That(api.LastRun).IsEqualTo(12);
         await Assert.That(api.LastStep).IsEqualTo("deploy");
         await Assert.That(stdout.ToString()).Contains("cancelled");
+    }
+
+    [Test]
+    public async Task InputAnswer_SendsTheValue_ToTheStep()
+    {
+        var api = new FakePipelinesApi
+        {
+            AnswerStepInputResult = new Attempt { RunNumber = 12, StepName = "approve", Number = 1, Status = new ScheduledStatus() },
+        };
+        var (ctx, stdout, cli) = Build(new InputAnswerCommand(), api, json: false,
+            "input", "answer", $"{PipelineGuid}#12/approve", "--value", """{"approved":true}""");
+
+        var result = await new InputAnswerCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.LastStep).IsEqualTo("approve");
+        await Assert.That(api.LastAnswer).IsEqualTo((null, """{"approved":true}"""));
+        await Assert.That(stdout.ToString()).Contains("scheduled");
+    }
+
+    [Test]
+    public async Task InputAnswer_TypesFields_ByTheModelOfAStepInsideAWhenBlock()
+    {
+        const string manifest = """
+            {"models":{"Approval":{"output":{"type":"object","properties":{"approved":{"type":"boolean"},"comment":{"type":"string"}}}}},
+             "stages":[{"steps":[{"name":"build"}]},{"when":{},"stages":[{"steps":[{"name":"approve","externalInputs":{"decision":{"model":"Approval"}}}]}]}]}
+            """;
+        var api = new FakePipelinesApi
+        {
+            GetRunResult = new RunDetail { Run = new RunSummary { Number = 12, VersionNumber = 3 } },
+            GetPipelineVersionResult = new PipelineVersion { Manifest = manifest },
+            AnswerStepInputResult = new Attempt { RunNumber = 12, StepName = "approve", Number = 1, Status = new ScheduledStatus() },
+        };
+        var (ctx, _, cli) = Build(new InputAnswerCommand(), api, json: false,
+            "input", "answer", $"{PipelineGuid}#12/approve", "--field", "approved=true", "--field", "comment=ok");
+
+        var result = await new InputAnswerCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.LastAnswer).IsEqualTo((null, """{"approved":true,"comment":"ok"}"""));
+    }
+
+    [Test]
+    public async Task InputDecline_SendsTheComment()
+    {
+        var api = new FakePipelinesApi
+        {
+            DeclineStepInputResult = new Attempt { RunNumber = 12, StepName = "approve", Number = 1, Status = new FailedStatus() },
+        };
+        var (ctx, _, cli) = Build(new InputDeclineCommand(), api, json: false,
+            "input", "decline", $"{PipelineGuid}#12/approve", "--comment", "not today");
+
+        var result = await new InputDeclineCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(api.LastDeclineComment).IsEqualTo("not today");
+    }
+
+    [Test]
+    public async Task InputList_ListsWaitingSteps_ByAddress()
+    {
+        var api = new FakePipelinesApi
+        {
+            ListWaitingAttemptsResult = new ActiveAttempt[]
+            {
+                new() { PipelineName = "web", Run = 7, Step = "approve", Attempt = 1, Status = "waiting", CreatedAt = DateTimeOffset.UtcNow },
+            },
+        };
+        var (ctx, stdout, cli) = Build(new InputListCommand(), api, json: false, "input", "list");
+
+        var result = await new InputListCommand().Execute(cli, ctx, CancellationToken.None);
+
+        await Assert.That(result.Succeeded).IsTrue();
+        await Assert.That(stdout.ToString()).Contains("web#7/approve");
     }
 
     [Test]

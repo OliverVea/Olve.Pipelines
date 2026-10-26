@@ -89,8 +89,6 @@ the raw envelope.
   environment; every other declared secret is removed from the child's environment. A declared
   secret that isn't set is a warning — the handler fails only if it reads it. Secrets are never
   pulled from the cluster.
-- `--from <pipeline>#<run>` (reproduce a step from a real run's input and outputs) is parsed but
-  **not available yet** — it fails with an explanatory error.
 
 ## 3. Run one step in its real image
 

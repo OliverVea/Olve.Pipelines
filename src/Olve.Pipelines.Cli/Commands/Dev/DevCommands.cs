@@ -294,7 +294,6 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
           --input-file <file>      Use this file as input.json verbatim (skips assembly)
           --secret NAME=value      Secret value (repeatable). Default: the step's declared secrets
                                    from the environment; other pipeline secrets are not passed on
-          --from <pipeline>#<run>  Reproduce from a real run's input + outputs (needs the v2 run API)
           --docker                 Compile with olve-build and run the binary in the step's image
                                    like the pod (/olve layout, bundled loader, same env)
           --json                   Print the raw envelope on stdout (step output goes to stderr)

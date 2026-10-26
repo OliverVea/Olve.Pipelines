@@ -110,6 +110,5 @@ pl bootstrap / pl teardown                             # cold install / remove o
 ```
 
 `pl dev` calls the SDK's `olve-dev` / `olve-build` through Bun (`$OLVE_BUN`, then `PATH`, then
-`~/.bun/bin/bun`; SDK override `$OLVE_SDK`) and writes to `<dir>/.olve/`. `pl dev run --from
-<pipeline>#<run>` is parsed but not implemented yet. Details:
+`~/.bun/bin/bun`; SDK override `$OLVE_SDK`) and writes to `<dir>/.olve/`. Details:
 [Local Development](local-development.md).

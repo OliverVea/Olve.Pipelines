@@ -169,7 +169,7 @@ Library steps carry their own implementation and image; they take typed settings
 
 | Helper | What it does |
 |---|---|
-| `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })` | GETs `url` until it returns 2xx (redirects followed), retrying network errors and non-2xx statuses; defaults 5 attempts, 5 s apart (v1's deploy-beta loop). Throws the last error when the attempts run out. Runs in the harness, so the image needs no curl. `helmDeployOverSsh`'s `healthUrl` uses it. |
+| `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })` | GETs `url` until it returns 2xx (redirects followed), retrying network errors and non-2xx statuses; defaults 5 attempts, 5 s apart. Throws the last error when the attempts run out. Runs in the harness, so the image needs no curl. `helmDeployOverSsh`'s `healthUrl` uses it. |
 | `serviceUrl(release)` | `http://<release>.<namespace>.svc.cluster.local` for a `HelmRelease` (charts that name the Service after the release). |
 | `checkSpa(ctx, url)` | `GET <url>/` must reference an `/assets/*.js` bundle (Vite's layout) and the bundle must be served as JavaScript; returns `{ html, bundle }` for app-specific checks. |
 | `sshSession(ctx, { host, key })` | Installs openssh-client when the image has no ssh (apk or apt-get), writes the key to `<tmpDir>/ssh/id` (trailing newline, mode 600; host key not verified) and returns `{ run(remote), text(remote), copy(local, remote), shell(remote) }`; `shell` is the quoted ssh command for pipes (`ctx.sh(`printf '%s' "$V" \| ${s.shell("kubectl apply -f -")}`)`). `helmDeployOverSsh` uses it. |

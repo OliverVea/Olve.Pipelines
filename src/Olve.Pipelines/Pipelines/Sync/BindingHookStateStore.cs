@@ -11,8 +11,9 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// PAT) must live here. A plain singleton — not an AttachmentStore — so entries are removed only
 /// after a confirmed GitHub delete.
 /// </summary>
+/// <param name="Url">The delivery URL the hook was registered with; null for hooks recorded before it was kept.</param>
 public record BindingHookState(
-    Id<Pipeline> PipelineId, string Owner, string Repo, long HookId, string CredentialsSecret);
+    Id<Pipeline> PipelineId, string Owner, string Repo, long HookId, string CredentialsSecret, string? Url = null);
 
 public class BindingHookStateStore
 {

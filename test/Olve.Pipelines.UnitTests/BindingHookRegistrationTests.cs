@@ -27,6 +27,15 @@ public class BindingHookRegistrationTests
             return Task.FromResult(CreateResult);
         }
 
+        public List<(long HookId, GitHubHookConfig Config)> UpdateCalls { get; } = [];
+        public Result UpdateResult { get; set; } = Result.Success();
+
+        public Task<Result> UpdateHookConfigAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default)
+        {
+            UpdateCalls.Add((hookId, config));
+            return Task.FromResult(UpdateResult);
+        }
+
         public Task<Result> DeleteHookAsync(string owner, string repo, string pat, long hookId, CancellationToken ct = default)
         {
             DeletedHookIds.Add(hookId);
@@ -76,6 +85,77 @@ public class BindingHookRegistrationTests
 
         await Assert.That(gh.CreateCalls).IsEmpty();
         await Assert.That(state.TryGet(bindingId, out _)).IsFalse();
+    }
+
+    private static string UrlOf(Id<PipelineConfigBinding> bindingId) => $"{BaseUrl}/api/webhooks/binding/{bindingId}/github";
+
+    [Test]
+    public async Task Create_RegisteredAtTheCurrentUrl_DoesNothing()
+    {
+        var gh = new FakeGitHubClient();
+        var state = new BindingHookStateStore();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        var pipelineId = Id.New<Pipeline>();
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", UrlOf(bindingId)));
+
+        await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "s"), CancellationToken.None);
+
+        await Assert.That(gh.CreateCalls).IsEmpty();
+        await Assert.That(gh.UpdateCalls).IsEmpty();
+    }
+
+    [Test]
+    [Arguments("https://old-hooks.example.com/api/webhooks/binding/x/github")]
+    [Arguments(null)]
+    public async Task Create_RegisteredElsewhere_RepointsTheSameHook(string? oldUrl)
+    {
+        var gh = new FakeGitHubClient();
+        var state = new BindingHookStateStore();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        var pipelineId = Id.New<Pipeline>();
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", oldUrl));
+
+        await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "hook-secret"), CancellationToken.None);
+
+        await Assert.That(gh.CreateCalls).IsEmpty();
+        await Assert.That(gh.UpdateCalls).Count().IsEqualTo(1);
+        await Assert.That(gh.UpdateCalls[0].HookId).IsEqualTo(7L);
+        await Assert.That(gh.UpdateCalls[0].Config).IsEqualTo(new GitHubHookConfig(UrlOf(bindingId), "hook-secret"));
+        await Assert.That(state.TryGet(bindingId, out var stored)).IsTrue();
+        await Assert.That(stored!.Url).IsEqualTo(UrlOf(bindingId));
+    }
+
+    [Test]
+    public async Task Create_RegisteredHookGoneOnGitHub_RegistersANewOne()
+    {
+        var gh = new FakeGitHubClient { CreateResult = 99L, UpdateResult = new NotFoundProblem("gone") };
+        var state = new BindingHookStateStore();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        var pipelineId = Id.New<Pipeline>();
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", "https://old.example.com/x"));
+
+        await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "s"), CancellationToken.None);
+
+        await Assert.That(gh.CreateCalls).Count().IsEqualTo(1);
+        await Assert.That(state.TryGet(bindingId, out var stored)).IsTrue();
+        await Assert.That(stored!.HookId).IsEqualTo(99L);
+        await Assert.That(stored.Url).IsEqualTo(UrlOf(bindingId));
+    }
+
+    [Test]
+    public async Task Create_RepointFailsOtherwise_KeepsTheOldState()
+    {
+        var gh = new FakeGitHubClient { UpdateResult = new ResultProblem("rate limited") };
+        var state = new BindingHookStateStore();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        var pipelineId = Id.New<Pipeline>();
+        state.Set(bindingId, new BindingHookState(pipelineId, "acme", "widgets", 7L, "GITHUB_TOKEN", "https://old.example.com/x"));
+
+        await CreateDrainer(gh, state, "ghp_tok").ProcessAsync(new CreateBindingHookWork(bindingId, pipelineId, "acme", "widgets", "GITHUB_TOKEN", "s"), CancellationToken.None);
+
+        await Assert.That(gh.CreateCalls).IsEmpty();
+        await Assert.That(state.TryGet(bindingId, out var stored)).IsTrue();
+        await Assert.That(stored!.Url).IsEqualTo("https://old.example.com/x");
     }
 
     [Test]
@@ -175,6 +255,35 @@ public class BindingHookRegistrationTests
         var delete = work as DeleteBindingHookWork;
         await Assert.That(delete).IsNotNull();
         await Assert.That(delete!.HookId).IsEqualTo(9L);
+    }
+
+    [Test]
+    public async Task BindingUpdated_HookAtAnOldUrl_EnqueuesARepoint()
+    {
+        var h = await CreateEventHarness();
+        var pid = Id.New<Pipeline>();
+        var binding = Pick(h.Svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        h.Queue.Reader.TryRead(out _);
+        h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", "https://old.example.com/x"));
+
+        Pick(h.Svc.SetLastPushSha(binding.Id, "abc"));
+
+        await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
+        await Assert.That(work as CreateBindingHookWork).IsNotNull();
+    }
+
+    [Test]
+    public async Task BindingUpdated_HookAtTheCurrentUrl_EnqueuesNothing()
+    {
+        var h = await CreateEventHarness();
+        var pid = Id.New<Pipeline>();
+        var binding = Pick(h.Svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        h.Queue.Reader.TryRead(out _);
+        h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", UrlOf(binding.Id)));
+
+        Pick(h.Svc.SetLastPushSha(binding.Id, "abc"));
+
+        await Assert.That(h.Queue.Reader.TryRead(out _)).IsFalse();
     }
 
     [Test]

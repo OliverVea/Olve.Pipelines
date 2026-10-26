@@ -5,7 +5,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// <summary>A unit of binding-hook work handed off from the (synchronous) binding event handler.</summary>
 public abstract record BindingHookWork;
 
-/// <summary>Register a push hook for a binding that entered (or is in) a webhook mode.</summary>
+/// <summary>Register the binding's push hook, or point the registered one at the current URL.</summary>
 public record CreateBindingHookWork(
     Id<PipelineConfigBinding> BindingId,
     Id<Pipeline> PipelineId,

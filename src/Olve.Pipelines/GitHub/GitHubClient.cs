@@ -18,6 +18,9 @@ public interface IGitHubClient
     /// <summary>Creates a <c>push</c> webhook on the repo and returns its hook id.</summary>
     Task<Result<long>> CreateHookAsync(string owner, string repo, string pat, GitHubHookConfig config, CancellationToken ct = default);
 
+    /// <summary>Points an existing hook at <paramref name="config"/>; a missing hook (404) is a <see cref="NotFoundProblem"/>.</summary>
+    Task<Result> UpdateHookConfigAsync(string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default);
+
     /// <summary>Deletes the hook. A missing hook (404) is treated as success — the end state is the same.</summary>
     Task<Result> DeleteHookAsync(string owner, string repo, string pat, long hookId, CancellationToken ct = default);
 }
@@ -75,6 +78,42 @@ public class GitHubClient : IGitHubClient, IDisposable
         return created.Id;
     }
 
+    public async Task<Result> UpdateHookConfigAsync(
+        string owner, string repo, string pat, long hookId, GitHubHookConfig config, CancellationToken ct = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"repos/{owner}/{repo}/hooks/{hookId}/config")
+        {
+            Content = JsonContent.Create(
+                new CreateHookConfig(config.Url, "json", config.Secret, "0"),
+                GitHubApiJsonContext.Default.CreateHookConfig),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pat);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "GitHub update-hook request failed for {Owner}/{Repo} hook {HookId}", owner, repo, hookId);
+            return new UnavailableProblem(ex, "GitHub update-hook request failed for '{0}/{1}' hook {2}.", owner, repo, hookId);
+        }
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return new NotFoundProblem("GitHub hook {0} on '{1}/{2}' does not exist.", hookId, owner, repo);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger?.LogError("GitHub update-hook for {Owner}/{Repo} hook {HookId} returned {StatusCode}: {Body}", owner, repo, hookId, response.StatusCode, body);
+            return new ResultProblem($"GitHub update-hook for '{owner}/{repo}' hook {hookId} returned {(int)response.StatusCode}.");
+        }
+
+        _logger?.LogInformation("Pointed GitHub push hook {HookId} on {Owner}/{Repo} at {Url}", hookId, owner, repo, config.Url);
+        return Result.Success();
+    }
+
     public async Task<Result> DeleteHookAsync(
         string owner, string repo, string pat, long hookId, CancellationToken ct = default)
     {
@@ -124,5 +163,6 @@ internal record CreateHookResponse(long Id);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(CreateHookRequest))]
+[JsonSerializable(typeof(CreateHookConfig))]
 [JsonSerializable(typeof(CreateHookResponse))]
 internal partial class GitHubApiJsonContext : JsonSerializerContext;

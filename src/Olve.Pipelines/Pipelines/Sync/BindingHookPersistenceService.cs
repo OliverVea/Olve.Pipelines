@@ -14,7 +14,8 @@ public record BindingHookEntry(
     string Owner,
     string Repo,
     long HookId,
-    string CredentialsSecret);
+    string CredentialsSecret,
+    string? Url = null);
 
 [JsonSerializable(typeof(BindingHookSnapshot))]
 internal partial class BindingHookPersistenceJsonContext : JsonSerializerContext;
@@ -101,7 +102,7 @@ public class BindingHookPersistenceService(
         try
         {
             foreach (var hook in snapshot.Hooks ?? [])
-                hooks.Set(hook.BindingId, new BindingHookState(hook.PipelineId, hook.Owner, hook.Repo, hook.HookId, hook.CredentialsSecret));
+                hooks.Set(hook.BindingId, new BindingHookState(hook.PipelineId, hook.Owner, hook.Repo, hook.HookId, hook.CredentialsSecret, hook.Url));
         }
         finally
         {
@@ -149,7 +150,7 @@ public class BindingHookPersistenceService(
         {
             var entries = hooks.GetAll()
                 .Select(kvp => new BindingHookEntry(
-                    kvp.Key, kvp.Value.PipelineId, kvp.Value.Owner, kvp.Value.Repo, kvp.Value.HookId, kvp.Value.CredentialsSecret))
+                    kvp.Key, kvp.Value.PipelineId, kvp.Value.Owner, kvp.Value.Repo, kvp.Value.HookId, kvp.Value.CredentialsSecret, kvp.Value.Url))
                 .ToArray();
 
             var snapshot = new BindingHookSnapshot(entries);

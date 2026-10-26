@@ -46,7 +46,7 @@ public class BindingWebhookEventRegistration(
         var hasHook = hookState.TryGet(id, out var existing);
         var wantsHook = WantsHook(binding, out var owner, out var repo);
 
-        if (wantsHook && !hasHook)
+        if (wantsHook && (!hasHook || existing!.Url != BindingHookRegistrationService.BindingHookUrl(options, id)))
         {
             queue.Writer.TryWrite(new CreateBindingHookWork(
                 id, binding.PipelineId, owner, repo, binding.CredentialsSecret!, binding.WebhookSecret!));

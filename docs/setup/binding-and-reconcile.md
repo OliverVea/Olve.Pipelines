@@ -36,7 +36,8 @@ The service polls every binding's branch every 15 minutes (an unchanged branch c
 conditional request). When the instance has `Webhooks:PublicBaseUrl` set and the binding has a
 `credentialsSecret` token with `admin:repo_hook`, it also registers a GitHub `push` hook, so changes
 are picked up within seconds; deliveries are authenticated by an HMAC secret the binding generates.
-There is nothing to choose per binding. Neither v2 instance has a public webhook route yet, so they poll.
+There is nothing to choose per binding. When `Webhooks:PublicBaseUrl` changes, the registered hooks
+are pointed at the new URL (a hook deleted on GitHub is registered again); clearing it deletes them.
 
 Either way, a branch-head change fires the pipeline's **`onPush`** trigger. `onPoll` triggers are
 separate: they are declared in `pipeline.ts` and poll their own URL.

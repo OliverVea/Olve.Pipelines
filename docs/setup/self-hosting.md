@@ -70,7 +70,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Harness:BuildTokenSecretKey` | `GITHUB_TOKEN` | Pipeline-secret key used for the repo tarball when the binding names no credentials key |
 | `Jobs:MaxConcurrent` | `4` | Step Jobs running at once across all pipelines; the rest wait in Scheduled |
 | `Reconcile:PollIntervalSeconds` | `900` | Deploy poll interval per binding |
-| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes) |
+| `Webhooks:PublicBaseUrl` | — | Public origin GitHub posts push webhooks to; empty = no webhook registration (the deploy poll still notices pushes). Changing it repoints the registered hooks |
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
 | `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this |

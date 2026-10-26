@@ -54,8 +54,10 @@ public class BindingHookRegistrationService(
 
     private async Task CreateAsync(CreateBindingHookWork work, CancellationToken ct)
     {
-        if (hookState.TryGet(work.BindingId, out _))
-            return; // Already registered.
+        var url = BindingHookUrl(options, work.BindingId);
+        var registered = hookState.TryGet(work.BindingId, out var existing) ? existing : null;
+        if (registered?.Url == url)
+            return;
 
         var patResult = await secretReader.TryGetSecretAsync(work.PipelineId, work.CredentialsSecret, ct);
         if (patResult.TryPickProblems(out var patProblems, out var pat))
@@ -64,7 +66,23 @@ public class BindingHookRegistrationService(
             return;
         }
 
-        var url = $"{options.PublicBaseUrl!.TrimEnd('/')}/api/webhooks/binding/{work.BindingId}/github";
+        if (registered is not null)
+        {
+            var updateResult = await gitHub.UpdateHookConfigAsync(
+                registered.Owner, registered.Repo, pat, registered.HookId, new GitHubHookConfig(url, work.HookSecret), ct);
+            if (!updateResult.TryPickProblems(out var updateProblems))
+            {
+                hookState.Set(work.BindingId, registered with { Url = url });
+                return;
+            }
+            if (!updateProblems.Any(p => p is NotFoundProblem))
+            {
+                logger.LogProblems(LogLevel.Warning, updateProblems, "Binding hook update failed for '{BindingId}'", work.BindingId);
+                return;
+            }
+            logger.LogInformation("Binding hook {HookId} for '{BindingId}' is gone on GitHub; registering a new one", registered.HookId, work.BindingId);
+        }
+
         var createResult = await gitHub.CreateHookAsync(
             work.Owner, work.Repo, pat, new GitHubHookConfig(url, work.HookSecret), ct);
 
@@ -75,8 +93,12 @@ public class BindingHookRegistrationService(
         }
 
         hookState.Set(work.BindingId, new BindingHookState(
-            work.PipelineId, work.Owner, work.Repo, hookId, work.CredentialsSecret));
+            work.PipelineId, work.Owner, work.Repo, hookId, work.CredentialsSecret, url));
     }
+
+    /// <summary>Where GitHub delivers a binding's pushes.</summary>
+    public static string BindingHookUrl(WebhookOptions options, Id<PipelineConfigBinding> bindingId)
+        => $"{options.PublicBaseUrl!.TrimEnd('/')}/api/webhooks/binding/{bindingId}/github";
 
     private async Task DeleteAsync(DeleteBindingHookWork work, CancellationToken ct)
     {

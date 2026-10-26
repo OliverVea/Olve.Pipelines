@@ -239,4 +239,14 @@ describe("olve-dev run", () => {
     expect(existsSync(join(dir, ".olve/work/files/stale.txt"))).toBe(false);
     expect(await devMain(["run", dir])).toBe(EXIT.usage);
   });
+
+  test("map-trigger maps an event file; without one it is a usage error", async () => {
+    const dir = copyExample(join(tmp("dev"), "pipeline"));
+    const event = join(dir, "..", "event.json");
+    writeFileSync(event, JSON.stringify({ ref: "refs/heads/main", after: SHA, repository: { full_name: "o/r" } }));
+    const p = Bun.spawnSync([process.execPath, join(import.meta.dir, "../../src/dev/cli.ts"), "map-trigger", dir, "push", "--event-file", event]);
+    expect(p.exitCode).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, ".olve/work/output.json"), "utf8"))).toMatchObject({ status: "succeeded", output: { repo: "o/r", sha: SHA } });
+    expect(await devMain(["map-trigger", dir, "push"])).toBe(EXIT.usage);
+  });
 });

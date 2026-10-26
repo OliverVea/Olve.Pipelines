@@ -68,6 +68,7 @@ export async function devMain(argv: string[]): Promise<number> {
       process.env[s.slice(0, i)] = s.slice(i + 1);
     }
     const file = mode === "run" ? values["input-file"] : values["event-file"];
+    if (mode === "map-trigger" && !file) return console.error("--event-file is required"), EXIT.usage;
     if (file) copyFileSync(resolve(file), join(olveDir, "input.json"));
     if (mode === "run" && values["config-file"]) {
       const inputFile = join(olveDir, "input.json");
@@ -75,7 +76,6 @@ export async function devMain(argv: string[]): Promise<number> {
       input.$config = JSON.parse(readFileSync(resolve(values["config-file"]), "utf8"));
       writeFileSync(inputFile, JSON.stringify(input));
     }
-    else if (mode === "map-trigger") return console.error("--event-file is required"), EXIT.usage;
     return await runHarness(await devConfig(dir, false), [mode, name]);
   } catch (e) {
     if (e instanceof ProjectError) return console.error(e.message), EXIT.configInvalid;

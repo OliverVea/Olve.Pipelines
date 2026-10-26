@@ -22,14 +22,8 @@ Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 
 ## Prerequisites
 
-- A v2 `pl`: `curl -fsSL https://pipelines-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
-  or from source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`.
-- A session against v2 prod. `~/.pl` holds one session, so keep v2's separate:
-  ```bash
-  export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-private.ovea.pro
-  pl login            # --device over SSH
-  ```
-  Every command below assumes these variables are exported in the same shell invocation.
+- `pl` (`curl -fsSL https://pipelines-private.ovea.pro/install.sh | sh`), logged in to prod by the
+  user: `pl login --device` (Dex sends them to GitHub).
 - If the pipeline doesn't exist (`pl pipeline list` shows no "Olve.Pipelines v2"), run `/setup-pipeline` first.
 
 ## 1. Check the pipeline

@@ -47,14 +47,14 @@ are NOT GitOps-reconciled; only the pipeline definition is.** Skills: `/deploy`,
 
 `pl bootstrap` lays down only a single minimal **root (prod)** controller; everything else is a
 Layer-1 pipeline the root self-deploys — a **beta** instance, and a separate **Olve.Homelab**
-pipeline that owns shared infra (Ingress/DNS/cloudflared + Authentik). The controller reaches the
-cluster API via its own ServiceAccount token (`Kubernetes:AuthMode=InCluster`); prod keeps
-`AuthMode=OpenBao` (explicit in `helm/values.yaml`).
+pipeline that owns shared infra (Ingress/DNS/cloudflared). The controller reaches the cluster API
+with its own ServiceAccount token (`Kubernetes:AuthMode=InCluster`), and users sign in through the
+bundled Dex (GitHub), served under `/dex` on the instance's host.
 
 ## Cold-boot install (`pl bootstrap`)
 
 `pl bootstrap` is an idempotent cold install of the controller + its private MinIO via kubectl/helm
-shell-out (operator's kubeconfig, not OpenBao): preflight + prod guard, namespace,
+shell-out (the operator's kubeconfig): preflight + prod guard, namespace,
 generate-if-absent MinIO creds Secret (the cluster Secret is the source of truth, never rotated on
 re-run), chart from a GitHub tarball (`--ref`) or `--chart`, `helm upgrade` of the **minimal
 profile** (`helm/values-minimal.yaml`: Ingress off, `Auth__Disable=true`, no OIDC/OTel secrets,

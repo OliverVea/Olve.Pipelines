@@ -14,7 +14,7 @@ src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 ├── GitHub/                         GitHub client, push webhook payload + signature
 ├── Health/                         /api/health, /api/ready
 ├── Jobs/                           JobRunner, K8s executor, obsoletion, job (attempt) endpoints
-├── Kubernetes/                     K8s client, pipeline Secrets, OpenBao / in-cluster credentials
+├── Kubernetes/                     K8s client, pipeline Secrets, in-cluster credentials
 │   └── Harness/                    step / build / map-trigger / failure-handler Job specs, result collection
 ├── Pipelines/                      Pipeline entity, summaries, health, storage layout
 │   ├── Failures/                   onFailure dispatch, FailureContext

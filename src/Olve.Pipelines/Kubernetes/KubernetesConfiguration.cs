@@ -16,80 +16,22 @@ public static class KubernetesConfiguration
         if (string.IsNullOrWhiteSpace(runtimeClassName)) runtimeClassName = null;
         builder.Services.AddHarness(builder.Configuration, runtimeClassName);
 
-        // InCluster (Tier-A): reach the cluster API via the pod's own ServiceAccount — no
-        // OpenBao/Authentik. Opt-in via config so the legacy path below stays the default
-        // for local dev / tests / prod (which sets AuthMode=OpenBao explicitly).
-        if (string.Equals(builder.Configuration["Kubernetes:AuthMode"], "InCluster", StringComparison.OrdinalIgnoreCase))
+        // The pod's own ServiceAccount. Outside a cluster (local dev without one, tests) Kubernetes
+        // stays unconfigured unless Kubernetes:AuthMode=InCluster says otherwise.
+        var mode = builder.Configuration["Kubernetes:AuthMode"];
+        if (!string.IsNullOrWhiteSpace(mode) && !string.Equals(mode, "InCluster", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Kubernetes:AuthMode '{mode}' is not supported; use InCluster or leave it unset.");
+
+        if (!string.IsNullOrWhiteSpace(mode) || Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST") is not null)
         {
             ConfigureInCluster(builder, configNs);
             return;
         }
 
-        var openBaoUrl = builder.Configuration["Kubernetes:OpenBaoUrl"];
-        var authUrl = builder.Configuration["Storage:AuthUrl"];
-        var clientId = builder.Configuration["Storage:ClientId"];
-        var clientSecret = builder.Configuration["Storage:ClientSecret"];
-
-        if (openBaoUrl is null || authUrl is null || clientId is null || clientSecret is null)
-        {
-            builder.Services.AddSingleton(new KubernetesOptions(""));
-            builder.Services.AddSingleton<KubernetesClient>(sp =>
-                throw new InvalidOperationException("Kubernetes is not configured."));
-            builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
-            return;
-        }
-
-        var skipCertValidation = builder.Configuration.GetValue<bool>("Storage:SkipCertValidation");
-
-        var tokenProvider = new OAuth2TokenProvider(
-            authUrl, clientId, clientSecret,
-            scope: "openid profile email",
-            skipCertValidation: skipCertValidation);
-
-        var openBaoClient = new OpenBaoClient(
-            tokenProvider,
-            openBaoUrl,
-            skipCertValidation: skipCertValidation,
-            // Bind to the app's Logging config (not a bare AddConsole) so this SDK client honors the
-            // configured console formatter — emitting JSON in deployed envs instead of polluting the
-            // structured stdout stream with plain-text lines.
-            logger: LoggerFactory.Create(b => b
-                .AddConfiguration(builder.Configuration.GetSection("Logging"))
-                .AddConsole()).CreateLogger<OpenBaoClient>());
-
-        var credentialsProvider = new OpenBaoCredentialsProvider(openBaoClient);
-
-        builder.Services.AddSingleton(openBaoClient);
-        builder.Services.AddSingleton<ICredentialsProvider<KubernetesCredentials>>(credentialsProvider);
-
-        builder.Services.AddSingleton(sp =>
-        {
-            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
-                .GetCredentialsAsync().GetAwaiter().GetResult();
-
-            sp.GetRequiredService<ILogger<KubernetesClient>>()
-                .LogInformation("Kubernetes configured: server={Server}, namespace={Namespace}",
-                    credentials.Server, configNs ?? credentials.Namespace);
-
-            return new KubernetesOptions(configNs ?? credentials.Namespace);
-        });
-
-        builder.Services.AddSingleton(sp =>
-        {
-            var credentials = sp.GetRequiredService<ICredentialsProvider<KubernetesCredentials>>()
-                .GetCredentialsAsync().GetAwaiter().GetResult();
-            return new KubernetesClient(
-                credentials,
-                sp.GetRequiredService<ILogger<KubernetesClient>>());
-        });
+        builder.Services.AddSingleton(new KubernetesOptions(""));
+        builder.Services.AddSingleton<KubernetesClient>(_ =>
+            throw new InvalidOperationException("Kubernetes is not configured."));
         builder.Services.AddSingleton<IKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
-        builder.Services.AddSingleton<IHarnessKubernetesClient>(sp => sp.GetRequiredService<KubernetesClient>());
-        builder.Services.AddSingleton<IKubernetesInventory>(sp => sp.GetRequiredService<KubernetesClient>());
-
-        builder.Services.AddTransient<IJobExecutor, KubernetesJobExecutor>();
-        builder.Services.AddTransient<IAttemptLiveLogs, HarnessAttemptLiveLogs>();
-        builder.Services.AddHostedService<PodWatchService>();
-        builder.Services.AddSingleton<IFailureHandlerLauncher, HarnessFailureHandlerLauncher>();
     }
 
     private static void ConfigureInCluster(

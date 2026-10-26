@@ -3,8 +3,7 @@ using Olve.Pipelines.Configuration;
 namespace Olve.Pipelines.Kubernetes;
 
 /// <summary>
-/// Cluster credentials from the pod's own ServiceAccount — the idiomatic in-cluster auth,
-/// replacing the OpenBao→Authentik token chain (Tier-A / <c>Kubernetes:AuthMode=InCluster</c>).
+/// Cluster credentials from the pod's own ServiceAccount.
 /// The server is read from the injected <c>KUBERNETES_SERVICE_*</c> env; the token, CA, and
 /// namespace from the projected ServiceAccount mount. Projected tokens rotate (~hourly), so
 /// the token is re-read per request via <see cref="ReadTokenAsync"/> rather than cached.

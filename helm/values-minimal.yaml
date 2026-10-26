@@ -10,7 +10,7 @@
 ingress:
   enabled: false
 
-# Controller uses its own ServiceAccount token for cluster access (no OpenBao/Authentik).
+# Controller uses its own ServiceAccount token for cluster access.
 serviceAccount:
   enabled: true
 
@@ -21,10 +21,6 @@ garage:
   metaStorageClass: ""
   dataStorageClass: ""
   dataStorage: 20Gi
-
-# No Authentik CA mount — nothing ovea.pro is contacted.
-authentikCa:
-  enabled: false
 
 # Sloth PrometheusServiceLevel CRD is not assumed present on a bare cluster.
 slo:
@@ -43,5 +39,3 @@ secrets:
 config:
   Auth__Disable: "true"
   Kubernetes__AuthMode: "InCluster"
-  Storage__AuthUrl: ""
-  Kubernetes__OpenBaoUrl: ""

@@ -10,9 +10,9 @@ allowed-tools: Bash Read Grep
 
 | Environment | Base URL | Auth provider | Runner namespace |
 |---|---|---|---|
-| Local | `http://localhost:5000` | `auth-beta.ovea.pro` (or `Auth:Disable=true`) | as configured |
-| beta | `https://pipelines-beta.ovea.pro` | `auth-beta.ovea.pro` | `olve-runners-beta` |
-| prod | `https://pipelines-private.ovea.pro` | `auth.ovea.pro` | `olve-runners` |
+| Local | `http://localhost:5000` | `Auth:Disable=true`, or the compose stack's Dex | as configured |
+| beta | `https://pipelines-beta.ovea.pro` | its Dex, `/dex` (GitHub) | `olve-runners-beta` |
+| prod | `https://pipelines-private.ovea.pro` | its Dex, `/dex` (GitHub) | `olve-runners` |
 
 v2 beta is the
 place to experiment; v2 prod hosts the self-deploy pipeline (see the end of section 3).
@@ -24,40 +24,27 @@ export ASPNETCORE_ENVIRONMENT=Development
 dotnet run --project src/Olve.Pipelines        # http://localhost:5000
 ```
 
-Use `Development` — Production mode rejects the beta Authentik cert. Local config comes from
+Local config comes from
 `dotnet user-secrets` (`dotnet user-secrets list --project src/Olve.Pipelines`); with
 `Auth:Disable=true` no token is needed. Without Kubernetes/storage config, runs can't execute.
 
 ## 2. Authenticate
 
-**Preferred: `pl`.** Use a v2 `pl` (`curl -fsSL https://pipelines-private.ovea.pro/install.sh | PL_INSTALL_DIR=~/.local/opt/pl-v2 sh`,
-or `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2`) with its own
-config file:
+**Use `pl`** with a profile per instance (the user logs in; `--device` over SSH):
 
 ```bash
-export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-beta.ovea.pro
-pl login                                    # --device over SSH
+pl login --device --profile beta --api-url https://pipelines-beta.ovea.pro
+pl pipeline list --profile beta
 ```
 
-For raw `curl`, reuse the token `pl` cached (it is refreshed by any `pl` command):
+For raw `curl`, reuse the token `pl` cached (any `pl` command refreshes it):
 
 ```bash
-pl pipeline list >/dev/null && TOKEN=$(jq -r .auth.accessToken ~/.pl-v2)
+pl pipeline list --profile beta >/dev/null && TOKEN=$(jq -r .profiles.beta.auth.accessToken ~/.pl)
 ```
 
-**Client credentials** (scripts, no browser): the client id and secret are in the Kubernetes Secret
-`olve-pipelines-oidc` (keys `client-id`, `client-secret`) — namespace `apps-beta` for beta/v2 beta
-(token endpoint on `auth-beta.ovea.pro`), `apps` for prod/v2 prod (`auth.ovea.pro`). Read them from the cluster at the moment you need them; **never paste a client
-secret into this file, a doc, a commit or a log.**
-
-```bash
-TOKEN=$(curl -sk -X POST "https://auth-beta.ovea.pro/application/o/token/" \
-  -d grant_type=client_credentials -d scope=openid \
-  --data-urlencode "client_id=$CLIENT_ID" --data-urlencode "client_secret=$CLIENT_SECRET" | jq -r .access_token)
-```
-
-`pl` accepts the token as `PIPELINES_API_TOKEN`. Token fetch and API calls must run in the **same shell invocation** (Bash tool calls don't share
-env vars) — chain with `&&`. Tokens expire after ~1 hour.
+Only users log in (Dex, GitHub, the allow-list); there is no client-credentials token. Scripts use
+the token of a `pl` login, which `pl` accepts back as `PIPELINES_API_TOKEN`.
 
 ## 3. API call reference
 

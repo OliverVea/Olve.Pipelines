@@ -7,7 +7,7 @@ allowed-tools: Bash Read
 # Set up the v2 self-deploy pipeline (GitOps)
 
 The **bootstrap runbook** for v2 prod (`https://pipelines-private.ovea.pro`, release
-`olve-pipelines-v2` in `apps`, runners `olve-runners`, prod Authentik): it creates the pipeline
+`olve-pipelines-v2` in `apps`, runners `olve-runners`, its bundled Dex): it creates the pipeline
 bound to `OliverVea/Olve.Pipelines@main`, path `.pipelines`, and sets its secrets. Reconcile then
 compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` →
 `build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`:
@@ -23,9 +23,8 @@ v2 prod. Don't create it on v2 beta.
 ## Step 0: v2 `pl` and session
 
 ```bash
-dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl-v2   # a reset prod serves no pl yet
-export PATH=~/.local/opt/pl-v2:$PATH PIPELINES_CONFIG=~/.pl-v2 PIPELINES_API_URL=https://pipelines-private.ovea.pro
-pl login                                    # --device over SSH; depends on the Authentik worker being healthy
+dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin   # a reset prod serves no pl yet
+pl login --device --api-url https://pipelines-private.ovea.pro   # Dex sends you to GitHub
 ```
 
 Keep these variables exported in every shell invocation below.

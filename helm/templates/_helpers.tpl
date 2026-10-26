@@ -55,6 +55,9 @@ Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.c
 {{- fail (printf "telemetry.exporter must be none or otlp, got %q" $exporter) -}}
 {{- end -}}
 {{- end -}}
+{{- if not (or (get $c "Auth__Authority") (get $c "Auth__SigningKey") (eq (toString (get $c "Auth__Disable")) "true")) -}}
+{{- fail "auth is not configured: set auth (mode none, dex or authentik) or config.Auth__*" -}}
+{{- end -}}
 {{- toYaml $c -}}
 {{- end -}}
 

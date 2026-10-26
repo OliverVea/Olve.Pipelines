@@ -1,16 +1,8 @@
 config:
-  Auth__Authority: "https://auth-beta.ovea.pro/application/o/olve-pipelines/"
-  Auth__Audience: "olve-pipelines-beta"
-  Auth__FrontendAuthority: "https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/"
-  Auth__FrontendAudience: "olve-pipelines-frontend-beta"
   # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
-  # runner Jobs in olve-runners-beta. Static creds (below) take precedence over STS.
+  # runner Jobs in olve-runners-beta, with the static credentials below.
   Storage__Endpoint: "http://olve-pipelines-garage.apps-beta:3900"
   Storage__Bucket: "olve-pipelines-beta"
-  # AuthUrl/ClientId/ClientSecret are still required: KubernetesConfiguration reuses
-  # them for OpenBao auth to reach the cluster. They are now inert for storage.
-  Storage__AuthUrl: "https://auth-beta.ovea.pro/application/o/token/"
-  Kubernetes__OpenBaoUrl: "https://openbao-beta.ovea.pro"
   Kubernetes__Namespace: "olve-runners-beta"
   # Run step/failure-handler pods under gVisor (RuntimeClass on the node). Clear to fall
   # back to plain runc.
@@ -19,10 +11,6 @@ config:
   Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
 
 secrets:
-  - name: olve-pipelines-oidc
-    envMap:
-      Storage__ClientId: client-id
-      Storage__ClientSecret: client-secret
   # Static Garage creds (root = app creds for now; the Secret name predates Garage). Created out-of-band; see
   # docs/operations/environment-setup.md.
   - name: olve-pipelines-minio
@@ -33,9 +21,6 @@ secrets:
 garage:
   enabled: true
   bucket: olve-pipelines-beta
-
-authentikCa:
-  fileName: auth-beta-ca.crt
 
 # Beta ingress (private pipelines-beta.ovea.pro + public pipelines-hooks-beta.ovea.pro) is
 # owned by the Olve.Homelab edge chart (its values-beta.yaml). Explicitly disabled here —

@@ -25,3 +25,9 @@ export const LineCount = model("LineCount", z.object({
 export const Summary = model("Summary", z.object({
   summary: z.string(),
 }));
+
+/** What the signal-test service sends back, through a callback or a polled status. */
+export const Signal = model("Signal", z.object({
+  ok: z.boolean(),
+  via: z.enum(["callback", "poll"]),
+}));

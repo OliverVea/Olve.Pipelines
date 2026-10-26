@@ -133,5 +133,6 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
   `beta-test`, `composeDeploy`, or nothing (`none`), each next to `publish-images` → when
   `deployTo: "prod"`: the same select for prod (without `none`) → custom `promote`.
 - [`.pipelines-test/`](https://github.com/OliverVea/Olve.Pipelines/tree/main/.pipelines-test) — the
-  v2 fixture: file refs between steps, a parallel stage, a `when` block, a poll trigger and a
-  failure handler.
+  v2 fixture: file refs between steps, a parallel stage, `when` and `select` blocks, steps waiting
+  for a callback and a poll input, and a failure handler. The deployer's `beta-test` reconciles and
+  runs it on beta at every commit.

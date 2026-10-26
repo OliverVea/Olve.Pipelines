@@ -5,6 +5,7 @@ export const SSH_PRIVATE_KEY = secret("SSH_PRIVATE_KEY", "SSH key for ssh deploy
 export const NPM_TOKEN = secret("NPM_TOKEN", "npm token that publishes @olivervea/pipelines and moves its dist-tags.");
 export const GHCR_TOKEN = secret("GHCR_TOKEN", "Classic GitHub token: write:packages for images published to ghcr.io, repo for the GitHub releases promote creates.");
 export const REGISTRY_PASSWORD = secret("REGISTRY_PASSWORD", "Password of another image registry, when publish names it.");
+export const BETA_TOKEN = secret("BETA_TOKEN", "Machine token of beta (its Auth:Tokens:deployer): beta-test reconciles and runs beta's test fixture with it.");
 export const DEPLOYER_TOKEN = secret("DEPLOYER_TOKEN", "Bearer token of the Docker Compose deployer, for compose targets.");
 
 const Auth = z.discriminatedUnion("mode", [

@@ -1,15 +1,17 @@
-// Fixture pipeline for Olve.Pipelines v2 — NOT a real deploy. Bound on the v2 instance (path
-// .pipelines-test) to prove reconcile → version → triggers → stages → harness step Jobs → outputs.
+// Fixture pipeline for Olve.Pipelines v2, NOT a real deploy. Bound on beta (path .pipelines-test, polling off):
+// the deployer's beta-test reconciles it and runs it at each commit (manual trigger).
 //
 //   hello ─┬─ count ─┐
-//          └─ echo   ├─ when(mode = normal): last
+//          └─ echo   ├─ send-signals ─┬─ called-back (callback input)
+//                    │                └─ polled (poll input)
+//                    ├─ when(mode = normal): last
 //                    ┘     └─ when(target ∈ beta, prod): deploy-beta
 //                            └─ when(target = prod): deploy-prod
 //                               └─ when(smoke, mode = normal): smoke
 //   select(notify.channel): none | log: notify-log | webhook: notify-webhook
 //   onFailure: log-failure (mode = fail makes echo throw)
 // Four images (alpine, debian, busybox) exercise the bundled loader; hello → count passes a file ref.
-import { config, FailureContext, pipeline, step, z } from "@olivervea/pipelines";
+import { callback, config, external, FailureContext, pipeline, poll, step, z } from "@olivervea/pipelines";
 import * as M from "./models";
 
 export const hello = step({
@@ -36,6 +38,38 @@ export const echo = step({
   image: "busybox:1.37",
   input: { request: M.TestInput },
   timeoutSeconds: 300,
+});
+
+// beta's signal-test companion (helm/values-v2-beta.yaml): answers the two external inputs below.
+export const SIGNAL_TEST = "http://olve-signal-test.apps-beta.svc.cluster.local:8080";
+
+export const sendSignals = step({
+  name: "send-signals",
+  description: "Asks the signal-test service to call back called-back and to publish the value polled polls.",
+  image: "alpine:3.22",
+  input: { request: M.TestInput },
+  timeoutSeconds: 120,
+});
+
+export const calledBack = step({
+  name: "called-back",
+  description: "Waits for the signal-test service's callback.",
+  image: "alpine:3.22",
+  input: { signal: external(M.Signal, { title: "Did the callback arrive?", from: [callback()] }) },
+  timeoutSeconds: 120,
+});
+
+export const polled = step({
+  name: "polled",
+  description: "Waits until the signal-test service's status has a value.",
+  image: "alpine:3.22",
+  input: {
+    signal: external(M.Signal, {
+      title: "Did the polled value arrive?",
+      from: [poll({ url: `${SIGNAL_TEST}/status/{run.id}`, valuePath: "signal", intervalSeconds: 10 })],
+    }),
+  },
+  timeoutSeconds: 120,
 });
 
 export const last = step({
@@ -108,11 +142,10 @@ export default pipeline({
   description: "End-to-end fixture: file refs between steps, a parallel stage, nested and multi-field when blocks, and a config select.",
   input: M.TestInput,
 })
-  .onPush(e => ({ sha: e.after }))
-  .onPoll({ name: "poll", url: "https://api.github.com/repos/OliverVea/Olve.Pipelines/commits/main", valuePath: "sha", intervalSeconds: 3600 },
-          value => ({ sha: value }))
   .stage(hello)
   .stage(count, echo)
+  .stage(sendSignals)
+  .stage(calledBack, polled)
   .when({ mode: "normal" }, p => p
     .stage(last)
     .when({ target: ["beta", "prod"] }, q => q

@@ -2,7 +2,7 @@
 // deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts); config.yaml beside it is the paused v1 deployer's rollback path.
 import { HelmRelease, optional, pipeline, PushedImage, Source, step, steps, type ConfigRef } from "@olivervea/pipelines";
-import { AUTH, BUILD, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
+import { AUTH, BETA_TOKEN, BUILD, DEPLOYER_TOKEN, GHCR_TOKEN, GITHUB_TOKEN, NPM_TOKEN, PUBLISH, REGISTRY_PASSWORD, SOURCE, SSH_PRIVATE_KEY, TARGET, TELEMETRY } from "./config";
 import * as M from "./models";
 
 export * from "./config";
@@ -144,11 +144,12 @@ const describeDeploy = (stage: string) => `Deploys this run's images with Helm t
 
 export const betaTest = step({
   name: "beta-test",
-  description: "Smoke-tests the freshly deployed beta: readiness, the API, the frontend bundle, the error model and SSE.",
+  description: "Smoke-tests the freshly deployed beta: readiness, the API, the frontend bundle, the error model and SSE; then reconciles and runs beta's test fixture at this commit, whose steps wait for a callback and a poll answered by beta's signal-test service.",
   image: "alpine:3.22",
-  input: { release: HelmRelease },
+  input: { release: HelmRelease, source: Source },
+  secrets: [BETA_TOKEN],
   config: [AUTH],
-  timeoutSeconds: 180,
+  timeoutSeconds: 900,
 });
 
 export const promote = step({

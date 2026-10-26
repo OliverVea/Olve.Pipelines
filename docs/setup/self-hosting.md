@@ -46,7 +46,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Auth:Disable` | `false` | Disable auth (local dev, minimal install) |
 | `Auth:FrontendAuthority` / `Auth:FrontendAudience` | — | OIDC authority and client id served to the UI and `pl login` |
 | `Auth:RequireHttpsMetadata` | `true` | `false` allows a plain-HTTP OIDC provider (the local compose stack's Dex) |
-| `Auth:Allow:Users` / `Orgs` / `Emails` | — | Who may use the API: logins (`preferred_username`), orgs or `org:team` (`groups`), verified emails. A valid token outside the lists gets 403; with all three empty any valid token gets in, so set them when the provider lets anyone sign in (Dex with GitHub) |
+| `Auth:Allow:Subjects` / `Users` / `Orgs` / `Emails` | — | Who may use the API: subject ids (`sub`, exact), logins (`preferred_username`), orgs or `org:team` (`groups`), verified emails. A valid token outside the lists gets 403 and logs a warning with its login and subject, ready to copy into `Subjects`; prefer subjects to logins, which can be renamed and taken by someone else. With all four empty any valid token gets in, so set them when the provider lets anyone sign in (Dex with GitHub) |
 | `Storage:Mode` | `Persistent` | `Ephemeral` = in-memory only |
 | `Storage:Endpoint` | — | The instance's Garage (S3-compatible) endpoint |
 | `Storage:AccessKey` / `Storage:SecretKey` | — | S3 credentials |

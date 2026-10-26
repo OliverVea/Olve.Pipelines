@@ -7,14 +7,16 @@ namespace Olve.Pipelines.Configuration;
 /// which is only safe while the identity provider itself limits who can sign in; Dex with an upstream
 /// such as GitHub does not.
 /// </summary>
+/// <param name="Subjects">Stable subject ids, matched exactly against <c>sub</c>; preferred over logins, which can be renamed and re-registered.</param>
 /// <param name="Users">Logins, matched against <c>preferred_username</c>.</param>
 /// <param name="Orgs">An org (any of its teams) or <c>org:team</c>, matched against the <c>groups</c> claim.</param>
 /// <param name="Emails">Verified email addresses.</param>
-public sealed record AuthAllowList(IReadOnlyList<string> Users, IReadOnlyList<string> Orgs, IReadOnlyList<string> Emails)
+public sealed record AuthAllowList(IReadOnlyList<string> Subjects, IReadOnlyList<string> Users, IReadOnlyList<string> Orgs, IReadOnlyList<string> Emails)
 {
-    public bool IsEmpty => Users.Count == 0 && Orgs.Count == 0 && Emails.Count == 0;
+    public bool IsEmpty => Subjects.Count == 0 && Users.Count == 0 && Orgs.Count == 0 && Emails.Count == 0;
 
     public static AuthAllowList From(IConfiguration configuration) => new(
+        Values(configuration, "Auth:Allow:Subjects"),
         Values(configuration, "Auth:Allow:Users"),
         Values(configuration, "Auth:Allow:Orgs"),
         Values(configuration, "Auth:Allow:Emails"));
@@ -22,6 +24,9 @@ public sealed record AuthAllowList(IReadOnlyList<string> Users, IReadOnlyList<st
     public bool Allows(ClaimsPrincipal user)
     {
         if (IsEmpty) return true;
+
+        if (Subject(user) is { } subject && Subjects.Contains(subject, StringComparer.Ordinal))
+            return true;
 
         if (user.FindAll("preferred_username").Any(c => Users.Contains(c.Value, StringComparer.OrdinalIgnoreCase)))
             return true;
@@ -33,6 +38,9 @@ public sealed record AuthAllowList(IReadOnlyList<string> Users, IReadOnlyList<st
         return verified && user.FindAll(c => c.Type is "email" or ClaimTypes.Email)
             .Any(c => Emails.Contains(c.Value, StringComparer.OrdinalIgnoreCase));
     }
+
+    public static string? Subject(ClaimsPrincipal user) =>
+        (user.FindFirst("sub") ?? user.FindFirst(ClaimTypes.NameIdentifier))?.Value;
 
     private static bool InOrg(string group, string allowed) =>
         string.Equals(group, allowed, StringComparison.OrdinalIgnoreCase)

@@ -82,7 +82,7 @@ public static class AuthenticationConfiguration
         var allow = AuthAllowList.From(builder.Configuration);
         var signedIn = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
-            .RequireAssertion(ctx => allow.Allows(ctx.User))
+            .RequireAssertion(ctx => allow.Allows(ctx.User) || Refused(ctx))
             .Build();
 
         builder.Services.AddAuthorizationBuilder()
@@ -95,6 +95,16 @@ public static class AuthenticationConfiguration
                 else
                     p.Combine(signedIn);
             });
+    }
+
+    // Logs the stable subject id, so an admin can put it in Auth:Allow:Subjects.
+    private static bool Refused(Microsoft.AspNetCore.Authorization.AuthorizationHandlerContext ctx)
+    {
+        if (ctx.User.Identity?.IsAuthenticated == true && ctx.Resource is HttpContext http)
+            http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(AuthenticationConfiguration))
+                .LogWarning("Refused '{Username}' (subject '{Subject}'): not in Auth:Allow",
+                    ctx.User.FindFirst("preferred_username")?.Value, AuthAllowList.Subject(ctx.User));
+        return false;
     }
 
     public static void MapAuthentication(this WebApplication app)

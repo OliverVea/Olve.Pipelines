@@ -19,8 +19,8 @@ public class AuthAllowListTests
     private static ClaimsPrincipal User(params (string Type, string Value)[] claims) =>
         new(new ClaimsIdentity(claims.Select(c => new Claim(c.Type, c.Value)), "test"));
 
-    private static AuthAllowList Allow(string[]? users = null, string[]? orgs = null, string[]? emails = null) =>
-        new(users ?? [], orgs ?? [], emails ?? []);
+    private static AuthAllowList Allow(string[]? users = null, string[]? orgs = null, string[]? emails = null, string[]? subjects = null) =>
+        new(subjects ?? [], users ?? [], orgs ?? [], emails ?? []);
 
     [Test]
     public async Task Empty_AllowsAnyone() =>
@@ -33,6 +33,17 @@ public class AuthAllowListTests
         await Assert.That(allow.Allows(User(("preferred_username", "olivervea")))).IsTrue();
         await Assert.That(allow.Allows(User(("preferred_username", "someone")))).IsFalse();
         await Assert.That(allow.Allows(User(("sub", "OliverVea")))).IsFalse();
+    }
+
+    // Catches: an allow-list entry that a renamed-and-re-registered login would still satisfy.
+    [Test]
+    public async Task Subjects_MatchSubExactly_NotTheLogin()
+    {
+        var allow = Allow(subjects: ["CgcxMjM0NTY3EgZnaXRodWI"]);
+        await Assert.That(allow.Allows(User(("sub", "CgcxMjM0NTY3EgZnaXRodWI"), ("preferred_username", "anyone")))).IsTrue();
+        await Assert.That(allow.Allows(User((ClaimTypes.NameIdentifier, "CgcxMjM0NTY3EgZnaXRodWI")))).IsTrue();
+        await Assert.That(allow.Allows(User(("sub", "cgcxmjm0nty3egznaxrodwi")))).IsFalse();
+        await Assert.That(allow.Allows(User(("preferred_username", "CgcxMjM0NTY3EgZnaXRodWI")))).IsFalse();
     }
 
     [Test]

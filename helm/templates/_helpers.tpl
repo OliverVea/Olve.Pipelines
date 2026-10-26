@@ -30,8 +30,11 @@ namespace is the release's and storage is the bundled Garage.
 {{- $_ := set $c "Auth__RequireHttpsMetadata" "false" -}}
 {{- end -}}
 {{- $allow := .allow | default dict -}}
-{{- if not (or $allow.users $allow.orgs $allow.emails) -}}
-{{- fail "auth.mode dex needs auth.allow (users, orgs or emails): an upstream such as GitHub lets anyone sign in" -}}
+{{- if not (or $allow.subjects $allow.users $allow.orgs $allow.emails) -}}
+{{- fail "auth.mode dex needs auth.allow (subjects, users, orgs or emails): an upstream such as GitHub lets anyone sign in" -}}
+{{- end -}}
+{{- range $i, $v := ($allow.subjects | default list) -}}
+{{- $_ := set $c (printf "Auth__Allow__Subjects__%d" $i) $v -}}
 {{- end -}}
 {{- range $i, $v := ($allow.users | default list) -}}
 {{- $_ := set $c (printf "Auth__Allow__Users__%d" $i) $v -}}

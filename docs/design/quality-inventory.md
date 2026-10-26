@@ -40,11 +40,11 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 |---|---|---|
 | U1 ✓ | `pl dev` never passes `--config-file` and never sets `OLVE_CASES`, and `DevPlan.Flatten` runs without config. So `pl dev pipeline` can't get through this repo's own `.pipelines/`: `beta-test` needs `config.auth`, and `deploy-beta` sits in several `select` cases. | `pl dev --config <file\|yaml>`; choose the cases from it and set `OLVE_CASES`. |
 | U2 | `pl wait push` matches runs on an input field named `sha` (`WaitCommands.cs:330`) and scans only the newest 15 runs (`:258`). Neither limit is documented. | Have the server record the trigger sha and match on that; meanwhile document both limits. |
-| U3 | An unknown command or too few operands exits 1; an unknown option or a bad flag exits 2 (`CliDispatcher.cs:174-202`). | Route all usage errors through one path; document the exit codes 0/1/2/124/130 in `docs/setup/cli.md`. |
-| U4 | `pl trigger --input` takes JSON or `@file` (with `--field k=v`), while `pl dev run/pipeline --input` takes `k=v`. | Use `--field` for `k=v` in both places. |
-| U5 ✓ | `echo $TOKEN \| pl secret set …` keeps the trailing newline (`SecretCommands.cs:124`), which breaks Authorization headers. | Warn when the value ends in `\n`, or add `--trim`. |
+| U3 — **fixed** (ae0efa3) | An unknown command or too few operands exits 1; an unknown option or a bad flag exits 2 (`CliDispatcher.cs:174-202`). | Route all usage errors through one path; document the exit codes 0/1/2/124/130 in `docs/setup/cli.md`. |
+| U4 — **fixed** (ae0efa3) | `pl trigger --input` takes JSON or `@file` (with `--field k=v`), while `pl dev run/pipeline --input` takes `k=v`. | Use `--field` for `k=v` in both places. |
+| U5 ✓ — **fixed** (ae0efa3) | `echo $TOKEN \| pl secret set …` keeps the trailing newline (`SecretCommands.cs:124`), which breaks Authorization headers. | Warn when the value ends in `\n`, or add `--trim`. |
 | U6 — **hidden** from help and docs (3187dc8); not implemented | `pl dev run --from` is listed in help but always errors (`DevCommands.cs:311`); `docs/setup/cli.md:113` documents it. | Implement it (the run API exists), or hide it. |
-| U7 | Global flags before the noun (`pl --profile beta run list`) fail. Login has no timeout on the loopback wait, and Ctrl-C there exits 1, not 130. A network blip while polling the device flow throws. With `--verbose`, unhandled exceptions skip the friendly error path. | Small fixes each. |
+| U7 — **fixed** (ae0efa3) | Global flags before the noun (`pl --profile beta run list`) fail. Login has no timeout on the loopback wait, and Ctrl-C there exits 1, not 130. A network blip while polling the device flow throws. With `--verbose`, unhandled exceptions skip the friendly error path. | Small fixes each. |
 
 ### Frontend
 

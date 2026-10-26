@@ -19,7 +19,8 @@ public class ConfigurationPersistenceService(
     private volatile bool _dirty;
     private volatile bool _loading;
     private volatile bool _loaded;
-    private Timer? _timer;
+    private FlushTimer? _timer;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
@@ -115,7 +116,7 @@ public class ConfigurationPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _timer = new FlushTimer(SaveIfDirtyAsync, logger, "configuration");
 
         return Task.CompletedTask;
     }
@@ -130,12 +131,12 @@ public class ConfigurationPersistenceService(
         _dirty = true;
     }
 
-    private async void OnTimerTick(object? state)
+    internal Task SaveIfDirtyAsync()
     {
-        if (!_dirty) return;
+        if (!_dirty) return Task.CompletedTask;
         _dirty = false;
 
-        await SaveAsync(CancellationToken.None);
+        return SaveAsync(CancellationToken.None);
     }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
@@ -146,6 +147,7 @@ public class ConfigurationPersistenceService(
             return;
         }
 
+        await _saveGate.WaitAsync(cancellationToken);
         try
         {
             var snapshot = CreateSnapshot();
@@ -163,6 +165,11 @@ public class ConfigurationPersistenceService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to save configuration to storage");
+            _dirty = true; // retried on the next tick
+        }
+        finally
+        {
+            _saveGate.Release();
         }
     }
 
@@ -189,5 +196,9 @@ public class ConfigurationPersistenceService(
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StoppedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public void Dispose() => _timer?.Dispose();
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _saveGate.Dispose();
+    }
 }

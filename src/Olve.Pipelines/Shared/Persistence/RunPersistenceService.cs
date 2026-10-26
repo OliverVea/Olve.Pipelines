@@ -82,7 +82,7 @@ public class RunPersistenceService(
     private readonly DirtyFlag _configIndexDirty = new();
 
     private volatile bool _loaded;
-    private Timer? _timer;
+    private FlushTimer? _timer;
 
     private static RunPersistenceJsonContext Json => RunPersistenceJsonContext.Default;
 
@@ -156,7 +156,7 @@ public class RunPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _timer = new FlushTimer(() => HasWork ? FlushAsync(CancellationToken.None) : Task.CompletedTask, logger, "run state");
 
         return Task.CompletedTask;
     }
@@ -220,20 +220,6 @@ public class RunPersistenceService(
     private bool HasWork =>
         !_pendingManifests.IsEmpty || !_pendingConfigs.IsEmpty || !_dirtyRuns.IsEmpty || !_deletedKeys.IsEmpty
         || _versionsIndexDirty.IsSet || _stateDirty.IsSet || _runsIndexDirty.IsSet || _configIndexDirty.IsSet;
-
-    private async void OnTimerTick(object? state)
-    {
-        if (!HasWork) return;
-
-        try
-        {
-            await FlushAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unhandled exception while flushing run state");
-        }
-    }
 
     // ---- flush ----
 

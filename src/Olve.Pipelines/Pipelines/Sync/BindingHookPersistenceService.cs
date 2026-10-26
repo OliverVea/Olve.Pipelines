@@ -38,7 +38,8 @@ public class BindingHookPersistenceService(
     private volatile bool _dirty;
     private volatile bool _loading;
     private volatile bool _loaded;
-    private Timer? _timer;
+    private FlushTimer? _timer;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
@@ -121,7 +122,7 @@ public class BindingHookPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        _timer = new FlushTimer(SaveIfDirtyAsync, logger, "binding hook state");
 
         return Task.CompletedTask;
     }
@@ -134,12 +135,12 @@ public class BindingHookPersistenceService(
         _dirty = true;
     }
 
-    private async void OnTimerTick(object? state)
+    private Task SaveIfDirtyAsync()
     {
-        if (!_dirty) return;
+        if (!_dirty) return Task.CompletedTask;
         _dirty = false;
 
-        await SaveAsync(CancellationToken.None);
+        return SaveAsync(CancellationToken.None);
     }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
@@ -147,6 +148,7 @@ public class BindingHookPersistenceService(
         if (store is null || !_loaded)
             return;
 
+        await _saveGate.WaitAsync(cancellationToken);
         try
         {
             var entries = hooks.GetAll()
@@ -165,6 +167,11 @@ public class BindingHookPersistenceService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to save binding hook state to storage");
+            _dirty = true; // retried on the next tick
+        }
+        finally
+        {
+            _saveGate.Release();
         }
     }
 
@@ -172,5 +179,9 @@ public class BindingHookPersistenceService(
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StoppedAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public void Dispose() => _timer?.Dispose();
+    public void Dispose()
+    {
+        _timer?.Dispose();
+        _saveGate.Dispose();
+    }
 }

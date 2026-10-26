@@ -17,6 +17,7 @@ public class ConfigurationPersistenceServiceTests
         public Exception? ReadException;
         public int WriteCount;
         public byte[]? LastWritten;
+        public int FailWrites;
 
         public Task<byte[]?> TryReadAsync(string key, CancellationToken ct)
         {
@@ -27,6 +28,8 @@ public class ConfigurationPersistenceServiceTests
         public Task WriteAsync(string key, byte[] content, CancellationToken ct)
         {
             WriteCount++;
+            if (FailWrites > 0 && FailWrites-- > 0)
+                return Task.FromException(new IOException("simulated storage outage"));
             LastWritten = content;
             Data = content;
             return Task.CompletedTask;
@@ -223,6 +226,24 @@ public class ConfigurationPersistenceServiceTests
         var written = System.Text.Encoding.UTF8.GetString(store.LastWritten!);
         await Assert.That(written).Contains($"\"LastPushSha\":\"{push}\"");
         await Assert.That(written).DoesNotContain("LastDeployedSha");
+    }
+
+    // Catches: a change lost because its save failed and nothing marked it unsaved again.
+    [Test]
+    public async Task FailedSave_IsRetriedOnTheNextTick()
+    {
+        var store = new FakeSnapshotStore();
+        var (service, pipelines, _) = CreateService(store);
+        await service.StartingAsync(CancellationToken.None);
+        var pipelineId = Id.New<Pipeline>();
+        store.FailWrites = 1;
+
+        pipelines.Set(new Pipeline(pipelineId, "kept"));
+        await service.SaveIfDirtyAsync();
+        await service.SaveIfDirtyAsync();
+
+        var saved = JsonSerializer.Deserialize(store.Data!, ConfigurationPersistenceJsonContext.Default.ConfigurationSnapshot)!;
+        await Assert.That(saved.Pipelines!.Select(p => p.Id)).Contains(pipelineId);
     }
 
     // Reframed from the old AppFixture integration test CreatedPipeline_SurvivesRestart: state

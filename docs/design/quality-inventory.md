@@ -2,7 +2,7 @@
 
 From a read-only quality review of `main` on 2026-10-26: backend, `pl` CLI, SDK, frontend, tests and docs. Part 1 lists what is wrong today and can be fixed. Part 2 lists the patterns behind those findings, to check for in future changes and reviews.
 
-**✓** means someone re-read the code after the review and saw the problem there. Unmarked items come from the reviewers alone; confirm each one before fixing it.
+**fixed** marks items done since, with their commits. **✓** means someone re-read the code after the review and saw the problem there. Unmarked items come from the reviewers alone; confirm each one before fixing it.
 
 At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prettier and `tools/api-reference.cs --check` were clean.
 
@@ -12,12 +12,12 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 
 | # | Where | What's wrong | Fix |
 |---|---|---|---|
-| B1 ✓ | `sdk/src/dev/cli.ts:78` | `olve-dev map-trigger` always exits 64. The `else if (mode === "map-trigger")` is attached to the `--config-file` check, so it fires even when `--event-file` is given. | Check `mode === "map-trigger" && !file` on its own; add a `devMain` test. |
-| B2 ✓ | `Pipelines/Triggers/PollTriggerService.cs:88-106` | `Observe` saves the new value before `MapAndStartAsync`. If mapping or the run start fails, the change is only logged and is never retried. | Save the value only after the run started or was de-duplicated, as `PushTriggerService` does with `LastPushSha`. |
-| B3 ✓ | `Pipelines/Triggers/WebhookTriggerService.cs:86` | The delivery ID is remembered before the in-flight cap (`:92`). A delivery answered 429, dropped because the config isn't current, or whose mapping failed still counts as seen, so GitHub's Redeliver (same `X-GitHub-Delivery`) is ignored. | Remember the ID only once the delivery is admitted; forget it on Busy, drop or failure. |
-| B4 ✓ | `Shared/Persistence/RunPersistenceService.cs:126` | It subscribes to the stores in `StartedAsync`. The startup sweep (`RunSchedulingStartup`/`RunSweep`) runs earlier, in `StartAsync`. So the sweep's changes (completed drains, queued run starts taken off the queue and started, orphan drops) aren't saved, and a restart can apply them again. | Subscribe in `StartingAsync`, straight after `_loaded = true`. |
-| B5 | `Jobs/KubernetesJobExecutor.cs:57-77`, `Jobs/JobRunner.cs:44` | Before submitting, the executor checks the attempt snapshot it started with, not the current status. An attempt made obsolete after its watcher started still gets a Job. Because `JobRunner` skips attempts that already have a watcher before reserving their key, the newer attempt's pod can overlap the older one until the next poll deletes it. | Re-read the status just before `SubmitAsync`; reserve the busy key for any attempt that has a watcher. |
-| B6 ✓ | `src/Olve.Pipelines.Cli/Commands/Wait/WaitCommands.cs:48` | Any problem from `check` ends `pl wait` at once, and transport errors and 5xx come back as problems. So `pl wait push … --until finished` reports "failed" when prod restarts during its own self-deploy. | Treat transport errors and 5xx as pending, retrying with backoff; fail only on 4xx. |
+| B1 ✓ — **fixed** (b24979c, 3c2f7ba) | `sdk/src/dev/cli.ts:78` | `olve-dev map-trigger` always exits 64. The `else if (mode === "map-trigger")` is attached to the `--config-file` check, so it fires even when `--event-file` is given. | Check `mode === "map-trigger" && !file` on its own; add a `devMain` test. |
+| B2 ✓ — **fixed** (c7ea8a7) | `Pipelines/Triggers/PollTriggerService.cs:88-106` | `Observe` saves the new value before `MapAndStartAsync`. If mapping or the run start fails, the change is only logged and is never retried. | Save the value only after the run started or was de-duplicated, as `PushTriggerService` does with `LastPushSha`. |
+| B3 ✓ — **fixed** (d32bafb) | `Pipelines/Triggers/WebhookTriggerService.cs:86` | The delivery ID is remembered before the in-flight cap (`:92`). A delivery answered 429, dropped because the config isn't current, or whose mapping failed still counts as seen, so GitHub's Redeliver (same `X-GitHub-Delivery`) is ignored. | Remember the ID only once the delivery is admitted; forget it on Busy, drop or failure. |
+| B4 ✓ — **fixed** (2fc0829) | `Shared/Persistence/RunPersistenceService.cs:126` | It subscribes to the stores in `StartedAsync`. The startup sweep (`RunSchedulingStartup`/`RunSweep`) runs earlier, in `StartAsync`. So the sweep's changes (completed drains, queued run starts taken off the queue and started, orphan drops) aren't saved, and a restart can apply them again. | Subscribe in `StartingAsync`, straight after `_loaded = true`. |
+| B5 — **fixed** (3133b66) | `Jobs/KubernetesJobExecutor.cs:57-77`, `Jobs/JobRunner.cs:44` | Before submitting, the executor checks the attempt snapshot it started with, not the current status. An attempt made obsolete after its watcher started still gets a Job. Because `JobRunner` skips attempts that already have a watcher before reserving their key, the newer attempt's pod can overlap the older one until the next poll deletes it. | Re-read the status just before `SubmitAsync`; reserve the busy key for any attempt that has a watcher. |
+| B6 ✓ — **fixed** (9eca0f9) | `src/Olve.Pipelines.Cli/Commands/Wait/WaitCommands.cs:48` | Any problem from `check` ends `pl wait` at once, and transport errors and 5xx come back as problems. So `pl wait push … --until finished` reports "failed" when prod restarts during its own self-deploy. | Treat transport errors and 5xx as pending, retrying with backoff; fail only on 4xx. |
 | B7 | `Shared/Persistence/RunPersistenceService.cs:223` | The 1 s flush timer is `async void`. During an S3 outage, ticks queue on `_flushGate` and each runs a full retry, giving a burst of error logs. | `_flushGate.WaitAsync(0)` (skip when a flush is running), or a `PeriodicTimer`. |
 | B8 | `Pipelines/Scheduling/RunSchedulingEventRegistration.cs:70,77` | `_ = runs.Delete(...)` / `_ = attempts.Delete(...)` throw away failures without logging them. | Log them with `LogProblems`. |
 
@@ -25,12 +25,14 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 
 | # | Where | What's wrong | Fix |
 |---|---|---|---|
-| S1 | `Pipelines/Triggers/PollTriggerService.cs:32,168,183` | The poll GET runs in the controller pod, outside gVisor and the step NetworkPolicy, and that pod holds K8s and S3 credentials. It follows redirects, which forward `$SECRET` headers to the redirect target, and reads the body with no size cap. Any user the allow-list admits can bind a repo that does this. | Turn off redirects, block private and cluster IP ranges, cap the body. Or run the poll in a sandboxed Job, like `map-trigger`. |
-| S2 ✓ | `Configuration/AuthAllowList.cs:26` | `Auth:Allow:Users` matches `preferred_username`. A GitHub login can be renamed and then registered by someone else, and Dex passes it through. | Match the stable `sub`/user ID as well, or instead. |
+| S1 — **fixed** (e70083b) | `Pipelines/Triggers/PollTriggerService.cs:32,168,183` | The poll GET runs in the controller pod, outside gVisor and the step NetworkPolicy, and that pod holds K8s and S3 credentials. It follows redirects, which forward `$SECRET` headers to the redirect target, and reads the body with no size cap. Any user the allow-list admits can bind a repo that does this. | Turn off redirects, block private and cluster IP ranges, cap the body. Or run the poll in a sandboxed Job, like `map-trigger`. |
+| S2 ✓ — **fixed** (593f4e2) | `Configuration/AuthAllowList.cs:26` | `Auth:Allow:Users` matches `preferred_username`. A GitHub login can be renamed and then registered by someone else, and Dex passes it through. | Match the stable `sub`/user ID as well, or instead. |
 | S3 ✓ | `sdk/src/core/models.ts:43` | `FileRef.step` is only `z.string().min(1)`, and it is joined unencoded into paths (`ctx/files.ts:120,130`). `"../.."` escapes the temp or files directory. | `.regex(STEP_NAME)`. |
 | S4 | CLI auth (`src/Olve.Pipelines.Cli`) | The cached bearer token is sent to whatever `--api-url` or `PIPELINES_API_URL` is set to, even when that differs from the profile's stored `ApiUrl`. | Bind the token to the URL it was issued for. |
 | S5 | `Kubernetes/OpenBaoCredentialsProvider.cs:13`, `Configuration/KubernetesConfiguration.cs:68,80` | OpenBao K8s credentials are resolved once and cached for the life of the process, so rotating the token needs a pod restart. | Give the client a refreshing token provider, as in-cluster mode has. |
 | S6 | `Pipelines/Triggers/WebhookTriggerService.cs:65` | When a trigger's secret is unset, every unauthenticated request reads the whole pipeline Secret and answers 503. Only successful reads are cached. | Cache the miss for the recheck window. |
+
+| S7 | `Configuration/AuthAllowList.cs`, `LoginCommand.cs:21`, `frontend/src/auth.ts:62`, `helm/templates/dex-configmap.yaml` | `Auth:Allow:Orgs` likely never matches: neither `pl` nor the UI requests the `groups` scope, and the Dex GitHub connector has no `orgs`/`loadAllGroups`, so tokens carry no `groups` claim. | Request `groups` in both clients and configure the connector, or drop `Orgs` from the docs. |
 
 ### Missing features and usability
 
@@ -69,7 +71,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 
 | # | What's wrong |
 |---|---|
-| D1 ✓ | `README.md:39` says `git switch v2`. There is no `v2` branch, so the quickstart fails at step one. |
+| D1 ✓ — **fixed** (7c9b29f) | `README.md:39` says `git switch v2`. There is no `v2` branch, so the quickstart fails at step one. |
 | D2 | `sdk/README.md:172` mentions v1's deploy-beta loop. `docs/setup/llms.txt` mentions an SDK-publishing limitation that no longer exists. `docs/setup/cli.md:113` documents `--from` (see U6). |
 | D3 | About 60 `spec §`/`(B7)` references in comments (for example `StageScheduler.cs:12`, `RunStartService.cs:23`), and long narrative XML docs. |
 | D4 | `DateTimeOffset.UtcNow` instead of `TimeProvider` (`DeployPollService.cs:182,237`, `PipelineConfigBindingService.cs:40`). A raw `Guid` in `TriggerMappingService.EventKey`. |

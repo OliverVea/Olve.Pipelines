@@ -17,17 +17,8 @@ public static class TelemetryConfiguration
         var serviceName = builder.Configuration["Telemetry:ServiceName"] ?? "olve-pipelines";
         var protocol = builder.Configuration["OpenTelemetry:Protocol"];
 
-        var tokenUrl = builder.Configuration["OpenTelemetry:OAuth2:TokenUrl"];
-        var clientId = builder.Configuration["OpenTelemetry:OAuth2:ClientId"];
-        var clientSecret = builder.Configuration["OpenTelemetry:OAuth2:ClientSecret"];
-        var scope = builder.Configuration["OpenTelemetry:OAuth2:Scope"];
-
-        ICredentialsProvider<OTelCredentials>? credentialsProvider = null;
-        if (tokenUrl is not null && clientId is not null && clientSecret is not null)
-        {
-            var tokenProvider = new OAuth2TokenProvider(tokenUrl, clientId, clientSecret, scope);
-            credentialsProvider = new OTelCredentialsProvider(tokenProvider);
-        }
+        // OTLP header list ("k1=v1,k2=v2", as OTEL_EXPORTER_OTLP_HEADERS), e.g. a backend's API key.
+        var headers = builder.Configuration["OpenTelemetry:Headers"];
 
         var baseEndpoint = endpoint.TrimEnd('/');
 
@@ -40,10 +31,9 @@ public static class TelemetryConfiguration
                 options.Protocol = OtlpExportProtocol.HttpProtobuf;
             }
 
-            if (credentialsProvider is not null)
+            if (!string.IsNullOrWhiteSpace(headers))
             {
-                var creds = credentialsProvider.GetCredentialsAsync().GetAwaiter().GetResult();
-                options.Headers = $"Authorization=Bearer {creds.BearerToken}";
+                options.Headers = headers;
             }
         }
 

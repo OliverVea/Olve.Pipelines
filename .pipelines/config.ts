@@ -37,17 +37,8 @@ const Telemetry = z.discriminatedUnion("exporter", [
     exporter: z.literal("otlp"),
     endpoint: z.url(),
     protocol: z.enum(["http", "grpc"]).default("http"),
-    auth: z.discriminatedUnion("type", [
-      z.object({ type: z.literal("none") }),
-      z.object({
-        type: z.literal("oauth2"),
-        tokenUrl: z.url(),
-        clientId: z.string(),
-        scope: z.string().optional(),
-        clientSecret: z.object({ kubernetesSecret: z.object({ name: z.string(), key: z.string() }) })
-          .describe("A Secret in the target namespace that holds the client secret."),
-      }),
-    ]).prefault({ type: "none" }),
+    headers: z.object({ kubernetesSecret: z.object({ name: z.string(), key: z.string() }) }).optional()
+      .describe("A Secret in the target namespace holding OTLP headers (\"k1=v1,k2=v2\"), e.g. a backend's API key."),
   }),
 ]);
 

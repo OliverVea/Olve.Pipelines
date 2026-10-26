@@ -50,14 +50,7 @@ auth:
   frontendAudience: olve-pipelines-frontend
 
 telemetry:
-  exporter: otlp
-  endpoint: https://otel.ovea.pro
-  auth:
-    type: oauth2
-    tokenUrl: https://auth.ovea.pro/application/o/token/
-    clientId: otel
-    clientSecret:
-      kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
+  exporter: none
 
 publish:
   server:

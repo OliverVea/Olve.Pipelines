@@ -1,0 +1,16 @@
+{{- if .Values.dex.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-dex
+  labels:
+    app: {{ .Release.Name }}-dex
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-dex
+  ports:
+    - name: http
+      port: 5556
+      targetPort: http
+{{- end }}

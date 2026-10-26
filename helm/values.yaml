@@ -15,8 +15,8 @@ auth: {}
 
 # Telemetry export, mapped onto config.OpenTelemetry__*. Empty = config.OpenTelemetry__* as given.
 #   exporter: none
-#   exporter: otlp, endpoint, protocol?, auth: { type: none }
-#     | { type: oauth2, tokenUrl, clientId, scope?, clientSecret: { kubernetesSecret: { name, key } } }
+#   exporter: otlp, endpoint, protocol?, headers?: { kubernetesSecret: { name, key } }
+#     (headers: a Secret key holding "k1=v1,k2=v2", e.g. a backend's API key)
 telemetry: {}
 
 # ServiceAccount + RBAC for in-cluster controller→K8s access (Tier-A / InCluster auth
@@ -108,6 +108,25 @@ garage:
       cpu: 500m
       memory: 512Mi
 
+# Bundled Dex (OIDC with a GitHub upstream), served under /dex on the instance's host: the edge
+# routes <host>/dex to the <release>-dex Service. GitHub app credentials come from githubSecret
+# (keys github-client-id, github-client-secret).
+dex:
+  enabled: false
+  image: "dexidp/dex:v2.43.1"
+  issuer: ""
+  clientId: olve-pipelines
+  githubSecret: olve-pipelines-dex
+  storage: 1Gi
+  storageClass: local-path
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 config:
   Host: "0.0.0.0"
   Port: "5000"
@@ -123,10 +142,6 @@ config:
   Auth__Audience: "olve-pipelines"
   Auth__FrontendAuthority: "https://auth.ovea.pro/application/o/olve-pipelines-frontend/"
   Auth__FrontendAudience: "olve-pipelines-frontend"
-  OpenTelemetry__Endpoint: "https://otel.ovea.pro"
-  OpenTelemetry__Protocol: "http"
-  OpenTelemetry__OAuth2__TokenUrl: "https://auth.ovea.pro/application/o/token/"
-  OpenTelemetry__OAuth2__ClientId: "otel"
   # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
   # runner Jobs in olve-runners. Static creds (below) take precedence over STS.
   Storage__Endpoint: "http://olve-pipelines-garage.apps:3900"
@@ -149,9 +164,6 @@ config:
   Webhooks__PublicBaseUrl: "https://pipelines-hooks.ovea.pro"
 
 secrets:
-  - name: authentik-oidc-secrets
-    envMap:
-      OpenTelemetry__OAuth2__ClientSecret: otel-client-secret
   - name: olve-pipelines-oidc
     envMap:
       Storage__ClientId: client-id

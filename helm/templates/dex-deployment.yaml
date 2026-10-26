@@ -1,0 +1,72 @@
+{{- if .Values.dex.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-dex
+  labels:
+    app: {{ .Release.Name }}-dex
+spec:
+  replicas: 1
+  # RWO sqlite volume: never two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-dex
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-dex
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/dex-configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: dex
+          image: "{{ .Values.dex.image }}"
+          imagePullPolicy: IfNotPresent
+          command: ["dex", "serve", "/etc/dex/config.yaml"]
+          env:
+            - name: GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dex.githubSecret }}
+                  key: github-client-id
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dex.githubSecret }}
+                  key: github-client-secret
+          ports:
+            - name: http
+              containerPort: 5556
+            - name: telemetry
+              containerPort: 5558
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dex
+              readOnly: true
+            - name: data
+              mountPath: /var/dex
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: telemetry
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: telemetry
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.dex.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-dex
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-dex
+{{- end }}

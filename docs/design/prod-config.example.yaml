@@ -1,4 +1,4 @@
-# Config document for "Olve.Pipelines v2" on the prod instance (pipelines-v2-private.ovea.pro):
+# Config document for "Olve.Pipelines v2" on the prod instance (pipelines-private.ovea.pro):
 #
 #   pl config set "Olve.Pipelines v2" -f docs/design/prod-config.example.yaml
 #   (secrets: GHCR_TOKEN copies released images to ghcr.io, NPM_TOKEN publishes the SDK;
@@ -26,10 +26,6 @@ target:
       frontendAuthority: https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/
       frontendAudience: olve-pipelines-frontend-beta
       anonymousReads: true          # beta-test reads without a session
-    telemetry:
-      exporter: otlp
-      endpoint: http://otel-beta.ovea.pro
-      auth: { type: none }
   prod:
     kind: ssh
     host: oliver@bulwark-m2
@@ -52,14 +48,13 @@ auth:
 #     users: [OliverVea]
 
 telemetry:
-  exporter: otlp
-  endpoint: https://otel.ovea.pro
-  auth:
-    type: oauth2
-    tokenUrl: https://auth.ovea.pro/application/o/token/
-    clientId: otel
-    clientSecret:
-      kubernetesSecret: { name: authentik-oidc-secrets, key: otel-client-secret }
+  exporter: none
+# To export to an OTLP collector (headers only when the receiver needs a key):
+# telemetry:
+#   exporter: otlp
+#   endpoint: http://otel-collector.infra:4318
+#   headers:
+#     kubernetesSecret: { name: otel-headers, key: headers }
 
 build:
   runtime: jit                      # builds in seconds; AOT's faster start doesn't matter behind a rollout

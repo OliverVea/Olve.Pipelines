@@ -1,0 +1,19 @@
+{{- if .Values.dex.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-dex
+  labels:
+    app: {{ .Release.Name }}-dex
+  annotations:
+    # Signing keys and refresh tokens: survive `helm uninstall`.
+    "helm.sh/resource-policy": keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.dex.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.dex.storage }}
+{{- end }}

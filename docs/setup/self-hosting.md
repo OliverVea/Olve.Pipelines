@@ -79,9 +79,27 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Distribution:CliPromotedBy` | — | Only runs in which this step (e.g. `promote`) also succeeded count for `/download` |
 | `Distribution:LocalDirectory` | — | Serve `/download` assets from this directory when it has them (the compose stack builds `pl` from source) |
 | `Deployment:Image` | — | The image this instance runs, reported by `/api/health`. The compose deployer sets it (`Deployment__Image`) when it recreates the container |
-| `OpenTelemetry:Endpoint` | — | OTLP endpoint; unset or empty = no exporter |
+| `OpenTelemetry:Endpoint` | — | OTLP endpoint (traces, metrics and logs under `/v1/…`); unset or empty = no exporter |
+| `OpenTelemetry:Protocol` | gRPC | `http` for OTLP over HTTP/protobuf |
+| `OpenTelemetry:Headers` | — | OTLP headers, `k1=v1,k2=v2` (the `OTEL_EXPORTER_OTLP_HEADERS` format), e.g. a backend's API key. The chart reads it from a Secret (`telemetry.headers.kubernetesSecret`) |
 | `Logging:Console:FormatterName` | `simple` | Console formatter. `json` in deployed envs (see below) |
 | `Logging:Console:Json:UseUtcTimestamp` | `false` | UTC timestamps with the `json` formatter |
+
+### Bundled Dex
+
+The chart can run [Dex](https://dexidp.io) as the instance's OIDC provider, with GitHub as the
+upstream (`dex.enabled: true`, `dex.issuer: https://<host>/dex`). It stores its keys and refresh
+tokens in sqlite on a small PVC that survives `helm uninstall`. Route `<host>/dex` to the
+`<release>-dex` Service (port 5556); the rest of the host stays on the server.
+
+1. Create a GitHub OAuth app with the callback `https://<host>/dex/callback`.
+2. Store its credentials as the Secret `olve-pipelines-dex` (keys `github-client-id`,
+   `github-client-secret`) in the release namespace.
+3. Point the server at it: `auth.mode: dex`, `issuer: https://<host>/dex`, `clientId: olve-pipelines`,
+   and an `allow` list. GitHub lets anyone sign in to Dex, so the chart refuses `dex` without one.
+
+Dex has one public client, `olve-pipelines`, for the web UI and `pl`. It accepts only the UI's
+`https://<host>/callback` and the device flow, so sign in with `pl login --device`.
 
 ## Logging
 

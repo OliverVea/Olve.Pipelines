@@ -18,7 +18,7 @@ const load = (path: string) => {
 };
 
 describe("config documents", () => {
-  test("prod example: today's targets, Authentik, OTLP, builds staged on registry.ovea.pro and released to ghcr and npm", () => {
+  test("prod example: today's targets, Authentik, no telemetry, builds staged on registry.ovea.pro and released to ghcr and npm", () => {
     const c = load("docs/design/prod-config.example.yaml");
     expect(c.target.beta).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps-beta", release: "olve-pipelines-v2", values: ["values-beta.yaml", "values-v2-beta.yaml"], set: { "slo.enabled": "false" } });
     expect(c.target.prod).toMatchObject({ kind: "ssh", host: "oliver@bulwark-m2", namespace: "apps", release: "olve-pipelines-v2", values: ["values-v2-prod.yaml"], set: {} });
@@ -32,15 +32,12 @@ describe("config documents", () => {
         frontendAudience: "olve-pipelines-frontend",
         anonymousReads: false,
       },
-      telemetry: {
-        exporter: "otlp", endpoint: "https://otel.ovea.pro", protocol: "http",
-        auth: { type: "oauth2", tokenUrl: "https://auth.ovea.pro/application/o/token/", clientId: "otel", clientSecret: { kubernetesSecret: { name: "authentik-oidc-secrets", key: "otel-client-secret" } } },
-      },
+      telemetry: { exporter: "none" },
     });
     const beta = c.target.beta;
     if (beta.kind === "none") throw new Error("the prod example has a beta");
     expect(beta.auth).toMatchObject({ mode: "authentik", audience: "olve-pipelines-beta", anonymousReads: true });
-    expect(beta.telemetry).toEqual({ exporter: "otlp", endpoint: "http://otel-beta.ovea.pro", protocol: "http", auth: { type: "none" } });
+    expect(beta.telemetry).toBeUndefined();
     const ghcr = { username: "OliverVea", password: { secret: "GHCR_TOKEN" } };
     expect(c.publish).toMatchObject({ server: { repository: "registry.ovea.pro/olve-pipelines-v2", release: [{ repository: "ghcr.io/olivervea/olve-pipelines", auth: ghcr }] }, harness: { push: true, repository: "registry.ovea.pro/olve-pipelines-v2/harness-base", release: [{ repository: "ghcr.io/olivervea/olve-pipelines-harness-base", auth: ghcr }] }, npm: { enabled: true, prereleaseTag: "next", releaseTag: "beta" }, imageTags: { prerelease: "next", release: "latest" } });
     expect(c.source.apiUrl).toBe("https://api.github.com");

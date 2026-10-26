@@ -382,8 +382,11 @@ What step 5 built, and where it differs from §9 and §11.
   key } }`), not a `secretRef`: the server reads it from a Secret in its own namespace, and copying a
   pipeline secret into the target namespace is a separate feature. The chart maps it only when the
   values files don't already map `OpenTelemetry__OAuth2__ClientSecret` (prod's do).
-- `auth.allow` is enforced since 2026-10-26 (`Auth:Allow:*`, a 403 for a valid token outside it; the chart refuses `dex` without one). No `header` telemetry auth: the
-  server only has OAuth2.
+- `auth.allow` is enforced since 2026-10-26 (`Auth:Allow:*`, a 403 for a valid token outside it; the chart refuses `dex` without one).
+- **Telemetry since 2026-10-26:** the OAuth2 exporter auth is gone (it fetched one token at startup
+  and its endpoint answered 404). `otlp` is the standard shape, `endpoint`, `protocol` and optional
+  `headers` (a Secret key holding `k1=v1,…`); prod and beta run `telemetry: none`. The two notes
+  above on `telemetry.auth.clientSecret` and §9's Dex client-credentials question are history.
 - Defaults: `target.*.namespace` defaults to `olve-pipelines` (prod) and `olve-pipelines-beta`
   (beta); `auth` is required (no insecure default); `telemetry` defaults to `none`; the image
   repositories are required (no default publishes anywhere) and `publish.npm.enabled` defaults to
@@ -466,6 +469,15 @@ document and secrets on prod, then push the new `.pipelines`.
 
 **Not done in step 5:** deploying Dex and switching prod to it, the `allow` rule in the server, and
 Dex client credentials for telemetry (§12).
+
+**Since (2026-10-26).** The server enforces `allow` (`Auth:Allow:*`, 403 outside it). The chart
+bundles Dex (`dex.*`, off by default; on in the prod and beta overlays) served under
+`https://<host>/dex`: `dexidp/dex:v2.43.1`, sqlite on a kept 1Gi PVC, a GitHub connector whose
+credentials come from the Secret `olve-pipelines-dex`, one public client `olve-pipelines` with
+redirect URIs `https://<host>/callback` and `/device/callback`. Two gaps: a public client with
+listed redirect URIs rejects `pl`'s random loopback port, so only `pl login --device` works against
+it; and Dex v2.43.1 has no `client_credentials` grant (supported: authorization code, refresh,
+device code, token exchange), so telemetry cannot get its token from Dex.
 
 ## 15. `select`: branching on config
 

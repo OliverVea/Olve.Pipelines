@@ -37,8 +37,8 @@ spec:
               value: {{ if .digest }}{{ printf "%s:%s@%s" .repository .tag .digest | quote }}{{ else }}{{ printf "%s:%s" .repository .tag | quote }}{{ end }}
             {{- end }}
             {{- end }}
-            {{- with (include "olve-pipelines.telemetrySecret" . | fromYaml) }}
-            - name: OpenTelemetry__OAuth2__ClientSecret
+            {{- with (include "olve-pipelines.telemetryHeaders" . | fromYaml) }}
+            - name: OpenTelemetry__Headers
               valueFrom:
                 secretKeyRef:
                   name: {{ .name }}

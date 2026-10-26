@@ -46,23 +46,11 @@ Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.c
 {{- with .Values.telemetry -}}
 {{- $exporter := .exporter | default "" -}}
 {{- if eq $exporter "none" -}}
-{{- range $k := list "OpenTelemetry__Endpoint" "OpenTelemetry__Protocol" "OpenTelemetry__OAuth2__TokenUrl" "OpenTelemetry__OAuth2__ClientId" "OpenTelemetry__OAuth2__Scope" -}}
-{{- $_ := set $c $k "" -}}
-{{- end -}}
+{{- $_ := set $c "OpenTelemetry__Endpoint" "" -}}
+{{- $_ := set $c "OpenTelemetry__Protocol" "" -}}
 {{- else if eq $exporter "otlp" -}}
 {{- $_ := set $c "OpenTelemetry__Endpoint" .endpoint -}}
 {{- $_ := set $c "OpenTelemetry__Protocol" (.protocol | default "http") -}}
-{{- $auth := .auth | default dict -}}
-{{- if eq ($auth.type | default "none") "oauth2" -}}
-{{- $_ := set $c "OpenTelemetry__OAuth2__TokenUrl" $auth.tokenUrl -}}
-{{- $_ := set $c "OpenTelemetry__OAuth2__ClientId" $auth.clientId -}}
-{{- with $auth.scope -}}
-{{- $_ := set $c "OpenTelemetry__OAuth2__Scope" . -}}
-{{- end -}}
-{{- else -}}
-{{- $_ := set $c "OpenTelemetry__OAuth2__TokenUrl" "" -}}
-{{- $_ := set $c "OpenTelemetry__OAuth2__ClientId" "" -}}
-{{- end -}}
 {{- else if $exporter -}}
 {{- fail (printf "telemetry.exporter must be none or otlp, got %q" $exporter) -}}
 {{- end -}}
@@ -71,20 +59,12 @@ Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.c
 {{- end -}}
 
 {{/*
-The Kubernetes Secret holding the OTLP OAuth2 client secret ({name, key}) from telemetry.auth.clientSecret,
-unless .Values.secrets already maps OpenTelemetry__OAuth2__ClientSecret.
+The Kubernetes Secret ({name, key}) holding the OTLP headers ("k1=v1,k2=v2") from telemetry.headers.
 */}}
-{{- define "olve-pipelines.telemetrySecret" -}}
-{{- $mapped := false -}}
-{{- range .Values.secrets -}}
-{{- if hasKey (.envMap | default dict) "OpenTelemetry__OAuth2__ClientSecret" -}}
-{{- $mapped = true -}}
-{{- end -}}
-{{- end -}}
+{{- define "olve-pipelines.telemetryHeaders" -}}
 {{- with .Values.telemetry -}}
-{{- $auth := .auth | default dict -}}
-{{- if and (eq (.exporter | default "") "otlp") (eq ($auth.type | default "") "oauth2") (not $mapped) -}}
-{{- with ($auth.clientSecret | default dict).kubernetesSecret -}}
+{{- if eq (.exporter | default "") "otlp" -}}
+{{- with (.headers | default dict).kubernetesSecret -}}
 {{- toYaml (dict "name" .name "key" .key) -}}
 {{- end -}}
 {{- end -}}

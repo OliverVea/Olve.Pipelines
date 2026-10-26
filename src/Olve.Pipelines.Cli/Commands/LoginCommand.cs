@@ -18,7 +18,11 @@ namespace Olve.Pipelines.Cli.Commands;
 /// </summary>
 public sealed class LoginCommand : ICliCommand
 {
-    private const string Scope = "openid profile email offline_access";
+    // An older server sends no scopes.
+    private const string DefaultScopes = "openid profile email";
+
+    internal static string Scope(FrontendOidcConfig frontend) =>
+        $"{(frontend.OidcScopes is { Length: > 0 } scopes ? scopes : DefaultScopes)} offline_access";
 
     public string Noun => "login";
     public string Verb => "";
@@ -74,8 +78,8 @@ public sealed class LoginCommand : ICliCommand
         var useDevice = hasDevice && !cli.HasFlag("browser") && (cli.HasFlag("device") || IsHeadless());
 
         var tokenResult = useDevice
-            ? await DeviceFlowAsync(http, disco, clientId, ctx, ct)
-            : await BrowserFlowAsync(http, disco, clientId, ctx, ct);
+            ? await DeviceFlowAsync(http, disco, clientId, Scope(frontend), ctx, ct)
+            : await BrowserFlowAsync(http, disco, clientId, Scope(frontend), ctx, ct);
         if (tokenResult.TryPickProblems(out var flowProblems, out var token))
             return flowProblems;
 
@@ -85,7 +89,7 @@ public sealed class LoginCommand : ICliCommand
     // ---- Browser flow (OIDC auth-code + PKCE on a loopback redirect) ----
 
     private static async Task<Result<TokenResponse>> BrowserFlowAsync(
-        HttpClient http, OidcDiscovery disco, string clientId, CommandContext ctx, CancellationToken ct)
+        HttpClient http, OidcDiscovery disco, string clientId, string scope, CommandContext ctx, CancellationToken ct)
     {
         // PKCE pair + anti-forgery state.
         var verifier = OidcClient.CreateCodeVerifier();
@@ -100,7 +104,7 @@ public sealed class LoginCommand : ICliCommand
         var redirectUri = $"http://127.0.0.1:{port}/callback";
 
         // 5. Open the browser (and always print the URL as an SSH/headless fallback).
-        var authorizeUrl = BuildAuthorizeUrl(disco.AuthorizationEndpoint!, clientId, redirectUri, challenge, state);
+        var authorizeUrl = BuildAuthorizeUrl(disco.AuthorizationEndpoint!, clientId, scope, redirectUri, challenge, state);
         Console.Error.WriteLine("Opening your browser to log in. If it doesn't open, visit:");
         Console.Error.WriteLine();
         Console.Error.WriteLine($"  {authorizeUrl}");
@@ -119,9 +123,9 @@ public sealed class LoginCommand : ICliCommand
     // ---- Device flow (RFC 8628 — for SSH/headless: scan a QR / open a URL, then poll) ----
 
     private static async Task<Result<TokenResponse>> DeviceFlowAsync(
-        HttpClient http, OidcDiscovery disco, string clientId, CommandContext ctx, CancellationToken ct)
+        HttpClient http, OidcDiscovery disco, string clientId, string scope, CommandContext ctx, CancellationToken ct)
     {
-        if ((await OidcClient.StartDeviceAuthAsync(http, disco.DeviceAuthorizationEndpoint!, clientId, Scope, ct))
+        if ((await OidcClient.StartDeviceAuthAsync(http, disco.DeviceAuthorizationEndpoint!, clientId, scope, ct))
             .TryPickProblems(out var startProblems, out var device))
             return startProblems;
 
@@ -195,14 +199,14 @@ public sealed class LoginCommand : ICliCommand
         return false;
     }
 
-    private static string BuildAuthorizeUrl(string authorizationEndpoint, string clientId, string redirectUri, string challenge, string state)
+    private static string BuildAuthorizeUrl(string authorizationEndpoint, string clientId, string scope, string redirectUri, string challenge, string state)
     {
         var query = new Dictionary<string, string>
         {
             ["response_type"] = "code",
             ["client_id"] = clientId,
             ["redirect_uri"] = redirectUri,
-            ["scope"] = Scope,
+            ["scope"] = scope,
             ["state"] = state,
             ["code_challenge"] = challenge,
             ["code_challenge_method"] = "S256",

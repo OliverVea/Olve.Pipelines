@@ -9,13 +9,13 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface FrontendRequestBuilder extends BaseRequestBuilder<FrontendRequestBuilder> {
     /**
-     * The OIDC authority and client id the web UI and `pl login` use.
+     * The OIDC authority, client id and scopes the web UI and `pl login` use.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
-     * The OIDC authority and client id the web UI and `pl login` use.
+     * The OIDC authority, client id and scopes the web UI and `pl login` use.
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

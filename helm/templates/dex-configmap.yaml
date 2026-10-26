@@ -32,6 +32,11 @@ data:
           clientID: $GITHUB_CLIENT_ID
           clientSecret: $GITHUB_CLIENT_SECRET
           redirectURI: {{ .Values.dex.issuer }}/callback
+          {{- if ((.Values.auth | default dict).allow | default dict).orgs }}
+          # groups = the user's orgs and org:team slugs, for auth.allow.orgs (GitHub asks for read:org)
+          loadAllGroups: true
+          teamNameField: slug
+          {{- end }}
     staticClients:
       # The web UI and pl. With redirectURIs listed, Dex accepts only those: the device flow's
       # callback and pl's loopback ports (LoginCommand.LoopbackPorts) are listed too.

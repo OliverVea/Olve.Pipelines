@@ -10,6 +10,7 @@ public sealed class FrontendOidcConfig
 {
     [JsonPropertyName("oidcAuthority")] public string? OidcAuthority { get; set; }
     [JsonPropertyName("oidcClientId")] public string? OidcClientId { get; set; }
+    [JsonPropertyName("oidcScopes")] public string? OidcScopes { get; set; }
 }
 
 /// <summary>The subset of the OIDC discovery document the login flow needs. Snake-case wire names.</summary>

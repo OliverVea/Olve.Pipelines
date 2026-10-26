@@ -46,6 +46,14 @@ public class AuthAllowListTests
         await Assert.That(allow.Allows(User(("preferred_username", "CgcxMjM0NTY3EgZnaXRodWI")))).IsFalse();
     }
 
+    // Catches: an Orgs allow-list that can never match because no client asks for the groups claim.
+    [Test]
+    public async Task LoginScopes_IncludeGroups_OnlyWhenOrgsAreAllowed()
+    {
+        await Assert.That(FrontendConfigEndpoints.Scopes(Allow(orgs: ["ovea"]))).IsEqualTo("openid profile email groups");
+        await Assert.That(FrontendConfigEndpoints.Scopes(Allow(users: ["olivervea"]))).IsEqualTo("openid profile email");
+    }
+
     [Test]
     public async Task Orgs_MatchTheOrgOrAnyOfItsTeams_AndOrgTeamOnlyThatTeam()
     {

@@ -731,7 +731,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 `GET /api/config/frontend`
 
-The OIDC authority and client id the web UI and `pl login` use.
+The OIDC authority, client id and scopes the web UI and `pl login` use.
 
 **Returns:** `200`
 

@@ -41,7 +41,7 @@
           "Instance"
         ],
         "summary": "Get the login settings",
-        "description": "The OIDC authority and client id the web UI and `pl login` use.",
+        "description": "The OIDC authority, client id and scopes the web UI and `pl login` use.",
         "operationId": "GetFrontendConfig",
         "responses": {
           "200": {

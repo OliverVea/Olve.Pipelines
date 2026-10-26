@@ -30,6 +30,7 @@ const devUser: User | null = devAuthBypass
 type FrontendConfig = {
   oidcAuthority: string;
   oidcClientId: string;
+  oidcScopes: string;
 };
 
 let userManagerPromise: Promise<UserManager> | null = null;
@@ -42,11 +43,16 @@ async function fetchFrontendConfig(): Promise<FrontendConfig> {
   const raw = (await response.json()) as {
     oidcAuthority?: string | null;
     oidcClientId?: string | null;
+    oidcScopes?: string | null;
   };
   if (!raw.oidcAuthority || !raw.oidcClientId) {
     throw new Error('Frontend config missing oidcAuthority or oidcClientId');
   }
-  return { oidcAuthority: raw.oidcAuthority, oidcClientId: raw.oidcClientId };
+  return {
+    oidcAuthority: raw.oidcAuthority,
+    oidcClientId: raw.oidcClientId,
+    oidcScopes: raw.oidcScopes || 'openid profile email',
+  };
 }
 
 function getUserManager(): Promise<UserManager> {
@@ -59,7 +65,7 @@ function getUserManager(): Promise<UserManager> {
           redirect_uri: `${window.location.origin}/callback`,
           post_logout_redirect_uri: window.location.origin,
           response_type: 'code',
-          scope: 'openid profile email',
+          scope: config.oidcScopes,
           automaticSilentRenew: true,
           userStore: new WebStorageStateStore({ store: sessionStorage }),
         }),

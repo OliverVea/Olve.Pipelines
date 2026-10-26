@@ -21,17 +21,23 @@ internal abstract record WaitCheck
 /// <summary>
 /// The loop behind <c>pl wait</c>: check over REST, then re-check whenever a relevant event arrives on the
 /// pipeline's <c>/api/events</c> stream (or every minute, in case the stream stalls). Events only wake the
-/// check; REST decides. Exits 124 on <c>--timeout</c>.
+/// check; REST decides. A retryable failure (the server restarting, a 5xx) is retried with backoff; any other
+/// failure ends the wait. Exits 124 on <c>--timeout</c>.
 /// </summary>
 internal static class Waiter
 {
     public const int TimeoutExitCode = 124;
     private static readonly TimeSpan Fallback = TimeSpan.FromMinutes(1);
 
+    internal static TimeSpan RetryBackoff(int failures) =>
+        TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(failures, 5))));
+
     public static async Task<Result> RunAsync(
         CliArgs cli, CommandContext ctx, string pipelineId, IReadOnlySet<string> wakeOn,
-        Func<CancellationToken, Task<Result<WaitCheck>>> check, CancellationToken ct)
+        Func<CancellationToken, Task<Result<WaitCheck>>> check, CancellationToken ct,
+        Func<int, TimeSpan>? backoff = null)
     {
+        backoff ??= RetryBackoff;
         if (ParseTimeout(cli.Option("timeout")).TryPickProblems(out var timeoutProblems, out var timeout))
             return timeoutProblems;
 
@@ -42,12 +48,24 @@ internal static class Waiter
         var wake = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
         var watch = WatchAsync(ctx, pipelineId, wakeOn, wake.Writer, deadline.Token);
         string? lastProgress = null;
+        var failures = 0;
         try
         {
             while (true)
             {
-                if ((await check(deadline.Token)).TryPickProblems(out var problems, out var state))
-                    return problems;
+                var wait = Fallback;
+                var checkResult = await check(deadline.Token);
+                if (checkResult.TryPickProblems(out var problems, out var state))
+                {
+                    if (!problems.IsRetryable)
+                        return problems;
+                    wait = backoff(++failures);
+                    state = new WaitCheck.Pending($"server unavailable ({problems.First()}); retrying");
+                }
+                else
+                {
+                    failures = 0;
+                }
 
                 switch (state)
                 {
@@ -63,7 +81,7 @@ internal static class Waiter
                 }
 
                 using var tick = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
-                tick.CancelAfter(Fallback);
+                tick.CancelAfter(wait);
                 try
                 {
                     await wake.Reader.ReadAsync(tick.Token);

@@ -68,6 +68,35 @@ public class ApiTransportTests
         await Assert.That(problems?.Any(p => p.ToString()!.Contains("boom")) ?? false).IsTrue();
     }
 
+    [Test]
+    [Arguments(HttpStatusCode.InternalServerError, true)]
+    [Arguments(HttpStatusCode.BadGateway, true)]
+    [Arguments(HttpStatusCode.ServiceUnavailable, true)]
+    [Arguments(HttpStatusCode.TooManyRequests, true)]
+    [Arguments(HttpStatusCode.BadRequest, false)]
+    [Arguments(HttpStatusCode.NotFound, false)]
+    [Arguments(HttpStatusCode.Unauthorized, false)]
+    public async Task Get_Failure_IsRetryableOnlyFor5xxAnd429(HttpStatusCode status, bool retryable)
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(status) { Content = new StringContent("x") });
+
+        var result = await Transport(handler).GetAsync("/api/pipelines/", CliJsonContext.Default.PipelineArray, CancellationToken.None);
+
+        await Assert.That(result.Failed).IsTrue();
+        await Assert.That(result.IsRetryable).IsEqualTo(retryable);
+    }
+
+    [Test]
+    public async Task Get_ConnectionRefused_IsRetryable()
+    {
+        var handler = new StubHandler(_ => throw new HttpRequestException("Connection refused"));
+
+        var result = await Transport(handler).GetAsync("/api/pipelines/", CliJsonContext.Default.PipelineArray, CancellationToken.None);
+
+        await Assert.That(result.Failed).IsTrue();
+        await Assert.That(result.IsRetryable).IsTrue();
+    }
+
     // Catches: pl printing the raw ApiProblem JSON, or dropping the field path, instead of one line per error.
     [Test]
     public async Task Get_ApiProblemBody_OneProblemPerErrorWithField()

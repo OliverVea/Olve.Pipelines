@@ -76,7 +76,7 @@ pl attempts
 # live change events (GET /api/events) until Ctrl+C
 pl watch [<pipeline>] [--json]
 
-# block until something happens (re-checks on live events); exit 0 ok, 1 failed, 124 --timeout
+# block until something happens (re-checks on live events; rides out the server restarting or a 5xx); exit 0 ok, 1 failed, 124 --timeout
 pl wait run <pipeline>#<run>[/<step>] [--until finished|started|held] [--timeout 45m]
 pl wait push <pipeline> <sha> [--until started|finished]   # prints the run's address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit

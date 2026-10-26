@@ -112,11 +112,11 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
         }
         catch (HttpRequestException ex)
         {
-            return new ResultProblem("Request to {0} failed: {1}", path, ex.Message);
+            return new ResultProblem("Request to {0} failed: {1}", path, ex.Message) { IsRetryable = true };
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
-            return new ResultProblem("Request to {0} timed out.", path);
+            return new ResultProblem("Request to {0} timed out.", path) { IsRetryable = true };
         }
     }
 
@@ -129,15 +129,16 @@ public sealed class ApiTransport(HttpClient http, IConsoleLog log)
             return new ResultProblem("Forbidden ({0}): this account may not do that.", code);
 
         var body = await SafeReadAsync(response, ct);
+        var retryable = code >= 500 || response.StatusCode is HttpStatusCode.TooManyRequests;
 
         // One `error:` line per server error, prefixed by its field (`input.sha: must match …`).
         if (ParseProblems(body) is { Length: > 0 } serverProblems)
             return new ResultProblemCollection(serverProblems.Select(p => p.Field is { Length: > 0 } field
-                ? new ResultProblem("{0}: {1}", field, p.Message)
-                : new ResultProblem("{0}", p.Message)));
+                ? new ResultProblem("{0}: {1}", field, p.Message) { IsRetryable = retryable }
+                : new ResultProblem("{0}", p.Message) { IsRetryable = retryable }));
 
         var detail = string.IsNullOrWhiteSpace(body) ? string.Empty : $" — {Snippet(body)}";
-        return new ResultProblem("Request failed: {0} {1}{2}", code, response.ReasonPhrase ?? string.Empty, detail);
+        return new ResultProblem("Request failed: {0} {1}{2}", code, response.ReasonPhrase ?? string.Empty, detail) { IsRetryable = retryable };
     }
 
     /// <summary>The errors of an <c>ApiProblem</c> body; a <c>ResultProblem[]</c> from a pre-v2 server as fallback.</summary>

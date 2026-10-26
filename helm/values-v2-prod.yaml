@@ -14,6 +14,23 @@ config:
   Distribution__CliPromotedBy: "promote"
   # Stage 2 of the self-deploy runs seven steps; 4 queued three of them.
   Jobs__MaxConcurrent: "8"
+  # The controller reaches the cluster with its own ServiceAccount, not an OpenBao token.
+  Kubernetes__AuthMode: "InCluster"
+  Kubernetes__OpenBaoUrl: ""
+  Storage__AuthUrl: ""
+
+serviceAccount:
+  enabled: true
+
+# Only the Garage credentials; the OpenBao client Secret isn't needed with InCluster.
+secrets:
+  - name: olve-pipelines-minio
+    envMap:
+      Storage__AccessKey: root-user
+      Storage__SecretKey: root-password
+
+authentikCa:
+  enabled: false
 
 # --default-bucket creates this bucket and key (from the olve-pipelines-minio Secret) on first boot.
 garage:

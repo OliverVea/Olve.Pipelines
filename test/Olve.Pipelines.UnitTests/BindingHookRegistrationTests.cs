@@ -287,6 +287,24 @@ public class BindingHookRegistrationTests
     }
 
     [Test]
+    public async Task Startup_HookAtAnOldUrl_EnqueuesARepoint()
+    {
+        var store = new EntityStore<PipelineConfigBinding>([]);
+        var svc = new PipelineConfigBindingService(store, new IdProvider());
+        var pid = Id.New<Pipeline>();
+        var binding = Pick(svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
+        var hookState = new BindingHookStateStore();
+        hookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", "https://old.example.com/x"));
+        var queue = new BindingHookWorkQueue();
+
+        var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(BaseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
+        await Assert.That(reg.Run()).Succeeded();
+
+        await Assert.That(queue.Reader.TryRead(out var work)).IsTrue();
+        await Assert.That(work as CreateBindingHookWork).IsNotNull();
+    }
+
+    [Test]
     public async Task BindingDeleted_WithLiveHook_EnqueuesDelete()
     {
         var h = await CreateEventHarness();

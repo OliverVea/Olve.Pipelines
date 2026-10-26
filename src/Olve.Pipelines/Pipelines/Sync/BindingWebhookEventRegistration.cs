@@ -27,6 +27,10 @@ public class BindingWebhookEventRegistration(
         store.OnAdded.Subscribe(e => Reconcile(e.Id));
         store.OnUpdated.Subscribe(e => Reconcile(e.Id));
         store.OnDeleted.Subscribe(e => HandleDeleted(e.Id));
+        // Persisted bindings and hooks are loaded before startup runs: converge them once, so a changed
+        // public URL repoints hooks without waiting for each binding's next update.
+        foreach (var binding in store.List().ToList())
+            Reconcile(binding.Id);
         return Result.Success();
     }
 

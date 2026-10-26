@@ -1,17 +1,5 @@
 using Olve.Pipelines.Configuration;
-using Olve.Pipelines.Distribution;
-using Olve.Pipelines.Health;
-using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
-using Olve.Pipelines.Kubernetes.Api;
-using Olve.Pipelines.Pipelines;
-using Olve.Pipelines.Pipelines.Configs;
-using Olve.Pipelines.Pipelines.Manifests;
-using Olve.Pipelines.Pipelines.Runs;
-using Olve.Pipelines.Pipelines.Sync;
-using Olve.Pipelines.Pipelines.Triggers;
-using Olve.Pipelines.Pipelines.Versions;
-using Olve.Pipelines.Streaming;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -64,23 +52,8 @@ app.UseDefaultFiles();
 var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
 contentTypeProvider.Mappings[".md"] = "text/markdown; charset=utf-8";
 app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypeProvider });
-app.MapJson();
 app.MapAuthentication();
-app.MapHealthEndpoints();
-app.MapFrontendConfigEndpoints();
-app.MapCliDownloadEndpoints();
-app.MapPipelineEndpoints();
-app.MapSecretEndpoints();
-app.MapConfigEndpoints();
-app.MapAttemptEndpoints();
-app.MapRunEndpoints();
-app.MapPipelineStepEndpoints();
-app.MapManifestEndpoints();
-app.MapPipelineVersionEndpoints();
-app.MapPipelineBindingEndpoints();
-app.MapWebhookTriggerEndpoints();
-app.MapEventStreamEndpoints();
-app.MapFallbackToFile("index.html").AllowAnonymous();
+app.MapEndpoints();
 
 app.Run();
 

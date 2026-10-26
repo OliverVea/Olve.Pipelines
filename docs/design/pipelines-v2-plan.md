@@ -659,10 +659,9 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   mutations bypass the generated types. Wanted by the user for readability; do it in a quiet period,
   not alongside other work. Decide whether ARM's `typespec-arm-csharp` emitter fits (it assumes
   ARM's error envelope; this API answers `ApiProblem`).
-- **Gating steps**: library steps that decide whether a run goes on, beyond the stage barrier on a
-  test step: manual approval (the run waits for an approve/reject in the UI or `pl`, with who and
-  when recorded), visual regression (baseline diff, approve to accept), external checks. Replaces
-  "keep `deploy-prod` blocked" as the way to approve a prod deploy.
+- **External inputs** (was "gating steps"): a step input that comes from outside the run (a person,
+  a callback, a polled URL, a time, another pipeline), so approvals, review tools and external checks
+  are one mechanism. Design: [external-inputs.md](external-inputs.md).
 
 - **Manifest preview** (frontend): a `/preview` route that takes a manifest JSON (paste, file drop or
   `?manifest=<url>`, e.g. from `pl dev describe --json`) and renders the pipeline overview from it

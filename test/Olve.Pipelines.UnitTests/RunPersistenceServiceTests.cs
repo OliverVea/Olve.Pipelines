@@ -254,6 +254,26 @@ public class RunPersistenceServiceTests
     }
 
     [Test]
+    public async Task ChangesMadeDuringStartup_BeforeStarted_AreSaved()
+    {
+        var store = new FakeObjectStore();
+        var a = CreateNode(store);
+        await a.Service.StartingAsync(CancellationToken.None);
+        // What an IRunOnStartup does between StartingAsync and StartedAsync (e.g. draining a queued start).
+        var pipeline = a.Domain.CreatePipeline();
+        a.Domain.BlockedSteps.Set(pipeline.Id, new PipelineBlockedSteps(["deploy-prod"]));
+        await a.Service.StartedAsync(CancellationToken.None);
+        await a.Service.StoppingAsync(CancellationToken.None);
+        a.Service.Dispose();
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(b.Domain.BlockedSteps.TryGet(pipeline.Id, out var blocked)).IsTrue();
+        await Assert.That(blocked!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
+    }
+
+    [Test]
     public async Task Restart_RestoresBlockedStepsAndQueuedRunStart()
     {
         var store = new FakeObjectStore();

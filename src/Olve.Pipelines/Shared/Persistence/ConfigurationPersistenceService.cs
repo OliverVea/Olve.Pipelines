@@ -23,6 +23,15 @@ public class ConfigurationPersistenceService(
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
+        // Subscribed before anything else starts, so startup work (IRunOnStartup) is saved; handlers ignore events until loaded.
+        pipelines.OnAdded.Subscribe(_ => RequestSave());
+        pipelines.OnUpdated.Subscribe(_ => RequestSave());
+        pipelines.OnDeleted.Subscribe(_ => RequestSave());
+
+        bindings.OnAdded.Subscribe(_ => RequestSave());
+        bindings.OnUpdated.Subscribe(_ => RequestSave());
+        bindings.OnDeleted.Subscribe(_ => RequestSave());
+
         readiness.Register(ReadinessKey);
 
         if (storageOptions.Mode == StorageMode.Ephemeral)
@@ -106,14 +115,6 @@ public class ConfigurationPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        pipelines.OnAdded.Subscribe(_ => RequestSave());
-        pipelines.OnUpdated.Subscribe(_ => RequestSave());
-        pipelines.OnDeleted.Subscribe(_ => RequestSave());
-
-        bindings.OnAdded.Subscribe(_ => RequestSave());
-        bindings.OnUpdated.Subscribe(_ => RequestSave());
-        bindings.OnDeleted.Subscribe(_ => RequestSave());
-
         _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         return Task.CompletedTask;

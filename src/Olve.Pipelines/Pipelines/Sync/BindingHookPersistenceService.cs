@@ -42,6 +42,10 @@ public class BindingHookPersistenceService(
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
+        // Subscribed before anything else starts, so startup work (IRunOnStartup) is saved; handlers ignore events until loaded.
+        hooks.OnSet.Subscribe(_ => RequestSave());
+        hooks.OnRemoved.Subscribe(_ => RequestSave());
+
         readiness.Register(ReadinessKey);
 
         if (storageOptions.Mode == StorageMode.Ephemeral)
@@ -117,9 +121,6 @@ public class BindingHookPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        hooks.OnSet.Subscribe(_ => RequestSave());
-        hooks.OnRemoved.Subscribe(_ => RequestSave());
-
         _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         return Task.CompletedTask;

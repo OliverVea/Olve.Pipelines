@@ -88,6 +88,37 @@ public class RunPersistenceService(
 
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
+        // Subscribed before anything else starts, so startup work (IRunOnStartup) is saved; handlers ignore events until loaded.
+        versions.OnAdded.Subscribe(e => OnVersionChanged(e.Id));
+        versions.OnUpdated.Subscribe(e => OnVersionChanged(e.Id));
+        versions.OnDeleted.Subscribe(e => OnVersionDeleted(e.Entity));
+
+        activations.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        activations.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        sequences.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        sequences.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        blocked.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        blocked.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingStarts.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingStarts.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        entityVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        entityVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        pollTriggers.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        pollTriggers.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        pendingVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+
+        configs.OnAdded.Subscribe(e => OnConfigAdded(e.Id));
+        configs.OnDeleted.Subscribe(e => OnConfigDeleted(e.Entity));
+
+        runs.OnAdded.Subscribe(e => OnRunChanged(e.Id));
+        runs.OnUpdated.Subscribe(e => OnRunChanged(e.Id));
+        runs.OnDeleted.Subscribe(e => OnRunDeleted(e.Entity));
+
+        attempts.OnAdded.Subscribe(e => OnRunChanged(e.Entity.RunId));
+        attempts.OnUpdated.Subscribe(e => OnRunChanged(e.After.RunId));
+        attempts.OnDeleted.Subscribe(e => OnRunChanged(e.Entity.RunId));
+
         readiness.Register(ReadinessKey);
 
         if (storageOptions.Mode == StorageMode.Ephemeral)
@@ -125,36 +156,6 @@ public class RunPersistenceService(
 
     public Task StartedAsync(CancellationToken cancellationToken)
     {
-        versions.OnAdded.Subscribe(e => OnVersionChanged(e.Id));
-        versions.OnUpdated.Subscribe(e => OnVersionChanged(e.Id));
-        versions.OnDeleted.Subscribe(e => OnVersionDeleted(e.Entity));
-
-        activations.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        activations.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        sequences.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        sequences.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        blocked.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        blocked.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        pendingStarts.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        pendingStarts.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        entityVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        entityVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        pollTriggers.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        pollTriggers.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-        pendingVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
-        pendingVersions.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
-
-        configs.OnAdded.Subscribe(e => OnConfigAdded(e.Id));
-        configs.OnDeleted.Subscribe(e => OnConfigDeleted(e.Entity));
-
-        runs.OnAdded.Subscribe(e => OnRunChanged(e.Id));
-        runs.OnUpdated.Subscribe(e => OnRunChanged(e.Id));
-        runs.OnDeleted.Subscribe(e => OnRunDeleted(e.Entity));
-
-        attempts.OnAdded.Subscribe(e => OnRunChanged(e.Entity.RunId));
-        attempts.OnUpdated.Subscribe(e => OnRunChanged(e.After.RunId));
-        attempts.OnDeleted.Subscribe(e => OnRunChanged(e.Entity.RunId));
-
         _timer = new Timer(OnTimerTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
         return Task.CompletedTask;

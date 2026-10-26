@@ -13,6 +13,7 @@ namespace Olve.Pipelines.Kubernetes;
 /// authenticated as any other secret mutation and audit-logged, nothing more.
 /// </remarks>
 public class PipelineSecretCopyService(
+    PipelineSecretEvents secretEvents,
     PipelineService pipelines,
     IKubernetesClient kubernetes,
     KubernetesOptions options,
@@ -52,6 +53,7 @@ public class PipelineSecretCopyService(
             actor, string.Join(", ", plan.Select(p => p.From)), source.Name, source.Id, string.Join(", ", copied),
             target.Name, target.Id, request.Overwrite);
 
+        secretEvents.OnChanged.Invoke(targetId);
         return new CopySecretsResponse(copied);
     }
 

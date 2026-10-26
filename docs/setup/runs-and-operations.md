@@ -158,7 +158,8 @@ version.
 ## Live events
 
 `GET /api/events[?pipeline=<id>]` is a server-sent event stream (needs a session, like other reads) of
-small change notices: `run`, `attempt`, `version`, `blocked`, `binding`, `pipeline`, each with the
+small change notices: `run`, `attempt`, `version`, `blocked`, `binding`, `pipeline`, `config`,
+`pending`, `queued`, `secrets`, `poll`, each with the
 pipeline id and just enough to know what to reload (shapes: [API Reference, "Live events"](api-reference.md#live-events)).
 A UI or script re-fetches on each notice instead of polling:
 

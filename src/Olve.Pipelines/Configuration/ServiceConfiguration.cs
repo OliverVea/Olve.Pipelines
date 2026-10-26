@@ -41,6 +41,7 @@ public static class ServiceConfiguration
             return new WebhookOptions(config["Webhooks:PublicBaseUrl"]);
         });
         services.AddSingleton<IPipelineSecretReader, KubernetesPipelineSecretReader>();
+        services.AddSingleton<PipelineSecretEvents>();
         services.AddTransient<PipelineSecretCopyService>();
         services.AddTransient<PipelineSecretService>();
         services.AddTransient<IPipelineSecretNames>(sp => sp.GetRequiredService<PipelineSecretService>());

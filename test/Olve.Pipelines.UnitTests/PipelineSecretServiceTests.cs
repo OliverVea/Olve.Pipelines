@@ -32,7 +32,7 @@ public class PipelineSecretServiceTests
         else
             services.AddSingleton<IKubernetesClient>(_ => throw new InvalidOperationException("Kubernetes is not configured."));
 
-        var service = new PipelineSecretService(s.D.PipelineService, bindings, s.D.ActivationService, s.D.Plans, s.D.ConfigSnapshots,
+        var service = new PipelineSecretService(new PipelineSecretEvents(), s.D.PipelineService, bindings, s.D.ActivationService, s.D.Plans, s.D.ConfigSnapshots,
             services.BuildServiceProvider(), NullLogger<PipelineSecretService>.Instance);
         return new Fixture(s, k8s, service);
     }

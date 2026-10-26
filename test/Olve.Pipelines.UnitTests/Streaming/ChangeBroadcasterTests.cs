@@ -6,7 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Streaming;
@@ -189,5 +192,44 @@ public class ChangeBroadcasterTests
         var attempt = items.First(i => i.EventType == "attempt").Data;
         await Assert.That(attempt).Contains("\"step\":\"build\"");
         await Assert.That(attempt).Contains($"\"pipelineId\":\"{pipeline.Id.Value.Value}\"");
+    }
+
+    [Test]
+    public async Task ConfigPendingQueuedPollSecretsAndVersionDeletes_ReachSubscribers()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddPipelineServices();
+        await using var provider = services.BuildServiceProvider();
+        foreach (var startup in provider.GetServices<IRunOnStartup>())
+            if (startup.Run().TryPickProblems(out var problems)) throw new InvalidOperationException(problems.First().ToString());
+
+        var pipeline = TestRunDomain.Pick(provider.GetRequiredService<PipelineService>().Create("p"));
+        var version = TestRunDomain.Pick(provider.GetRequiredService<PipelineVersionService>().Add(
+            pipeline.Id, """{"apiVersion":"2.0"}""", "sha256:a", "c0ffee",
+            new Dictionary<string, int> { ["build"] = 1 }, new Dictionary<string, int>()));
+        using var subscription = provider.GetRequiredService<ChangeBroadcaster>().Subscribe(null, null);
+
+        TestRunDomain.Pick(provider.GetRequiredService<ConfigSnapshotService>().Add(pipeline.Id, "a: 1\n", "test"));
+        var pending = provider.GetRequiredService<AttachmentStore<Pipeline, PendingVersion>>();
+        pending.Set(pipeline.Id, new PendingVersion(version.Id, version.Number, DateTimeOffset.UtcNow, ["secret X not set"], []));
+        pending.Remove(pipeline.Id);
+        var queued = provider.GetRequiredService<AttachmentStore<Pipeline, PendingRunStart>>();
+        queued.Set(pipeline.Id, new PendingRunStart("{}", new RunTrigger(RunTriggerKind.Manual), DateTimeOffset.UtcNow));
+        provider.GetRequiredService<AttachmentStore<Pipeline, PollTriggerStates>>().Set(pipeline.Id,
+            new PollTriggerStates(new Dictionary<string, PollTriggerState> { ["poll"] = new("https://x", "v1", DateTimeOffset.UtcNow) }));
+        provider.GetRequiredService<PipelineSecretEvents>().OnChanged.Invoke(pipeline.Id);
+        await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id).Succeeded).IsTrue();
+
+        var items = Drain(subscription).Select(i => $"{i.EventType} {i.Data}").ToList();
+        await Assert.That(items).Contains(i => i.StartsWith("config ") && i.Contains("\"snapshot\":1"));
+        await Assert.That(items).Contains(i => i.StartsWith("pending ") && i.Contains($"\"version\":{version.Number}"));
+        await Assert.That(items).Contains(i => i.StartsWith("pending ") && i.Contains("\"version\":null"));
+        await Assert.That(items).Contains(i => i.StartsWith("queued ") && i.Contains("\"queued\":true"));
+        await Assert.That(items).Contains(i => i.StartsWith("poll "));
+        await Assert.That(items).Contains(i => i.StartsWith("secrets "));
+        await Assert.That(items).Contains(i => i.StartsWith("version ") && i.Contains("\"change\":\"deleted\""));
     }
 }

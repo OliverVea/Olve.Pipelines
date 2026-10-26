@@ -73,7 +73,7 @@ public class PipelineSecretCopyServiceTests
         var k8s = new FakeSecrets();
         k8s.Secrets[PipelineSecrets.Name(source!.Id)] = new() { ["GITHUB_TOKEN"] = "gh-value-1", ["REGISTRY"] = "reg-value-2" };
         var log = new CapturingLogger();
-        var service = new PipelineSecretCopyService(pipelines, k8s,
+        var service = new PipelineSecretCopyService(new PipelineSecretEvents(), pipelines, k8s,
             new KubernetesOptions(Ns), log);
         return new Fixture(service, k8s, log, source, target!);
     }

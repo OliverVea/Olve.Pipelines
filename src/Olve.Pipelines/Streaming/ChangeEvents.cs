@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
@@ -41,6 +42,25 @@ public sealed record ChangeEvent(string Type, Id<Pipeline> PipelineId, string Da
             new BindingChanged(binding.PipelineId, deleted ? "removed" : binding.Status.InProgress ? "reconciling" : binding.Status.Result.ToString()),
             StreamingJsonContext.Default.BindingChanged);
 
+    public static ChangeEvent VersionDeleted(PipelineVersion version)
+        => Of("version", version.PipelineId, new VersionChanged(version.PipelineId, version.Number, "deleted"),
+            StreamingJsonContext.Default.VersionChanged);
+
+    public static ChangeEvent Config(ConfigSnapshot snapshot)
+        => Of("config", snapshot.PipelineId, new ConfigChanged(snapshot.PipelineId, snapshot.Number), StreamingJsonContext.Default.ConfigChanged);
+
+    public static ChangeEvent Pending(Id<Pipeline> pipelineId, PendingVersion? pending)
+        => Of("pending", pipelineId, new PendingChanged(pipelineId, pending?.VersionNumber), StreamingJsonContext.Default.PendingChanged);
+
+    public static ChangeEvent Queued(Id<Pipeline> pipelineId, bool queued)
+        => Of("queued", pipelineId, new QueuedChanged(pipelineId, queued), StreamingJsonContext.Default.QueuedChanged);
+
+    public static ChangeEvent Secrets(Id<Pipeline> pipelineId)
+        => Of("secrets", pipelineId, new SecretsChanged(pipelineId), StreamingJsonContext.Default.SecretsChanged);
+
+    public static ChangeEvent Poll(Id<Pipeline> pipelineId)
+        => Of("poll", pipelineId, new PollChanged(pipelineId), StreamingJsonContext.Default.PollChanged);
+
     public static ChangeEvent Pipeline(Id<Pipeline> pipelineId, string change)
         => Of("pipeline", pipelineId, new PipelineChanged(pipelineId, change), StreamingJsonContext.Default.PipelineChanged);
 
@@ -54,7 +74,7 @@ public record RunChanged(Id<Pipeline> PipelineId, int Run, string Status);
 /// <param name="Status">scheduled / in-progress / succeeded / failed / skipped / cancelled / obsolete.</param>
 public record AttemptChanged(Id<Pipeline> PipelineId, int Run, string Step, int Attempt, string Status);
 
-/// <param name="Change">added (a new version), active (switched to / switch done) or draining (a switch to <paramref name="Version"/> started).</param>
+/// <param name="Change">added (a new version), active (switched to / switch done), draining (a switch to <paramref name="Version"/> started) or deleted.</param>
 public record VersionChanged(Id<Pipeline> PipelineId, int? Version, string Change);
 
 public record BlockedStepsChanged(Id<Pipeline> PipelineId, IReadOnlyList<string> BlockedSteps);
@@ -64,6 +84,20 @@ public record BindingChanged(Id<Pipeline> PipelineId, string State);
 
 /// <param name="Change">added, updated or removed.</param>
 public record PipelineChanged(Id<Pipeline> PipelineId, string Change);
+
+/// <param name="Snapshot">The new config snapshot's number.</param>
+public record ConfigChanged(Id<Pipeline> PipelineId, int Snapshot);
+
+/// <param name="Version">The version waiting for valid config, or null when none waits any more.</param>
+public record PendingChanged(Id<Pipeline> PipelineId, int? Version);
+
+/// <param name="Queued">Whether run starts are queued (during a switch with --cancel-running).</param>
+public record QueuedChanged(Id<Pipeline> PipelineId, bool Queued);
+
+public record SecretsChanged(Id<Pipeline> PipelineId);
+
+/// <summary>A poll trigger saw a new value.</summary>
+public record PollChanged(Id<Pipeline> PipelineId);
 
 /// <summary>A chunk of a live log stream; <paramref name="Reset"/> replaces everything shown so far.</summary>
 public record LogChunk(string Text, bool Reset = false);

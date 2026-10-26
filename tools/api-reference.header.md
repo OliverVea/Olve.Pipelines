@@ -32,10 +32,15 @@ client re-fetches the view it affects.
 |-------|------|------------|
 | `run` | `{pipelineId, run, status}` | A run is created, changes (status, held, resumed) or is deleted (`status: "Deleted"`) |
 | `attempt` | `{pipelineId, run, step, attempt, status}` | An attempt is created or changes status |
-| `version` | `{pipelineId, version, change}` | `added` (new version), `active` (switched, or a switch finished), `draining` (a switch to `version` started) |
+| `version` | `{pipelineId, version, change}` | `added` (new version), `active` (switched, or a switch finished), `draining` (a switch to `version` started), `deleted` |
 | `blocked` | `{pipelineId, blockedSteps}` | A step is blocked or unblocked (the full blocked list) |
 | `binding` | `{pipelineId, state}` | The binding changes: `reconciling`, then `Success` or `Error`; also `removed` |
 | `pipeline` | `{pipelineId, change}` | `added`, `updated`, `removed` |
+| `config` | `{pipelineId, snapshot}` | A config snapshot is saved (`pl config set`, rollback) |
+| `pending` | `{pipelineId, version}` | A version starts waiting for valid config (`version`), or none waits any more (`null`) |
+| `queued` | `{pipelineId, queued}` | Run starts are queued during a switch with `--cancel-running`, or the queue empties |
+| `secrets` | `{pipelineId}` | A pipeline secret is set, deleted or copied in (names only, never values) |
+| `poll` | `{pipelineId}` | A poll trigger saw a new value |
 | `hello` | `{lastEventId}` | First event of every connection; carries `retry: 5000` |
 | `resync` | `{reason}` | The client reconnected with a stale `Last-Event-ID` (or across a restart): refetch everything |
 | `ping` | (empty) | Keep-alive every 15 s while idle |

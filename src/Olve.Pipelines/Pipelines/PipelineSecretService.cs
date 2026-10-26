@@ -33,7 +33,14 @@ public record PipelineSecretInfo(string Name, string? Description, string[] Decl
 /// lazily: when K8s is unconfigured its factory throws, which becomes "unknown" (list) or a problem.
 /// Values are never returned or logged. Transient.
 /// </summary>
+/// <summary>Pipeline secrets live in Kubernetes, not a store: the services that write them raise this.</summary>
+public class PipelineSecretEvents
+{
+    public Event<Id<Pipeline>> OnChanged { get; } = new();
+}
+
 public class PipelineSecretService(
+    PipelineSecretEvents secretEvents,
     PipelineService pipelines,
     PipelineConfigBindingService bindings,
     PipelineActivationService activations,
@@ -106,6 +113,7 @@ public class PipelineSecretService(
             await client.UpdateSecretAsync(ns, secretName, existing, ct);
         }
 
+        secretEvents.OnChanged.Invoke(pipelineId);
         return Result.Success();
     }
 
@@ -125,6 +133,7 @@ public class PipelineSecretService(
                 await client.DeleteSecretAsync(ns, secretName, ct);
             else
                 await client.UpdateSecretAsync(ns, secretName, existing, ct);
+            secretEvents.OnChanged.Invoke(pipelineId);
         }
 
         return Result.Success();

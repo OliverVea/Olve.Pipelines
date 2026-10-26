@@ -25,3 +25,7 @@ garage:
   enabled: true
   bucket: olve-pipelines-v2-beta
   dataStorage: 20Gi
+
+dex:
+  enabled: true
+  issuer: https://pipelines-beta.ovea.pro/dex

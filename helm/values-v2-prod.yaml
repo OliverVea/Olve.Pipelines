@@ -24,3 +24,7 @@ garage:
 # No sloth CRD on the cluster.
 slo:
   enabled: false
+
+dex:
+  enabled: true
+  issuer: https://pipelines-private.ovea.pro/dex

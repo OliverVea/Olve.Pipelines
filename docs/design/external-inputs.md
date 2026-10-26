@@ -5,8 +5,7 @@ Status: design, 2026-10-26. Not built. Replaces the "gating steps" candidate in 
 ## 1. Why
 
 Some steps can only run once something outside the pipeline has answered: a person approves a
-deploy, a review tool accepts screenshots, a smoke check elsewhere reports back, a maintenance window
-opens, another pipeline finishes. Today the only way to hold a run is to block a step, which is an
+deploy, a review tool accepts screenshots, a smoke check elsewhere reports back. Today the only way to hold a run is to block a step, which is an
 operator hold, not an answer, and carries no value.
 
 Olve.Pipelines owns the waiting, not the domain. It doesn't know what a screenshot baseline is: a
@@ -68,8 +67,9 @@ An external input lists one or more sources; the first value that arrives wins.
 | `person()` | A signed-in user (allow-list) in the UI or `pl input <addr> --field …` | Approvals, choices, forms |
 | `callback({ secret? })` | Another system: `POST /api/inputs/{token}` with the value as JSON. The token is a one-time URL handed to earlier steps (see below); `secret` adds an HMAC check like webhook triggers | Review tools (visual regression), CI elsewhere, chat bots |
 | `poll({ url, valuePath, headers?, intervalSeconds })` | The service polls a URL until the value at `valuePath` validates against the model | External checks that expose a status endpoint |
-| `at(time)` | The clock: a time from a mapping (`from.input.window`) or a recurrence (`weekday 09:00 Europe/Copenhagen`) | Maintenance and release windows |
-| `run({ pipeline, step })` | Another pipeline's step succeeding (its output is the value) | Cross-pipeline ordering: deploy B after A's migration |
+
+Ideas, not planned until a pipeline needs them: `at(time)` (maintenance windows) and waiting for
+another pipeline (more likely a trigger, `onRun`, than an input).
 
 **Telling the outside world.** A step that runs earlier can include the wait's callback URL and a
 link to it in what it sends out: `ctx.inputUrl("vr-verdict")` gives the URL for that external input
@@ -148,10 +148,8 @@ Each step ships on its own.
    events, `steps.approval`. Server first; the SDK (with a version bump) after the server is on prod.
 2. **`callback()`** with one-time URLs and `ctx.inputUrl`.
 3. **`poll()`**, reusing the poll-trigger machinery.
-4. **`at()`** and **`run()`**.
 
 ## 8. Open questions
 
 - Should a person's answer be restricted to certain users per input (`person({ users })`), or is the
   instance allow-list enough for now?
-- Is `run()` worth it, or do cross-pipeline dependencies belong to triggers (`onRun`)?

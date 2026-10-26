@@ -5,6 +5,9 @@ config:
   # Host step pods dial for pre-signed URLs (signed into SigV4).
   Storage__InClusterEndpoint: "http://olve-pipelines-v2-garage.apps.svc.cluster.local:3900"
   Storage__Bucket: "olve-pipelines-v2"
+  Kubernetes__Namespace: "olve-runners"
+  # Step pods under gVisor (the RuntimeClass is the Olve.Homelab chart's).
+  Kubernetes__RuntimeClassName: "gvisor"
   # Public webhook host (Cloudflare tunnel, routes only /api/webhooks/binding and /api/hooks).
   Webhooks__PublicBaseUrl: "https://pipelines-hooks.ovea.pro"
   Links__BaseUrl: "https://pipelines-private.ovea.pro"
@@ -19,12 +22,11 @@ config:
 garage:
   enabled: true
   bucket: olve-pipelines-v2
+  metaStorageClass: local-path
   dataStorage: 100Gi
-
-# No sloth CRD on the cluster.
-slo:
-  enabled: false
+  dataStorageClass: bulk
 
 dex:
   enabled: true
   issuer: https://pipelines-private.ovea.pro/dex
+  storageClass: local-path

@@ -1,34 +1,12 @@
+# Beta's cluster specifics, layered under values-v2-beta.yaml.
 config:
-  # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
-  # runner Jobs in olve-runners-beta, with the static credentials below.
-  Storage__Endpoint: "http://olve-pipelines-garage.apps-beta:3900"
-  Storage__Bucket: "olve-pipelines-beta"
   Kubernetes__Namespace: "olve-runners-beta"
-  # Run step/failure-handler pods under gVisor (RuntimeClass on the node). Clear to fall
-  # back to plain runc.
+  # Step pods under gVisor (the RuntimeClass is the Olve.Homelab chart's).
   Kubernetes__RuntimeClassName: "gvisor"
-  # GitHub webhook auto-registration target (beta-first rollout). Must match ingress.public.host.
-  Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
-
-secrets:
-  # Static Garage creds (root = app creds for now; the Secret name predates Garage). Created out-of-band; see
-  # docs/operations/environment-setup.md.
-  - name: olve-pipelines-minio
-    envMap:
-      Storage__AccessKey: root-user
-      Storage__SecretKey: root-password
 
 garage:
-  enabled: true
-  bucket: olve-pipelines-beta
+  metaStorageClass: local-path
+  dataStorageClass: bulk
 
-# Beta ingress (private pipelines-beta.ovea.pro + public pipelines-hooks-beta.ovea.pro) is
-# owned by the Olve.Homelab edge chart (its values-beta.yaml). Explicitly disabled here —
-# base values.yaml already defaults both off, but this overlay must not re-enable public —
-# so the app's beta Helm release and the edge release don't fight over the objects.
-# Webhooks__PublicBaseUrl above stays: it only configures GitHub webhook auto-registration,
-# independent of who owns the ingress.
-ingress:
-  enabled: false
-  public:
-    enabled: false
+dex:
+  storageClass: local-path

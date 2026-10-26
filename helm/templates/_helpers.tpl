@@ -1,9 +1,21 @@
 {{/*
 The server's settings: .Values.config, with .Values.auth and .Values.telemetry (when set) mapped onto the
-Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.config.
+Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.config. Unset, the runner
+namespace is the release's and storage is the bundled Garage.
 */}}
 {{- define "olve-pipelines.config" -}}
 {{- $c := deepCopy .Values.config -}}
+{{- if not (hasKey $c "Kubernetes__Namespace") -}}
+{{- $_ := set $c "Kubernetes__Namespace" .Release.Namespace -}}
+{{- end -}}
+{{- if .Values.garage.enabled -}}
+{{- if not (hasKey $c "Storage__Endpoint") -}}
+{{- $_ := set $c "Storage__Endpoint" (printf "http://%s-garage.%s.svc.cluster.local:3900" .Release.Name .Release.Namespace) -}}
+{{- end -}}
+{{- if not (hasKey $c "Storage__Bucket") -}}
+{{- $_ := set $c "Storage__Bucket" .Values.garage.bucket -}}
+{{- end -}}
+{{- end -}}
 {{- with .Values.auth -}}
 {{- $mode := .mode | default "" -}}
 {{- if eq $mode "none" -}}

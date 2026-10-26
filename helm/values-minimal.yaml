@@ -1,41 +1,5 @@
-# Minimal Tier-A profile used by `pl bootstrap`. The controller + its own deps only, with
-# zero personal-infra coupling: no Ingress, auth disabled, in-cluster ServiceAccount auth
-# (no OpenBao/Authentik), no OTel. Layered over the chart's values.yaml (deep merge), so
-# this only overrides what differs.
-#
-# pl bootstrap adds the namespace-derived values on top via --set:
-#   config.Storage__Endpoint, config.Storage__Bucket, config.Kubernetes__Namespace,
-#   garage.bucket, image.tag  (and slo.enabled=false if the sloth CRD is absent).
-
-ingress:
-  enabled: false
-
-# Controller uses its own ServiceAccount token for cluster access.
-serviceAccount:
-  enabled: true
-
-# Private Garage store on the cluster's default StorageClass (values.yaml's local-path /
-# bulk split is homelab-specific).
-garage:
-  enabled: true
-  metaStorageClass: ""
-  dataStorageClass: ""
-  dataStorage: 20Gi
-
-# Sloth PrometheusServiceLevel CRD is not assumed present on a bare cluster.
-slo:
-  enabled: false
-
-# Lists are replaced (not merged) by -f: only the static storage creds Secret remains —
-# none of the homelab OIDC/Authentik secrets the bare cluster doesn't have.
-secrets:
-  - name: olve-pipelines-minio
-    envMap:
-      Storage__AccessKey: root-user
-      Storage__SecretKey: root-password
-
-# config is a map (deep-merged from values.yaml). Auth off + InCluster auth; the prod-only
-# keys are blanked — the deployment template skips empty-valued env, so "" removes them.
+# The profile `pl bootstrap` installs: the controller, its Garage, auth off. Layered over values.yaml;
+# pl bootstrap adds the namespace-derived values (config.Storage__Endpoint, config.Storage__Bucket,
+# config.Kubernetes__Namespace, garage.bucket, image.tag) with --set.
 config:
   Auth__Disable: "true"
-  Kubernetes__AuthMode: "InCluster"

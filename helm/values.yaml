@@ -39,41 +39,29 @@ service:
 container:
   port: 5000
 
-# Ingress (private + public) is OWNED BY THE Olve.Homelab EDGE CHART, not this chart —
-# both the prod and beta homelab deploys route to this Service from there (its
-# values-{prod,beta}.yaml). Both flags default off so this app's own Helm release never
-# renders an Ingress and the two releases can't fight over the same object. The templates
-# (ingress-{private,public}.yaml) and all the fields below are kept so a standalone
-# install that is NOT behind the edge chart can opt back in with ingress.enabled=true /
-# ingress.public.enabled=true. (pl bootstrap's minimal profile keeps both off.)
+# Optional Ingresses for the instance (off: route to the Service however your cluster does).
+# The private one serves the UI, API and /dex; the public one only the webhook receivers.
 ingress:
   enabled: false
-  host: pipelines-private.ovea.pro
-  externalDnsTarget: "100.100.117.17"
-  clusterIssuer: letsencrypt-prod
+  host: ""
+  externalDnsTarget: ""
+  clusterIssuer: ""
   tls:
     enabled: true
     secretName: ""
   annotations: {}
-  # Internet-facing ingress exposing ONLY /api/webhooks/binding (the inbound GitHub push webhook). Disabled by default: the private ingress above targets a Tailscale IP that
-  # GitHub cannot reach. When enabled, also set config.Webhooks__PublicBaseUrl below so
-  # auto-registered hooks point at this host. Must be fronted by a real public entrypoint
-  # (Cloudflare Tunnel or a public ingress controller).
+  # Internet-facing, only the webhook receivers. With it, set config.Webhooks__PublicBaseUrl so
+  # GitHub hooks are registered against this host.
   public:
     enabled: false
-    host: pipelines-hooks.ovea.pro
-    # Publish a Cloudflare-proxied CNAME to the tunnel (same as the questionbank prod
-    # ingress) so GitHub reaches the receiver via Cloudflare→tunnel→Traefik. An empty
-    # target makes ExternalDNS publish the Traefik LB's private IP, which GitHub can't
-    # reach (502). The tunnel UUID matches infra/cloudflared in the homelab repo.
-    externalDnsTarget: "44a106ce-fecc-4ff0-abed-ea64dfbb8703.cfargotunnel.com"
-    clusterIssuer: letsencrypt-prod
+    host: ""
+    externalDnsTarget: ""
+    clusterIssuer: ""
     ingressClassName: ""
     tls:
       enabled: true
       secretName: ""
-    annotations:
-      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    annotations: {}
 
 resources:
   requests:
@@ -86,19 +74,18 @@ resources:
     # job events until restart (#26).
     memory: 512Mi
 
-# Dedicated in-cluster Garage (S3-compatible). Runs
-# single-node; the access key + bucket are created at startup from the credentials Secret
-# (keys: root-user, root-password, rpc-secret). Metadata on SSD, object data on the bulk HDD.
-# See docs/superpowers/specs/2026-09-26-garage-storage-design.md.
+# The instance's own Garage (S3-compatible, single node); the access key and bucket are created at
+# startup from the credentials Secret (keys root-user, root-password, rpc-secret). Empty storage
+# classes = the cluster default.
 garage:
   enabled: true
   image: "dxflrs/garage:v2.4.1"
   credentialsSecret: olve-pipelines-minio
   bucket: olve-pipelines
   metaStorage: 5Gi
-  metaStorageClass: local-path
-  dataStorage: 500Gi
-  dataStorageClass: bulk
+  metaStorageClass: ""
+  dataStorage: 20Gi
+  dataStorageClass: ""
   resources:
     requests:
       cpu: 50m
@@ -117,7 +104,7 @@ dex:
   clientId: olve-pipelines
   githubSecret: olve-pipelines-dex
   storage: 1Gi
-  storageClass: local-path
+  storageClass: ""
   resources:
     requests:
       cpu: 10m
@@ -131,40 +118,26 @@ config:
   Port: "5000"
   Logging__LogLevel__Default: "Information"
   Logging__LogLevel__Microsoft.AspNetCore: "Warning"
-  # Emit structured JSON log lines to stdout via the framework's native console formatter (zero
-  # app code) so the node's OTel Collector can scrape them into queryable fields. Local dev omits
-  # this and falls back to the pretty 'simple' formatter. Beta inherits both keys from this base
-  # values file (its values-beta.yaml overlay only overrides env-specific config).
+  # JSON log lines on stdout, for a node log collector to parse.
   Logging__Console__FormatterName: "json"
   Logging__Console__Json__UseUtcTimestamp: "true"
-  # Dedicated in-cluster Garage (this instance's own), reached cross-namespace by the
-  # runner Jobs in olve-runners, with the static credentials below.
-  Storage__Endpoint: "http://olve-pipelines-garage.apps:3900"
-  Storage__Bucket: "olve-pipelines"
+  # Unset: Storage__Endpoint/Bucket are the bundled Garage's, Kubernetes__Namespace (where step Jobs
+  # run) is the release namespace. Kubernetes__RuntimeClassName runs step pods under e.g. gVisor;
+  # Webhooks__PublicBaseUrl (the public origin GitHub posts to) turns on webhook registration.
   # The controller's ServiceAccount reaches the cluster API.
   Kubernetes__AuthMode: "InCluster"
-  Kubernetes__Namespace: "olve-runners"
-  # Run step/failure-handler pods under gVisor (RuntimeClass owned by the Olve.Homelab
-  # chart; runsc installed on the node). Clear to fall back to plain runc.
-  Kubernetes__RuntimeClassName: "gvisor"
-  # Externally-reachable origin GitHub posts webhook deliveries to. Empty = GitHub webhook
-  # auto-registration disabled (the receiver still serves manually-created hooks). Set this
-  # together with ingress.public.enabled=true to enable auto-registration.
-  Webhooks__PublicBaseUrl: "https://pipelines-hooks.ovea.pro"
 
 secrets:
-  # Static Garage creds (root = app creds for now; the Secret name predates Garage). Created out-of-band; see
-  # docs/operations/environment-setup.md.
+  # The Garage credentials (the Secret's name predates Garage).
   - name: olve-pipelines-minio
     envMap:
       Storage__AccessKey: root-user
       Storage__SecretKey: root-password
 
+# A Sloth PrometheusServiceLevel (needs the Sloth CRD).
 slo:
-  enabled: true
-  labels:
-    owner: "oliver"
-    tier: "2"
+  enabled: false
+  labels: {}
   objectives:
     availability:
       target: 99.9

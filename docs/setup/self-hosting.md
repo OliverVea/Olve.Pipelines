@@ -24,8 +24,11 @@ pl bootstrap -n <namespace> --chart helm                 # --image-tag <release>
 To run your own build instead, `docker build -t <registry>/olve-pipelines:<tag> .`, push it, and
 pass `--image-repository <registry>/olve-pipelines --image-tag <tag>`.
 
-For anything beyond trying it, set the [server configuration](#server-configuration) below through
-the chart's `config.*` values: auth (`Auth:*`), storage, the runner namespace, an ingress. A local
+For anything beyond trying it, set `auth` (the chart refuses to render without it; `mode: dex` runs
+the [bundled Dex](#bundled-dex)) and whatever else differs through `config.*` (the
+[server configuration](#server-configuration) below). The chart's defaults assume nothing about the
+cluster: the bundled Garage on the default StorageClass, step Jobs in the release namespace, plain
+runc, no Ingress, no webhook registration (`config.Webhooks__PublicBaseUrl` turns it on). A local
 instance needs no cluster at all: [Docker Compose](#a-local-instance-with-docker-compose).
 
 ## Server configuration
@@ -51,7 +54,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Storage:InClusterEndpoint` | `Storage:Endpoint` | Garage endpoint as step pods reach it; pre-signed URLs are signed for this host (`Host` is in the SigV4 signature) |
 | `Storage:Region` | `us-east-1` | SigV4 region for pre-signed URLs (Garage's `s3_region`) |
 | `Storage:PresignExpirySeconds` | `3600` | Default pre-signed URL expiry (step URLs get the step deadline + grace) |
-| `Kubernetes:Namespace` | — | Runner namespace for step Jobs and pipeline Secrets |
+| `Kubernetes:Namespace` | — (the chart: the release namespace) | Runner namespace for step Jobs and pipeline Secrets |
 | `Kubernetes:AuthMode` | — | `InCluster`: the pod's ServiceAccount reaches the cluster API (the chart sets it and grants a Role in the runner namespace). Unset = no Kubernetes |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
 | `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token |

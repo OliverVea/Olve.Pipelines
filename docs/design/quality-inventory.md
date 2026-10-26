@@ -32,7 +32,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 | S5 | `Kubernetes/OpenBaoCredentialsProvider.cs:13`, `Configuration/KubernetesConfiguration.cs:68,80` | OpenBao K8s credentials are resolved once and cached for the life of the process, so rotating the token needs a pod restart. | Give the client a refreshing token provider, as in-cluster mode has. |
 | S6 | `Pipelines/Triggers/WebhookTriggerService.cs:65` | When a trigger's secret is unset, every unauthenticated request reads the whole pipeline Secret and answers 503. Only successful reads are cached. | Cache the miss for the recheck window. |
 
-| S7 | `Configuration/AuthAllowList.cs`, `LoginCommand.cs:21`, `frontend/src/auth.ts:62`, `helm/templates/dex-configmap.yaml` | `Auth:Allow:Orgs` likely never matches: neither `pl` nor the UI requests the `groups` scope, and the Dex GitHub connector has no `orgs`/`loadAllGroups`, so tokens carry no `groups` claim. | Request `groups` in both clients and configure the connector, or drop `Orgs` from the docs. |
+| S7 — **fixed** (fa72794) | `Configuration/AuthAllowList.cs`, `LoginCommand.cs:21`, `frontend/src/auth.ts:62`, `helm/templates/dex-configmap.yaml` | `Auth:Allow:Orgs` likely never matches: neither `pl` nor the UI requests the `groups` scope, and the Dex GitHub connector has no `orgs`/`loadAllGroups`, so tokens carry no `groups` claim. | Request `groups` in both clients and configure the connector, or drop `Orgs` from the docs. |
 
 ### Missing features and usability
 

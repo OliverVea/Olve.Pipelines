@@ -36,7 +36,7 @@ An instance is the server, its own storage (Garage) and a Kubernetes namespace i
 single-node k3s, and needs only Docker (with privileged containers):
 
 ```bash
-git clone https://github.com/OliverVea/Olve.Pipelines && cd Olve.Pipelines && git switch v2
+git clone https://github.com/OliverVea/Olve.Pipelines && cd Olve.Pipelines
 docker compose up -d --build      # first run: several minutes. UI and API at http://localhost:5080
 ```
 

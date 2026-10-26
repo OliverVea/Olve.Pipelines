@@ -29,7 +29,7 @@ public partial class PollTriggerService(
     ILogger<PollTriggerService> logger) : IPollSourceProvider
 {
     private const long MinIntervalSeconds = 30;
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private static readonly HttpClient Http = PollHttp.Create();
 
     [GeneratedRegex(@"\$SECRET:([A-Za-z_][A-Za-z0-9_]*)")]
     private static partial Regex SecretRefRegex();

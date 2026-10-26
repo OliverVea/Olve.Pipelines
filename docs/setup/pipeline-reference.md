@@ -401,6 +401,9 @@ export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "Read token for the commits A
 - `name` defaults to `"poll"` and must be unique per pipeline.
 - Header values may reference `$SECRET:NAME`; the name must be in the poll's own `secrets`
   (type-checked).
+- The URL must answer with JSON (at most 1 MB) from a public address: the service runs the GET
+  itself, so private, loopback, link-local and CGNAT addresses are refused, and redirects are not
+  followed (a 3xx is a failed poll).
 - The last value is persisted, so a change during a restart still triggers. A new trigger or a
   changed URL only records the first value.
 

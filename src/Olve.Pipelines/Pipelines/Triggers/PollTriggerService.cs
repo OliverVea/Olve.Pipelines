@@ -85,25 +85,44 @@ public partial class PollTriggerService(
 
     private async Task ObserveAndStartAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, string value, CancellationToken ct)
     {
-        switch (Observe(pipeline.Id, poll.Name, poll.Url, value))
+        var observation = await ObserveAndStartAsync(pipeline.Id, poll.Name, poll.Url, value, async () =>
+        {
+            var outcome = await services.GetRequiredService<TriggerMappingService>().MapAndStartAsync(
+                pipeline.Id, poll.Name, RunTriggerKind.Poll, new JsonObject { ["value"] = value }.ToJsonString(), ct);
+            return outcome.TryPickProblems(out var problems) ? Result.Failure(problems) : Result.Success();
+        });
+
+        switch (observation)
         {
             case PollObservation.Seeded:
                 logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') seeded at '{Value}'",
                     poll.Name, pipeline.Name, pipeline.Id, value);
-                return;
-            case PollObservation.Unchanged:
-                return;
+                break;
             case PollObservation.Changed changed:
                 logger.LogInformation("Poll trigger '{TriggerName}' of pipeline '{PipelineName}' ('{PipelineId}') changed '{Old}' -> '{New}'",
                     poll.Name, pipeline.Name, pipeline.Id, changed.Previous, value);
                 break;
+            case PollObservation.StartFailed failed:
+                logger.LogProblems(LogLevel.Warning, failed.Problems,
+                    "Poll trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run; retrying on the next poll",
+                    poll.Name, pipeline.Id);
+                break;
         }
+    }
 
-        var outcome = await services.GetRequiredService<TriggerMappingService>().MapAndStartAsync(
-            pipeline.Id, poll.Name, RunTriggerKind.Poll, new JsonObject { ["value"] = value }.ToJsonString(), ct);
-        if (outcome.TryPickProblems(out var startProblems))
-            logger.LogProblems(LogLevel.Warning, startProblems, "Poll trigger '{TriggerName}' of pipeline '{PipelineId}' did not start a run",
-                poll.Name, pipeline.Id);
+    /// <summary>
+    /// Seeds, or on a change runs <paramref name="start"/> and records the value only once it succeeded, so a
+    /// failed start (mapping Job, K8s, a restart) is retried on the next poll; de-dup makes a repeat harmless.
+    /// </summary>
+    internal async Task<PollObservation> ObserveAndStartAsync(Id<Pipeline> pipelineId, string triggerName, string url, string value, Func<Task<Result>> start)
+    {
+        var observation = Classify(pipelineId, triggerName, url, value);
+        if (observation is PollObservation.Changed && (await start()).TryPickProblems(out var problems))
+            return new PollObservation.StartFailed(problems);
+
+        if (observation is not PollObservation.Unchanged)
+            Record(pipelineId, triggerName, url, value);
+        return observation;
     }
 
     private bool IsUnchanged(Id<Pipeline> pipelineId, string triggerName, string url, string value) =>
@@ -118,22 +137,35 @@ public partial class PollTriggerService(
     /// </summary>
     internal PollObservation Observe(Id<Pipeline> pipelineId, string triggerName, string url, string value)
     {
+        var observation = Classify(pipelineId, triggerName, url, value);
+        if (observation is not PollObservation.Unchanged)
+            Record(pipelineId, triggerName, url, value);
+        return observation;
+    }
+
+    private PollObservation Classify(Id<Pipeline> pipelineId, string triggerName, string url, string value)
+    {
+        PollTriggerState? previous = null;
+        if (persisted.TryGet(pipelineId, out var states))
+            states.Triggers.TryGetValue(triggerName, out previous);
+
+        if (previous is null || previous.Url != url)
+            return new PollObservation.Seeded();
+        return previous.LastValue == value
+            ? new PollObservation.Unchanged()
+            : new PollObservation.Changed(previous.LastValue);
+    }
+
+    private void Record(Id<Pipeline> pipelineId, string triggerName, string url, string value)
+    {
         IReadOnlyDictionary<string, PollTriggerState> current = persisted.TryGet(pipelineId, out var states)
             ? states.Triggers
             : new Dictionary<string, PollTriggerState>();
-        current.TryGetValue(triggerName, out var previous);
-        if (previous is not null && previous.Url == url && previous.LastValue == value)
-            return new PollObservation.Unchanged();
-
         var next = new Dictionary<string, PollTriggerState>(current, StringComparer.Ordinal)
         {
             [triggerName] = new(url, value, timeProvider.GetUtcNow()),
         };
         persisted.Set(pipelineId, new PollTriggerStates(next));
-
-        return previous is null || previous.Url != url
-            ? new PollObservation.Seeded()
-            : new PollObservation.Changed(previous.LastValue);
     }
 
     /// <summary>Forgets the persisted values of triggers the pipeline's current version no longer declares.</summary>
@@ -242,4 +274,5 @@ internal abstract record PollObservation
     public sealed record Seeded : PollObservation;
     public sealed record Unchanged : PollObservation;
     public sealed record Changed(string Previous) : PollObservation;
+    public sealed record StartFailed(IEnumerable<ResultProblem> Problems) : PollObservation;
 }

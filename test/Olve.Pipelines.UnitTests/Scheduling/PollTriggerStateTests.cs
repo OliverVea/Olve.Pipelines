@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Scheduling;
 
@@ -52,6 +53,36 @@ public class PollTriggerStateTests
 
         await Assert.That(Service(d).Observe(p, "poll", Url, "aaa")).IsTypeOf<PollObservation.Unchanged>();
         await Assert.That(writes).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task FailedStart_KeepsTheChangePending_UntilAStartSucceeds()
+    {
+        var d = new TestRunDomain();
+        var p = d.CreatePipeline().Id;
+        var poll = Service(d);
+        poll.Observe(p, "poll", Url, "aaa");
+        var starts = 0;
+        Task<Result> Fail() { starts++; return Task.FromResult(Result.Failure(new ResultProblem("mapping Job failed"))); }
+        Task<Result> Succeed() { starts++; return Task.FromResult(Result.Success()); }
+
+        await Assert.That(await poll.ObserveAndStartAsync(p, "poll", Url, "bbb", Fail)).IsTypeOf<PollObservation.StartFailed>();
+        await Assert.That(await poll.ObserveAndStartAsync(p, "poll", Url, "bbb", Succeed)).IsEqualTo(new PollObservation.Changed("aaa"));
+        await Assert.That(await poll.ObserveAndStartAsync(p, "poll", Url, "bbb", Succeed)).IsTypeOf<PollObservation.Unchanged>();
+        await Assert.That(starts).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task Seeding_DoesNotStartARun()
+    {
+        var d = new TestRunDomain();
+        var p = d.CreatePipeline().Id;
+        var started = false;
+
+        var observation = await Service(d).ObserveAndStartAsync(p, "poll", Url, "aaa", () => { started = true; return Task.FromResult(Result.Success()); });
+
+        await Assert.That(observation).IsTypeOf<PollObservation.Seeded>();
+        await Assert.That(started).IsFalse();
     }
 
     [Test]

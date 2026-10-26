@@ -141,7 +141,7 @@ config:
   # runner Jobs in olve-runners, with the static credentials below.
   Storage__Endpoint: "http://olve-pipelines-garage.apps:3900"
   Storage__Bucket: "olve-pipelines"
-  # Explicit, so an older image (no in-cluster detection) still uses the ServiceAccount.
+  # The controller's ServiceAccount reaches the cluster API.
   Kubernetes__AuthMode: "InCluster"
   Kubernetes__Namespace: "olve-runners"
   # Run step/failure-handler pods under gVisor (RuntimeClass owned by the Olve.Homelab

@@ -52,7 +52,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Storage:Region` | `us-east-1` | SigV4 region for pre-signed URLs (Garage's `s3_region`) |
 | `Storage:PresignExpirySeconds` | `3600` | Default pre-signed URL expiry (step URLs get the step deadline + grace) |
 | `Kubernetes:Namespace` | — | Runner namespace for step Jobs and pipeline Secrets |
-| `Kubernetes:AuthMode` | `InCluster` inside a pod | The pod's ServiceAccount reaches the cluster API (the chart grants it a Role in the runner namespace). Outside a cluster, unset = no Kubernetes |
+| `Kubernetes:AuthMode` | — | `InCluster`: the pod's ServiceAccount reaches the cluster API (the chart sets it and grants a Role in the runner namespace). Unset = no Kubernetes |
 | `Kubernetes:RuntimeClassName` | — | RuntimeClass for step pods (`gvisor`); empty = runc |
 | `Kubernetes:StepServiceAccount` | — | ServiceAccount (in the runner namespace) whose token steps that declare `clusterAccess` get (`steps.helmDeploy` in-cluster); empty = no step pod gets a token |
 | `Harness:HarnessBaseImage` | `ghcr.io/olivervea/olve-pipelines-harness-base:src-…` (`HarnessImage.cs`) | Step-pod init image (pinned, never `latest`). The chart sets it from `harness.image`, which the deploy fills from the `publish-harness` step |

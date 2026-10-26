@@ -382,7 +382,7 @@ What step 5 built, and where it differs from §9 and §11.
   key } }`), not a `secretRef`: the server reads it from a Secret in its own namespace, and copying a
   pipeline secret into the target namespace is a separate feature. The chart maps it only when the
   values files don't already map `OpenTelemetry__OAuth2__ClientSecret` (prod's do).
-- `auth.allow` is schema-only; the server doesn't enforce it yet. No `header` telemetry auth: the
+- `auth.allow` is enforced since 2026-10-26 (`Auth:Allow:*`, a 403 for a valid token outside it; the chart refuses `dex` without one). No `header` telemetry auth: the
   server only has OAuth2.
 - Defaults: `target.*.namespace` defaults to `olve-pipelines` (prod) and `olve-pipelines-beta`
   (beta); `auth` is required (no insecure default); `telemetry` defaults to `none`; the image

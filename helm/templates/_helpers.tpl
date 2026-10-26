@@ -17,6 +17,19 @@ Auth__* and OpenTelemetry__* keys. An empty value drops the key, as in .Values.c
 {{- if hasPrefix "http://" .issuer -}}
 {{- $_ := set $c "Auth__RequireHttpsMetadata" "false" -}}
 {{- end -}}
+{{- $allow := .allow | default dict -}}
+{{- if not (or $allow.users $allow.orgs $allow.emails) -}}
+{{- fail "auth.mode dex needs auth.allow (users, orgs or emails): an upstream such as GitHub lets anyone sign in" -}}
+{{- end -}}
+{{- range $i, $v := ($allow.users | default list) -}}
+{{- $_ := set $c (printf "Auth__Allow__Users__%d" $i) $v -}}
+{{- end -}}
+{{- range $i, $v := ($allow.orgs | default list) -}}
+{{- $_ := set $c (printf "Auth__Allow__Orgs__%d" $i) $v -}}
+{{- end -}}
+{{- range $i, $v := ($allow.emails | default list) -}}
+{{- $_ := set $c (printf "Auth__Allow__Emails__%d" $i) $v -}}
+{{- end -}}
 {{- else if eq $mode "authentik" -}}
 {{- $_ := set $c "Auth__Disable" "" -}}
 {{- $_ := set $c "Auth__Authority" .authority -}}

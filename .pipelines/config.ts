@@ -19,7 +19,7 @@ const Auth = z.discriminatedUnion("mode", [
       users: z.array(z.string()).default([]).describe("GitHub logins, matched against Dex's preferred_username claim."),
       orgs: z.array(z.string()).default([]).describe("GitHub orgs or org:team, matched against the groups claim."),
       emails: z.array(z.string()).default([]),
-    }).prefault({}).describe("Who may sign in. Not enforced by the server yet."),
+    }).prefault({}).describe("Who may use the instance; dex mode needs at least one entry."),
   }),
   z.object({
     mode: z.literal("authentik"),

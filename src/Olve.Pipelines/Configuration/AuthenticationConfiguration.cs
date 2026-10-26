@@ -79,17 +79,21 @@ public static class AuthenticationConfiguration
                 }
             });
 
+        var allow = AuthAllowList.From(builder.Configuration);
+        var signedIn = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .RequireAssertion(ctx => allow.Allows(ctx.User))
+            .Build();
+
         builder.Services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(
-                new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
-                    .RequireAuthenticatedUser()
-                    .Build())
+            .SetDefaultPolicy(signedIn)
+            .SetFallbackPolicy(signedIn)
             .AddPolicy(ReadPolicy, p =>
             {
                 if (anonymousReads)
                     p.RequireAssertion(_ => true);
                 else
-                    p.RequireAuthenticatedUser();
+                    p.Combine(signedIn);
             });
     }
 

@@ -12,7 +12,8 @@ The HTTP API that `pl` and the web UI use. This page is generated from the OpenA
   `/api/health`, `/api/ready`, `/api/config/frontend`, the webhook receivers (verified with an HMAC
   signature or the trigger's secret), `/download`, the install scripts and `/docs`.
   `Auth__AnonymousReads=true` opens the `GET` endpoints too, except listing secrets and listing or
-  downloading step files.
+  downloading step files. With `Auth__Allow__*` set, a valid token of anyone outside the allow-list
+  gets 403.
 - **Addressing.** Pipelines by id (`{pipelineId}`), runs by number, steps by name:
   `/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/…`. Only cross-pipeline views are
   top-level (`/api/attempts`).

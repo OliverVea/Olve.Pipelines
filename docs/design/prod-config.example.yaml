@@ -43,7 +43,7 @@ auth:
   audience: olve-pipelines
   frontendAuthority: https://auth.ovea.pro/application/o/olve-pipelines-frontend/
   frontendAudience: olve-pipelines-frontend
-# After the switch to Dex (allow is not enforced by the server yet):
+# After the switch to Dex:
 # auth:
 #   mode: dex
 #   issuer: https://dex.ovea.pro          # placeholder: wherever Dex is deployed

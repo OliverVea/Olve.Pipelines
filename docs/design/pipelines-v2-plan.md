@@ -635,6 +635,21 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   names are release-scoped) and the pipeline stays "Olve.Pipelines v2" (`Distribution:CliPipeline`).
   Found on the way: olve-build's stderr can land inside the manifest sentinels in the pod log
   (Trains failed every reconcile); the server now drops `olve-build…` lines in the block.
+- **No homelab dependencies** (2026-10-26). Beta and prod sign users in with a **bundled Dex**
+  (chart component, under `/dex` on the instance's host, GitHub connector from the
+  `olve-pipelines-dex` Secret, one public client for the UI, `pl`'s fixed loopback ports
+  48650–48654 and the device flow), and the server enforces `auth.allow` (`Auth:Allow:*`, 403
+  outside it; the chart refuses `dex` without one). Cluster access is `InCluster` only: the
+  OpenBao client and its Authentik token provider are deleted, the chart defaults to its
+  ServiceAccount with a Role in the runner namespace, and `Kubernetes:AuthMode` must be set
+  explicitly (detection broke #105: build pods are in the cluster without a token). Telemetry is
+  standard OTLP (`endpoint`, `protocol`, `headers` from a Secret); the OAuth2 exporter auth is gone
+  (one token fetched at startup, endpoint answering 404), and beta and prod run `telemetry: none`.
+  The Authentik CA mount and the Olve.Pipelines Authentik clients are gone; the old OpenBao-era
+  `olve-pipelines` ServiceAccount/Role in the runner namespaces is deleted. Dex 2.43.1 has no
+  client-credentials grant, so there are no machine tokens. Left for the user: the
+  `olve-pipelines-oidc` Secrets, the `olve-pipelines-client-secret` key in `authentik-oidc-secrets`,
+  and the OpenBao Kubernetes role for the old ServiceAccount.
 
 ### v2.2 — candidates
 

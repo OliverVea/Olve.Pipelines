@@ -46,6 +46,7 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
 
     // Unauthenticated requests reach this endpoint: a cached secret keeps them off the K8s API.
     private readonly ConcurrentDictionary<(Id<Pipeline>, string), (string Value, DateTimeOffset At)> _secrets = new();
+    private readonly ConcurrentDictionary<(Id<Pipeline>, string), DateTimeOffset> _unreadable = new();
     private readonly LinkedList<string> _deliveryOrder = new();
     private readonly HashSet<string> _deliveries = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<Task, byte> _mappings = new();
@@ -63,6 +64,8 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
         var now = _time.GetUtcNow();
         var fresh = _secrets.TryGetValue(cacheKey, out var cached) && now - cached.At < SecretTtl;
         var verified = fresh && Verification(trigger.Verify, cached.Value).Verify(delivery);
+        if (!verified && _unreadable.TryGetValue(cacheKey, out var failedAt) && now - failedAt < SecretRecheckAfter)
+            return WebhookTriggerReceipt.Unavailable;
         if (!verified && (!fresh || now - cached.At >= SecretRecheckAfter))
         {
             // Not cached, expired, or the secret may have just been rotated.
@@ -71,9 +74,11 @@ public class WebhookTriggerService(IServiceProvider sp, ILogger<WebhookTriggerSe
             {
                 logger.LogProblems(LogLevel.Warning, secretProblems, "Webhook trigger '{TriggerName}' of pipeline '{PipelineId}' cannot read secret '{SecretName}'",
                     triggerName, pipelineId, trigger.Verify.Secret);
+                _unreadable[cacheKey] = now;
                 return WebhookTriggerReceipt.Unavailable;
             }
 
+            _unreadable.TryRemove(cacheKey, out _);
             _secrets[cacheKey] = (key, now);
             verified = Verification(trigger.Verify, key).Verify(delivery);
         }

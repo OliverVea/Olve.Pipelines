@@ -160,6 +160,20 @@ public class WebhookTriggerTests
         await Assert.That(secrets.Reads).IsEqualTo(1);
     }
 
+    // Catches: unauthenticated requests reading the K8s Secret on every hit while the secret is unset.
+    [Test]
+    public async Task Receive_UnsetSecret_IsReadOnceNotPerRequest()
+    {
+        var secrets = new Secrets(null);
+        var (service, s) = Receiver(secrets);
+
+        for (var i = 0; i < 20; i++)
+            await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed($"d{i}"), CancellationToken.None))
+                .IsEqualTo(WebhookTriggerReceipt.Unavailable);
+
+        await Assert.That(secrets.Reads).IsEqualTo(1);
+    }
+
     [Test]
     public async Task Redelivery_OfADeliveryThatStartedNothing_IsMappedAgain()
     {

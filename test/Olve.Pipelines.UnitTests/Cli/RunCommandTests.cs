@@ -452,7 +452,7 @@ public class RunCommandTests
         foreach (var noun in new[] { "run", "step" })
             await Assert.That(await dispatcher.RunAsync([noun, "--help"])).IsEqualTo(0);
         await Assert.That(await dispatcher.RunAsync(["trigger", "--help"])).IsEqualTo(0);
-        await Assert.That(await dispatcher.RunAsync(["run", "get"])).IsEqualTo(1); // missing address
+        await Assert.That(await dispatcher.RunAsync(["run", "get"])).IsEqualTo(2); // missing address is a usage error
     }
 
     [Test]

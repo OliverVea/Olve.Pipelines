@@ -123,6 +123,7 @@ public sealed class CliDispatcher
 
     public async Task<int> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
     {
+        args = GlobalsLast(args);
         if (args.Count == 0)
         {
             PrintUsage();
@@ -175,10 +176,10 @@ public sealed class CliDispatcher
                     return helpRequested ? 0 : 2; // noun given without a verb is a usage error
                 }
 
-                return Fail([new ResultProblem("Unknown command '{0} {1}'. Run `pl {0} --help`.", peek0, peek1)]);
+                return Usage([new ResultProblem("Unknown command '{0} {1}'. Run `pl {0} --help`.", peek0, peek1)]);
             }
 
-            return Fail([new ResultProblem("Unknown command '{0}'. Run `pl help`.", peek0)]);
+            return Usage([new ResultProblem("Unknown command '{0}'. Run `pl help`.", peek0)]);
         }
 
         if (helpRequested)
@@ -203,7 +204,7 @@ public sealed class CliDispatcher
 
         if (cli.OperandCount < command.RequiredOperands)
         {
-            return Fail([new ResultProblem(
+            return Usage([new ResultProblem(
                 "`pl {0}` expects {1} argument(s). Run `pl {0} --help`.",
                 CliCommand.Key(command.Noun, command.Verb), command.RequiredOperands)]);
         }
@@ -232,7 +233,44 @@ public sealed class CliDispatcher
         };
 
         var result = await command.Execute(cli, ctx, ct);
-        return result.TryPickProblems(out var problems) ? Fail(problems) : ctx.ExitCode ?? 0;
+        if (!result.TryPickProblems(out var problems))
+            return ctx.ExitCode ?? 0;
+        if (ct.IsCancellationRequested)
+            return CancelledExitCode; // Ctrl-C, even when the command reported it as a problem
+        return Fail(problems);
+    }
+
+    public const int CancelledExitCode = 130;
+
+    /// <summary>
+    /// Moves global flags and options written before the command (<c>pl --profile beta run list</c>) after it,
+    /// so the first token is the noun.
+    /// </summary>
+    internal static IReadOnlyList<string> GlobalsLast(IReadOnlyList<string> args)
+    {
+        var leading = new List<string>();
+        var i = 0;
+        while (i < args.Count && args[i].StartsWith('-') && args[i] is not ("--help" or "-h" or "--version"))
+        {
+            var name = args[i].TrimStart('-').Split('=', 2)[0];
+            name = GlobalAliases.GetValueOrDefault(name, name);
+            if (GlobalFlags.Contains(name) || args[i].Contains('='))
+            {
+                if (!GlobalFlags.Contains(name) && !GlobalOptions.Contains(name))
+                    break;
+                leading.Add(args[i++]);
+            }
+            else if (GlobalOptions.Contains(name) && i + 1 < args.Count)
+            {
+                leading.Add(args[i++]);
+                leading.Add(args[i++]);
+            }
+            else
+            {
+                break;
+            }
+        }
+        return leading.Count == 0 ? args : [.. args.Skip(i), .. leading];
     }
 
     private bool HasNoun(string noun) => _commands.Any(c => c.Noun == noun);

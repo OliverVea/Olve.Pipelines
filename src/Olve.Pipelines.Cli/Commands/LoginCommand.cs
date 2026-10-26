@@ -215,10 +215,14 @@ public sealed class LoginCommand : ICliCommand
         return $"{authorizationEndpoint}?{qs}";
     }
 
+    internal static readonly TimeSpan BrowserTimeout = TimeSpan.FromMinutes(5);
+
     private static async Task<Result<string>> WaitForCodeAsync(HttpListener listener, string expectedState, CancellationToken ct)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(BrowserTimeout);
         // Stopping the listener on cancellation unblocks GetContextAsync (which takes no token).
-        using var registration = ct.Register(() => { try { listener.Stop(); } catch (ObjectDisposedException) { } });
+        using var registration = timeout.Token.Register(() => { try { listener.Stop(); } catch (ObjectDisposedException) { } });
 
         while (true)
         {
@@ -226,8 +230,10 @@ public sealed class LoginCommand : ICliCommand
             try { context = await listener.GetContextAsync(); }
             catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or InvalidOperationException)
             {
-                return ct.IsCancellationRequested
-                    ? new ResultProblem("Login cancelled before the browser redirect arrived.")
+                if (ct.IsCancellationRequested)
+                    return new ResultProblem("Login cancelled before the browser redirect arrived.");
+                return timeout.IsCancellationRequested
+                    ? new ResultProblem("No browser redirect within {0} minutes. Run `pl login --device` to log in without a local browser.", BrowserTimeout.TotalMinutes)
                     : new ResultProblem("Loopback listener stopped before the redirect arrived: {0}", ex.Message);
             }
 

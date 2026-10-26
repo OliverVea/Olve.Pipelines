@@ -131,7 +131,7 @@ Every option is in the [Pipeline Reference](pipeline-reference.md).
 ```sh
 pl dev describe            # manifest summary + describe-time checks; exit 78 on problems
 pl dev validate            # also runs the service's reconcile checks (needs a session)
-pl dev run source --input sha=$(git rev-parse HEAD)
+pl dev run source --field sha=$(git rev-parse HEAD)
 pl dev run test            # chains: takes source's output from the local pool
 ```
 

@@ -66,7 +66,7 @@ Errors exit 78; warnings alone exit 0. Run it before pushing a pipeline change.
 ## 2. Run one step from source
 
 ```sh
-pl dev run <step> --input sha=<40 hex>       # pipeline-input fields, typed by the input model
+pl dev run <step> --field sha=<40 hex>       # pipeline-input fields, typed by the input model
 pl dev run build                             # next step: inputs come from the local pool
 pl dev run checkout --input-file in.json     # use input.json verbatim
 pl dev run deploy-beta                       # declared secrets come from your environment (or --secret NAME=value)
@@ -79,7 +79,7 @@ the raw envelope.
 
 - **Local pool.** `<dir>/.olve/pool.json` holds the pipeline input and each step's latest local
   outcome. A step's `input.json` is built from its manifest mappings, the way the service builds it:
-  `input.*` refs read the pipeline input (your `--input k=v` values over the pool's previous input,
+  `input.*` refs read the pipeline input (your `--field k=v` values over the pool's previous input,
   then the model's defaults); step refs read earlier steps' outputs. Output files are copied into
   `<dir>/.olve/files/` and passed as `OLVE_FILES_DIR`, so running steps in order chains them, file
   references included.
@@ -107,7 +107,7 @@ image, no `/tmp` (kaniko), libc surprises. Needs Docker.
 ## 4. Run the whole pipeline locally
 
 ```sh
-pl dev pipeline --input sha=<sha> --input deployTo=beta [--until <step>] [--only a,b] [--docker] [--yes]
+pl dev pipeline --field sha=<sha> --field deployTo=beta [--until <step>] [--only a,b] [--docker] [--yes]
 ```
 
 - Runs the stages in order; the steps of a stage run one after another locally.
@@ -121,7 +121,7 @@ pl dev pipeline --input sha=<sha> --input deployTo=beta [--until <step>] [--only
 - A `select` runs every case's steps: there is no config locally.
 
 ```text
-$ pl dev pipeline --dir .pipelines-test --input sha=abcdef1 --input mode=skip-last
+$ pl dev pipeline --dir .pipelines-test --field sha=abcdef1 --field mode=skip-last
 …
 result:
   hello           succeeded

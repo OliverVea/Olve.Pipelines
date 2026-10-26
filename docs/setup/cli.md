@@ -31,7 +31,11 @@ pl login --profile beta --api-url https://pipelines-beta.ovea.pro
 `default`, or the one named by `--profile <name>` / `PIPELINES_PROFILE`. Every command uses the
 selected profile; `pl profile list` shows them. `--api-url` / `PIPELINES_API_URL` override the URL per
 command (the profile's token is sent only to the server it logged in to), `--token` passes a bearer
-directly.
+directly. Global flags and options (`--profile`, `--api-url`, `--token`, `--json`, `--verbose`) may come
+before or after the command.
+
+Exit codes: `0` success, `1` the operation failed, `2` usage error (unknown command or option, missing
+argument), `130` cancelled with Ctrl-C; `pl wait` adds its own (below).
 
 ## Commands
 
@@ -89,7 +93,7 @@ pl wait reconcile <pipeline> <sha>                         # the binding applied
 
 # secrets and bindings
 pl secret list <pipeline>                              # declared-by and set/unset per secret
-pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>]   # default: stdin, verbatim
+pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>] [--trim]   # default: stdin, verbatim; --trim drops trailing newlines
 pl secret delete <pipeline> <name> [--force]           # --force: a secret the current config references
 pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]
@@ -107,8 +111,8 @@ pl config check <pipeline> [--version V]               # problems, missing secre
 # local development (no service, except dev validate)
 pl dev describe [--dir <path>] [--json]
 pl dev validate [--dir <path>] [--json]
-pl dev run <step> [--input k=v ...] [--input-file <f>] [--secret NAME=value ...] [--docker] [--json]
-pl dev pipeline [--input k=v ...] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
+pl dev run <step> [--field k=v ...] [--input-file <f>] [--secret NAME=value ...] [--docker] [--json]
+pl dev pipeline [--field k=v ...] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
 
 # installation
 pl bootstrap / pl teardown                             # cold install / remove of an instance

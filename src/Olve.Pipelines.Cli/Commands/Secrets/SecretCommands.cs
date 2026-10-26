@@ -55,6 +55,7 @@ public sealed class SecretListCommand : ICliCommand
 public sealed class SecretSetCommand : ICliCommand
 {
     public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("from-env", "from-file");
+    public IReadOnlySet<string> BooleanFlags { get; } = CliCommand.Options("trim");
     public string Noun => "secret";
     public string Verb => "set";
     public int RequiredOperands => 2;
@@ -64,11 +65,13 @@ public sealed class SecretSetCommand : ICliCommand
         pl secret set <pipeline> <name> [options]
 
           Reads the value from stdin by default, so it stays out of shell history and
-          the process list. The value is sent verbatim (no trailing-newline trimming),
-          so multi-line secrets such as PEM keys round-trip intact.
+          the process list. The value is sent verbatim, so multi-line secrets such as
+          PEM keys round-trip intact; a one-line value piped with a trailing newline
+          (`echo $TOKEN | …`) gets a warning.
 
           --from-env <VAR>    Read the value from environment variable VAR
           --from-file <path>  Read the value from a file (verbatim)
+          --trim              Drop trailing newlines from the value
 
           Examples:
             echo -n "$TOKEN" | pl secret set <pipeline> REGISTRY_TOKEN
@@ -85,6 +88,10 @@ public sealed class SecretSetCommand : ICliCommand
 
         if (ReadValue(cli, name).TryPickProblems(out var valueProblems, out var value))
             return valueProblems;
+        if (cli.HasFlag("trim"))
+            value = value.TrimEnd('\r', '\n');
+        else if (TrailingNewlineWarning(value) is { } warning)
+            Console.Error.WriteLine(warning);
 
         if ((await ctx.Api.SetSecret(pipelineId, name, value, ct)).TryPickProblems(out var problems))
             return problems;
@@ -93,6 +100,12 @@ public sealed class SecretSetCommand : ICliCommand
             ctx.Output.Line($"Set secret '{name}' for pipeline {pipeline.Label}.");
         return Result.Success();
     }
+
+    /// <summary>A one-line value ending in a newline is almost always <c>echo</c>'s, not part of the secret.</summary>
+    internal static string? TrailingNewlineWarning(string value) =>
+        value.EndsWith('\n') && !value.TrimEnd('\r', '\n').Contains('\n')
+            ? "warning: the value ends with a newline, which is kept and becomes part of the secret; pass --trim to drop it (or pipe with `echo -n`)."
+            : null;
 
     /// <summary>Resolve the secret value from (in precedence) --from-env, --from-file, then stdin/TTY.</summary>
     private static Result<string> ReadValue(CliArgs cli, string name)

@@ -6,6 +6,9 @@ namespace Olve.Pipelines.Cli.Commands.Dev;
 /// <summary>Shared plumbing for the <c>pl dev</c> commands.</summary>
 public static class DevCommandSupport
 {
+    /// <summary><c>--field k=v</c>, as in <c>pl trigger</c>; <c>--input k=v</c> is still read for older scripts.</summary>
+    public static IReadOnlyList<string> FieldPairs(CliArgs cli) => [.. cli.Options("field"), .. cli.Options("input")];
+
     public const string DefaultDir = ".pipelines";
 
     private static readonly JsonSerializerOptions Indented = DevPool.IndentedJson;
@@ -268,7 +271,7 @@ public sealed class DevDescribeCommand(IProcessRunner runner, DevToolchain? tool
 /// <summary><c>pl dev run &lt;step&gt;</c> — one step from source (or in its image with --docker).</summary>
 public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
-    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "from", "input", "input-file", "secret");
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "field", "from", "input", "input-file", "secret");
     public string Noun => "dev";
     public string Verb => "run";
     public bool UsesApi => false;
@@ -286,13 +289,13 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
           pipeline invalid).
 
           input.json is built from the step's manifest mappings against the local pool
-          (<dir>/.olve/pool.json): `input.*` refs read the pipeline input (--input values over the
+          (<dir>/.olve/pool.json): `input.*` refs read the pipeline input (--field values over the
           pool's previous input, then the model's defaults); step refs read earlier steps' outputs
           from previous `pl dev run`/`pl dev pipeline` runs, so running steps in order chains them.
           Output files go to <dir>/.olve/files/ for later steps' ctx.files.fetch.
 
           --dir <path>             Pipeline directory (default: .pipelines)
-          --input k=v              Set a pipeline-input field (repeatable; typed by the input model)
+          --field k=v              Set a pipeline-input field (repeatable; typed by the input model)
           --input-file <file>      Use this file as input.json verbatim (skips assembly)
           --secret NAME=value      Secret value (repeatable). Default: the step's declared secrets
                                    from the environment; other pipeline secrets are not passed on
@@ -314,9 +317,9 @@ public sealed class DevRunCommand(IProcessRunner runner, DevToolchain? toolchain
         }
 
         var inputFile = cli.Option("input-file");
-        var inputPairs = cli.Options("input");
+        var inputPairs = DevCommandSupport.FieldPairs(cli);
         if (inputFile is not null && inputPairs.Count > 0)
-            return new ResultProblem("Use either --input-file or --input, not both.");
+            return new ResultProblem("Use either --input-file or --field, not both.");
         if (inputFile is not null && !File.Exists(inputFile))
             return new ResultProblem("Input file '{0}' not found.", inputFile);
         if (DevCommandSupport.ParseSecrets(cli.Options("secret")).TryPickProblems(out var secretProblems, out var secrets))
@@ -386,7 +389,7 @@ public sealed record PipelineStepResult(string Step, string Status, string? Deta
 public sealed class DevPipelineCommand(
     IProcessRunner runner, IConfirmPrompt prompt, DevToolchain? toolchain = null, DevConsole? console = null) : ICliCommand
 {
-    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "input", "only", "secret", "until");
+    public IReadOnlySet<string> ValueOptions { get; } = CliCommand.Options("dir", "field", "input", "only", "secret", "until");
     public string Noun => "dev";
     public string Verb => "pipeline";
     public bool UsesApi => false;
@@ -406,7 +409,7 @@ public sealed class DevPipelineCommand(
           without a terminal it refuses unless --yes. Failure handlers are not run.
 
           --dir <path>        Pipeline directory (default: .pipelines)
-          --input k=v         Pipeline-input field (repeatable); the model's defaults fill the rest
+          --field k=v         Pipeline-input field (repeatable); the model's defaults fill the rest
           --until <step>      Stop after the stage containing <step>
           --only <a,b,...>    Run only these steps, reusing the pool's input and outputs for the rest
           --secret NAME=value Secret value (repeatable); default: from the environment
@@ -428,7 +431,7 @@ public sealed class DevPipelineCommand(
 
         var options = new DevPipelineOptions
         {
-            InputPairs = cli.Options("input"),
+            InputPairs = DevCommandSupport.FieldPairs(cli),
             Until = cli.Option("until"),
             Only = DevCommandSupport.ParseList(cli.Options("only")),
             Yes = cli.HasFlag("yes"),
@@ -473,7 +476,7 @@ public sealed class DevPipelineCommand(
         if (PipelineInput.MissingRequired(manifest.InputOutputSchema ?? manifest.InputSchema, input) is { Count: > 0 } missing)
         {
             return new ResultProblem("Pipeline input is missing required field(s): {0}. Pass {1}.",
-                string.Join(", ", missing), string.Join(" ", missing.Select(m => $"--input {m}=…")));
+                string.Join(", ", missing), string.Join(" ", missing.Select(m => $"--field {m}=…")));
         }
 
         pool.Input = input;

@@ -98,20 +98,37 @@ public static class OidcClient
     /// Polls the token endpoint for a device grant until the user approves, the code expires, or it's
     /// denied. Honours <c>authorization_pending</c> (keep waiting) and <c>slow_down</c> (back off).
     /// </summary>
+    internal const int MaxDevicePollNetworkErrors = 5;
+
     public static async Task<Result<TokenResponse>> PollDeviceTokenAsync(
         HttpClient http, string tokenEndpoint, string clientId, string deviceCode, int intervalSeconds, CancellationToken ct)
     {
         var interval = Math.Max(1, intervalSeconds);
+        var networkErrors = 0;
         while (true)
         {
             await Task.Delay(TimeSpan.FromSeconds(interval), ct);
 
-            var (status, token, body) = await PostFormAsync(http, tokenEndpoint, new Dictionary<string, string>
+            System.Net.HttpStatusCode status;
+            TokenResponse? token;
+            string body;
+            try
             {
-                ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
-                ["device_code"] = deviceCode,
-                ["client_id"] = clientId,
-            }, ct);
+                (status, token, body) = await PostFormAsync(http, tokenEndpoint, new Dictionary<string, string>
+                {
+                    ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
+                    ["device_code"] = deviceCode,
+                    ["client_id"] = clientId,
+                }, ct);
+                networkErrors = 0;
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            {
+                // The user is approving in a browser meanwhile: a blip must not throw the login away.
+                if (++networkErrors >= MaxDevicePollNetworkErrors)
+                    return new ResultProblem("Device token poll failed {0} times in a row: {1}", networkErrors, e.Message);
+                continue;
+            }
 
             if (token?.AccessToken is { Length: > 0 })
                 return Result.Success(token);

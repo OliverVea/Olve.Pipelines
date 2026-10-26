@@ -62,8 +62,7 @@ export type OutputValue<S extends AnyStep> = S["output"] extends AnyModel ? Infe
 /** Step names must be literals (identity, duplicate detection and mapper keys depend on it). */
 export type LiteralName<N extends string> = N & (string extends N ? "❌ step name must be a string literal" : unknown);
 
-/** Step names: lower-case kebab, ≤ 63 chars (usable as K8s label values and URL segments). */
-export const STEP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+export { STEP_NAME } from "./models.ts";
 /** Names that cannot be steps: `input` is the pipeline input's root in mappings. */
 export const RESERVED_STEP_NAMES: readonly string[] = ["input"];
 

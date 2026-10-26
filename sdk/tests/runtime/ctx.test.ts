@@ -217,6 +217,9 @@ describe("ctx.output and ctx.files.fetch", () => {
     const evil = testFileRef({ step: "producer", path: "../../etc/passwd" });
     const r = await testHandler(reader, { files: { a: evil, b: evil, d: evil } });
     expect(r).toMatchObject({ status: "failed", error: { kind: "input" }, exitCode: 65 });
+    const evilStep = testFileRef({ step: "../..", path: "a.txt" });
+    const r2 = await testHandler(reader, { files: { a: evilStep, b: evilStep, d: evilStep } });
+    expect(r2).toMatchObject({ status: "failed", error: { kind: "input" }, exitCode: 65 });
   });
   test("an output ref claiming this attempt must point to a produced file", async () => {
     const liar = implement(producer, async () => ({

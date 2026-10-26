@@ -26,7 +26,7 @@ public sealed class ApiClientFactory
     public static Result<ApiTransport> CreateTransport(CliArgs cli, CliConfig config, IConsoleLog log)
     {
         var (baseUrl, urlSource) = ResolveUrl(cli, config);
-        var (token, tokenSource) = ResolveToken(cli, config);
+        var (token, tokenSource) = ResolveToken(cli, config, baseUrl);
 
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
             return new ResultProblem("Invalid API URL '{0}'.", baseUrl);
@@ -56,14 +56,24 @@ public sealed class ApiClientFactory
     /// <summary>The resolved base URL the next request would use — for <c>pl login</c> to persist alongside the token.</summary>
     public static string ResolveApiUrl(CliArgs cli, CliConfig config) => ResolveUrl(cli, config).Url;
 
-    private static (string? Token, string Source) ResolveToken(CliArgs cli, CliConfig config)
+    /// <summary>A profile's token goes only to the server it was issued for, never to an <c>--api-url</c> elsewhere.</summary>
+    internal static (string? Token, string Source) ResolveToken(CliArgs cli, CliConfig config, string baseUrl)
     {
         if (cli.Option("token") is { Length: > 0 } flag)
             return (flag, "--token");
         if (Environment.GetEnvironmentVariable(TokenEnvVar) is { Length: > 0 } env)
             return (env, TokenEnvVar);
         if (config.Auth?.AccessToken is { Length: > 0 } file)
-            return (file, $"~/.pl profile '{config.Profile}'");
+        {
+            var profileUrl = config.ApiUrl is { Length: > 0 } u ? u : DefaultApiUrl;
+            return SameServer(baseUrl, profileUrl)
+                ? (file, $"~/.pl profile '{config.Profile}'")
+                : (null, $"none (profile '{config.Profile}' is logged in to {profileUrl})");
+        }
         return (null, "none");
     }
+
+    private static bool SameServer(string a, string b) =>
+        Uri.TryCreate(a, UriKind.Absolute, out var x) && Uri.TryCreate(b, UriKind.Absolute, out var y)
+        && Uri.Compare(x, y, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0;
 }

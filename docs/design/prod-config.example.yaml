@@ -63,12 +63,14 @@ publish:
   # Builds go to registry.ovea.pro (staging, unverified); verified digests are copied to ghcr.
   server:
     repository: registry.ovea.pro/olve-pipelines-v2
+    registryMap: { mcr.microsoft.com: mcr-cache.ovea.pro }   # crane under gVisor stalls on mcr directly
     release:
       - repository: ghcr.io/olivervea/olve-pipelines
         auth: { username: OliverVea, password: { secret: GHCR_TOKEN } }
   harness:
     push: true
     repository: registry.ovea.pro/olve-pipelines-v2/harness-base
+    registryMap: { index.docker.io: hub-cache.ovea.pro }     # kaniko base pulls through the Hub cache
     release:
       - repository: ghcr.io/olivervea/olve-pipelines-harness-base
         auth: { username: OliverVea, password: { secret: GHCR_TOKEN } }

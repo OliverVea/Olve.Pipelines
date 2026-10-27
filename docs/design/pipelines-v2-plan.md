@@ -111,6 +111,9 @@ always 200 with `{valid, manifestHash, errors, warnings}`). Decisions and deviat
   start on (active, or a drain's target) per pipeline and `RetentionPlanner` judges that pipeline's runs
   and `versions/<p>/…` binaries by it; everything else stays instance-wide. Decided against runtime
   config (`pl`) so the policy travels with the repo and is versioned like the rest of the definition.
+  Found on first use (2026-10-27): `ManifestWriter` dropped `retention`, so the canonical manifest
+  hashed and stored without it (the deployer's first `retention` commit reconciled to the same
+  version, and `RetentionPolicies` saw nothing); fixed with a writer round-trip test.
 - **Poll triggers** persist their last value per (pipeline, trigger) in `pipeline-state.json`
   (`PollTriggers`): after a restart the first fetch is compared against it, so a commit pushed just
   before a redeploy still triggers; only a new trigger or a changed URL seeds.

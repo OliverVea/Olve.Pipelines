@@ -80,6 +80,14 @@ public static class ManifestWriter
             foreach (var c in m.Config) Write(w, c);
             w.WriteEndArray();
         }
+        if (m.Retention is { } r)
+        {
+            w.WriteStartObject("retention");
+            if (r.KeepLatestRuns is { } keep) w.WriteNumber("keepLatestRuns", keep);
+            if (r.MinRunAgeDays is { } age) w.WriteNumber("minRunAgeDays", age);
+            if (r.BuildGraceDays is { } grace) w.WriteNumber("buildGraceDays", grace);
+            w.WriteEndObject();
+        }
         w.WriteEndObject();
     }
 

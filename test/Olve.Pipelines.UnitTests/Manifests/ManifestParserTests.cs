@@ -75,6 +75,21 @@ public class ManifestParserTests
     }
 
     [Test]
+    public async Task Retention_SurvivesTheWriter_AndChangesTheManifestHash()
+    {
+        var without = Parse();
+        var with = Mutate(r => r["retention"] = new JsonObject { ["keepLatestRuns"] = 50, ["minRunAgeDays"] = 30 });
+
+        var written = ManifestWriter.ToCanonicalJson(with);
+        var reparsed = ManifestParser.Parse(Encoding.UTF8.GetBytes(written));
+
+        await Assert.That(reparsed).Succeeded();
+        await Assert.That(TestRunDomain.Pick(reparsed).Retention).IsEqualTo(new ManifestRetention(50, 30, null));
+        await Assert.That(ManifestVersioning.ManifestHash(with)).IsNotEqualTo(ManifestVersioning.ManifestHash(without));
+        await Assert.That(ManifestWriter.ToCanonicalJson(without)).DoesNotContain("\"retention\"");
+    }
+
+    [Test]
     public async Task StepDescription_IsRead_AndMissingReadsAsEmpty()
     {
         var m = Mutate(r => Step(r, "build").Remove("description"));

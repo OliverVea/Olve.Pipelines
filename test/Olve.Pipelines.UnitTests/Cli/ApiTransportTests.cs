@@ -1,8 +1,8 @@
 using System.Net;
-using Olve.Results;
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Diagnostics;
+using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 

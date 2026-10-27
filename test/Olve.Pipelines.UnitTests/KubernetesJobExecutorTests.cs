@@ -1,4 +1,3 @@
-using Olve.Pipelines.Pipelines.Scheduling;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,6 +9,7 @@ using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Failures;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Storage;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Pipelines.UnitTests.Scheduling;
@@ -64,7 +64,8 @@ public class KubernetesJobExecutorTests
             new StubS3CredentialsProvider(), TimeProvider.System);
         var factory = new HarnessJobFactory(presigner, new HarnessOptions());
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"),
-            TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance) { FatalWaitingGrace = TimeSpan.Zero };
+            TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance)
+        { FatalWaitingGrace = TimeSpan.Zero };
 
         KubernetesJobExecutor? executor = null;
         var services = new ServiceCollection();
@@ -363,7 +364,8 @@ public class KubernetesJobExecutorTests
         services.AddSingleton(new HarnessOptions());
         return new HarnessFailureHandlerLauncher(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), h.Lifetime,
-            NullLogger<HarnessFailureHandlerLauncher>.Instance) { PollInterval = TimeSpan.FromMilliseconds(5) };
+            NullLogger<HarnessFailureHandlerLauncher>.Instance)
+        { PollInterval = TimeSpan.FromMilliseconds(5) };
     }
 
     [Test]

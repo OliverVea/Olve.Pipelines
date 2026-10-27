@@ -18,7 +18,8 @@ public class ManifestValidatorTests
         {
             Step(r, "test")["inputTypes"]!["source"] = ModelType("BuildArtifact");
             Step(r, "test")["input"]!["source"] = Ref("build");
-        }),
+        }
+        ),
         ["later-stage ref"] = (C.RefUnavailable, r => Step(r, "checkout")["input"]!["sha"] = Ref("build.version")),
         ["unknown root"] = (C.RefUnavailable, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("nope")),
         ["optional with no producer"] = (C.RefUnavailable, r => Step(r, "summary")["input"]!["cli"] = Ref("publish-cli-x")),
@@ -27,11 +28,13 @@ public class ManifestValidatorTests
         {
             Step(r, "summary")["inputTypes"]!["url"] = StringSchema();
             Step(r, "summary")["input"]!["url"] = Ref("deploy-prod.url");
-        }),
+        }
+        ),
         ["ref to step without output"] = (C.RefNoOutput, r =>
         {
             Step(r, "deploy-beta")["output"] = null;
-        }),
+        }
+        ),
         ["failure root outside handler"] = (C.RefFailureOutsideHandler, r => Step(r, "checkout")["input"]!["sha"] = Ref("failure.step")),
         ["ref syntax"] = (C.RefSyntaxInvalid, r => Step(r, "checkout")["input"]!["sha"] = Ref("input..sha")),
 
@@ -53,7 +56,8 @@ public class ManifestValidatorTests
         {
             Step(r, "deploy-beta")["inputTypes"]!["repo"] = StringSchema();
             Step(r, "deploy-beta")["input"]!["repo"] = Ref("build.commit.nope");
-        }),
+        }
+        ),
         ["model input from wrong model"] = (C.InputTypeMismatch, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("checkout")),
         ["model input from an incompatible field"] = (C.MappingFieldMissing, r => Step(r, "deploy-beta")["input"]!["artifact"] = Ref("build.commit")),
         ["model input from a constant"] = (C.InputTypeMismatch, r => Step(r, "deploy-beta")["input"]!["artifact"] = Const("x")),
@@ -64,13 +68,15 @@ public class ManifestValidatorTests
         {
             Step(r, "checkout")["inputTypes"]!["commit"] = CommitSchema();
             Step(r, "checkout")["input"]!["commit"] = new JsonObject { ["repo"] = Ref("input.repo") };
-        }),
+        }
+        ),
         ["nested mapping unknown field"] = (C.MappingFieldUnknown, r =>
         {
             Step(r, "checkout")["inputTypes"]!["commit"] = CommitSchema();
             Step(r, "checkout")["input"]!["commit"] = new JsonObject
-                { ["repo"] = Ref("input.repo"), ["sha"] = Ref("input.sha"), ["extra"] = Const(1) };
-        }),
+            { ["repo"] = Ref("input.repo"), ["sha"] = Ref("input.sha"), ["extra"] = Const(1) };
+        }
+        ),
 
         // when
         ["when unknown field"] = (C.WhenFieldUnknown, r => r["stages"]![3]!["when"] = new JsonObject { ["nope"] = new JsonArray("x") }),
@@ -110,7 +116,8 @@ public class ManifestValidatorTests
         ["poll secret not a pipeline secret"] = (C.PollSecretUndeclared, r =>
         {
             r["triggers"]![1]!["secrets"] = new JsonArray("GITHUB_TOKEN", "OTHER_TOKEN");
-        }),
+        }
+        ),
         ["poll header secret not in poll secrets"] = (C.PollHeaderSecretUndeclared, r =>
             r["triggers"]![1]!["headers"]!["X-Key"] = "Bearer $SECRET:SSH_PRIVATE_KEY"),
 
@@ -130,7 +137,8 @@ public class ManifestValidatorTests
             var copy = r["failureHandlers"]![0]!.DeepClone();
             copy["step"]!["image"] = "busybox";
             r["failureHandlers"]!.AsArray().Add(copy);
-        }),
+        }
+        ),
     };
 
     private static JsonObject External(string model, string key = "decision", string title = "Go?", string[]? sources = null) => new()

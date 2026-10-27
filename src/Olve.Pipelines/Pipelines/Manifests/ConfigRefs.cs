@@ -24,14 +24,14 @@ public static class ConfigRefs
                     yield break;
                 }
                 foreach (var p in value.EnumerateObject())
-                foreach (var found in Find(p.Value, $"{path}.{p.Name}"))
-                    yield return found;
+                    foreach (var found in Find(p.Value, $"{path}.{p.Name}"))
+                        yield return found;
                 break;
             case JsonValueKind.Array:
                 var i = 0;
                 foreach (var item in value.EnumerateArray())
-                foreach (var found in Find(item, $"{path}[{i++}]"))
-                    yield return found;
+                    foreach (var found in Find(item, $"{path}[{i++}]"))
+                        yield return found;
                 break;
         }
     }

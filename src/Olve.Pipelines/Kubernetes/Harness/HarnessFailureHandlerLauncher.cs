@@ -79,23 +79,23 @@ public sealed class HarnessFailureHandlerLauncher(
         switch (wait)
         {
             case HarnessWait.Finished finished:
-            {
-                var logs = await control.GetLogsAsync(dispatch.JobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
-                log = logs.Combined(HarnessJobBuilder.StepContainerName);
-                var block = HarnessSentinels.TryExtractResult(logs.Main);
-                HarnessEnvelope? envelope = null;
-                if (block is not null && !HarnessEnvelope.Parse(block).TryPickProblems(out _, out var parsed))
-                    envelope = parsed;
-
-                (ok, outcome) = envelope switch
                 {
-                    HarnessEnvelope.Succeeded when finished.State.Main is { ExitCode: 0 } => (true, "succeeded"),
-                    HarnessEnvelope.Skipped s => (true, $"skipped: {s.Reason}"),
-                    HarnessEnvelope.Failed f => (false, $"failed ({f.Kind}): {f.Message}"),
-                    _ => (false, "failed: " + (HarnessExitCodes.Classify(finished.State)?.Message ?? "no result in the log")),
-                };
-                break;
-            }
+                    var logs = await control.GetLogsAsync(dispatch.JobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+                    log = logs.Combined(HarnessJobBuilder.StepContainerName);
+                    var block = HarnessSentinels.TryExtractResult(logs.Main);
+                    HarnessEnvelope? envelope = null;
+                    if (block is not null && !HarnessEnvelope.Parse(block).TryPickProblems(out _, out var parsed))
+                        envelope = parsed;
+
+                    (ok, outcome) = envelope switch
+                    {
+                        HarnessEnvelope.Succeeded when finished.State.Main is { ExitCode: 0 } => (true, "succeeded"),
+                        HarnessEnvelope.Skipped s => (true, $"skipped: {s.Reason}"),
+                        HarnessEnvelope.Failed f => (false, $"failed ({f.Kind}): {f.Message}"),
+                        _ => (false, "failed: " + (HarnessExitCodes.Classify(finished.State)?.Message ?? "no result in the log")),
+                    };
+                    break;
+                }
             case HarnessWait.TimedOut:
                 await control.DeleteJobAsync(dispatch.JobName);
                 log = "";

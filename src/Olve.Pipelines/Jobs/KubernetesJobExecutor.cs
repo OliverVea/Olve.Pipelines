@@ -136,16 +136,16 @@ public class KubernetesJobExecutor(
         switch (wait)
         {
             case HarnessWait.Aborted:
-            {
-                logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete; deleting K8s Job '{JobName}'",
-                    attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, jobName);
-                var logs = await control.GetLogsAsync(jobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
-                await PutLogAsync(logKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
-                await control.DeleteJobAsync(jobName);
-                await control.DeleteSecretAsync(urlSecret);
-                await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
-                return;
-            }
+                {
+                    logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete; deleting K8s Job '{JobName}'",
+                        attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, jobName);
+                    var logs = await control.GetLogsAsync(jobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+                    await PutLogAsync(logKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
+                    await control.DeleteJobAsync(jobName);
+                    await control.DeleteSecretAsync(urlSecret);
+                    await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
+                    return;
+                }
 
             case HarnessWait.Missing:
                 if (!IsAbandoned(attempt.Id))

@@ -69,6 +69,7 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
 
         return new AttemptLaunchSpec(
             attempt, run, version, step, ConfigDelivery.WithConfig(input, step, run.Config), attempt.InputHash,
-            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt)) { Cases = stage.Cases, Plan = plan };
+            AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt))
+        { Cases = stage.Cases, Plan = plan };
     }
 }

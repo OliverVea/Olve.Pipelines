@@ -1,9 +1,9 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
-using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 

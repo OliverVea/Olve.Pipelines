@@ -411,13 +411,13 @@ public static class ManifestParser
             case "callback":
                 return ctx.Object(e, path, ["kind"], []) ? new ExternalSource.Callback() : null;
             case "poll":
-            {
-                if (!ctx.Object(e, path, ["kind", "url", "valuePath", "intervalSeconds"], [])) return null;
-                var url = ctx.String(e, "url", path);
-                var valuePath = ctx.String(e, "valuePath", path);
-                var interval = ctx.Integer(e, "intervalSeconds", path);
-                return url is null || valuePath is null || interval is null ? null : new ExternalSource.Poll(url, valuePath, (int)Math.Clamp(interval.Value, 0, int.MaxValue));
-            }
+                {
+                    if (!ctx.Object(e, path, ["kind", "url", "valuePath", "intervalSeconds"], [])) return null;
+                    var url = ctx.String(e, "url", path);
+                    var valuePath = ctx.String(e, "valuePath", path);
+                    var interval = ctx.Integer(e, "intervalSeconds", path);
+                    return url is null || valuePath is null || interval is null ? null : new ExternalSource.Poll(url, valuePath, (int)Math.Clamp(interval.Value, 0, int.MaxValue));
+                }
             default:
                 ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "kind"), $"unknown external input source '{kind}' (person, callback, poll)");
                 return null;

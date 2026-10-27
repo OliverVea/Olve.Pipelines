@@ -82,38 +82,38 @@ public static partial class YamlJson
                 parser.MoveNext();
                 return ScalarValue(scalar);
             case SequenceStart sequenceStart:
-            {
-                if (!sequenceStart.Tag.IsEmpty && sequenceStart.Tag.Value != "tag:yaml.org,2002:seq")
-                    return Problem(sequenceStart.Start, $"tag '{sequenceStart.Tag.Value}' is not supported");
-                parser.MoveNext();
-                var array = new JsonArray();
-                while (!parser.TryConsume<SequenceEnd>(out _))
                 {
-                    if (ReadNode(parser, depth + 1).TryPickProblems(out var problems, out var item))
-                        return Result.Failure<JsonNode?>(problems);
-                    array.Add(item);
-                }
-                return array;
-            }
-            case MappingStart mappingStart:
-            {
-                if (!mappingStart.Tag.IsEmpty && mappingStart.Tag.Value != "tag:yaml.org,2002:map")
-                    return Problem(mappingStart.Start, $"tag '{mappingStart.Tag.Value}' is not supported");
-                parser.MoveNext();
-                var obj = new JsonObject();
-                while (!parser.TryConsume<MappingEnd>(out _))
-                {
-                    if (parser.Current is not Scalar key)
-                        return Problem(parser.Current?.Start, "mapping keys must be plain strings");
+                    if (!sequenceStart.Tag.IsEmpty && sequenceStart.Tag.Value != "tag:yaml.org,2002:seq")
+                        return Problem(sequenceStart.Start, $"tag '{sequenceStart.Tag.Value}' is not supported");
                     parser.MoveNext();
-                    if (obj.ContainsKey(key.Value))
-                        return Problem(key.Start, $"duplicate key '{key.Value}'");
-                    if (ReadNode(parser, depth + 1).TryPickProblems(out var problems, out var value))
-                        return Result.Failure<JsonNode?>(problems);
-                    obj[key.Value] = value;
+                    var array = new JsonArray();
+                    while (!parser.TryConsume<SequenceEnd>(out _))
+                    {
+                        if (ReadNode(parser, depth + 1).TryPickProblems(out var problems, out var item))
+                            return Result.Failure<JsonNode?>(problems);
+                        array.Add(item);
+                    }
+                    return array;
                 }
-                return obj;
-            }
+            case MappingStart mappingStart:
+                {
+                    if (!mappingStart.Tag.IsEmpty && mappingStart.Tag.Value != "tag:yaml.org,2002:map")
+                        return Problem(mappingStart.Start, $"tag '{mappingStart.Tag.Value}' is not supported");
+                    parser.MoveNext();
+                    var obj = new JsonObject();
+                    while (!parser.TryConsume<MappingEnd>(out _))
+                    {
+                        if (parser.Current is not Scalar key)
+                            return Problem(parser.Current?.Start, "mapping keys must be plain strings");
+                        parser.MoveNext();
+                        if (obj.ContainsKey(key.Value))
+                            return Problem(key.Start, $"duplicate key '{key.Value}'");
+                        if (ReadNode(parser, depth + 1).TryPickProblems(out var problems, out var value))
+                            return Result.Failure<JsonNode?>(problems);
+                        obj[key.Value] = value;
+                    }
+                    return obj;
+                }
             default:
                 return Problem(current?.Start, "unexpected YAML content");
         }

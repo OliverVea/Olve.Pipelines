@@ -1,6 +1,6 @@
-using Olve.Results;
 using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
+using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 

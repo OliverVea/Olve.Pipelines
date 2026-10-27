@@ -10,8 +10,8 @@ using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Profiles;
 using Olve.Pipelines.Cli.Commands.Runs;
 using Olve.Pipelines.Cli.Commands.Secrets;
-using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Commands.Steps;
+using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 
@@ -319,12 +319,12 @@ public sealed class CliDispatcher
         for (var i = 0; i <= a.Length; i++) d[i, 0] = i;
         for (var j = 0; j <= b.Length; j++) d[0, j] = j;
         for (var i = 1; i <= a.Length; i++)
-        for (var j = 1; j <= b.Length; j++)
-        {
-            d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
-            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
-                d[i, j] = Math.Min(d[i, j], d[i - 2, j - 2] + 1);
-        }
+            for (var j = 1; j <= b.Length; j++)
+            {
+                d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
+                    d[i, j] = Math.Min(d[i, j], d[i - 2, j - 2] + 1);
+            }
         return d[a.Length, b.Length];
     }
 

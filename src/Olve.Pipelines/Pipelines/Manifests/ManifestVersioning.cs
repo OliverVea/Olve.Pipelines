@@ -168,7 +168,7 @@ public static class ManifestVersioning
                     break;
                 case SelectStage sel:
                     foreach (var caseStages in sel.Cases.Values)
-                    foreach (var s in StageSteps(caseStages)) yield return s;
+                        foreach (var s in StageSteps(caseStages)) yield return s;
                     break;
             }
         }

@@ -4,10 +4,10 @@ using Olve.Pipelines.Cli.Api;
 using Olve.Pipelines.Cli.Api.Contracts;
 using Olve.Pipelines.Cli.Commands;
 using Olve.Pipelines.Cli.Commands.Dev;
-using Olve.Pipelines.Cli.Commands.Steps;
-using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Commands.Pipelines;
 using Olve.Pipelines.Cli.Commands.Runs;
+using Olve.Pipelines.Cli.Commands.Steps;
+using Olve.Pipelines.Cli.Commands.Wait;
 using Olve.Pipelines.Cli.Diagnostics;
 using Olve.Pipelines.Cli.Output;
 using Olve.Pipelines.UnitTests.Cli.Dev;
@@ -241,7 +241,10 @@ public class RunCommandTests
         var api = Api();
         api.GetStepOutputResult = new AttemptOutputResponse
         {
-            Run = 15, Step = "hello", Attempt = 1, Status = "succeeded",
+            Run = 15,
+            Step = "hello",
+            Attempt = 1,
+            Status = "succeeded",
             Output = JsonDocument.Parse("""{"message":"hi"}""").RootElement.Clone(),
         };
 
@@ -461,7 +464,10 @@ public class RunCommandTests
         var api = Api();
         api.GetCriticalPathResult = Result.Success(new CriticalPathReport
         {
-            From = 3, To = 4, TotalSeconds = 300, AverageSeconds = 150,
+            From = 3,
+            To = 4,
+            TotalSeconds = 300,
+            AverageSeconds = 150,
             Runs =
             [
                 new CriticalPathRun { Number = 3, Status = "Succeeded", Seconds = 100, Path = [new CriticalPathStage { Stage = 1, Step = "test", Attempts = 2, Seconds = 100 }] },

@@ -54,7 +54,7 @@ public static class CliDownloadEndpoints
             if (LocalBuildPending(services.GetRequiredService<IConfiguration>(), asset))
             {
                 http.Response.Headers.RetryAfter = "60";
-                return HttpResults.Text(StillBuildingMessage + "\n","text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
+                return HttpResults.Text(StillBuildingMessage + "\n", "text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
             }
 
             // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation /

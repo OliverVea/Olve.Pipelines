@@ -40,7 +40,8 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         var request = HarnessJobRequest.ForAttempt(
             attempt, versionStamp, step.Image, step.TimeoutSeconds, step.Secrets,
             new HarnessUrls(stepUrl, inputUrl, resultUrl, fileUrls) { CallbackUrls = callbackUrls ?? new Dictionary<string, string>() },
-            step.ClusterAccess) with { Cases = cases ?? [] };
+            step.ClusterAccess) with
+        { Cases = cases ?? [] };
         return HarnessJobBuilder.Build(request, options);
     }
 

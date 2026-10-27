@@ -1,5 +1,3 @@
-using Olve.Results;
-using Olve.Utilities.Ids;
 using System.Net.ServerSentEvents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +11,8 @@ using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Streaming;
+using Olve.Results;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests.Streaming;
 

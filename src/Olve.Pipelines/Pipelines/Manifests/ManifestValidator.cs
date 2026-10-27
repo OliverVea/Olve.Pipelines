@@ -182,13 +182,13 @@ public static partial class ManifestValidator
                         Error(ManifestIssueCodes.PollSecretUndeclared, $"{path}.secrets[{j}]", $"poll '{p.Name}' uses secret '{s}', which is not in the pipeline's secrets");
                 }
                 foreach (var (header, value) in p.Headers)
-                foreach (Match match in SecretReferenceRegex().Matches(value))
-                {
-                    var secret = match.Groups[1].Value;
-                    if (!declared.Contains(secret))
-                        Error(ManifestIssueCodes.PollHeaderSecretUndeclared, $"{path}.headers.{header}",
-                            $"poll '{p.Name}': header '{header}' references secret '{secret}', which is not in the poll's secrets");
-                }
+                    foreach (Match match in SecretReferenceRegex().Matches(value))
+                    {
+                        var secret = match.Groups[1].Value;
+                        if (!declared.Contains(secret))
+                            Error(ManifestIssueCodes.PollHeaderSecretUndeclared, $"{path}.headers.{header}",
+                                $"poll '{p.Name}': header '{header}' references secret '{secret}', which is not in the poll's secrets");
+                    }
             }
         }
 
@@ -500,58 +500,58 @@ public static partial class ManifestValidator
             switch (mapping)
             {
                 case RefMapping r:
-                {
-                    if (!CheckRefSyntax(at, path, step, r) || !TryRoot(at, path, step, r, avail, allowMaybe, out var a)) return;
-                    if (a.Maybe && !allowMaybe)
-                        Error(ManifestIssueCodes.RefMaybeAvailable, path,
-                            $"{at}: '{r.Ref}' is only maybe-available (produced inside a when block); map it into an optional(...) input", step);
-                    if (!m.Models.TryGetValue(a.Model!, out var source)) return;
-                    if (!JsonSchemaShapes.TryResolveField(source.Output, source.Output, r.Path, out var leaf))
                     {
-                        Error(ManifestIssueCodes.RefPathUnknown, path, $"{at}: '{r.Ref}': model {a.Model} has no field '{string.Join('.', r.Path)}'", step);
-                        return;
-                    }
-                    if (target is { } t && leaf is { } l) CheckShape(at, path, step, r.Ref, source.Output, l, targetRoot, t, 0);
-                    return;
-                }
-                case ConstMapping c:
-                {
-                    if (target is not { } t) return;
-                    var want = JsonSchemaShapes.TypesOf(targetRoot, t);
-                    var got = JsonSchemaShapes.KindOf(c.Value);
-                    if (!JsonSchemaShapes.Overlaps(want, [got]))
-                        Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: constant is {got} but the input expects {string.Join("|", want!.Order())}", step);
-                    return;
-                }
-                case ObjectMapping o:
-                {
-                    JsonSchemaShapes.ObjectShape? shape = null;
-                    if (target is { } t)
-                    {
-                        var want = JsonSchemaShapes.TypesOf(targetRoot, t);
-                        if (!JsonSchemaShapes.Overlaps(want, ["object"]))
+                        if (!CheckRefSyntax(at, path, step, r) || !TryRoot(at, path, step, r, avail, allowMaybe, out var a)) return;
+                        if (a.Maybe && !allowMaybe)
+                            Error(ManifestIssueCodes.RefMaybeAvailable, path,
+                                $"{at}: '{r.Ref}' is only maybe-available (produced inside a when block); map it into an optional(...) input", step);
+                        if (!m.Models.TryGetValue(a.Model!, out var source)) return;
+                        if (!JsonSchemaShapes.TryResolveField(source.Output, source.Output, r.Path, out var leaf))
                         {
-                            Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: an object is mapped but the input expects {string.Join("|", want!.Order())}", step);
+                            Error(ManifestIssueCodes.RefPathUnknown, path, $"{at}: '{r.Ref}': model {a.Model} has no field '{string.Join('.', r.Path)}'", step);
                             return;
                         }
-                        shape = JsonSchemaShapes.ObjectShapeOf(targetRoot, t);
+                        if (target is { } t && leaf is { } l) CheckShape(at, path, step, r.Ref, source.Output, l, targetRoot, t, 0);
+                        return;
                     }
-                    foreach (var (field, inner) in o.Fields)
+                case ConstMapping c:
                     {
-                        JsonElement? fieldSchema = null;
-                        if (shape is not null)
-                        {
-                            if (shape.Properties.TryGetValue(field, out var fs)) fieldSchema = fs;
-                            else if (shape.Closed)
-                                Error(ManifestIssueCodes.MappingFieldUnknown, $"{path}.{field}", $"{at}: field '{field}' is not part of the input's schema", step);
-                        }
-                        CheckMapping($"{at}.{field}", $"{path}.{field}", step, inner, targetRoot, fieldSchema, avail);
+                        if (target is not { } t) return;
+                        var want = JsonSchemaShapes.TypesOf(targetRoot, t);
+                        var got = JsonSchemaShapes.KindOf(c.Value);
+                        if (!JsonSchemaShapes.Overlaps(want, [got]))
+                            Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: constant is {got} but the input expects {string.Join("|", want!.Order())}", step);
+                        return;
                     }
-                    if (shape is not null)
-                        foreach (var req in shape.Required.Where(req => !o.Fields.ContainsKey(req)).Order(StringComparer.Ordinal))
-                            Error(ManifestIssueCodes.MappingFieldMissing, path, $"{at}: required field '{req}' is not mapped", step);
-                    return;
-                }
+                case ObjectMapping o:
+                    {
+                        JsonSchemaShapes.ObjectShape? shape = null;
+                        if (target is { } t)
+                        {
+                            var want = JsonSchemaShapes.TypesOf(targetRoot, t);
+                            if (!JsonSchemaShapes.Overlaps(want, ["object"]))
+                            {
+                                Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: an object is mapped but the input expects {string.Join("|", want!.Order())}", step);
+                                return;
+                            }
+                            shape = JsonSchemaShapes.ObjectShapeOf(targetRoot, t);
+                        }
+                        foreach (var (field, inner) in o.Fields)
+                        {
+                            JsonElement? fieldSchema = null;
+                            if (shape is not null)
+                            {
+                                if (shape.Properties.TryGetValue(field, out var fs)) fieldSchema = fs;
+                                else if (shape.Closed)
+                                    Error(ManifestIssueCodes.MappingFieldUnknown, $"{path}.{field}", $"{at}: field '{field}' is not part of the input's schema", step);
+                            }
+                            CheckMapping($"{at}.{field}", $"{path}.{field}", step, inner, targetRoot, fieldSchema, avail);
+                        }
+                        if (shape is not null)
+                            foreach (var req in shape.Required.Where(req => !o.Fields.ContainsKey(req)).Order(StringComparer.Ordinal))
+                                Error(ManifestIssueCodes.MappingFieldMissing, path, $"{at}: required field '{req}' is not mapped", step);
+                        return;
+                    }
             }
         }
 
@@ -639,21 +639,21 @@ public static partial class ManifestValidator
         {
             if (s.Config is null) return;
             foreach (var (key, value) in s.Config)
-            foreach (var (refPath, reference, condition) in ConfigRefs.Find(value, $"{path}.config.{key}"))
-            {
-                if (condition is not null && !cases.Any(c => c.Condition == condition))
-                    Error(ManifestIssueCodes.ConfigRefOutsideCase, refPath,
-                        $"step '{s.Name}': config reference '{reference}' is narrowed to the select case '{condition}' and can only be used inside it", s.Name);
-                var segments = reference.Split('.');
-                var entryName = segments[0];
-                if (!s.ConfigEntries.Contains(entryName, StringComparer.Ordinal))
-                    Error(ManifestIssueCodes.ConfigRefNotReceived, refPath,
-                        $"step '{s.Name}': config reference '{reference}': the step does not receive config entry '{entryName}'", s.Name);
-                else if (_config.TryGetValue(entryName, out var entry)
-                         && !JsonSchemaShapes.TryResolveField(entry.Schema, entry.Schema, segments[1..], out _))
-                    Error(ManifestIssueCodes.ConfigRefFieldUnknown, refPath,
-                        $"step '{s.Name}': config reference '{reference}': config '{entryName}' has no field '{string.Join('.', segments[1..])}'", s.Name);
-            }
+                foreach (var (refPath, reference, condition) in ConfigRefs.Find(value, $"{path}.config.{key}"))
+                {
+                    if (condition is not null && !cases.Any(c => c.Condition == condition))
+                        Error(ManifestIssueCodes.ConfigRefOutsideCase, refPath,
+                            $"step '{s.Name}': config reference '{reference}' is narrowed to the select case '{condition}' and can only be used inside it", s.Name);
+                    var segments = reference.Split('.');
+                    var entryName = segments[0];
+                    if (!s.ConfigEntries.Contains(entryName, StringComparer.Ordinal))
+                        Error(ManifestIssueCodes.ConfigRefNotReceived, refPath,
+                            $"step '{s.Name}': config reference '{reference}': the step does not receive config entry '{entryName}'", s.Name);
+                    else if (_config.TryGetValue(entryName, out var entry)
+                             && !JsonSchemaShapes.TryResolveField(entry.Schema, entry.Schema, segments[1..], out _))
+                        Error(ManifestIssueCodes.ConfigRefFieldUnknown, refPath,
+                            $"step '{s.Name}': config reference '{reference}': config '{entryName}' has no field '{string.Join('.', segments[1..])}'", s.Name);
+                }
         }
 
         private void CheckFailureHandlers()

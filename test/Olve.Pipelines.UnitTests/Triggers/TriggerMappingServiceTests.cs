@@ -27,7 +27,8 @@ public class TriggerMappingServiceTests
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
         var inputs = new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations);
         var service = new TriggerMappingService(inputs, s.D.Starts, new HarnessJobFactory(presigner, new HarnessOptions()), control, storage,
-            new HarnessOptions(), TimeProvider.System, NullLogger<TriggerMappingService>.Instance) { PollInterval = TimeSpan.FromMilliseconds(5) };
+            new HarnessOptions(), TimeProvider.System, NullLogger<TriggerMappingService>.Instance)
+        { PollInterval = TimeSpan.FromMilliseconds(5) };
         return new Harness(service, k8s, storage, s);
     }
 

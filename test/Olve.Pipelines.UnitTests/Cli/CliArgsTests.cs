@@ -1,5 +1,5 @@
-using Olve.Results;
 using Olve.Pipelines.Cli;
+using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 

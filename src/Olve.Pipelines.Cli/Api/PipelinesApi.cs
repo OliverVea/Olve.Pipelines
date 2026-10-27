@@ -88,7 +88,10 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             ApiTransport.JsonBody(
                 new CreatePipelineWithRepoRequest
                 {
-                    Repo = repo, Branch = branch, Path = path, CredentialsSecret = credentialsSecret,
+                    Repo = repo,
+                    Branch = branch,
+                    Path = path,
+                    CredentialsSecret = credentialsSecret,
                 },
                 CliJsonContext.Default.CreatePipelineWithRepoRequest),
             CliJsonContext.Default.PipelineConfigBinding, ct);

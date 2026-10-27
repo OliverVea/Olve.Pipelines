@@ -41,7 +41,8 @@ public class TriggerMappingService(
         var mapStarted = time.GetUtcNow();
         var mapped = await MapAsync(pipelineId, target.Version.BinaryKey, triggerName, eventJson, ct);
         origin = (origin ?? new RunOrigin(mapStarted, kind == RunTriggerKind.Webhook ? "webhook" : "poll"))
-            with { MapStartedAt = mapStarted, MapFinishedAt = time.GetUtcNow() };
+            with
+        { MapStartedAt = mapStarted, MapFinishedAt = time.GetUtcNow() };
         if (mapped.TryPickProblems(out var mapProblems, out var output))
             return Result.Failure<RunStartOutcome?>(mapProblems);
         if (output is null)

@@ -90,7 +90,7 @@ public sealed class TeardownCommand(IProcessRunner processRunner) : ICliCommand
         string[] pvcs = [$"{release}-garage-meta", $"{release}-garage-data"];
         Step($"Purging storage data volumes {string.Join(", ", pvcs)}");
         return Forget(await processRunner.RunCheckedAsync("kubectl",
-            ["delete", "pvc", ..pvcs, "-n", ns, "--ignore-not-found"], ct: ct));
+            ["delete", "pvc", .. pvcs, "-n", ns, "--ignore-not-found"], ct: ct));
     }
 
     /// <summary>Collapses a <see cref="Result{T}"/> we only care about for success/failure into a <see cref="Result"/>.</summary>

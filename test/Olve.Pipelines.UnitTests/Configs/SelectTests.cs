@@ -143,7 +143,8 @@ public class SelectTests
     {
         var request = new HarnessJobRequest("olve-aaaaaaaabbbbccccddddeeeeeeeeeeee", Harness.HarnessJobBuilderTests.AttemptId, Harness.HarnessJobBuilderTests.PipelineId, Harness.HarnessJobBuilderTests.RunId,
             1, "count", 1, "2026.10.24.1", "alpine:3.22", 300, [], "olve-pipeline-x",
-            new HarnessUrls("http://garage/step", null, "http://garage/result", new Dictionary<string, string>())) { Cases = ["target.kind=ssh"] };
+            new HarnessUrls("http://garage/step", null, "http://garage/result", new Dictionary<string, string>()))
+        { Cases = ["target.kind=ssh"] };
 
         var job = HarnessJobBuilder.Build(request, new HarnessOptions()).Value!.Job;
         var env = job.Spec.Template.Spec.Containers[0].Env!;

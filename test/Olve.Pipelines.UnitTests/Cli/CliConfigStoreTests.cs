@@ -68,7 +68,11 @@ public class CliConfigStoreTests
     {
         AuthConfig Auth(string access, string refresh, DateTimeOffset expires) => new()
         {
-            AccessToken = access, RefreshToken = refresh, TokenEndpoint = "http://127.0.0.1:1/token", ClientId = "pl", ExpiresAt = expires,
+            AccessToken = access,
+            RefreshToken = refresh,
+            TokenEndpoint = "http://127.0.0.1:1/token",
+            ClientId = "pl",
+            ExpiresAt = expires,
         };
         var stale = new CliConfig { Auth = Auth("old", "rt-0", DateTimeOffset.UtcNow.AddSeconds(-5)) };
         await Assert.That(CliConfigStore.Save(new CliConfig { Auth = Auth("new", "rt-1", DateTimeOffset.UtcNow.AddMinutes(5)) })).Succeeded();

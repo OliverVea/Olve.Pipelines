@@ -1,8 +1,8 @@
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
-using Olve.Pipelines.GitHub;
 using Olve.Pipelines.Sources;
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 

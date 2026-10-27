@@ -3,8 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
-using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.UnitTests;
 

@@ -82,7 +82,10 @@ When adding a new way to start work, go through `RunStartService` (runs) or `Run
 dotnet build                                                # Build
 dotnet test                                                 # Tests
 dotnet run --project src/Olve.Pipelines                     # Run locally
+tools/check.sh [--changed|--full|--fix]                     # What the deploy checks, locally; --fix formats and regenerates (see CONTRIBUTING.md)
 ```
+
+A `PreToolUse` hook runs `tools/check.sh --hook` before every `git push`: a failing check blocks the push. Fix with `tools/check.sh --fix` (formatting, generated files) or by hand, never by bypassing the hook.
 
 ### SDK and pipelines (Bun)
 
@@ -91,7 +94,7 @@ See [sdk/README.md](sdk/README.md) (authoring API, harness contract, manifest, `
 ```bash
 cd sdk && bun install                                       # Install
 cd sdk && bunx tsc --noEmit -p .                            # Type-check (TS 7)
-cd sdk && bun test                                          # Runtime, build/e2e and compile-fail tests
+cd sdk && bun run check                                     # prettier, tsc, compile-fail and runtime tests (what build-sdk runs)
 cd sdk && bun scripts/gen-manifest-schema.ts                # After changing src/describe/manifest-schema.ts
 pl dev describe [--dir .pipelines-test]                     # Describe a pipeline from source (see docs/setup/local-development.md)
 ```

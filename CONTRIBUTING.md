@@ -48,9 +48,27 @@ dotnet build                                                   # Build
 dotnet test                                                    # Tests
 dotnet run --project src/Olve.Pipelines                        # Run locally
 
-cd sdk && bun install && bunx tsc --noEmit -p . && bun test    # SDK: type-check + compile-fail cases + runtime tests
+cd sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
 cd frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```
+
+### Check before you push
+
+`tools/check.sh` runs what the deploy's `test`, `build-sdk` and `build-frontend` steps run, per
+project (SDK, `.pipelines`, frontend, .NET server + CLI with their generated files):
+
+```bash
+tools/check.sh                 # fast tier: formatting, lint, type checks, generated files current, pipeline valid
+tools/check.sh --changed       # only the projects changed against the upstream branch (plus uncommitted work)
+tools/check.sh --full          # plus the unit tests, the SDK test suite and the frontend build
+tools/check.sh --fix           # format and regenerate first (prettier, dotnet format, api.json, TS client, API reference, manifest schema)
+```
+
+Formatting: prettier for all TypeScript (`.prettierrc` at the root; `*.md`, generated files and the
+SDK's compile-fail fixtures are ignored), `dotnet format` for C#. Agent sessions run
+`tools/check.sh --hook` before every `git push` (a `PreToolUse` hook in `.claude/settings.json`);
+for your own pushes, `git config core.hooksPath .githooks` installs the same gate as a git
+`pre-push` hook.
 
 Every deploy checks the fresh v2 beta in the `beta-test` step (`.pipelines/handlers/beta-test.ts`):
 readiness, the API's reads and error shape, that an anonymous mutation is refused, the event stream,

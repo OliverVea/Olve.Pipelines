@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Opt in with: git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/tools/check.sh" --hook

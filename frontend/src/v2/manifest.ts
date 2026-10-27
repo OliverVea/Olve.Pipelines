@@ -101,7 +101,11 @@ export type Manifest = {
   /** Typed config entries (one key each in the pipeline's config document). */
   config?: { name: string; description: string; required: boolean; schema: JsonSchema }[];
   /** Per-pipeline retention overrides (each replaces the instance setting of the same meaning). */
-  retention?: { keepLatestRuns?: number; minRunAgeDays?: number; buildGraceDays?: number };
+  retention?: {
+    keepLatestRuns?: number;
+    minRunAgeDays?: number;
+    buildGraceDays?: number;
+  };
 };
 
 export function parseManifest(json: string | null | undefined): Manifest | null {

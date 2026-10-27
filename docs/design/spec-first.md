@@ -66,7 +66,9 @@ Do this first, verified against ARM (the existing consumer), before Olve.Pipelin
     is declared in the spec for the clients only.
   - **`Id<T>` route parameters**: a decorator (or `@format`) that binds `{pipelineId}` as
     `Id<Pipeline>`, not `Guid`.
-  - **Pagination**: `Page<T>` (`Olve.Utilities.Paginations`) as a generic model.
+  - **Pagination** is offset/limit: a list takes `offset` and `limit` and answers
+    `{ items, total }`. The page-number model (`Olve.Utilities.Paginations`' `Pagination` and
+    `Page<T>`) is deprecated there; a page is a UI notion, computed by the client.
   - SSE unions already work (`@events` with a `type` literal per variant); `/api/events` notices
     and the log stream must carry one.
 - ARM switches to the packages in its next release; its `src/codegen/` is deleted.
@@ -117,6 +119,9 @@ builds against it.
 - `TriggerRunRequest.fields` is a free `JsonElement`; the spec says `Record<unknown>` and the body
   is the input object itself where the client already has it.
 - `GET /api/attempts?status=active` is the only top-level cross-pipeline view; decide if it stays.
+- `GET …/runs` pages with `page`/`pageSize` into `PageOfRunSummary` (`pageNumber`, `pageSize`,
+  `totalCount`); step history takes `limit`. Both become `offset`/`limit` with `{ items, total }`
+  (decided 2026-10-27: pages exist only in the UI).
 
 ## Phase 3: `pl` in TypeScript
 

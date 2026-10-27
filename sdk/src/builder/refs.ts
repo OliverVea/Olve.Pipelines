@@ -1,7 +1,7 @@
-import type { RefBrand } from "../core/brands.ts";
-import type { AnyStep, InferEntry } from "../core/steps.ts";
-import type { External } from "../core/external.ts";
-import type { Primitive } from "../core/types.ts";
+import type { RefBrand } from '../core/brands.ts';
+import type { AnyStep, InferEntry } from '../core/steps.ts';
+import type { External } from '../core/external.ts';
+import type { Primitive } from '../core/types.ts';
 
 /**
  * A typed reference into the run pool — what mappers see. `symbol &` makes template strings, `+`
@@ -13,7 +13,11 @@ type RefFields<T> = [NonNullable<T>] extends [Primitive]
   ? {}
   : NonNullable<T> extends readonly unknown[]
     ? {}
-    : { readonly [K in keyof NonNullable<T> & string]-?: Ref<NonNullable<T>[K] | (undefined extends T ? undefined : never)> };
+    : {
+        readonly [K in keyof NonNullable<T> & string]-?: Ref<
+          NonNullable<T>[K] | (undefined extends T ? undefined : never)
+        >;
+      };
 
 /** What a mapper may put where a T is expected: a Ref<T>, a literal, or an object of those. */
 export type Mappable<T> =
@@ -26,5 +30,7 @@ export type Mappable<T> =
 
 /** What a mapper provides: every input except the external ones, which come from outside the run. */
 export type MapperResult<S extends AnyStep> = {
-  [K in keyof S["input"] as S["input"][K] extends External ? never : K]: Mappable<InferEntry<S["input"][K]>>;
+  [K in keyof S['input'] as S['input'][K] extends External ? never : K]: Mappable<
+    InferEntry<S['input'][K]>
+  >;
 };

@@ -1,21 +1,21 @@
 // steps.composeDeploy — ask a Docker Compose deployer to recreate a service with an image. The step is
 // thin on purpose: the deployer (pull, recreate, health, rollback) lives beside the compose project
 // and is fixed there, behind a versioned HTTP API, without editing pipelines.
-import type { Ctx } from "../ctx/types.ts";
-import type { Configurable } from "../core/config.ts";
-import { resolveConfigRefs } from "../core/config-refs.ts";
-import { implement, type Implementation } from "../core/handlers.ts";
-import type { Secret } from "../core/secrets.ts";
-import { step, type LiteralName, type Step } from "../core/steps.ts";
-import { httpHealthCheck } from "./http-health.ts";
-import { HelmRelease, PushedImage } from "./models.ts";
+import type { Ctx } from '../ctx/types.ts';
+import type { Configurable } from '../core/config.ts';
+import { resolveConfigRefs } from '../core/config-refs.ts';
+import { implement, type Implementation } from '../core/handlers.ts';
+import type { Secret } from '../core/secrets.ts';
+import { step, type LiteralName, type Step } from '../core/steps.ts';
+import { httpHealthCheck } from './http-health.ts';
+import { HelmRelease, PushedImage } from './models.ts';
 
 /** The step's own image: the work is one HTTP call from the harness. */
-export const COMPOSE_DEPLOY_IMAGE = "alpine:3.22";
+export const COMPOSE_DEPLOY_IMAGE = 'alpine:3.22';
 
 /** A resolved `kind: compose` target. */
 export interface ComposeTargetValue {
-  kind: "compose";
+  kind: 'compose';
   deployerUrl: string;
   service: string;
   token: { secret: string };
@@ -24,7 +24,7 @@ export interface ComposeTargetValue {
 
 /** What the deployer answers to `POST /v1/deploy`. */
 export interface ComposeDeployResult {
-  status: "deployed" | "rolled-back" | "failed";
+  status: 'deployed' | 'rolled-back' | 'failed';
   service: string;
   image: string;
   previousImage?: string;
@@ -58,7 +58,7 @@ export function composeDeploy<const N extends string, const K extends string>(
   const contract = step({
     name: def.name,
     description: def.description,
-    kind: "composeDeploy",
+    kind: 'composeDeploy',
     image: COMPOSE_DEPLOY_IMAGE,
     input,
     output: HelmRelease,
@@ -68,15 +68,25 @@ export function composeDeploy<const N extends string, const K extends string>(
   });
   return implement(contract, async ({ image }, ctx: Ctx) => {
     const target = resolveConfigRefs(def.target, ctx.config ?? {}) as ComposeTargetValue;
-    if (target?.kind !== "compose") throw new Error(`composeDeploy '${def.name}': the target is kind '${String(target?.kind)}', not 'compose'`);
-    if (target.token.secret !== def.token.name) throw new Error(`composeDeploy '${def.name}': the target's token names secret ${target.token.secret}, but the step declares ${def.token.name}`);
+    if (target?.kind !== 'compose')
+      throw new Error(
+        `composeDeploy '${def.name}': the target is kind '${String(target?.kind)}', not 'compose'`,
+      );
+    if (target.token.secret !== def.token.name)
+      throw new Error(
+        `composeDeploy '${def.name}': the target's token names secret ${target.token.secret}, but the step declares ${def.token.name}`,
+      );
     const token = (ctx.secrets as Record<string, string>)[def.token.name];
     const ref = `${image.repository}@${image.digest}`;
-    const url = `${target.deployerUrl.replace(/\/+$/, "")}/v1/deploy`;
-    ctx.log("deploying", { service: target.service, image: ref, deployer: target.deployerUrl });
+    const url = `${target.deployerUrl.replace(/\/+$/, '')}/v1/deploy`;
+    ctx.log('deploying', {
+      service: target.service,
+      image: ref,
+      deployer: target.deployerUrl,
+    });
     const res = await ctx.http.fetch(url, {
-      method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: JSON.stringify({ service: target.service, image: ref }),
     });
     const text = await res.text();
@@ -87,10 +97,17 @@ export function composeDeploy<const N extends string, const K extends string>(
       // reported below
     }
     for (const line of result?.log ?? []) ctx.log(`deployer: ${line}`);
-    if (!res.ok || result?.status !== "deployed")
-      throw new Error(`the deployer answered HTTP ${res.status}: ${result ? `${result.status}${result.message ? `: ${result.message}` : ""}` : text.slice(0, 300)}`);
-    if (target.healthUrl) await httpHealthCheck(ctx, target.healthUrl, { attempts: 12, delaySeconds: 5 });
-    ctx.log("deployed", { service: target.service, image: ref, previous: result.previousImage ?? "-" });
-    return { release: target.service, namespace: "compose", image: ref };
+    if (!res.ok || result?.status !== 'deployed')
+      throw new Error(
+        `the deployer answered HTTP ${res.status}: ${result ? `${result.status}${result.message ? `: ${result.message}` : ''}` : text.slice(0, 300)}`,
+      );
+    if (target.healthUrl)
+      await httpHealthCheck(ctx, target.healthUrl, { attempts: 12, delaySeconds: 5 });
+    ctx.log('deployed', {
+      service: target.service,
+      image: ref,
+      previous: result.previousImage ?? '-',
+    });
+    return { release: target.service, namespace: 'compose', image: ref };
   }) as never;
 }

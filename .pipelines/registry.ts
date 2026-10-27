@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Ctx } from "@olivervea/pipelines";
+import { createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Ctx } from '@olivervea/pipelines';
 
 interface Published {
   repository: string;
@@ -13,10 +13,26 @@ interface Target {
 }
 
 /** Points `tag` at the image's digest in its registry, with the login `target` names. */
-export async function tagImage(ctx: Pick<Ctx, "exec" | "log" | "secrets" | "tmpDir">, image: Published, tag: string, target: Target): Promise<void> {
-  const opts = { env: { DOCKER_CONFIG: dockerConfig(ctx, [[image.repository, target]]) } };
-  await ctx.exec(["crane", "tag", `${image.repository}@${image.digest}`, tag, ...(target.insecure ? ["--insecure"] : [])], opts);
-  ctx.log("tagged image", { image: `${image.repository}:${tag}`, digest: image.digest });
+export async function tagImage(
+  ctx: Pick<Ctx, 'exec' | 'log' | 'secrets' | 'tmpDir'>,
+  image: Published,
+  tag: string,
+  target: Target,
+): Promise<void> {
+  const opts = {
+    env: { DOCKER_CONFIG: dockerConfig(ctx, [[image.repository, target]]) },
+  };
+  await ctx.exec(
+    [
+      'crane',
+      'tag',
+      `${image.repository}@${image.digest}`,
+      tag,
+      ...(target.insecure ? ['--insecure'] : []),
+    ],
+    opts,
+  );
+  ctx.log('tagged image', { image: `${image.repository}:${tag}`, digest: image.digest });
 }
 
 interface Repository extends Target {
@@ -24,17 +40,33 @@ interface Repository extends Target {
 }
 
 /** A docker config directory (for crane's `DOCKER_CONFIG`) with the logins the targets name. */
-export function dockerConfig(ctx: Pick<Ctx, "secrets" | "tmpDir">, targets: readonly (readonly [string, Target])[]): string {
-  const dir = join(ctx.tmpDir, `docker-${createHash("sha256").update(targets.map(([r]) => r).join(" ")).digest("hex").slice(0, 8)}`);
+export function dockerConfig(
+  ctx: Pick<Ctx, 'secrets' | 'tmpDir'>,
+  targets: readonly (readonly [string, Target])[],
+): string {
+  const dir = join(
+    ctx.tmpDir,
+    `docker-${createHash('sha256')
+      .update(targets.map(([r]) => r).join(' '))
+      .digest('hex')
+      .slice(0, 8)}`,
+  );
   mkdirSync(dir, { recursive: true });
   const auths: Record<string, { auth: string }> = {};
   for (const [repository, target] of targets) {
     if (!target.auth) continue;
-    const password = (ctx.secrets as Record<string, string | undefined>)[target.auth.password.secret];
-    if (!password) throw new Error(`secret ${target.auth.password.secret} (registry login for ${repository}) is not set`);
-    auths[repository.split("/")[0]!] = { auth: Buffer.from(`${target.auth.username}:${password}`).toString("base64") };
+    const password = (ctx.secrets as Record<string, string | undefined>)[
+      target.auth.password.secret
+    ];
+    if (!password)
+      throw new Error(
+        `secret ${target.auth.password.secret} (registry login for ${repository}) is not set`,
+      );
+    auths[repository.split('/')[0]!] = {
+      auth: Buffer.from(`${target.auth.username}:${password}`).toString('base64'),
+    };
   }
-  writeFileSync(join(dir, "config.json"), JSON.stringify({ auths }), { mode: 0o600 });
+  writeFileSync(join(dir, 'config.json'), JSON.stringify({ auths }), { mode: 0o600 });
   return dir;
 }
 
@@ -44,19 +76,39 @@ export function dockerConfig(ctx: Pick<Ctx, "secrets" | "tmpDir">, targets: read
  * in the release repository is kept, since equal content means an equal tag.
  */
 export async function releaseImage(
-  ctx: Pick<Ctx, "exec" | "log" | "secrets" | "tmpDir">,
+  ctx: Pick<Ctx, 'exec' | 'log' | 'secrets' | 'tmpDir'>,
   image: Published & { tag: string },
   from: Target,
   to: Repository,
   tags: string[],
 ): Promise<void> {
-  const opts = { env: { DOCKER_CONFIG: dockerConfig(ctx, [[image.repository, from], [to.repository, to]]) } };
-  const insecure = from.insecure || to.insecure ? ["--insecure"] : [];
+  const opts = {
+    env: {
+      DOCKER_CONFIG: dockerConfig(ctx, [
+        [image.repository, from],
+        [to.repository, to],
+      ]),
+    },
+  };
+  const insecure = from.insecure || to.insecure ? ['--insecure'] : [];
 
   const built = `${to.repository}:${image.tag}`;
-  const kept = image.tag.startsWith("src-") && (await ctx.exec(["crane", "digest", built, ...insecure], opts).then(() => true, () => false));
-  if (kept) ctx.log("content tag already released", { image: built });
-  else await ctx.exec(["crane", "copy", `${image.repository}@${image.digest}`, built, ...insecure], opts);
-  for (const tag of tags) await ctx.exec(["crane", "tag", built, tag, ...insecure], opts);
-  ctx.log("released image", { from: kept ? built : `${image.repository}@${image.digest}`, to: to.repository, tags: [image.tag, ...tags] });
+  const kept =
+    image.tag.startsWith('src-') &&
+    (await ctx.exec(['crane', 'digest', built, ...insecure], opts).then(
+      () => true,
+      () => false,
+    ));
+  if (kept) ctx.log('content tag already released', { image: built });
+  else
+    await ctx.exec(
+      ['crane', 'copy', `${image.repository}@${image.digest}`, built, ...insecure],
+      opts,
+    );
+  for (const tag of tags) await ctx.exec(['crane', 'tag', built, tag, ...insecure], opts);
+  ctx.log('released image', {
+    from: kept ? built : `${image.repository}@${image.digest}`,
+    to: to.repository,
+    tags: [image.tag, ...tags],
+  });
 }

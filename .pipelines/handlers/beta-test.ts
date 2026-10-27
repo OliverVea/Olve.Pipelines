@@ -1,11 +1,17 @@
-import { checkSpa, httpHealthCheck, implement, serviceUrl, type Ctx } from "@olivervea/pipelines";
-import { betaTest } from "../pipeline";
+import {
+  checkSpa,
+  httpHealthCheck,
+  implement,
+  serviceUrl,
+  type Ctx,
+} from '@olivervea/pipelines';
+import { betaTest } from '../pipeline';
 
 function check(ok: boolean, what: string): asserts ok {
   if (!ok) throw new Error(`beta-test: ${what}`);
 }
 
-const FIXTURE = "v2 test fixture";
+const FIXTURE = 'v2 test fixture';
 
 type RunDetail = { run: { number: number; status: string } };
 
@@ -13,27 +19,50 @@ type RunDetail = { run: { number: number; status: string } };
  * Reconciles beta's test fixture and runs it at `sha`, as the deployer (BETA_TOKEN): its called-back and polled
  * steps only finish when beta's signal-test service answers them. Throws unless the run succeeds in time.
  */
-async function runFixture(ctx: Ctx<"BETA_TOKEN">, base: string, sha: string) {
-  const auth = { authorization: `Bearer ${ctx.secrets.BETA_TOKEN}`, "content-type": "application/json" };
-  const pipelines = await ctx.http.getJson<{ id: string; name: string }[]>(`${base}/api/pipelines`);
+async function runFixture(ctx: Ctx<'BETA_TOKEN'>, base: string, sha: string) {
+  const auth = {
+    authorization: `Bearer ${ctx.secrets.BETA_TOKEN}`,
+    'content-type': 'application/json',
+  };
+  const pipelines = await ctx.http.getJson<{ id: string; name: string }[]>(
+    `${base}/api/pipelines`,
+  );
   const fixture = pipelines.find((p) => p.name === FIXTURE);
   check(fixture !== undefined, `beta has no pipeline '${FIXTURE}'`);
   const api = `${base}/api/pipelines/${fixture.id}`;
   const deadline = Date.now() + 12 * 60_000;
   const tick = () => new Promise((r) => setTimeout(r, 5_000));
 
-  const reconcile = await ctx.http.fetch(`${api}/binding/reconcile?wait=true`, { method: "POST", headers: auth });
-  check(reconcile.ok, `reconciling ${FIXTURE} answered ${reconcile.status}: ${await reconcile.text()}`);
+  const reconcile = await ctx.http.fetch(`${api}/binding/reconcile?wait=true`, {
+    method: 'POST',
+    headers: auth,
+  });
+  check(
+    reconcile.ok,
+    `reconciling ${FIXTURE} answered ${reconcile.status}: ${await reconcile.text()}`,
+  );
 
-  const trigger = await ctx.http.fetch(`${api}/runs`, { method: "POST", headers: auth, body: JSON.stringify({ sha }) });
-  check(trigger.ok, `triggering ${FIXTURE} answered ${trigger.status}: ${await trigger.clone().text()}`);
+  const trigger = await ctx.http.fetch(`${api}/runs`, {
+    method: 'POST',
+    headers: auth,
+    body: JSON.stringify({ sha }),
+  });
+  check(
+    trigger.ok,
+    `triggering ${FIXTURE} answered ${trigger.status}: ${await trigger.clone().text()}`,
+  );
   const { run } = (await trigger.json()) as { run: { number: number } | null };
   check(run !== null, `${FIXTURE} queued the run instead of starting it`);
   for (;;) {
-    const { run: current } = await ctx.http.getJson<RunDetail>(`${api}/runs/${run.number}`);
-    if (current.status === "Succeeded") return run.number;
-    check(current.status === "Running", `${FIXTURE}#${run.number} ${current.status}`);
-    check(Date.now() < deadline, `${FIXTURE}#${run.number} still running after 12 minutes`);
+    const { run: current } = await ctx.http.getJson<RunDetail>(
+      `${api}/runs/${run.number}`,
+    );
+    if (current.status === 'Succeeded') return run.number;
+    check(current.status === 'Running', `${FIXTURE}#${run.number} ${current.status}`);
+    check(
+      Date.now() < deadline,
+      `${FIXTURE}#${run.number} still running after 12 minutes`,
+    );
     await tick();
   }
 }
@@ -44,30 +73,51 @@ export default implement(betaTest, async ({ release, source }, ctx) => {
   await httpHealthCheck(ctx, `${BETA_URL}/api/ready`, { attempts: 12, delaySeconds: 5 });
 
   const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`);
-  check(Array.isArray(pipelines), "/api/pipelines did not answer a list");
+  check(Array.isArray(pipelines), '/api/pipelines did not answer a list');
 
   await checkSpa(ctx, BETA_URL);
 
-  const attempts = await ctx.http.getJson<unknown>(`${BETA_URL}/api/attempts?status=active`);
-  check(Array.isArray(attempts), "/api/attempts did not answer a list");
+  const attempts = await ctx.http.getJson<unknown>(
+    `${BETA_URL}/api/attempts?status=active`,
+  );
+  check(Array.isArray(attempts), '/api/attempts did not answer a list');
 
-  if (auth.mode !== "none") {
-    const anonymousTrigger = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`, { method: "POST", body: "{}" });
-    check(anonymousTrigger.status === 401, `an anonymous trigger answered ${anonymousTrigger.status}, expected 401`);
+  if (auth.mode !== 'none') {
+    const anonymousTrigger = await ctx.http.fetch(
+      `${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`,
+      { method: 'POST', body: '{}' },
+    );
+    check(
+      anonymousTrigger.status === 401,
+      `an anonymous trigger answered ${anonymousTrigger.status}, expected 401`,
+    );
   }
 
-  const missing = await ctx.http.fetch(`${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs/1`);
-  check(missing.status === 404, `an unknown pipeline answered ${missing.status}, expected 404`);
-  check(missing.headers.get("content-type")?.startsWith("application/problem+json") ?? false, "a 404 is not application/problem+json");
+  const missing = await ctx.http.fetch(
+    `${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs/1`,
+  );
+  check(
+    missing.status === 404,
+    `an unknown pipeline answered ${missing.status}, expected 404`,
+  );
+  check(
+    missing.headers.get('content-type')?.startsWith('application/problem+json') ?? false,
+    'a 404 is not application/problem+json',
+  );
   const problem = (await missing.json()) as { status?: number; errors?: unknown[] };
-  check(problem.status === 404 && Array.isArray(problem.errors), "the 404 body is not an ApiProblem");
+  check(
+    problem.status === 404 && Array.isArray(problem.errors),
+    'the 404 body is not an ApiProblem',
+  );
 
-  const events = await ctx.http.fetch(`${BETA_URL}/api/events`, { signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(10_000)]) });
+  const events = await ctx.http.fetch(`${BETA_URL}/api/events`, {
+    signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(10_000)]),
+  });
   check(events.ok && events.body !== null, `/api/events answered ${events.status}`);
   const reader = events.body.getReader();
-  let seen = "";
+  let seen = '';
   try {
-    while (!seen.includes("event: hello")) {
+    while (!seen.includes('event: hello')) {
       const { done, value } = await reader.read();
       if (done) break;
       seen += new TextDecoder().decode(value);
@@ -77,12 +127,14 @@ export default implement(betaTest, async ({ release, source }, ctx) => {
   } finally {
     await reader.cancel().catch(() => {});
   }
-  check(seen.includes("event: hello"), "/api/events sent no hello");
+  check(seen.includes('event: hello'), '/api/events sent no hello');
 
   const install = await (await ctx.http.expectOk(`${BETA_URL}/install.sh`)).text();
-  check(install.startsWith("#!/bin/sh"), "/install.sh is not the install script");
+  check(install.startsWith('#!/bin/sh'), '/install.sh is not the install script');
 
-  ctx.log("beta is healthy; running the fixture", { url: BETA_URL, sha: source.sha });
+  ctx.log('beta is healthy; running the fixture', { url: BETA_URL, sha: source.sha });
   const fixture = await runFixture(ctx, BETA_URL, source.sha);
-  ctx.log("the fixture run succeeded, external inputs included", { run: `${FIXTURE}#${fixture}` });
+  ctx.log('the fixture run succeeded, external inputs included', {
+    run: `${FIXTURE}#${fixture}`,
+  });
 });

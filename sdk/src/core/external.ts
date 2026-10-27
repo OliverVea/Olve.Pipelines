@@ -1,14 +1,19 @@
-import { isModel, type AnyModel } from "./models.ts";
+import { isModel, type AnyModel } from './models.ts';
 
 /** Who or what may supply an external input's value. */
 export type ExternalSource =
-  | { readonly kind: "person" }
-  | { readonly kind: "callback" }
-  | { readonly kind: "poll"; readonly url: string; readonly valuePath: string; readonly intervalSeconds: number };
+  | { readonly kind: 'person' }
+  | { readonly kind: 'callback' }
+  | {
+      readonly kind: 'poll';
+      readonly url: string;
+      readonly valuePath: string;
+      readonly intervalSeconds: number;
+    };
 
 /** A signed-in user answers, in the UI or with `pl input`. */
 export function person(): ExternalSource {
-  return Object.freeze({ kind: "person" as const });
+  return Object.freeze({ kind: 'person' as const });
 }
 
 /**
@@ -16,7 +21,7 @@ export function person(): ExternalSource {
  * with `ctx.inputUrl(step, input)`. The body is the value as JSON, or `{"$decline": "reason"}`.
  */
 export function callback(): ExternalSource {
-  return Object.freeze({ kind: "callback" as const });
+  return Object.freeze({ kind: 'callback' as const });
 }
 
 export interface PollOptions {
@@ -30,7 +35,12 @@ export interface PollOptions {
 
 /** The service polls `url` while the step waits and answers with the value at `valuePath` once it validates. */
 export function poll(options: PollOptions): ExternalSource {
-  return Object.freeze({ kind: "poll" as const, url: options.url, valuePath: options.valuePath, intervalSeconds: options.intervalSeconds ?? 30 });
+  return Object.freeze({
+    kind: 'poll' as const,
+    url: options.url,
+    valuePath: options.valuePath,
+    intervalSeconds: options.intervalSeconds ?? 30,
+  });
 }
 
 /**
@@ -38,7 +48,7 @@ export function poll(options: PollOptions): ExternalSource {
  * validated against `model`), then runs with the value in its input like any other.
  */
 export interface External<M extends AnyModel = AnyModel> {
-  readonly kind: "external";
+  readonly kind: 'external';
   readonly model: M;
   readonly title: string;
   readonly description: string;
@@ -53,16 +63,24 @@ export interface ExternalOptions {
   from?: readonly ExternalSource[];
 }
 
-export function external<M extends AnyModel>(model: M, options: ExternalOptions): External<M> {
+export function external<M extends AnyModel>(
+  model: M,
+  options: ExternalOptions,
+): External<M> {
   return Object.freeze({
-    kind: "external" as const,
+    kind: 'external' as const,
     model,
     title: options.title,
-    description: options.description ?? "",
+    description: options.description ?? '',
     from: Object.freeze([...(options.from ?? [person()])]),
   });
 }
 
 export function isExternal(v: unknown): v is External {
-  return typeof v === "object" && v !== null && (v as { kind?: unknown }).kind === "external" && isModel((v as { model?: unknown }).model);
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { kind?: unknown }).kind === 'external' &&
+    isModel((v as { model?: unknown }).model)
+  );
 }

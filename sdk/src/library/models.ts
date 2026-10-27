@@ -1,8 +1,11 @@
-import { z } from "zod";
-import { fileRef, model } from "../core/models.ts";
+import { z } from 'zod';
+import { fileRef, model } from '../core/models.ts';
 
 /** A source tree at a commit. `tree` references a directory (`path` ends with `/`). */
-export const Source = model("Source", z.object({ repo: z.string(), sha: z.string(), tree: fileRef() }));
+export const Source = model(
+  'Source',
+  z.object({ repo: z.string(), sha: z.string(), tree: fileRef() }),
+);
 
 /**
  * A container image built by a step, as an image tarball (`docker save` format) in the step's files.
@@ -10,8 +13,13 @@ export const Source = model("Source", z.object({ repo: z.string(), sha: z.string
  * (`olve-pipelines-v2` → `docker.io/library/olve-pipelines-v2`).
  */
 export const BuiltImage = model(
-  "BuiltImage",
-  z.object({ repository: z.string(), tag: z.string(), digest: z.string(), tar: fileRef() }),
+  'BuiltImage',
+  z.object({
+    repository: z.string(),
+    tag: z.string(),
+    digest: z.string(),
+    tar: fileRef(),
+  }),
 );
 
 /**
@@ -19,13 +27,13 @@ export const BuiltImage = model(
  * by the deploy. `repository` includes the registry host.
  */
 export const PushedImage = model(
-  "PushedImage",
+  'PushedImage',
   z.object({ repository: z.string(), tag: z.string(), digest: z.string() }),
 );
 
 /** A Helm release that was installed or upgraded. */
 export const HelmRelease = model(
-  "HelmRelease",
+  'HelmRelease',
   z.object({
     release: z.string(),
     namespace: z.string(),
@@ -54,7 +62,7 @@ export const FailedStep = z.object({
  * the run's failed steps the handler is scoped to (all of them for an unscoped handler); never empty.
  */
 export const FailureContext = model(
-  "FailureContext",
+  'FailureContext',
   z.object({
     pipeline: z.object({ id: z.string(), name: z.string() }),
     run: z.object({
@@ -64,7 +72,7 @@ export const FailureContext = model(
       address: z.string(),
       /** The run's derived version, `yyyy.MM.dd.<run>`. */
       versionStamp: z.string(),
-      trigger: z.enum(["push", "poll", "manual", "webhook"]),
+      trigger: z.enum(['push', 'poll', 'manual', 'webhook']),
       /** The run (`GET …/api/pipelines/<id>/runs/<n>`). */
       url: z.string(),
     }),

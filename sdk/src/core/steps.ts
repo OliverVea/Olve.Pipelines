@@ -1,12 +1,12 @@
-import type { z } from "zod";
-import { ORIGIN, STEP, type StepBrand } from "./brands.ts";
-import { callerFile } from "./origin.ts";
-import type { AnyModel, Infer, Optional } from "./models.ts";
-import type { External } from "./external.ts";
-import type { AnyConfigEntry } from "./config.ts";
-import { configRefsIn } from "./config-refs.ts";
-import type { Secret } from "./secrets.ts";
-import type { Simplify } from "./types.ts";
+import type { z } from 'zod';
+import { ORIGIN, STEP, type StepBrand } from './brands.ts';
+import { callerFile } from './origin.ts';
+import type { AnyModel, Infer, Optional } from './models.ts';
+import type { External } from './external.ts';
+import type { AnyConfigEntry } from './config.ts';
+import { configRefsIn } from './config-refs.ts';
+import type { Secret } from './secrets.ts';
+import type { Simplify } from './types.ts';
 
 /**
  * A step input entry: a model (matchable by model), `optional(model)`, a plain zod schema (mapper required),
@@ -16,11 +16,15 @@ export type InputEntry = AnyModel | Optional | External | z.ZodType;
 export type InputSpec = { readonly [key: string]: InputEntry };
 
 export type InferEntry<E> =
-  E extends Optional<infer M> ? Infer<M> | undefined
-  : E extends External<infer M> ? Infer<M>
-  : E extends AnyModel ? Infer<E>
-  : E extends z.ZodType ? z.output<E>
-  : never;
+  E extends Optional<infer M>
+    ? Infer<M> | undefined
+    : E extends External<infer M>
+      ? Infer<M>
+      : E extends AnyModel
+        ? Infer<E>
+        : E extends z.ZodType
+          ? z.output<E>
+          : never;
 /** What a handler receives: the output view of every input entry. */
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
@@ -62,16 +66,25 @@ export type AnyStep = Step<string, any, AnyModel | null, any, any>;
 export type SecretsOf<S> = S extends Step<any, any, any, infer Sec, any> ? Sec : never;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ConfigOf<S> = S extends Step<any, any, any, any, infer C> ? C : never;
-export type OutputValue<S extends AnyStep> = S["output"] extends AnyModel ? Infer<S["output"]> : void;
+export type OutputValue<S extends AnyStep> = S['output'] extends AnyModel
+  ? Infer<S['output']>
+  : void;
 
 /** Step names must be literals (identity, duplicate detection and mapper keys depend on it). */
-export type LiteralName<N extends string> = N & (string extends N ? "❌ step name must be a string literal" : unknown);
+export type LiteralName<N extends string> = N &
+  (string extends N ? '❌ step name must be a string literal' : unknown);
 
-export { STEP_NAME } from "./models.ts";
+export { STEP_NAME } from './models.ts';
 /** Names that cannot be steps: `input` is the pipeline input's root in mappings. */
-export const RESERVED_STEP_NAMES: readonly string[] = ["input"];
+export const RESERVED_STEP_NAMES: readonly string[] = ['input'];
 
-export interface StepDef<N extends string, I extends InputSpec, O extends AnyModel | null, Sec extends readonly Secret[], Cfg extends readonly AnyConfigEntry[] = []> {
+export interface StepDef<
+  N extends string,
+  I extends InputSpec,
+  O extends AnyModel | null,
+  Sec extends readonly Secret[],
+  Cfg extends readonly AnyConfigEntry[] = [],
+> {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
   description: string;
@@ -102,11 +115,12 @@ export interface StepDef<N extends string, I extends InputSpec, O extends AnyMod
 
 function makeStep(def: Record<string, unknown>, origin: string | undefined): AnyStep {
   const config = new Map<string, AnyConfigEntry>();
-  for (const e of (def.config as readonly AnyConfigEntry[] | undefined) ?? []) if (!config.has(e.name)) config.set(e.name, e);
+  for (const e of (def.config as readonly AnyConfigEntry[] | undefined) ?? [])
+    if (!config.has(e.name)) config.set(e.name, e);
   configRefsIn(def.settings, config);
   const s = {
     [STEP]: true,
-    kind: def.kind ?? "custom",
+    kind: def.kind ?? 'custom',
     name: def.name,
     description: def.description,
     image: def.image,
@@ -124,7 +138,9 @@ function makeStep(def: Record<string, unknown>, origin: string | undefined): Any
 }
 
 export function isStep(v: unknown): v is AnyStep {
-  return typeof v === "object" && v !== null && (v as Record<symbol, unknown>)[STEP] === true;
+  return (
+    typeof v === 'object' && v !== null && (v as Record<symbol, unknown>)[STEP] === true
+  );
 }
 
 /**
@@ -137,6 +153,6 @@ export function step<
   O extends AnyModel | null = null,
   const Sec extends readonly Secret[] = [],
   const Cfg extends readonly AnyConfigEntry[] = [],
->(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]["name"], Cfg[number]> {
+>(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]['name'], Cfg[number]> {
   return makeStep(def as never, callerFile()) as never;
 }

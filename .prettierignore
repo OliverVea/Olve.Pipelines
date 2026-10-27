@@ -1,0 +1,10 @@
+node_modules
+dist
+clients/
+api.json
+sdk/manifest.schema.json
+sdk/tests/compile-fail
+sdk/tests/compile-pass
+.pipelines/.olve
+spikes
+*.md

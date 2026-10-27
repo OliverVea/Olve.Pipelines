@@ -3,7 +3,7 @@
 // The general HTTP health check (ported from v1's deploy-beta.sh curl loop). Library steps use it
 // (helmDeployOverSsh's `healthUrl`), and it is exported for custom handlers, which get it with
 // their own retry policy. Runs in the harness (Bun fetch), so the image needs no curl.
-import type { Ctx } from "../ctx/types.ts";
+import type { Ctx } from '../ctx/types.ts';
 
 export interface HttpHealthCheckOptions {
   /** Total attempts (v1: 5). */
@@ -22,13 +22,15 @@ export const HTTP_HEALTH_DEFAULTS = { attempts: 5, delaySeconds: 5 } as const;
  * non-2xx statuses. Throws the last error (status + URL, query redacted) once the attempts run out.
  */
 export async function httpHealthCheck(
-  ctx: Pick<Ctx, "http" | "retry" | "log">,
+  ctx: Pick<Ctx, 'http' | 'retry' | 'log'>,
   url: string,
   opts: HttpHealthCheckOptions = {},
 ): Promise<void> {
   const attempts = opts.attempts ?? HTTP_HEALTH_DEFAULTS.attempts;
   const delaySeconds = opts.delaySeconds ?? HTTP_HEALTH_DEFAULTS.delaySeconds;
-  ctx.log("checking health", { url: url.split("?")[0]!, attempts });
-  await ctx.retry({ attempts, delaySeconds }, () => ctx.http.expectOk(url, opts.headers ? { headers: opts.headers } : undefined));
-  ctx.log("health OK", { url: url.split("?")[0]! });
+  ctx.log('checking health', { url: url.split('?')[0]!, attempts });
+  await ctx.retry({ attempts, delaySeconds }, () =>
+    ctx.http.expectOk(url, opts.headers ? { headers: opts.headers } : undefined),
+  );
+  ctx.log('health OK', { url: url.split('?')[0]! });
 }

@@ -1,13 +1,13 @@
-import { implement } from "@olivervea/pipelines";
-import { deployBeta } from "../pipeline";
-import deployScript from "../scripts/deploy.sh" with { type: "file" };
-import { releaseName } from "./lib/release";
+import { implement } from '@olivervea/pipelines';
+import { deployBeta } from '../pipeline';
+import deployScript from '../scripts/deploy.sh' with { type: 'file' };
+import { releaseName } from './lib/release';
 
-const URL = "https://pipelines-beta.ovea.pro";
+const URL = 'https://pipelines-beta.ovea.pro';
 
 export default implement(deployBeta, async ({ artifact }, ctx) => {
-  if (process.env.EXAMPLE_SKIP_BETA) return ctx.skip("EXAMPLE_SKIP_BETA is set");
-  const release = releaseName("beta");
+  if (process.env.EXAMPLE_SKIP_BETA) return ctx.skip('EXAMPLE_SKIP_BETA is set');
+  const release = releaseName('beta');
   await ctx.sh(deployScript, {
     env: {
       RELEASE: release,

@@ -1,32 +1,49 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { basename, isAbsolute, join } from "node:path";
-import type { ExecOptions, Sh, ShOptions } from "./types.ts";
-import { PRIVATE_ENV } from "../harness/env.ts";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, isAbsolute, join } from 'node:path';
+import type { ExecOptions, Sh, ShOptions } from './types.ts';
+import { PRIVATE_ENV } from '../harness/env.ts';
 
 /** Shells looked for, in order. kaniko only has /busybox/sh; distroless has none. */
-export const SHELL_CANDIDATES = ["/bin/sh", "/busybox/sh", "/bin/bash"] as const;
+export const SHELL_CANDIDATES = ['/bin/sh', '/busybox/sh', '/bin/bash'] as const;
 
 export class ShellNotFoundError extends Error {
-  override name = "ShellNotFoundError";
+  override name = 'ShellNotFoundError';
   constructor() {
     super(
-      `no shell found in this image (looked for ${SHELL_CANDIDATES.join(", ")}). ` +
+      `no shell found in this image (looked for ${SHELL_CANDIDATES.join(', ')}). ` +
         `ctx.sh needs a shell: use an image that has one, or run binaries directly with ctx.exec([...]).`,
     );
   }
 }
 
 export class CommandError extends Error {
-  override name = "CommandError";
-  constructor(readonly what: string, readonly exitCode: number | null, readonly signalCode: string | null) {
-    super(`${what} failed with ${signalCode ? `signal ${signalCode}` : `exit code ${exitCode}`}`);
+  override name = 'CommandError';
+  constructor(
+    readonly what: string,
+    readonly exitCode: number | null,
+    readonly signalCode: string | null,
+  ) {
+    super(
+      `${what} failed with ${signalCode ? `signal ${signalCode}` : `exit code ${exitCode}`}`,
+    );
   }
 }
 
 /** The command went quiet for longer than its `idleTimeoutSeconds` and was killed. */
 export class CommandStalledError extends CommandError {
-  override name = "CommandStalledError";
-  constructor(what: string, readonly idleTimeoutSeconds: number, signalCode: string | null) {
+  override name = 'CommandStalledError';
+  constructor(
+    what: string,
+    readonly idleTimeoutSeconds: number,
+    signalCode: string | null,
+  ) {
     super(what, null, signalCode);
     this.message = `${what} produced no output for ${idleTimeoutSeconds} s and was killed`;
   }
@@ -42,7 +59,7 @@ export function detectShell(candidates: readonly string[] = SHELL_CANDIDATES): s
 
 /** True for the value of `import x from "./x.sh" with { type: "file" }` (compiled or from source). */
 export function isEmbeddedScript(s: string): boolean {
-  if (s.startsWith("/$bunfs/") || s.startsWith("B:/~BUN/")) return true;
+  if (s.startsWith('/$bunfs/') || s.startsWith('B:/~BUN/')) return true;
   if (!isAbsolute(s) || !/\.(sh|bash)$/.test(s) || /\s/.test(s)) return false;
   try {
     return statSync(s).isFile();
@@ -54,7 +71,8 @@ export function isEmbeddedScript(s: string): boolean {
 /** Environment for child processes: the harness env minus harness-only credentials, plus extras. */
 export function childEnv(extra?: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !PRIVATE_ENV.includes(k)) env[k] = v;
+  for (const [k, v] of Object.entries(process.env))
+    if (v !== undefined && !PRIVATE_ENV.includes(k)) env[k] = v;
   return { ...env, ...extra };
 }
 
@@ -64,7 +82,10 @@ export interface ShDeps {
   shellCandidates?: readonly string[];
 }
 
-export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[], opts?: ExecOptions) => Promise<void> } {
+export function createSh(deps: ShDeps): {
+  sh: Sh;
+  exec: (argv: readonly string[], opts?: ExecOptions) => Promise<void>;
+} {
   const copied = new Map<string, string>();
   let counter = 0;
 
@@ -72,7 +93,7 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
   const materialize = (script: string): string => {
     const hit = copied.get(script);
     if (hit) return hit;
-    const dir = join(deps.tmpDir, "scripts");
+    const dir = join(deps.tmpDir, 'scripts');
     mkdirSync(dir, { recursive: true });
     const dest = join(dir, `${++counter}-${basename(script)}`);
     writeFileSync(dest, readFileSync(script));
@@ -81,21 +102,34 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
     return dest;
   };
 
-  const argvFor = (cmd: string | { script: string }, args: readonly string[]): { argv: string[]; what: string } => {
-    const scriptPath = typeof cmd === "object" ? cmd.script : isEmbeddedScript(cmd) ? cmd : undefined;
+  const argvFor = (
+    cmd: string | { script: string },
+    args: readonly string[],
+  ): { argv: string[]; what: string } => {
+    const scriptPath =
+      typeof cmd === 'object' ? cmd.script : isEmbeddedScript(cmd) ? cmd : undefined;
     if (scriptPath === undefined) {
       const shell = detectShell(deps.shellCandidates);
       // `sh -c cmd sh a b`: the args are $1, $2… of the command.
-      return { argv: [shell, "-c", cmd as string, "sh", ...args], what: `command \`${truncate(cmd as string)}\`` };
+      return {
+        argv: [shell, '-c', cmd as string, 'sh', ...args],
+        what: `command \`${truncate(cmd as string)}\``,
+      };
     }
     const file = materialize(scriptPath);
-    const first = readFileSync(file, "utf8").split("\n", 1)[0] ?? "";
+    const first = readFileSync(file, 'utf8').split('\n', 1)[0] ?? '';
     const shebang = /^#!\s*(\S+)(?:\s+(.*))?$/.exec(first);
     if (shebang && existsSync(shebang[1]!)) {
       const interpArgs = shebang[2] ? [shebang[2].trim()] : [];
-      return { argv: [shebang[1]!, ...interpArgs, file, ...args], what: `script ${basename(scriptPath)}` };
+      return {
+        argv: [shebang[1]!, ...interpArgs, file, ...args],
+        what: `script ${basename(scriptPath)}`,
+      };
     }
-    return { argv: [detectShell(deps.shellCandidates), file, ...args], what: `script ${basename(scriptPath)}` };
+    return {
+      argv: [detectShell(deps.shellCandidates), file, ...args],
+      what: `script ${basename(scriptPath)}`,
+    };
   };
 
   const run = async (
@@ -104,22 +138,26 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
     opts: { env?: Record<string, string>; cwd?: string; idleTimeoutSeconds?: number },
     capture: boolean,
   ): Promise<string> => {
-    if (deps.signal.aborted) throw new Error(`${what} not started: the step was cancelled`);
-    const idleSeconds = opts.idleTimeoutSeconds !== undefined && opts.idleTimeoutSeconds > 0 ? opts.idleTimeoutSeconds : undefined;
-    let proc: Bun.Subprocess<"ignore", "pipe" | "inherit", "pipe" | "inherit">;
+    if (deps.signal.aborted)
+      throw new Error(`${what} not started: the step was cancelled`);
+    const idleSeconds =
+      opts.idleTimeoutSeconds !== undefined && opts.idleTimeoutSeconds > 0
+        ? opts.idleTimeoutSeconds
+        : undefined;
+    let proc: Bun.Subprocess<'ignore', 'pipe' | 'inherit', 'pipe' | 'inherit'>;
     try {
       proc = Bun.spawn(argv, {
         cwd: opts.cwd,
         env: childEnv(opts.env),
-        stdin: "ignore",
-        stdout: capture || idleSeconds ? "pipe" : "inherit",
-        stderr: idleSeconds ? "pipe" : "inherit",
+        stdin: 'ignore',
+        stdout: capture || idleSeconds ? 'pipe' : 'inherit',
+        stderr: idleSeconds ? 'pipe' : 'inherit',
       });
     } catch (e) {
       throw new Error(`cannot start ${what} (${argv[0]}): ${(e as Error).message}`);
     }
-    const onAbort = () => proc.kill("SIGTERM");
-    deps.signal.addEventListener("abort", onAbort, { once: true });
+    const onAbort = () => proc.kill('SIGTERM');
+    deps.signal.addEventListener('abort', onAbort, { once: true });
 
     // Watchdog: every chunk of output re-arms the timer; on expiry TERM, then KILL after a grace.
     let stalled = false;
@@ -130,13 +168,16 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
         stalled = true;
-        proc.kill("SIGTERM");
-        killTimer = setTimeout(() => proc.kill("SIGKILL"), STALL_KILL_GRACE_MS);
+        proc.kill('SIGTERM');
+        killTimer = setTimeout(() => proc.kill('SIGKILL'), STALL_KILL_GRACE_MS);
       }, idleSeconds * 1000);
     };
     const captured: Uint8Array[] = [];
     const readers: { cancel(): Promise<void> }[] = [];
-    const pump = async (stream: ReadableStream<Uint8Array>, sink: (chunk: Uint8Array) => void) => {
+    const pump = async (
+      stream: ReadableStream<Uint8Array>,
+      sink: (chunk: Uint8Array) => void,
+    ) => {
       const reader = stream.getReader();
       readers.push(reader);
       try {
@@ -151,9 +192,18 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
       }
     };
     const pumps: Promise<void>[] = [];
-    if (capture) pumps.push(pump(proc.stdout as ReadableStream<Uint8Array>, (c) => captured.push(c)));
-    else if (idleSeconds) pumps.push(pump(proc.stdout as ReadableStream<Uint8Array>, (c) => process.stdout.write(c)));
-    if (idleSeconds) pumps.push(pump(proc.stderr as ReadableStream<Uint8Array>, (c) => process.stderr.write(c)));
+    if (capture)
+      pumps.push(
+        pump(proc.stdout as ReadableStream<Uint8Array>, (c) => captured.push(c)),
+      );
+    else if (idleSeconds)
+      pumps.push(
+        pump(proc.stdout as ReadableStream<Uint8Array>, (c) => process.stdout.write(c)),
+      );
+    if (idleSeconds)
+      pumps.push(
+        pump(proc.stderr as ReadableStream<Uint8Array>, (c) => process.stderr.write(c)),
+      );
     arm();
 
     try {
@@ -161,13 +211,23 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
       // A killed command's children may still hold the pipes open: don't wait for them after a stall.
       if (stalled) await Promise.all(readers.map((r) => r.cancel().catch(() => {})));
       else await Promise.all(pumps);
-      if (stalled) throw new CommandStalledError(what, idleSeconds!, proc.signalCode ? String(proc.signalCode) : null);
-      if (code !== 0) throw new CommandError(what, proc.signalCode ? null : code, proc.signalCode ? String(proc.signalCode) : null);
-      return capture ? Buffer.concat(captured).toString("utf8") : "";
+      if (stalled)
+        throw new CommandStalledError(
+          what,
+          idleSeconds!,
+          proc.signalCode ? String(proc.signalCode) : null,
+        );
+      if (code !== 0)
+        throw new CommandError(
+          what,
+          proc.signalCode ? null : code,
+          proc.signalCode ? String(proc.signalCode) : null,
+        );
+      return capture ? Buffer.concat(captured).toString('utf8') : '';
     } finally {
       clearTimeout(idleTimer);
       clearTimeout(killTimer);
-      deps.signal.removeEventListener("abort", onAbort);
+      deps.signal.removeEventListener('abort', onAbort);
     }
   };
 
@@ -185,13 +245,13 @@ export function createSh(deps: ShDeps): { sh: Sh; exec: (argv: readonly string[]
   ) as Sh;
 
   const exec = async (argv: readonly string[], opts: ExecOptions = {}) => {
-    if (argv.length === 0) throw new Error("ctx.exec needs at least the program");
-    await run([...argv], `\`${truncate(argv.join(" "))}\``, opts, false);
+    if (argv.length === 0) throw new Error('ctx.exec needs at least the program');
+    await run([...argv], `\`${truncate(argv.join(' '))}\``, opts, false);
   };
   return { sh, exec };
 }
 
 function truncate(s: string, n = 120): string {
-  const one = s.replace(/\s+/g, " ").trim();
-  return one.length > n ? one.slice(0, n - 1) + "…" : one;
+  const one = s.replace(/\s+/g, ' ').trim();
+  return one.length > n ? one.slice(0, n - 1) + '…' : one;
 }

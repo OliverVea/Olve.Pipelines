@@ -1,7 +1,7 @@
-import type { Skipped } from "../core/handlers.ts";
-import type { FileRef } from "../core/models.ts";
-import type { AnyConfigEntry, ConfigValues } from "../core/config.ts";
-import type { DeclaredSecrets } from "../core/secrets.ts";
+import type { Skipped } from '../core/handlers.ts';
+import type { FileRef } from '../core/models.ts';
+import type { AnyConfigEntry, ConfigValues } from '../core/config.ts';
+import type { DeclaredSecrets } from '../core/secrets.ts';
 
 /** Facts about the current execution, from the service (see README "Environment"). */
 export interface RunInfo {

@@ -1,13 +1,13 @@
-import { openSync, readSync, closeSync } from "node:fs";
+import { openSync, readSync, closeSync } from 'node:fs';
 
 export function sha256Hex(data: string | Uint8Array | ArrayBuffer): string {
-  return new Bun.CryptoHasher("sha256").update(data).digest("hex");
+  return new Bun.CryptoHasher('sha256').update(data).digest('hex');
 }
 
 /** Streaming SHA-256 of a file (constant memory). */
 export function sha256File(path: string): string {
-  const h = new Bun.CryptoHasher("sha256");
-  const fd = openSync(path, "r");
+  const h = new Bun.CryptoHasher('sha256');
+  const fd = openSync(path, 'r');
   try {
     const buf = new Uint8Array(1 << 20);
     for (;;) {
@@ -18,5 +18,5 @@ export function sha256File(path: string): string {
   } finally {
     closeSync(fd);
   }
-  return h.digest("hex");
+  return h.digest('hex');
 }

@@ -50,7 +50,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 
 | # | What's wrong | Fix |
 |---|---|---|
-| F1 | Every view polls (`frontend/src/v2/poll.ts`: 10 s by default, 3 s on the run view). Only the log tail uses `/api/events`, which contradicts `docs/setup/runs-and-operations.md:163`. | One shared SSE controller that reloads views on each notice, with polling only as a fallback after a disconnect. |
+| F1 — **fixed** (eb809e0) | Every view polls (`frontend/src/v2/poll.ts`: 10 s by default, 3 s on the run view). Only the log tail uses `/api/events`, which contradicts `docs/setup/runs-and-operations.md:163`. | One shared SSE controller that reloads views on each notice, with polling only as a fallback after a disconnect. |
 | F2 | The log tail (`log-pane.ts:95-111`) stops following after a clean disconnect, such as a proxy idle timeout or the service redeploying itself. After an error it polls every 3 s forever and never goes back to the stream. The `retry:` field is ignored (`api.ts:137`). | Reconnect with backoff while the view is still live. |
 | F3 | Errors during background reloads are swallowed (`pipeline-list-view.ts:324`, `run-view.ts:344`), so a page can show stale data with no sign that anything is wrong. | A "stale / reconnecting" badge. |
 | F4 | An `<a class="badge">` sits inside a `role="button"` card (`stage-graph.ts:907`). | Move the link out, or make the card itself the link. |

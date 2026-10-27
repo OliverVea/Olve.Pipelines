@@ -5,7 +5,7 @@
 #   registry.ovea.pro takes anonymous pushes)
 #
 # It reproduces what the pipeline deployed before it read config: the same hosts, namespaces,
-# releases, values files, Authentik and OTLP settings (helm template renders the same manifests,
+# releases, values files, auth and OTLP settings (helm template renders the same manifests,
 # except the server image, which is now pulled from the registry by digest instead of imported as a
 # tarball). Set it before pushing the version that declares config: until then the new version
 # stays pending and pushes are held.

@@ -33,9 +33,10 @@ public class RetentionPlannerTests
         IReadOnlyDictionary<Id<Pipeline>, PipelineActivation>? activations = null,
         IReadOnlyList<StoredObject>? objects = null,
         IReadOnlyList<ClusterJob>? jobs = null,
-        IReadOnlyList<ClusterSecret>? secrets = null)
+        IReadOnlyList<ClusterSecret>? secrets = null,
+        IReadOnlyDictionary<Id<Pipeline>, RetentionPolicy>? policies = null)
         => new(Now, new HashSet<Id<Pipeline>> { P, Q }, runs ?? [], attempts ?? [], versions ?? [],
-            activations ?? new Dictionary<Id<Pipeline>, PipelineActivation>(), objects ?? [], jobs ?? [], secrets ?? []);
+            activations ?? new Dictionary<Id<Pipeline>, PipelineActivation>(), objects ?? [], jobs ?? [], secrets ?? [], Policies: policies);
 
     // ---- runs: older than 6 months AND beyond the latest 20 ----
 
@@ -66,6 +67,59 @@ public class RetentionPlannerTests
         var (expired, _) = RetentionPlanner.SelectExpiredRuns(runs, Now, 20, TimeSpan.FromDays(183));
 
         await Assert.That(expired.Select(r => (r.PipelineId, r.Number))).IsEquivalentTo(new[] { (P, 2) });
+    }
+
+    [Test]
+    public async Task PipelinePolicy_OverridesTheInstanceThresholds_ForThatPipelineOnly()
+    {
+        // P keeps 2 runs for 10 days by its definition; Q has no override (latest 20, 183 days).
+        var runs = Enumerable.Range(1, 5).Select(n => Run(P, n, 30))
+            .Concat(Enumerable.Range(1, 25).Select(n => Run(Q, n, 30)))
+            .ToList();
+        var policies = new Dictionary<Id<Pipeline>, RetentionPolicy> { [P] = new(2, TimeSpan.FromDays(10), TimeSpan.FromDays(1)) };
+
+        var plan = RetentionPlanner.Plan(Inputs(runs, policies: policies), Options);
+
+        await Assert.That(plan.ExpiredRuns.Select(r => (r.PipelineId, r.Number))).IsEquivalentTo(new[] { (P, 1), (P, 2), (P, 3) });
+    }
+
+    [Test]
+    public async Task PipelinePolicy_BuildGrace_AppliesToThatPipelinesBinaries()
+    {
+        var policies = new Dictionary<Id<Pipeline>, RetentionPolicy> { [P] = new(20, TimeSpan.FromDays(183), TimeSpan.FromDays(1)) };
+        var objects = new[]
+        {
+            Obj($"versions/{Hex(P)}/builds/aaa/step.tar.gz", 3),   // P: 1-day grace, unused: goes
+            Obj($"versions/{Hex(Q)}/builds/bbb/step.tar.gz", 3),   // Q: 7-day grace: kept
+        };
+
+        var plan = RetentionPlanner.Plan(Inputs(objects: objects, policies: policies), Options);
+
+        await Assert.That(plan.Objects.Where(o => o.Category == RetentionCategory.Build).Select(o => o.Object.Key))
+            .IsEquivalentTo(new[] { $"versions/{Hex(P)}/builds/aaa/step.tar.gz" });
+        await Assert.That(plan.BuildsKept).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Policies_ComeFromTheManifestOfTheVersionNewRunsStartOn()
+    {
+        var withRetention = Manifests.ManifestFixture.Node();
+        withRetention["retention"] = new System.Text.Json.Nodes.JsonObject { ["keepLatestRuns"] = 3 };
+        PipelineVersion Version(Id<Pipeline> p, string manifest) => new(Id.New<PipelineVersion>(), p, 1, manifest, "h", "sha",
+            $"versions/{Hex(p)}/builds/x/step.tar.gz", new Dictionary<string, int>(), new Dictionary<string, int>(), Now);
+        var pActive = Version(P, Manifests.ManifestFixture.Text);
+        var pNext = Version(P, withRetention.ToJsonString());
+        var qActive = Version(Q, Manifests.ManifestFixture.Text);
+        var activations = new Dictionary<Id<Pipeline>, PipelineActivation>
+        {
+            [P] = new PipelineActivation.Draining(pActive.Id, 1, pNext.Id, 2, false, Now),
+            [Q] = new PipelineActivation.Active(qActive.Id, 1, Now),
+        };
+
+        var policies = RetentionPolicies.Resolve(Options, [pActive, pNext, qActive], activations);
+
+        await Assert.That(policies.Keys).IsEquivalentTo(new[] { P });
+        await Assert.That(policies[P]).IsEqualTo(new RetentionPolicy(3, Options.MinRunAge, Options.BuildGrace));
     }
 
     [Test]

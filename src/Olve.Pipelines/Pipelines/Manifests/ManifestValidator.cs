@@ -100,6 +100,12 @@ public static partial class ManifestValidator
             if (string.IsNullOrWhiteSpace(m.Name)) Error(ManifestIssueCodes.PipelineNameEmpty, "name", "the pipeline name must not be empty");
             if (!HashRegex().IsMatch(m.Harness.SdkHash))
                 Error(ManifestIssueCodes.HarnessHashInvalid, "harness.sdkHash", $"'{m.Harness.SdkHash}' is not a sha256:<64 hex> hash");
+            if (m.Retention is { } r)
+            {
+                if (r.KeepLatestRuns is < 0) Error(ManifestIssueCodes.RetentionInvalid, "retention.keepLatestRuns", "retention.keepLatestRuns must be a non-negative integer");
+                if (r.MinRunAgeDays is < 0) Error(ManifestIssueCodes.RetentionInvalid, "retention.minRunAgeDays", "retention.minRunAgeDays must be a non-negative integer");
+                if (r.BuildGraceDays is < 0) Error(ManifestIssueCodes.RetentionInvalid, "retention.buildGraceDays", "retention.buildGraceDays must be a non-negative integer");
+            }
         }
 
         // ── models ──

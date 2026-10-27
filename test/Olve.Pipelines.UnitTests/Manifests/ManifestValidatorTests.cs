@@ -87,6 +87,7 @@ public class ManifestValidatorTests
         ["handler named like a stage step"] = (C.StepNameDuplicate, r => Step(r, "aoe-triage")["name"] = "build"),
         ["model name invalid"] = (C.ModelNameInvalid, r => r["models"]!["bad-name"] = new JsonObject { ["output"] = new JsonObject() }),
         ["pipeline name empty"] = (C.PipelineNameEmpty, r => r["name"] = " "),
+        ["negative retention"] = (C.RetentionInvalid, r => r["retention"] = new JsonObject { ["keepLatestRuns"] = -1 }),
 
         // models
         ["unknown output model"] = (C.ModelUnknown, r => Step(r, "summary")["output"] = "Nope"),

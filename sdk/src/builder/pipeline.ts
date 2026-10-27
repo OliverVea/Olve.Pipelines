@@ -183,10 +183,21 @@ export interface FailureHandlerNode {
   readonly steps: readonly AnyStep[] | null;
 }
 
+/** Per-pipeline retention; each field overrides the instance's `Retention:*` setting of the same meaning. */
+export interface RetentionPolicy {
+  /** A run is never deleted while among its pipeline's newest N runs. */
+  keepLatestRuns?: number;
+  /** A run is never deleted while younger than this. */
+  minRunAgeDays?: number;
+  /** An unused compiled binary is deleted this long after it was last modified. */
+  buildGraceDays?: number;
+}
+
 export interface PipelineData {
   readonly name: string;
   readonly description: string | undefined;
   readonly input: AnyModel;
+  readonly retention: RetentionPolicy | undefined;
   readonly nodes: StageNode[];
   readonly triggers: TriggerNode[];
   readonly failureHandlers: FailureHandlerNode[];
@@ -216,6 +227,8 @@ export interface PipelineDef<In extends AnyModel> {
   description?: string;
   /** The pipeline input model (what triggers produce, what `when` matches on). */
   input: In;
+  /** Retention overrides for this pipeline's runs and binaries (unset fields keep the instance's values). */
+  retention?: RetentionPolicy;
 }
 
 export class Pipeline<In extends AnyModel, A extends AvailMap> {
@@ -228,6 +241,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
       name: def.name,
       description: def.description,
       input: def.input,
+      retention: def.retention,
       nodes: [],
       triggers: shared?.triggers ?? [],
       failureHandlers: shared?.failureHandlers ?? [],

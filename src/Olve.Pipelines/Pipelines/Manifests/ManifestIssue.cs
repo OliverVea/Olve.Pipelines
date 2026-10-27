@@ -46,6 +46,7 @@ public static class ManifestIssueCodes
 
     // ── names ──
     public const string PipelineNameEmpty = "pipeline-name-empty";
+    public const string RetentionInvalid = "retention-invalid";
     public const string StepNameInvalid = "step-name-invalid";
     public const string StepNameReserved = "step-name-reserved";
     public const string StepNameDuplicate = "step-name-duplicate";

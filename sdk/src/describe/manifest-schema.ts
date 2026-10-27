@@ -182,6 +182,14 @@ export const Manifest = z
       )
       .optional()
       .describe("Config entries used by steps, sorted by name (omitted when none). Fields of kind secretRef ({secret: NAME}) name a secret."),
+    retention: z
+      .strictObject({
+        keepLatestRuns: z.int().min(0).optional(),
+        minRunAgeDays: z.int().min(0).optional(),
+        buildGraceDays: z.int().min(0).optional(),
+      })
+      .optional()
+      .describe("Retention overrides for this pipeline (omitted when none). Each field replaces the instance setting of the same meaning."),
     triggers: z.array(Trigger),
     stages: z.array(Stage),
     failureHandlers: z.array(

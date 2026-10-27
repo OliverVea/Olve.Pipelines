@@ -220,3 +220,19 @@ describe("describe-time checks", () => {
 test("Source library model is a dir fileRef carrier", () => {
   expect(Source.name).toBe("Source");
 });
+
+describe("retention", () => {
+  const manifestOf = (p: unknown) => describePipeline(p, { handlerNames: ["make"], handlerHashes: { make: H }, harness });
+  test("omitted unless set; set fields are recorded as given", () => {
+    expect("retention" in manifestOf(base().stage(make))).toBe(false);
+    expect("retention" in manifestOf(pipeline({ name: "t", input: Req, retention: {} }).stage(make))).toBe(false);
+    const m = manifestOf(pipeline({ name: "t", input: Req, retention: { keepLatestRuns: 5, minRunAgeDays: 30 } }).stage(make));
+    expect(m.retention).toEqual({ keepLatestRuns: 5, minRunAgeDays: 30 });
+    expect(Manifest.safeParse(m).success).toBe(true);
+  });
+  test("fields must be non-negative integers", () => {
+    expectProblem(pipeline({ name: "t", input: Req, retention: { keepLatestRuns: -1 } }).stage(make), /retention\.keepLatestRuns must be a non-negative integer/);
+    expectProblem(pipeline({ name: "t", input: Req, retention: { minRunAgeDays: 1.5 } }).stage(make), /retention\.minRunAgeDays must be a non-negative integer/);
+    expectProblem(pipeline({ name: "t", input: Req, retention: { buildGraceDays: NaN } }).stage(make), /retention\.buildGraceDays must be a non-negative integer/);
+  });
+});

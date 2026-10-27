@@ -105,6 +105,12 @@ always 200 with `{valid, manifestHash, errors, warnings}`). Decisions and deviat
   pipeline of this instance (the runner namespace is shared with v1). Startup sweep after
   `StartupDelayMinutes` (2), then every `IntervalHours` (24); per-category counts every sweep, each
   item in dry run. Version entities and their manifests are kept (small; history).
+  **Per-pipeline thresholds** (2026-10-27): `pipeline({ retention: { keepLatestRuns, minRunAgeDays,
+  buildGraceDays } })` lands on the manifest root (`retention`, optional, non-negative integers; the
+  validator rejects negatives). `RetentionPolicies.Resolve` parses the manifest of the version new runs
+  start on (active, or a drain's target) per pipeline and `RetentionPlanner` judges that pipeline's runs
+  and `versions/<p>/…` binaries by it; everything else stays instance-wide. Decided against runtime
+  config (`pl`) so the policy travels with the repo and is versioned like the rest of the definition.
 - **Poll triggers** persist their last value per (pipeline, trigger) in `pipeline-state.json`
   (`PollTriggers`): after a restart the first fetch is compared against it, so a commit pushed just
   before a redeploy still triggers; only a new trigger or a changed URL seeds.

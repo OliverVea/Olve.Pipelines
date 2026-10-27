@@ -24,7 +24,13 @@ public sealed record Manifest(
 
     /// <summary>Config entries the version declares (empty when the manifest has no <c>config</c>).</summary>
     public IReadOnlyList<ManifestConfigEntry> Config { get; init; } = [];
+
+    /// <summary>Retention overrides the pipeline declares (null when the manifest has no <c>retention</c>).</summary>
+    public ManifestRetention? Retention { get; init; }
 }
+
+/// <summary>Per-pipeline retention: each set field replaces the instance's <c>Retention:*</c> value of the same meaning.</summary>
+public sealed record ManifestRetention(long? KeepLatestRuns, long? MinRunAgeDays, long? BuildGraceDays);
 
 /// <summary>A typed config entry: one top-level key of the pipeline's config document.</summary>
 /// <param name="Schema">The entry's JSON Schema (input view: fields with defaults are optional and list their <c>default</c>).</param>

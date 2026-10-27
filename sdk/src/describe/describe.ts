@@ -488,6 +488,15 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     return { kind: "poll", name: t.name, url: t.url, headers: { ...t.headers }, secrets: [...declared].sort(), valuePath: t.valuePath, intervalSeconds: t.intervalSeconds };
   });
 
+  // ── retention ──
+  const retention: Record<string, number> = {};
+  for (const key of ["keepLatestRuns", "minRunAgeDays", "buildGraceDays"] as const) {
+    const v = data.retention?.[key];
+    if (v === undefined) continue;
+    if (!(Number.isInteger(v) && v >= 0)) problems.push(`retention.${key} must be a non-negative integer`);
+    else retention[key] = v;
+  }
+
   if (problems.length) throw new DescribeError(problems);
 
   const manifest = canonicalize({
@@ -495,6 +504,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     name: data.name,
     description: data.description,
     input: inputModel.name,
+    ...(Object.keys(retention).length ? { retention } : {}),
     harness: opts.harness,
     models: Object.fromEntries([...models].map(([k, v]) => [k, v.schemas])),
     secrets: [...secrets].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([name, description]) => ({ name, description })),

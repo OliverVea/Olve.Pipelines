@@ -37,7 +37,7 @@ public class RetentionService(
         }
 
         logger.LogInformation(
-            "Retention{DryRun}: runs kept unless older than {MinRunAgeDays} days AND beyond each pipeline's latest {KeepLatestRuns}; unused binaries after {BuildGraceDays} days; orphans after {OrphanGraceDays} days; every {IntervalHours} h",
+            "Retention{DryRun}: runs kept unless older than {MinRunAgeDays} days AND beyond each pipeline's latest {KeepLatestRuns}; unused binaries after {BuildGraceDays} days (a pipeline's definition may override these three); orphans after {OrphanGraceDays} days; every {IntervalHours} h",
             options.DryRun ? " (dry run)" : "", options.MinRunAge.TotalDays, options.KeepLatestRuns, options.BuildGrace.TotalDays,
             options.OrphanGrace.TotalDays, options.Interval.TotalHours);
 
@@ -76,18 +76,28 @@ public class RetentionService(
         var jobs = inventory is null ? null : await TryAsync("list Jobs", () => inventory.ListJobsAsync(ns, ct));
         var secrets = inventory is null ? null : await TryAsync("list Secrets", () => inventory.ListSecretsAsync(ns, ct));
 
+        var versions = sp.GetRequiredService<EntityStore<PipelineVersion>>().List();
+        var activations = sp.GetRequiredService<AttachmentStore<Pipeline, PipelineActivation>>().GetAll();
+        var names = pipelines.List().ToDictionary(p => p.Id, p => p.Name);
+        var policies = RetentionPolicies.Resolve(options, versions, activations, (pipelineId, issues) =>
+            logger.LogWarning("Retention: the manifest of pipeline '{PipelineName}' ('{PipelineId}') does not parse ({IssueCount} issues); using the instance thresholds",
+                names.GetValueOrDefault(pipelineId, "(unknown)"), pipelineId, issues.Count));
+        foreach (var (pipelineId, policy) in policies)
+            logger.LogInformation("Retention policy of pipeline '{PipelineName}' ('{PipelineId}') from its definition: latest {KeepLatestRuns} kept, runs expire after {MinRunAgeDays} days, unused binaries after {BuildGraceDays} days",
+                names.GetValueOrDefault(pipelineId, "(unknown)"), pipelineId, policy.KeepLatestRuns, policy.MinRunAge.TotalDays, policy.BuildGrace.TotalDays);
+
         var inputs = new RetentionInputs(
             time.GetUtcNow(),
             pipelines.List().Select(p => p.Id).ToHashSet(),
             sp.GetRequiredService<EntityStore<Run>>().List(),
             sp.GetRequiredService<EntityStore<Attempt>>().List(),
-            sp.GetRequiredService<EntityStore<PipelineVersion>>().List(),
-            sp.GetRequiredService<AttachmentStore<Pipeline, PipelineActivation>>().GetAll(),
+            versions,
+            activations,
             objects, jobs, secrets,
-            PinnedRuns(sp));
+            PinnedRuns(sp),
+            policies);
 
         var plan = RetentionPlanner.Plan(inputs, options);
-        var names = pipelines.List().ToDictionary(p => p.Id, p => p.Name);
         LogItems(plan, names);
 
         if (!options.DryRun)

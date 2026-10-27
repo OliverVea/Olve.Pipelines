@@ -16,6 +16,7 @@ public sealed record ClusterSecret(string Name, DateTimeOffset Created);
 /// <summary>A snapshot of everything retention decides over. A null listing means "unavailable": that part is skipped.</summary>
 /// <param name="PinnedRuns">Runs never expired whatever their age or rank — the run whose <c>publish-cli</c>
 /// files <c>/download</c> serves (<see cref="Distribution.CliReleaseQuery"/>).</param>
+/// <param name="Policies">Pipelines whose manifest overrides the instance thresholds (<see cref="RetentionPolicies"/>); others use the options.</param>
 public sealed record RetentionInputs(
     DateTimeOffset Now,
     IReadOnlySet<Id<Pipeline>> Pipelines,
@@ -26,7 +27,8 @@ public sealed record RetentionInputs(
     IReadOnlyList<StoredObject>? Objects,
     IReadOnlyList<ClusterJob>? Jobs,
     IReadOnlyList<ClusterSecret>? Secrets,
-    IReadOnlySet<Id<Run>>? PinnedRuns = null);
+    IReadOnlySet<Id<Run>>? PinnedRuns = null,
+    IReadOnlyDictionary<Id<Pipeline>, RetentionPolicy>? Policies = null);
 
 public enum RetentionCategory
 {
@@ -75,7 +77,10 @@ public static class RetentionPlanner
 
     public static RetentionPlan Plan(RetentionInputs inputs, RetentionOptions options)
     {
-        var (expired, kept) = SelectExpiredRuns(inputs.Runs, inputs.Now, options.KeepLatestRuns, options.MinRunAge, inputs.PinnedRuns);
+        var fallback = RetentionPolicy.Of(options);
+        RetentionPolicy PolicyOf(Id<Pipeline> p) => inputs.Policies is { } policies && policies.TryGetValue(p, out var policy) ? policy : fallback;
+
+        var (expired, kept) = SelectExpiredRuns(inputs.Runs, inputs.Now, PolicyOf, inputs.PinnedRuns);
         var expiredIds = expired.Select(r => r.Id).ToHashSet();
         var retainedRuns = inputs.Runs.Where(r => !expiredIds.Contains(r.Id)).ToList();
         var retainedAttempts = inputs.Attempts.Where(a => !expiredIds.Contains(a.RunId)).ToList();
@@ -85,7 +90,7 @@ public static class RetentionPlanner
         if (inputs.Objects is { } listing)
         {
             objects.AddRange(RunObjects(listing, expired, retainedRuns, retainedAttempts, inputs.Now, options));
-            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.Activations, inputs.Now, options.BuildGrace);
+            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.Activations, inputs.Now, p => PolicyOf(p).BuildGrace);
             objects.AddRange(builds);
             buildsKept = keptCount;
             objects.AddRange(listing
@@ -108,11 +113,23 @@ public static class RetentionPlanner
     public static (IReadOnlyList<Run> Expired, int Kept) SelectExpiredRuns(
         IEnumerable<Run> runs, DateTimeOffset now, int keepLatest, TimeSpan minAge, IReadOnlySet<Id<Run>>? pinned = null)
     {
+        var policy = new RetentionPolicy(keepLatest, minAge, TimeSpan.Zero);
+        return SelectExpiredRuns(runs, now, _ => policy, pinned);
+    }
+
+    /// <summary>As above, with the thresholds taken per pipeline from <paramref name="policyOf"/>.</summary>
+    public static (IReadOnlyList<Run> Expired, int Kept) SelectExpiredRuns(
+        IEnumerable<Run> runs, DateTimeOffset now, Func<Id<Pipeline>, RetentionPolicy> policyOf, IReadOnlySet<Id<Run>>? pinned = null)
+    {
         var all = runs.ToList();
         var expired = all
             .GroupBy(r => r.PipelineId)
-            .SelectMany(g => g.OrderByDescending(r => r.Number).Skip(Math.Max(0, keepLatest)))
-            .Where(r => r.Status.IsTerminal() && now - (r.FinishedAt ?? r.CreatedAt) > minAge)
+            .SelectMany(g =>
+            {
+                var policy = policyOf(g.Key);
+                return g.OrderByDescending(r => r.Number).Skip(Math.Max(0, policy.KeepLatestRuns))
+                    .Where(r => r.Status.IsTerminal() && now - (r.FinishedAt ?? r.CreatedAt) > policy.MinRunAge);
+            })
             .Where(r => pinned is null || !pinned.Contains(r.Id))
             .OrderBy(r => r.PipelineId).ThenBy(r => r.Number)
             .ToList();
@@ -168,7 +185,7 @@ public static class RetentionPlanner
 
     private static (IReadOnlyList<ObjectDeletion> Deletions, int Kept) Builds(
         IReadOnlyList<StoredObject> listing, IReadOnlyList<PipelineVersion> versions, IReadOnlyList<Run> retainedRuns,
-        IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations, DateTimeOffset now, TimeSpan grace)
+        IReadOnlyDictionary<Id<Pipeline>, PipelineActivation> activations, DateTimeOffset now, Func<Id<Pipeline>, TimeSpan> graceOf)
     {
         var byId = versions.ToDictionary(v => v.Id);
         var inUse = new HashSet<Id<PipelineVersion>>(retainedRuns.Select(r => r.VersionId));
@@ -189,8 +206,12 @@ public static class RetentionPlanner
         var keep = inUse.Where(byId.ContainsKey).Select(id => byId[id].BinaryKey).ToHashSet(StringComparer.Ordinal);
         var deletions = new List<ObjectDeletion>();
         var kept = 0;
+        var graces = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);
         foreach (var o in listing.Where(o => IsBinary(o.Key)))
         {
+            var pipelineHex = o.Key.Split('/')[1];
+            if (!graces.TryGetValue(pipelineHex, out var grace))
+                graces[pipelineHex] = grace = graceOf(new Id<Pipeline>(new Id(Guid.ParseExact(pipelineHex, "N"))));
             if (keep.Contains(o.Key) || now - o.LastModified <= grace)
                 kept++;
             else

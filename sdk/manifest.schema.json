@@ -165,6 +165,28 @@
           "minLength": 1,
           "type": "string"
         },
+        "retention": {
+          "additionalProperties": false,
+          "description": "Retention overrides for this pipeline (omitted when none). Each field replaces the instance setting of the same meaning.",
+          "properties": {
+            "buildGraceDays": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "keepLatestRuns": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "minRunAgeDays": {
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "secrets": {
           "description": "All declared secrets (steps + poll triggers), sorted by name.",
           "items": {

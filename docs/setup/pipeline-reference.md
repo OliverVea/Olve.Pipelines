@@ -328,6 +328,28 @@ export default pipeline({ name: "my-app", description: "…", input: M.DeployReq
 
 `name` becomes the pipeline's name in `pl` and the UI.
 
+### Retention
+
+`retention` sets how long the instance keeps this pipeline's runs and binaries, overriding the
+instance's defaults field by field (see [Runs & Operations](runs-and-operations.md#retention)):
+
+```ts
+export default pipeline({
+  name: "my-app", description: "…", input: M.DeployRequest,
+  retention: { keepLatestRuns: 50, minRunAgeDays: 30, buildGraceDays: 3 },
+})
+```
+
+| Field | Meaning |
+|---|---|
+| `keepLatestRuns` | a run is never deleted while among the pipeline's newest N runs |
+| `minRunAgeDays` | a run is never deleted while younger than this |
+| `buildGraceDays` | an unused compiled binary is deleted this long after it was last written |
+
+Each field is a non-negative integer; a field left out keeps the instance's value. The policy that
+applies is the active version's. Changing it makes a new version like any other change to the
+definition.
+
 ### Stages
 
 Stages run in order; the steps of one stage run in parallel. A stage is a **barrier**: the next stage

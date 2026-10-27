@@ -44,7 +44,7 @@ The SDK compiles the pipeline into **one executable** (`bun build --compile`) wi
 
 **Failure handlers**: a run going Running → Failed makes `FailureHandlerService` launch each in-scope `onFailure` handler of the *pinned* manifest as an untracked, best-effort harness Job (`olve-fh-…`, role `on-failure`) with a typed `FailureContext` (validated against the pinned schema first; links from `Links:BaseUrl`). No attempt, no retry, no API/UI visibility.
 
-**Retention** (`RetentionService`, `Retention:*`, **dry run by default**): a run goes only when beyond the latest 20 **and** older than 183 days; binaries are kept for active/draining versions and retained runs' versions; leftovers and leaked URL Secrets / Jobs are swept.
+**Retention** (`RetentionService`, `Retention:*`, **dry run by default**): a run goes only when beyond the latest 20 **and** older than 183 days; binaries are kept for active/draining versions and retained runs' versions; leftovers and leaked URL Secrets / Jobs are swept. A pipeline overrides the three thresholds with `retention` in its definition (manifest root; `RetentionPolicies` reads the active version's).
 
 ### Pipeline secrets
 

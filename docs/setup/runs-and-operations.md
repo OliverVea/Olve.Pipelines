@@ -243,6 +243,16 @@ it. A compiled binary is kept while the active/draining version or any retained 
 deleted 7 days after that. Leftovers (objects of deleted runs, stale result archives, URL Secrets,
 leaked step Jobs) are swept too. Step Jobs have a 7-day TTL.
 
+Those three thresholds are the instance's defaults. A pipeline sets its own in its definition
+(see [`retention`](pipeline-reference.md#retention)):
+
+```ts
+export default pipeline({ name: "my-app", input: M.DeployRequest, retention: { keepLatestRuns: 50, minRunAgeDays: 30 } })
+```
+
+The policy in force is the one in the pipeline's active version; a field left unset keeps the
+instance's value.
+
 Retention runs 2 minutes after start-up and then daily, and is a **dry run by default**: it logs
 what it would delete. An operator turns it on with `Retention__DryRun=false`; every threshold is a
 `Retention:*` setting (see [Running an Instance](self-hosting.md#server-configuration)).

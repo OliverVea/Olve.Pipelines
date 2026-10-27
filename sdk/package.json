@@ -1,6 +1,6 @@
 {
   "name": "@olivervea/pipelines",
-  "version": "2.0.0-beta.17",
+  "version": "2.0.0-beta.18",
   "description": "Olve.Pipelines v2 SDK: typed pipeline authoring, the step harness, and the build tool.",
   "type": "module",
   "license": "MIT",

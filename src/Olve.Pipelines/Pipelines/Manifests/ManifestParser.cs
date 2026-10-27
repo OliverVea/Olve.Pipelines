@@ -105,7 +105,7 @@ public static class ManifestParser
     private static Manifest? ParseManifest(Ctx ctx, JsonElement e)
     {
         const string p = "$";
-        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config"]))
+        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config", "retention"]))
             return null;
 
         var apiVersion = ctx.String(e, "apiVersion", p);
@@ -123,11 +123,28 @@ public static class ManifestParser
         var config = e.TryGetProperty("config", out _)
             ? ctx.Array(e, "config", p, (v, path) => ParseConfigEntry(ctx, v, path))
             : [];
+        var hasRetention = e.TryGetProperty("retention", out var retentionElement);
+        var retention = hasRetention ? ParseRetention(ctx, retentionElement, "retention") : null;
 
         if (apiVersion is null || name is null || input is null || harness is null || models is null || secrets is null
-            || triggers is null || stages is null || failureHandlers is null || config is null)
+            || triggers is null || stages is null || failureHandlers is null || config is null || (hasRetention && retention is null))
             return null;
-        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config };
+        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config, Retention = retention };
+    }
+
+    private static ManifestRetention? ParseRetention(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, [], ["keepLatestRuns", "minRunAgeDays", "buildGraceDays"])) return null;
+        var ok = true;
+        long? Field(string name)
+        {
+            if (!e.TryGetProperty(name, out _)) return null;
+            var v = ctx.Integer(e, name, path);
+            ok &= v is not null;
+            return v;
+        }
+        var retention = new ManifestRetention(Field("keepLatestRuns"), Field("minRunAgeDays"), Field("buildGraceDays"));
+        return ok ? retention : null;
     }
 
     private static ManifestConfigEntry? ParseConfigEntry(Ctx ctx, JsonElement e, string path)

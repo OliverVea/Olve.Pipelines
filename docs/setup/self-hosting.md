@@ -75,8 +75,8 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Links:BaseUrl` | `Webhooks:PublicBaseUrl` | Base of the run/log links in a failure handler's `FailureContext` |
 | `ExternalInputs:Poll:AllowedHosts` | — | Host names `poll()` inputs may reach although they resolve to private addresses (e.g. an in-cluster test service); empty = public addresses only. The server holds cluster and storage credentials, so list only hosts you trust |
 | `Retention:Enabled` / `Retention:DryRun` | `true` / `true` | Retention sweeps; **dry run by default** (logs only) — set `Retention__DryRun=false` to delete |
-| `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this |
-| `Retention:BuildGraceDays` | `7` | Unused compiled binaries are deleted after this |
+| `Retention:KeepLatestRuns` / `Retention:MinRunAgeDays` | `20` / `183` | A run is deleted only when beyond the latest N **and** older than this; a pipeline's `retention` overrides both for its runs |
+| `Retention:BuildGraceDays` | `7` | Unused compiled binaries are deleted after this; a pipeline's `retention` overrides it for its binaries |
 | `Retention:OrphanGraceDays` / `ResultArchiveGraceHours` | `7` / `24` | Leftover objects of deleted runs / stale `result.tar.gz` |
 | `Retention:ClusterGraceMinutes` / `FinishedJobMaxAgeDays` | `60` / `7` | URL Secrets and leaked step Jobs / TTL-less finished Jobs |
 | `Retention:IntervalHours` / `StartupDelayMinutes` | `24` / `2` | Sweep schedule |

@@ -65,6 +65,16 @@ public class ManifestParserTests
     }
 
     [Test]
+    public async Task Retention_IsReadWhenPresent_AndNullOtherwise()
+    {
+        await Assert.That(Parse().Retention).IsNull();
+
+        var m = Mutate(r => r["retention"] = new JsonObject { ["keepLatestRuns"] = 5, ["buildGraceDays"] = 0 });
+
+        await Assert.That(m.Retention).IsEqualTo(new ManifestRetention(5, null, 0));
+    }
+
+    [Test]
     public async Task StepDescription_IsRead_AndMissingReadsAsEmpty()
     {
         var m = Mutate(r => Step(r, "build").Remove("description"));
@@ -104,6 +114,8 @@ public class ManifestParserTests
         ["missing stages"] = (C.MissingProperty, () => Edit(r => r.Remove("stages"))),
         ["unknown property"] = (C.UnknownProperty, () => Edit(r => r["foo"] = 1)),
         ["unknown step property"] = (C.UnknownProperty, () => Edit(r => Step(r, "build")["cpu"] = 1)),
+        ["unknown retention property"] = (C.UnknownProperty, () => Edit(r => r["retention"] = new JsonObject { ["keepForever"] = true })),
+        ["retention field not an integer"] = (C.WrongType, () => Edit(r => r["retention"] = new JsonObject { ["minRunAgeDays"] = 1.5 })),
         ["name not a string"] = (C.WrongType, () => Edit(r => r["name"] = 5)),
         ["api version"] = (C.UnsupportedApiVersion, () => Edit(r => r["apiVersion"] = "3.0")),
         ["unknown trigger kind"] = (C.InvalidValue, () => Edit(r => r["triggers"]![0]!["kind"] = "cron")),

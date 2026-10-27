@@ -213,6 +213,7 @@ export default pipeline({
   description:
     'Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (and smoke-test a helm beta); deploy prod; promote the same artifacts. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.',
   input: M.DeployRequest,
+  retention: { keepLatestRuns: 50, minRunAgeDays: 30 },
 })
   .onPush((e) => ({ repo: e.repository.full_name, sha: e.after, deployTo: 'prod' }))
   .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])

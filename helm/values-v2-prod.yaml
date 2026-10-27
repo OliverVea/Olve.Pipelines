@@ -17,6 +17,9 @@ config:
   Distribution__CliPromotedBy: "promote"
   # Stage 2 of the self-deploy runs seven steps; 4 queued three of them.
   Jobs__MaxConcurrent: "8"
+  # Deletes for real; the thresholds are the defaults (183 days and the latest 20), and the deployer
+  # sets its own in .pipelines/pipeline.ts.
+  Retention__DryRun: "false"
 
 # --default-bucket creates this bucket and key (from the olve-pipelines-minio Secret) on first boot.
 garage:

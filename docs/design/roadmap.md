@@ -25,9 +25,9 @@ item lives in [pipelines-v2-plan.md](pipelines-v2-plan.md), [pipeline-config.md]
   (no release in `apps`, only its backups PVC); unblocking both brings it back.
 - **External inputs** shipped 2026-10-26: `external(model, { from: [person() | callback() | poll()] })`,
   `pl input`, machine tokens, bindings that don't poll.
-- **Retention** is a dry run on prod (defaults 183 days and keep 20). Beta deletes for real (14 days,
-  keep 3). A pipeline overrides the thresholds with `retention` in its definition (SDK 2.0.0-beta.18);
-  none does yet.
+- **Retention** deletes for real on both instances since 2026-10-27: prod on the defaults (183 days
+  and keep 20), beta on 14 days and keep 3, the deployer on its own `retention` (30 days, keep 50;
+  SDK 2.0.0-beta.18).
 - **Local checks**: `tools/check.sh` runs what the deploy checks (`--changed`, `--full`, `--fix`); a
   pre-push hook gates `git push` on it. The SDK, its examples and `.pipelines` are under prettier,
   the server under `dotnet format`, and the deploy's `build-sdk` and `test` steps enforce both.
@@ -45,10 +45,10 @@ record is in the plan's Track E.
 0. **Spec-first API (TypeSpec)**, decided 2026-10-27: [spec-first.md](spec-first.md). The emitter
    and runtime move from ARM to Olve.Utilities first, then the API migrates area by area with a
    Hey API frontend client, then `pl` is rewritten in TypeScript, then Olve.Template.Api follows.
-1. **Retention live on prod.** The dry-run sweep of 2026-10-27 would delete two leftover result
-   archives (572 bytes) and one orphaned URL Secret, no runs and no binaries. Next: the deployer
-   declares `retention` (it is the busiest pipeline and a self-deploy run is ~55 MB, so 183 days of
-   it would outgrow the 100 Gi Garage), then `Retention__DryRun=false` in `values-v2-prod.yaml`.
+1. ~~**Retention live on prod.**~~ Done 2026-10-27: the dry-run sweep would have deleted two
+   leftover result archives (572 bytes) and one orphaned URL Secret, no runs and no binaries; the
+   deployer declares `retention` (a self-deploy run is ~55 MB, so 183 days of it would outgrow the
+   100 Gi Garage) and `values-v2-prod.yaml` sets `Retention__DryRun=false`. Watch the first sweeps.
 2. **npm staged publishing.** `NPM_TOKEN` is a package-scoped direct-publish token from 2026-10-25
    that expires in late January 2027, when npm also removes direct publishing for such tokens.
    Change `publish-sdk` to stage, have Oliver approve each version on npmjs.com, then move to a

@@ -42,6 +42,9 @@ record is in the plan's Track E.
 
 ## 2.1: now
 
+0. **Spec-first API (TypeSpec)**, decided 2026-10-27: [spec-first.md](spec-first.md). The emitter
+   and runtime move from ARM to Olve.Utilities first, then the API migrates area by area with a
+   Hey API frontend client, then `pl` is rewritten in TypeScript, then Olve.Template.Api follows.
 1. **Retention live on prod.** The dry-run sweep of 2026-10-27 would delete two leftover result
    archives (572 bytes) and one orphaned URL Secret, no runs and no binaries. Next: the deployer
    declares `retention` (it is the busiest pipeline and a self-deploy run is ~55 MB, so 183 days of
@@ -78,8 +81,7 @@ record is in the plan's Track E.
 
 ## 2.2
 
-The plan doc's candidates: TypeSpec API (in a quiet period, not alongside other work), manifest
-preview, event-stream filtering, OpenObserve metrics, environments/tags, problem types lifted into
+The plan doc's candidates: manifest preview, event-stream filtering, OpenObserve metrics, environments/tags, problem types lifted into
 Olve.MinimalApi. External inputs' open ideas (`at`, another run) are in
 [external-inputs.md](external-inputs.md).
 

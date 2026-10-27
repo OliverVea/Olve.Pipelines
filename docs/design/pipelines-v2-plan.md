@@ -659,7 +659,8 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
 
 ### v2.2 — candidates
 
-- **Spec-first API (TypeSpec)**, as in Olve.AgentRuntimeManager: the HTTP API is declared in `.tsp`
+- **Spec-first API (TypeSpec)**: decided and planned 2026-10-27, see [spec-first.md](spec-first.md).
+  Original note: as in Olve.AgentRuntimeManager, the HTTP API is declared in `.tsp`
   (one file per area), and OpenAPI, the backend's C# surface and a typed TS client are generated
   from it. Today the API is code-first (minimal APIs → `api.json` → Kiota), and the frontend's
   mutations bypass the generated types. Wanted by the user for readability; do it in a quiet period,

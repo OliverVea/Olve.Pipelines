@@ -81,10 +81,12 @@ export const PUBLISH = config("publish", "Where releases go: images, the npm pac
   server: z.object({
     ...Image,
     registryMap: z.record(z.string(), z.string()).optional()
-      .describe("Pull-through caches for the base image (registry → mirror prefix); unset = mcr.microsoft.com through mcr-cache.ovea.pro."),
+      .describe("Pull-through caches for the base image (registry → mirror prefix); unset = none."),
   }),
   harness: z.object({
     ...Image,
+    registryMap: z.record(z.string(), z.string()).optional()
+      .describe("Pull-through caches for the harness image's base images (registry → mirror prefix); unset = none."),
     push: z.boolean().default(true).describe("false: the deployed server uses its built-in harness image."),
   }),
   imageTags: z.object({ prerelease: z.string().default("next"), release: z.string().default("latest") }).prefault({}),

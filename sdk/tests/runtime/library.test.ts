@@ -193,11 +193,9 @@ describe("steps.imageBuild", () => {
         "--snapshot-mode=redo",
         "--use-new-run",
         "--compressed-caching=false",
-        "--registry-map=mcr.microsoft.com=mcr-cache.ovea.pro",
-        "--registry-map=index.docker.io=hub-cache.ovea.pro",
       ],
     ]);
-    expect(k.probed.toSorted()).toEqual(["https://hub-cache.ovea.pro/v2/", "https://mcr-cache.ovea.pro/v2/"]);
+    expect(k.probed).toEqual([]);
     expect(k.execOpts[2]).toEqual({ idleTimeoutSeconds: 300 }); // stall watchdog on by default
     if (r.status !== "succeeded") return;
     expect(r.output).toMatchObject({
@@ -224,20 +222,28 @@ describe("steps.imageBuild", () => {
     expect(k.probed).toEqual([]);
   });
 
-  test("registryMap defaults to the pull-through caches, recorded in the manifest config", () => {
-    expect(settingsOf(steps.imageBuild({ name: "build", description: "", repository: "x" }))).toEqual({
-      repository: "x",
-      registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" },
-    });
+  const mirrors = { "mcr.microsoft.com": "mcr-cache.example.com", "index.docker.io": "hub-cache.example.com" };
+
+  test("registryMap: none by default; a map is recorded in the manifest config and probed before kaniko", async () => {
+    expect(settingsOf(steps.imageBuild({ name: "build", description: "", repository: "x" }))).toEqual({ repository: "x" });
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x", registryMap: mirrors });
+    expect(settingsOf(step)).toEqual({ repository: "x", registryMap: mirrors });
+    const k = fakeKaniko();
+    expect((await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } })).status).toBe("succeeded");
+    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual([
+      "--registry-map=mcr.microsoft.com=mcr-cache.example.com",
+      "--registry-map=index.docker.io=hub-cache.example.com",
+    ]);
+    expect(k.probed.toSorted()).toEqual(["https://hub-cache.example.com/v2/", "https://mcr-cache.example.com/v2/"]);
   });
 
   test("an unreachable mirror never blocks the build: its mapping is dropped", async () => {
-    const step = steps.imageBuild({ name: "build", description: "", repository: "x" });
-    const k = fakeKaniko({ down: ["mcr-cache.ovea.pro"] });
+    const step = steps.imageBuild({ name: "build", description: "", repository: "x", registryMap: mirrors });
+    const k = fakeKaniko({ down: ["mcr-cache.example.com"] });
     const r = await testHandler(step, { source }, { ctx: { exec: k.exec, files: k.files, http: k.http } });
     expect(r.status).toBe("succeeded");
-    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual(["--registry-map=index.docker.io=hub-cache.ovea.pro"]);
-    expect(r.logs.join("\n")).toContain("mcr-cache.ovea.pro unreachable; pulling from mcr.microsoft.com directly");
+    expect(k.calls[2]!.filter((a) => a.startsWith("--registry-map="))).toEqual(["--registry-map=index.docker.io=hub-cache.example.com"]);
+    expect(r.logs.join("\n")).toContain("mcr-cache.example.com unreachable; pulling from mcr.microsoft.com directly");
   });
 
   test("cache probe: 200/401 = up, other statuses, errors and timeouts = down; one probe per host", async () => {
@@ -853,7 +859,7 @@ describe("library steps in the manifest", () => {
     const all = m.stages.flatMap((s) => ("steps" in s ? s.steps : []));
     expect(all.map((s) => [s.kind, s.image, s.secrets, s.config, s.input])).toEqual([
       ["gitHubSource", "alpine:3.22", ["GITHUB_TOKEN"], { token: "GITHUB_TOKEN" }, { repo: { ref: "input.repo" }, sha: { ref: "input.sha" } }],
-      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app", registryMap: { "mcr.microsoft.com": "mcr-cache.ovea.pro", "index.docker.io": "hub-cache.ovea.pro" } }, { source: { ref: "source" } }],
+      ["imageBuild", "gcr.io/kaniko-project/executor:debug", [], { repository: "app" }, { source: { ref: "source" } }],
       [
         "helmDeployOverSsh",
         "alpine:3.22",

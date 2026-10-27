@@ -102,14 +102,8 @@ export interface ImageBuildPushDef<N extends string, K extends string = never> e
   contentTag?: boolean;
 }
 
-/**
- * Default `registryMap`: pull-through caches for mcr.microsoft.com and Docker Hub. kaniko under gVisor
- * can stall forever pulling from mcr.microsoft.com directly.
- */
-export const DEFAULT_REGISTRY_MAP: Readonly<Record<string, string>> = {
-  "mcr.microsoft.com": "mcr-cache.ovea.pro",
-  "index.docker.io": "hub-cache.ovea.pro",
-};
+/** Default `registryMap`: none, kaniko pulls from the registries themselves. */
+export const DEFAULT_REGISTRY_MAP: Readonly<Record<string, string>> = {};
 
 /** How long a cache registry gets to answer `GET /v2/` before the build goes without it. */
 export const CACHE_PROBE_TIMEOUT_MS = 5000;

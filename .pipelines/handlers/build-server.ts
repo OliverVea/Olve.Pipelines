@@ -7,9 +7,6 @@ const BASE_IMAGES = {
   jit: "mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled",
 } as const;
 
-// crane under gVisor can stall on mcr.microsoft.com, like kaniko; the pull-through cache doesn't.
-const DEFAULT_MIRRORS: Record<string, string> = { "mcr.microsoft.com": "mcr-cache.ovea.pro" };
-
 export default implement(buildServer, async ({ server, frontend }, ctx) => {
   const target = ctx.config.publish.server;
   const { repository, insecure } = target;
@@ -18,7 +15,8 @@ export default implement(buildServer, async ({ server, frontend }, ctx) => {
   const opts = { env: { DOCKER_CONFIG: dockerConfig(ctx, [[repository, target]]) }, idleTimeoutSeconds: 120 };
 
   const base = BASE_IMAGES[server.runtime];
-  const mirror = Object.entries(target.registryMap ?? DEFAULT_MIRRORS).find(([from]) => base.startsWith(`${from}/`));
+  // crane under gVisor can stall on mcr.microsoft.com, like kaniko; a pull-through cache doesn't.
+  const mirror = Object.entries(target.registryMap ?? {}).find(([from]) => base.startsWith(`${from}/`));
   const bases = mirror ? [mirror[1] + base.slice(mirror[0].length), base] : [base];
   const mutate = (from: string) => ctx.exec([
     "crane", "mutate", from, "--platform", "linux/amd64",

@@ -58,6 +58,7 @@ export const buildHarness = steps.imageBuild({
   contentTag: true,
   enabled: PUBLISH.harness.push,
   insecureRegistry: PUBLISH.harness.insecure,
+  registryMap: PUBLISH.harness.registryMap,
   registryAuth: PUBLISH.harness.auth,
   secrets: REGISTRY_SECRETS,
   timeoutSeconds: 600,

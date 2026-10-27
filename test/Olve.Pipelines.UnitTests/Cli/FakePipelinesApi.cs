@@ -206,7 +206,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
             UpdatePipelineBindingCredentialsResult ?? throw new NotSupportedException($"FakePipelinesApi: '{nameof(UpdatePipelineBindingCredentials)}' called but not configured."));
     }
 
-    public Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct)
+    public Task<Result> ReconcilePipelineBinding(string pipelineId, bool rebuild, CancellationToken ct)
     {
         Calls.Add(nameof(ReconcilePipelineBinding));
         return Task.FromResult(

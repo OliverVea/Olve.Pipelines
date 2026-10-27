@@ -42,7 +42,7 @@ public interface IPipelinesApi
         string pipelineId, string? credentialsSecret, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> SetPipelineBindingBranch(string pipelineId, string branch, CancellationToken ct);
     Task<Result<PipelineConfigBinding>> SetPipelineBindingPolling(string pipelineId, bool polls, CancellationToken ct);
-    Task<Result> ReconcilePipelineBinding(string pipelineId, CancellationToken ct);
+    Task<Result> ReconcilePipelineBinding(string pipelineId, bool rebuild, CancellationToken ct);
 
     // Config (one YAML document per pipeline, saved as snapshots)
     Task<Result<ConfigDocument>> GetPipelineConfig(string pipelineId, int? snapshot, CancellationToken ct);

@@ -48,11 +48,11 @@ public static class PipelineBindingEndpoints
         // Returns at once; the reconcile runs in the background (progress in GET .../binding/status).
         // Also retries a commit whose reconcile failed, which the poll loop never does.
         app.MapPost("/api/pipelines/{pipelineId}/binding/reconcile", async Task<Result> (
-                DeployPollService deployPoll, PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, bool? wait, CancellationToken ct) =>
+                DeployPollService deployPoll, PipelineConfigBindingService bindings, Id<Pipeline> pipelineId, bool? wait, bool? rebuild, CancellationToken ct) =>
             {
                 if (wait != true)
-                    return deployPoll.RequestReconcile(pipelineId, force: true);
-                if ((await deployPoll.ReconcileNowAsync(pipelineId, ct)).TryPickProblems(out var problems))
+                    return deployPoll.RequestReconcile(pipelineId, force: true, rebuild: rebuild == true);
+                if ((await deployPoll.ReconcileNowAsync(pipelineId, ct, rebuild: rebuild == true)).TryPickProblems(out var problems))
                     return problems;
                 if (bindings.GetByPipelineId(pipelineId).TryPickProblems(out var bindingProblems, out var binding))
                     return bindingProblems;
@@ -64,7 +64,7 @@ public static class PipelineBindingEndpoints
             .WithName("ReconcilePipelineBinding")
             .WithTags("Bindings")
             .WithSummary("Reconcile now")
-            .WithDescription("Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.")
+            .WithDescription("Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.")
 ;
 
         // The credentials key moves GitHub reads onto the authenticated rate limit; empty clears it.

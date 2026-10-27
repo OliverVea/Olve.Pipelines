@@ -196,15 +196,21 @@ public sealed class BindingReconcileCommand : ICliCommand
     public string Noun => "binding";
     public string Verb => "reconcile";
     public int RequiredOperands => 1;
-    public string HelpLine => "Reconcile the bound config now (also retries a failed commit)";
-    public string? HelpDetail => "pl binding reconcile <pipeline>";
+    public string HelpLine => "Reconcile the bound config now (also retries a failed commit; --rebuild redoes an applied commit)";
+    public string? HelpDetail => """
+        pl binding reconcile <pipeline> [--rebuild]
+
+          --rebuild   Reconcile the current commit again although it is applied: after a server
+                      change in how manifests are read. The version changes only if the manifest does.
+        """;
+    public IReadOnlySet<string> BooleanFlags { get; } = new HashSet<string>(StringComparer.Ordinal) { "rebuild" };
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
         if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var resolveProblems, out var pipeline))
             return resolveProblems;
         var pipelineId = pipeline.Id.ToString();
-        if ((await ctx.Api.ReconcilePipelineBinding(pipelineId, ct)).TryPickProblems(out var problems))
+        if ((await ctx.Api.ReconcilePipelineBinding(pipelineId, cli.HasFlag("rebuild"), ct)).TryPickProblems(out var problems))
             return problems;
 
         if (!ctx.Output.IsJson)

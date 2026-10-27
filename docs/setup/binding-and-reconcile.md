@@ -27,7 +27,7 @@ pipeline; every pipeline has exactly one.
 | `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
 | `pl binding set-branch <pipeline> <branch>` | Move the binding to another branch of the same repo |
 | `pl binding set-polling <pipeline> on\|off` | Stop (or resume) polling GitHub for the binding |
-| `pl binding reconcile <pipeline>` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed) |
+| `pl binding reconcile <pipeline> [--rebuild]` | Reconcile now, off the poll schedule (also retries a commit whose reconcile failed); `--rebuild` reconciles the applied commit again, for a server change in how manifests are read |
 
 The pipeline's name and description come from `pipeline({ name, description })` at reconcile; the
 bind seeds a provisional name from the repo.

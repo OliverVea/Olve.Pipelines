@@ -67,7 +67,7 @@ public class DeployPollService(
         {
             try
             {
-                await SyncConfigAsync(binding.Id, force: false, ct);
+                await SyncConfigAsync(binding.Id, force: false, rebuild: false, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -78,15 +78,16 @@ public class DeployPollService(
 
     /// <summary>
     /// Syncs a pipeline's config now and waits for it. <paramref name="force"/> bypasses the ETag cache and
-    /// retries a config commit whose reconcile failed.
+    /// retries a config commit whose reconcile failed; <paramref name="rebuild"/> reconciles the current commit
+    /// again even when it is applied (for a server change in how a manifest is read).
     /// </summary>
-    public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool force = true)
+    public async Task<Result> ReconcileNowAsync(Id<Pipeline> pipelineId, CancellationToken ct, bool force = true, bool rebuild = false)
     {
         var binding = bindings.List().FirstOrDefault(b => b.PipelineId == pipelineId);
         if (binding is null)
             return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
 
-        await SyncConfigAsync(binding.Id, force, ct);
+        await SyncConfigAsync(binding.Id, force, rebuild, ct);
         return Result.Success();
     }
 
@@ -94,7 +95,7 @@ public class DeployPollService(
     /// Starts <see cref="ReconcileNowAsync"/> in the background and returns at once (webhook deliveries and
     /// HTTP callers must not wait for a build). Progress shows in the binding status.
     /// </summary>
-    public Result RequestReconcile(Id<Pipeline> pipelineId, bool force)
+    public Result RequestReconcile(Id<Pipeline> pipelineId, bool force, bool rebuild = false)
     {
         if (bindings.List().All(b => b.PipelineId != pipelineId))
             return new NotFoundProblem("Pipeline '{0}' has no config binding.", pipelineId);
@@ -103,7 +104,7 @@ public class DeployPollService(
         {
             try
             {
-                (await ReconcileNowAsync(pipelineId, _lifetime.Token, force)).DiscardResult();
+                (await ReconcileNowAsync(pipelineId, _lifetime.Token, force, rebuild)).DiscardResult();
             }
             catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
             {
@@ -116,7 +117,7 @@ public class DeployPollService(
         return Result.Success();
     }
 
-    private async Task SyncConfigAsync(Id<PipelineConfigBinding> bindingId, bool force, CancellationToken ct)
+    private async Task SyncConfigAsync(Id<PipelineConfigBinding> bindingId, bool force, bool rebuild, CancellationToken ct)
     {
         var bindingLock = _locks.GetOrAdd(bindingId, _ => new SemaphoreSlim(1, 1));
         await bindingLock.WaitAsync(ct);
@@ -127,7 +128,7 @@ public class DeployPollService(
             if (bindingService.TryGet(bindingId).TryPickProblems(out _, out var binding))
                 return; // unbound meanwhile
 
-            await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, ct);
+            await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, rebuild, ct);
         }
         finally
         {
@@ -152,7 +153,7 @@ public class DeployPollService(
             var bindingService = scope.ServiceProvider.GetRequiredService<PipelineConfigBindingService>();
             if (bindingService.TryGet(bindingId.Value).TryPickProblems(out _, out var binding))
                 return false;
-            if (!await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, ct))
+            if (!await ReconcileConfigAsync(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<IConfigSource>(), bindingService, binding, force, rebuild: false, ct))
                 return false;
 
             await action();
@@ -167,7 +168,7 @@ public class DeployPollService(
     /// <summary>Returns true when the binding's current config commit is applied (safe to start runs).</summary>
     private async Task<bool> ReconcileConfigAsync(
         IServiceProvider services, IConfigSource source, PipelineConfigBindingService bindingService,
-        PipelineConfigBinding binding, bool force, CancellationToken ct)
+        PipelineConfigBinding binding, bool force, bool rebuild, CancellationToken ct)
     {
         _config.TryGetValue(binding.Id, out var cached);
         var etag = force ? null : cached.ETag;
@@ -199,7 +200,7 @@ public class DeployPollService(
                 return false;
         }
 
-        if (binding.LastReconciledSha == sha && binding.Status.Result == ReconcileResult.Success)
+        if (binding.LastReconciledSha == sha && binding.Status.Result == ReconcileResult.Success && !rebuild)
             return !HasPending(services, binding.PipelineId);
 
         if (!force && _failed.TryGetValue(binding.Id, out var failedSha) && failedSha == sha)

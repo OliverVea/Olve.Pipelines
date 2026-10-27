@@ -123,6 +123,19 @@ public class DeployPollServiceTests
     }
 
     [Test]
+    public async Task AppliedConfigCommit_IsReconciledAgain_WhenARebuildIsAsked()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+
+        await c.Run();
+        await Assert.That(await c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None, rebuild: true)).Succeeded();
+
+        await Assert.That(c.Reconciler.Calls).IsEquivalentTo(new[] { "cfg-1", "cfg-1" });
+        await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Success);
+    }
+
+    [Test]
     public async Task FailedReconcile_RecordsProblems_HoldsRuns_AndIsRetriedOnlyWhenForced()
     {
         await using var c = Build();

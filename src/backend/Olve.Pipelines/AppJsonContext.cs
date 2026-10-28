@@ -47,10 +47,4 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(SetBindingPollingRequest))]
 [JsonSerializable(typeof(Result<PipelineBindingStatus>))]
 [JsonSerializable(typeof(DeletionResult))]
-[JsonSerializable(typeof(Result<ConfigDocument>))]
-[JsonSerializable(typeof(Result<ConfigSaveResponse>))]
-[JsonSerializable(typeof(Result<ConfigSnapshotInfo[]>))]
-[JsonSerializable(typeof(Result<ConfigCheckResponse>))]
-[JsonSerializable(typeof(SetConfigRequest))]
-[JsonSerializable(typeof(RollbackConfigRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;

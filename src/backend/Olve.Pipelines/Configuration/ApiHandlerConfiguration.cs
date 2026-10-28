@@ -2,6 +2,7 @@ using Olve.Pipelines.Api;
 using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Configuration;
@@ -26,7 +27,12 @@ public static class ApiHandlerConfiguration
         services.AddTransient<ISecretsSetHandler, SetSecretHandler>();
         services.AddTransient<ISecretsDeleteHandler, DeleteSecretHandler>();
         services.AddTransient<ISecretsCopyHandler, CopySecretsHandler>();
-        services.AddHttpContextAccessor(); // the copy's audit actor
+        services.AddTransient<IConfigGetHandler, GetConfigHandler>();
+        services.AddTransient<IConfigSetHandler, SetConfigHandler>();
+        services.AddTransient<IConfigHistoryHandler, ListConfigSnapshotsHandler>();
+        services.AddTransient<IConfigRollbackHandler, RollbackConfigHandler>();
+        services.AddTransient<IConfigCheckHandler, CheckConfigHandler>();
+        services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
     /// <summary>
@@ -54,5 +60,10 @@ public static class ApiHandlerConfiguration
         api.SecretsSet.WithTags("Secrets").WithSummary("Set a secret");
         api.SecretsDelete.WithTags("Secrets").WithSummary("Delete a secret");
         api.SecretsCopy.WithTags("Secrets").WithSummary("Copy secrets from another pipeline");
+        api.ConfigGet.RequireRead().WithTags("Config").WithSummary("Get the config document");
+        api.ConfigSet.WithTags("Config").WithSummary("Save the config document");
+        api.ConfigHistory.RequireRead().WithTags("Config").WithSummary("List config snapshots");
+        api.ConfigRollback.WithTags("Config").WithSummary("Roll back the config");
+        api.ConfigCheck.RequireRead().WithTags("Config").WithSummary("Check the config");
     }
 }

@@ -132,6 +132,8 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    copy. None is a read: listing stays behind a signed-in user. The copy's audit actor comes
    from `IHttpContextAccessor`, since a handler has no `HttpContext`. The secrets view, the
    header and the binding view use the Hey API client.
+5. Config (5) — done 2026-10-28: `ConfigDocument`, `ConfigSnapshotSummary`, `ConfigCheck`,
+   `ConfigSaveResult`; the config view uses the Hey API client for all of it.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

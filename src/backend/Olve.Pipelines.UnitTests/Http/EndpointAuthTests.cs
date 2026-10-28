@@ -41,7 +41,7 @@ public class EndpointAuthTests
         "GET /api/pipelines/{pipelineId}/binding",
         "GET /api/pipelines/{pipelineId}/binding/status",
         "GET /api/pipelines/{pipelineId}/blocked-steps",
-        "GET /api/pipelines/{pipelineId}/config/",
+        "GET /api/pipelines/{pipelineId}/config",
         "GET /api/pipelines/{pipelineId}/config/check",
         "GET /api/pipelines/{pipelineId}/config/history",
         "GET /api/pipelines/{pipelineId}/health",

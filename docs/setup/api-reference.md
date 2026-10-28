@@ -257,15 +257,24 @@ Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `v
 
 ### Config
 
+#### Check the config
+
+`GET /api/pipelines/{pipelineId}/config/check`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `version` | query | integer |  |
+
+**Returns:** `200` [ConfigCheck](#configcheck)
+
 #### Get the config document
 
 `GET /api/pipelines/{pipelineId}/config`
 
-The YAML document as saved, and its snapshot (number, author, time, `restoredFrom`). `snapshot` gets an older one; `yaml` is empty before the first save.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 | `snapshot` | query | integer |  |
 
 **Returns:** `200` [ConfigDocument](#configdocument)
@@ -274,54 +283,35 @@ The YAML document as saved, and its snapshot (number, author, time, `restoredFro
 
 `PUT /api/pipelines/{pipelineId}/config`
 
-Saves `yaml` as the next snapshot. 400 with each problem when the active version rejects it. The answer has the check against the active and the pending version, and the version it activated, if any.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Body** (`application/json`): [SetConfigRequest](#setconfigrequest)
+**Body** (`application/json`): [SetConfig](#setconfig)
 
-**Returns:** `200` [ConfigSaveResponse](#configsaveresponse)
+**Returns:** `200` [ConfigSaveResult](#configsaveresult)
 
 #### List config snapshots
 
 `GET /api/pipelines/{pipelineId}/config/history`
 
-Newest first.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Returns:** `200` [ConfigSnapshotInfo](#configsnapshotinfo)[]
+**Returns:** `200` [ConfigSnapshotSummary](#configsnapshotsummary)[]
 
 #### Roll back the config
 
 `POST /api/pipelines/{pipelineId}/config/rollback`
 
-Saves snapshot `snapshot`'s content again as the newest.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Body** (`application/json`): [RollbackConfigRequest](#rollbackconfigrequest)
+**Body** (`application/json`): [RollbackConfig](#rollbackconfig)
 
-**Returns:** `200` [ConfigSaveResponse](#configsaveresponse)
-
-#### Check the config
-
-`GET /api/pipelines/{pipelineId}/config/check`
-
-The current document against `version` (default: the pending version, else the active one): validity, whether it is satisfied, problems, referenced and missing secrets, changed defaults and the effective values.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `version` | query | integer |  |
-
-**Returns:** `200` [ConfigCheckResponse](#configcheckresponse)
+**Returns:** `200` [ConfigSaveResult](#configsaveresult)
 
 ### Secrets
 
@@ -949,7 +939,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `from` | string | required |
 | `to` | string | required |
 
-### ConfigCheckResponse
+### ConfigCheck
 
 | Field | Type | |
 |---|---|---|
@@ -967,19 +957,19 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 | Field | Type | |
 |---|---|---|
-| `snapshot` | [ConfigSnapshotInfo](#configsnapshotinfo)? | required |
+| `snapshot` | [ConfigSnapshotSummary](#configsnapshotsummary)? | required |
 | `yaml` | string | required |
 
-### ConfigSaveResponse
+### ConfigSaveResult
 
 | Field | Type | |
 |---|---|---|
-| `snapshot` | [ConfigSnapshotInfo](#configsnapshotinfo) | required |
-| `active` | [ConfigCheckResponse](#configcheckresponse)? | required |
-| `pending` | [ConfigCheckResponse](#configcheckresponse)? | required |
+| `snapshot` | [ConfigSnapshotSummary](#configsnapshotsummary) | required |
+| `active` | [ConfigCheck](#configcheck)? | required |
+| `pending` | [ConfigCheck](#configcheck)? | required |
 | `activatedVersion` | integer? | required |
 
-### ConfigSnapshotInfo
+### ConfigSnapshotSummary
 
 | Field | Type | |
 |---|---|---|
@@ -1341,7 +1331,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `continue` | boolean |  |
 
-### RollbackConfigRequest
+### RollbackConfig
 
 | Field | Type | |
 |---|---|---|
@@ -1461,7 +1451,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `polls` | boolean | required |
 
-### SetConfigRequest
+### SetConfig
 
 | Field | Type | |
 |---|---|---|

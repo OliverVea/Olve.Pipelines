@@ -1,12 +1,19 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { api, client, errorMessages } from '../api.js';
-import { pipelinesHealth, versionsList, type PendingVersionInfo } from '@olve/api';
-import type {
-  ConfigCheckResponse,
-  ConfigSaveResponse,
-  ConfigSnapshotInfo,
-} from '@olve/olve-pipelines-client/src/models/index.js';
+import { api, errorMessages } from '../api.js';
+import {
+  configCheck,
+  configGet,
+  configHistory,
+  configRollback,
+  configSet,
+  pipelinesHealth,
+  versionsList,
+  type ConfigCheck,
+  type ConfigSaveResult,
+  type ConfigSnapshotSummary,
+  type PendingVersionInfo,
+} from '@olve/api';
 import { sharedStyles, navClick, secretsPath } from '../v2/ui.js';
 import { loadVersion, toActivation, currentVersion } from '../v2/versions.js';
 import { configEntries, documentSchema, type ConfigEntry } from '../v2/config-schema.js';
@@ -100,13 +107,13 @@ export class PipelineConfigView extends LitElement {
   @property() declare pipelineId: string;
 
   @state() declare private _yaml: string;
-  @state() declare private _snapshot: ConfigSnapshotInfo | null;
-  @state() declare private _history: ConfigSnapshotInfo[];
+  @state() declare private _snapshot: ConfigSnapshotSummary | null;
+  @state() declare private _history: ConfigSnapshotSummary[];
   @state() declare private _targets: Target[];
   @state() declare private _target: number | null;
   @state() declare private _pending: PendingVersionInfo | null;
-  @state() declare private _check: ConfigCheckResponse | null;
-  @state() declare private _saved: ConfigSaveResponse | null;
+  @state() declare private _check: ConfigCheck | null;
+  @state() declare private _saved: ConfigSaveResult | null;
   @state() declare private _errors: string[];
   @state() declare private _dirty: boolean;
   @state() declare private _busy: boolean;
@@ -147,14 +154,12 @@ export class PipelineConfigView extends LitElement {
   }
 
   async reload(replaceText: boolean) {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
+    const path = { pipelineId: this.pipelineId };
     try {
       const [doc, history, versions, health] = await Promise.all([
-        p.config.get(),
-        p.config.history.get(),
-        versionsList({ client: api, path: { pipelineId: this.pipelineId } }).then(
-          (r) => r.data,
-        ),
+        configGet({ client: api, path }).then((r) => r.data),
+        configHistory({ client: api, path }).then((r) => r.data),
+        versionsList({ client: api, path }).then((r) => r.data),
         pipelinesHealth({ client: api, path: { pipelineId: this.pipelineId } }).then(
           (r) => r.data,
         ),
@@ -181,8 +186,8 @@ export class PipelineConfigView extends LitElement {
       this._check =
         this._target === null
           ? null
-          : ((await p.config.check.get({ queryParameters: { version: this._target } })) ??
-            null);
+          : ((await configCheck({ client: api, path, query: { version: this._target } }))
+              .data ?? null);
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');
@@ -219,9 +224,13 @@ export class PipelineConfigView extends LitElement {
     this._errors = [];
     try {
       this._saved =
-        (await client.api.pipelines
-          .byPipelineId(this.pipelineId)
-          .config.put({ yaml: this._editor.text })) ?? null;
+        (
+          await configSet({
+            client: api,
+            path: { pipelineId: this.pipelineId },
+            body: { yaml: this._editor.text },
+          })
+        ).data ?? null;
       this._dirty = false;
       await this.reload(true);
     } catch (e) {
@@ -237,9 +246,13 @@ export class PipelineConfigView extends LitElement {
     this._errors = [];
     try {
       this._saved =
-        (await client.api.pipelines
-          .byPipelineId(this.pipelineId)
-          .config.rollback.post({ snapshot: n })) ?? null;
+        (
+          await configRollback({
+            client: api,
+            path: { pipelineId: this.pipelineId },
+            body: { snapshot: n },
+          })
+        ).data ?? null;
       await this.reload(true);
     } catch (e) {
       this._errors = errorMessages(e);
@@ -254,10 +267,10 @@ export class PipelineConfigView extends LitElement {
     if (from === null || to === null) return;
     this._diff = null;
     try {
-      const p = client.api.pipelines.byPipelineId(this.pipelineId);
+      const path = { pipelineId: this.pipelineId };
       const [a, b] = await Promise.all([
-        p.config.get({ queryParameters: { snapshot: from } }),
-        p.config.get({ queryParameters: { snapshot: to } }),
+        configGet({ client: api, path, query: { snapshot: from } }).then((r) => r.data),
+        configGet({ client: api, path, query: { snapshot: to } }).then((r) => r.data),
       ]);
       if (from !== this._from || to !== this._to) return;
       this._diff = foldDiff(diffLines(a?.yaml ?? '', b?.yaml ?? ''), 3);
@@ -329,9 +342,13 @@ export class PipelineConfigView extends LitElement {
     this._target = version;
     try {
       this._check =
-        (await client.api.pipelines
-          .byPipelineId(this.pipelineId)
-          .config.check.get({ queryParameters: { version } })) ?? null;
+        (
+          await configCheck({
+            client: api,
+            path: { pipelineId: this.pipelineId },
+            query: { version },
+          })
+        ).data ?? null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');
     }
@@ -388,7 +405,7 @@ export class PipelineConfigView extends LitElement {
     </details>`;
   }
 
-  private _reasons(c: ConfigCheckResponse): string[] {
+  private _reasons(c: ConfigCheck): string[] {
     return [
       ...(c.problems ?? []).map((p) => `config ${p}`),
       ...(c.missingSecrets ?? []).map((s) => `secret ${s} not set`),

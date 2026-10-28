@@ -1,5 +1,4 @@
 using Olve.Pipelines.Distribution;
-using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
@@ -19,8 +18,7 @@ public static class EndpointConfiguration
     public static void MapEndpoints(this WebApplication app)
     {
         app.MapJson();
-        app.MapHealthEndpoints();
-        app.MapFrontendConfigEndpoints();
+        app.MapApi();
         app.MapCliDownloadEndpoints();
         app.MapPipelineEndpoints();
         app.MapSecretEndpoints();

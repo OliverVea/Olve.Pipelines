@@ -9,13 +9,13 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ReadyRequestBuilder extends BaseRequestBuilder<ReadyRequestBuilder> {
     /**
-     * 200 once persisted state is loaded, 503 before.
+     * Readiness
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
-     * 200 once persisted state is loaded, 503 before.
+     * Readiness
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */

@@ -50,8 +50,8 @@ public class AuthAllowListTests
     [Test]
     public async Task LoginScopes_IncludeGroups_OnlyWhenOrgsAreAllowed()
     {
-        await Assert.That(FrontendConfigEndpoints.Scopes(Allow(orgs: ["ovea"]))).IsEqualTo("openid profile email groups");
-        await Assert.That(FrontendConfigEndpoints.Scopes(Allow(users: ["olivervea"]))).IsEqualTo("openid profile email");
+        await Assert.That(FrontendConfigHandler.Scopes(Allow(orgs: ["ovea"]))).IsEqualTo("openid profile email groups");
+        await Assert.That(FrontendConfigHandler.Scopes(Allow(users: ["olivervea"]))).IsEqualTo("openid profile email");
     }
 
     [Test]

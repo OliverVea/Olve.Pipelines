@@ -9,6 +9,14 @@ export const DeployRequest = model(
   }),
 );
 
+/** The contract compiled: `artifacts/` with the OpenAPI document and the server's generated C#. */
+export const SpecBuild = model(
+  'SpecBuild',
+  z.object({
+    artifacts: fileRef(),
+  }),
+);
+
 /** The published server as an image layer (`app/…`), and how it was compiled. */
 export const ServerBuild = model(
   'ServerBuild',

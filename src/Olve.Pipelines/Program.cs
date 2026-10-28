@@ -1,3 +1,4 @@
+using Olve.Pipelines.Api;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 
@@ -12,6 +13,8 @@ builder.ConfigureStorage();
 builder.ConfigureKubernetes();
 builder.Services.AddPipelineServices();
 builder.Services.AddApiErrors();
+builder.Services.AddPipelinesApi();
+builder.Services.AddApiHandlers();
 
 var app = builder.Build();
 

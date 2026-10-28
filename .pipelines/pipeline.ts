@@ -42,12 +42,22 @@ export const source = steps.gitHubSource({
   apiUrl: SOURCE.apiUrl,
 });
 
+export const spec = step({
+  name: 'spec',
+  description:
+    "Compiles the API contract (spec/): the OpenAPI document and the server's generated C#, for the .NET steps.",
+  image: 'oven/bun:1.4.3-slim',
+  input: { source: Source },
+  output: M.SpecBuild,
+  timeoutSeconds: 600,
+});
+
 export const compileServer = step({
   name: 'compile-server',
   description:
     'Publishes the server (API and docs) as Native AOT or JIT, per build.runtime, as an image layer.',
   image: DOTNET_AOT_SDK,
-  input: { source: Source },
+  input: { source: Source, spec: M.SpecBuild },
   output: M.ServerBuild,
   config: [BUILD],
   timeoutSeconds: 1800,
@@ -97,7 +107,7 @@ export const test = step({
   description:
     'Runs the .NET unit tests and checks api.json, the TS client and the API reference match the API.',
   image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
-  input: { source: Source },
+  input: { source: Source, spec: M.SpecBuild },
   timeoutSeconds: 1800,
 });
 
@@ -217,6 +227,7 @@ export default pipeline({
 })
   .onPush((e) => ({ repo: e.repository.full_name, sha: e.after, deployTo: 'prod' }))
   .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(spec)
   .stage(
     compileServer,
     buildFrontend,

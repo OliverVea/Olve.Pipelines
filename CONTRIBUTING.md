@@ -27,6 +27,7 @@ src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
 │   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints
 └── Shared/                         AttachmentStore, startup runner, persistence, S3 presigning
 src/Olve.Pipelines.Cli/             `pl` operator CLI (Native AOT, hand-rolled HTTP client)
+spec/                               The API contract (TypeSpec, one .tsp per area); tsp compile → artifacts/ (gitignored): openapi.json + the server's generated C# (docs/design/spec-first.md)
 sdk/                                @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 harness/                            harness-base init image + end-to-end validation
 frontend/                           Dashboard UI (Lit + Vite + TypeScript)
@@ -44,13 +45,18 @@ tools/api-reference.cs              Generates docs/setup/api-reference.md from a
 ## Build & test
 
 ```bash
-dotnet build                                                   # Build
+dotnet build                                                   # Build (compiles spec/ first; needs bun)
 dotnet test                                                    # Tests
 dotnet run --project src/Olve.Pipelines                        # Run locally
 
+cd spec && bun install && bun run compile                      # The contract alone: artifacts/spec/openapi.json + artifacts/generated/backend/*.g.cs
 cd sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
 cd frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```
+
+The server build runs `bun run compile` in `spec/` when the contract changed, and compiles the
+generated `artifacts/generated/backend/*.g.cs`; `-p:SkipSpecGen=true` compiles already-generated
+files without bun (the deploy's `spec` step emits them for `compile-server` and `test`).
 
 ### Check before you push
 
@@ -58,7 +64,7 @@ cd frontend && npm install && npm run build                    # Frontend (tsc +
 project (SDK, `.pipelines`, frontend, .NET server + CLI with their generated files):
 
 ```bash
-tools/check.sh                 # fast tier: formatting, lint, type checks, generated files current, pipeline valid
+tools/check.sh                 # fast tier: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 tools/check.sh --changed       # only the projects changed against the upstream branch (plus uncommitted work)
 tools/check.sh --full          # plus the unit tests, the SDK test suite and the frontend build
 tools/check.sh --fix           # format and regenerate first (prettier, dotnet format, api.json, TS client, API reference, manifest schema)

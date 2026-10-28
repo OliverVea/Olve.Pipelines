@@ -18,6 +18,7 @@ public static class ApiErrorMiddleware
     /// Binding failures throw so they get the problem body too; log scopes carry the TraceId that bodies return.
     /// </summary>
     public static IServiceCollection AddApiErrors(this IServiceCollection services) => services
+        .AddSingleton<Olve.TypeSpec.IApiErrorWriter, ApiProblemWriter>()
         .Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true)
         .Configure<LoggerFactoryOptions>(o => o.ActivityTrackingOptions |=
             ActivityTrackingOptions.TraceId | ActivityTrackingOptions.SpanId | ActivityTrackingOptions.ParentId);

@@ -5,17 +5,44 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/config/frontend": {
+      "get": {
+        "tags": [
+          "Instance"
+        ],
+        "summary": "Get the login settings",
+        "operationId": "Instance_frontendConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrontendConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
           "Instance"
         ],
         "summary": "Liveness",
-        "description": "`status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.",
-        "operationId": "GetHealth",
+        "operationId": "Instance_health",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -26,26 +53,13 @@
           "Instance"
         ],
         "summary": "Readiness",
-        "description": "200 once persisted state is loaded, 503 before.",
-        "operationId": "GetReadiness",
+        "operationId": "Instance_ready",
         "responses": {
           "200": {
             "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/config/frontend": {
-      "get": {
-        "tags": [
-          "Instance"
-        ],
-        "summary": "Get the login settings",
-        "description": "The OIDC authority, client id and scopes the web UI and `pl login` use.",
-        "operationId": "GetFrontendConfig",
-        "responses": {
-          "200": {
-            "description": "OK"
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         }
       }
@@ -6090,6 +6104,52 @@
           "source": {
             "type": "string",
             "default": "person"
+          }
+        }
+      },
+      "FrontendConfig": {
+        "required": [
+          "oidcScopes"
+        ],
+        "type": "object",
+        "properties": {
+          "oidcAuthority": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "oidcClientId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "oidcScopes": {
+            "type": "string"
+          }
+        }
+      },
+      "HealthResponse": {
+        "required": [
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "image": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

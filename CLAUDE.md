@@ -79,9 +79,10 @@ When adding a new way to start work, go through `RunStartService` (runs) or `Run
 ## Commands
 
 ```bash
-dotnet build                                                # Build
+dotnet build                                                # Build (compiles spec/ first; needs bun)
 dotnet test                                                 # Tests
 dotnet run --project src/Olve.Pipelines                     # Run locally
+cd spec && bun run compile                                  # The API contract alone → artifacts/ (see docs/design/spec-first.md)
 tools/check.sh [--changed|--full|--fix]                     # What the deploy checks, locally; --fix formats and regenerates (see CONTRIBUTING.md)
 ```
 

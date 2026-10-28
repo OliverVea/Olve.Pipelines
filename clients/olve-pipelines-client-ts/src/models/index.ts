@@ -873,6 +873,24 @@ export function createEffectivePipelineResponseFromDiscriminatorValue(parseNode:
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {FrontendConfig}
+ */
+// @ts-ignore
+export function createFrontendConfigFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoFrontendConfig;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {HealthResponse}
+ */
+// @ts-ignore
+export function createHealthResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoHealthResponse;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {JsonElement}
  */
 // @ts-ignore
@@ -2043,6 +2061,32 @@ export function deserializeIntoEffectivePipelineResponse_selected(effectivePipel
 }
 /**
  * The deserialization information for the current model
+ * @param FrontendConfig The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoFrontendConfig(frontendConfig: Partial<FrontendConfig> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "oidcAuthority": n => { frontendConfig.oidcAuthority = n.getStringValue(); },
+        "oidcClientId": n => { frontendConfig.oidcClientId = n.getStringValue(); },
+        "oidcScopes": n => { frontendConfig.oidcScopes = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param HealthResponse The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoHealthResponse(healthResponse: Partial<HealthResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "image": n => { healthResponse.image = n.getStringValue(); },
+        "status": n => { healthResponse.status = n.getStringValue(); },
+        "version": n => { healthResponse.version = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param JsonElement The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2711,6 +2755,34 @@ export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsabl
 export interface EffectivePipelineResponse_cases extends AdditionalDataHolder, Parsable {
 }
 export interface EffectivePipelineResponse_selected extends AdditionalDataHolder, Parsable {
+}
+export interface FrontendConfig extends AdditionalDataHolder, Parsable {
+    /**
+     * The oidcAuthority property
+     */
+    oidcAuthority?: string | null;
+    /**
+     * The oidcClientId property
+     */
+    oidcClientId?: string | null;
+    /**
+     * The oidcScopes property
+     */
+    oidcScopes?: string | null;
+}
+export interface HealthResponse extends AdditionalDataHolder, Parsable {
+    /**
+     * The image property
+     */
+    image?: string | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
+    /**
+     * The version property
+     */
+    version?: string | null;
 }
 export interface JsonElement extends AdditionalDataHolder, Parsable {
 }
@@ -4132,6 +4204,34 @@ export function serializeEffectivePipelineResponse_cases(writer: SerializationWr
 export function serializeEffectivePipelineResponse_selected(writer: SerializationWriter, effectivePipelineResponse_selected: Partial<EffectivePipelineResponse_selected> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!effectivePipelineResponse_selected || isSerializingDerivedType) { return; }
     writer.writeAdditionalData(effectivePipelineResponse_selected.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param FrontendConfig The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeFrontendConfig(writer: SerializationWriter, frontendConfig: Partial<FrontendConfig> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!frontendConfig || isSerializingDerivedType) { return; }
+    writer.writeStringValue("oidcAuthority", frontendConfig.oidcAuthority);
+    writer.writeStringValue("oidcClientId", frontendConfig.oidcClientId);
+    writer.writeStringValue("oidcScopes", frontendConfig.oidcScopes);
+    writer.writeAdditionalData(frontendConfig.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param HealthResponse The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeHealthResponse(writer: SerializationWriter, healthResponse: Partial<HealthResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!healthResponse || isSerializingDerivedType) { return; }
+    writer.writeStringValue("image", healthResponse.image);
+    writer.writeStringValue("status", healthResponse.status);
+    writer.writeStringValue("version", healthResponse.version);
+    writer.writeAdditionalData(healthResponse.additionalData);
 }
 /**
  * Serializes information the current object

@@ -90,11 +90,26 @@ handler-registration source generator), #98 (PublishAot smoke test), #99 (skill 
 - `tools/check.sh` gains the spec compile and the generated-code check; the deploy's `test` step
   keeps the `api.json` / Kiota / reference checks until phase 2 ends.
 
+**Built 2026-10-28**, together with the Instance area (the emitter's JSON context doesn't compile
+for a contract without operations, so the skeleton carries the first area): `spec/` (bun),
+`artifacts/` gitignored, the `GenerateApi` MSBuild target with `SkipSpecGen`, `AddPipelinesApi` /
+`UsePipelinesApi` beside the old endpoints, `ApiProblemWriter` as the `IApiErrorWriter`, a `spec`
+step in the deployer (its `artifacts/` feed `compile-server` and `test`), `tools/check.sh` with
+the spec compile. Found on the way, fixed in Olve.Utilities 0.59.0 (PR #100): the generated code
+used a reflection-based `TypedResults.Json` overload the AOT analyzers reject (ARM is JIT, so it
+never showed); the conformance suite now builds with the AOT analyzers and runs without
+reflection-based JSON, where the request delegate generator's bare 400 for a bad optional
+parameter also surfaced. What the contract can't say yet is applied app-side in
+`ApiHandlerConfiguration.MapApi`: `AllowAnonymous` and the OpenAPI tag and summary of each
+operation (`api.json` still feeds the API reference); emitting those from the spec is emitter work
+for a later area. The frontend keeps the Kiota client for this area (same routes and shapes); the
+Hey API switch comes with the first area whose typing it improves (Pipelines).
+
 ## Phase 2: areas, one push each
 
 Order, smallest and least coupled first, so the pattern settles before the big ones:
 
-1. Instance (3 operations: health, ready, info)
+1. Instance (3 operations: health, ready, the login settings) — done with phase 1
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

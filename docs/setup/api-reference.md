@@ -774,27 +774,21 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 ### Instance
 
-#### Liveness
-
-`GET /api/health`
-
-`status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`.
-
-**Returns:** `200`
-
-#### Readiness
-
-`GET /api/ready`
-
-200 once persisted state is loaded, 503 before.
-
-**Returns:** `200`
-
 #### Get the login settings
 
 `GET /api/config/frontend`
 
-The OIDC authority, client id and scopes the web UI and `pl login` use.
+**Returns:** `200` [FrontendConfig](#frontendconfig)
+
+#### Liveness
+
+`GET /api/health`
+
+**Returns:** `200` [HealthResponse](#healthresponse)
+
+#### Readiness
+
+`GET /api/ready`
 
 **Returns:** `200`
 
@@ -1145,6 +1139,22 @@ The OIDC authority, client id and scopes the web UI and `pl login` use.
 | `answeredBy` | string | required |
 | `answeredAt` | string (date-time) | required |
 | `source` | string |  |
+
+### FrontendConfig
+
+| Field | Type | |
+|---|---|---|
+| `oidcAuthority` | string? |  |
+| `oidcClientId` | string? |  |
+| `oidcScopes` | string | required |
+
+### HealthResponse
+
+| Field | Type | |
+|---|---|---|
+| `status` | string | required |
+| `image` | string? |  |
+| `version` | string? |  |
 
 ### ManifestIssueView
 

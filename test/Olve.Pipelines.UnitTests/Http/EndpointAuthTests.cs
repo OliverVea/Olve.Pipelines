@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Olve.Pipelines.Api;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 
@@ -72,6 +73,8 @@ public class EndpointAuthTests
         builder.ConfigureKubernetes();
         builder.Services.AddPipelineServices();
         builder.Services.AddApiErrors();
+        builder.Services.AddPipelinesApi();
+        builder.Services.AddApiHandlers();
 
         await using var app = builder.Build();
         app.MapAuthentication();

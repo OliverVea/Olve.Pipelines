@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The checks the deploy runs (`test`, `build-sdk`, `build-frontend`), locally, per project.
 #
-#   tools/check.sh                 fast tier, every project: formatting, lint, type checks, generated files current, pipeline valid
+#   tools/check.sh                 fast tier, every project: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 #   tools/check.sh --changed       only the projects with changes against the upstream branch (plus uncommitted work)
 #   tools/check.sh --full          adds the unit tests, the SDK test suite and the frontend build
 #   tools/check.sh --fix           formats and regenerates first (prettier, dotnet format, api.json, TS client, API reference, manifest schema), then checks
@@ -23,7 +23,7 @@ prettier=sdk/node_modules/.bin/prettier
 TS_GLOBS=("sdk/src/**/*.ts" "sdk/tests/**/*.ts" "sdk/scripts/*.ts" ".pipelines/**/*.ts")
 
 # ── which projects changed ──
-declare -A want=([sdk]=1 [pipelines]=1 [frontend]=1 [dotnet]=1)
+declare -A want=([sdk]=1 [pipelines]=1 [frontend]=1 [spec]=1 [dotnet]=1)
 if [ $changed = 1 ]; then
   base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo origin/main)
   files=$( { git diff --name-only "$base" -- ; git ls-files --others --exclude-standard; } | sort -u)
@@ -33,6 +33,7 @@ if [ $changed = 1 ]; then
       sdk/*) want[sdk]=1 ;;
       .pipelines/*) want[pipelines]=1 ;;
       frontend/*) want[frontend]=1 ;;
+      spec/*) want[spec]=1; want[dotnet]=1 ;;
       src/*|test/*|clients/*|tools/*|api.json|docs/setup/api-reference.md|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
     esac
   done <<<"$files"
@@ -114,6 +115,9 @@ if [ -n "${want[frontend]:-}" ]; then
   run "frontend: prettier"             bash -c 'cd frontend && npm run -s format:check'
   run "frontend: typecheck"            bash -c 'cd frontend && npm run -s typecheck'
   [ $full = 0 ] || run "frontend: build" bash -c 'cd frontend && npm run -s build'
+fi
+if [ -n "${want[spec]:-}" ]; then
+  run "spec: tsp compile"              bash -c 'cd spec && bun install --frozen-lockfile >/dev/null && bun run compile'
 fi
 if [ -n "${want[dotnet]:-}" ]; then
   run "dotnet: build, api.json"        api_json_current

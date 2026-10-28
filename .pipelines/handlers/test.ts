@@ -1,3 +1,4 @@
+import { cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { implement } from '@olivervea/pipelines';
 import { test } from '../pipeline';
@@ -5,14 +6,20 @@ import { test } from '../pipeline';
 const TESTS = 'test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj';
 const CLIENT = 'clients/olve-pipelines-client-ts/src';
 
-export default implement(test, async ({ source }, ctx) => {
+export default implement(test, async ({ source, spec }, ctx) => {
   const tree = await ctx.files.fetch(source.tree);
+  cpSync(await ctx.files.fetch(spec.artifacts), join(tree, 'artifacts'), {
+    recursive: true,
+  });
   const opts = { cwd: tree, env: { MSBUILDDISABLENODEREUSE: '1' } };
   const committedApi = await Bun.file(join(tree, 'api.json')).text();
 
   const tools = ctx.exec(['dotnet', 'tool', 'restore'], opts);
   tools.catch(() => {}); // awaited below; a failed build must not leave it unhandled
-  await ctx.exec(['dotnet', 'build', TESTS, '-c', 'Release', '-m:1'], opts);
+  await ctx.exec(
+    ['dotnet', 'build', TESTS, '-c', 'Release', '-m:1', '-p:SkipSpecGen=true'],
+    opts,
+  );
 
   const unitTests = ctx.exec(
     ['dotnet', 'test', '--project', TESTS, '-c', 'Release', '--no-build'],

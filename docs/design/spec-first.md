@@ -134,6 +134,11 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    header and the binding view use the Hey API client.
 5. Config (5) — done 2026-10-28: `ConfigDocument`, `ConfigSnapshotSummary`, `ConfigCheck`,
    `ConfigSaveResult`; the config view uses the Hey API client for all of it.
+6. Bindings (7 + the webhook) — done 2026-10-28: `PipelineBinding` (no webhook secret on the
+   contract at all), `PipelineBindingStatus`, `ReconcileResult` a string enum (it was an integer),
+   and the create is `POST /api/pipelines` answering 201 (it was `/with-repo`). The GitHub push
+   webhook stays hand-written, like the manifest validate: HMAC over the raw body. The binding
+   view and the header use the Hey API client; `pl`'s create path and enum follow.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)
@@ -161,7 +166,7 @@ builds against it.
 - `{id}` on `GET`/`DELETE /api/pipelines/{id}` vs `{pipelineId}` everywhere else.
 - Status fields are strings (`Run.status`, `Attempt.status`, `TriggerRunResponse.outcome`); make
   them enums.
-- `POST /api/pipelines/with-repo`: name it for what it does.
+- ~~`POST /api/pipelines/with-repo`: name it for what it does.~~ `POST /api/pipelines` (Bindings area).
 - `TriggerRunRequest.fields` is a free `JsonElement`; the spec says `Record<unknown>` and the body
   is the input object itself where the client already has it.
 - `GET /api/attempts?status=active` is the only top-level cross-pipeline view; decide if it stays.

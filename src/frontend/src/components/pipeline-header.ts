@@ -2,16 +2,17 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { api, client } from '../api.js';
 import {
+  bindingsStatus,
   pipelinesGet,
   pipelinesHealth,
   secretsList,
+  type PipelineBindingStatus,
   type PipelineHealth,
   type PipelineSecret,
 } from '@olve/api';
 import type {
   ActiveAttempt,
   CriticalPathReport,
-  PipelineBindingStatus,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import {
   sharedStyles,
@@ -135,7 +136,9 @@ export class PipelineHeader extends LitElement {
       pipelinesGet({ client: api, path })
         .then((r) => r.data)
         .catch(() => null),
-      p.binding.status.get().catch(() => null),
+      bindingsStatus({ client: api, path })
+        .then((r) => r.data)
+        .catch(() => null),
       pipelinesHealth({ client: api, path })
         .then((r) => r.data)
         .catch(() => null),
@@ -197,7 +200,7 @@ export class PipelineHeader extends LitElement {
         (s) => s.isSet === false && (s.declaredBy?.length ?? 0) > 0 && s.needed !== false,
       )
       .map((s) => s.name);
-    const failed = b?.result === 2;
+    const failed = b?.result === 'Error';
     return html`<div class="status">
         <div class="cell">
           <span class="label">Version</span>
@@ -267,7 +270,7 @@ export class PipelineHeader extends LitElement {
                   ? html`reconciling ${shortSha(b.reconcileSha)}…`
                   : failed
                     ? html`reconcile failed at ${shortSha(b.reconcileSha)}`
-                    : b.result === 1
+                    : b.result === 'Success'
                       ? html`synced
                           <span class="mono">${shortSha(b.lastReconciledSha)}</span> ·
                           <relative-time .value=${b.lastSyncTime}></relative-time>`

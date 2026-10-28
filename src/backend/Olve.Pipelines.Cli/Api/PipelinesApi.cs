@@ -82,7 +82,7 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     public Task<Result<PipelineConfigBinding>> CreatePipelineWithRepo(
         string repo, string? branch, string? path, string? credentialsSecret, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Post, "/api/pipelines/with-repo",
+        transport.SendAsync(HttpMethod.Post, "/api/pipelines",
             ApiTransport.JsonBody(
                 new CreatePipelineWithRepoRequest
                 {

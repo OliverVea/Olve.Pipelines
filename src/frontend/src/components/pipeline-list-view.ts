@@ -2,6 +2,7 @@ import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { api, client, extractErrorMessage } from '../api.js';
 import {
+  bindingsCreate,
   pipelinesDelete,
   pipelinesList,
   type Pipeline,
@@ -556,7 +557,7 @@ export class PipelineListView extends LitElement {
   private async _create() {
     const repo = window.prompt('Repository (owner/name)');
     if (!repo) return;
-    await client.api.pipelines.withRepo.post({ repo });
+    await bindingsCreate({ client: api, body: { repo } });
     await this._load();
   }
 

@@ -39,12 +39,5 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(Result<TriggerRunResponse>))]
 [JsonSerializable(typeof(Result<AttemptOutputResponse>))]
-[JsonSerializable(typeof(PipelineConfigBinding))]
-[JsonSerializable(typeof(Result<PipelineConfigBinding>))]
-[JsonSerializable(typeof(CreatePipelineWithRepoRequest))]
-[JsonSerializable(typeof(UpdateBindingRequest))]
-[JsonSerializable(typeof(SetBindingBranchRequest))]
-[JsonSerializable(typeof(SetBindingPollingRequest))]
-[JsonSerializable(typeof(Result<PipelineBindingStatus>))]
 [JsonSerializable(typeof(DeletionResult))]
 internal partial class AppJsonContext : JsonSerializerContext;

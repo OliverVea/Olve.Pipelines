@@ -5,6 +5,406 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/pipelines": {
+      "post": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Create a pipeline bound to a repo",
+        "operationId": "Bindings_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePipeline"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBinding"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "List pipelines",
+        "operationId": "Pipelines_list",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pipeline"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding": {
+      "get": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Get the binding",
+        "operationId": "Bindings_get",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBinding"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Update the binding",
+        "operationId": "Bindings_update",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBinding"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBinding"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding/reconcile": {
+      "post": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Reconcile now",
+        "operationId": "Bindings_reconcile",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "rebuild",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding/branch": {
+      "put": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Move the binding to another branch",
+        "operationId": "Bindings_setBranch",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBindingBranch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBinding"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding/polling": {
+      "put": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Turn the binding's polling on or off",
+        "operationId": "Bindings_setPolling",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBindingPolling"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBinding"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/binding/status": {
+      "get": {
+        "tags": [
+          "Bindings"
+        ],
+        "summary": "Get the binding's reconcile status",
+        "operationId": "Bindings_status",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBindingStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/config/check": {
       "get": {
         "tags": [
@@ -479,30 +879,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "List pipelines",
-        "operationId": "Pipelines_list",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Pipeline"
-                  }
                 }
               }
             }
@@ -1160,532 +1536,6 @@
         }
       }
     },
-    "/api/pipelines/with-repo": {
-      "post": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Create a pipeline bound to a repo",
-        "description": "The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.",
-        "operationId": "CreatePipelineWithRepo",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePipelineWithRepoRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/binding/reconcile": {
-      "post": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Reconcile now",
-        "description": "Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.",
-        "operationId": "ReconcilePipelineBinding",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "wait",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "rebuild",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/binding": {
-      "patch": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Update the binding",
-        "description": "Sets or clears the credentials secret key.",
-        "operationId": "UpdatePipelineBinding",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateBindingRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Get the binding",
-        "operationId": "GetPipelineBinding",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/binding/polling": {
-      "put": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Turn the binding's polling on or off",
-        "description": "Off, the binding no longer polls GitHub for config commits or branch heads; it syncs only on `POST …/binding/reconcile` or its webhook. For bindings driven from outside, such as a test fixture another pipeline reconciles and triggers.",
-        "operationId": "SetPipelineBindingPolling",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetBindingPollingRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/binding/branch": {
-      "put": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Move the binding to another branch",
-        "description": "Binds the pipeline to another branch of the same repo, keeping its runs, versions and secrets. The next poll reconciles if that branch's newest config commit differs, and fires the push trigger if its head differs from the last push.",
-        "operationId": "SetPipelineBindingBranch",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetBindingBranchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineConfigBinding"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/webhooks/binding/{bindingId}/github": {
       "post": {
         "tags": [
@@ -1707,88 +1557,6 @@
         "responses": {
           "200": {
             "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/binding/status": {
-      "get": {
-        "tags": [
-          "Bindings"
-        ],
-        "summary": "Get the binding's reconcile status",
-        "description": "The last reconcile's result and commit, whether one is in progress, the resulting and the active version, problems and warnings.",
-        "operationId": "GetPipelineBindingStatus",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineBindingStatus"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
           }
         }
       }
@@ -5084,12 +4852,9 @@
           }
         }
       },
-      "CreatePipelineWithRepoRequest": {
+      "CreatePipeline": {
         "required": [
-          "repo",
-          "branch",
-          "path",
-          "credentialsSecret"
+          "repo"
         ],
         "type": "object",
         "properties": {
@@ -5585,10 +5350,6 @@
         "type": "string",
         "format": "uuid"
       },
-      "IdOfPipelineConfigBinding": {
-        "type": "string",
-        "format": "uuid"
-      },
       "IdOfPipelineVersion": {
         "type": "string",
         "format": "uuid"
@@ -5887,6 +5648,69 @@
           }
         }
       },
+      "PipelineBinding": {
+        "required": [
+          "id",
+          "pipelineId",
+          "repo",
+          "branch",
+          "path",
+          "credentialsSecret",
+          "lastPushSha",
+          "lastReconciledSha",
+          "status",
+          "createdAt",
+          "polls"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "credentialsSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastPushSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastReconciledSha": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReconcileStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "polls": {
+            "type": "boolean"
+          }
+        }
+      },
       "PipelineBindingStatus": {
         "required": [
           "pipelineId",
@@ -5907,7 +5731,8 @@
         "type": "object",
         "properties": {
           "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "repo": {
             "type": "string"
@@ -5988,73 +5813,6 @@
                 "$ref": "#/components/schemas/PendingVersionInfo"
               }
             ]
-          }
-        }
-      },
-      "PipelineConfigBinding": {
-        "required": [
-          "id",
-          "pipelineId",
-          "repo",
-          "branch",
-          "path",
-          "credentialsSecret",
-          "lastPushSha",
-          "lastReconciledSha",
-          "status",
-          "createdAt"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/IdOfPipelineConfigBinding"
-          },
-          "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
-          },
-          "repo": {
-            "type": "string"
-          },
-          "branch": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "credentialsSecret": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "lastPushSha": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "lastReconciledSha": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "$ref": "#/components/schemas/ReconcileStatus"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "webhookSecret": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "polls": {
-            "type": "boolean",
-            "default": true
           }
         }
       },
@@ -6390,13 +6148,21 @@
         }
       },
       "ReconcileResult": {
-        "type": "integer"
+        "enum": [
+          "NeverRun",
+          "Success",
+          "Error"
+        ]
       },
       "ReconcileStatus": {
         "required": [
           "result",
           "lastSyncTime",
-          "problems"
+          "problems",
+          "warnings",
+          "sha",
+          "inProgress",
+          "versionNumber"
         ],
         "type": "object",
         "properties": {
@@ -6417,10 +6183,7 @@
             }
           },
           "warnings": {
-            "type": [
-              "null",
-              "array"
-            ],
+            "type": "array",
             "items": {
               "type": "string"
             }
@@ -6432,8 +6195,7 @@
             ]
           },
           "inProgress": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "versionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -6915,7 +6677,7 @@
           "Webhook"
         ]
       },
-      "SetBindingBranchRequest": {
+      "SetBindingBranch": {
         "required": [
           "branch"
         ],
@@ -6926,7 +6688,7 @@
           }
         }
       },
-      "SetBindingPollingRequest": {
+      "SetBindingPolling": {
         "required": [
           "polls"
         ],
@@ -7095,7 +6857,7 @@
           }
         }
       },
-      "UpdateBindingRequest": {
+      "UpdateBinding": {
         "required": [
           "credentialsSecret"
         ],
@@ -7113,13 +6875,16 @@
   },
   "tags": [
     {
+      "name": "Bindings"
+    },
+    {
+      "name": "Pipelines"
+    },
+    {
       "name": "Config"
     },
     {
       "name": "Instance"
-    },
-    {
-      "name": "Pipelines"
     },
     {
       "name": "Secrets"
@@ -7129,9 +6894,6 @@
     },
     {
       "name": "Attempts"
-    },
-    {
-      "name": "Bindings"
     },
     {
       "name": "Triggers"

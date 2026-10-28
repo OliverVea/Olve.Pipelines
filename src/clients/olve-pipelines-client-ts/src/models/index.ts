@@ -775,11 +775,11 @@ export function createCopySecretsFromDiscriminatorValue(parseNode: ParseNode | u
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CreatePipelineWithRepoRequest}
+ * @returns {CreatePipeline}
  */
 // @ts-ignore
-export function createCreatePipelineWithRepoRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCreatePipelineWithRepoRequest;
+export function createCreatePipelineFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreatePipeline;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -943,6 +943,24 @@ export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | un
 export function createPendingVersionInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPendingVersionInfo;
 }
+export interface CreatePipeline extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+}
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
@@ -986,20 +1004,20 @@ export function createPipelineActivationPipelineActivationDrainingFromDiscrimina
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineBinding}
+ */
+// @ts-ignore
+export function createPipelineBindingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineBinding;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineBindingStatus}
  */
 // @ts-ignore
 export function createPipelineBindingStatusFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipelineBindingStatus;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineConfigBinding}
- */
-// @ts-ignore
-export function createPipelineConfigBindingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineConfigBinding;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1109,24 +1127,6 @@ export function createPipelineVersionSummary_stepVersionsFromDiscriminatorValue(
 export function createPipelineVersionSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipelineVersionSummary;
 }
-export interface CreatePipelineWithRepoRequest extends AdditionalDataHolder, Parsable {
-    /**
-     * The branch property
-     */
-    branch?: string | null;
-    /**
-     * The credentialsSecret property
-     */
-    credentialsSecret?: string | null;
-    /**
-     * The path property
-     */
-    path?: string | null;
-    /**
-     * The repo property
-     */
-    repo?: string | null;
-}
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
@@ -1229,20 +1229,20 @@ export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | un
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetBindingBranchRequest}
+ * @returns {SetBindingBranch}
  */
 // @ts-ignore
-export function createSetBindingBranchRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetBindingBranchRequest;
+export function createSetBindingBranchFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetBindingBranch;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetBindingPollingRequest}
+ * @returns {SetBindingPolling}
  */
 // @ts-ignore
-export function createSetBindingPollingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetBindingPollingRequest;
+export function createSetBindingPollingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetBindingPolling;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1301,11 +1301,11 @@ export function createTriggerRunResponseFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {UpdateBindingRequest}
+ * @returns {UpdateBinding}
  */
 // @ts-ignore
-export function createUpdateBindingRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoUpdateBindingRequest;
+export function createUpdateBindingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoUpdateBinding;
 }
 export interface CriticalPathLead extends AdditionalDataHolder, Parsable {
     /**
@@ -1894,16 +1894,16 @@ export function deserializeIntoCopySecrets(copySecrets: Partial<CopySecrets> | u
 }
 /**
  * The deserialization information for the current model
- * @param CreatePipelineWithRepoRequest The instance to deserialize into.
+ * @param CreatePipeline The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoCreatePipelineWithRepoRequest(createPipelineWithRepoRequest: Partial<CreatePipelineWithRepoRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoCreatePipeline(createPipeline: Partial<CreatePipeline> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "branch": n => { createPipelineWithRepoRequest.branch = n.getStringValue(); },
-        "credentialsSecret": n => { createPipelineWithRepoRequest.credentialsSecret = n.getStringValue(); },
-        "path": n => { createPipelineWithRepoRequest.path = n.getStringValue(); },
-        "repo": n => { createPipelineWithRepoRequest.repo = n.getStringValue(); },
+        "branch": n => { createPipeline.branch = n.getStringValue(); },
+        "credentialsSecret": n => { createPipeline.credentialsSecret = n.getStringValue(); },
+        "path": n => { createPipeline.path = n.getStringValue(); },
+        "repo": n => { createPipeline.repo = n.getStringValue(); },
     }
 }
 /**
@@ -2221,6 +2221,27 @@ export function deserializeIntoPipelineActivationPipelineActivationDraining(pipe
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineBinding The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineBinding(pipelineBinding: Partial<PipelineBinding> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branch": n => { pipelineBinding.branch = n.getStringValue(); },
+        "createdAt": n => { pipelineBinding.createdAt = n.getDateValue(); },
+        "credentialsSecret": n => { pipelineBinding.credentialsSecret = n.getStringValue(); },
+        "id": n => { pipelineBinding.id = n.getGuidValue(); },
+        "lastPushSha": n => { pipelineBinding.lastPushSha = n.getStringValue(); },
+        "lastReconciledSha": n => { pipelineBinding.lastReconciledSha = n.getStringValue(); },
+        "path": n => { pipelineBinding.path = n.getStringValue(); },
+        "pipelineId": n => { pipelineBinding.pipelineId = n.getGuidValue(); },
+        "polls": n => { pipelineBinding.polls = n.getBooleanValue(); },
+        "repo": n => { pipelineBinding.repo = n.getStringValue(); },
+        "status": n => { pipelineBinding.status = n.getObjectValue<ReconcileStatus>(createReconcileStatusFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PipelineBindingStatus The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2240,30 +2261,8 @@ export function deserializeIntoPipelineBindingStatus(pipelineBindingStatus: Part
         "reconcileInProgress": n => { pipelineBindingStatus.reconcileInProgress = n.getBooleanValue(); },
         "reconcileSha": n => { pipelineBindingStatus.reconcileSha = n.getStringValue(); },
         "repo": n => { pipelineBindingStatus.repo = n.getStringValue(); },
-        "result": n => { pipelineBindingStatus.result = n.getNumberValue(); },
+        "result": n => { pipelineBindingStatus.result = n.getEnumValue<ReconcileResult>(ReconcileResultObject); },
         "warnings": n => { pipelineBindingStatus.warnings = n.getCollectionOfPrimitiveValues<string>("string"); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PipelineConfigBinding The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPipelineConfigBinding(pipelineConfigBinding: Partial<PipelineConfigBinding> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "branch": n => { pipelineConfigBinding.branch = n.getStringValue(); },
-        "createdAt": n => { pipelineConfigBinding.createdAt = n.getDateValue(); },
-        "credentialsSecret": n => { pipelineConfigBinding.credentialsSecret = n.getStringValue(); },
-        "id": n => { pipelineConfigBinding.id = n.getGuidValue(); },
-        "lastPushSha": n => { pipelineConfigBinding.lastPushSha = n.getStringValue(); },
-        "lastReconciledSha": n => { pipelineConfigBinding.lastReconciledSha = n.getStringValue(); },
-        "path": n => { pipelineConfigBinding.path = n.getStringValue(); },
-        "pipelineId": n => { pipelineConfigBinding.pipelineId = n.getGuidValue(); },
-        "polls": n => { pipelineConfigBinding.polls = n.getBooleanValue() ?? true; },
-        "repo": n => { pipelineConfigBinding.repo = n.getStringValue(); },
-        "status": n => { pipelineConfigBinding.status = n.getObjectValue<ReconcileStatus>(createReconcileStatusFromDiscriminatorValue); },
-        "webhookSecret": n => { pipelineConfigBinding.webhookSecret = n.getStringValue(); },
     }
 }
 /**
@@ -2422,10 +2421,10 @@ export function deserializeIntoPipelineVersionSummary_stepVersions(pipelineVersi
 // @ts-ignore
 export function deserializeIntoReconcileStatus(reconcileStatus: Partial<ReconcileStatus> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "inProgress": n => { reconcileStatus.inProgress = n.getBooleanValue() ?? false; },
+        "inProgress": n => { reconcileStatus.inProgress = n.getBooleanValue(); },
         "lastSyncTime": n => { reconcileStatus.lastSyncTime = n.getDateValue(); },
         "problems": n => { reconcileStatus.problems = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "result": n => { reconcileStatus.result = n.getNumberValue(); },
+        "result": n => { reconcileStatus.result = n.getEnumValue<ReconcileResult>(ReconcileResultObject); },
         "sha": n => { reconcileStatus.sha = n.getStringValue(); },
         "versionNumber": n => { reconcileStatus.versionNumber = n.getNumberValue(); },
         "warnings": n => { reconcileStatus.warnings = n.getCollectionOfPrimitiveValues<string>("string"); },
@@ -2597,24 +2596,24 @@ export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | unde
 }
 /**
  * The deserialization information for the current model
- * @param SetBindingBranchRequest The instance to deserialize into.
+ * @param SetBindingBranch The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetBindingBranchRequest(setBindingBranchRequest: Partial<SetBindingBranchRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetBindingBranch(setBindingBranch: Partial<SetBindingBranch> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "branch": n => { setBindingBranchRequest.branch = n.getStringValue(); },
+        "branch": n => { setBindingBranch.branch = n.getStringValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param SetBindingPollingRequest The instance to deserialize into.
+ * @param SetBindingPolling The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetBindingPollingRequest(setBindingPollingRequest: Partial<SetBindingPollingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetBindingPolling(setBindingPolling: Partial<SetBindingPolling> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "polls": n => { setBindingPollingRequest.polls = n.getBooleanValue(); },
+        "polls": n => { setBindingPolling.polls = n.getBooleanValue(); },
     }
 }
 /**
@@ -2699,13 +2698,13 @@ export function deserializeIntoTriggerRunResponse(triggerRunResponse: Partial<Tr
 }
 /**
  * The deserialization information for the current model
- * @param UpdateBindingRequest The instance to deserialize into.
+ * @param UpdateBinding The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partial<UpdateBindingRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoUpdateBinding(updateBinding: Partial<UpdateBinding> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
+        "credentialsSecret": n => { updateBinding.credentialsSecret = n.getStringValue(); },
     }
 }
 export interface EffectivePipeline extends AdditionalDataHolder, Parsable {
@@ -2942,6 +2941,52 @@ export interface PipelineActivationPipelineActivationDraining extends Parsable, 
      */
     toVersionNumber?: number | null;
 }
+export interface PipelineBinding extends AdditionalDataHolder, Parsable {
+    /**
+     * The branch property
+     */
+    branch?: string | null;
+    /**
+     * The createdAt property
+     */
+    createdAt?: Date | null;
+    /**
+     * The credentialsSecret property
+     */
+    credentialsSecret?: string | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The lastPushSha property
+     */
+    lastPushSha?: string | null;
+    /**
+     * The lastReconciledSha property
+     */
+    lastReconciledSha?: string | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The pipelineId property
+     */
+    pipelineId?: Guid | null;
+    /**
+     * The polls property
+     */
+    polls?: boolean | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The status property
+     */
+    status?: ReconcileStatus | null;
+}
 export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
     /**
      * The activation property
@@ -2998,61 +3043,11 @@ export interface PipelineBindingStatus extends AdditionalDataHolder, Parsable {
     /**
      * The result property
      */
-    result?: number | null;
+    result?: ReconcileResult | null;
     /**
      * The warnings property
      */
     warnings?: string[] | null;
-}
-export interface PipelineConfigBinding extends AdditionalDataHolder, Parsable {
-    /**
-     * The branch property
-     */
-    branch?: string | null;
-    /**
-     * The createdAt property
-     */
-    createdAt?: Date | null;
-    /**
-     * The credentialsSecret property
-     */
-    credentialsSecret?: string | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The lastPushSha property
-     */
-    lastPushSha?: string | null;
-    /**
-     * The lastReconciledSha property
-     */
-    lastReconciledSha?: string | null;
-    /**
-     * The path property
-     */
-    path?: string | null;
-    /**
-     * The pipelineId property
-     */
-    pipelineId?: Guid | null;
-    /**
-     * The polls property
-     */
-    polls?: boolean | null;
-    /**
-     * The repo property
-     */
-    repo?: string | null;
-    /**
-     * The status property
-     */
-    status?: ReconcileStatus | null;
-    /**
-     * The webhookSecret property
-     */
-    webhookSecret?: string | null;
 }
 export interface PipelineHealth extends AdditionalDataHolder, Parsable {
     /**
@@ -3229,6 +3224,7 @@ export interface PipelineVersionSummary_modelVersions extends AdditionalDataHold
 }
 export interface PipelineVersionSummary_stepVersions extends AdditionalDataHolder, Parsable {
 }
+export type ReconcileResult = (typeof ReconcileResultObject)[keyof typeof ReconcileResultObject];
 export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
      * The inProgress property
@@ -3245,7 +3241,7 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
     /**
      * The result property
      */
-    result?: number | null;
+    result?: ReconcileResult | null;
     /**
      * The sha property
      */
@@ -3998,18 +3994,18 @@ export function serializeCopySecrets(writer: SerializationWriter, copySecrets: P
 }
 /**
  * Serializes information the current object
- * @param CreatePipelineWithRepoRequest The instance to serialize from.
+ * @param CreatePipeline The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeCreatePipelineWithRepoRequest(writer: SerializationWriter, createPipelineWithRepoRequest: Partial<CreatePipelineWithRepoRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!createPipelineWithRepoRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("branch", createPipelineWithRepoRequest.branch);
-    writer.writeStringValue("credentialsSecret", createPipelineWithRepoRequest.credentialsSecret);
-    writer.writeStringValue("path", createPipelineWithRepoRequest.path);
-    writer.writeStringValue("repo", createPipelineWithRepoRequest.repo);
-    writer.writeAdditionalData(createPipelineWithRepoRequest.additionalData);
+export function serializeCreatePipeline(writer: SerializationWriter, createPipeline: Partial<CreatePipeline> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createPipeline || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", createPipeline.branch);
+    writer.writeStringValue("credentialsSecret", createPipeline.credentialsSecret);
+    writer.writeStringValue("path", createPipeline.path);
+    writer.writeStringValue("repo", createPipeline.repo);
+    writer.writeAdditionalData(createPipeline.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4355,6 +4351,28 @@ export function serializePipelineActivationPipelineActivationDraining(writer: Se
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineBinding The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineBinding(writer: SerializationWriter, pipelineBinding: Partial<PipelineBinding> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineBinding || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", pipelineBinding.branch);
+    writer.writeDateValue("createdAt", pipelineBinding.createdAt);
+    writer.writeStringValue("credentialsSecret", pipelineBinding.credentialsSecret);
+    writer.writeGuidValue("id", pipelineBinding.id);
+    writer.writeStringValue("lastPushSha", pipelineBinding.lastPushSha);
+    writer.writeStringValue("lastReconciledSha", pipelineBinding.lastReconciledSha);
+    writer.writeStringValue("path", pipelineBinding.path);
+    writer.writeGuidValue("pipelineId", pipelineBinding.pipelineId);
+    writer.writeBooleanValue("polls", pipelineBinding.polls);
+    writer.writeStringValue("repo", pipelineBinding.repo);
+    writer.writeObjectValue<ReconcileStatus>("status", pipelineBinding.status, serializeReconcileStatus);
+    writer.writeAdditionalData(pipelineBinding.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PipelineBindingStatus The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4374,32 +4392,9 @@ export function serializePipelineBindingStatus(writer: SerializationWriter, pipe
     writer.writeBooleanValue("reconcileInProgress", pipelineBindingStatus.reconcileInProgress);
     writer.writeStringValue("reconcileSha", pipelineBindingStatus.reconcileSha);
     writer.writeStringValue("repo", pipelineBindingStatus.repo);
-    writer.writeNumberValue("result", pipelineBindingStatus.result);
+    writer.writeEnumValue<ReconcileResult>("result", pipelineBindingStatus.result);
     writer.writeCollectionOfPrimitiveValues<string>("warnings", pipelineBindingStatus.warnings);
     writer.writeAdditionalData(pipelineBindingStatus.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineConfigBinding The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePipelineConfigBinding(writer: SerializationWriter, pipelineConfigBinding: Partial<PipelineConfigBinding> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineConfigBinding || isSerializingDerivedType) { return; }
-    writer.writeStringValue("branch", pipelineConfigBinding.branch);
-    writer.writeDateValue("createdAt", pipelineConfigBinding.createdAt);
-    writer.writeStringValue("credentialsSecret", pipelineConfigBinding.credentialsSecret);
-    writer.writeGuidValue("id", pipelineConfigBinding.id);
-    writer.writeStringValue("lastPushSha", pipelineConfigBinding.lastPushSha);
-    writer.writeStringValue("lastReconciledSha", pipelineConfigBinding.lastReconciledSha);
-    writer.writeStringValue("path", pipelineConfigBinding.path);
-    writer.writeGuidValue("pipelineId", pipelineConfigBinding.pipelineId);
-    writer.writeBooleanValue("polls", pipelineConfigBinding.polls ?? true);
-    writer.writeStringValue("repo", pipelineConfigBinding.repo);
-    writer.writeObjectValue<ReconcileStatus>("status", pipelineConfigBinding.status, serializeReconcileStatus);
-    writer.writeStringValue("webhookSecret", pipelineConfigBinding.webhookSecret);
-    writer.writeAdditionalData(pipelineConfigBinding.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4569,10 +4564,10 @@ export function serializePipelineVersionSummary_stepVersions(writer: Serializati
 // @ts-ignore
 export function serializeReconcileStatus(writer: SerializationWriter, reconcileStatus: Partial<ReconcileStatus> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!reconcileStatus || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("inProgress", reconcileStatus.inProgress ?? false);
+    writer.writeBooleanValue("inProgress", reconcileStatus.inProgress);
     writer.writeDateValue("lastSyncTime", reconcileStatus.lastSyncTime);
     writer.writeCollectionOfPrimitiveValues<string>("problems", reconcileStatus.problems);
-    writer.writeNumberValue("result", reconcileStatus.result);
+    writer.writeEnumValue<ReconcileResult>("result", reconcileStatus.result);
     writer.writeStringValue("sha", reconcileStatus.sha);
     writer.writeNumberValue("versionNumber", reconcileStatus.versionNumber);
     writer.writeCollectionOfPrimitiveValues<string>("warnings", reconcileStatus.warnings);
@@ -4755,26 +4750,26 @@ export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Par
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetBindingBranchRequest The instance to serialize from.
+ * @param SetBindingBranch The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetBindingBranchRequest(writer: SerializationWriter, setBindingBranchRequest: Partial<SetBindingBranchRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setBindingBranchRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("branch", setBindingBranchRequest.branch);
-    writer.writeAdditionalData(setBindingBranchRequest.additionalData);
+export function serializeSetBindingBranch(writer: SerializationWriter, setBindingBranch: Partial<SetBindingBranch> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setBindingBranch || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branch", setBindingBranch.branch);
+    writer.writeAdditionalData(setBindingBranch.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetBindingPollingRequest The instance to serialize from.
+ * @param SetBindingPolling The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetBindingPollingRequest(writer: SerializationWriter, setBindingPollingRequest: Partial<SetBindingPollingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setBindingPollingRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("polls", setBindingPollingRequest.polls);
-    writer.writeAdditionalData(setBindingPollingRequest.additionalData);
+export function serializeSetBindingPolling(writer: SerializationWriter, setBindingPolling: Partial<SetBindingPolling> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setBindingPolling || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("polls", setBindingPolling.polls);
+    writer.writeAdditionalData(setBindingPolling.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4865,22 +4860,22 @@ export function serializeTriggerRunResponse(writer: SerializationWriter, trigger
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param UpdateBindingRequest The instance to serialize from.
+ * @param UpdateBinding The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeUpdateBindingRequest(writer: SerializationWriter, updateBindingRequest: Partial<UpdateBindingRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!updateBindingRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("credentialsSecret", updateBindingRequest.credentialsSecret);
-    writer.writeAdditionalData(updateBindingRequest.additionalData);
+export function serializeUpdateBinding(writer: SerializationWriter, updateBinding: Partial<UpdateBinding> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!updateBinding || isSerializingDerivedType) { return; }
+    writer.writeStringValue("credentialsSecret", updateBinding.credentialsSecret);
+    writer.writeAdditionalData(updateBinding.additionalData);
 }
-export interface SetBindingBranchRequest extends AdditionalDataHolder, Parsable {
+export interface SetBindingBranch extends AdditionalDataHolder, Parsable {
     /**
      * The branch property
      */
     branch?: string | null;
 }
-export interface SetBindingPollingRequest extends AdditionalDataHolder, Parsable {
+export interface SetBindingPolling extends AdditionalDataHolder, Parsable {
     /**
      * The polls property
      */
@@ -4978,7 +4973,7 @@ export interface TriggerRunResponse extends AdditionalDataHolder, Parsable {
      */
     run?: Run | null;
 }
-export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
+export interface UpdateBinding extends AdditionalDataHolder, Parsable {
     /**
      * The credentialsSecret property
      */
@@ -4997,6 +4992,11 @@ export const PipelineStatusObject = {
     RunningUnhealthy: "Running (Unhealthy)",
     Unhealthy: "Unhealthy",
     Idle: "Idle",
+} as const;
+export const ReconcileResultObject = {
+    NeverRun: "NeverRun",
+    Success: "Success",
+    ErrorEscaped: "Error",
 } as const;
 export const RunStatusObject = {
     Running: "Running",

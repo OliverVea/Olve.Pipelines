@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace Olve.Pipelines.Cli.Api.Contracts;
 
-/// <summary>Outcome of the most recent reconcile. Serialized as an integer; do not reorder.</summary>
+/// <summary>Outcome of the most recent reconcile.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ReconcileResult>))]
 public enum ReconcileResult
 {
     NeverRun,
@@ -58,7 +61,7 @@ public sealed class PipelineBindingStatus
     public PendingVersionInfo? Pending { get; set; }
 }
 
-/// <summary>Body for <c>POST /api/pipelines/with-repo</c> — create a pipeline already bound to a repo.</summary>
+/// <summary>Body for <c>POST /api/pipelines</c> — create a pipeline bound to a repo.</summary>
 public sealed class CreatePipelineWithRepoRequest
 {
     public required string Repo { get; init; }

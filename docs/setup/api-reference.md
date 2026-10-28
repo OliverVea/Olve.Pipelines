@@ -60,6 +60,12 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 ### Pipelines
 
+#### List pipelines
+
+`GET /api/pipelines`
+
+**Returns:** `200` [Pipeline](#pipeline)[]
+
 #### Delete a pipeline
 
 `DELETE /api/pipelines/{pipelineId}`
@@ -90,51 +96,15 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 **Returns:** `200` [PipelineHealth](#pipelinehealth)
 
-#### List pipelines
-
-`GET /api/pipelines`
-
-**Returns:** `200` [Pipeline](#pipeline)[]
-
 ### Bindings
 
 #### Create a pipeline bound to a repo
 
-`POST /api/pipelines/with-repo`
+`POST /api/pipelines`
 
-The only way to create a pipeline. The binding watches `path` (default `.pipelines`) on `branch` of `repo`; `credentialsSecret` names the pipeline-secret key holding a GitHub token.
+**Body** (`application/json`): [CreatePipeline](#createpipeline)
 
-**Body** (`application/json`): [CreatePipelineWithRepoRequest](#createpipelinewithreporequest)
-
-**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
-
-#### Reconcile now
-
-`POST /api/pipelines/{pipelineId}/binding/reconcile`
-
-Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `wait` | query | boolean |  |
-| `rebuild` | query | boolean |  |
-
-**Returns:** `200`
-
-#### Update the binding
-
-`PATCH /api/pipelines/{pipelineId}/binding`
-
-Sets or clears the credentials secret key.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Body** (`application/json`): [UpdateBindingRequest](#updatebindingrequest)
-
-**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+**Returns:** `201` [PipelineBinding](#pipelinebinding)
 
 #### Get the binding
 
@@ -142,37 +112,67 @@ Sets or clears the credentials secret key.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+**Returns:** `200` [PipelineBinding](#pipelinebinding)
 
-#### Turn the binding's polling on or off
+#### Update the binding
 
-`PUT /api/pipelines/{pipelineId}/binding/polling`
-
-Off, the binding no longer polls GitHub for config commits or branch heads; it syncs only on `POST …/binding/reconcile` or its webhook. For bindings driven from outside, such as a test fixture another pipeline reconciles and triggers.
+`PATCH /api/pipelines/{pipelineId}/binding`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Body** (`application/json`): [SetBindingPollingRequest](#setbindingpollingrequest)
+**Body** (`application/json`): [UpdateBinding](#updatebinding)
 
-**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+**Returns:** `200` [PipelineBinding](#pipelinebinding)
+
+#### Reconcile now
+
+`POST /api/pipelines/{pipelineId}/binding/reconcile`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `wait` | query | boolean |  |
+| `rebuild` | query | boolean |  |
+
+**Returns:** `200`
 
 #### Move the binding to another branch
 
 `PUT /api/pipelines/{pipelineId}/binding/branch`
 
-Binds the pipeline to another branch of the same repo, keeping its runs, versions and secrets. The next poll reconciles if that branch's newest config commit differs, and fires the push trigger if its head differs from the last push.
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Body** (`application/json`): [SetBindingBranch](#setbindingbranch)
+
+**Returns:** `200` [PipelineBinding](#pipelinebinding)
+
+#### Turn the binding's polling on or off
+
+`PUT /api/pipelines/{pipelineId}/binding/polling`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Body** (`application/json`): [SetBindingBranchRequest](#setbindingbranchrequest)
+**Body** (`application/json`): [SetBindingPolling](#setbindingpolling)
 
-**Returns:** `200` [PipelineConfigBinding](#pipelineconfigbinding)
+**Returns:** `200` [PipelineBinding](#pipelinebinding)
+
+#### Get the binding's reconcile status
+
+`GET /api/pipelines/{pipelineId}/binding/status`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Returns:** `200` [PipelineBindingStatus](#pipelinebindingstatus)
 
 #### GitHub push webhook
 
@@ -185,18 +185,6 @@ Receives the binding's GitHub push webhook. Anonymous, verified with the webhook
 | `bindingId` | path | string | yes |
 
 **Returns:** `200`
-
-#### Get the binding's reconcile status
-
-`GET /api/pipelines/{pipelineId}/binding/status`
-
-The last reconcile's result and commit, whether one is in progress, the resulting and the active version, problems and warnings.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Returns:** `200` [PipelineBindingStatus](#pipelinebindingstatus)
 
 ### Versions
 
@@ -999,14 +987,14 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `targetName` | string? |  |
 | `overwrite` | boolean? |  |
 
-### CreatePipelineWithRepoRequest
+### CreatePipeline
 
 | Field | Type | |
 |---|---|---|
 | `repo` | string | required |
-| `branch` | string? | required |
-| `path` | string? | required |
-| `credentialsSecret` | string? | required |
+| `branch` | string? |  |
+| `path` | string? |  |
+| `credentialsSecret` | string? |  |
 
 ### CriticalPathLead
 
@@ -1203,27 +1191,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `cancelRunning` | boolean | required |
 | `since` | string (date-time) | required |
 
-### PipelineBindingStatus
-
-| Field | Type | |
-|---|---|---|
-| `pipelineId` | string (uuid) | required |
-| `repo` | string | required |
-| `branch` | string | required |
-| `path` | string | required |
-| `lastPushSha` | string? | required |
-| `lastReconciledSha` | string? | required |
-| `result` | integer | required |
-| `lastSyncTime` | string (date-time)? | required |
-| `problems` | string[] | required |
-| `warnings` | string[] | required |
-| `reconcileSha` | string? | required |
-| `reconcileInProgress` | boolean | required |
-| `reconciledVersion` | integer? | required |
-| `activation` | [PipelineActivation](#pipelineactivation)? | required |
-| `pending` | [PendingVersionInfo](#pendingversioninfo)? |  |
-
-### PipelineConfigBinding
+### PipelineBinding
 
 | Field | Type | |
 |---|---|---|
@@ -1237,8 +1205,27 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `lastReconciledSha` | string? | required |
 | `status` | [ReconcileStatus](#reconcilestatus) | required |
 | `createdAt` | string (date-time) | required |
-| `webhookSecret` | string? |  |
-| `polls` | boolean |  |
+| `polls` | boolean | required |
+
+### PipelineBindingStatus
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `repo` | string | required |
+| `branch` | string | required |
+| `path` | string | required |
+| `lastPushSha` | string? | required |
+| `lastReconciledSha` | string? | required |
+| `result` | `"NeverRun"` \| `"Success"` \| `"Error"` | required |
+| `lastSyncTime` | string (date-time)? | required |
+| `problems` | string[] | required |
+| `warnings` | string[] | required |
+| `reconcileSha` | string? | required |
+| `reconcileInProgress` | boolean | required |
+| `reconciledVersion` | integer? | required |
+| `activation` | [PipelineActivation](#pipelineactivation)? | required |
+| `pending` | [PendingVersionInfo](#pendingversioninfo)? |  |
 
 ### PipelineHealth
 
@@ -1317,13 +1304,13 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 | Field | Type | |
 |---|---|---|
-| `result` | integer | required |
+| `result` | `"NeverRun"` \| `"Success"` \| `"Error"` | required |
 | `lastSyncTime` | string (date-time)? | required |
 | `problems` | string[] | required |
-| `warnings` | string[]? |  |
-| `sha` | string? |  |
-| `inProgress` | boolean |  |
-| `versionNumber` | integer? |  |
+| `warnings` | string[] | required |
+| `sha` | string? | required |
+| `inProgress` | boolean | required |
+| `versionNumber` | integer? | required |
 
 ### RerunStepRequest
 
@@ -1439,13 +1426,13 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `dedupKey` | string? |  |
 | `origin` | [RunOrigin](#runorigin)? |  |
 
-### SetBindingBranchRequest
+### SetBindingBranch
 
 | Field | Type | |
 |---|---|---|
 | `branch` | string | required |
 
-### SetBindingPollingRequest
+### SetBindingPolling
 
 | Field | Type | |
 |---|---|---|
@@ -1496,7 +1483,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `outcome` | string | required |
 | `run` | [Run](#run)? | required |
 
-### UpdateBindingRequest
+### UpdateBinding
 
 | Field | Type | |
 |---|---|---|

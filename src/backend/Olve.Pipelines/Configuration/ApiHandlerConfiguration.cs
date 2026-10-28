@@ -3,6 +3,7 @@ using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Configuration;
@@ -32,6 +33,13 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IConfigHistoryHandler, ListConfigSnapshotsHandler>();
         services.AddTransient<IConfigRollbackHandler, RollbackConfigHandler>();
         services.AddTransient<IConfigCheckHandler, CheckConfigHandler>();
+        services.AddTransient<IBindingsCreateHandler, CreatePipelineHandler>();
+        services.AddTransient<IBindingsGetHandler, GetBindingHandler>();
+        services.AddTransient<IBindingsStatusHandler, GetBindingStatusHandler>();
+        services.AddTransient<IBindingsUpdateHandler, UpdateBindingHandler>();
+        services.AddTransient<IBindingsSetBranchHandler, SetBindingBranchHandler>();
+        services.AddTransient<IBindingsSetPollingHandler, SetBindingPollingHandler>();
+        services.AddTransient<IBindingsReconcileHandler, ReconcileBindingHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -65,5 +73,12 @@ public static class ApiHandlerConfiguration
         api.ConfigHistory.RequireRead().WithTags("Config").WithSummary("List config snapshots");
         api.ConfigRollback.WithTags("Config").WithSummary("Roll back the config");
         api.ConfigCheck.RequireRead().WithTags("Config").WithSummary("Check the config");
+        api.BindingsCreate.WithTags("Bindings").WithSummary("Create a pipeline bound to a repo");
+        api.BindingsGet.RequireRead().WithTags("Bindings").WithSummary("Get the binding");
+        api.BindingsStatus.RequireRead().WithTags("Bindings").WithSummary("Get the binding's reconcile status");
+        api.BindingsUpdate.WithTags("Bindings").WithSummary("Update the binding");
+        api.BindingsSetBranch.WithTags("Bindings").WithSummary("Move the binding to another branch");
+        api.BindingsSetPolling.WithTags("Bindings").WithSummary("Turn the binding's polling on or off");
+        api.BindingsReconcile.WithTags("Bindings").WithSummary("Reconcile now");
     }
 }

@@ -1,19 +1,19 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { PipelineBindingStatus } from '@olve/olve-pipelines-client/src/models/index.js';
-import { secretsList } from '@olve/api';
-import { api, client, apiFetch, apiPost, errorMessages } from '../api.js';
+import {
+  bindingsGet,
+  bindingsReconcile,
+  bindingsStatus,
+  bindingsUpdate,
+  secretsList,
+  type PipelineBinding,
+  type PipelineBindingStatus,
+} from '@olve/api';
+import { api, errorMessages } from '../api.js';
 import { sharedStyles, navClick, shortSha, secretsPath } from '../v2/ui.js';
 import { LiveController, forPipeline } from '../v2/events.js';
 import './relative-time.js';
 import './pipeline-header.js';
-
-type Binding = {
-  repo: string;
-  branch: string;
-  path: string;
-  credentialsSecret?: string | null;
-};
 
 /** A pipeline's git binding: where its definition lives, its reconcile status, and its credentials. */
 @customElement('pipeline-binding-view')
@@ -89,7 +89,7 @@ export class PipelineBindingView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _binding: Binding | null;
+  @state() declare private _binding: PipelineBinding | null;
   @state() declare private _status: PipelineBindingStatus | null;
   @state() declare private _secretNames: string[];
   @state() declare private _busy: boolean;
@@ -117,11 +117,15 @@ export class PipelineBindingView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
+    const path = { pipelineId: this.pipelineId };
     try {
       const [binding, status, secrets] = await Promise.all([
-        apiFetch<Binding>(`/api/pipelines/${this.pipelineId}/binding`).catch(() => null),
-        p.binding.status.get().catch(() => null),
+        bindingsGet({ client: api, path })
+          .then((r) => r.data ?? null)
+          .catch(() => null),
+        bindingsStatus({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
         secretsList({ client: api, path: { pipelineId: this.pipelineId } })
           .then((r) => r.data)
           .catch(() => null),
@@ -153,7 +157,7 @@ export class PipelineBindingView extends LitElement {
     `;
   }
 
-  private _renderSource(b: Binding) {
+  private _renderSource(b: PipelineBinding) {
     const s = this._status;
     const tree = `https://github.com/${b.repo}/tree/${encodeURIComponent(b.branch)}/${b.path}`;
     return html`<section class="card">
@@ -174,20 +178,20 @@ export class PipelineBindingView extends LitElement {
         ? html`<p class="status">
               ${s.reconcileInProgress
                 ? html`Reconciling <code>${shortSha(s.reconcileSha)}</code>…`
-                : s.result === 2
+                : s.result === 'Error'
                   ? html`<span class="bad"
                         >Reconcile failed at
                         <code>${shortSha(s.reconcileSha)}</code></span
                       >
                       <relative-time .value=${s.lastSyncTime}></relative-time>`
-                  : s.result === 1
+                  : s.result === 'Success'
                     ? html`Synced at
                         <code>${shortSha(s.lastReconciledSha)}</code> (version
                         ${s.reconciledVersion})
                         <relative-time .value=${s.lastSyncTime}></relative-time>`
                     : 'Waiting for the first sync.'}
             </p>
-            ${s.result === 2 && s.problems?.length
+            ${s.result === 'Error' && s.problems?.length
               ? html`<ul class="problems">
                   ${s.problems.map((x) => html`<li>${x}</li>`)}
                 </ul>`
@@ -201,7 +205,7 @@ export class PipelineBindingView extends LitElement {
     </section>`;
   }
 
-  private _renderCredentials(b: Binding) {
+  private _renderCredentials(b: PipelineBinding) {
     const current = b.credentialsSecret ?? '';
     const names =
       this._secretNames.includes(current) || !current
@@ -227,15 +231,18 @@ export class PipelineBindingView extends LitElement {
   }
 
   private _reconcile = () =>
-    this._act(() => apiPost(`/api/pipelines/${this.pipelineId}/binding/reconcile`));
+    this._act(() =>
+      bindingsReconcile({ client: api, path: { pipelineId: this.pipelineId } }),
+    );
 
   private _saveCredentials = (e: Event) => {
     e.preventDefault();
     const secret = new FormData(e.target as HTMLFormElement).get('secret') as string;
     this._act(() =>
-      apiFetch(`/api/pipelines/${this.pipelineId}/binding`, {
-        method: 'PATCH',
-        body: { credentialsSecret: secret },
+      bindingsUpdate({
+        client: api,
+        path: { pipelineId: this.pipelineId },
+        body: { credentialsSecret: secret || null },
       }),
     );
   };

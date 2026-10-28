@@ -11,25 +11,23 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileRequestBuilder> {
     /**
-     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
+     * Reconcile now
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
      * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
      * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      post(requestConfiguration?: RequestConfiguration<ReconcileRequestBuilderPostQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
-     * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
+     * Reconcile now
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toPostRequestInformation(requestConfiguration?: RequestConfiguration<ReconcileRequestBuilderPostQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * Queues a reconcile of the bound config and returns at once; progress shows in the binding status. Also retries a failed commit. With `rebuild=true` the current commit is reconciled again even when it is already applied (after a server change in how manifests are read); the version only changes if the manifest does. With `wait=true` it returns once the reconcile finished: 409 with the problems when it failed.
+ * Reconcile now
  */
 export interface ReconcileRequestBuilderPostQueryParameters {
     rebuild?: boolean;
@@ -45,13 +43,11 @@ export const ReconcileRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pip
 export const ReconcileRequestBuilderRequestsMetadata: RequestsMetadata = {
     post: {
         uriTemplate: ReconcileRequestBuilderUriTemplate,
-        responseBodyContentType: "application/problem+json",
+        responseBodyContentType: "application/json",
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendPrimitive",
         responseBodyFactory:  "ArrayBuffer",

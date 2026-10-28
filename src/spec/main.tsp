@@ -1,5 +1,6 @@
 // The API contract. One file per area is imported here as the areas move over (docs/design/spec-first.md).
 import "@typespec/http";
+import "./bindings.tsp";
 import "./config.tsp";
 import "./errors.tsp";
 import "./instance.tsp";

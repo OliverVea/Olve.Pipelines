@@ -22,9 +22,17 @@ model ApiProblem {
   traceId?: string;
 }
 
+/** The error class; the problem's `type` is `urn:olve-pipelines:<code>` and its `status` follows from it. */
+enum ApiProblemCode {
+  NotFound: "not-found",
+  Conflict: "conflict",
+  Invalid: "invalid",
+  Unavailable: "unavailable",
+  Internal: "internal",
+}
+
 model ApiProblemError {
-  /** `not-found`, `conflict`, `invalid`, `unavailable` or `internal`. */
-  code: string;
+  code: ApiProblemCode;
 
   message: string;
 

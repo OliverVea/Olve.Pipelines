@@ -74,11 +74,12 @@ export interface ApiProblem extends AdditionalDataHolder, ApiError, Parsable {
      */
     type?: string | null;
 }
+export type ApiProblemCode = (typeof ApiProblemCodeObject)[keyof typeof ApiProblemCodeObject];
 export interface ApiProblemError extends AdditionalDataHolder, Parsable {
     /**
      * The code property
      */
-    code?: string | null;
+    code?: ApiProblemCode | null;
     /**
      * The field property
      */
@@ -1543,7 +1544,7 @@ export function deserializeIntoApiProblem(apiProblem: Partial<ApiProblem> | unde
 // @ts-ignore
 export function deserializeIntoApiProblemError(apiProblemError: Partial<ApiProblemError> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "code": n => { apiProblemError.code = n.getStringValue(); },
+        "code": n => { apiProblemError.code = n.getEnumValue<ApiProblemCode>(ApiProblemCodeObject); },
         "field": n => { apiProblemError.field = n.getStringValue(); },
         "message": n => { apiProblemError.message = n.getStringValue(); },
     }
@@ -3635,7 +3636,7 @@ export function serializeApiProblem(writer: SerializationWriter, apiProblem: Par
 // @ts-ignore
 export function serializeApiProblemError(writer: SerializationWriter, apiProblemError: Partial<ApiProblemError> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!apiProblemError || isSerializingDerivedType) { return; }
-    writer.writeStringValue("code", apiProblemError.code);
+    writer.writeEnumValue<ApiProblemCode>("code", apiProblemError.code);
     writer.writeStringValue("field", apiProblemError.field);
     writer.writeStringValue("message", apiProblemError.message);
     writer.writeAdditionalData(apiProblemError.additionalData);
@@ -5039,6 +5040,13 @@ export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
      */
     credentialsSecret?: string | null;
 }
+export const ApiProblemCodeObject = {
+    NotFound: "not-found",
+    Conflict: "conflict",
+    Invalid: "invalid",
+    Unavailable: "unavailable",
+    Internal: "internal",
+} as const;
 export const PipelineStatusObject = {
     Healthy: "Healthy",
     RunningHealthy: "Running (Healthy)",

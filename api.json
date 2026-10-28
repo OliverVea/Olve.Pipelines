@@ -4672,6 +4672,15 @@
           }
         }
       },
+      "ApiProblemCode": {
+        "enum": [
+          "not-found",
+          "conflict",
+          "invalid",
+          "unavailable",
+          "internal"
+        ]
+      },
       "ApiProblemError": {
         "required": [
           "code",
@@ -4680,7 +4689,7 @@
         "type": "object",
         "properties": {
           "code": {
-            "type": "string"
+            "$ref": "#/components/schemas/ApiProblemCode"
           },
           "message": {
             "type": "string"

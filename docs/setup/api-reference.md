@@ -823,7 +823,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 | Field | Type | |
 |---|---|---|
-| `code` | string | required |
+| `code` | `"not-found"` \| `"conflict"` \| `"invalid"` \| `"unavailable"` \| `"internal"` | required |
 | `message` | string | required |
 | `field` | string? |  |
 

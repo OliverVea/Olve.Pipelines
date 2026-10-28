@@ -16,12 +16,22 @@ public sealed record ApiProblem(
     ApiProblemError[] Errors,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TraceId);
 
-/// <param name="Code"><c>not-found</c>, <c>conflict</c>, <c>invalid</c>, <c>unavailable</c> or <c>internal</c>.</param>
 /// <param name="Field">The request field the error is about (e.g. <c>input.sha</c>), if any.</param>
 public sealed record ApiProblemError(
-    string Code,
+    ApiProblemCode Code,
     string Message,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Field = null);
+
+/// <summary>The error class; the problem's <c>type</c> is <c>urn:olve-pipelines:&lt;code&gt;</c> and its status follows from it.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ApiProblemCode>))]
+public enum ApiProblemCode
+{
+    [JsonStringEnumMemberName("not-found")] NotFound,
+    [JsonStringEnumMemberName("conflict")] Conflict,
+    [JsonStringEnumMemberName("invalid")] Invalid,
+    [JsonStringEnumMemberName("unavailable")] Unavailable,
+    [JsonStringEnumMemberName("internal")] Internal,
+}
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ApiProblem))]
@@ -34,14 +44,14 @@ public static class ApiProblems
 
     // Precedence: the most specific problem decides the status. A missing resource or a conflicting
     // state can't be fixed by retrying, so both outrank 503; plain problems are 400.
-    private static readonly ErrorClass NotFound = new(StatusCodes.Status404NotFound, "not-found", "Not found");
-    private static readonly ErrorClass Conflict = new(StatusCodes.Status409Conflict, "conflict", "Conflict");
-    private static readonly ErrorClass Unavailable = new(StatusCodes.Status503ServiceUnavailable, "unavailable", "Service unavailable");
-    private static readonly ErrorClass Invalid = new(StatusCodes.Status400BadRequest, "invalid", "Invalid request");
-    private static readonly ErrorClass Internal = new(StatusCodes.Status500InternalServerError, "internal", "Internal error");
+    private static readonly ErrorClass NotFound = new(StatusCodes.Status404NotFound, ApiProblemCode.NotFound, "Not found");
+    private static readonly ErrorClass Conflict = new(StatusCodes.Status409Conflict, ApiProblemCode.Conflict, "Conflict");
+    private static readonly ErrorClass Unavailable = new(StatusCodes.Status503ServiceUnavailable, ApiProblemCode.Unavailable, "Service unavailable");
+    private static readonly ErrorClass Invalid = new(StatusCodes.Status400BadRequest, ApiProblemCode.Invalid, "Invalid request");
+    private static readonly ErrorClass Internal = new(StatusCodes.Status500InternalServerError, ApiProblemCode.Internal, "Internal error");
     private static readonly ErrorClass[] Precedence = [NotFound, Conflict, Unavailable, Invalid];
 
-    private sealed record ErrorClass(int Status, string Code, string Title);
+    private sealed record ErrorClass(int Status, ApiProblemCode Code, string Title);
 
     private static ErrorClass ClassOf(ResultProblem problem) => problem switch
     {
@@ -94,7 +104,16 @@ public static class ApiProblems
         return http.Response.WriteAsJsonAsync(problem, ApiProblemJsonContext.Default.ApiProblem, ContentType, http.RequestAborted);
     }
 
-    private static string TypeOf(ErrorClass c) => $"urn:olve-pipelines:{c.Code}";
+    private static string TypeOf(ErrorClass c) => $"urn:olve-pipelines:{Wire(c.Code)}";
+
+    private static string Wire(ApiProblemCode code) => code switch
+    {
+        ApiProblemCode.NotFound => "not-found",
+        ApiProblemCode.Conflict => "conflict",
+        ApiProblemCode.Invalid => "invalid",
+        ApiProblemCode.Unavailable => "unavailable",
+        _ => "internal",
+    };
 
     private static string ReasonPhrase(int status)
         => Microsoft.AspNetCore.WebUtilities.ReasonPhrases.GetReasonPhrase(status) is { Length: > 0 } phrase ? phrase : "Invalid request";

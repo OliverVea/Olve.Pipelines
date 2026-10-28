@@ -45,7 +45,7 @@ export const source = steps.gitHubSource({
 export const spec = step({
   name: 'spec',
   description:
-    "Compiles the API contract (src/spec/): the OpenAPI document and the server's generated C#, for the .NET steps.",
+    "Compiles the API contract (src/spec/): the OpenAPI document, the server's generated C# and the TypeScript client, for the build steps.",
   image: 'oven/bun:1.4.3-slim',
   input: { source: Source },
   output: M.SpecBuild,
@@ -68,7 +68,7 @@ export const buildFrontend = step({
   description:
     'Lints the frontend, checks its formatting and builds it as an image layer.',
   image: 'node:22-slim',
-  input: { source: Source },
+  input: { source: Source, spec: M.SpecBuild },
   output: M.FrontendBuild,
   timeoutSeconds: 900,
 });

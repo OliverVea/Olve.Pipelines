@@ -5,7 +5,36 @@ import {
 } from '@microsoft/kiota-abstractions';
 import { FetchRequestAdapter } from '@microsoft/kiota-http-fetchlibrary';
 import { createApiClient } from '@olve/olve-pipelines-client/src/apiClient.js';
+import { createClient, createConfig } from '@olve/api/client';
 import { getAccessToken, login, devAuthBypass } from './auth.js';
+
+/**
+ * The client of the contract's operations (`@olve/api`, generated from src/spec): pass it as
+ * `client` to every SDK call. Same origin, the bearer attached per request, and a non-2xx answer
+ * thrown as {@link ApiError} with every problem message, like {@link apiFetch}.
+ */
+export const api = createClient(createConfig({ baseUrl: '', throwOnError: true }));
+api.interceptors.request.use(async (request) => {
+  for (const [name, value] of Object.entries(await authHeaders()))
+    request.headers.set(name, value);
+  return request;
+});
+api.interceptors.response.use(async (response) => {
+  if (response.ok) return response;
+  const text = await response.text();
+  let parsed: unknown = undefined;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = text;
+  }
+  const problems = problemsFromBody(parsed);
+  if (!problems.length && response.status === 401)
+    problems.push('Sign in to do this (HTTP 401).');
+  if (!problems.length && response.status === 403)
+    problems.push('Not allowed (HTTP 403).');
+  throw new ApiError(response.status, problems);
+});
 
 const allowAllHosts = new AllowedHostsValidator();
 

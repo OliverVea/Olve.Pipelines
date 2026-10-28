@@ -25,7 +25,7 @@ export type Activation =
 /** Normalise the API's polymorphic `PipelineActivation` (`active` / `draining`). */
 export function toActivation(a: unknown): Activation {
   const o = (a ?? {}) as Record<string, unknown>;
-  const since = (o.since as Date | undefined) ?? null;
+  const since = o.since ? new Date(o.since as string | Date) : null;
   if (o.type === 'active')
     return { kind: 'active', version: Number(o.versionNumber), since };
   if (o.type === 'draining')
@@ -55,7 +55,7 @@ export function loadVersion(
   let p = cache.get(key);
   if (!p) {
     p = client.api.pipelines
-      .byId(pipelineId)
+      .byPipelineId(pipelineId)
       .versions.byNumber(number)
       .get()
       .then((v) =>
@@ -101,7 +101,7 @@ export async function loadEffective(
   if (!hasSelect) return { ok: true, manifest: version.manifest, cases: {} };
   try {
     const r = await client.api.pipelines
-      .byId(pipelineId)
+      .byPipelineId(pipelineId)
       .versions.byNumber(version.number)
       .effective.get(snapshot ? { queryParameters: { snapshot } } : undefined);
     const raw = (r?.cases?.additionalData ?? {}) as Record<string, unknown>;

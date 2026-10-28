@@ -1,11 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client, apiPost, errorMessages } from '../api.js';
-import type {
-  Pipeline,
-  PipelineHealth,
-  StepHistoryItem,
-} from '@olve/olve-pipelines-client/src/models/index.js';
+import { api, client, apiPost, errorMessages } from '../api.js';
+import {
+  pipelinesGet,
+  pipelinesHealth,
+  type Pipeline,
+  type PipelineHealth,
+} from '@olve/api';
+import type { StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
 import {
   sharedStyles,
   toneOf,
@@ -147,10 +149,13 @@ export class PipelineDetailView extends LitElement {
 
   async reload() {
     try {
-      const p = client.api.pipelines.byId(this.pipelineId);
+      const p = client.api.pipelines.byPipelineId(this.pipelineId);
+      const path = { pipelineId: this.pipelineId };
       const [pipeline, health] = await Promise.all([
-        p.get(),
-        p.health.get().catch(() => null),
+        pipelinesGet({ client: api, path }).then((r) => r.data),
+        pipelinesHealth({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
       ]);
       this._pipeline = pipeline ?? null;
       this._health = health ?? null;

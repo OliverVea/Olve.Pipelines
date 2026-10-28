@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createAttemptFromDiscriminatorV
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/rerun
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun
  */
 export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface RerunRequestBuilder extends BaseRequestBuilder<RerunRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const RerunRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/rerun";
+export const RerunRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun";
 /**
  * Metadata for all the requests in the request builder.
  */

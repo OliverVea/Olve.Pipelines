@@ -11,7 +11,7 @@ import { type WithNumberItemRequestBuilder, WithNumberItemRequestBuilderNavigati
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs
  */
 export interface RunsRequestBuilder extends BaseRequestBuilder<RunsRequestBuilder> {
     /**
@@ -71,7 +71,7 @@ export interface RunsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const RunsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs{?Page*,PageSize*}";
+export const RunsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs{?Page*,PageSize*}";
 /**
  * Mapper for query parameters from symbol name to serialization name represented as a constant.
  */

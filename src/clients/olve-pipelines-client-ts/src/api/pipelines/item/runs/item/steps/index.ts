@@ -7,7 +7,7 @@ import { type WithStepItemRequestBuilder, WithStepItemRequestBuilderNavigationMe
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps
  */
 export interface StepsRequestBuilder extends BaseRequestBuilder<StepsRequestBuilder> {
     /**
@@ -20,7 +20,7 @@ export interface StepsRequestBuilder extends BaseRequestBuilder<StepsRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const StepsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps";
+export const StepsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

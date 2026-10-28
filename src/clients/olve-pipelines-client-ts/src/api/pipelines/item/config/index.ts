@@ -13,7 +13,7 @@ import { RollbackRequestBuilderRequestsMetadata, type RollbackRequestBuilder } f
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/config
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/config
  */
 export interface ConfigRequestBuilder extends BaseRequestBuilder<ConfigRequestBuilder> {
     /**
@@ -74,7 +74,7 @@ export interface ConfigRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const ConfigRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/config{?snapshot*}";
+export const ConfigRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/config{?snapshot*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

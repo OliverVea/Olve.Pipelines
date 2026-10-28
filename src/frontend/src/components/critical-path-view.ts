@@ -187,7 +187,7 @@ export class CriticalPathView extends LitElement {
 
   async reload() {
     try {
-      const api = client.api.pipelines.byId(this.pipelineId).runs.criticalPath;
+      const api = client.api.pipelines.byPipelineId(this.pipelineId).runs.criticalPath;
       let report = await api.get({
         queryParameters: {
           includeUnsuccessful: this._all,
@@ -212,7 +212,7 @@ export class CriticalPathView extends LitElement {
 
   private async _loadVersions() {
     const list = await client.api.pipelines
-      .byId(this.pipelineId)
+      .byPipelineId(this.pipelineId)
       .versions.get()
       .catch(() => null);
     this._versions = (list?.versions ?? [])

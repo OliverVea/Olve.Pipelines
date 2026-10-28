@@ -106,7 +106,7 @@ export class StepLogsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
       const [pipeline, attempts] = await Promise.all([
         this._name ? null : p.get(),

@@ -52,7 +52,7 @@ dotnet build                                                   # Build (compiles
 dotnet test                                                    # Tests
 dotnet run --project src/backend/Olve.Pipelines                        # Run locally
 
-cd src/spec && bun install && bun run compile                      # The contract alone: artifacts/spec/openapi.json + artifacts/generated/backend/*.g.cs
+cd src/spec && bun install && bun run build                    # The contract alone: artifacts/spec/openapi.json, artifacts/generated/backend/*.g.cs and the TypeScript client artifacts/clients/ts
 cd src/sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
 cd src/frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```

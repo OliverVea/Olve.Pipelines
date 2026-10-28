@@ -36,7 +36,7 @@ export class PipelineVersionsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
       const versions = await p.versions.get();
       this._versions = versions?.versions ?? [];

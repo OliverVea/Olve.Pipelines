@@ -20,7 +20,6 @@ public static class EndpointConfiguration
         app.MapJson();
         app.MapApi();
         app.MapCliDownloadEndpoints();
-        app.MapPipelineEndpoints();
         app.MapSecretEndpoints();
         app.MapConfigEndpoints();
         app.MapAttemptEndpoints();

@@ -945,24 +945,6 @@ export function createPendingVersionInfoFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineActivationActive}
- */
-// @ts-ignore
-export function createPipelineActivationActiveFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineActivationActive;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineActivationDraining}
- */
-// @ts-ignore
-export function createPipelineActivationDrainingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineActivationDraining;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineActivation}
  */
 // @ts-ignore
@@ -974,13 +956,31 @@ export function createPipelineActivationFromDiscriminatorValue(parseNode: ParseN
         if (mappingValue) {
             switch (mappingValue) {
                 case "active":
-                    return deserializeIntoPipelineActivationActive;
+                    return deserializeIntoPipelineActivationPipelineActivationActive;
                 case "draining":
-                    return deserializeIntoPipelineActivationDraining;
+                    return deserializeIntoPipelineActivationPipelineActivationDraining;
             }
         }
     }
     return deserializeIntoPipelineActivation;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivationPipelineActivationActive}
+ */
+// @ts-ignore
+export function createPipelineActivationPipelineActivationActiveFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineActivationPipelineActivationActive;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineActivationPipelineActivationDraining}
+ */
+// @ts-ignore
+export function createPipelineActivationPipelineActivationDrainingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineActivationPipelineActivationDraining;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2195,33 +2195,33 @@ export function deserializeIntoPipelineActivation(pipelineActivation: Partial<Pi
 }
 /**
  * The deserialization information for the current model
- * @param PipelineActivationActive The instance to deserialize into.
+ * @param PipelineActivationPipelineActivationActive The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoPipelineActivationActive(pipelineActivationActive: Partial<PipelineActivationActive> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoPipelineActivationPipelineActivationActive(pipelineActivationPipelineActivationActive: Partial<PipelineActivationPipelineActivationActive> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoPipelineActivation(pipelineActivationActive),
-        "since": n => { pipelineActivationActive.since = n.getDateValue(); },
-        "versionId": n => { pipelineActivationActive.versionId = n.getGuidValue(); },
-        "versionNumber": n => { pipelineActivationActive.versionNumber = n.getNumberValue(); },
+        ...deserializeIntoPipelineActivation(pipelineActivationPipelineActivationActive),
+        "since": n => { pipelineActivationPipelineActivationActive.since = n.getDateValue(); },
+        "versionId": n => { pipelineActivationPipelineActivationActive.versionId = n.getGuidValue(); },
+        "versionNumber": n => { pipelineActivationPipelineActivationActive.versionNumber = n.getNumberValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param PipelineActivationDraining The instance to deserialize into.
+ * @param PipelineActivationPipelineActivationDraining The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoPipelineActivationDraining(pipelineActivationDraining: Partial<PipelineActivationDraining> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoPipelineActivationPipelineActivationDraining(pipelineActivationPipelineActivationDraining: Partial<PipelineActivationPipelineActivationDraining> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoPipelineActivation(pipelineActivationDraining),
-        "cancelRunning": n => { pipelineActivationDraining.cancelRunning = n.getBooleanValue(); },
-        "fromVersionId": n => { pipelineActivationDraining.fromVersionId = n.getGuidValue(); },
-        "fromVersionNumber": n => { pipelineActivationDraining.fromVersionNumber = n.getNumberValue(); },
-        "since": n => { pipelineActivationDraining.since = n.getDateValue(); },
-        "toVersionId": n => { pipelineActivationDraining.toVersionId = n.getGuidValue(); },
-        "toVersionNumber": n => { pipelineActivationDraining.toVersionNumber = n.getNumberValue(); },
+        ...deserializeIntoPipelineActivation(pipelineActivationPipelineActivationDraining),
+        "cancelRunning": n => { pipelineActivationPipelineActivationDraining.cancelRunning = n.getBooleanValue(); },
+        "fromVersionId": n => { pipelineActivationPipelineActivationDraining.fromVersionId = n.getGuidValue(); },
+        "fromVersionNumber": n => { pipelineActivationPipelineActivationDraining.fromVersionNumber = n.getNumberValue(); },
+        "since": n => { pipelineActivationPipelineActivationDraining.since = n.getDateValue(); },
+        "toVersionId": n => { pipelineActivationPipelineActivationDraining.toVersionId = n.getGuidValue(); },
+        "toVersionNumber": n => { pipelineActivationPipelineActivationDraining.toVersionNumber = n.getNumberValue(); },
     }
 }
 /**
@@ -2287,7 +2287,7 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
         "lastSettledRun": n => { pipelineHealth.lastSettledRun = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
         "pending": n => { pipelineHealth.pending = n.getObjectValue<PendingVersionInfo>(createPendingVersionInfoFromDiscriminatorValue); },
         "runningRuns": n => { pipelineHealth.runningRuns = n.getNumberValue(); },
-        "status": n => { pipelineHealth.status = n.getStringValue(); },
+        "status": n => { pipelineHealth.status = n.getEnumValue<PipelineStatus>(PipelineStatusObject); },
     }
 }
 /**
@@ -2912,7 +2912,7 @@ export interface PipelineActivation extends AdditionalDataHolder, Parsable {
      */
     type?: string | null;
 }
-export interface PipelineActivationActive extends Parsable, PipelineActivation {
+export interface PipelineActivationPipelineActivationActive extends Parsable, PipelineActivation {
     /**
      * The since property
      */
@@ -2926,7 +2926,7 @@ export interface PipelineActivationActive extends Parsable, PipelineActivation {
      */
     versionNumber?: number | null;
 }
-export interface PipelineActivationDraining extends Parsable, PipelineActivation {
+export interface PipelineActivationPipelineActivationDraining extends Parsable, PipelineActivation {
     /**
      * The cancelRunning property
      */
@@ -3100,7 +3100,7 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
     /**
      * The status property
      */
-    status?: string | null;
+    status?: PipelineStatus | null;
 }
 export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
     /**
@@ -3134,6 +3134,7 @@ export interface PipelineStageSummary extends AdditionalDataHolder, Parsable {
      */
     when?: RunStageCondition[] | null;
 }
+export type PipelineStatus = (typeof PipelineStatusObject)[keyof typeof PipelineStatusObject];
 export interface PipelineStepSummary extends AdditionalDataHolder, Parsable {
     /**
      * The at property
@@ -4350,43 +4351,43 @@ export function serializePipelineActivation(writer: SerializationWriter, pipelin
     writer.writeAdditionalData(pipelineActivation.additionalData);
     switch (pipelineActivation.type) {
         case "active":
-            serializePipelineActivationActive(writer, pipelineActivation, true);
+            serializePipelineActivationPipelineActivationActive(writer, pipelineActivation, true);
         break;
         case "draining":
-            serializePipelineActivationDraining(writer, pipelineActivation, true);
+            serializePipelineActivationPipelineActivationDraining(writer, pipelineActivation, true);
         break;
     }
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineActivationActive The instance to serialize from.
+ * @param PipelineActivationPipelineActivationActive The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializePipelineActivationActive(writer: SerializationWriter, pipelineActivationActive: Partial<PipelineActivationActive> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineActivationActive || isSerializingDerivedType) { return; }
-    serializePipelineActivation(writer, pipelineActivationActive, isSerializingDerivedType)
-    writer.writeDateValue("since", pipelineActivationActive.since);
-    writer.writeGuidValue("versionId", pipelineActivationActive.versionId);
-    writer.writeNumberValue("versionNumber", pipelineActivationActive.versionNumber);
+export function serializePipelineActivationPipelineActivationActive(writer: SerializationWriter, pipelineActivationPipelineActivationActive: Partial<PipelineActivationPipelineActivationActive> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineActivationPipelineActivationActive || isSerializingDerivedType) { return; }
+    serializePipelineActivation(writer, pipelineActivationPipelineActivationActive, isSerializingDerivedType)
+    writer.writeDateValue("since", pipelineActivationPipelineActivationActive.since);
+    writer.writeGuidValue("versionId", pipelineActivationPipelineActivationActive.versionId);
+    writer.writeNumberValue("versionNumber", pipelineActivationPipelineActivationActive.versionNumber);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineActivationDraining The instance to serialize from.
+ * @param PipelineActivationPipelineActivationDraining The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializePipelineActivationDraining(writer: SerializationWriter, pipelineActivationDraining: Partial<PipelineActivationDraining> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineActivationDraining || isSerializingDerivedType) { return; }
-    serializePipelineActivation(writer, pipelineActivationDraining, isSerializingDerivedType)
-    writer.writeBooleanValue("cancelRunning", pipelineActivationDraining.cancelRunning);
-    writer.writeGuidValue("fromVersionId", pipelineActivationDraining.fromVersionId);
-    writer.writeNumberValue("fromVersionNumber", pipelineActivationDraining.fromVersionNumber);
-    writer.writeDateValue("since", pipelineActivationDraining.since);
-    writer.writeGuidValue("toVersionId", pipelineActivationDraining.toVersionId);
-    writer.writeNumberValue("toVersionNumber", pipelineActivationDraining.toVersionNumber);
+export function serializePipelineActivationPipelineActivationDraining(writer: SerializationWriter, pipelineActivationPipelineActivationDraining: Partial<PipelineActivationPipelineActivationDraining> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineActivationPipelineActivationDraining || isSerializingDerivedType) { return; }
+    serializePipelineActivation(writer, pipelineActivationPipelineActivationDraining, isSerializingDerivedType)
+    writer.writeBooleanValue("cancelRunning", pipelineActivationPipelineActivationDraining.cancelRunning);
+    writer.writeGuidValue("fromVersionId", pipelineActivationPipelineActivationDraining.fromVersionId);
+    writer.writeNumberValue("fromVersionNumber", pipelineActivationPipelineActivationDraining.fromVersionNumber);
+    writer.writeDateValue("since", pipelineActivationPipelineActivationDraining.since);
+    writer.writeGuidValue("toVersionId", pipelineActivationPipelineActivationDraining.toVersionId);
+    writer.writeNumberValue("toVersionNumber", pipelineActivationPipelineActivationDraining.toVersionNumber);
 }
 /**
  * Serializes information the current object
@@ -4454,7 +4455,7 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
     writer.writeObjectValue<RunSummary>("lastSettledRun", pipelineHealth.lastSettledRun, serializeRunSummary);
     writer.writeObjectValue<PendingVersionInfo>("pending", pipelineHealth.pending, serializePendingVersionInfo);
     writer.writeNumberValue("runningRuns", pipelineHealth.runningRuns);
-    writer.writeStringValue("status", pipelineHealth.status);
+    writer.writeEnumValue<PipelineStatus>("status", pipelineHealth.status);
     writer.writeAdditionalData(pipelineHealth.additionalData);
 }
 /**
@@ -5038,6 +5039,13 @@ export interface UpdateBindingRequest extends AdditionalDataHolder, Parsable {
      */
     credentialsSecret?: string | null;
 }
+export const PipelineStatusObject = {
+    Healthy: "Healthy",
+    RunningHealthy: "Running (Healthy)",
+    RunningUnhealthy: "Running (Unhealthy)",
+    Unhealthy: "Unhealthy",
+    Idle: "Idle",
+} as const;
 export const RunStatusObject = {
     Running: "Running",
     Succeeded: "Succeeded",

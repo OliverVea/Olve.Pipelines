@@ -248,7 +248,7 @@ export class RunView extends LitElement {
       this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
       this._load();
       client.api.pipelines
-        .byId(this.pipelineId)
+        .byPipelineId(this.pipelineId)
         .get()
         .then((p) => (this._pipelineName = p?.name ?? ''))
         .catch(() => {});
@@ -256,7 +256,9 @@ export class RunView extends LitElement {
   }
 
   private get _runApi() {
-    return client.api.pipelines.byId(this.pipelineId).runs.byNumber(Number(this.run));
+    return client.api.pipelines
+      .byPipelineId(this.pipelineId)
+      .runs.byNumber(Number(this.run));
   }
 
   private get _base() {

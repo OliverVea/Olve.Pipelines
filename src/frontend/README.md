@@ -132,11 +132,17 @@ src/frontend/src/
 
 ## API usage
 
-Typed reads go through the Kiota client. Actions, logs and file downloads use `apiFetch` in `api.ts`
-instead, because the generated client maps a 400 to a single `ResultProblem` (the API returns an
-array — `apiFetch` shows every message), sends `JsonElement` bodies via `setContentFromScalar` (fails
-for objects) and would escape `/` in the file path catch-all. `JsonElement` members of responses
-arrive as Kiota `UntypedNode`s — convert with `untypedToJson`.
+The API is moving to a TypeSpec contract area by area (`docs/design/spec-first.md`). Operations on
+the contract (Instance, Pipelines so far) are called through the Hey API client `@olve/api`, generated
+from the contract into the repo-root `artifacts/clients/ts` (`cd src/spec && bun run build`; the alias
+is in `vite.config.ts` and `tsconfig.json`): `pipelinesSummaries({ client: api })` returns `{ data }`,
+and a non-2xx answer throws `ApiError` like `apiFetch`. Dates arrive as ISO strings.
+
+The rest still goes through the Kiota client for typed reads, and through `apiFetch` in `api.ts` for
+actions, logs and file downloads, because the Kiota client maps a 400 to a single `ResultProblem` (the
+API returns an array — `apiFetch` shows every message), sends `JsonElement` bodies via
+`setContentFromScalar` (fails for objects) and would escape `/` in the file path catch-all.
+`JsonElement` members of its responses arrive as Kiota `UntypedNode`s — convert with `untypedToJson`.
 
 Views refresh on `/api/events`, not on a timer: `LiveController` (`src/v2/events.ts`) reloads its
 view when a matching notice arrives (debounced), on every (re)connect or `resync`, and every 60 s as a
@@ -144,7 +150,8 @@ safety net. One stream serves the tab, open while a view listens and the tab is 
 
 ## API Client
 
-The frontend uses a Kiota-generated TypeScript client from `src/clients/olve-pipelines-client-ts/`, linked via `file:` reference. To regenerate after API changes:
+For the areas not yet on the contract, the frontend uses a Kiota-generated TypeScript client from
+`src/clients/olve-pipelines-client-ts/`, linked via `file:` reference. To regenerate after API changes:
 
 ```bash
 # From repo root — rebuild the backend to update api.json, then:

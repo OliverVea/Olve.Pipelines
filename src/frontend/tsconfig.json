@@ -20,7 +20,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+
+    "paths": {
+      "@olve/api": ["../../artifacts/clients/ts/index.ts"],
+      "@olve/api/*": ["../../artifacts/clients/ts/*"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "../clients"]

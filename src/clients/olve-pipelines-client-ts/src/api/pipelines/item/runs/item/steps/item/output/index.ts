@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createAttemptOutputResponseFrom
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/output
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output
  */
 export interface OutputRequestBuilder extends BaseRequestBuilder<OutputRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface OutputRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const OutputRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/output{?attempt*}";
+export const OutputRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output{?attempt*}";
 /**
  * Metadata for all the requests in the request builder.
  */

@@ -110,6 +110,13 @@ Hey API switch comes with the first area whose typing it improves (Pipelines).
 Order, smallest and least coupled first, so the pattern settles before the big ones:
 
 1. Instance (3 operations: health, ready, the login settings) — done with phase 1
+2. Pipelines (5) — done 2026-10-28: `{pipelineId}` everywhere, only the declared statuses, the
+   health `status` an enum. The Runs area's types it embeds (`RunSummary` and its enums) stay the
+   server's own through `external-types` until that area moves. The frontend's Hey API client
+   (`@olve/api`, built by `src/spec`'s `bun run build` into `artifacts/clients/ts`) starts here:
+   the list, header, detail, config and secrets views call it; the rest stays on Kiota meanwhile.
+   A contract handler answers its 404 with an `ApiProblem` whose trace id comes from the current
+   activity (`ApiProblems.Of`).
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

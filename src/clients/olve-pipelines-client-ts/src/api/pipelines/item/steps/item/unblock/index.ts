@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/steps/{step}/unblock
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/steps/{step}/unblock
  */
 export interface UnblockRequestBuilder extends BaseRequestBuilder<UnblockRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface UnblockRequestBuilder extends BaseRequestBuilder<UnblockRequest
 /**
  * Uri template for the request builder.
  */
-export const UnblockRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/steps/{step}/unblock";
+export const UnblockRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/steps/{step}/unblock";
 /**
  * Metadata for all the requests in the request builder.
  */

@@ -6,25 +6,14 @@ using Olve.Pipelines.Pipelines.Scheduling;
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Pipeline-scoped step and health endpoints: blocked steps (keyed on step name and kept
-/// across versions), step history by identity (spec §6.3) and health over runs (spec §7).
+/// Pipeline-scoped step endpoints: blocked steps (keyed on step name and kept across versions)
+/// and step history by identity (spec §6.3).
 /// </summary>
 public static class PipelineStepEndpoints
 {
     public static void MapPipelineStepEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/pipelines/{pipelineId}");
-
-        group.MapGet("/health", Result<PipelineHealth> (PipelineService pipelines, PipelineHealthService health, Id<Pipeline> pipelineId)
-                => pipelines.TryGet(pipelineId, out _)
-                    ? health.Get(pipelineId)
-                    : new NotFoundProblem("Pipeline '{0}' not found.", pipelineId))
-            .WithApiResultMapping<PipelineHealth>()
-            .WithName("GetPipelineHealth")
-            .WithTags("Pipelines")
-            .WithSummary("Get a pipeline's health")
-            .WithDescription("Run-based health: the last run, running and held runs, blocked steps and the activation.")
-            .RequireRead();
 
         group.MapGet("/blocked-steps", Result<string[]> (StepBlockService blocks, Id<Pipeline> pipelineId)
                 => blocks.ListBlocked(pipelineId).ToArray())

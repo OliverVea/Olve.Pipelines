@@ -9,7 +9,7 @@ import { DeclineRequestBuilderRequestsMetadata, type DeclineRequestBuilder } fro
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/input
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input
  */
 export interface InputRequestBuilder extends BaseRequestBuilder<InputRequestBuilder> {
     /**
@@ -39,7 +39,7 @@ export interface InputRequestBuilder extends BaseRequestBuilder<InputRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const InputRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/input";
+export const InputRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

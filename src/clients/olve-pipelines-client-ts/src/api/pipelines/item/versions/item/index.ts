@@ -9,7 +9,7 @@ import { EffectiveRequestBuilderRequestsMetadata, type EffectiveRequestBuilder }
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/versions/{number}
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/versions/{number}
  */
 export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNumberItemRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface WithNumberItemRequestBuilder extends BaseRequestBuilder<WithNum
 /**
  * Uri template for the request builder.
  */
-export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/versions/{number}";
+export const WithNumberItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/versions/{number}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

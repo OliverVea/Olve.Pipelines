@@ -4,8 +4,11 @@ import { implement } from '@olivervea/pipelines';
 import { buildFrontend } from '../pipeline';
 import { layerTar } from '../layers';
 
-export default implement(buildFrontend, async ({ source }, ctx) => {
+export default implement(buildFrontend, async ({ source, spec }, ctx) => {
   const tree = await ctx.files.fetch(source.tree);
+  cpSync(await ctx.files.fetch(spec.artifacts), join(tree, 'artifacts'), {
+    recursive: true,
+  });
   const env = {
     npm_config_cache: join(ctx.tmpDir, 'npm-cache'),
     npm_config_update_notifier: 'false',

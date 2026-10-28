@@ -7,22 +7,18 @@ import { createApiProblemFromDiscriminatorValue, createPipelineHealthFromDiscrim
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/health
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/health
  */
 export interface HealthRequestBuilder extends BaseRequestBuilder<HealthRequestBuilder> {
     /**
-     * Run-based health: the last run, running and held runs, blocked steps and the activation.
+     * Get a pipeline's health
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<PipelineHealth>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<PipelineHealth | undefined>;
     /**
-     * Run-based health: the last run, running and held runs, blocked steps and the activation.
+     * Get a pipeline's health
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
@@ -31,7 +27,7 @@ export interface HealthRequestBuilder extends BaseRequestBuilder<HealthRequestBu
 /**
  * Uri template for the request builder.
  */
-export const HealthRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/health";
+export const HealthRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/health";
 /**
  * Metadata for all the requests in the request builder.
  */
@@ -40,11 +36,7 @@ export const HealthRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: HealthRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",
         responseBodyFactory:  createPipelineHealthFromDiscriminatorValue,

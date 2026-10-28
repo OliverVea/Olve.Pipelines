@@ -1,11 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { client, errorMessages } from '../api.js';
+import { api, client, errorMessages } from '../api.js';
+import { pipelinesHealth, type PendingVersionInfo } from '@olve/api';
 import type {
   ConfigCheckResponse,
   ConfigSaveResponse,
   ConfigSnapshotInfo,
-  PendingVersionInfo,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import { sharedStyles, navClick, secretsPath } from '../v2/ui.js';
 import { loadVersion, toActivation, currentVersion } from '../v2/versions.js';
@@ -147,13 +147,15 @@ export class PipelineConfigView extends LitElement {
   }
 
   async reload(replaceText: boolean) {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
       const [doc, history, versions, health] = await Promise.all([
         p.config.get(),
         p.config.history.get(),
         p.versions.get(),
-        p.health.get(),
+        pipelinesHealth({ client: api, path: { pipelineId: this.pipelineId } }).then(
+          (r) => r.data,
+        ),
       ]);
       this._snapshot = doc?.snapshot ?? null;
       if (replaceText || !this._dirty) {
@@ -216,7 +218,7 @@ export class PipelineConfigView extends LitElement {
     try {
       this._saved =
         (await client.api.pipelines
-          .byId(this.pipelineId)
+          .byPipelineId(this.pipelineId)
           .config.put({ yaml: this._editor.text })) ?? null;
       this._dirty = false;
       await this.reload(true);
@@ -234,7 +236,7 @@ export class PipelineConfigView extends LitElement {
     try {
       this._saved =
         (await client.api.pipelines
-          .byId(this.pipelineId)
+          .byPipelineId(this.pipelineId)
           .config.rollback.post({ snapshot: n })) ?? null;
       await this.reload(true);
     } catch (e) {
@@ -250,7 +252,7 @@ export class PipelineConfigView extends LitElement {
     if (from === null || to === null) return;
     this._diff = null;
     try {
-      const p = client.api.pipelines.byId(this.pipelineId);
+      const p = client.api.pipelines.byPipelineId(this.pipelineId);
       const [a, b] = await Promise.all([
         p.config.get({ queryParameters: { snapshot: from } }),
         p.config.get({ queryParameters: { snapshot: to } }),
@@ -326,7 +328,7 @@ export class PipelineConfigView extends LitElement {
     try {
       this._check =
         (await client.api.pipelines
-          .byId(this.pipelineId)
+          .byPipelineId(this.pipelineId)
           .config.check.get({ queryParameters: { version } })) ?? null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');

@@ -9,7 +9,7 @@ import { StreamRequestBuilderRequestsMetadata, type StreamRequestBuilder } from 
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/logs
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs
  */
 export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilder> {
     /**
@@ -43,7 +43,7 @@ export interface LogsRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const LogsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/logs{?attempt*}";
+export const LogsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs{?attempt*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

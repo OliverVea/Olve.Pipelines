@@ -1,11 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client } from '../api.js';
+import { api, client } from '../api.js';
+import { pipelinesGet, pipelinesHealth, type PipelineHealth } from '@olve/api';
 import type {
   ActiveAttempt,
   CriticalPathReport,
   PipelineBindingStatus,
-  PipelineHealth,
   PipelineSecretInfo,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import {
@@ -123,12 +123,17 @@ export class PipelineHeader extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
+    const path = { pipelineId: this.pipelineId };
     const overview = this.tab === 'overview';
     const [pipeline, binding, health, secrets, critical, waiting] = await Promise.all([
-      p.get().catch(() => null),
+      pipelinesGet({ client: api, path })
+        .then((r) => r.data)
+        .catch(() => null),
       p.binding.status.get().catch(() => null),
-      p.health.get().catch(() => null),
+      pipelinesHealth({ client: api, path })
+        .then((r) => r.data)
+        .catch(() => null),
       overview ? p.secrets.get().catch(() => null) : null, // needs auth
       overview ? p.runs.criticalPath.get().catch(() => null) : null,
       overview

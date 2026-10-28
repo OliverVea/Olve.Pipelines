@@ -82,7 +82,7 @@ When adding a new way to start work, go through `RunStartService` (runs) or `Run
 dotnet build                                                # Build (compiles src/spec/ first; needs bun)
 dotnet test                                                 # Tests
 dotnet run --project src/backend/Olve.Pipelines                     # Run locally
-cd src/spec && bun run compile                                  # The API contract alone → artifacts/ (see docs/design/spec-first.md)
+cd src/spec && bun run build                                # The API contract alone → artifacts/ (OpenAPI, generated C#, TS client; see docs/design/spec-first.md)
 tools/check.sh [--changed|--full|--fix]                     # What the deploy checks, locally; --fix formats and regenerates (see CONTRIBUTING.md)
 ```
 

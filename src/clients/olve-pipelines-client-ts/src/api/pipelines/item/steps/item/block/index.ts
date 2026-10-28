@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/steps/{step}/block
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/steps/{step}/block
  */
 export interface BlockRequestBuilder extends BaseRequestBuilder<BlockRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface BlockRequestBuilder extends BaseRequestBuilder<BlockRequestBuil
 /**
  * Uri template for the request builder.
  */
-export const BlockRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/steps/{step}/block";
+export const BlockRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/steps/{step}/block";
 /**
  * Metadata for all the requests in the request builder.
  */

@@ -64,6 +64,171 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}": {
+      "delete": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "Delete a pipeline",
+        "operationId": "Pipelines_delete",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "Get a pipeline",
+        "operationId": "Pipelines_get",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pipeline"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/health": {
+      "get": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "Get a pipeline's health",
+        "operationId": "Pipelines_health",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineHealth"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines": {
+      "get": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "List pipelines",
+        "operationId": "Pipelines_list",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Pipeline"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/summary": {
+      "get": {
+        "tags": [
+          "Pipelines"
+        ],
+        "summary": "List pipeline cards",
+        "operationId": "Pipelines_summaries",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/attempts": {
       "get": {
         "tags": [
@@ -1080,309 +1245,6 @@
               "text/event-stream": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{id}": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "Get a pipeline",
-        "operationId": "GetPipeline",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Pipeline"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "Delete a pipeline",
-        "description": "Deletes the pipeline with its runs, versions, binding and secrets.",
-        "operationId": "DeletePipeline",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "List pipelines",
-        "operationId": "ListPipelines",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Pipeline"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/summary": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "List pipeline cards",
-        "description": "One card per pipeline for the list page: id, name, description, repo and health.",
-        "operationId": "ListPipelineSummaries",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PipelineSummary"
-                  }
                 }
               }
             }
@@ -4047,88 +3909,6 @@
         }
       }
     },
-    "/api/pipelines/{pipelineId}/health": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "Get a pipeline's health",
-        "description": "Run-based health: the last run, running and held runs, blocked steps and the activation.",
-        "operationId": "GetPipelineHealth",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PipelineHealth"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/pipelines/{pipelineId}/blocked-steps": {
       "get": {
         "tags": [
@@ -6343,7 +6123,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "name": {
             "type": "string"
@@ -6369,12 +6150,12 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "active": "#/components/schemas/PipelineActivationActive",
-            "draining": "#/components/schemas/PipelineActivationDraining"
+            "active": "#/components/schemas/PipelineActivationPipelineActivationActive",
+            "draining": "#/components/schemas/PipelineActivationPipelineActivationDraining"
           }
         }
       },
-      "PipelineActivationActive": {
+      "PipelineActivationPipelineActivationActive": {
         "required": [
           "versionId",
           "versionNumber",
@@ -6387,7 +6168,8 @@
         ],
         "properties": {
           "versionId": {
-            "$ref": "#/components/schemas/IdOfPipelineVersion"
+            "type": "string",
+            "format": "uuid"
           },
           "versionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -6400,7 +6182,7 @@
           }
         }
       },
-      "PipelineActivationDraining": {
+      "PipelineActivationPipelineActivationDraining": {
         "required": [
           "fromVersionId",
           "fromVersionNumber",
@@ -6416,7 +6198,8 @@
         ],
         "properties": {
           "fromVersionId": {
-            "$ref": "#/components/schemas/IdOfPipelineVersion"
+            "type": "string",
+            "format": "uuid"
           },
           "fromVersionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -6424,7 +6207,8 @@
             "format": "int32"
           },
           "toVersionId": {
-            "$ref": "#/components/schemas/IdOfPipelineVersion"
+            "type": "string",
+            "format": "uuid"
           },
           "toVersionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -6625,7 +6409,7 @@
         "type": "object",
         "properties": {
           "status": {
-            "type": "string"
+            "$ref": "#/components/schemas/PipelineStatus"
           },
           "lastRun": {
             "oneOf": [
@@ -6748,6 +6532,15 @@
           }
         }
       },
+      "PipelineStatus": {
+        "enum": [
+          "Healthy",
+          "Running (Healthy)",
+          "Running (Unhealthy)",
+          "Unhealthy",
+          "Idle"
+        ]
+      },
       "PipelineStepSummary": {
         "required": [
           "name",
@@ -6795,7 +6588,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "name": {
             "type": "string"
@@ -7699,6 +7493,9 @@
       "name": "Instance"
     },
     {
+      "name": "Pipelines"
+    },
+    {
       "name": "Attempts"
     },
     {
@@ -7718,9 +7515,6 @@
     },
     {
       "name": "Steps"
-    },
-    {
-      "name": "Pipelines"
     },
     {
       "name": "Secrets"

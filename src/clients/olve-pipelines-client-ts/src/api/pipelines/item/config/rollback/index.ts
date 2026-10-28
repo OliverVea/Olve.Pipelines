@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createConfigSaveResponseFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/config/rollback
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/config/rollback
  */
 export interface RollbackRequestBuilder extends BaseRequestBuilder<RollbackRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface RollbackRequestBuilder extends BaseRequestBuilder<RollbackReque
 /**
  * Uri template for the request builder.
  */
-export const RollbackRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/config/rollback";
+export const RollbackRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/config/rollback";
 /**
  * Metadata for all the requests in the request builder.
  */

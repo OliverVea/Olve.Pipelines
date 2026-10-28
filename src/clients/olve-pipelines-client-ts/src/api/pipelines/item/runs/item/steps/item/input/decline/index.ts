@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createAttemptFromDiscriminatorV
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/input/decline
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline
  */
 export interface DeclineRequestBuilder extends BaseRequestBuilder<DeclineRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface DeclineRequestBuilder extends BaseRequestBuilder<DeclineRequest
 /**
  * Uri template for the request builder.
  */
-export const DeclineRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/input/decline";
+export const DeclineRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline";
 /**
  * Metadata for all the requests in the request builder.
  */

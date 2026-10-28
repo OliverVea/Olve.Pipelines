@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/binding/reconcile
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/binding/reconcile
  */
 export interface ReconcileRequestBuilder extends BaseRequestBuilder<ReconcileRequestBuilder> {
     /**
@@ -38,7 +38,7 @@ export interface ReconcileRequestBuilderPostQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const ReconcileRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding/reconcile{?rebuild*,wait*}";
+export const ReconcileRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/binding/reconcile{?rebuild*,wait*}";
 /**
  * Metadata for all the requests in the request builder.
  */

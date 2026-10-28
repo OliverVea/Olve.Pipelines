@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createConfigCheckResponseFromDi
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/config/check
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/config/check
  */
 export interface CheckRequestBuilder extends BaseRequestBuilder<CheckRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface CheckRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const CheckRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/config/check{?version*}";
+export const CheckRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/config/check{?version*}";
 /**
  * Metadata for all the requests in the request builder.
  */

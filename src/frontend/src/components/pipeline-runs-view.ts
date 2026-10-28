@@ -54,7 +54,7 @@ export class PipelineRunsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
       const runs = await p.runs.get({ queryParameters: { pageSize: 50 } });
       this._runs = runs?.items ?? [];

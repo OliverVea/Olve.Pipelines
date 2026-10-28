@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPipelineConfigBindingFrom
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/binding/branch
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/binding/branch
  */
 export interface BranchRequestBuilder extends BaseRequestBuilder<BranchRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface BranchRequestBuilder extends BaseRequestBuilder<BranchRequestBu
 /**
  * Uri template for the request builder.
  */
-export const BranchRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding/branch";
+export const BranchRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/binding/branch";
 /**
  * Metadata for all the requests in the request builder.
  */

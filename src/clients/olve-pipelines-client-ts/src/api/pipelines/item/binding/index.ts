@@ -15,7 +15,7 @@ import { StatusRequestBuilderRequestsMetadata, type StatusRequestBuilder } from 
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/binding
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/binding
  */
 export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequestBuilder> {
     /**
@@ -74,7 +74,7 @@ export interface BindingRequestBuilder extends BaseRequestBuilder<BindingRequest
 /**
  * Uri template for the request builder.
  */
-export const BindingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding";
+export const BindingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/binding";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

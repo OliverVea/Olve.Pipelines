@@ -25,9 +25,9 @@ import { type VersionsRequestBuilder, VersionsRequestBuilderNavigationMetadata, 
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}
  */
-export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilder> {
+export interface WithPipelineItemRequestBuilder extends BaseRequestBuilder<WithPipelineItemRequestBuilder> {
     /**
      * The binding property
      */
@@ -65,29 +65,21 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
      */
     get versions(): VersionsRequestBuilder;
     /**
-     * Deletes the pipeline with its runs, versions, binding and secrets.
+     * Delete a pipeline
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      delete(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
      * Get a pipeline
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Pipeline>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Pipeline | undefined>;
     /**
-     * Deletes the pipeline with its runs, versions, binding and secrets.
+     * Delete a pipeline
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
@@ -102,11 +94,11 @@ export interface ItemRequestBuilder extends BaseRequestBuilder<ItemRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const ItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}";
+export const WithPipelineItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */
-export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
+export const WithPipelineItemRequestBuilderNavigationMetadata: Record<Exclude<keyof WithPipelineItemRequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     binding: {
         requestsMetadata: BindingRequestBuilderRequestsMetadata,
         navigationMetadata: BindingRequestBuilderNavigationMetadata,
@@ -143,29 +135,21 @@ export const ItemRequestBuilderNavigationMetadata: Record<Exclude<keyof ItemRequ
 /**
  * Metadata for all the requests in the request builder.
  */
-export const ItemRequestBuilderRequestsMetadata: RequestsMetadata = {
+export const WithPipelineItemRequestBuilderRequestsMetadata: RequestsMetadata = {
     delete: {
-        uriTemplate: ItemRequestBuilderUriTemplate,
-        responseBodyContentType: "application/problem+json",
+        uriTemplate: WithPipelineItemRequestBuilderUriTemplate,
+        responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendPrimitive",
         responseBodyFactory:  "ArrayBuffer",
     },
     get: {
-        uriTemplate: ItemRequestBuilderUriTemplate,
+        uriTemplate: WithPipelineItemRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",
         responseBodyFactory:  createPipelineFromDiscriminatorValue,

@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, serializeSetSecretRequest, type
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/secrets/{name}
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/secrets/{name}
  */
 export interface WithNameItemRequestBuilder extends BaseRequestBuilder<WithNameItemRequestBuilder> {
     /**
@@ -56,7 +56,7 @@ export interface WithNameItemRequestBuilderDeleteQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const WithNameItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/secrets/{name}{?force*}";
+export const WithNameItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/secrets/{name}{?force*}";
 /**
  * Metadata for all the requests in the request builder.
  */

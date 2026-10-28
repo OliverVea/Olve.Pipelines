@@ -60,27 +60,35 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 ### Pipelines
 
-#### Get a pipeline
+#### Delete a pipeline
 
-`GET /api/pipelines/{id}`
+`DELETE /api/pipelines/{pipelineId}`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `id` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
+
+**Returns:** `200`
+
+#### Get a pipeline
+
+`GET /api/pipelines/{pipelineId}`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
 
 **Returns:** `200` [Pipeline](#pipeline)
 
-#### Delete a pipeline
+#### Get a pipeline's health
 
-`DELETE /api/pipelines/{id}`
-
-Deletes the pipeline with its runs, versions, binding and secrets.
+`GET /api/pipelines/{pipelineId}/health`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `id` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Returns:** `200`
+**Returns:** `200` [PipelineHealth](#pipelinehealth)
 
 #### List pipelines
 
@@ -92,21 +100,7 @@ Deletes the pipeline with its runs, versions, binding and secrets.
 
 `GET /api/pipelines/summary`
 
-One card per pipeline for the list page: id, name, description, repo and health.
-
 **Returns:** `200` [PipelineSummary](#pipelinesummary)[]
-
-#### Get a pipeline's health
-
-`GET /api/pipelines/{pipelineId}/health`
-
-Run-based health: the last run, running and held runs, blocked steps and the activation.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Returns:** `200` [PipelineHealth](#pipelinehealth)
 
 ### Bindings
 
@@ -1219,7 +1213,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `type` | string | required |
 
-### PipelineActivationActive
+### PipelineActivationPipelineActivationActive
 
 | Field | Type | |
 |---|---|---|
@@ -1227,7 +1221,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `versionNumber` | integer | required |
 | `since` | string (date-time) | required |
 
-### PipelineActivationDraining
+### PipelineActivationPipelineActivationDraining
 
 | Field | Type | |
 |---|---|---|
@@ -1279,7 +1273,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 
 | Field | Type | |
 |---|---|---|
-| `status` | string | required |
+| `status` | `"Healthy"` \| `"Running (Healthy)"` \| `"Running (Unhealthy)"` \| `"Unhealthy"` \| `"Idle"` | required |
 | `lastRun` | [RunSummary](#runsummary)? | required |
 | `lastSettledRun` | [RunSummary](#runsummary)? | required |
 | `runningRuns` | integer | required |

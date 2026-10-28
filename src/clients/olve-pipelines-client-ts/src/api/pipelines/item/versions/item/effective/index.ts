@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createEffectivePipelineResponse
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/versions/{number}/effective
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/versions/{number}/effective
  */
 export interface EffectiveRequestBuilder extends BaseRequestBuilder<EffectiveRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface EffectiveRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const EffectiveRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/versions/{number}/effective{?snapshot*}";
+export const EffectiveRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/versions/{number}/effective{?snapshot*}";
 /**
  * Metadata for all the requests in the request builder.
  */

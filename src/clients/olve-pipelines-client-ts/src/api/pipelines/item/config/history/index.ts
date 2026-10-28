@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createConfigSnapshotInfoFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/config/history
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/config/history
  */
 export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequest
 /**
  * Uri template for the request builder.
  */
-export const HistoryRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/config/history";
+export const HistoryRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/config/history";
 /**
  * Metadata for all the requests in the request builder.
  */

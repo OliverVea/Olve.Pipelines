@@ -32,8 +32,8 @@ if [ $changed = 1 ]; then
     case "$f" in
       src/sdk/*) want[sdk]=1 ;;
       .pipelines/*) want[pipelines]=1 ;;
-      src/frontend/*) want[frontend]=1 ;;
-      src/spec/*) want[spec]=1; want[dotnet]=1 ;;
+      src/frontend/*) want[frontend]=1; want[spec]=1 ;;
+      src/spec/*) want[spec]=1; want[frontend]=1; want[dotnet]=1 ;;
       src/*|test/*|src/clients/*|tools/*|api.json|docs/setup/api-reference.md|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
     esac
   done <<<"$files"
@@ -110,14 +110,15 @@ if [ -n "${want[pipelines]:-}" ]; then
   run "pipelines: prettier"            "$prettier" --check ".pipelines/**/*.ts"
   run "pipelines: pl dev validate"     pipeline_valid
 fi
+# The contract first: the frontend type-checks against its generated client.
+if [ -n "${want[spec]:-}" ]; then
+  run "spec: contract + client"        bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run build'
+fi
 if [ -n "${want[frontend]:-}" ]; then
   run "frontend: lint"                 bash -c 'cd src/frontend && npm run -s lint'
   run "frontend: prettier"             bash -c 'cd src/frontend && npm run -s format:check'
   run "frontend: typecheck"            bash -c 'cd src/frontend && npm run -s typecheck'
   [ $full = 0 ] || run "frontend: build" bash -c 'cd src/frontend && npm run -s build'
-fi
-if [ -n "${want[spec]:-}" ]; then
-  run "spec: tsp compile"              bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run compile'
 fi
 if [ -n "${want[dotnet]:-}" ]; then
   run "dotnet: build, api.json"        api_json_current

@@ -9,7 +9,7 @@ import { type WithPathItemRequestBuilder, WithPathItemRequestBuilderRequestsMeta
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/files
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files
  */
 export interface FilesRequestBuilder extends BaseRequestBuilder<FilesRequestBuilder> {
     /**
@@ -45,7 +45,7 @@ export interface FilesRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const FilesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/files{?attempt*}";
+export const FilesRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files{?attempt*}";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

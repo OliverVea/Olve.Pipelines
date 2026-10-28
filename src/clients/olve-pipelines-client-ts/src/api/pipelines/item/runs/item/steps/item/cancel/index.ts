@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createAttemptFromDiscriminatorV
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/cancel
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel
  */
 export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBuilder> {
     /**
@@ -31,7 +31,7 @@ export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBu
 /**
  * Uri template for the request builder.
  */
-export const CancelRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/cancel";
+export const CancelRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel";
 /**
  * Metadata for all the requests in the request builder.
  */

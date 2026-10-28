@@ -8,11 +8,20 @@ namespace Olve.Pipelines.Shared.Problems;
 /// <param name="Type">A URI naming the error class, e.g. <c>urn:olve-pipelines:not-found</c>.</param>
 /// <param name="Detail">The primary error's message.</param>
 /// <param name="TraceId">Matches the <c>TraceId</c> of this request's log lines.</param>
-public sealed record ApiProblem(string Type, string Title, int Status, string? Detail, ApiProblemError[] Errors, string? TraceId);
+public sealed record ApiProblem(
+    string Type,
+    string Title,
+    int Status,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail,
+    ApiProblemError[] Errors,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TraceId);
 
 /// <param name="Code"><c>not-found</c>, <c>conflict</c>, <c>invalid</c>, <c>unavailable</c> or <c>internal</c>.</param>
 /// <param name="Field">The request field the error is about (e.g. <c>input.sha</c>), if any.</param>
-public sealed record ApiProblemError(string Code, string Message, string? Field = null);
+public sealed record ApiProblemError(
+    string Code,
+    string Message,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Field = null);
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(ApiProblem))]
@@ -69,6 +78,9 @@ public static class ApiProblems
         var c = ClassOf(status);
         return new ApiProblem(TypeOf(c), c.Title, c.Status, message, [new ApiProblemError(c.Code, message)], traceId);
     }
+
+    /// <summary>A problem answered by a contract handler, which has no <see cref="HttpContext"/>: the trace id comes from the current activity.</summary>
+    public static ApiProblem Of(ResultProblem problem) => From([problem], Activity.Current?.TraceId.ToHexString());
 
     /// <summary>The W3C trace id of the request (what the log scope carries), else ASP.NET's request id.</summary>
     public static string TraceId(HttpContext http) => Activity.Current?.TraceId.ToHexString() ?? http.TraceIdentifier;

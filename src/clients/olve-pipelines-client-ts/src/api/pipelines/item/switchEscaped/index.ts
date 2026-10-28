@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPipelineActivationFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/switch
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/switch
  */
 export interface SwitchRequestBuilder extends BaseRequestBuilder<SwitchRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface SwitchRequestBuilder extends BaseRequestBuilder<SwitchRequestBu
 /**
  * Uri template for the request builder.
  */
-export const SwitchRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/switch";
+export const SwitchRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/switch";
 /**
  * Metadata for all the requests in the request builder.
  */

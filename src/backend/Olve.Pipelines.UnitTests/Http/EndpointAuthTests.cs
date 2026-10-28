@@ -36,9 +36,9 @@ public class EndpointAuthTests
     [
         "GET /api/attempts",
         "GET /api/events",
-        "GET /api/pipelines/",
+        "GET /api/pipelines",
         "GET /api/pipelines/summary",
-        "GET /api/pipelines/{id}",
+        "GET /api/pipelines/{pipelineId}",
         "GET /api/pipelines/{pipelineId}/binding",
         "GET /api/pipelines/{pipelineId}/binding/status",
         "GET /api/pipelines/{pipelineId}/blocked-steps",

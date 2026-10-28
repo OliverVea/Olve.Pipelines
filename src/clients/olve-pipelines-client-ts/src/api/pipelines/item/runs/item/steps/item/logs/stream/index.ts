@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, type ApiProblem } from '../../.
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/{number}/steps/{step}/logs/stream
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream
  */
 export interface StreamRequestBuilder extends BaseRequestBuilder<StreamRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface StreamRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const StreamRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/{number}/steps/{step}/logs/stream{?attempt*}";
+export const StreamRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream{?attempt*}";
 /**
  * Metadata for all the requests in the request builder.
  */

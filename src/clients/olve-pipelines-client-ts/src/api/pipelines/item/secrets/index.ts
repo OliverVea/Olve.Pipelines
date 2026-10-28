@@ -11,7 +11,7 @@ import { type WithNameItemRequestBuilder, WithNameItemRequestBuilderRequestsMeta
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/secrets
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/secrets
  */
 export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequestBuilder> {
     /**
@@ -45,7 +45,7 @@ export interface SecretsRequestBuilder extends BaseRequestBuilder<SecretsRequest
 /**
  * Uri template for the request builder.
  */
-export const SecretsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/secrets";
+export const SecretsRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/secrets";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

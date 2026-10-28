@@ -116,7 +116,7 @@ export class PipelineBindingView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byId(this.pipelineId);
+    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
       const [binding, status, secrets] = await Promise.all([
         apiFetch<Binding>(`/api/pipelines/${this.pipelineId}/binding`).catch(() => null),

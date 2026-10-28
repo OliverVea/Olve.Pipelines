@@ -159,7 +159,7 @@ export class StepRunsView extends LitElement {
   async reload() {
     try {
       const rows = await client.api.pipelines
-        .byId(this.pipelineId)
+        .byPipelineId(this.pipelineId)
         .steps.byStep(this.step)
         .history.get({ queryParameters: { limit: 200 } });
       this._rows = rows ?? [];

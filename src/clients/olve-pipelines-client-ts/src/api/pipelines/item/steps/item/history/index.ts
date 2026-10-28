@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createStepHistoryItemFromDiscri
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/steps/{step}/history
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/steps/{step}/history
  */
 export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequestBuilder> {
     /**
@@ -37,7 +37,7 @@ export interface HistoryRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const HistoryRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/steps/{step}/history{?limit*}";
+export const HistoryRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/steps/{step}/history{?limit*}";
 /**
  * Metadata for all the requests in the request builder.
  */

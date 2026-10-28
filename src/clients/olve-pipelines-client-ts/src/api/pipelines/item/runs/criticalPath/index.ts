@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createCriticalPathReportFromDis
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/runs/critical-path
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/runs/critical-path
  */
 export interface CriticalPathRequestBuilder extends BaseRequestBuilder<CriticalPathRequestBuilder> {
     /**
@@ -40,7 +40,7 @@ export interface CriticalPathRequestBuilderGetQueryParameters {
 /**
  * Uri template for the request builder.
  */
-export const CriticalPathRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/runs/critical-path{?from*,includeUnsuccessful*,sinceVersion*,to*}";
+export const CriticalPathRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/runs/critical-path{?from*,includeUnsuccessful*,sinceVersion*,to*}";
 /**
  * Metadata for all the requests in the request builder.
  */

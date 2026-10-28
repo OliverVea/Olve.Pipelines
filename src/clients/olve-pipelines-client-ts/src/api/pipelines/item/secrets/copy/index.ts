@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createCopySecretsResponseFromDi
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/secrets/copy
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/secrets/copy
  */
 export interface CopyRequestBuilder extends BaseRequestBuilder<CopyRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface CopyRequestBuilder extends BaseRequestBuilder<CopyRequestBuilde
 /**
  * Uri template for the request builder.
  */
-export const CopyRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/secrets/copy";
+export const CopyRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/secrets/copy";
 /**
  * Metadata for all the requests in the request builder.
  */

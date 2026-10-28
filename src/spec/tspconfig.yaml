@@ -14,3 +14,8 @@ options:
     namespace: "Olve.Pipelines.Api"
     external-types:
       ApiProblem: "Olve.Pipelines.Shared.Problems.ApiProblem"
+      ApiProblemError: "Olve.Pipelines.Shared.Problems.ApiProblemError"
+      # The Runs area's types stay the server's own until that area moves to the contract.
+      RunSummary: "Olve.Pipelines.Pipelines.Runs.RunSummary"
+      RunStatus: "Olve.Pipelines.Pipelines.Runs.RunStatus"
+      RunTriggerKind: "Olve.Pipelines.Pipelines.Runs.RunTriggerKind"

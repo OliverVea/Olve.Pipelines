@@ -1,10 +1,10 @@
-# The contract: src/spec/main.tsp → artifacts/ (the OpenAPI document and the server's generated C#).
+# The contract: src/spec/main.tsp → artifacts/ (the OpenAPI document, the server's generated C# and the TypeScript client).
 FROM oven/bun:1.4.3-slim AS spec
 WORKDIR /src
 COPY src/spec/package.json src/spec/bun.lock src/spec/
 RUN cd src/spec && bun install --frozen-lockfile
 COPY src/spec/ src/spec/
-RUN cd src/spec && bun run compile
+RUN cd src/spec && bun run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 RUN apt-get update && apt-get install -y clang zlib1g-dev
@@ -35,6 +35,8 @@ COPY docs/setup/ ./docs/setup/
 # Manifests first so the npm install layer is cached until dependencies change.
 COPY src/frontend/package.json src/frontend/package-lock.json ./src/frontend/
 RUN cd src/frontend && npm install
+# The contract's TypeScript client (`@olve/api`), resolved from src/frontend as ../../artifacts/clients/ts.
+COPY --from=spec /src/artifacts/clients/ts artifacts/clients/ts
 COPY src/frontend/ ./src/frontend/
 RUN cd src/frontend && npm run build
 

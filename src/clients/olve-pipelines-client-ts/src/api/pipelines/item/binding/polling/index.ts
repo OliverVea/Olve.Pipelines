@@ -7,7 +7,7 @@ import { createApiProblemFromDiscriminatorValue, createPipelineConfigBindingFrom
 import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /api/pipelines/{-id}/binding/polling
+ * Builds and executes requests for operations under /api/pipelines/{pipelineId}/binding/polling
  */
 export interface PollingRequestBuilder extends BaseRequestBuilder<PollingRequestBuilder> {
     /**
@@ -33,7 +33,7 @@ export interface PollingRequestBuilder extends BaseRequestBuilder<PollingRequest
 /**
  * Uri template for the request builder.
  */
-export const PollingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{%2Did}/binding/polling";
+export const PollingRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipelineId}/binding/polling";
 /**
  * Metadata for all the requests in the request builder.
  */

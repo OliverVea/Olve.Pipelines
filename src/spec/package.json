@@ -4,9 +4,12 @@
   "type": "module",
   "description": "The API contract (TypeSpec): tsp compile writes artifacts/spec/openapi.json and the server's generated C# surface.",
   "scripts": {
-    "compile": "tsp compile main.tsp"
+    "compile": "tsp compile main.tsp",
+    "client": "openapi-ts -f openapi-ts.config.mjs",
+    "build": "bun run compile && bun run client"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
     "@olivervea/typespec-csharp": "0.59.0",
     "@typespec/compiler": "1.16.0",
     "@typespec/events": "0.86.0",
@@ -14,6 +17,7 @@
     "@typespec/openapi": "1.16.0",
     "@typespec/openapi3": "1.16.0",
     "@typespec/sse": "0.86.0",
-    "@typespec/streams": "0.86.0"
+    "@typespec/streams": "0.86.0",
+    "typescript": "5.9.3"
   }
 }

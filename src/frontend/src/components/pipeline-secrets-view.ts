@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { PipelineSummary } from '@olve/olve-pipelines-client/src/models/index.js';
-import { client, apiFetch, apiPost, errorMessages } from '../api.js';
+import { pipelinesSummaries, type PipelineSummary } from '@olve/api';
+import { api, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
 import './pipeline-header.js';
 import { LiveController, forPipeline } from '../v2/events.js';
@@ -146,7 +146,9 @@ export class PipelineSecretsView extends LitElement {
     try {
       const [secrets, pipelines] = await Promise.all([
         apiFetch<SecretInfo[]>(`/api/pipelines/${this.pipelineId}/secrets`),
-        client.api.pipelines.summary.get().catch(() => null),
+        pipelinesSummaries({ client: api })
+          .then((r) => r.data)
+          .catch(() => null),
       ]);
       this._secrets = secrets ?? [];
       this._pipelines = (pipelines ?? []).filter((p) => p.id !== this.pipelineId);

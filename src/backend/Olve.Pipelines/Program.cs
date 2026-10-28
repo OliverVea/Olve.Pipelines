@@ -54,7 +54,7 @@ app.UseDefaultFiles();
 // at /docs/<page>.md and parse the raw text.
 var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
 contentTypeProvider.Mappings[".md"] = "text/markdown; charset=utf-8";
-app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypeProvider });
+app.UseStaticFiles(StaticCaching.Options(contentTypeProvider));
 app.MapAuthentication();
 app.MapEndpoints();
 

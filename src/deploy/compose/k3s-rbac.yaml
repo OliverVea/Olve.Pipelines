@@ -1,5 +1,5 @@
 # Controller identity inside the local k3s cluster (docker-compose.yml). Same rules as
-# helm/templates/serviceaccount.yaml, plus a long-lived token Secret because the compose app
+# src/deploy/helm/templates/serviceaccount.yaml, plus a long-lived token Secret because the compose app
 # can't get a projected (rotating) token the way a real pod does.
 apiVersion: v1
 kind: Namespace

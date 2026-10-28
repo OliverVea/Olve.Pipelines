@@ -49,7 +49,7 @@ roleRef:
   kind: ClusterRole
   name: admin
 ---
-# The chart's Garage credentials (helm/values-minimal.yaml), one per deployed copy. Local-only values.
+# The chart's Garage credentials (src/deploy/helm/values-minimal.yaml), one per deployed copy. Local-only values.
 apiVersion: v1
 kind: Secret
 metadata:

@@ -58,7 +58,7 @@
       "Bash(find:*)",
       "Bash(xargs ls:*)",
       "Bash(docker save:*)",
-      "Bash(scp -r helm/ oliver@bulwark-m2:/tmp/olve-pipelines-helm/)",
+      "Bash(scp -r src/deploy/helm/ oliver@bulwark-m2:/tmp/olve-pipelines-helm/)",
       "Bash(gzip)",
       "Bash(nslookup pipelines-private.ovea.pro)",
       "Bash(ping -n 1 100.100.117.17)",

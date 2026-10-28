@@ -1,4 +1,4 @@
-# Local Garage config for docker-compose.yml. Same settings as helm/templates/garage-configmap.yaml.
+# Local Garage config for docker-compose.yml. Same settings as src/deploy/helm/templates/garage-configmap.yaml.
 metadata_dir = "/var/lib/garage/meta"
 data_dir = "/var/lib/garage/data"
 db_engine = "sqlite"

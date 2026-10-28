@@ -399,7 +399,7 @@ What step 5 built, and where it differs from §9 and §11.
 - **`url` on a target.** The health check and beta-test used the release's in-cluster Service URL,
   which only works when the steps run in the target's cluster. A target may name the URL step pods
   reach it at (`url`); `HelmRelease.url` carries it to later steps.
-- **The rollout from a local instance** ([compose/prod-from-local.config.yaml](../../compose/prod-from-local.config.yaml)).
+- **The rollout from a local instance** ([src/deploy/compose/prod-from-local.config.yaml](../../src/deploy/compose/prod-from-local.config.yaml)).
   The deployed v2 prod (c0398a7) can't reconcile a pipeline that declares config, so the local
   compose instance (new code) deploys beta and prod once over SSH, and prod deploys itself after
   that. The document is the prod example with three local differences: the host by Tailscale IP

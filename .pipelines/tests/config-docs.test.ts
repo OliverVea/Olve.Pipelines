@@ -79,7 +79,7 @@ describe('config documents', () => {
   });
 
   test('local self-deploy: one instance redeployed by the compose deployer, no beta, nothing published to npm', () => {
-    const c = load('compose/selfdeploy.config.yaml');
+    const c = load('src/deploy/compose/selfdeploy.config.yaml');
     expect(c.target.beta).toEqual({ kind: 'none' });
     expect(c.target.prod).toMatchObject({
       kind: 'compose',
@@ -94,7 +94,7 @@ describe('config documents', () => {
   });
 
   test('local in-cluster variant: two k3s namespaces, the compose registry, nothing published to npm', () => {
-    const c = load('compose/selfdeploy-incluster.config.yaml');
+    const c = load('src/deploy/compose/selfdeploy-incluster.config.yaml');
     expect(c.target.beta).toMatchObject({
       kind: 'inCluster',
       namespace: 'selfdeploy-beta',
@@ -132,7 +132,7 @@ describe('config documents', () => {
   });
 
   test("prod from local: ssh to bulwark-m2 by IP, today's namespaces and values, pinned harness, no npm", () => {
-    const c = load('compose/prod-from-local.config.yaml');
+    const c = load('src/deploy/compose/prod-from-local.config.yaml');
     const pin = {
       'config.Harness__HarnessBaseImage':
         'registry.ovea.pro/olve-pipelines-v2/harness-base:0c4808c152bf',

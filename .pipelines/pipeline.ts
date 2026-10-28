@@ -176,7 +176,7 @@ export const publishCli = step({
 /** What both deploy steps take; the target and how it is reached come from the select case. */
 const deployOptions = (target: { auth: ConfigRef; telemetry: ConfigRef }) =>
   ({
-    chart: 'helm',
+    chart: 'src/deploy/helm',
     inlineValues: [
       { auth: AUTH, telemetry: TELEMETRY },
       { auth: target.auth, telemetry: target.telemetry },

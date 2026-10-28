@@ -22,7 +22,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 CLAUDE.md is the detailed map (service-layer architecture: EntityStore / AttachmentStore / event
 hubs / domain services, plus conventions). Top level: `src/backend/Olve.Pipelines` (controller),
 `src/backend/Olve.Pipelines.Cli` (`pl`), `src/sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
-`helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
+`src/deploy/helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
 fixture), `src/frontend/` (Lit SPA), `docs/`.
 
 ## How it's deployed (self-deploy)
@@ -57,7 +57,7 @@ bundled Dex (GitHub), served under `/dex` on the instance's host.
 shell-out (the operator's kubeconfig): preflight + prod guard, namespace,
 generate-if-absent MinIO creds Secret (the cluster Secret is the source of truth, never rotated on
 re-run), chart from a GitHub tarball (`--ref`) or `--chart`, `helm upgrade` of the **minimal
-profile** (`helm/values-minimal.yaml`: Ingress off, `Auth__Disable=true`, no OIDC/OTel secrets,
+profile** (`src/deploy/helm/values-minimal.yaml`: Ingress off, `Auth__Disable=true`, no OIDC/OTel secrets,
 ServiceAccount/RBAC on), in-cluster `mc` bucket create, readiness waits.
 
 `pl teardown` reverses it (helm uninstall + delete the creds Secret; the MinIO data PVC is retained

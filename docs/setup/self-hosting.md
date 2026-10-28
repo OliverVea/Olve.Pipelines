@@ -3,8 +3,8 @@
 [← Index](index.md)
 
 An instance is the server (one container), its own Garage (S3-compatible storage) and a Kubernetes
-namespace where it runs build and step Jobs. The Helm chart in `helm/` installs all of it
-(`helm/values-minimal.yaml` is the smallest profile). An instance can also deploy itself: the
+namespace where it runs build and step Jobs. The Helm chart in `src/deploy/helm/` installs all of it
+(`src/deploy/helm/values-minimal.yaml` is the smallest profile). An instance can also deploy itself: the
 repo's own pipeline (`.pipelines/`) does, configured per instance ([Pipeline Config](configuration.md)).
 
 ## Installing on a cluster
@@ -112,7 +112,7 @@ Logging is **backend-agnostic**: the app only writes to **stdout**. Shipping is 
 job (for example an OTel Collector DaemonSet scraping container stdout). The app names no log
 endpoint, token, or stream.
 
-- **Format.** Deployed environments set `Logging__Console__FormatterName=json` (in `helm/values.yaml`,
+- **Format.** Deployed environments set `Logging__Console__FormatterName=json` (in `src/deploy/helm/values.yaml`,
   inherited by beta) so every line is structured JSON and message args (`{RunNumber}`, `{StepName}`, …)
   become individually queryable fields. Local `dotnet run` gets the pretty `simple` formatter. No
   application code selects the formatter — it is pure configuration.
@@ -141,7 +141,7 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
   with "pl is still being built".
 - **Dex** for login, at <http://localhost:5556/dex>. The test user is `dev@example.com` with
   password `password`.
-- **The compose deployer** (`compose/deployer`), the only service with the Docker socket. The
+- **The compose deployer** (`src/deploy/compose/deployer`), the only service with the Docker socket. The
   self-deploy pipeline asks it to recreate the `pipelines` service with a new image
   ([Deploying to Docker Compose](compose-deploy.md)).
 
@@ -193,12 +193,12 @@ docker compose down -v           # stop and wipe all state (the reset between ev
   git rm -r --cached -q . && git reset --hard   # discards uncommitted changes
   ```
 
-- **Proving there is no homelab dependency.** `compose/isolation.yml` maps `registry.ovea.pro`,
+- **Proving there is no homelab dependency.** `src/deploy/compose/isolation.yml` maps `registry.ovea.pro`,
   `auth.ovea.pro`, `otel.ovea.pro`, `hub-cache.ovea.pro` and `mcr-cache.ovea.pro` to 127.0.0.1 for
   the server, Dex and the k3s node:
 
   ```bash
-  docker compose -f docker-compose.yml -f compose/isolation.yml up -d --build
+  docker compose -f docker-compose.yml -f src/deploy/compose/isolation.yml up -d --build
   ```
 
 - **Inspecting the cluster:** `docker compose exec k3s kubectl -n olve-runners get jobs,pods`.
@@ -207,7 +207,7 @@ docker compose down -v           # stop and wipe all state (the reset between ev
 
 The stack can run Olve.Pipelines' own deploy pipeline (`.pipelines/`), the one that deploys prod,
 against itself: one instance that redeploys itself, with no beta. Only the config differs from prod
-([compose/selfdeploy.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/compose/selfdeploy.config.yaml)):
+([src/deploy/compose/selfdeploy.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/deploy/compose/selfdeploy.config.yaml)):
 
 - `target.beta` is `kind: none`, so the beta deploy and `beta-test` are left out.
 - `target.prod` is `kind: compose`, so the pipeline's `select` picks `composeDeploy`: `deploy-prod`
@@ -225,7 +225,7 @@ pl binding create OliverVea/Olve.Pipelines --branch <a branch you pushed> --path
 pl binding status "Olve.Pipelines v2"        # reconciled; pending until it has config
 printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
 printf local-deployer | pl secret set "Olve.Pipelines v2" DEPLOYER_TOKEN
-pl config set "Olve.Pipelines v2" -f compose/selfdeploy.config.yaml   # activates the version
+pl config set "Olve.Pipelines v2" -f src/deploy/compose/selfdeploy.config.yaml   # activates the version
 pl trigger "Olve.Pipelines v2" --field sha=<the branch head>           # or push a commit
 pl wait run "Olve.Pipelines v2#1" --until finished
 curl -s http://localhost:5080/api/health      # image: the digest the run deployed
@@ -242,13 +242,13 @@ same container config and the same Garage, only the image changes.
 - `docker compose up` names `olve-pipelines-v2:local` again, so it can put the locally built image
   back over a deployed one.
 
-**The in-cluster variant** ([compose/selfdeploy-incluster.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/compose/selfdeploy-incluster.config.yaml))
+**The in-cluster variant** ([src/deploy/compose/selfdeploy-incluster.config.yaml](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/deploy/compose/selfdeploy-incluster.config.yaml))
 tests the helm chart instead: beta and prod are the namespaces `selfdeploy-beta` and
 `selfdeploy-prod` of the compose k3s, both `kind: inCluster`, so the pipeline's `select` picks
 `helmDeployInCluster`. It runs helm in its own pod as the step ServiceAccount `olve-deployer`
 (`Kubernetes__StepServiceAccount`), which the bootstrap makes admin of the two `selfdeploy-*`
-namespaces and nothing else (`compose/k3s-selfdeploy.yaml`). Set it with
-`pl config set "Olve.Pipelines v2" -f compose/selfdeploy-incluster.config.yaml` (only
+namespaces and nothing else (`src/deploy/compose/k3s-selfdeploy.yaml`). Set it with
+`pl config set "Olve.Pipelines v2" -f src/deploy/compose/selfdeploy-incluster.config.yaml` (only
 `REGISTRY_PASSWORD` is needed). The run also deploys beta and smoke-tests it.
 
 - Each deployed copy has its own Garage and runs its own step Jobs in its namespace, with the

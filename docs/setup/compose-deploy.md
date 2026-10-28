@@ -16,7 +16,7 @@ behind a versioned API, so they are fixed there without editing pipelines.
 
 ## Running the deployer
 
-The deployer is `compose/deployer` in the Olve.Pipelines repo (`deployer.ts`, a Bun server, and its
+The deployer is `src/deploy/compose/deployer` in the Olve.Pipelines repo (`deployer.ts`, a Bun server, and its
 `Dockerfile`). Add it to your compose project:
 
 ```yaml
@@ -26,7 +26,7 @@ services:
     # …
 
   deployer:
-    build: ./deployer                # or an image you built from compose/deployer
+    build: ./deployer                # or an image you built from src/deploy/compose/deployer
     restart: unless-stopped
     environment:
       DEPLOYER_TOKEN: "${DEPLOYER_TOKEN}"
@@ -137,6 +137,6 @@ Set the token with `printf '%s' "$TOKEN" | pl secret set <pipeline> DEPLOYER_TOK
 
 ## A full example
 
-Olve.Pipelines deploys itself this way in its local compose stack: `compose/selfdeploy.config.yaml`
+Olve.Pipelines deploys itself this way in its local compose stack: `src/deploy/compose/selfdeploy.config.yaml`
 (no beta, prod `kind: compose`) with the `deployer` service in `docker-compose.yml`. See [Running an
 Instance, "Watch it deploy itself"](self-hosting.md#watch-it-deploy-itself).

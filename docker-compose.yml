@@ -1,11 +1,11 @@
 # Throwaway local Olve.Pipelines v2 instance, built entirely from this checkout (e.g. for agent evals).
-# NOT a deployment shape — helm/ is the source of truth for that. See docs/setup/self-hosting.md, "A local
+# NOT a deployment shape — src/deploy/helm/ is the source of truth for that. See docs/setup/self-hosting.md, "A local
 # instance with Docker Compose".
 #
 #   docker compose up -d --build     # dashboard/API http://localhost:5080, Dex http://localhost:5556/dex
 #   docker compose down -v           # stop and wipe all state
 #
-# Mirrors the chart's minimal profile (helm/values-minimal.yaml): the server, its own Garage and a
+# Mirrors the chart's minimal profile (src/deploy/helm/values-minimal.yaml): the server, its own Garage and a
 # single-node k3s that runs the build and step Jobs (Kubernetes:AuthMode=InCluster via the
 # ServiceAccount files k3s-bootstrap writes). Nothing here talks to the homelab: the step pods' init
 # image is built from src/harness/base into a local registry, pl is built from source and served at
@@ -66,13 +66,13 @@ services:
       # Built from src/harness/base by harness-build, pulled by k3s from the local registry.
       Harness__HarnessBaseImage: "registry:5000/olve-pipelines-harness-base:local"
       # Steps that declare clusterAccess (helmDeploy) run as olve-deployer: admin of the selfdeploy-*
-      # namespaces only (compose/k3s-selfdeploy.yaml).
+      # namespaces only (src/deploy/compose/k3s-selfdeploy.yaml).
       Kubernetes__StepServiceAccount: "olve-deployer"
       # pl built from source by pl-build.
       Distribution__LocalDirectory: "/pl-dist"
     volumes:
       # Replaces the image's appsettings.json, whose defaults point at the homelab.
-      - ./compose/appsettings.json:/app/appsettings.json:ro
+      - ./src/deploy/compose/appsettings.json:/app/appsettings.json:ro
       - k3s-sa:/var/run/secrets/kubernetes.io/serviceaccount:ro
       - pl-dist:/pl-dist:ro
     depends_on:
@@ -90,10 +90,10 @@ services:
     network_mode: service:edge
     command: ["dex", "serve", "/etc/dex/dex.yaml"]
     volumes:
-      - ./compose/dex.yaml:/etc/dex/dex.yaml:ro
+      - ./src/deploy/compose/dex.yaml:/etc/dex/dex.yaml:ro
 
   garage:
-    # Same image and flags as helm/templates/garage-deployment.yaml.
+    # Same image and flags as src/deploy/helm/templates/garage-deployment.yaml.
     image: dxflrs/garage:v2.4.1
     command: ["/garage", "server", "--single-node", "--default-bucket"]
     environment:
@@ -103,7 +103,7 @@ services:
       GARAGE_DEFAULT_SECRET_KEY: *secret
       GARAGE_RPC_SECRET: "${GARAGE_RPC_SECRET:-0000000000000000000000000000000000000000000000000000000000000001}"
     volumes:
-      - ./compose/garage.toml:/etc/garage/garage.toml:ro
+      - ./src/deploy/compose/garage.toml:/etc/garage/garage.toml:ro
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
     healthcheck:
@@ -116,7 +116,7 @@ services:
       default:
         ipv4_address: 172.29.80.200
 
-  # Password-protected (compose/registry.htpasswd: local / local-registry), plain HTTP.
+  # Password-protected (src/deploy/compose/registry.htpasswd: local / local-registry), plain HTTP.
   registry:
     image: registry:2.8.3
     environment:
@@ -124,12 +124,12 @@ services:
       REGISTRY_AUTH_HTPASSWD_REALM: olve-pipelines-local
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
     volumes:
-      - ./compose/registry.htpasswd:/auth/htpasswd:ro
+      - ./src/deploy/compose/registry.htpasswd:/auth/htpasswd:ro
       - registry-data:/var/lib/registry
     # The Docker daemon pulls self-deployed images from here: localhost registries need no TLS.
     ports:
       - "127.0.0.1:5001:5000"
-    # Fixed, like Garage: step pods resolve `registry` to it (coredns-custom in compose/k3s-selfdeploy.yaml).
+    # Fixed, like Garage: step pods resolve `registry` to it (coredns-custom in src/deploy/compose/k3s-selfdeploy.yaml).
     networks:
       default:
         ipv4_address: 172.29.80.201
@@ -137,7 +137,7 @@ services:
   # The only service with the Docker socket: recreates a compose service with a new image when the
   # self-deploy pipeline asks (POST /v1/deploy), and rolls back if it doesn't come up healthy.
   deployer:
-    build: ./compose/deployer
+    build: ./src/deploy/compose/deployer
     restart: unless-stopped
     environment:
       DEPLOYER_TOKEN: "${DEPLOYER_TOKEN:-local-deployer}"
@@ -163,7 +163,7 @@ services:
       - --insecure-registry=registry:5000
     volumes:
       - ./src/harness/base:/workspace:ro
-      - ./compose/registry-docker-config.json:/kaniko/.docker/config.json:ro
+      - ./src/deploy/compose/registry-docker-config.json:/kaniko/.docker/config.json:ro
     depends_on:
       - registry
 
@@ -200,16 +200,16 @@ services:
         soft: 65535
         hard: 65535
     volumes:
-      - ./compose/k3s-registries.yaml:/etc/rancher/k3s/registries.yaml:ro
+      - ./src/deploy/compose/k3s-registries.yaml:/etc/rancher/k3s/registries.yaml:ro
       - k3s-output:/output
       - k3s-data:/var/lib/rancher/k3s
 
-  # One-shot: namespace + ServiceAccount + RBAC (mirrors helm/templates/serviceaccount.yaml).
+  # One-shot: namespace + ServiceAccount + RBAC (mirrors src/deploy/helm/templates/serviceaccount.yaml).
   k3s-bootstrap:
     image: rancher/k3s:v1.31.4-k3s1
     entrypoint: ["/bin/sh", "/bootstrap/k3s-bootstrap.sh"]
     volumes:
-      - ./compose:/bootstrap:ro
+      - ./src/deploy/compose:/bootstrap:ro
       - k3s-output:/k3s-output:ro
       - k3s-sa:/sa
     depends_on:

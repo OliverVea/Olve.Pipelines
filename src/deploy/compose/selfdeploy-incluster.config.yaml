@@ -1,9 +1,9 @@
-# Opt-in variant of compose/selfdeploy.config.yaml, for testing the helm chart: Olve.Pipelines deploys
+# Opt-in variant of src/deploy/compose/selfdeploy.config.yaml, for testing the helm chart: Olve.Pipelines deploys
 # copies of itself into two namespaces of the compose k3s (selfdeploy-beta, selfdeploy-prod), in-cluster,
-# as the step ServiceAccount olve-deployer (compose/k3s-selfdeploy.yaml). Images go to the compose
+# as the step ServiceAccount olve-deployer (src/deploy/compose/k3s-selfdeploy.yaml). Images go to the compose
 # registry; nothing is published to npm or ghcr.
 #
-#   pl config set "Olve.Pipelines v2" -f compose/selfdeploy-incluster.config.yaml
+#   pl config set "Olve.Pipelines v2" -f src/deploy/compose/selfdeploy-incluster.config.yaml
 #   printf local-registry | pl secret set "Olve.Pipelines v2" REGISTRY_PASSWORD
 
 target:

@@ -57,15 +57,16 @@ public sealed class ChartFetcher
             return new ResultProblem("Failed to fetch chart from {0}: {1}", url, ex.Message);
         }
 
-        // The archive unpacks to a single top-level dir (e.g. Olve.Pipelines-<sha>/); the chart is its helm/.
+        // The archive unpacks to a single top-level dir (e.g. Olve.Pipelines-<sha>/); the chart is its
+        // src/deploy/helm/ (helm/ in checkouts before 2026-10-28, still fetched for a pinned older commit).
         var chartDir = Directory.EnumerateDirectories(tempRoot)
-            .Select(d => Path.Combine(d, "helm"))
+            .SelectMany(d => new[] { Path.Combine(d, "src", "deploy", "helm"), Path.Combine(d, "helm") })
             .FirstOrDefault(Directory.Exists);
 
         if (chartDir is null)
         {
             TryDelete(tempRoot);
-            return new ResultProblem("Downloaded archive from {0} did not contain a helm/ chart directory.", url);
+            return new ResultProblem("Downloaded archive from {0} did not contain the chart directory (src/deploy/helm).", url);
         }
 
         return new ChartLocation(chartDir, tempRoot);

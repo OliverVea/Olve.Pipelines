@@ -6,7 +6,7 @@
 #   - the harness image pinned to the one the instances use today, and not built (no ghcr); npm off;
 #   - prod's /download keeps serving its latest publish-cli until prod's own runs promote.
 #
-#   pl config set "Olve.Pipelines v2" -f compose/prod-from-local.config.yaml
+#   pl config set "Olve.Pipelines v2" -f src/deploy/compose/prod-from-local.config.yaml
 
 target:
   beta:

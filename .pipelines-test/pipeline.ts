@@ -40,7 +40,7 @@ export const echo = step({
   timeoutSeconds: 300,
 });
 
-// beta's signal-test companion (helm/values-v2-beta.yaml): answers the two external inputs below.
+// beta's signal-test companion (src/deploy/helm/values-v2-beta.yaml): answers the two external inputs below.
 export const SIGNAL_TEST = "http://olve-signal-test.apps-beta.svc.cluster.local:8080";
 
 export const sendSignals = step({

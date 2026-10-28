@@ -1,4 +1,4 @@
-// bun test compose/deployer — the pure parts of the deployer.
+// bun test src/deploy/compose/deployer — the pure parts of the deployer.
 import { expect, test } from "bun:test";
 
 process.env.DEPLOYER_TOKEN = "t";

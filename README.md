@@ -102,7 +102,7 @@ Every instance serves the docs at `/docs` (raw Markdown; agents start at `/docs/
 | `src/backend/Olve.Pipelines.Cli/` | `pl` |
 | `src/sdk/` | `@olivervea/pipelines`: the authoring API, the harness, the build and dev tools (Bun) |
 | `src/frontend/` | The web UI (Lit + Vite) |
-| `helm/`, `docker-compose.yml`, `compose/` | The Helm chart; a local instance |
+| `src/deploy/helm/`, `docker-compose.yml`, `src/deploy/compose/` | The Helm chart; a local instance |
 | `harness/` | The step pods' init image |
 | `docs/setup/` | User docs (served at `/docs`); `docs/design/`: specs and plans |
 

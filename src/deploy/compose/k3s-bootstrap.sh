@@ -1,7 +1,7 @@
 #!/bin/sh
 # One-shot bootstrap for the local k3s cluster (docker-compose.yml). Waits for k3s, applies the
-# controller's namespace + ServiceAccount + RBAC (compose/k3s-rbac.yaml, mirroring
-# helm/templates/serviceaccount.yaml), then writes the ServiceAccount token/CA/namespace into the
+# controller's namespace + ServiceAccount + RBAC (src/deploy/compose/k3s-rbac.yaml, mirroring
+# src/deploy/helm/templates/serviceaccount.yaml), then writes the ServiceAccount token/CA/namespace into the
 # shared volume that the pipelines container mounts at the standard in-cluster path, so the app's
 # Kubernetes:AuthMode=InCluster works unchanged.
 set -eu

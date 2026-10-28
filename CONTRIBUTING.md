@@ -34,9 +34,10 @@ src/
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
 ├── frontend/                       Dashboard UI (Lit + Vite + TypeScript)
-└── clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
-helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
-compose/, docker-compose.yml        A throwaway local instance built from the checkout
+├── clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
+└── deploy/
+    ├── helm/                       Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
+    └── compose/                    The throwaway local instance's config and deployer (docker-compose.yml at the root)
 .pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs

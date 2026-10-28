@@ -345,6 +345,24 @@ public class JobLogNoteTests
     }
 
     [Test]
+    public async Task StepLog_NamesTheLatestAttempt_AndIsIncompleteWhileItRuns()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        var attempt = s.MarkInProgress(run, "checkout");
+        var handler = new GetStepLogsHandler(s.D.RunService, s.D.AttemptService,
+            new JobLogService(null!, null!, s.D.AttemptService, new FakeLive("cloning\n")));
+
+        var response = await handler.HandleAsync(new Olve.Pipelines.Api.RunStepsLogsRequest(s.Pipeline.Id.Value.Value, run.Number, "checkout", null), default);
+
+        var log = ((Olve.Pipelines.Api.RunStepsLogsResponse.Ok)response).Body;
+        await Assert.That(log.Attempt).IsEqualTo(attempt.Number);
+        await Assert.That(log.Status).IsEqualTo("in-progress");
+        await Assert.That(log.Complete).IsFalse();
+        await Assert.That(log.Text).IsEqualTo("cloning\n");
+    }
+
+    [Test]
     public async Task StepsOutsideTheRunsWhen_AreExcluded_EvenWithALegacySkipRecord()
     {
         var s = new SchedulerScenario();

@@ -122,10 +122,20 @@ public sealed class GetStepLogsHandler(RunService runs, AttemptService attempts,
             : attempts.ListForStep(run.Id, request.Step).LastOrDefault();
         if (target is null)
             return new Contract.RunStepsLogsResponse.NotFound(ApiProblems.Of(new NotFoundProblem("Run #{0} has no such attempt of step '{1}'.", request.Number, request.Step)));
+        // The status is read before the log: a finished attempt's log can't grow after it.
+        var complete = target.Status.IsTerminal();
         var text = await logs.GetLogsAsync(target.Id, cancellationToken);
         return text.TryPickProblems(out var problems, out var value)
             ? new Contract.RunStepsLogsResponse.NotFound(ApiProblems.Of([.. problems]))
-            : new Contract.RunStepsLogsResponse.Ok(value);
+            : new Contract.StepLog
+            {
+                Run = request.Number,
+                Step = request.Step,
+                Attempt = target.Number,
+                Status = target.Status.Discriminator(),
+                Complete = complete,
+                Text = value,
+            };
     }
 }
 

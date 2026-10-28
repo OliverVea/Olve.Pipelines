@@ -22,23 +22,51 @@ const attempt = (number: number, type: string, extra: Record<string, unknown> = 
 });
 
 describe('step', () => {
-  test('logs --follow prints the log as it grows and stops when the attempt finishes', async () => {
+  test('logs --follow prints the log as it grows and stops when the log is complete', async () => {
     let polls = 0;
-    const { fetch } = fakeFetch((req) => {
+    const { fetch, requests } = fakeFetch((req) => {
       if (req.path === '/api/pipelines') return { body: [alpha] };
-      if (req.path.endsWith('/attempts')) {
+      if (req.path.endsWith('/attempts'))
+        return { body: [attempt(1, 'in-progress', { startedAt: '' })] };
+      if (req.path.includes('/logs')) {
         polls++;
         return {
-          body: [attempt(1, polls < 3 ? 'in-progress' : 'succeeded', { startedAt: '' })],
+          body: {
+            run: 15,
+            step: 'build',
+            attempt: 1,
+            status: polls < 3 ? 'in-progress' : 'succeeded',
+            complete: polls >= 3,
+            text: polls < 2 ? 'a\n' : 'a\nb\n',
+          },
         };
       }
-      if (req.path.includes('/logs'))
-        return { body: JSON.stringify(polls < 2 ? 'a\n' : 'a\nb\n') };
       return { status: 404 };
     });
     const result = await pl(['step', 'logs', 'alpha#15/build', '--follow'], { fetch });
     expect(result.code).toBe(0);
     expect(result.stdout).toBe('a\nb\n');
+    expect(requests.filter((r) => r.path.endsWith('/attempts'))).toHaveLength(1);
+  });
+
+  test('logs prints the text of the latest attempt', async () => {
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines'
+        ? { body: [alpha] }
+        : {
+            body: {
+              run: 15,
+              step: 'build',
+              attempt: 2,
+              status: 'failed',
+              complete: true,
+              text: 'boom',
+            },
+          },
+    );
+    const result = await pl(['step', 'logs', 'alpha#15/build'], { fetch });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe('boom\n');
   });
 
   test('rerun passes --continue and rejects an attempt in the address', async () => {

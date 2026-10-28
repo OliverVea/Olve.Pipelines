@@ -2,11 +2,23 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { AnsiUp } from 'ansi_up';
-import { apiEvents, apiText, extractErrorMessage } from '../api.js';
+import { runStepsLogs } from '@olve/api';
+import { api, apiEvents, extractErrorMessage } from '../api.js';
 import { sharedStyles } from '../v2/ui.js';
 
 const ansi = new AnsiUp();
 ansi.use_classes = false;
+
+/** One attempt of a step in a run. */
+export interface LogAddress {
+  pipelineId: string;
+  number: number;
+  step: string;
+  attempt: number;
+}
+
+const keyOf = (a: LogAddress | null) =>
+  a ? `${a.pipelineId}#${a.number}/${a.step}@${a.attempt}` : '';
 
 /**
  * Logs of one attempt. While `live`, follows the log stream (falling back to re-fetching every few
@@ -42,7 +54,7 @@ export class LogPane extends LitElement {
     `,
   ];
 
-  @property() declare url: string;
+  @property({ attribute: false }) declare address: LogAddress | null;
   @property({ type: Boolean }) declare live: boolean;
 
   @state() declare private _text: string;
@@ -52,11 +64,11 @@ export class LogPane extends LitElement {
 
   private _timer?: ReturnType<typeof setInterval>;
   private _stream?: AbortController;
-  private _loadedUrl = '';
+  private _loadedKey = '';
 
   constructor() {
     super();
-    this.url = '';
+    this.address = null;
     this.live = false;
     this._text = '';
     this._error = null;
@@ -68,15 +80,22 @@ export class LogPane extends LitElement {
     this._stop();
   }
 
+  private get _key() {
+    return keyOf(this.address);
+  }
+
   willUpdate(changed: Map<string, unknown>) {
-    if (changed.has('url') && this.url !== this._loadedUrl) this._text = '';
+    if (changed.has('address') && this._key !== this._loadedKey) this._text = '';
   }
 
   updated(changed: Map<string, unknown>) {
-    if (changed.has('url') && this.url !== this._loadedUrl) this._load();
-    if (changed.has('live') || changed.has('url')) {
+    const moved =
+      changed.has('address') &&
+      keyOf(changed.get('address') as LogAddress | null) !== this._key;
+    if (moved && this._key !== this._loadedKey) this._load();
+    if (changed.has('live') || moved) {
       this._stop();
-      if (this.live && this.url) this._follow(this.url);
+      if (this.live && this.address) this._follow(this.address);
     }
   }
 
@@ -87,16 +106,17 @@ export class LogPane extends LitElement {
     this._stream = undefined;
   }
 
-  private async _follow(url: string) {
+  private async _follow(address: LogAddress) {
     const stream = new AbortController();
     this._stream = stream;
-    const [path, query] = url.split('?');
+    const key = keyOf(address);
+    const { pipelineId, number, step, attempt } = address;
     try {
       for await (const { event, data } of apiEvents(
-        `${path}/stream${query ? `?${query}` : ''}`,
+        `/api/pipelines/${pipelineId}/runs/${number}/steps/${encodeURIComponent(step)}/logs/stream?attempt=${attempt}`,
         stream.signal,
       )) {
-        if (url !== this.url) return;
+        if (key !== this._key) return;
         if (event === 'log') {
           const chunk = JSON.parse(data) as { text: string; reset?: boolean };
           await this._show(chunk.reset ? chunk.text : this._text + chunk.text);
@@ -106,7 +126,7 @@ export class LogPane extends LitElement {
       }
       if (!stream.signal.aborted) this._load(true); // the stored log, once the attempt is done
     } catch {
-      if (!stream.signal.aborted && url === this.url)
+      if (!stream.signal.aborted && key === this._key)
         this._timer = setInterval(() => this._load(true), 3000);
     }
   }
@@ -114,7 +134,7 @@ export class LogPane extends LitElement {
   private async _show(text: string) {
     const pre = this._pre;
     const atBottom = !pre || pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
-    this._loadedUrl = this.url;
+    this._loadedKey = this._key;
     this._text = text;
     this._error = null;
     if (atBottom) {
@@ -124,13 +144,18 @@ export class LogPane extends LitElement {
   }
 
   private async _load(silent = false) {
-    if (!this.url) return;
-    const url = this.url;
+    if (!this.address) return;
+    const { pipelineId, number, step, attempt } = this.address;
+    const key = this._key;
     if (!silent) this._loading = true;
     try {
-      const text = await apiText(url);
-      if (url !== this.url) return;
-      await this._show(text);
+      const res = await runStepsLogs({
+        client: api,
+        path: { pipelineId, number, step },
+        query: { attempt },
+      });
+      if (key !== this._key) return;
+      await this._show(res.data?.text ?? '');
     } catch (e) {
       this._error = extractErrorMessage(e);
     } finally {

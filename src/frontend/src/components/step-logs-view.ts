@@ -160,9 +160,6 @@ export class StepLogsView extends LitElement {
     const list = this._attempts;
     const a = this._selected();
     const st = a ? statusOf(a) : null;
-    const url = a
-      ? `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(this.step)}/logs?attempt=${a.number}`
-      : '';
     return html`
       <div class="crumbs">
         <a href="/" @click=${navClick}>Pipelines</a><span>/</span>
@@ -211,7 +208,15 @@ export class StepLogsView extends LitElement {
       ${st?.reason ? html`<p class="reason">${st.reason}</p>` : nothing}
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
       ${a
-        ? html`<log-pane .url=${url} ?live=${isLiveStatus(st?.type)}></log-pane>`
+        ? html`<log-pane
+            .address=${{
+              pipelineId: this.pipelineId,
+              number: Number(this.run),
+              step: this.step,
+              attempt: a.number,
+            }}
+            ?live=${isLiveStatus(st?.type)}
+          ></log-pane>`
         : list
           ? html`<p class="muted">This step has no attempt in run #${this.run}.</p>`
           : html`<p class="muted">Loading…</p>`}

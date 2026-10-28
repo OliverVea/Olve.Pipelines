@@ -143,31 +143,6 @@ export async function downloadFile(url: string, fileName: string): Promise<void>
   setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
 }
 
-/** Text endpoint (logs are declared as a JSON string but served as text). */
-export async function apiText(path: string): Promise<string> {
-  const res = await fetch(path, { headers: await authHeaders() });
-  const text = await res.text();
-  if (!res.ok) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = undefined;
-    }
-    throw new ApiError(res.status, problemsFromBody(parsed));
-  }
-  // Tolerate a JSON-encoded string body.
-  if (text.startsWith('"')) {
-    try {
-      const s = JSON.parse(text);
-      if (typeof s === 'string') return s;
-    } catch {
-      /* raw text */
-    }
-  }
-  return text;
-}
-
 /** A thrown value as one message: an {@link ApiError}'s problems, an `Error`'s message, else its text. */
 export function extractErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;

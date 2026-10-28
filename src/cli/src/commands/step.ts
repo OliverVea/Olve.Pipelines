@@ -228,30 +228,34 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
         step: addr.address.step,
       };
       if (!ctx.args.flag('follow')) {
-        const logs = await call(
+        const log = await call(
           runStepsLogs({
             client: ctx.api,
             path,
             query: { attempt: addr.address.attempt },
           }),
         );
-        ctx.out.write(logs.length === 0 || logs.endsWith('\n') ? logs : logs + '\n');
+        ctx.out.write(
+          log.text.length === 0 || log.text.endsWith('\n') ? log.text : log.text + '\n',
+        );
         return;
       }
       const seconds = Number(ctx.args.optionOr('interval', '2'));
       if (!(seconds > 0))
         throw new CliError('--interval must be a positive number of seconds.');
 
+      let attempt: number | undefined;
       let printed = '';
       for (;;) {
-        // Status first, then logs: once the attempt is seen finished, the fetch after it is complete.
-        const attempts = await call(runStepsAttempts({ client: ctx.api, path }));
-        const target =
-          addr.address.attempt !== undefined
-            ? attempts.find((a) => a.number === addr.address.attempt)
-            : attempts.at(-1);
-        const finished = target !== undefined && !isActive(target);
-        if (!target) {
+        if (attempt === undefined) {
+          const attempts = await call(runStepsAttempts({ client: ctx.api, path }));
+          attempt = (
+            addr.address.attempt !== undefined
+              ? attempts.find((a) => a.number === addr.address.attempt)
+              : attempts.at(-1)
+          )?.number;
+        }
+        if (attempt === undefined) {
           // No attempt yet: keep waiting only while the run can still reach the step.
           const run = await call(
             runsGet({
@@ -264,21 +268,21 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
               `Run #${addr.address.run} is ${run.status} and has no ${addr.address.attempt !== undefined ? `attempt ${addr.address.attempt}` : 'attempt'} of step '${addr.address.step}'.`,
             );
         } else {
-          const logs = await call(
-            runStepsLogs({ client: ctx.api, path, query: { attempt: target.number } }),
+          const log = await call(
+            runStepsLogs({ client: ctx.api, path, query: { attempt } }),
           );
-          if (logs.startsWith(printed)) ctx.out.write(logs.slice(printed.length));
+          if (log.text.startsWith(printed)) ctx.out.write(log.text.slice(printed.length));
           // The source changed (init container -> step container, or the stored log replaced the live one).
           else
             ctx.out.write(
-              (printed.length > 0 && !printed.endsWith('\n') ? '\n' : '') + logs,
+              (printed.length > 0 && !printed.endsWith('\n') ? '\n' : '') + log.text,
             );
-          printed = logs;
-        }
-        if (finished) {
-          if (printed.length > 0 && !printed.endsWith('\n')) ctx.out.write('\n');
-          ctx.log(`attempt @${target!.number} ${target!.status.type}`);
-          return;
+          printed = log.text;
+          if (log.complete) {
+            if (printed.length > 0 && !printed.endsWith('\n')) ctx.out.write('\n');
+            ctx.log(`attempt @${log.attempt} ${log.status}`);
+            return;
+          }
         }
         await ctx.sleep(seconds * 1000);
         if (ctx.signal.aborted) return;

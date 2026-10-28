@@ -259,10 +259,6 @@ export class RunView extends LitElement {
     return { pipelineId: this.pipelineId, number: Number(this.run) };
   }
 
-  private get _base() {
-    return `/api/pipelines/${this.pipelineId}/runs/${this.run}`;
-  }
-
   private async _load() {
     // A response for a run we've navigated away from must not overwrite the current one.
     const key = `${this.pipelineId}#${this.run}`;
@@ -529,9 +525,6 @@ export class RunView extends LitElement {
     const active = attempts.some((x) =>
       ['waiting', 'scheduled', 'in-progress'].includes(attemptStatus(x).type ?? ''),
     );
-    const logsUrl = a
-      ? `${this._base}/steps/${encodeURIComponent(this._step)}/logs?attempt=${a.number}`
-      : '';
     return html`<step-sheet
       .pipelineId=${this.pipelineId}
       .manifest=${m}
@@ -663,7 +656,10 @@ export class RunView extends LitElement {
               </div>
               ${this._renderFiles(a)}
               <h4 class="sheet-h">Logs</h4>
-              <log-pane .url=${logsUrl} ?live=${isLiveStatus(as.type)}></log-pane>`
+              <log-pane
+                .address=${{ ...this._path, step: this._step, attempt: a.number }}
+                ?live=${isLiveStatus(as.type)}
+              ></log-pane>`
           : nothing}
     </step-sheet>`;
   }

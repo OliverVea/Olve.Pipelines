@@ -286,6 +286,19 @@ model StepFile {
   lastModified: utcDateTime | null;
 }
 
+/** The log of one attempt, addressed `<pipeline>#<run>/<step>[@<attempt>]`. */
+model StepLog {
+  run: int32;
+  step: string;
+  attempt: int32;
+  status: string;
+
+  /** The attempt was finished when the log was read, so `text` is all of it; otherwise the live pod log so far. */
+  complete: boolean;
+
+  text: string;
+}
+
 model StepFiles {
   run: int32;
   step: string;
@@ -486,7 +499,7 @@ interface RunSteps {
     @path number: int32,
     @path step: string,
     @query attempt?: int32,
-  ): string | NotFound;
+  ): StepLog | NotFound;
 
   /** The attempt's log as server-sent events (default: the latest attempt): `log` chunks, then `end` once the attempt is finished. */
   @summary("Stream a step's log")

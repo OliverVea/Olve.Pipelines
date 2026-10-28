@@ -19,7 +19,7 @@ Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin a
 The service's build Job fetches the repo tarball at the commit, runs `bun install --frozen-lockfile`
 in the binding path, then `bunx olve-build`. A local
 `file:`/`link:` dependency inside the repo (Olve.Pipelines' own `.pipelines/` uses
-`"@olivervea/pipelines": "file:../sdk"`) is installed with `bun install --frozen-lockfile --production`
+`"@olivervea/pipelines": "file:../src/sdk"`) is installed with `bun install --frozen-lockfile --production`
 first.
 
 ## Prerequisites
@@ -33,7 +33,7 @@ first.
   irm https://pipelines-private.ovea.pro/install.ps1 | iex             # Windows
   pl --version
   ```
-  From source: `dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin`.
+  From source: `dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin`.
 - A session. `pl login` stores the instance URL with the token in a **profile** of `~/.pl`
   (`default` unless you pass `--profile`), so name the instance once:
   ```sh
@@ -242,7 +242,7 @@ pl step logs my-app#1/test --follow
 ## What happens on every push
 
 1. The deploy poll (or a webhook) sees the branch head move.
-2. If the push touched the binding path (or a local `file:` dependency such as `../sdk`), the
+2. If the push touched the binding path (or a local `file:` dependency such as `../src/sdk`), the
    service reconciles that commit first: build Job →
    checks → a new version if the manifest changed → `switch` to it. A run never starts on a
    definition older than its commit.

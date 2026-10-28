@@ -45,7 +45,7 @@ export const source = steps.gitHubSource({
 export const spec = step({
   name: 'spec',
   description:
-    "Compiles the API contract (spec/): the OpenAPI document and the server's generated C#, for the .NET steps.",
+    "Compiles the API contract (src/spec/): the OpenAPI document and the server's generated C#, for the .NET steps.",
   image: 'oven/bun:1.4.3-slim',
   input: { source: Source },
   output: M.SpecBuild,
@@ -89,9 +89,9 @@ export const buildServer = step({
 export const buildHarness = steps.imageBuild({
   name: 'build-harness',
   description:
-    "Builds the step pods' init image (harness/base) when its content changed, under its content tag.",
+    "Builds the step pods' init image (src/harness/base) when its content changed, under its content tag.",
   repository: PUBLISH.harness.repository,
-  context: 'harness/base',
+  context: 'src/harness/base',
   push: true,
   contentTag: true,
   enabled: PUBLISH.harness.push,
@@ -113,7 +113,7 @@ export const test = step({
 
 export const buildSdk = step({
   name: 'build-sdk',
-  description: 'Checks sdk/ (tsc, compile-fail cases, bun test) and packs it.',
+  description: 'Checks src/sdk/ (tsc, compile-fail cases, bun test) and packs it.',
   image: 'oven/bun:1.4.3-slim',
   input: { source: Source },
   output: M.SdkPackage,

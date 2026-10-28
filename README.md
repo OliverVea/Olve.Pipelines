@@ -55,7 +55,7 @@ Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hos
 ## Adding CD to your repo
 
 1. Add `.pipelines/` (`models.ts`, `pipeline.ts`, `handlers/`, `package.json`, `bun.lock`), written
-   against the SDK `@olivervea/pipelines` ([sdk/](sdk/README.md)). See
+   against the SDK `@olivervea/pipelines` ([src/sdk/](src/sdk/README.md)). See
    [Getting Started](docs/setup/getting-started.md) and the
    [Pipeline Reference](docs/setup/pipeline-reference.md).
 2. Check it locally: `pl dev describe`, `pl dev validate`, `pl dev run <step>`.
@@ -98,10 +98,10 @@ Every instance serves the docs at `/docs` (raw Markdown; agents start at `/docs/
 
 | Path | What |
 |---|---|
-| `src/Olve.Pipelines/` | The server: API, scheduler, Kubernetes executor (minimal API, Native AOT) |
-| `src/Olve.Pipelines.Cli/` | `pl` |
-| `sdk/` | `@olivervea/pipelines`: the authoring API, the harness, the build and dev tools (Bun) |
-| `frontend/` | The web UI (Lit + Vite) |
+| `src/backend/Olve.Pipelines/` | The server: API, scheduler, Kubernetes executor (minimal API, Native AOT) |
+| `src/backend/Olve.Pipelines.Cli/` | `pl` |
+| `src/sdk/` | `@olivervea/pipelines`: the authoring API, the harness, the build and dev tools (Bun) |
+| `src/frontend/` | The web UI (Lit + Vite) |
 | `helm/`, `docker-compose.yml`, `compose/` | The Helm chart; a local instance |
 | `harness/` | The step pods' init image |
 | `docs/setup/` | User docs (served at `/docs`); `docs/design/`: specs and plans |

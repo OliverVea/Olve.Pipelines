@@ -1,11 +1,7 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Olve.Pipelines/Olve.Pipelines.csproj" />
-    <Project Path="src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
-  </Folder>
-  <Folder Name="/test/">
-    <Project Path="test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj" />
-  </Folder>
-  <Folder Name="/clients/">
+  <Folder Name="/backend/">
+    <Project Path="src/backend/Olve.Pipelines/Olve.Pipelines.csproj" />
+    <Project Path="src/backend/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
+    <Project Path="src/backend/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj" />
   </Folder>
 </Solution>

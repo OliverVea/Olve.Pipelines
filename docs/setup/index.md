@@ -5,7 +5,7 @@
 > cloning the repo. They are the *operator/setup* view. The *codebase* view is the repo's
 > [`README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/README.md). The SDK reference
 > (every `ctx` helper and the harness contract) is
-> [`sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md).
+> [`src/sdk/README.md`](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/sdk/README.md).
 
 > **Instances:** `https://pipelines-private.ovea.pro` (prod) and
 > `https://pipelines-beta.ovea.pro` (beta), over Tailscale.

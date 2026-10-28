@@ -7,10 +7,10 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 
 ## How it's built
 
-- .NET 10, Native-AOT published. Controller: `src/Olve.Pipelines`. Operator CLI:
-  `src/Olve.Pipelines.Cli` (binary `pl`, a separate AOT project that shares ~no runtime code).
+- .NET 10, Native-AOT published. Controller: `src/backend/Olve.Pipelines`. Operator CLI:
+  `src/backend/Olve.Pipelines.Cli` (binary `pl`, a separate AOT project that shares ~no runtime code).
 - `dotnet build` / `dotnet test`.
-- SDK (`sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
+- SDK (`src/sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
 - In the v2 pipeline (`.pipelines/pipeline.ts`), the container is built with **kaniko**
   (`steps.imageBuild`, layer cache in `registry.ovea.pro`) while the unit tests run in parallel
   (`handlers/test.ts`). The image tag is the run's version stamp (`yyyy.MM.dd.<run>`, e.g.
@@ -20,10 +20,10 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 ## Structure
 
 CLAUDE.md is the detailed map (service-layer architecture: EntityStore / AttachmentStore / event
-hubs / domain services, plus conventions). Top level: `src/Olve.Pipelines` (controller),
-`src/Olve.Pipelines.Cli` (`pl`), `sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
+hubs / domain services, plus conventions). Top level: `src/backend/Olve.Pipelines` (controller),
+`src/backend/Olve.Pipelines.Cli` (`pl`), `src/sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
 `helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
-fixture), `frontend/` (Lit SPA), `docs/`.
+fixture), `src/frontend/` (Lit SPA), `docs/`.
 
 ## How it's deployed (self-deploy)
 

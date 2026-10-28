@@ -1,4 +1,4 @@
-export const CLI = 'src/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj';
+export const CLI = 'src/backend/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj';
 
 export const cliPublishArgs = (version: string) => [
   '-c',

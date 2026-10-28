@@ -8,36 +8,39 @@ Design: [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md) (spec),
 ## Project structure
 
 ```
-src/Olve.Pipelines/                 API + scheduler (minimal API, Native AOT)
-├── Configuration/                  Auth, telemetry, JSON, host, storage, DI wiring
-├── Distribution/                   /download/{asset} (latest publish-cli files), /install.sh|.ps1
-├── GitHub/                         GitHub client, push webhook payload + signature
-├── Health/                         /api/health, /api/ready
-├── Jobs/                           JobRunner, K8s executor, obsoletion, job (attempt) endpoints
-├── Kubernetes/                     K8s client, pipeline Secrets, in-cluster credentials
-│   └── Harness/                    step / build / map-trigger / failure-handler Job specs, result collection
-├── Pipelines/                      Pipeline entity, summaries, health, storage layout
-│   ├── Failures/                   onFailure dispatch, FailureContext
-│   ├── Manifests/                  manifest parser, validator (reconcile checks), entity versioning, JSON Schema
-│   ├── Retention/                  run/binary/leftover sweeps
-│   ├── Runs/                       Run, Attempt, run/attempt services, run endpoints, views
-│   ├── Scheduling/                 StageScheduler, run start (de-dup), continue/rerun, cancel, blocked steps, switch
-│   ├── Sync/                       bindings, deploy poll, reconcile, binding webhooks, config source
-│   ├── Triggers/                   push / poll / manual triggers, map-trigger, input validation
-│   └── Versions/                   PipelineVersion, activation (Active / Draining), version endpoints
-└── Shared/                         AttachmentStore, startup runner, persistence, S3 presigning
-src/Olve.Pipelines.Cli/             `pl` operator CLI (Native AOT, hand-rolled HTTP client)
-spec/                               The API contract (TypeSpec, one .tsp per area); tsp compile → artifacts/ (gitignored): openapi.json + the server's generated C# (docs/design/spec-first.md)
-sdk/                                @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
-harness/                            harness-base init image + end-to-end validation
-frontend/                           Dashboard UI (Lit + Vite + TypeScript)
-clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
+src/
+├── backend/                        The .NET projects (the solution, build props and global.json stay at the root)
+│   ├── Olve.Pipelines/             API + scheduler (minimal API, Native AOT)
+│   │   ├── Configuration/          Auth, telemetry, JSON, host, storage, DI wiring, the generated API's handlers
+│   │   ├── Distribution/           /download/{asset} (latest publish-cli files), /install.sh|.ps1
+│   │   ├── GitHub/                 GitHub client, push webhook payload + signature
+│   │   ├── Health/                 /api/health, /api/ready
+│   │   ├── Jobs/                   JobRunner, K8s executor, obsoletion, job (attempt) endpoints
+│   │   ├── Kubernetes/             K8s client, pipeline Secrets, in-cluster credentials
+│   │   │   └── Harness/            step / build / map-trigger / failure-handler Job specs, result collection
+│   │   ├── Pipelines/              Pipeline entity, summaries, health, storage layout
+│   │   │   ├── Failures/           onFailure dispatch, FailureContext
+│   │   │   ├── Manifests/          manifest parser, validator (reconcile checks), entity versioning, JSON Schema
+│   │   │   ├── Retention/          run/binary/leftover sweeps
+│   │   │   ├── Runs/               Run, Attempt, run/attempt services, run endpoints, views
+│   │   │   ├── Scheduling/         StageScheduler, run start (de-dup), continue/rerun, cancel, blocked steps, switch
+│   │   │   ├── Sync/               bindings, deploy poll, reconcile, binding webhooks, config source
+│   │   │   ├── Triggers/           push / poll / manual triggers, map-trigger, input validation
+│   │   │   └── Versions/           PipelineVersion, activation (Active / Draining), version endpoints
+│   │   └── Shared/                 AttachmentStore, startup runner, persistence, S3 presigning
+│   ├── Olve.Pipelines.Cli/         `pl` operator CLI (Native AOT, hand-rolled HTTP client)
+│   └── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
+├── spec/                           The API contract (TypeSpec, one .tsp per area); tsp compile → artifacts/ (gitignored): openapi.json + the server's generated C# (docs/design/spec-first.md)
+├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
+├── harness/                        harness-base init image + end-to-end validation
+├── frontend/                       Dashboard UI (Lit + Vite + TypeScript)
+└── clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
 helm/                               Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
+compose/, docker-compose.yml        A throwaway local instance built from the checkout
 .pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
-test/Olve.Pipelines.UnitTests/      Unit tests (TUnit + Rocks)
 tools/version.cs                    CalVer versioning script
 tools/api-reference.cs              Generates docs/setup/api-reference.md from api.json
 ```
@@ -45,16 +48,16 @@ tools/api-reference.cs              Generates docs/setup/api-reference.md from a
 ## Build & test
 
 ```bash
-dotnet build                                                   # Build (compiles spec/ first; needs bun)
+dotnet build                                                   # Build (compiles src/spec/ first; needs bun)
 dotnet test                                                    # Tests
-dotnet run --project src/Olve.Pipelines                        # Run locally
+dotnet run --project src/backend/Olve.Pipelines                        # Run locally
 
-cd spec && bun install && bun run compile                      # The contract alone: artifacts/spec/openapi.json + artifacts/generated/backend/*.g.cs
-cd sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
-cd frontend && npm install && npm run build                    # Frontend (tsc + vite)
+cd src/spec && bun install && bun run compile                      # The contract alone: artifacts/spec/openapi.json + artifacts/generated/backend/*.g.cs
+cd src/sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
+cd src/frontend && npm install && npm run build                    # Frontend (tsc + vite)
 ```
 
-The server build runs `bun run compile` in `spec/` when the contract changed, and compiles the
+The server build runs `bun run compile` in `src/spec/` when the contract changed, and compiles the
 generated `artifacts/generated/backend/*.g.cs`; `-p:SkipSpecGen=true` compiles already-generated
 files without bun (the deploy's `spec` step emits them for `compile-server` and `test`).
 
@@ -83,7 +86,7 @@ the frontend bundle and the install script.
 ## Logging conventions
 
 Structured `ILogger<T>` with named placeholders; log human-readable names next to ids. Failures
-are logged with `ILogger.LogProblems(...)` (`src/Olve.Pipelines/Shared/ResultProblemLogExtensions.cs`),
+are logged with `ILogger.LogProblems(...)` (`src/backend/Olve.Pipelines/Shared/ResultProblemLogExtensions.cs`),
 which flattens a `ResultProblem` set into `ProblemCount` / `ProblemMessages` / `MaxSeverity`.
 What an operator sees: [docs/setup/self-hosting.md](docs/setup/self-hosting.md#logging).
 
@@ -106,17 +109,17 @@ endpoint. Auth, errors, live events and the routes outside the API are hand-writ
 
 ```bash
 dotnet tool restore
-dotnet kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
-cd clients/olve-pipelines-client-ts && npm install
+dotnet kiota generate -l typescript -d api.json -o src/clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
+cd src/clients/olve-pipelines-client-ts && npm install
 ```
 
 Kiota is pinned in `.config/dotnet-tools.json` (1.36.1; 1.30 emits a `tsc` error on nullable
 polymorphic members). Error responses are a typed `ApiProblem`; the frontend still sends actions
-through `apiFetch` (see [frontend/README.md](frontend/README.md#api-usage)).
+through `apiFetch` (see [src/frontend/README.md](src/frontend/README.md#api-usage)).
 
 ### C#
 
-There is no generated C# client. `pl` has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/`
+There is no generated C# client. `pl` has a hand-rolled AOT-safe client in `src/backend/Olve.Pipelines.Cli/Api/`
 (Refit can't Native-AOT here); add each new endpoint there.
 
 ## Versioning

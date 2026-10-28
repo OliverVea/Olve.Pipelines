@@ -24,7 +24,7 @@ telemetry: {}
 serviceAccount:
   enabled: true
 
-# The step pods' init image (harness/base), rendered as Harness__HarnessBaseImage. The deploy sets it
+# The step pods' init image (src/harness/base), rendered as Harness__HarnessBaseImage. The deploy sets it
 # from the publish-harness step's pushed image; empty = the server's built-in default.
 harness:
   image:

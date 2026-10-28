@@ -4,7 +4,7 @@ import { implement } from '@olivervea/pipelines';
 import { buildSdk } from '../pipeline';
 
 export default implement(buildSdk, async ({ source }, ctx) => {
-  const dir = join(await ctx.files.fetch(source.tree), 'sdk');
+  const dir = join(await ctx.files.fetch(source.tree), 'src/sdk');
   const { name, version } = await ctx.readJson<{ name: string; version: string }>(
     join(dir, 'package.json'),
   );

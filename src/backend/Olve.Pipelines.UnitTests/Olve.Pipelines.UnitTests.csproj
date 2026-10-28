@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The CLI apphost is named 'pl'; without this, the testing platform's Polish ('pl')
+         satellite-resource folder collides with it on copy. Keep English resources only. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Olve.Results.TUnit" />
+    <PackageReference Include="Rocks" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- self-deploy.manifest.json: `olve-dev describe src/sdk/examples/self-deploy` output, byte-for-byte. -->
+    <None Include="Manifests/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Olve.Pipelines/Olve.Pipelines.csproj" />
+    <ProjectReference Include="../Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
+  </ItemGroup>
+
+</Project>

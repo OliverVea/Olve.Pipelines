@@ -12,7 +12,7 @@ Olve.Pipelines is a small GitOps CD orchestration service for a homelab. This is
 
 ### Pipeline model
 
-A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by default), written against the SDK `@olivervea/pipelines` (`sdk/`):
+A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by default), written against the SDK `@olivervea/pipelines` (`src/sdk/`):
 
 - **Model** — a named, nominal zod schema (`model("BuildArtifact", z.object(…))`), emitted as JSON Schema with an `input` view (`z.input`, defaults optional) and a strict `output` view. Files are references (`fileRef()` → `{run, step, attempt, path, sha256}`), never inline.
 - **Step** — a contract: name (the identity — history, scheduling, blocked steps and addresses are keyed on it), image (any x86-64 image), inputs (model, `optional(model)` or plain schema), output model, declared secrets, `timeoutSeconds`. No behaviour.
@@ -20,11 +20,11 @@ A pipeline lives in the repo it deploys, in the binding path (`.pipelines/` by d
 - **Pipeline** — input model, triggers, ordered **stages** (steps in a stage run in parallel; a stage is a barrier), nested **`when`** blocks (declarative matches on literal-like input fields), and `onFailure` handlers. Inputs are matched by model, or wired with a `[step, mapper]` tuple; mappers are recorded as tagged mappings (`{ref}`/`{const}`), so the service builds `input.json` without running TypeScript.
 - **Triggers** — `onPush` (the binding saw the branch head move: webhook or deploy poll; the service sends `{ref, after, repository: {full_name}}`), `onPoll` (GET a URL, extract a value by dot-path, per-trigger secrets with `$SECRET:NAME` headers), manual (`POST …/runs`, input validated against the input model). Automatic trigger mappers are code: each event runs a short `map-trigger` Job, then the service re-validates the result.
 
-The SDK compiles the pipeline into **one executable** (`bun build --compile`) with three modes: `describe` (→ the canonical **manifest**, `sdk/manifest.schema.json`), `run <step>`, `map-trigger <trigger>`. **The service never executes repo TypeScript** — describe, handlers and mappers run only in sandboxed Jobs.
+The SDK compiles the pipeline into **one executable** (`bun build --compile`) with three modes: `describe` (→ the canonical **manifest**, `src/sdk/manifest.schema.json`), `run <step>`, `map-trigger <trigger>`. **The service never executes repo TypeScript** — describe, handlers and mappers run only in sandboxed Jobs.
 
 ### Reconcile, versions, switch
 
-- `DeployPollService` syncs each binding's config, **config-before-run**: the newest commit touching the binding path is reconciled first (`PipelineReconcileService`: build/describe Job `olve-build-<p12>-<sha12>` → manifest from the pod log sentinels → `ManifestParser` + `ManifestValidator` (every reconcile check) → `ManifestVersioning` (entity versions) → a new `PipelineVersion` if the manifest differs → `SwitchService.Switch`). Every automatic run start of a bound pipeline goes through its lock (`IConfigLock`) and starts only once the current config commit is applied: push (`PushTriggerService`: a poll source per bound pipeline that declares `onPush`, nudged by the binding's GitHub webhook; a moved branch head past `LastPushSha` fires the push trigger), poll and webhook triggers. A failed reconcile is not retried by the loop (only by reconcile-now or restart). The config cursor (`ConfigCursor`) watches the binding path plus the local `file:`/`link:` dependencies of its `package.json` (e.g. `../sdk`); only commits touching those build a binary.
+- `DeployPollService` syncs each binding's config, **config-before-run**: the newest commit touching the binding path is reconciled first (`PipelineReconcileService`: build/describe Job `olve-build-<p12>-<sha12>` → manifest from the pod log sentinels → `ManifestParser` + `ManifestValidator` (every reconcile check) → `ManifestVersioning` (entity versions) → a new `PipelineVersion` if the manifest differs → `SwitchService.Switch`). Every automatic run start of a bound pipeline goes through its lock (`IConfigLock`) and starts only once the current config commit is applied: push (`PushTriggerService`: a poll source per bound pipeline that declares `onPush`, nudged by the binding's GitHub webhook; a moved branch head past `LastPushSha` fires the push trigger), poll and webhook triggers. A failed reconcile is not retried by the loop (only by reconcile-now or restart). The config cursor (`ConfigCursor`) watches the binding path plus the local `file:`/`link:` dependencies of its `package.json` (e.g. `../src/sdk`); only commits touching those build a binary.
 - **Versions** are immutable: pipeline version = monotonic integer per pipeline (manifest + commit + binary key); steps and models have `<id>.<version>` bumped only when that entity's content changes (a step's hash includes its handler bundle hash).
 - **Single active version.** `PipelineActivation` is `Active(v)` (new runs start there) or, only during a `--cancel-running` switch, `Draining(from → to)`. A normal switch completes at once: runs on older versions carry on with the version they pinned. `StageScheduler` never lets a run start a step a newer run already started (it is superseded instead), so an old-version run can't deploy after a newer one. `--cancel-running` cancels the other versions' runs and in-flight attempts; requests meanwhile queue (`PendingRunStart`) and start on the new version. Rollback = `switch` to an older version.
 
@@ -40,7 +40,7 @@ The SDK compiles the pipeline into **one executable** (`bun build --compile`) wi
 
 ### Execution (harness)
 
-`AttemptLaunchService` derives everything for one attempt; `HarnessJobFactory`/`HarnessJobBuilder` build the K8s Job: one init container (`harness-base`: static busybox + a bundled glibc loader under `/olve/lib`) fetches the version's `step.tar.gz` and the attempt's `input.json` via pre-signed GETs into the `/olve` emptyDir; the step container (the step's image) runs `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>` with `TMPDIR=/olve/tmp`, only the step's declared secrets (`secretKeyRef`, same names, optional: unset = env var unset), `activeDeadlineSeconds` from `timeoutSeconds`, runtime class / labels. The harness PUTs `result.tar.gz` (envelope `output.json` + files); `HarnessResultCollector` streams it into `runs/<p>/<run>/<step>/<attempt>/` (memory-safe for big files; output JSON capped at 64 KB). Exit codes and the envelope are specified in `sdk/README.md`. After a restart the executor reattaches to Jobs by name (v2 survives redeploying itself mid-run).
+`AttemptLaunchService` derives everything for one attempt; `HarnessJobFactory`/`HarnessJobBuilder` build the K8s Job: one init container (`harness-base`: static busybox + a bundled glibc loader under `/olve/lib`) fetches the version's `step.tar.gz` and the attempt's `input.json` via pre-signed GETs into the `/olve` emptyDir; the step container (the step's image) runs `/olve/lib/ld-linux-x86-64.so.2 --library-path /olve/lib /olve/step run <step>` with `TMPDIR=/olve/tmp`, only the step's declared secrets (`secretKeyRef`, same names, optional: unset = env var unset), `activeDeadlineSeconds` from `timeoutSeconds`, runtime class / labels. The harness PUTs `result.tar.gz` (envelope `output.json` + files); `HarnessResultCollector` streams it into `runs/<p>/<run>/<step>/<attempt>/` (memory-safe for big files; output JSON capped at 64 KB). Exit codes and the envelope are specified in `src/sdk/README.md`. After a restart the executor reattaches to Jobs by name (v2 survives redeploying itself mid-run).
 
 **Failure handlers**: a run going Running → Failed makes `FailureHandlerService` launch each in-scope `onFailure` handler of the *pinned* manifest as an untracked, best-effort harness Job (`olve-fh-…`, role `on-failure`) with a typed `FailureContext` (validated against the pinned schema first; links from `Links:BaseUrl`). No attempt, no retry, no API/UI visibility.
 
@@ -79,10 +79,10 @@ When adding a new way to start work, go through `RunStartService` (runs) or `Run
 ## Commands
 
 ```bash
-dotnet build                                                # Build (compiles spec/ first; needs bun)
+dotnet build                                                # Build (compiles src/spec/ first; needs bun)
 dotnet test                                                 # Tests
-dotnet run --project src/Olve.Pipelines                     # Run locally
-cd spec && bun run compile                                  # The API contract alone → artifacts/ (see docs/design/spec-first.md)
+dotnet run --project src/backend/Olve.Pipelines                     # Run locally
+cd src/spec && bun run compile                                  # The API contract alone → artifacts/ (see docs/design/spec-first.md)
 tools/check.sh [--changed|--full|--fix]                     # What the deploy checks, locally; --fix formats and regenerates (see CONTRIBUTING.md)
 ```
 
@@ -90,13 +90,13 @@ A `PreToolUse` hook runs `tools/check.sh --hook` before every `git push`: a fail
 
 ### SDK and pipelines (Bun)
 
-See [sdk/README.md](sdk/README.md) (authoring API, harness contract, manifest, `olve-build`, `olve-dev`) and [harness/README.md](harness/README.md) (the `harness-base` init image).
+See [src/sdk/README.md](src/sdk/README.md) (authoring API, harness contract, manifest, `olve-build`, `olve-dev`) and [src/harness/README.md](src/harness/README.md) (the `harness-base` init image).
 
 ```bash
-cd sdk && bun install                                       # Install
-cd sdk && bunx tsc --noEmit -p .                            # Type-check (TS 7)
-cd sdk && bun run check                                     # prettier, tsc, compile-fail and runtime tests (what build-sdk runs)
-cd sdk && bun scripts/gen-manifest-schema.ts                # After changing src/describe/manifest-schema.ts
+cd src/sdk && bun install                                       # Install
+cd src/sdk && bunx tsc --noEmit -p .                            # Type-check (TS 7)
+cd src/sdk && bun run check                                     # prettier, tsc, compile-fail and runtime tests (what build-sdk runs)
+cd src/sdk && bun scripts/gen-manifest-schema.ts                # After changing src/describe/manifest-schema.ts
 pl dev describe [--dir .pipelines-test]                     # Describe a pipeline from source (see docs/setup/local-development.md)
 ```
 
@@ -104,20 +104,20 @@ Keep the compile-fail checker green on both TypeScript lines (TS 7 and 5.9; `TSC
 
 ### Frontend
 
-See [frontend/README.md](frontend/README.md) for full details.
+See [src/frontend/README.md](src/frontend/README.md) for full details.
 
 ```bash
-cd frontend && npm install                                  # Install
-cd frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
-cd frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
-cd frontend && VITE_DEV_AUTH=bypass npm run dev:v2beta      # Dev server against v2 beta (dev-only auth bypass)
-cd frontend && npm run build                                # Production build
+cd src/frontend && npm install                                  # Install
+cd src/frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
+cd src/frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
+cd src/frontend && VITE_DEV_AUTH=bypass npm run dev:v2beta      # Dev server against v2 beta (dev-only auth bypass)
+cd src/frontend && npm run build                                # Production build
 ```
 
 - Stack: Lit + Vite + TypeScript
-- API client: Kiota-generated at `clients/olve-pipelines-client-ts/`, linked via `file:` reference
-- Regenerate client after API changes: `dotnet tool restore && dotnet kiota generate -l typescript -d api.json -o clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output` (Kiota pinned in `.config/dotnet-tools.json`; >= 1.36 needed — 1.30 emits a `tsc` error on nullable polymorphic members)
-- Client deps must be installed separately: `cd clients/olve-pipelines-client-ts && npm install`
+- API client: Kiota-generated at `src/clients/olve-pipelines-client-ts/`, linked via `file:` reference
+- Regenerate client after API changes: `dotnet tool restore && dotnet kiota generate -l typescript -d api.json -o src/clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output` (Kiota pinned in `.config/dotnet-tools.json`; >= 1.36 needed — 1.30 emits a `tsc` error on nullable polymorphic members)
+- Client deps must be installed separately: `cd src/clients/olve-pipelines-client-ts && npm install`
 
 ### Architecture Patterns
 
@@ -154,7 +154,7 @@ cd frontend && npm run build                                # Production build
 - New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
 - Commit the rebuilt `api.json`, regenerate the TypeScript client (`api.json` → Kiota) and the API reference (`dotnet run tools/api-reference.cs`) after any API change: the deploy's `test` step fails when any is out of date. Every endpoint has `.WithTags`, `.WithSummary` (and `.WithDescription` when it needs more); that text is the API reference
 - TypeScript client generated from OpenAPI via Kiota
-- The `pl` CLI has a hand-rolled AOT-safe client in `src/Olve.Pipelines.Cli/Api/` (add each endpoint there by hand).
+- The `pl` CLI has a hand-rolled AOT-safe client in `src/backend/Olve.Pipelines.Cli/Api/` (add each endpoint there by hand).
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See [docs/setup/self-hosting.md](docs/setup/self-hosting.md#logging).
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 - **Tests assert results, never read `.Value!`**: `await Assert.That(result).Succeeded()` / `.Failed()` / `.SucceededAndValue(v => v.IsEqualTo(x))` (Olve.Results.TUnit); to unwrap a result for setup, `TestRunDomain.Pick(result)` (throws with the problems on failure).

@@ -8,7 +8,7 @@ push. It shells out to the SDK's `olve-dev` / `olve-build` through Bun.
 - **Bun** is found via `$OLVE_BUN`, then `PATH`, then `~/.bun/bin/bun`.
 - **The SDK** is the `@olivervea/pipelines` your pipeline resolves: run `bun install` in the pipeline
   directory first. In another repo that is `"@olivervea/pipelines": "<version>"` from npm (see
-  [Getting Started](getting-started.md#the-sdk)); in this repo it is `file:../sdk`. Override with
+  [Getting Started](getting-started.md#the-sdk)); in this repo it is `file:../src/sdk`. Override with
   `$OLVE_SDK`. Without `pl`, the same tools run as `bunx olve-dev describe .` and
   `bunx olve-build . --out .olve/out` from the pipeline directory.
 - **The pipeline directory** defaults to `.pipelines`; `--dir <path>` picks another (e.g.
@@ -154,6 +154,6 @@ expect(r).toMatchObject({ status: "succeeded" });
 ```
 
 `testHandler` uses the same validation path as a real run; replace any part of `ctx`. See
-[sdk/README.md "Testing handlers"](https://github.com/OliverVea/Olve.Pipelines/blob/main/sdk/README.md#testing-handlers).
+[src/sdk/README.md "Testing handlers"](https://github.com/OliverVea/Olve.Pipelines/blob/main/src/sdk/README.md#testing-handlers).
 
 There is no "run on the cluster from a laptop": pushing to the bound branch does that.

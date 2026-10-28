@@ -133,7 +133,7 @@ Everything is built from this checkout, and nothing talks to the homelab. It run
   <http://localhost:5080>.
 - **Garage** for storage, as in the chart.
 - **A single-node k3s** in a privileged container. It runs the build Jobs and the step Jobs.
-- **The step pods' init image.** `harness-build` builds it from `harness/base` with kaniko and
+- **The step pods' init image.** `harness-build` builds it from `src/harness/base` with kaniko and
   pushes it to a password-protected local `registry:2`. k3s pulls it from there over plain HTTP.
 - **`pl`.** `pl-build` builds it from source, and the server serves it at `/download`, so
   `curl -fsSL http://localhost:5080/install.sh | sh` works. The server doesn't wait for it: until the
@@ -184,7 +184,7 @@ docker compose down -v           # stop and wipe all state (the reset between ev
   - Webhooks are never registered because `Webhooks:PublicBaseUrl` is unset. The deploy poll still
     works.
 - **Rebuilding the harness image.** It is tagged `:local`, and k3s pulls it only if it isn't
-  present yet. After changing `harness/base`, run `docker compose down -v` (or delete the
+  present yet. After changing `src/harness/base`, run `docker compose down -v` (or delete the
   `k3s-data` volume).
 - **Windows checkouts.** `.gitattributes` keeps every file that ends up in a container LF. A
   checkout made before it existed still has CRLF files, so re-check them out once:

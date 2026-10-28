@@ -4,7 +4,7 @@ import { implement } from '@olivervea/pipelines';
 import { compileServer } from '../pipeline';
 import { layerTar } from '../layers';
 
-const SERVER = 'src/Olve.Pipelines';
+const SERVER = 'src/backend/Olve.Pipelines';
 
 export default implement(compileServer, async ({ source, spec }, ctx) => {
   const runtime = ctx.config.build.runtime;

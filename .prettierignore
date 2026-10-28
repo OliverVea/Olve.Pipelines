@@ -1,10 +1,10 @@
 node_modules
 dist
-clients/
+src/clients/
 api.json
-sdk/manifest.schema.json
-sdk/tests/compile-fail
-sdk/tests/compile-pass
+src/sdk/manifest.schema.json
+src/sdk/tests/compile-fail
+src/sdk/tests/compile-pass
 .pipelines/.olve
 spikes
 *.md

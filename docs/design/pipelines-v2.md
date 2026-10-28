@@ -405,7 +405,7 @@ The pipeline compiles (at reconcile, per commit) into **one standalone executabl
   under `/olve/work/files/`), pack both into `result.tar.gz` and PUT it to `OLVE_RESULT_URL`.
 - `map-trigger <trigger>` → short-lived helper mapping one event to pipeline input.
 
-**`run` contract** (authoritative detail: `sdk/README.md`; manifest format: `sdk/manifest.schema.json`).
+**`run` contract** (authoritative detail: `src/sdk/README.md`; manifest format: `src/sdk/manifest.schema.json`).
 `output.json` is an envelope: `{ "status": "succeeded", "output": … }`, `{ "status": "skipped",
 "reason": "…" }` or `{ "status": "failed", "error": { "kind": "handler"|"input"|"output", "message" } }`,
 also printed last on stdout between `---OLVE-RESULT-BEGIN---`/`---OLVE-RESULT-END---` as a fallback.

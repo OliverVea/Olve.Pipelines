@@ -106,4 +106,4 @@ MinIO, scale up. Anything written only to Garage since the cutover is lost.
 - **Pin the Garage image** (`garage.image` in `values.yaml`), currently `dxflrs/garage:v2.4.1`.
   Upgrades follow Garage's release notes; minor versions have been drop-in.
 - **Step pods never hold storage creds**: the `harness-base` init container fetches and PUTs
-  through pre-signed URLs (see `harness/README.md`).
+  through pre-signed URLs (see `src/harness/README.md`).

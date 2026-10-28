@@ -34,7 +34,7 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-!clients/**/[Ll]ogs/
+!src/clients/**/[Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -483,11 +483,11 @@ $RECYCLE.BIN/
 *.swp
 
 # Client node_modules
-clients/*/node_modules/
+src/clients/*/node_modules/
 
 # Frontend build output
-frontend/dist/
-frontend/node_modules/
+src/frontend/dist/
+src/frontend/node_modules/
 
 # Claude memory (user-specific)
 memory/

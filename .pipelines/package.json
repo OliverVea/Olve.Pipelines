@@ -9,7 +9,7 @@
     "build": "olve-build . --out .olve/out"
   },
   "dependencies": {
-    "@olivervea/pipelines": "file:../sdk"
+    "@olivervea/pipelines": "file:../src/sdk"
   },
   "devDependencies": {
     "@types/bun": "1.4.3",

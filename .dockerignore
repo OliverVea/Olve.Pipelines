@@ -5,5 +5,5 @@ TestResults
 **/bin
 **/obj
 **/node_modules
-frontend/dist
-clients/olve-pipelines-client-ts/dist
+src/frontend/dist
+src/clients/olve-pipelines-client-ts/dist

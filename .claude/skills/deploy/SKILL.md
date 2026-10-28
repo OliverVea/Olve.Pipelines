@@ -71,7 +71,7 @@ run fails before prod.
 `deploy-prod` replaces the pod that runs the service: the new pod logs `Reattaching to K8s Job …
 deploy-prod`, collects it and finishes the run — a short API blip during that is normal.
 `publish-cli` then publishes the `pl` that prod serves at `/download`; `publish-sdk` runs `npm
-publish` if `sdk/`'s version is new. A beta-only run can still go to prod later with
+publish` if `src/sdk/`'s version is new. A beta-only run can still go to prod later with
 `pl run continue "$R" --field deployTo=prod`.
 
 ## 5. On failure

@@ -21,11 +21,11 @@ place to experiment; v2 prod hosts the self-deploy pipeline (see the end of sect
 
 ```bash
 export ASPNETCORE_ENVIRONMENT=Development
-dotnet run --project src/Olve.Pipelines        # http://localhost:5000
+dotnet run --project src/backend/Olve.Pipelines        # http://localhost:5000
 ```
 
 Local config comes from
-`dotnet user-secrets` (`dotnet user-secrets list --project src/Olve.Pipelines`); with
+`dotnet user-secrets` (`dotnet user-secrets list --project src/backend/Olve.Pipelines`); with
 `Auth:Disable=true` no token is needed. Without Kubernetes/storage config, runs can't execute.
 
 ## 2. Authenticate

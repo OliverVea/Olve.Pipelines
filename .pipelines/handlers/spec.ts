@@ -4,7 +4,7 @@ import { spec } from '../pipeline';
 
 export default implement(spec, async ({ source }, ctx) => {
   const tree = await ctx.files.fetch(source.tree);
-  const dir = join(tree, 'spec');
+  const dir = join(tree, 'src/spec');
   await ctx.exec(['bun', 'install', '--frozen-lockfile'], { cwd: dir });
   await ctx.exec(['bun', 'run', 'compile'], { cwd: dir });
   const artifacts = await ctx.output.dir(join(tree, 'artifacts'), {

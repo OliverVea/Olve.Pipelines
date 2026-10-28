@@ -34,11 +34,11 @@ one user (`pl`); Go for `pl` is a third language and a third generator with noth
 ## Shape after the migration
 
 ```
-spec/main.tsp  (one .tsp per area: instance, pipelines, versions, config, secrets, bindings, steps, runs, attempts, triggers, events)
+src/spec/main.tsp  (one .tsp per area: instance, pipelines, versions, config, secrets, bindings, steps, runs, attempts, triggers, events)
   │  tsp compile (bun)
   ├─► artifacts/spec/openapi.json ─► Hey API ─► artifacts/clients/ts ─► frontend, cli/
   │                                └─► tools/api-reference ─► wwwroot/docs/api-reference.md (served at /docs)
-  └─► @olivervea/typespec-csharp ─► artifacts/generated/backend/*.g.cs ─► src/Olve.Pipelines (handlers hand-written)
+  └─► @olivervea/typespec-csharp ─► artifacts/generated/backend/*.g.cs ─► src/backend/Olve.Pipelines (handlers hand-written)
 ```
 
 The deployer gets a `spec` step on `oven/bun` whose output (the `.g.cs` files and `openapi.json`)
@@ -82,7 +82,7 @@ handler-registration source generator), #98 (PublishAot smoke test), #99 (skill 
 
 ## Phase 1: the spec skeleton in Olve.Pipelines
 
-- `spec/` with `main.tsp`, `tspconfig.yaml`, a `package.json` (compiler, `@typespec/http`,
+- `src/spec/` with `main.tsp`, `tspconfig.yaml`, a `package.json` (compiler, `@typespec/http`,
   `openapi3`, `sse`, `events`, the emitter) run with bun; `artifacts/` gitignored.
 - The server project compiles `artifacts/generated/backend/*.g.cs` and runs `tsp compile` from
   MSBuild unless `SkipSpecGen` (ARM's target). `AddApi`/`UseApi` wired beside the existing
@@ -91,7 +91,7 @@ handler-registration source generator), #98 (PublishAot smoke test), #99 (skill 
   keeps the `api.json` / Kiota / reference checks until phase 2 ends.
 
 **Built 2026-10-28**, together with the Instance area (the emitter's JSON context doesn't compile
-for a contract without operations, so the skeleton carries the first area): `spec/` (bun),
+for a contract without operations, so the skeleton carries the first area): `src/spec/` (bun),
 `artifacts/` gitignored, the `GenerateApi` MSBuild target with `SkipSpecGen`, `AddPipelinesApi` /
 `UsePipelinesApi` beside the old endpoints, `ApiProblemWriter` as the `IApiErrorWriter`, a `spec`
 step in the deployer (its `artifacts/` feed `compile-server` and `test`), `tools/check.sh` with
@@ -127,7 +127,7 @@ docs. `beta-test` covers it before prod. The old `*Endpoints.cs` for the area is
 same push; `api.json` stays build-generated meanwhile because the generated routes are minimal APIs
 too.
 
-After the last area: `api.json`, `clients/olve-pipelines-client-ts/`, the Kiota tool pin and the
+After the last area: `api.json`, `src/clients/olve-pipelines-client-ts/`, the Kiota tool pin and the
 committed `docs/setup/api-reference.md` are removed; the reference is generated into `wwwroot` at
 build from the spec's OpenAPI; the `test` step checks that the spec compiles and the frontend
 builds against it.
@@ -147,7 +147,7 @@ builds against it.
 
 ## Phase 3: `pl` in TypeScript
 
-- `cli/` beside `sdk/` and `frontend/`, Bun, compiled with `bun build --compile` for
+- `cli/` beside `src/sdk/` and `src/frontend/`, Bun, compiled with `bun build --compile` for
   `bun-linux-x64` and `bun-windows-x64` (the two `build-cli*` steps become one bun step).
 - Taken from `arm`: the OIDC browser and device flows with the terminal QR code, credential storage,
   the client wrapper with the error envelope, SSE tailing with reconnect and `Last-Event-ID`,
@@ -155,7 +155,7 @@ builds against it.
 - Kept from today's `pl`: the `~/.pl` profile file format (existing logins survive), command names
   and exit codes (`pl wait`: 0/1/2/3/124, Ctrl-C 130), `pl dev` (now importing `olve-dev` from the
   SDK), `install.sh` / `install.ps1` and `/download`.
-- `src/Olve.Pipelines.Cli` is deleted. The `ovea-olve-pipelines` skill is updated and the plugin
+- `src/backend/Olve.Pipelines.Cli` is deleted. The `ovea-olve-pipelines` skill is updated and the plugin
   version bumped in the same work.
 
 ## Phase 4: Olve.Template.Api

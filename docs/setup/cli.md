@@ -20,7 +20,7 @@ Every instance also serves the `pl` it was deployed with, which always matches i
 scripts from the instance (`curl -fsSL https://<instance>/install.sh | sh`), or the binaries alone at
 `/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
 `PL_API_URL` makes the repo's script fetch from an instance. From source:
-`dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
+`dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
 
 ```bash
 pl login --api-url https://pipelines-private.ovea.pro           # profile 'default'; add --device over SSH

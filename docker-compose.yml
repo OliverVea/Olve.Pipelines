@@ -8,7 +8,7 @@
 # Mirrors the chart's minimal profile (helm/values-minimal.yaml): the server, its own Garage and a
 # single-node k3s that runs the build and step Jobs (Kubernetes:AuthMode=InCluster via the
 # ServiceAccount files k3s-bootstrap writes). Nothing here talks to the homelab: the step pods' init
-# image is built from harness/base into a local registry, pl is built from source and served at
+# image is built from src/harness/base into a local registry, pl is built from source and served at
 # /download, and Dex is the OIDC provider. PIPELINES_AUTH_DISABLE=true turns auth off.
 #
 # The server and Dex share the `edge` container's network namespace, so the Dex issuer
@@ -63,7 +63,7 @@ services:
       Kubernetes__Namespace: "olve-runners"
       KUBERNETES_SERVICE_HOST: "k3s"
       KUBERNETES_SERVICE_PORT: "6443"
-      # Built from harness/base by harness-build, pulled by k3s from the local registry.
+      # Built from src/harness/base by harness-build, pulled by k3s from the local registry.
       Harness__HarnessBaseImage: "registry:5000/olve-pipelines-harness-base:local"
       # Steps that declare clusterAccess (helmDeploy) run as olve-deployer: admin of the selfdeploy-*
       # namespaces only (compose/k3s-selfdeploy.yaml).
@@ -152,7 +152,7 @@ services:
       default:
         ipv4_address: 172.29.80.202
 
-  # One-shot: build harness/base with kaniko and push it to the local registry.
+  # One-shot: build src/harness/base with kaniko and push it to the local registry.
   harness-build:
     image: gcr.io/kaniko-project/executor:v1.23.2-debug
     command:
@@ -162,7 +162,7 @@ services:
       - --insecure
       - --insecure-registry=registry:5000
     volumes:
-      - ./harness/base:/workspace:ro
+      - ./src/harness/base:/workspace:ro
       - ./compose/registry-docker-config.json:/kaniko/.docker/config.json:ro
     depends_on:
       - registry

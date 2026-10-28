@@ -23,7 +23,7 @@ v2 prod. Don't create it on v2 beta.
 ## Step 0: v2 `pl` and session
 
 ```bash
-dotnet publish src/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin   # a reset prod serves no pl yet
+dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin   # a reset prod serves no pl yet
 pl login --device --api-url https://pipelines-private.ovea.pro   # Dex sends you to GitHub
 ```
 
@@ -51,7 +51,7 @@ every time and would create a second self-deployer.
 ## Step 3: Validate the pipeline against this instance
 
 ```bash
-(cd sdk && bun install) && (cd .pipelines && bun install)
+(cd src/sdk && bun install) && (cd .pipelines && bun install)
 pl dev validate --dir .pipelines            # describe locally + the service's reconcile checks
 ```
 

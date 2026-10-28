@@ -9,4 +9,4 @@
 # Byte-exact fixtures (manifests, schema) and generated api.json.
 *.json                  text eol=lf
 Dockerfile              text eol=lf
-harness/base/olve-init  text eol=lf
+src/harness/base/olve-init  text eol=lf

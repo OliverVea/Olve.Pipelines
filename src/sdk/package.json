@@ -1,0 +1,64 @@
+{
+  "name": "@olivervea/pipelines",
+  "version": "2.0.0-beta.19",
+  "description": "Olve.Pipelines v2 SDK: typed pipeline authoring, the step harness, and the build tool.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Oliver Vea",
+  "homepage": "https://github.com/OliverVea/Olve.Pipelines/tree/main/sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OliverVea/Olve.Pipelines.git",
+    "directory": "src/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/OliverVea/Olve.Pipelines/issues"
+  },
+  "keywords": [
+    "pipelines",
+    "cd",
+    "gitops",
+    "kubernetes",
+    "bun"
+  ],
+  "engines": {
+    "bun": ">=1.4.3"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./harness": "./src/harness/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./assets": "./src/assets.d.ts",
+    "./manifest.schema.json": "./manifest.schema.json"
+  },
+  "bin": {
+    "olve-build": "./src/build/cli.ts",
+    "olve-dev": "./src/dev/cli.ts"
+  },
+  "files": [
+    "src",
+    "manifest.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
+    "check-compile-fail": "bun scripts/check-compile-fail.ts",
+    "gen-schema": "bun scripts/gen-manifest-schema.ts",
+    "check": "prettier --check . && tsc --noEmit -p . && bun scripts/check-compile-fail.ts && bun test",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "prettier": "^3.5.0",
+    "typescript": "7.0.2"
+  }
+}

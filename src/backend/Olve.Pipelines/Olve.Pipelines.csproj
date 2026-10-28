@@ -1,0 +1,93 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <PublishAot>true</PublishAot>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\..\</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name api</OpenApiGenerateDocumentsOptions>
+    <!-- Page<T> (the runs list) is obsolete in Olve.Utilities; it goes when that list moves to the spec (offset/limit). -->
+    <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Olve.Pipelines.UnitTests" />
+  </ItemGroup>
+
+  <!-- The API surface generated from the contract (src/spec/main.tsp → artifacts/generated/backend/*.g.cs,
+       docs/design/spec-first.md). The compile runs before the build when its inputs changed;
+       -p:SkipSpecGen=true compiles already-generated files without bun (the deploy's spec step emits them). -->
+  <PropertyGroup>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</RepoRoot>
+    <SpecDir>$(RepoRoot)src/spec/</SpecDir>
+    <SpecGeneratedDir>$(RepoRoot)artifacts/generated/backend/</SpecGeneratedDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SpecInput Include="$(SpecDir)**/*.tsp;$(SpecDir)tspconfig.yaml;$(SpecDir)package.json;$(SpecDir)bun.lock" />
+    <SpecOutput Include="$(SpecGeneratedDir)PipelinesApi.g.cs;$(SpecGeneratedDir)PipelinesModels.g.cs;$(SpecGeneratedDir)PipelinesJsonContext.g.cs;$(RepoRoot)artifacts/spec/openapi.json" />
+    <!-- Static include for IDEs; re-added after generation below for a clean checkout. -->
+    <Compile Include="$(SpecGeneratedDir)*.g.cs" Link="Api/Generated/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Target Name="InstallSpecTooling" BeforeTargets="GenerateApi" Condition="'$(SkipSpecGen)' != 'true' And !Exists('$(SpecDir)node_modules')">
+    <Exec Command="bun install --frozen-lockfile" WorkingDirectory="$(SpecDir)" />
+  </Target>
+
+  <Target Name="GenerateApi" BeforeTargets="BeforeBuild" Condition="'$(SkipSpecGen)' != 'true'" Inputs="@(SpecInput)" Outputs="@(SpecOutput)">
+    <Exec Command="bun run compile" WorkingDirectory="$(SpecDir)" />
+    <!-- tsp leaves unchanged files untouched; touch them so the target stays incremental. -->
+    <Touch Files="@(SpecOutput)" />
+  </Target>
+
+  <Target Name="IncludeGeneratedApi" AfterTargets="GenerateApi" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(SpecGeneratedDir)PipelinesApi.g.cs')"
+           Text="Generated API not found in $(SpecGeneratedDir): run `bun run compile` in src/spec/ (or build without -p:SkipSpecGen=true)." />
+    <ItemGroup>
+      <Compile Remove="$(SpecGeneratedDir)*.g.cs" />
+      <Compile Include="$(SpecGeneratedDir)*.g.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Serve the setup guide (docs/setup/*.md) at /docs. Copied into wwwroot so a local
+       `dotnet run` serves them too; the Dockerfile copies the same files for the container. -->
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\docs\setup\**\*.md"
+             Link="wwwroot\docs\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <!-- llms.txt is the agent-discovery entry point: served at the site root (/llms.txt),
+         it points crawlers/agents at the raw /docs/*.md pages without a repo clone. -->
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\docs\setup\llms.txt"
+             Link="wwwroot\llms.txt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <!-- The pl install scripts, served at /install.sh and /install.ps1 with this instance as their
+         default (Distribution/CliDownloadEndpoints.cs). Next to the binary, not in wwwroot: they are
+         rewritten per request, never served raw. -->
+    <Content Include="$(MSBuildThisFileDirectory)..\..\..\install.sh;$(MSBuildThisFileDirectory)..\..\..\install.ps1"
+             Link="%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Duende.IdentityModel" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Olve.MinimalApi" />
+    <PackageReference Include="Olve.Results" />
+    <PackageReference Include="Olve.TypeSpec" />
+    <PackageReference Include="Olve.Validation" />
+    <PackageReference Include="Olve.Utilities" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <!-- Only its event parser (YamlDotNet.Core), which is reflection-free: config documents → JsonNode. -->
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+</Project>

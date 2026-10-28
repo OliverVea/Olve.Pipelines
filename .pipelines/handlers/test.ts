@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { implement } from '@olivervea/pipelines';
 import { test } from '../pipeline';
 
-const TESTS = 'test/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj';
-const CLIENT = 'clients/olve-pipelines-client-ts/src';
+const TESTS = 'src/backend/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj';
+const CLIENT = 'src/clients/olve-pipelines-client-ts/src';
 
 export default implement(test, async ({ source, spec }, ctx) => {
   const tree = await ctx.files.fetch(source.tree);

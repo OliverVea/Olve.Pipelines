@@ -218,7 +218,8 @@ checkout: the tag covers exec bits and line endings. After changing `olve-init` 
 
 1. Rebuild.
 2. Run `validate.sh`.
-3. Set `HarnessImage.Tag` to the new tag (the SDK test above prints the expected one). The executor
-   pins a tag; it never uses `latest`.
+3. Set `HarnessImage.Tag` to the new tag (the SDK test above prints the expected one), and
+   `HARNESS_BASE_IMAGE` in `src/cli/src/dev/session.ts` (`pl dev --docker`) to match. The
+   executor pins a tag; it never uses `latest`.
 4. To bump the glibc libs, change the `debian:bookworm-slim@sha256:` digest. The step binary only
    needs a glibc at least as new as the one Bun was linked against.

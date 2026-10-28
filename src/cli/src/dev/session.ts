@@ -22,7 +22,7 @@ import {
 import { ATTEMPT, Pool, RUN, Workspace } from './pool';
 import type { Toolchain } from './toolchain';
 
-/** The step-pod init image's content tag; `src/sdk/tests/runtime/harness-image.test.ts` keeps it current. */
+/** The step-pod init image, the server's default (`HarnessImage.cs`; `test/harness-image.test.ts` checks they match). */
 export const HARNESS_BASE_IMAGE =
   'ghcr.io/olivervea/olve-pipelines-harness-base:src-db8d7779c04b';
 export const HARNESS_BASE_ENV = 'OLVE_HARNESS_BASE';

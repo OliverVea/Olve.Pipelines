@@ -67,7 +67,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Scheduling` | `RunStartService`, `StageScheduler`, `RunPlan`, `AttemptInputBuilder`, `RunContinuationService`, `RunCancellationService`, `StepBlockService`, `SwitchService`, `AttemptLaunchService` |
 | `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `CriticalPathService`, `AttemptFileService`, `RunCleanupService` |
 | `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
-| `Distribution` | `CliDownloadEndpoints` (`/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
+| `Distribution` | `CliDistribution` (handlers of `/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
 | `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
 | `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
 | `Streaming` | `ChangeBroadcaster` (SSE fan-out, `/api/events`), `ChangeEventRegistration` (domain hubs → notices), `AttemptLogStreamer` |
@@ -144,7 +144,7 @@ cd src/frontend && npm run build                                # Production bui
 - .NET 10, C# with file-scoped namespaces, nullable enabled, implicit usings
 - Package versions managed centrally in `Directory.Packages.props` — do not add `Version` attributes in csproj files
 - Local config via `dotnet user-secrets`, not appsettings files
-- The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area, `docs/design/spec-first.md`); the server build compiles it into the generated C# surface, the OpenAPI document and the Hey API client under `artifacts/` (gitignored). Only the inbound webhooks and the step file download are hand-written minimal APIs
+- The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area, `docs/design/spec-first.md`); the server build compiles it into the generated C# surface, the OpenAPI document and the Hey API client under `artifacts/` (gitignored). Every endpoint but the web UI is a contract operation (`EndpointAuthTests` enforces it), the inbound webhooks and the file downloads included
 - AOT publishing enabled — do not add AOT-incompatible libraries (e.g. EF Core)
 - Namespaces are always plural/more general than contained types (e.g. `Pipeline` type in `Pipelines` namespace)
 - Domain subnamespaces nest under their parent (e.g. `Pipelines.Runs`, `Pipelines.Scheduling`, `Pipelines.Versions`)
@@ -156,7 +156,7 @@ cd src/frontend && npm run build                                # Production bui
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 - **Tests assert results, never read `.Value!`**: `await Assert.That(result).Succeeded()` / `.Failed()` / `.SucceededAndValue(v => v.IsEqualTo(x))` (Olve.Results.TUnit); to unwrap a result for setup, `TestRunDomain.Pick(result)` (throws with the problems on failure).
 - **Agent playbook: keep the `ovea-olve-pipelines` skill current.** It lives in [OliverVea/ovea-skills](https://github.com/OliverVea/ovea-skills) (`ovea-workflow/skills/ovea-olve-pipelines/SKILL.md`) and tells agents how to use Olve.Pipelines: `pl` for everything, the user logs in, profiles, `pl wait`, what a push does, changing a pipeline safely. Any change here that alters how an agent should use the service, `pl` or the SDK updates that skill in the same piece of work, and bumps the `ovea-workflow` plugin version (clients update on a version bump).
-- **User docs (`docs/setup`) describe the current system only**: no v1, no history, no "replaced by"/"no longer". Keep them up to date with every change; migration notes and history go in `docs/design`.
+- **Every human-facing doc (`docs/setup`, `docs/design`, READMEs, this file) describes the current system only**: no v1, no history, no dated "moved/closed" notes, no "replaced by"/"no longer"/"now … instead of". Rewrite stale sentences to the new truth with every change; the history is the commit messages.
 - **Comments: few and short.** Comment only what the code can't say (a non-obvious why, a gotcha). No narrative headers, no restating the code, no plan/track/spec-section references or history in comments; that belongs in docs and commit messages. Pipeline definitions (`.pipelines/`) and SDK examples especially must read cleanly.
 - Development happens on `main`. The deployer pipeline (`.pipelines/pipeline.ts`) lives on v2 prod (`pipelines-private.ovea.pro`): every push deploys v2 beta, smoke-tests it (`beta-test`), then deploys v2 prod; `deployTo=beta` stops after beta. Block `deploy-prod` (`pl step block`) only in special circumstances.
 - **Server first, then the pipeline that needs it.** Prod reconciles `.pipelines/` with the server code it is running, so a commit whose pipeline needs a new server rule (a validator check, a manifest field) fails reconcile and the deploy stalls. Push the server change on its own, let it reach prod, then push the pipeline change.

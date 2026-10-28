@@ -185,9 +185,16 @@ renders `artifacts/spec/api-reference.md` from the OpenAPI document and
 `src/spec/api-reference.header.md` as part of `bun run build`; the server links it into
 `wwwroot/docs`. Manifest validation moved to the contract (`Manifests.validate`, an `unknown`
 body: the handler re-serializes the element for the parser, so a malformed body is a 400 from the
-binder rather than a 200 report). Left hand-written, listed in the header's "Outside the API":
-the step file download (binary) and the three inbound hooks. The runtime OpenAPI document at
-`/openapi/v1.json` stays: it is the instance's own view, hooks included.
+binder rather than a 200 report).
+
+**Every endpoint is a contract operation**, the web UI fallback aside; `EndpointAuthTests` fails on
+any endpoint without the generated operation metadata. That includes the step file download
+(`RunSteps.download`, a `{+path}` catch-all streaming `bytes`), the inbound hooks (`hooks.tsp`:
+the GitHub binding webhook and webhook triggers take the raw body for signatures; callback inputs)
+and the `pl` downloads and install scripts (`distribution.tsp`, outside `/api`). Request headers,
+the remote IP and the request origin come through `IHttpContextAccessor`. A download registers
+the S3 response for disposal with the request, since the generated `StreamResponse` disposes only
+the stream. `/download/` with no asset is a 400 (an empty catch-all fails binding), never the web UI.
 
 **Wart list** (grows as areas are specified; fixed in the area's push):
 
@@ -234,7 +241,7 @@ is what a new service starts from.
 
 - Package names in Olve.Utilities (`Olve.TypeSpec`? the npm scope is `@olivervea`).
 - ~~Whether the file download stays a hand-written endpoint declared in the spec for the clients.~~
-  Hand-written and outside the spec (the emitter has no binary responses); the header lists it.
+  In the spec: `RunSteps.download`.
 - ~~Whether `docs/setup/api-reference.md` keeps a committed copy for GitHub readers or is build-only.~~
   Build-only; the instance serves it. Then (2026-10-28) removed with its generator: the contract
   carries `@useAuth` and the error and event prose, and the instance serves the OpenAPI document

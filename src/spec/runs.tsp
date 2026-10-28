@@ -306,6 +306,14 @@ model StepFiles {
   files: StepFile[];
 }
 
+/** One stored file of an attempt, streamed as it is read. */
+model StepFileContent {
+  @header contentType: string;
+  @header contentDisposition: string;
+  @header contentLength?: int64;
+  @body body: bytes;
+}
+
 /** Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share. */
 model CriticalPathReport {
   from: int32;
@@ -482,6 +490,17 @@ interface RunSteps {
     @path step: string,
     @query attempt?: int32,
   ): StepFiles | NotFound;
+
+  #suppress "@typespec/openapi3/path-reserved-expansion" "Served as a catch-all: a file path spans segments"
+  /** One stored file of an attempt (default: the latest successful attempt); a directory `dir/` downloads as `dir.tar`. */
+  @summary("Download a step file")
+  @get @route("files/{+path}") download(
+    @path @format("uuid") pipelineId: string,
+    @path number: int32,
+    @path step: string,
+    @path path: string,
+    @query attempt?: int32,
+  ): StepFileContent | NotFound | BadRequest;
 
   /** The output JSON of an attempt (default: the latest successful attempt). */
   @summary("Get a step's output")

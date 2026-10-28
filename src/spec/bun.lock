@@ -6,7 +6,7 @@
       "name": "olve-pipelines-spec",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.99.0",
-        "@olivervea/typespec-csharp": "0.59.0",
+        "@olivervea/typespec-csharp": "0.60.0",
         "@typespec/compiler": "1.16.0",
         "@typespec/events": "0.86.0",
         "@typespec/http": "1.16.0",
@@ -73,7 +73,7 @@
 
     "@lukeed/ms": ["@lukeed/ms@2.0.2", "", {}, "sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA=="],
 
-    "@olivervea/typespec-csharp": ["@olivervea/typespec-csharp@0.59.0", "", { "peerDependencies": { "@typespec/compiler": "^1.16.0", "@typespec/events": "^0.86.0", "@typespec/http": "^1.16.0", "@typespec/streams": "^0.86.0" } }, "sha512-vU37Ang86YPXV+vBSg1kl9JFzyRBgbQjl4+vv+HfBKmR4Go0Oeuyo0drFTW7Xp+dAh6vAaD5B2G/2/GWy39MJQ=="],
+    "@olivervea/typespec-csharp": ["@olivervea/typespec-csharp@0.60.0", "", { "peerDependencies": { "@typespec/compiler": "^1.16.0", "@typespec/events": "^0.86.0", "@typespec/http": "^1.16.0", "@typespec/streams": "^0.86.0" } }, "sha512-MTZ4X/W1HoUQ9dLlidJ/kzum3o013mrdVIlCJGdFthaQdmkS0IzA3iccSrYf+Pdhk3HwskIKLcmVibF957xxkQ=="],
 
     "@scalar/helpers": ["@scalar/helpers@0.12.0", "", {}, "sha512-rcX0rFLiWWc0VBr/E+HkatubL0I0ZzxASQkd3032NWEMAEfNd2TiJ9kH46HwbSAOOl696ghxymWegjpjjvxwzA=="],
 

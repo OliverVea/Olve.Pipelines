@@ -88,6 +88,37 @@ public sealed class ListStepFilesHandler(RunQueryService query, AttemptFileServi
         : "Run #{0} has no attempt {2} of step '{1}'.", number, step, attempt ?? 0);
 }
 
+/// <summary>One stored file by its address <c>#run/step[@attempt]/path</c>; a directory ref <c>dir/</c> downloads as <c>dir.tar</c>.</summary>
+public sealed class DownloadStepFileHandler(RunQueryService query, AttemptFileService files, IHttpContextAccessor http) : Contract.IRunStepsDownloadHandler
+{
+    public async Task<Contract.RunStepsDownloadResponse> HandleAsync(Contract.RunStepsDownloadRequest request, CancellationToken cancellationToken)
+    {
+        if (AttemptFileService.ToObjectPath(request.Path).TryPickProblems(out var pathProblems, out var objectPath))
+            return RunViews.Fail<Contract.RunStepsDownloadResponse>(pathProblems,
+                p => new Contract.RunStepsDownloadResponse.NotFound(p), null, p => new Contract.RunStepsDownloadResponse.BadRequest(p));
+        var id = PipelineViews.PipelineId(request.PipelineId);
+        if (!query.TryResolve(id, request.Number, request.Step, request.Attempt, out var resolved))
+            return new Contract.RunStepsDownloadResponse.NotFound(ApiProblems.Of(ListStepFilesHandler.NoAttempt(request.Number, request.Step, request.Attempt)));
+
+        var download = await files.OpenAsync(resolved, objectPath, cancellationToken);
+        if (download is null)
+            return new Contract.RunStepsDownloadResponse.NotFound(ApiProblems.Of(new NotFoundProblem(
+                "Attempt {0} of step '{1}' in run #{2} has no file '{3}'.", resolved.Number, request.Step, request.Number, objectPath)));
+
+        // Disposing the content stream alone doesn't release the S3 response.
+        http.HttpContext?.Response.RegisterForDispose(download);
+        return new Contract.RunStepsDownloadResponse.Ok(download.Content, download.ContentType, Attachment(download.FileName), download.Length);
+    }
+
+    /// <summary>An ASCII <c>filename</c> and an encoded <c>filename*</c>, so any file name is a valid header.</summary>
+    public static string Attachment(string fileName)
+    {
+        var disposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("attachment");
+        disposition.SetHttpFileName(fileName);
+        return disposition.ToString();
+    }
+}
+
 /// <summary>Without <c>attempt</c> the output of the latest successful attempt (what later stages consumed).</summary>
 public sealed class GetStepOutputHandler(RunQueryService query) : Contract.IRunStepsOutputHandler
 {

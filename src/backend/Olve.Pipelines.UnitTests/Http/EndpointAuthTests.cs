@@ -26,7 +26,8 @@ public class EndpointAuthTests
         "GET /download/{**asset}",
         "GET /install.ps1",
         "GET /install.sh",
-        "GET {*path:nonfile}",
+        WebUi,
+        "HEAD /download/{**asset}",
         "POST /api/hooks/inputs/{runId}/{step}/{input}/{mac}",
         "POST /api/hooks/{pipelineId}/{trigger}",
         "POST /api/webhooks/binding/{bindingId}/github",
@@ -59,7 +60,9 @@ public class EndpointAuthTests
         "GET /api/pipelines/{pipelineId}/versions/{number}/effective",
     ];
 
-    private static async Task<(IReadOnlyList<(string Endpoint, bool Anonymous, string[] Policies)> Table, AuthorizationOptions Options)> MapAll()
+    private const string WebUi = "GET {*path:nonfile}";
+
+    private static async Task<(IReadOnlyList<(string Endpoint, bool Anonymous, string[] Policies, bool InContract)> Table, AuthorizationOptions Options)> MapAll()
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
@@ -85,9 +88,19 @@ public class EndpointAuthTests
             .Select(e => (
                 Endpoint: $"{e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.FirstOrDefault() ?? "*"} {e.RoutePattern.RawText}",
                 Anonymous: e.Metadata.GetMetadata<IAllowAnonymous>() is not null,
-                Policies: e.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(a => a.Policy ?? "").ToArray()))
+                Policies: e.Metadata.GetOrderedMetadata<IAuthorizeData>().Select(a => a.Policy ?? "").ToArray(),
+                InContract: e.Metadata.GetMetadata<Olve.TypeSpec.ApiOperation>() is not null))
             .ToList();
         return (table, app.Services.GetRequiredService<IOptions<AuthorizationOptions>>().Value);
+    }
+
+    // Catches: a hand-written Map* endpoint; every endpoint but the web UI is a contract operation (src/spec/).
+    [Test]
+    public async Task EveryEndpointButTheWebUi_IsInTheContract()
+    {
+        var (table, _) = await MapAll();
+
+        await Assert.That(table.Where(e => !e.InContract).Select(e => e.Endpoint)).IsEquivalentTo([WebUi]);
     }
 
     // Catches: a stray .AllowAnonymous() on a mutation or on secrets.

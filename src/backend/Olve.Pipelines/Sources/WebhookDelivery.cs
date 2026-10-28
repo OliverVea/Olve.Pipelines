@@ -10,24 +10,24 @@ public sealed record WebhookDelivery(byte[] Body, IReadOnlyDictionary<string, st
 
     public string? Header(string name) => Headers.TryGetValue(name, out var value) ? value : null;
 
-    /// <summary>Reads the request once, refusing bodies over <see cref="MaxBodyBytes"/>.</summary>
-    public static async Task<Result<WebhookDelivery>> ReadAsync(HttpRequest request, CancellationToken ct)
+    /// <summary>Reads the raw body once, refusing bodies over <see cref="MaxBodyBytes"/>.</summary>
+    public static async Task<Result<WebhookDelivery>> ReadAsync(Stream body, IHeaderDictionary headers, CancellationToken ct)
     {
-        if (request.ContentLength > MaxBodyBytes)
+        if (headers.ContentLength > MaxBodyBytes)
             return new ResultProblem("Webhook body exceeds {0} bytes.", MaxBodyBytes);
 
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
         int read;
-        while ((read = await request.Body.ReadAsync(chunk, ct)) > 0)
+        while ((read = await body.ReadAsync(chunk, ct)) > 0)
         {
             if (buffer.Length + read > MaxBodyBytes)
                 return new ResultProblem("Webhook body exceeds {0} bytes.", MaxBodyBytes);
             buffer.Write(chunk, 0, read);
         }
 
-        var headers = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase);
-        return new WebhookDelivery(buffer.ToArray(), headers);
+        return new WebhookDelivery(buffer.ToArray(),
+            headers.ToDictionary(h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase));
     }
 }
 

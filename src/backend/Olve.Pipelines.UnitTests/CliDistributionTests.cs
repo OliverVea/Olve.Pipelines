@@ -89,10 +89,10 @@ public class CliDistributionTests
         {
             var script = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, name));
             // The rewrite anchors on the one placeholder; it must exist exactly once (the INSTANCE assignment).
-            await Assert.That(script.Split(CliDownloadEndpoints.ScriptDefaultBaseUrl).Length - 1).IsEqualTo(1);
+            await Assert.That(script.Split(CliDistribution.ScriptDefaultBaseUrl).Length - 1).IsEqualTo(1);
 
-            var rewritten = CliDownloadEndpoints.RewriteDefaultBaseUrl(script, "https://pipelines-beta.ovea.pro");
-            await Assert.That(rewritten).DoesNotContain(CliDownloadEndpoints.ScriptDefaultBaseUrl);
+            var rewritten = CliDistribution.RewriteDefaultBaseUrl(script, "https://pipelines-beta.ovea.pro");
+            await Assert.That(rewritten).DoesNotContain(CliDistribution.ScriptDefaultBaseUrl);
             await Assert.That(rewritten).Contains("https://pipelines-beta.ovea.pro");
             await Assert.That(rewritten).Contains("PL_API_URL");
         }
@@ -110,8 +110,8 @@ public class CliDistributionTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Links:BaseUrl"] = "https://pipelines-beta.ovea.pro/" })
             .Build();
 
-        await Assert.That(CliDownloadEndpoints.InstanceBaseUrl(http, none)).IsEqualTo("http://olve-pipelines-v2.apps-beta");
-        await Assert.That(CliDownloadEndpoints.InstanceBaseUrl(http, links)).IsEqualTo("https://pipelines-beta.ovea.pro");
+        await Assert.That(CliDistribution.InstanceBaseUrl(http.Request, none)).IsEqualTo("http://olve-pipelines-v2.apps-beta");
+        await Assert.That(CliDistribution.InstanceBaseUrl(http.Request, links)).IsEqualTo("https://pipelines-beta.ovea.pro");
     }
 
     [Test]
@@ -120,7 +120,7 @@ public class CliDistributionTests
     [Arguments("output.json", false)]
     [Arguments("../pl-linux-x64", false)]
     public async Task OnlyAllowListedAssetsResolve(string asset, bool allowed)
-        => await Assert.That(CliDownloadEndpoints.Assets.Contains(asset)).IsEqualTo(allowed);
+        => await Assert.That(CliDistribution.Assets.Contains(asset)).IsEqualTo(allowed);
 
     [Test]
     public async Task LocalDirectory_ServesBinariesBuiltNextToTheInstance()
@@ -131,11 +131,11 @@ public class CliDistributionTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Distribution:LocalDirectory"] = dir })
             .Build();
 
-        await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-linux-x64")).IsEqualTo(Path.Combine(dir, "pl-linux-x64"));
-        await Assert.That(CliDownloadEndpoints.LocalAsset(local, "pl-win-x64.exe")).IsNull();
-        await Assert.That(CliDownloadEndpoints.LocalAsset(new ConfigurationBuilder().Build(), "pl-linux-x64")).IsNull();
-        await Assert.That(CliDownloadEndpoints.LocalBuildPending(local, "pl-linux-x64")).IsFalse();
-        await Assert.That(CliDownloadEndpoints.LocalBuildPending(local, "pl-win-x64.exe")).IsTrue();
-        await Assert.That(CliDownloadEndpoints.LocalBuildPending(new ConfigurationBuilder().Build(), "pl-win-x64.exe")).IsFalse();
+        await Assert.That(CliDistribution.LocalAsset(local, "pl-linux-x64")).IsEqualTo(Path.Combine(dir, "pl-linux-x64"));
+        await Assert.That(CliDistribution.LocalAsset(local, "pl-win-x64.exe")).IsNull();
+        await Assert.That(CliDistribution.LocalAsset(new ConfigurationBuilder().Build(), "pl-linux-x64")).IsNull();
+        await Assert.That(CliDistribution.LocalBuildPending(local, "pl-linux-x64")).IsFalse();
+        await Assert.That(CliDistribution.LocalBuildPending(local, "pl-win-x64.exe")).IsTrue();
+        await Assert.That(CliDistribution.LocalBuildPending(new ConfigurationBuilder().Build(), "pl-win-x64.exe")).IsFalse();
     }
 }

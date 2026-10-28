@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.Features;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Problems;
-using HttpResults = Microsoft.AspNetCore.Http.Results;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
@@ -76,51 +77,46 @@ public sealed class CallbackInputUrls(CallbackKeyStore keys, WebhookOptions webh
 }
 
 /// <summary><c>POST /api/hooks/inputs/{run}/{step}/{input}/{mac}</c>: another system answers (or declines) a callback input.</summary>
-public static class CallbackInputEndpoints
+public sealed class CallbackInputHandler(CallbackInputUrls urls, RunService runs, ExternalInputService inputs, IHttpContextAccessor http)
+    : Contract.IWebhookTriggersAnswerCallbackHandler
 {
     private const int MaxBodyBytes = 64 * 1024;
 
-    public static void MapCallbackInputEndpoints(this WebApplication app)
+    public async Task<Contract.WebhookTriggersAnswerCallbackResponse> HandleAsync(Contract.WebhookTriggersAnswerCallbackRequest request, CancellationToken cancellationToken)
     {
-        app.MapPost("/api/hooks/inputs/{runId}/{step}/{input}/{mac}", async Task<IResult> (
-                Id<Run> runId, string step, string input, string mac, HttpRequest request,
-                CallbackInputUrls urls, RunService runs, ExternalInputService inputs, CancellationToken ct) =>
-            {
-                var id = runId;
-                if (!await urls.VerifyAsync(id, step, input, mac, ct) || !runs.TryGet(id, out var run))
-                    return HttpResults.NotFound();
-                if (request.ContentLength > MaxBodyBytes)
-                    return HttpResults.StatusCode(StatusCodes.Status413PayloadTooLarge);
-                if (request.HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-                    limit.MaxRequestBodySize = MaxBodyBytes;
+        var id = new Id<Run>(new Id(request.RunId));
+        if (!await urls.VerifyAsync(id, request.Step, request.Input, request.Mac, cancellationToken) || !runs.TryGet(id, out var run))
+            return new Contract.WebhookTriggersAnswerCallbackResponse.NotFound(ApiProblems.Of(new NotFoundProblem("No such callback input.")));
+        var context = http.HttpContext;
+        if (context?.Request.ContentLength > MaxBodyBytes)
+            return new Contract.WebhookTriggersAnswerCallbackResponse.PayloadTooLarge();
+        if (context?.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+            limit.MaxRequestBodySize = MaxBodyBytes;
 
-                JsonElement body;
-                try
-                {
-                    using var doc = await JsonDocument.ParseAsync(request.Body, cancellationToken: ct);
-                    body = doc.RootElement.Clone();
-                }
-                catch (JsonException)
-                {
-                    return HttpResults.BadRequest();
-                }
-                catch (BadHttpRequestException)
-                {
-                    return HttpResults.StatusCode(StatusCodes.Status413PayloadTooLarge);
-                }
+        JsonElement body;
+        try
+        {
+            using var doc = await JsonDocument.ParseAsync(request.Body, cancellationToken: cancellationToken);
+            body = doc.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return new Contract.WebhookTriggersAnswerCallbackResponse.BadRequest(ApiProblems.Of(new ResultProblem("The body is not JSON.")));
+        }
+        catch (BadHttpRequestException)
+        {
+            return new Contract.WebhookTriggersAnswerCallbackResponse.PayloadTooLarge();
+        }
 
-                var by = new Answerer("callback", $"callback from {request.HttpContext.Connection.RemoteIpAddress}");
-                var result = body.ValueKind == JsonValueKind.Object && body.TryGetProperty("$decline", out var reason)
-                    ? inputs.Decline(run.PipelineId, run.Number, step, reason.ValueKind == JsonValueKind.String ? reason.GetString() : null, by)
-                    : inputs.Answer(run.PipelineId, run.Number, step, input, body, by);
-                return result.TryPickProblems(out var problems)
-                    ? request.HttpContext.ToApiResult(problems.ToArray())
-                    : HttpResults.Accepted();
-            })
-            .WithName("AnswerCallbackInput")
-            .WithTags("Runs")
-            .WithSummary("Answer a callback input")
-            .WithDescription("Another system answers a step's external input with `from: [callback()]`. The URL comes from `ctx.inputUrl(step, input)` and is the credential: anonymous, valid while the step waits for that input. The body is the value as JSON, or `{\"$decline\": \"reason\"}` to fail the step without running it. Answers 202.")
-            .AllowAnonymous();
+        var by = new Answerer("callback", $"callback from {context?.Connection.RemoteIpAddress}");
+        var result = body.ValueKind == JsonValueKind.Object && body.TryGetProperty("$decline", out var reason)
+            ? inputs.Decline(run.PipelineId, run.Number, request.Step, reason.ValueKind == JsonValueKind.String ? reason.GetString() : null, by)
+            : inputs.Answer(run.PipelineId, run.Number, request.Step, request.Input, body, by);
+        return result.TryPickProblems(out var problems)
+            ? RunViews.Fail<Contract.WebhookTriggersAnswerCallbackResponse>(problems,
+                p => new Contract.WebhookTriggersAnswerCallbackResponse.NotFound(p),
+                p => new Contract.WebhookTriggersAnswerCallbackResponse.Conflict(p),
+                p => new Contract.WebhookTriggersAnswerCallbackResponse.BadRequest(p))
+            : new Contract.WebhookTriggersAnswerCallbackResponse.Accepted();
     }
 }

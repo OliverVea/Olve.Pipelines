@@ -1,11 +1,14 @@
 using Olve.Pipelines.Api;
+using Olve.Pipelines.Distribution;
 using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Streaming;
 
@@ -67,6 +70,14 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IRunStepsLogStreamHandler, StreamStepLogsHandler>();
         services.AddTransient<IEventsStreamHandler, StreamEventsHandler>();
         services.AddTransient<IManifestsValidateHandler, ValidateManifestHandler>();
+        services.AddTransient<IRunStepsDownloadHandler, DownloadStepFileHandler>();
+        services.AddTransient<IBindingWebhooksGithubHandler, BindingWebhookHandler>();
+        services.AddTransient<IWebhookTriggersReceiveHandler, WebhookTriggerHandler>();
+        services.AddTransient<IWebhookTriggersAnswerCallbackHandler, CallbackInputHandler>();
+        services.AddTransient<ICliDownloadsDownloadHandler, DownloadCliHandler>();
+        services.AddTransient<ICliDownloadsHeadHandler, HeadCliHandler>();
+        services.AddTransient<ICliInstallShellHandler, InstallShellHandler>();
+        services.AddTransient<ICliInstallPowerShellHandler, InstallPowerShellHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -131,5 +142,15 @@ public static class ApiHandlerConfiguration
         api.RunStepsLogStream.RequireRead().WithTags("Steps").WithSummary("Stream a step's log");
         api.EventsStream.RequireRead().WithTags("Events").WithSummary("Stream change events");
         api.ManifestsValidate.WithTags("Versions").WithSummary("Validate a manifest");
+        // Step files are never a read: anonymous reads would publish every attempt's files.
+        api.RunStepsDownload.WithTags("Steps").WithSummary("Download a step file");
+        // Inbound hooks are verified by their own signature or URL, not a token.
+        api.BindingWebhooksGithub.AllowAnonymous().WithTags("Bindings").WithSummary("GitHub push webhook");
+        api.WebhookTriggersReceive.AllowAnonymous().WithTags("Triggers").WithSummary("Deliver a webhook trigger");
+        api.WebhookTriggersAnswerCallback.AllowAnonymous().WithTags("Runs").WithSummary("Answer a callback input");
+        api.CliDownloadsDownload.AllowAnonymous().WithTags("Distribution").WithSummary("Download pl");
+        api.CliDownloadsHead.AllowAnonymous().WithTags("Distribution").WithSummary("Check a pl download");
+        api.CliInstallShell.AllowAnonymous().WithTags("Distribution").WithSummary("Get the install script");
+        api.CliInstallPowerShell.AllowAnonymous().WithTags("Distribution").WithSummary("Get the Windows install script");
     }
 }

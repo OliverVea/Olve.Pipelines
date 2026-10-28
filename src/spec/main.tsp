@@ -4,8 +4,10 @@
 import "@typespec/http";
 import "./bindings.tsp";
 import "./config.tsp";
+import "./distribution.tsp";
 import "./errors.tsp";
 import "./events.tsp";
+import "./hooks.tsp";
 import "./instance.tsp";
 import "./pipelines.tsp";
 import "./runs.tsp";

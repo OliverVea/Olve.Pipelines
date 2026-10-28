@@ -1,5 +1,5 @@
 # Generated output goes to the repo's artifacts/ (gitignored), never into source folders.
-output-dir: "{project-root}/../artifacts"
+output-dir: "{project-root}/../../artifacts"
 emit:
   - "@typespec/openapi3"
   - "@olivervea/typespec-csharp"

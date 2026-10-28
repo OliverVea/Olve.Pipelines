@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, build and client/API-reference generation; server configuration is in [docs/setup/self-hosting.md](docs/setup/self-hosting.md), the `pl` CLI in [docs/setup/cli.md](docs/setup/cli.md), the API in the contract `src/spec/*.tsp` (served as OpenAPI at `/docs/openapi.json`). The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, build and the contract; server configuration is in [docs/setup/self-hosting.md](docs/setup/self-hosting.md), the `pl` CLI in [docs/setup/cli.md](docs/setup/cli.md), the API in the contract `src/spec/*.tsp` (served as OpenAPI at `/docs/openapi.json`). The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
 
 ## Start here: load the agent playbook
 

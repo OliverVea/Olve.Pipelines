@@ -1,0 +1,25 @@
+{
+  "name": "pl",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "pl — the Olve.Pipelines operator CLI (Bun, compiled to one binary per platform).",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "bun test",
+    "format": "prettier --write src test",
+    "format:check": "prettier --check src test",
+    "build": "bun build src/main.ts --compile --minify --outfile ../../artifacts/cli/pl",
+    "build:linux-x64": "bun build src/main.ts --compile --minify --target=bun-linux-x64 --outfile ../../artifacts/cli/pl-linux-x64",
+    "build:windows-x64": "bun build src/main.ts --compile --minify --target=bun-windows-x64 --outfile ../../artifacts/cli/pl-win-x64.exe"
+  },
+  "dependencies": {
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.2",
+    "@types/qrcode": "1.5.6",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  }
+}

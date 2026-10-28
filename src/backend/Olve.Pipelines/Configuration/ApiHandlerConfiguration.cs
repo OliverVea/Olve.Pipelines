@@ -3,6 +3,7 @@ using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
@@ -65,6 +66,7 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IAttemptsListHandler, ListActiveAttemptsHandler>();
         services.AddTransient<IRunStepsLogStreamHandler, StreamStepLogsHandler>();
         services.AddTransient<IEventsStreamHandler, StreamEventsHandler>();
+        services.AddTransient<IManifestsValidateHandler, ValidateManifestHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -128,5 +130,6 @@ public static class ApiHandlerConfiguration
         api.AttemptsList.RequireRead().WithTags("Attempts").WithSummary("List running attempts");
         api.RunStepsLogStream.RequireRead().WithTags("Steps").WithSummary("Stream a step's log");
         api.EventsStream.RequireRead().WithTags("Events").WithSummary("Stream change events");
+        api.ManifestsValidate.WithTags("Versions").WithSummary("Validate a manifest");
     }
 }

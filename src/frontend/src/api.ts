@@ -4,7 +4,7 @@ import { getAccessToken, login, devAuthBypass } from './auth.js';
 /**
  * The client of the contract's operations (`@olve/api`, generated from src/spec): pass it as
  * `client` to every SDK call. Same origin, the bearer attached per request, and a non-2xx answer
- * thrown as {@link ApiError} with every problem message, like {@link apiFetch}.
+ * thrown as {@link ApiError} with every problem message.
  */
 export const api = createClient(createConfig({ baseUrl: '', throwOnError: true }));
 api.interceptors.request.use(async (request) => {
@@ -40,7 +40,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Messages of an error body: `{ errors: [{ message, field? }] }` (also as a Kiota error), or a legacy problem array. */
+/** Messages of an error body: `{ errors: [{ message, field? }] }`, or a bare problem array. */
 function problemsFromBody(body: unknown): string[] {
   const errors =
     body && typeof body === 'object' ? (body as { errors?: unknown }).errors : undefined;
@@ -82,44 +82,6 @@ export function encodePath(path: string): string {
 }
 
 /**
- * Plain fetch against the API with the bearer token. Throws {@link ApiError}
- * with every `ResultProblem` message on a non-2xx response. Returns the parsed
- * JSON body (or `undefined` for an empty body).
- */
-export async function apiFetch<T = unknown>(
-  path: string,
-  init: { method?: string; body?: unknown } = {},
-): Promise<T> {
-  const headers: Record<string, string> = {
-    ...(await authHeaders()),
-    Accept: 'application/json',
-  };
-  let body: string | undefined;
-  if (init.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify(init.body);
-  }
-  const res = await fetch(path, { method: init.method ?? 'GET', headers, body });
-  const text = await res.text();
-  let parsed: unknown = undefined;
-  if (text.length) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
-    }
-  }
-  if (!res.ok) {
-    const problems = problemsFromBody(parsed);
-    if (!problems.length && res.status === 401)
-      problems.push('Sign in to do this (HTTP 401).');
-    if (!problems.length && res.status === 403) problems.push('Not allowed (HTTP 403).');
-    throw new ApiError(res.status, problems);
-  }
-  return parsed as T;
-}
-
-/**
  * Server-sent events from an authenticated endpoint. `EventSource` can't send the bearer token, so this
  * reads the stream with fetch. Ends when the server closes the stream or `signal` aborts.
  */
@@ -156,11 +118,6 @@ export async function* apiEvents(
   } finally {
     reader.cancel().catch(() => {});
   }
-}
-
-/** POST with a JSON body (or none). */
-export function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
-  return apiFetch<T>(path, { method: 'POST', body });
 }
 
 /** Fetch an authenticated file and hand it to the browser as a download. */
@@ -211,73 +168,9 @@ export async function apiText(path: string): Promise<string> {
   return text;
 }
 
-/**
- * Convert a Kiota `UntypedNode` (or any value that may contain them) to plain
- * JSON. `JsonElement` members of the API surface as UntypedNodes.
- */
-export function untypedToJson(node: unknown): unknown {
-  if (node === null || node === undefined) return node ?? null;
-  if (
-    typeof node === 'object' &&
-    'getValue' in node &&
-    typeof (node as { getValue: unknown }).getValue === 'function'
-  ) {
-    return untypedToJson((node as { getValue: () => unknown }).getValue());
-  }
-  if (Array.isArray(node)) return node.map(untypedToJson);
-  if (typeof node === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(node as Record<string, unknown>))
-      out[k] = untypedToJson(v);
-    return out;
-  }
-  return node;
-}
-
-/** Numeric map from a Kiota additionalData holder (`stepVersions` etc.). */
-export function numberMap(
-  holder: { additionalData?: Record<string, unknown> } | null | undefined,
-): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(holder?.additionalData ?? {})) {
-    const n = typeof v === 'number' ? v : Number(v);
-    if (!Number.isNaN(n)) out[k] = n;
-  }
-  return out;
-}
-
-/**
- * Turn a thrown value into a human-readable message.
- *
- * Kiota does not throw `Error` instances for API failures: on a mapped error
- * status it deserializes the response body into a plain object (our
- * `ResultProblem`) and throws that. The API returns an *array* of problems, which
- * Kiota parses into `additionalData` keyed "0", "1", …; pull messages from there
- * too. Kiota renames the wire `message` field to `messageEscaped`.
- */
+/** A thrown value as one message: an {@link ApiError}'s problems, an `Error`'s message, else its text. */
 export function extractErrorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
-  if (err && typeof err === 'object') {
-    const p = err as {
-      messageEscaped?: unknown;
-      message?: unknown;
-      exceptionSummary?: unknown;
-      additionalData?: Record<string, unknown>;
-      responseStatusCode?: unknown;
-    };
-    const fromBody = Array.isArray((err as { errors?: unknown }).errors)
-      ? problemsFromBody(err)
-      : [];
-    if (fromBody.length) return fromBody.join('\n');
-    const fromArray = problemsFromBody(Object.values(p.additionalData ?? {}));
-    if (fromArray.length) return fromArray.join('\n');
-    if (p.responseStatusCode === 401) return 'Sign in to see this (HTTP 401).';
-    if (p.responseStatusCode === 403) return 'Not allowed (HTTP 403).';
-    const candidate = p.messageEscaped ?? p.message ?? p.exceptionSummary;
-    if (typeof candidate === 'string' && candidate.length > 0) return candidate;
-    if (typeof p.responseStatusCode === 'number')
-      return `Request failed (HTTP ${p.responseStatusCode}).`;
-  }
   if (err instanceof Error && err.message) return err.message;
   const s = String(err);
   return s === '[object Object]' ? 'An unexpected error occurred.' : s;

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# The checks the deploy runs (`test`, `build-sdk`, `build-frontend`), locally, per project.
+# The checks the deploy runs (`spec`, `test`, `build-sdk`, `build-frontend`), locally, per project.
 #
 #   tools/check.sh                 fast tier, every project: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 #   tools/check.sh --changed       only the projects with changes against the upstream branch (plus uncommitted work)
 #   tools/check.sh --full          adds the unit tests, the SDK test suite and the frontend build
-#   tools/check.sh --fix           formats and regenerates first (prettier, dotnet format, api.json, TS client, API reference, manifest schema), then checks
+#   tools/check.sh --fix           formats and regenerates first (prettier, dotnet format, manifest schema), then checks
 #   tools/check.sh --hook          --changed, quiet on success, failures on stderr, exit 2 (for pre-push hooks)
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -34,7 +34,7 @@ if [ $changed = 1 ]; then
       .pipelines/*) want[pipelines]=1 ;;
       src/frontend/*) want[frontend]=1; want[spec]=1 ;;
       src/spec/*) want[spec]=1; want[frontend]=1; want[dotnet]=1 ;;
-      src/*|test/*|src/clients/*|tools/*|api.json|docs/setup/api-reference.md|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
+      src/*|tools/*|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
     esac
   done <<<"$files"
   if [ ${#want[@]} = 0 ]; then
@@ -45,7 +45,7 @@ if [ $changed = 1 ]; then
 fi
 
 [ -x "$prettier" ] || { echo "src/sdk/node_modules missing: run (cd src/sdk && bun install)" >&2; exit 2; }
-[ -z "${want[frontend]:-}" ] || [ -d src/frontend/node_modules ] || { echo "src/frontend/node_modules missing: run (cd src/clients/olve-pipelines-client-ts && npm install) and (cd src/frontend && npm install)" >&2; exit 2; }
+[ -z "${want[frontend]:-}" ] || [ -d src/frontend/node_modules ] || { echo "src/frontend/node_modules missing: run (cd src/frontend && npm install)" >&2; exit 2; }
 
 run() { # run <name> <command...>
   local name=$1; shift
@@ -67,21 +67,6 @@ manifest_schema_current() {
       console.error("src/sdk/manifest.schema.json is out of date: run `bun scripts/gen-manifest-schema.ts`"); process.exit(1); }')
 }
 
-api_json_current() {
-  dotnet build src/backend/Olve.Pipelines --nologo -v quiet || return 1
-  git diff --quiet --exit-code -- api.json || { echo "api.json changed on build: commit it, then regenerate the TS client (tools/check.sh --fix does both)"; return 1; }
-}
-
-kiota_generate() { # kiota_generate <out dir>
-  dotnet tool restore >/dev/null && dotnet kiota generate -l typescript -d api.json -o "$1" -n OlvePipelinesClient --clean-output >/dev/null
-}
-
-ts_client_current() {
-  kiota_generate "$log/client" || return 1
-  diff -r -x kiota-lock.json -x .kiota.log "$log/client" src/clients/olve-pipelines-client-ts/src \
-    || { echo "src/clients/olve-pipelines-client-ts/src is out of date with api.json: tools/check.sh --fix regenerates it"; return 1; }
-}
-
 pipeline_valid() {
   command -v pl >/dev/null || { echo "pl is not installed (curl -fsSL https://pipelines-private.ovea.pro/install.sh | sh)"; return 1; }
   pl dev validate
@@ -92,11 +77,7 @@ if [ $fix = 1 ]; then
   echo "fixing..."
   [ -z "${want[sdk]:-}${want[pipelines]:-}" ] || { "$prettier" --write "${TS_GLOBS[@]}" >/dev/null; (cd src/sdk && bun scripts/gen-manifest-schema.ts >/dev/null); }
   [ -z "${want[frontend]:-}" ] || (cd src/frontend && npm run -s format >/dev/null && npx eslint --fix src/ >/dev/null) || true
-  if [ -n "${want[dotnet]:-}" ]; then
-    dotnet format Olve.Pipelines.slnx --no-restore -v quiet
-    dotnet build src/backend/Olve.Pipelines --nologo -v quiet && dotnet run tools/api-reference.cs >/dev/null
-    kiota_generate src/clients/olve-pipelines-client-ts/src
-  fi
+  [ -z "${want[dotnet]:-}" ] || dotnet format Olve.Pipelines.slnx --no-restore -v quiet
 fi
 
 # ── check ──
@@ -110,9 +91,9 @@ if [ -n "${want[pipelines]:-}" ]; then
   run "pipelines: prettier"            "$prettier" --check ".pipelines/**/*.ts"
   run "pipelines: pl dev validate"     pipeline_valid
 fi
-# The contract first: the frontend type-checks against its generated client.
+# The contract first: the server compiles its generated surface and the frontend type-checks against its client.
 if [ -n "${want[spec]:-}" ]; then
-  run "spec: contract + client"        bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run build'
+  run "spec: contract, client, reference" bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run build'
 fi
 if [ -n "${want[frontend]:-}" ]; then
   run "frontend: lint"                 bash -c 'cd src/frontend && npm run -s lint'
@@ -121,10 +102,8 @@ if [ -n "${want[frontend]:-}" ]; then
   [ $full = 0 ] || run "frontend: build" bash -c 'cd src/frontend && npm run -s build'
 fi
 if [ -n "${want[dotnet]:-}" ]; then
-  run "dotnet: build, api.json"        api_json_current
+  run "dotnet: build"                  dotnet build Olve.Pipelines.slnx --nologo -v quiet
   run "dotnet: format"                 dotnet format Olve.Pipelines.slnx --verify-no-changes --no-restore -v quiet
-  run "dotnet: api-reference.md"       dotnet run tools/api-reference.cs -- --check
-  run "dotnet: TS client"              ts_client_current
   [ $full = 0 ] || run "dotnet: unit tests" dotnet test --project src/backend/Olve.Pipelines.UnitTests --no-restore
 fi
 

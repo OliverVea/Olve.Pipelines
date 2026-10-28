@@ -124,13 +124,17 @@ model ChangedDefault {
 @route("/api/pipelines")
 interface Pipelines {
   /** Every pipeline, whole. */
+  @summary("List pipelines")
   @get list(): Pipeline[];
 
+  @summary("Get a pipeline")
   @get @route("{pipelineId}") get(@path @format("uuid") pipelineId: string): Pipeline | NotFound;
 
   /** Deletes the pipeline with its runs, versions, binding and secrets. */
+  @summary("Delete a pipeline")
   @delete @route("{pipelineId}") delete(@path @format("uuid") pipelineId: string): OkResponse | NotFound;
 
   /** A pipeline's health over its runs, its activation, blocked steps and held runs. */
+  @summary("Get a pipeline's health")
   @get @route("{pipelineId}/health") health(@path @format("uuid") pipelineId: string): PipelineHealth | NotFound;
 }

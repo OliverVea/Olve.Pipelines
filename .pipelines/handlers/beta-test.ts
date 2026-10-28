@@ -13,7 +13,7 @@ function check(ok: boolean, what: string): asserts ok {
 
 const FIXTURE = 'v2 test fixture';
 
-type RunDetail = { run: { number: number; status: string } };
+type Run = { number: number; status: string };
 
 /**
  * Reconciles beta's test fixture and runs it at `sha`, as the deployer (BETA_TOKEN): its called-back and polled
@@ -54,9 +54,7 @@ async function runFixture(ctx: Ctx<'BETA_TOKEN'>, base: string, sha: string) {
   const { run } = (await trigger.json()) as { run: { number: number } | null };
   check(run !== null, `${FIXTURE} queued the run instead of starting it`);
   for (;;) {
-    const { run: current } = await ctx.http.getJson<RunDetail>(
-      `${api}/runs/${run.number}`,
-    );
+    const current = await ctx.http.getJson<Run>(`${api}/runs/${run.number}`);
     if (current.status === 'Succeeded') return run.number;
     check(current.status === 'Running', `${FIXTURE}#${run.number} ${current.status}`);
     check(

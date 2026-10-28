@@ -16,7 +16,6 @@
          which has GHSA-v5pm-xwqc-g5wc (stack-overflow DoS). Fixed in 2.7.5+. -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
     <PackageVersion Include="Net.Codecrete.QrCodeGenerator" Version="3.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.9" />
     <PackageVersion Include="Olve.MinimalApi" Version="0.59.0" />
     <PackageVersion Include="Olve.Results" Version="0.59.0" />
     <PackageVersion Include="Olve.Results.TUnit" Version="0.59.0" />

@@ -63,17 +63,22 @@ model RollbackConfig {
 @route("/api/pipelines/{pipelineId}/config")
 interface Config {
   /** The document as saved and its snapshot; `snapshot` gets an older one. */
+  @summary("Get the config document")
   @get get(@path @format("uuid") pipelineId: string, @query snapshot?: int32): ConfigDocument | NotFound;
 
   /** Saves `yaml` as the next snapshot. 400 with each problem when the active version rejects it. */
+  @summary("Save the config document")
   @put set(@path @format("uuid") pipelineId: string, @body body: SetConfig): ConfigSaveResult | NotFound | BadRequest | Conflict;
 
   /** Every snapshot, newest first. */
+  @summary("List config snapshots")
   @get @route("history") history(@path @format("uuid") pipelineId: string): ConfigSnapshotSummary[] | NotFound;
 
   /** Saves snapshot `snapshot`'s content again as the newest. */
+  @summary("Roll back the config")
   @post @route("rollback") rollback(@path @format("uuid") pipelineId: string, @body body: RollbackConfig): ConfigSaveResult | NotFound | BadRequest | Conflict;
 
   /** The current document against `version` (default: the pending version, else the active one). */
+  @summary("Check the config")
   @get @route("check") check(@path @format("uuid") pipelineId: string, @query version?: int32): ConfigCheck | NotFound | BadRequest;
 }

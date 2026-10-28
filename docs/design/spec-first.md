@@ -178,6 +178,17 @@ committed `docs/setup/api-reference.md` are removed; the reference is generated 
 build from the spec's OpenAPI; the `test` step checks that the spec compiles and the frontend
 builds against it.
 
+**Phase 2 closed 2026-10-28.** Removed: `api.json` and `Microsoft.Extensions.ApiDescription.Server`,
+the Kiota client, tool pin and frontend packages, `tools/api-reference.cs` and the committed
+reference, the frontend's `apiFetch`/`apiPost`/`untypedToJson`. `src/spec/scripts/api-reference.ts`
+renders `artifacts/spec/api-reference.md` from the OpenAPI document and
+`src/spec/api-reference.header.md` as part of `bun run build`; the server links it into
+`wwwroot/docs`. Manifest validation moved to the contract (`Manifests.validate`, an `unknown`
+body: the handler re-serializes the element for the parser, so a malformed body is a 400 from the
+binder rather than a 200 report). Left hand-written, listed in the header's "Outside the API":
+the step file download (binary) and the three inbound hooks. The runtime OpenAPI document at
+`/openapi/v1.json` stays: it is the instance's own view, hooks included.
+
 **Wart list** (grows as areas are specified; fixed in the area's push):
 
 - `{id}` on `GET`/`DELETE /api/pipelines/{id}` vs `{pipelineId}` everywhere else.
@@ -212,5 +223,7 @@ is what a new service starts from.
 ## Open questions
 
 - Package names in Olve.Utilities (`Olve.TypeSpec`? the npm scope is `@olivervea`).
-- Whether the file download stays a hand-written endpoint declared in the spec for the clients.
-- Whether `docs/setup/api-reference.md` keeps a committed copy for GitHub readers or is build-only.
+- ~~Whether the file download stays a hand-written endpoint declared in the spec for the clients.~~
+  Hand-written and outside the spec (the emitter has no binary responses); the header lists it.
+- ~~Whether `docs/setup/api-reference.md` keeps a committed copy for GitHub readers or is build-only.~~
+  Build-only; the instance serves it.

@@ -2,9 +2,9 @@
 
 [← Index](index.md)
 
-The HTTP API that `pl` and the web UI use. This page is generated from the OpenAPI document
-(`api.json` in the repo; an instance serves it at `/openapi/v1.json` to a logged-in client) by
-`tools/api-reference.cs`. Prefer `pl` for everyday use.
+The HTTP API that `pl` and the web UI use. This page is generated from the API contract
+(`src/spec/*.tsp`, compiled to OpenAPI) by `src/spec/scripts/api-reference.ts`; an instance serves
+its live OpenAPI document at `/openapi/v1.json` to a logged-in client. Prefer `pl` for everyday use.
 
 ## Conventions
 
@@ -55,3 +55,8 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 | GET, HEAD | `/download/{asset}` | The `pl` binary (`pl-linux-x64`, `pl-win-x64.exe`) this instance serves; 404 until it has one |
 | GET | `/install.sh`, `/install.ps1` | The `pl` install scripts, defaulting to this instance |
 | GET | `/docs/<page>.md`, `/docs/llms.txt` | These docs, as raw Markdown |
+| GET | `/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}` | One stored file of an attempt (`?attempt=`, default the latest successful one); a directory `dir/` downloads as `dir.tar`. Needs a token |
+| POST | `/api/hooks/{pipelineId}/{trigger}` | A delivery for the pipeline's `onWebhook` trigger: anonymous, verified with the trigger's secret, answers 202 (the delivery is mapped to a run input in the background), 401, 404, 413, 429 or 503 |
+| POST | `/api/hooks/inputs/{run}/{step}/{input}/{mac}` | Another system answering an external input of a waiting step: anonymous, verified by the MAC in the URL the step was given |
+| POST | `/api/webhooks/binding/{bindingId}/github` | The binding's GitHub push webhook, verified with its HMAC secret |
+| GET | `/openapi/v1.json` | This instance's live OpenAPI document: every route it maps, these included |

@@ -47,9 +47,11 @@ model CopiedSecrets {
 @route("/api/pipelines/{pipelineId}/secrets")
 interface Secrets {
   /** The secrets the active version or the binding uses, plus set but unused ones. */
+  @summary("List secrets")
   @get list(@path @format("uuid") pipelineId: string): PipelineSecret[] | NotFound;
 
   /** Sets the value and re-checks a pending version. */
+  @summary("Set a secret")
   @put @route("{name}") set(
     @path @format("uuid") pipelineId: string,
     @path name: string,
@@ -57,6 +59,7 @@ interface Secrets {
   ): OkResponse | NotFound | BadRequest | ServiceUnavailable;
 
   /** Deletes the value and re-checks a pending version. A secret the current config references needs `force`; new runs then wait until it is set again. */
+  @summary("Delete a secret")
   @delete @route("{name}") delete(
     @path @format("uuid") pipelineId: string,
     @path name: string,
@@ -64,6 +67,7 @@ interface Secrets {
   ): OkResponse | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /** Copies values server-side from `sourcePipelineId`. Whoever can write this pipeline can read the copied values from its steps. */
+  @summary("Copy secrets from another pipeline")
   @post @route("copy") copy(
     @path @format("uuid") pipelineId: string,
     @body body: CopySecrets,

@@ -18,7 +18,6 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result))]
 [JsonSerializable(typeof(ApiProblem))]
 [JsonSerializable(typeof(Result<string>))]
-[JsonSerializable(typeof(ManifestValidationResponse))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement))]
 [JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(Guid?))]

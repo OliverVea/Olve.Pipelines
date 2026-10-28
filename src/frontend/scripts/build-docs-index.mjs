@@ -1,17 +1,19 @@
 // Build-time docs search index. Reads the raw setup guide (docs/setup/*.md — the same
-// files the backend globs into wwwroot/docs) and emits public/docs-index.json, which Vite
+// files the backend globs into wwwroot/docs) and the API reference generated from the contract
+// (artifacts/spec/api-reference.md, when built) and emits public/docs-index.json, which Vite
 // copies to the served root at /docs-index.json. The docs viewer loads it into MiniSearch
 // for client-side full-text search. Runs via the `prebuild`/`predev` npm hooks.
 //
 // The index is version-locked to the deploy: it is generated from the same source on every
 // build, so search always matches the docs actually shipped.
 
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const docsDir = join(here, '..', '..', '..', 'docs', 'setup');
+const reference = join(here, '..', '..', '..', 'artifacts', 'spec', 'api-reference.md');
 const outDir = join(here, '..', 'public');
 const outFile = join(outDir, 'docs-index.json');
 
@@ -31,12 +33,16 @@ function toPlainText(md) {
     .trim();
 }
 
-const files = (await readdir(docsDir)).filter((f) => f.endsWith('.md'));
+const files = (await readdir(docsDir)).filter((f) => f.endsWith('.md')).map((f) => join(docsDir, f));
 const docs = [];
+await access(reference).then(
+  () => files.push(reference),
+  () => console.warn('docs-index: no artifacts/spec/api-reference.md (build src/spec first); the reference is not indexed'),
+);
 
-for (const file of files.sort()) {
-  const slug = file.replace(/\.md$/, '');
-  const raw = await readFile(join(docsDir, file), 'utf8');
+for (const path of files.sort()) {
+  const slug = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '');
+  const raw = await readFile(path, 'utf8');
   const h1 = raw.match(/^#\s+(.+)$/m);
   const title = h1 ? h1[1].trim() : slug;
   const headings = [...raw.matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => m[1].trim());

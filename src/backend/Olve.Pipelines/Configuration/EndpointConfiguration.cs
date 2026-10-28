@@ -21,7 +21,6 @@ public static class EndpointConfiguration
         app.MapApi();
         app.MapCliDownloadEndpoints();
         app.MapRunEndpoints();
-        app.MapManifestEndpoints();
         app.MapPipelineBindingEndpoints();
         app.MapWebhookTriggerEndpoints();
         app.MapCallbackInputEndpoints();

@@ -30,11 +30,10 @@ src/
 │   │   └── Shared/                 AttachmentStore, startup runner, persistence, S3 presigning
 │   ├── Olve.Pipelines.Cli/         `pl` operator CLI (Native AOT, hand-rolled HTTP client)
 │   └── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
-├── spec/                           The API contract (TypeSpec, one .tsp per area); tsp compile → artifacts/ (gitignored): openapi.json + the server's generated C# (docs/design/spec-first.md)
+├── spec/                           The API contract (TypeSpec, one .tsp per area); bun run build → artifacts/ (gitignored): openapi.json, the server's generated C#, the TypeScript client, the API reference (docs/design/spec-first.md)
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
 ├── frontend/                       Dashboard UI (Lit + Vite + TypeScript)
-├── clients/olve-pipelines-client-ts/   Generated TypeScript client (Kiota)
 └── deploy/
     ├── helm/                       Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
     └── compose/                    The throwaway local instance's config and deployer (docker-compose.yml at the root)
@@ -43,7 +42,6 @@ src/
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 tools/version.cs                    CalVer versioning script
-tools/api-reference.cs              Generates docs/setup/api-reference.md from api.json
 ```
 
 ## Build & test
@@ -71,7 +69,7 @@ project (SDK, `.pipelines`, frontend, .NET server + CLI with their generated fil
 tools/check.sh                 # fast tier: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 tools/check.sh --changed       # only the projects changed against the upstream branch (plus uncommitted work)
 tools/check.sh --full          # plus the unit tests, the SDK test suite and the frontend build
-tools/check.sh --fix           # format and regenerate first (prettier, dotnet format, api.json, TS client, API reference, manifest schema)
+tools/check.sh --fix           # format and regenerate first (prettier, dotnet format, manifest schema)
 ```
 
 Formatting: prettier for all TypeScript (`.prettierrc` at the root; `*.md`, generated files and the
@@ -91,32 +89,25 @@ are logged with `ILogger.LogProblems(...)` (`src/backend/Olve.Pipelines/Shared/R
 which flattens a `ResultProblem` set into `ProblemCount` / `ProblemMessages` / `MaxSeverity`.
 What an operator sees: [docs/setup/self-hosting.md](docs/setup/self-hosting.md#logging).
 
-## Clients and the API reference
+## The contract, its clients and the API reference
 
-`api.json` is regenerated on every `dotnet build`. After an API change, regenerate the TypeScript
-client and the API reference, and commit both: the deploy's `test` step fails when either is out of
-date.
+The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area). `bun run build` there, which
+the server build runs when the contract changed, writes everything derived from it under the
+gitignored `artifacts/`: the OpenAPI document, the server's generated C# surface (operation
+handlers, models, JSON context), the TypeScript client `@olve/api` (Hey API) and the API reference
+page. Nothing generated is committed; the deploy's `spec` step emits the same files for the build
+steps, and the frontend type-checks against the client.
+
+An API change is a `.tsp` change plus the handler class behind the operation (one per operation,
+in the area's folder, registered in `ApiHandlerConfiguration`). The server refuses to start while
+an operation has no handler, and a handler can only answer the statuses its operation declares.
 
 ### API reference
 
-```bash
-dotnet run tools/api-reference.cs          # docs/setup/api-reference.md from api.json + tools/api-reference.header.md
-```
-
-Endpoint text comes from the code: `.WithTags`, `.WithSummary` and `.WithDescription` on each
-endpoint. Auth, errors, live events and the routes outside the API are hand-written in the header.
-
-### TypeScript ([Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview))
-
-```bash
-dotnet tool restore
-dotnet kiota generate -l typescript -d api.json -o src/clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
-cd src/clients/olve-pipelines-client-ts && npm install
-```
-
-Kiota is pinned in `.config/dotnet-tools.json` (1.36.1; 1.30 emits a `tsc` error on nullable
-polymorphic members). Error responses are a typed `ApiProblem`; the frontend still sends actions
-through `apiFetch` (see [src/frontend/README.md](src/frontend/README.md#api-usage)).
+`src/spec/scripts/api-reference.ts` renders `artifacts/spec/api-reference.md` from the OpenAPI
+document and `src/spec/api-reference.header.md` (hand-written: auth, errors, live events, the
+routes outside the contract); the server serves it at `/docs/api-reference.md`. Operation text is
+the `@summary` and the doc comment on the operation in the `.tsp`.
 
 ### C#
 

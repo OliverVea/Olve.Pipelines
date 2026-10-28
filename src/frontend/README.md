@@ -11,7 +11,7 @@ history.
 | Language | TypeScript |
 | UI | [Lit](https://lit.dev/) (Web Components) |
 | Build | [Vite](https://vite.dev/) |
-| API Client | [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/) (generated from `api.json`) |
+| API Client | [Hey API](https://heyapi.dev) (`@olve/api`, generated from the contract in `src/spec/`) |
 | Linting | ESLint + typescript-eslint |
 | Formatting | Prettier |
 
@@ -85,7 +85,7 @@ Reads (`GET`) are anonymous on the API; actions, file listing/downloads need a t
 ```
 src/frontend/src/
 ├── main.ts                    # Component imports (side-effect registration)
-├── api.ts                     # Kiota client (typed reads) + apiFetch/apiPost/apiText/downloadFile
+├── api.ts                     # The contract's client (`api`), ApiError, apiEvents/apiText/downloadFile
 ├── auth.ts                    # OIDC (oidc-client-ts) + dev-only bypass
 ├── router.ts                  # Client-side router
 ├── styles/theme.css           # Global tokens (light + dark) and reset
@@ -132,34 +132,16 @@ src/frontend/src/
 
 ## API usage
 
-The API is moving to a TypeSpec contract area by area (`docs/design/spec-first.md`). Operations on
-the contract (Instance, Pipelines, Versions, Secrets, Config and Bindings so far) are called through the Hey API client `@olve/api`, generated
-from the contract into the repo-root `artifacts/clients/ts` (`cd src/spec && bun run build`; the alias
-is in `vite.config.ts` and `tsconfig.json`): `pipelinesSummaries({ client: api })` returns `{ data }`,
-and a non-2xx answer throws `ApiError` like `apiFetch`. Dates arrive as ISO strings.
-
-The rest still goes through the Kiota client for typed reads, and through `apiFetch` in `api.ts` for
-actions, logs and file downloads, because the Kiota client maps a 400 to a single `ResultProblem` (the
-API returns an array — `apiFetch` shows every message), sends `JsonElement` bodies via
-`setContentFromScalar` (fails for objects) and would escape `/` in the file path catch-all.
-`JsonElement` members of its responses arrive as Kiota `UntypedNode`s — convert with `untypedToJson`.
+Every operation is called through the Hey API client `@olve/api`, generated from the contract
+(`src/spec/`, `docs/design/spec-first.md`) into the repo-root `artifacts/clients/ts` (`cd src/spec &&
+bun run build`; the alias is in `vite.config.ts` and `tsconfig.json`): `pipelinesList({ client: api })`
+returns `{ data }`, and a non-2xx answer throws `ApiError` with every problem message. Dates arrive
+as ISO strings. The two routes outside the contract have their own helpers in `api.ts`: `apiEvents`
+reads an event stream with the bearer token, `downloadFile` fetches a step file.
 
 Views refresh on `/api/events`, not on a timer: `LiveController` (`src/v2/events.ts`) reloads its
 view when a matching notice arrives (debounced), on every (re)connect or `resync`, and every 60 s as a
 safety net. One stream serves the tab, open while a view listens and the tab is visible.
-
-## API Client
-
-For the areas not yet on the contract, the frontend uses a Kiota-generated TypeScript client from
-`src/clients/olve-pipelines-client-ts/`, linked via `file:` reference. To regenerate after API changes:
-
-```bash
-# From repo root — rebuild the backend to update api.json, then:
-dotnet tool restore && dotnet kiota generate -l typescript -d api.json -o src/clients/olve-pipelines-client-ts/src -n OlvePipelinesClient --clean-output
-
-# Then install client deps
-cd src/clients/olve-pipelines-client-ts && npm install
-```
 
 ## Authentication
 

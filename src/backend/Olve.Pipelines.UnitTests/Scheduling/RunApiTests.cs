@@ -287,7 +287,7 @@ public class ManifestValidateTests
     [Test]
     public async Task ValidManifest_IsValid_WithAHash()
     {
-        var report = ManifestEndpoints.Validate(Encoding.UTF8.GetBytes(ManifestFixture.Text));
+        var report = ManifestValidation.Validate(Encoding.UTF8.GetBytes(ManifestFixture.Text));
 
         await Assert.That(report.Valid).IsTrue();
         await Assert.That(report.Errors).IsEmpty();
@@ -297,7 +297,7 @@ public class ManifestValidateTests
     [Test]
     public async Task MalformedJson_IsReportedAsAnIssue_NotAnError()
     {
-        var report = ManifestEndpoints.Validate("{ not json"u8.ToArray());
+        var report = ManifestValidation.Validate("{ not json"u8.ToArray());
 
         await Assert.That(report.Valid).IsFalse();
         await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.InvalidJson);
@@ -309,11 +309,11 @@ public class ManifestValidateTests
     {
         var broken = Mutated(m => m["stages"]![0]!["steps"]![0]!["image"] = "");
 
-        var report = ManifestEndpoints.Validate(Encoding.UTF8.GetBytes(broken));
+        var report = ManifestValidation.Validate(Encoding.UTF8.GetBytes(broken));
 
         await Assert.That(report.Valid).IsFalse();
         var issue = report.Errors.First(e => e.Code == ManifestIssueCodes.StepImageEmpty);
-        await Assert.That(issue.Severity).IsEqualTo("error");
+        await Assert.That(issue.Severity).IsEqualTo(Olve.Pipelines.Api.ManifestIssueSeverity.Error);
         await Assert.That(issue.Step).IsEqualTo("checkout");
     }
 }

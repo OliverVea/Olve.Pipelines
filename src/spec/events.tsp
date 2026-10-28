@@ -157,6 +157,7 @@ interface Events {
    * there is no replay: a reconnect with a stale `Last-Event-ID` gets `resync`. A client that falls 256 events
    * behind is disconnected. Streams end when the service shuts down.
    */
+  @summary("Stream change events")
   @get stream(
     @query @format("uuid") pipeline?: string,
     @header("Last-Event-ID") lastEventId?: string,

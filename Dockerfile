@@ -1,4 +1,4 @@
-# The contract: src/spec/main.tsp → artifacts/ (the OpenAPI document, the server's generated C# and the TypeScript client).
+# The contract: src/spec/main.tsp → artifacts/ (the OpenAPI document, the server's generated C#, the TypeScript client, the API reference).
 FROM oven/bun:1.4.3-slim AS spec
 WORKDIR /src
 COPY src/spec/package.json src/spec/bun.lock src/spec/
@@ -18,6 +18,8 @@ RUN dotnet restore src/backend/Olve.Pipelines -r linux-x64
 COPY src/backend/Olve.Pipelines/ src/backend/Olve.Pipelines/
 COPY src/backend/Olve.Pipelines.Cli/ src/backend/Olve.Pipelines.Cli/
 COPY --from=spec /src/artifacts/generated/backend/ artifacts/generated/backend/
+# The API reference page, linked into wwwroot/docs by the csproj.
+COPY --from=spec /src/artifacts/spec/api-reference.md artifacts/spec/api-reference.md
 # The setup guide is served at /docs; the csproj globs docs/setup/*.md into wwwroot on publish.
 COPY docs/setup/ docs/setup/
 # The pl install scripts, served at /install.sh and /install.ps1 (the csproj copies them next to the binary).
@@ -27,11 +29,10 @@ RUN dotnet publish src/backend/Olve.Pipelines -c Release -r linux-x64 -p:DebugTy
 
 FROM node:22-slim AS frontend
 WORKDIR /build
-COPY src/clients/olve-pipelines-client-ts/ ./src/clients/olve-pipelines-client-ts/
-RUN cd src/clients/olve-pipelines-client-ts && npm install
-# The build's `prebuild` hook (scripts/build-docs-index.mjs) reads ../../docs/setup to emit
-# the client-side search index, so the docs must be present in this stage too.
+# The build's `prebuild` hook (scripts/build-docs-index.mjs) reads ../../docs/setup and the generated
+# API reference to emit the client-side search index, so both must be present in this stage too.
 COPY docs/setup/ ./docs/setup/
+COPY --from=spec /src/artifacts/spec/api-reference.md artifacts/spec/api-reference.md
 # Manifests first so the npm install layer is cached until dependencies change.
 COPY src/frontend/package.json src/frontend/package-lock.json ./src/frontend/
 RUN cd src/frontend && npm install

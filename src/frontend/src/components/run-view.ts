@@ -14,7 +14,7 @@ import {
   type Run,
   type StepFile,
 } from '@olve/api';
-import { api, downloadFile, encodePath, errorMessages, untypedToJson } from '../api.js';
+import { api, downloadFile, encodePath, errorMessages } from '../api.js';
 import { navigate } from '../router.js';
 import {
   sharedStyles,
@@ -354,7 +354,7 @@ export class RunView extends LitElement {
     const d = this._detail;
     if (!d) return html`<p class="muted">Loading run…</p>`;
     const r = d;
-    const input = untypedToJson(d.input) as Record<string, unknown>;
+    const input = d.input;
     const m = this._runManifest();
     const states = new Map<string, StepState>();
     for (const stage of d.stages ?? []) {

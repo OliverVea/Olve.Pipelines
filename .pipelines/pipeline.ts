@@ -45,7 +45,7 @@ export const source = steps.gitHubSource({
 export const spec = step({
   name: 'spec',
   description:
-    "Compiles the API contract (src/spec/): the OpenAPI document, the server's generated C# and the TypeScript client, for the build steps.",
+    "Compiles the API contract (src/spec/): the OpenAPI document, the server's generated C#, the TypeScript client and the API reference page, for the build steps.",
   image: 'oven/bun:1.4.3-slim',
   input: { source: Source },
   output: M.SpecBuild,
@@ -104,8 +104,7 @@ export const buildHarness = steps.imageBuild({
 
 export const test = step({
   name: 'test',
-  description:
-    'Runs the .NET unit tests and checks api.json, the TS client and the API reference match the API.',
+  description: 'Runs the .NET unit tests and checks the C# formatting.',
   image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
   input: { source: Source, spec: M.SpecBuild },
   timeoutSeconds: 1800,

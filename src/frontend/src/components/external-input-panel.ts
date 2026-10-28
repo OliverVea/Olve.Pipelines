@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { runStepsAnswer, runStepsDecline, type Attempt } from '@olve/api';
-import { api, errorMessages, untypedToJson } from '../api.js';
+import { api, errorMessages } from '../api.js';
 import { sharedStyles } from '../v2/ui.js';
 import {
   byPerson,
@@ -21,12 +21,8 @@ export type Answer = { value: unknown; answeredBy: string; answeredAt: string };
 
 /** The recorded answers of an attempt's external inputs, by input name. */
 export function answersOf(a: Attempt | null | undefined): Record<string, Answer> {
-  const raw = untypedToJson(a?.answers?.additionalData ?? {}) as Record<
-    string,
-    { value?: string; answeredBy?: string; answeredAt?: string }
-  >;
   const out: Record<string, Answer> = {};
-  for (const [name, x] of Object.entries(raw)) {
+  for (const [name, x] of Object.entries(a?.answers ?? {})) {
     let value: unknown = x?.value;
     try {
       value = JSON.parse(x?.value ?? '');

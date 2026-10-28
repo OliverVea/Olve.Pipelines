@@ -63,12 +63,15 @@ model SwitchVersion {
 @route("/api/pipelines/{pipelineId}")
 interface Versions {
   /** Every version (commit, step and model versions) and the current activation. */
+  @summary("List versions")
   @get @route("versions") list(@path @format("uuid") pipelineId: string): PipelineVersions | NotFound;
 
   /** One version, including its canonical manifest. */
+  @summary("Get a version")
   @get @route("versions/{number}") get(@path @format("uuid") pipelineId: string, @path number: int32): PipelineVersion | NotFound;
 
   /** The version with each `select` resolved by a config snapshot (`snapshot`; default the latest): the steps a run of it would have. */
+  @summary("Get a version's effective pipeline")
   @get @route("versions/{number}/effective") effective(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -76,5 +79,36 @@ interface Versions {
   ): EffectivePipeline | NotFound | BadRequest | Conflict;
 
   /** New runs start on `version`. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version. */
+  @summary("Switch the active version")
   @post @route("switch") switch(@path @format("uuid") pipelineId: string, @body body: SwitchVersion): PipelineActivation | NotFound | BadRequest | Conflict;
+}
+
+enum ManifestIssueSeverity {
+  error,
+  warning,
+}
+
+/** One reconcile check's finding: its code, where in the manifest, and the step it concerns. */
+model ManifestIssue {
+  code: string;
+  severity: ManifestIssueSeverity;
+  message: string;
+  path: string;
+  step: string | null;
+}
+
+/** The reconcile checks' verdict on a manifest; `manifestHash` is set when it parses. */
+model ManifestValidation {
+  valid: boolean;
+  manifestHash: string | null;
+  errors: ManifestIssue[];
+  warnings: ManifestIssue[];
+}
+
+@tag("Versions")
+@route("/api/manifests")
+interface Manifests {
+  /** Runs the reconcile checks on a manifest (`pl dev validate`). Always 200: an invalid manifest is a result, not a request error. */
+  @summary("Validate a manifest")
+  @post @route("validate") validate(@body manifest: unknown): ManifestValidation;
 }

@@ -5,8 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
  * A timestamp that renders as relative time ("2 hours ago") by default and
  * toggles to an absolute local-time stamp ("2026/06/18 14:05") on a single
  * click. Each instance toggles independently. Times are always shown in the
- * viewer's local timezone; the wire value is a UTC `DateTimeOffset` (Kiota
- * surfaces it as a `Date`).
+ * viewer's local timezone; the wire value is an ISO UTC timestamp.
  */
 @customElement('relative-time')
 export class RelativeTime extends LitElement {

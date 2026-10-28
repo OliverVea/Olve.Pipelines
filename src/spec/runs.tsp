@@ -356,6 +356,7 @@ model CriticalPathSkip {
 @route("/api/pipelines/{pipelineId}/runs")
 interface Runs {
   /** Runs of the pipeline, newest first. */
+  @summary("List runs")
   @get list(
     @path @format("uuid") pipelineId: string,
     @query offset?: int32,
@@ -363,6 +364,7 @@ interface Runs {
   ): RunList | NotFound;
 
   /** Starts a manual run; the body is the pipeline input, validated against the input model. Invalid input lists every problem and starts nothing. */
+  @summary("Start a run")
   @post start(
     @path @format("uuid") pipelineId: string,
     @body input: Record<unknown>,
@@ -373,6 +375,7 @@ interface Runs {
    * starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`.
    * A stage counts one pass of attempts: automatic retries are included, later reruns are not.
    */
+  @summary("Get the critical path of a range of runs")
   @get @route("critical-path") criticalPath(
     @path @format("uuid") pipelineId: string,
     @query from?: int32,
@@ -381,27 +384,32 @@ interface Runs {
     @query sinceVersion?: int32,
   ): CriticalPathReport | NotFound | BadRequest;
 
+  @summary("Get a run")
   @get @route("{number}") get(@path @format("uuid") pipelineId: string, @path number: int32): Run | NotFound;
 
   /** Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted). */
+  @summary("Cancel a run")
   @post @route("{number}/cancel") cancel(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
   ): Run | NotFound | BadRequest | Conflict;
 
   /** Starts a new run with the same input on the active version (`rerunOfNumber` points back). */
+  @summary("Rerun a run")
   @post @route("{number}/rerun") rerun(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
   ): RunStart | NotFound | BadRequest | Conflict;
 
   /** Continues the run: completed stages are kept, the rest re-evaluates with the changed input. Fields consumed by completed steps can't change; the run's version must be active. */
+  @summary("Continue a run")
   @post @route("{number}/continue") continue(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
     @body body: ContinueRun,
   ): Run | NotFound | BadRequest | Conflict;
 
+  @summary("List a run's attempts")
   @get @route("{number}/attempts") attempts(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -411,6 +419,7 @@ interface Runs {
 @tag("Steps")
 @route("/api/pipelines/{pipelineId}/runs/{number}/steps/{step}")
 interface RunSteps {
+  @summary("List a step's attempts in a run")
   @get @route("attempts") attempts(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -418,6 +427,7 @@ interface RunSteps {
   ): Attempt[] | NotFound;
 
   /** A new attempt of the step on the run's pinned version and pool. */
+  @summary("Rerun a step")
   @post @route("rerun") rerun(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -426,6 +436,7 @@ interface RunSteps {
   ): Attempt | NotFound | BadRequest | Conflict;
 
   /** Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles. */
+  @summary("Cancel a step")
   @post @route("cancel") cancel(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -433,6 +444,7 @@ interface RunSteps {
   ): Attempt | NotFound | BadRequest | Conflict;
 
   /** Gives the value of an external input of a step that waits for it. The value is validated against the input's model; once every external input is answered the step is scheduled. */
+  @summary("Answer a step's external input")
   @post @route("input") answer(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -441,6 +453,7 @@ interface RunSteps {
   ): Attempt | NotFound | BadRequest | Conflict;
 
   /** Fails a step that waits for input without running it; the reason names who declined and the comment. */
+  @summary("Decline a step's external input")
   @post @route("input/decline") decline(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -449,6 +462,7 @@ interface RunSteps {
   ): Attempt | NotFound | BadRequest | Conflict;
 
   /** The files an attempt stored (default: the latest successful attempt). */
+  @summary("List a step's files")
   @get @route("files") files(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -457,6 +471,7 @@ interface RunSteps {
   ): StepFiles | NotFound;
 
   /** The output JSON of an attempt (default: the latest successful attempt). */
+  @summary("Get a step's output")
   @get @route("output") output(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -465,6 +480,7 @@ interface RunSteps {
   ): StepOutput | NotFound;
 
   /** The attempt's log (default: the latest attempt); the live pod log while it runs. */
+  @summary("Get a step's log")
   @get @route("logs") logs(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -473,6 +489,7 @@ interface RunSteps {
   ): string | NotFound;
 
   /** The attempt's log as server-sent events (default: the latest attempt): `log` chunks, then `end` once the attempt is finished. */
+  @summary("Stream a step's log")
   @get @route("logs/stream") logStream(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
@@ -485,5 +502,6 @@ interface RunSteps {
 @route("/api/attempts")
 interface Attempts {
   /** What is running (or waiting for input) across pipelines, oldest first. */
+  @summary("List running attempts")
   @get list(@query status?: AttemptFilter): ActiveAttempt[];
 }

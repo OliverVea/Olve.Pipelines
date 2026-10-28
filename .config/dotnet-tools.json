@@ -2,13 +2,6 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "microsoft.openapi.kiota": {
-      "version": "1.36.1",
-      "commands": [
-        "kiota"
-      ],
-      "rollForward": false
-    },
     "dotnet-outdated-tool": {
       "version": "4.7.1",
       "commands": [

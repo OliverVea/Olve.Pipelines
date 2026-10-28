@@ -3,6 +3,8 @@ import {
   pipelinesGet,
   pipelinesHealth,
   pipelinesList,
+  versionsEffective,
+  versionsGet,
   versionsList,
   versionsSwitch,
   type PendingVersionInfo,
@@ -10,6 +12,8 @@ import {
   type PipelineHealth,
 } from '@olve/api';
 import { resolvePipeline } from '../address';
+import { parseManifest } from '../dev/manifest';
+import { renderManifest } from './dev';
 import { call } from '../api';
 import { CliError } from '../errors';
 import { short, time } from '../format';
@@ -203,6 +207,59 @@ Details: \`pl pipeline health <pipeline>\`.`,
           ]);
         ctx.out.lines(table(['  VERSION', 'COMMIT', 'CREATED', 'STEPS'], rows));
       });
+    },
+  },
+  {
+    noun: 'pipeline',
+    verb: 'manifest',
+    operands: 1,
+    options: ['version'],
+    flags: ['effective'],
+    summary: "Show a version's manifest (default: the version runs start on)",
+    detail: `pl pipeline manifest <pipeline> [--version <n>] [--effective] [--json]
+
+  Summarizes the manifest like \`pl dev describe\` (input model, secrets, triggers, stages,
+  \`when\` and \`select\` blocks). --json prints the canonical manifest JSON itself.
+  --effective resolves each \`select\` with the pipeline's current config: the pipeline new
+  runs execute.`,
+    async run(ctx) {
+      const text = ctx.args.option('version');
+      const pipeline = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const pipelineId = pipeline.id;
+      let number: number;
+      if (text !== undefined) number = parseVersion(text, '--version');
+      else {
+        const versions = await call(
+          versionsList({ client: ctx.api, path: { pipelineId } }),
+        );
+        const current = currentVersion(versions.activation);
+        if (current === undefined)
+          throw new CliError(`Pipeline '${pipeline.label}' has no active version yet.`);
+        number = current;
+      }
+      const version = await call(
+        versionsGet({ client: ctx.api, path: { pipelineId, number } }),
+      );
+      let manifest = version.manifest;
+      let selection: string | undefined;
+      if (ctx.args.flag('effective')) {
+        const effective = await call(
+          versionsEffective({ client: ctx.api, path: { pipelineId, number } }),
+        );
+        manifest = effective.manifest;
+        const picked = Object.entries(effective.selected).map(([k, v]) => `${k} = ${v}`);
+        selection = `effective with config #${effective.configSnapshot ?? '-'}${picked.length ? `: ${picked.join(', ')}` : ''}`;
+      }
+      if (ctx.json) {
+        ctx.out.line(manifest);
+        return;
+      }
+      ctx.out.line(
+        `v${version.number} · ${version.manifestHash} · commit ${short(version.commitSha)} · ${time(version.createdAt)}`,
+      );
+      if (selection) ctx.out.line(selection);
+      ctx.out.line();
+      renderManifest((line) => ctx.out.line(line), parseManifest(manifest));
     },
   },
   {

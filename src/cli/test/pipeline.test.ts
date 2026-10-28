@@ -102,3 +102,68 @@ describe('pipeline get and switch', () => {
     );
   });
 });
+
+describe('pipeline manifest', () => {
+  const manifest = JSON.stringify({
+    name: 'alpha',
+    input: null,
+    models: {},
+    secrets: [],
+    triggers: [],
+    stages: [],
+    failureHandlers: [],
+  });
+  const version = {
+    number: 3,
+    manifestHash: 'sha256:ab',
+    commitSha: '0123456789abcdef',
+    createdAt: '2026-10-28T10:00:00Z',
+    manifest,
+  };
+
+  test('defaults to the active version, summarizes it, and --json prints the manifest itself', async () => {
+    const { fetch, requests } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha()] };
+      if (req.path.endsWith('/versions'))
+        return {
+          body: { activation: { type: 'active', versionNumber: 3 }, versions: [] },
+        };
+      if (req.path.endsWith('/versions/3/effective'))
+        return {
+          body: {
+            version: 3,
+            configSnapshot: 2,
+            selected: { target: 'ssh' },
+            manifest,
+            cases: {},
+          },
+        };
+      if (req.path.endsWith('/versions/3')) return { body: version };
+      return { status: 404 };
+    });
+    const human = await pl(['pipeline', 'manifest', 'alpha'], { fetch });
+    expect(human.code).toBe(0);
+    expect(human.stdout).toStartWith('v3 · sha256:ab · commit 0123456 · ');
+    expect(human.stdout).toContain('triggers: none (manual only)');
+    expect(
+      (await pl(['pipeline', 'manifest', 'alpha', '--json'], { fetch })).stdout,
+    ).toBe(manifest + '\n');
+    const effective = await pl(['pipeline', 'manifest', 'alpha', '--effective'], {
+      fetch,
+    });
+    expect(effective.stdout).toContain('effective with config #2: target = ssh');
+    await pl(['pipeline', 'manifest', 'alpha', '--version', 'v3'], { fetch });
+    expect(requests.at(-1)!.path).toBe(`/api/pipelines/${ID}/versions/3`);
+  });
+
+  test('a pipeline without an active version says so', async () => {
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines'
+        ? { body: [alpha()] }
+        : { body: { activation: null, versions: [] } },
+    );
+    expect((await pl(['pipeline', 'manifest', 'alpha'], { fetch })).stderr).toContain(
+      "Pipeline 'alpha' has no active version yet.",
+    );
+  });
+});

@@ -231,8 +231,8 @@ function renderEnvelope(console: DevConsole, step: string, outcome: StepOutcome)
   }
 }
 
-function renderManifest(console: DevConsole, m: DevManifest): void {
-  const o = console.out;
+/** The `pl dev describe` summary, also `pl pipeline manifest`'s. */
+export function renderManifest(o: (line: string) => void, m: DevManifest): void {
   o(m.description ? `${m.name} — ${m.description}` : m.name);
   o('');
   if (m.inputModel)
@@ -473,7 +473,7 @@ ${dirOption}
       const dev = await open(ctx, console);
       if (!dev) return;
       if (ctx.json) ctx.out.write(dev.manifest.text);
-      else renderManifest(console, dev.manifest);
+      else renderManifest(console.out, dev.manifest);
     },
   },
   {

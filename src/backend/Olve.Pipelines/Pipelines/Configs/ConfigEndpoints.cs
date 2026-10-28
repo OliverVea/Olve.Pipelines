@@ -22,7 +22,7 @@ public static class ConfigEndpoints
 
         // Writes need the same authorization as setting a secret.
         group.MapPut("/", Task<Result<ConfigSaveResponse>> (ConfigService config, HttpContext http, Id<Pipeline> pipelineId, SetConfigRequest request, CancellationToken ct)
-                => config.SaveAsync(pipelineId, request.Yaml, SecretEndpoints.Actor(http.User), ct))
+                => config.SaveAsync(pipelineId, request.Yaml, SecretViews.Actor(http.User), ct))
             .WithApiResultMapping<ConfigSaveResponse>()
             .WithName("SetPipelineConfig")
             .WithTags("Config")
@@ -39,7 +39,7 @@ public static class ConfigEndpoints
             .RequireRead();
 
         group.MapPost("/rollback", Task<Result<ConfigSaveResponse>> (ConfigService config, HttpContext http, Id<Pipeline> pipelineId, RollbackConfigRequest request, CancellationToken ct)
-                => config.RollbackAsync(pipelineId, request.Snapshot, SecretEndpoints.Actor(http.User), ct))
+                => config.RollbackAsync(pipelineId, request.Snapshot, SecretViews.Actor(http.User), ct))
             .WithApiResultMapping<ConfigSaveResponse>()
             .WithName("RollbackPipelineConfig")
             .WithTags("Config")

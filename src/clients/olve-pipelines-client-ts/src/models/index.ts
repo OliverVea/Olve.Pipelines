@@ -453,7 +453,13 @@ export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
 }
 export interface ContinueRunRequest_input extends AdditionalDataHolder, Parsable {
 }
-export interface CopySecretsRequest extends AdditionalDataHolder, Parsable {
+export interface CopiedSecrets extends AdditionalDataHolder, Parsable {
+    /**
+     * The copied property
+     */
+    copied?: string[] | null;
+}
+export interface CopySecrets extends AdditionalDataHolder, Parsable {
     /**
      * The names property
      */
@@ -470,12 +476,6 @@ export interface CopySecretsRequest extends AdditionalDataHolder, Parsable {
      * The targetName property
      */
     targetName?: string | null;
-}
-export interface CopySecretsResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The copied property
-     */
-    copied?: string[] | null;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -757,20 +757,20 @@ export function createContinueRunRequestFromDiscriminatorValue(parseNode: ParseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CopySecretsRequest}
+ * @returns {CopiedSecrets}
  */
 // @ts-ignore
-export function createCopySecretsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCopySecretsRequest;
+export function createCopiedSecretsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopiedSecrets;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {CopySecretsResponse}
+ * @returns {CopySecrets}
  */
 // @ts-ignore
-export function createCopySecretsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoCopySecretsResponse;
+export function createCopySecretsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCopySecrets;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1022,11 +1022,11 @@ export function createPipelineHealthFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineSecretInfo}
+ * @returns {PipelineSecret}
  */
 // @ts-ignore
-export function createPipelineSecretInfoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineSecretInfo;
+export function createPipelineSecretFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineSecret;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1256,11 +1256,11 @@ export function createSetConfigRequestFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SetSecretRequest}
+ * @returns {SetSecret}
  */
 // @ts-ignore
-export function createSetSecretRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSetSecretRequest;
+export function createSetSecretFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSetSecret;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1869,27 +1869,27 @@ export function deserializeIntoContinueRunRequest_input(continueRunRequest_input
 }
 /**
  * The deserialization information for the current model
- * @param CopySecretsRequest The instance to deserialize into.
+ * @param CopiedSecrets The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoCopySecretsRequest(copySecretsRequest: Partial<CopySecretsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoCopiedSecrets(copiedSecrets: Partial<CopiedSecrets> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "names": n => { copySecretsRequest.names = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "overwrite": n => { copySecretsRequest.overwrite = n.getBooleanValue() ?? false; },
-        "sourcePipelineId": n => { copySecretsRequest.sourcePipelineId = n.getGuidValue(); },
-        "targetName": n => { copySecretsRequest.targetName = n.getStringValue(); },
+        "copied": n => { copiedSecrets.copied = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param CopySecretsResponse The instance to deserialize into.
+ * @param CopySecrets The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoCopySecretsResponse(copySecretsResponse: Partial<CopySecretsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoCopySecrets(copySecrets: Partial<CopySecrets> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "copied": n => { copySecretsResponse.copied = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "names": n => { copySecrets.names = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "overwrite": n => { copySecrets.overwrite = n.getBooleanValue(); },
+        "sourcePipelineId": n => { copySecrets.sourcePipelineId = n.getGuidValue(); },
+        "targetName": n => { copySecrets.targetName = n.getStringValue(); },
     }
 }
 /**
@@ -2287,17 +2287,17 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
 }
 /**
  * The deserialization information for the current model
- * @param PipelineSecretInfo The instance to deserialize into.
+ * @param PipelineSecret The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoPipelineSecretInfo(pipelineSecretInfo: Partial<PipelineSecretInfo> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoPipelineSecret(pipelineSecret: Partial<PipelineSecret> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "declaredBy": n => { pipelineSecretInfo.declaredBy = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "description": n => { pipelineSecretInfo.description = n.getStringValue(); },
-        "isSet": n => { pipelineSecretInfo.isSet = n.getBooleanValue(); },
-        "name": n => { pipelineSecretInfo.name = n.getStringValue(); },
-        "needed": n => { pipelineSecretInfo.needed = n.getBooleanValue(); },
+        "declaredBy": n => { pipelineSecret.declaredBy = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "description": n => { pipelineSecret.description = n.getStringValue(); },
+        "isSet": n => { pipelineSecret.isSet = n.getBooleanValue(); },
+        "name": n => { pipelineSecret.name = n.getStringValue(); },
+        "needed": n => { pipelineSecret.needed = n.getBooleanValue(); },
     }
 }
 /**
@@ -2630,13 +2630,13 @@ export function deserializeIntoSetConfigRequest(setConfigRequest: Partial<SetCon
 }
 /**
  * The deserialization information for the current model
- * @param SetSecretRequest The instance to deserialize into.
+ * @param SetSecret The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSetSecretRequest(setSecretRequest: Partial<SetSecretRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSetSecret(setSecret: Partial<SetSecret> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "value": n => { setSecretRequest.value = n.getStringValue(); },
+        "value": n => { setSecret.value = n.getStringValue(); },
     }
 }
 /**
@@ -3092,7 +3092,7 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
      */
     status?: PipelineStatus | null;
 }
-export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
+export interface PipelineSecret extends AdditionalDataHolder, Parsable {
     /**
      * The declaredBy property
      */
@@ -3971,30 +3971,30 @@ export function serializeContinueRunRequest_input(writer: SerializationWriter, c
 }
 /**
  * Serializes information the current object
- * @param CopySecretsRequest The instance to serialize from.
+ * @param CopiedSecrets The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeCopySecretsRequest(writer: SerializationWriter, copySecretsRequest: Partial<CopySecretsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!copySecretsRequest || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("names", copySecretsRequest.names);
-    writer.writeBooleanValue("overwrite", copySecretsRequest.overwrite ?? false);
-    writer.writeGuidValue("sourcePipelineId", copySecretsRequest.sourcePipelineId);
-    writer.writeStringValue("targetName", copySecretsRequest.targetName);
-    writer.writeAdditionalData(copySecretsRequest.additionalData);
+export function serializeCopiedSecrets(writer: SerializationWriter, copiedSecrets: Partial<CopiedSecrets> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copiedSecrets || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("copied", copiedSecrets.copied);
+    writer.writeAdditionalData(copiedSecrets.additionalData);
 }
 /**
  * Serializes information the current object
- * @param CopySecretsResponse The instance to serialize from.
+ * @param CopySecrets The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeCopySecretsResponse(writer: SerializationWriter, copySecretsResponse: Partial<CopySecretsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!copySecretsResponse || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("copied", copySecretsResponse.copied);
-    writer.writeAdditionalData(copySecretsResponse.additionalData);
+export function serializeCopySecrets(writer: SerializationWriter, copySecrets: Partial<CopySecrets> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!copySecrets || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("names", copySecrets.names);
+    writer.writeBooleanValue("overwrite", copySecrets.overwrite);
+    writer.writeGuidValue("sourcePipelineId", copySecrets.sourcePipelineId);
+    writer.writeStringValue("targetName", copySecrets.targetName);
+    writer.writeAdditionalData(copySecrets.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4424,18 +4424,18 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineSecretInfo The instance to serialize from.
+ * @param PipelineSecret The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializePipelineSecretInfo(writer: SerializationWriter, pipelineSecretInfo: Partial<PipelineSecretInfo> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineSecretInfo || isSerializingDerivedType) { return; }
-    writer.writeCollectionOfPrimitiveValues<string>("declaredBy", pipelineSecretInfo.declaredBy);
-    writer.writeStringValue("description", pipelineSecretInfo.description);
-    writer.writeBooleanValue("isSet", pipelineSecretInfo.isSet);
-    writer.writeStringValue("name", pipelineSecretInfo.name);
-    writer.writeBooleanValue("needed", pipelineSecretInfo.needed);
-    writer.writeAdditionalData(pipelineSecretInfo.additionalData);
+export function serializePipelineSecret(writer: SerializationWriter, pipelineSecret: Partial<PipelineSecret> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineSecret || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("declaredBy", pipelineSecret.declaredBy);
+    writer.writeStringValue("description", pipelineSecret.description);
+    writer.writeBooleanValue("isSet", pipelineSecret.isSet);
+    writer.writeStringValue("name", pipelineSecret.name);
+    writer.writeBooleanValue("needed", pipelineSecret.needed);
+    writer.writeAdditionalData(pipelineSecret.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4791,14 +4791,14 @@ export function serializeSetConfigRequest(writer: SerializationWriter, setConfig
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SetSecretRequest The instance to serialize from.
+ * @param SetSecret The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSetSecretRequest(writer: SerializationWriter, setSecretRequest: Partial<SetSecretRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!setSecretRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("value", setSecretRequest.value);
-    writer.writeAdditionalData(setSecretRequest.additionalData);
+export function serializeSetSecret(writer: SerializationWriter, setSecret: Partial<SetSecret> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!setSecret || isSerializingDerivedType) { return; }
+    writer.writeStringValue("value", setSecret.value);
+    writer.writeAdditionalData(setSecret.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4892,7 +4892,7 @@ export interface SetConfigRequest extends AdditionalDataHolder, Parsable {
      */
     yaml?: string | null;
 }
-export interface SetSecretRequest extends AdditionalDataHolder, Parsable {
+export interface SetSecret extends AdditionalDataHolder, Parsable {
     /**
      * The value property
      */

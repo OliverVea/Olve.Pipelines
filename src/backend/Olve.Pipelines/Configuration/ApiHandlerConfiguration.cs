@@ -1,5 +1,6 @@
 using Olve.Pipelines.Api;
 using Olve.Pipelines.Health;
+using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Versions;
 
@@ -21,6 +22,11 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IVersionsGetHandler, GetVersionHandler>();
         services.AddTransient<IVersionsEffectiveHandler, GetEffectivePipelineHandler>();
         services.AddTransient<IVersionsSwitchHandler, SwitchVersionHandler>();
+        services.AddTransient<ISecretsListHandler, ListSecretsHandler>();
+        services.AddTransient<ISecretsSetHandler, SetSecretHandler>();
+        services.AddTransient<ISecretsDeleteHandler, DeleteSecretHandler>();
+        services.AddTransient<ISecretsCopyHandler, CopySecretsHandler>();
+        services.AddHttpContextAccessor(); // the copy's audit actor
     }
 
     /// <summary>
@@ -43,5 +49,10 @@ public static class ApiHandlerConfiguration
         api.VersionsGet.RequireRead().WithTags("Versions").WithSummary("Get a version");
         api.VersionsEffective.RequireRead().WithTags("Versions").WithSummary("Get a version's effective pipeline");
         api.VersionsSwitch.WithTags("Versions").WithSummary("Switch the active version");
+        // Secrets are never a read: listing them stays behind a signed-in user even with anonymous reads.
+        api.SecretsList.WithTags("Secrets").WithSummary("List secrets");
+        api.SecretsSet.WithTags("Secrets").WithSummary("Set a secret");
+        api.SecretsDelete.WithTags("Secrets").WithSummary("Delete a secret");
+        api.SecretsCopy.WithTags("Secrets").WithSummary("Copy secrets from another pipeline");
     }
 }

@@ -1,18 +1,18 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { pipelinesList, type Pipeline } from '@olve/api';
-import { api, apiFetch, apiPost, errorMessages } from '../api.js';
+import {
+  pipelinesList,
+  secretsCopy,
+  secretsDelete,
+  secretsList,
+  secretsSet,
+  type Pipeline,
+  type PipelineSecret,
+} from '@olve/api';
+import { api, errorMessages } from '../api.js';
 import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
 import './pipeline-header.js';
 import { LiveController, forPipeline } from '../v2/events.js';
-
-type SecretInfo = {
-  name: string;
-  description?: string | null;
-  declaredBy: string[];
-  isSet?: boolean | null;
-  needed?: boolean | null;
-};
 
 /** A pipeline's secrets: who uses each, whether it is set, and setting, deleting or copying values. */
 @customElement('pipeline-secrets-view')
@@ -115,7 +115,7 @@ export class PipelineSecretsView extends LitElement {
 
   @property() declare pipelineId: string;
 
-  @state() declare private _secrets: SecretInfo[] | null;
+  @state() declare private _secrets: PipelineSecret[] | null;
   @state() declare private _pipelines: Pipeline[];
   @state() declare private _editing: string | null;
   @state() declare private _busy: boolean;
@@ -145,7 +145,11 @@ export class PipelineSecretsView extends LitElement {
   async reload() {
     try {
       const [secrets, pipelines] = await Promise.all([
-        apiFetch<SecretInfo[]>(`/api/pipelines/${this.pipelineId}/secrets`),
+        secretsList({
+          client: api,
+          throwOnError: true,
+          path: { pipelineId: this.pipelineId },
+        }).then((r) => r.data),
         pipelinesList({ client: api })
           .then((r) => r.data)
           .catch(() => null),
@@ -179,7 +183,7 @@ export class PipelineSecretsView extends LitElement {
     `;
   }
 
-  private _row(s: SecretInfo) {
+  private _row(s: PipelineSecret) {
     const editing = this._editing === s.name;
     return html`<div class="row">
       <div class="what">
@@ -309,24 +313,27 @@ export class PipelineSecretsView extends LitElement {
     e.preventDefault();
     const data = new FormData(e.target as HTMLFormElement);
     this._act(async () => {
-      const res = await apiPost<{ copied: string[] }>(
-        `/api/pipelines/${this.pipelineId}/secrets/copy`,
-        {
-          sourcePipelineId: data.get('source'),
+      const { data: res } = await secretsCopy({
+        client: api,
+        throwOnError: true,
+        path: { pipelineId: this.pipelineId },
+        body: {
+          sourcePipelineId: String(data.get('source')),
           overwrite: data.get('overwrite') === 'on',
         },
-      );
-      this._note = res?.copied?.length
+      });
+      this._note = res.copied.length
         ? `Copied ${res.copied.join(', ')}.`
         : 'Nothing copied.';
     });
   }
 
   private _put(name: string, value: string) {
-    return apiFetch(
-      `/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`,
-      { method: 'PUT', body: { value } },
-    );
+    return secretsSet({
+      client: api,
+      path: { pipelineId: this.pipelineId, name },
+      body: { value },
+    });
   }
 
   private _delete(name: string) {
@@ -337,9 +344,7 @@ export class PipelineSecretsView extends LitElement {
     )
       return;
     this._act(() =>
-      apiFetch(`/api/pipelines/${this.pipelineId}/secrets/${encodeURIComponent(name)}`, {
-        method: 'DELETE',
-      }),
+      secretsDelete({ client: api, path: { pipelineId: this.pipelineId, name } }),
     );
   }
 

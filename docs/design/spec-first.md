@@ -128,6 +128,10 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    body so that invalid JSON, duplicate keys and size are a verdict, not a request error, which a
    generated `JsonElement` body can't give. It joins the contract when the emitter can take a raw
    body. The versions panel and the version cache use the Hey API client.
+4. Secrets (4) — done 2026-10-28: `PipelineSecret` (never a value), set, delete with `force`,
+   copy. None is a read: listing stays behind a signed-in user. The copy's audit actor comes
+   from `IHttpContextAccessor`, since a handler has no `HttpContext`. The secrets view, the
+   header and the binding view use the Hey API client.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

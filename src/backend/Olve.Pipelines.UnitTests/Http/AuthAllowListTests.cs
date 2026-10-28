@@ -94,7 +94,7 @@ public class AuthAllowListTests
         await using var app = builder.Build();
         app.MapAuthentication();
         app.MapGet("/api/read", () => "ok").RequireRead();
-        app.MapPost("/api/write", (ClaimsPrincipal who) => Olve.Pipelines.Kubernetes.Api.SecretEndpoints.Actor(who));
+        app.MapPost("/api/write", (ClaimsPrincipal who) => Olve.Pipelines.Kubernetes.Api.SecretViews.Actor(who));
         await app.StartAsync();
 
         var client = app.GetTestClient();

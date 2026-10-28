@@ -126,7 +126,7 @@ public static class RunEndpoints
 
         group.MapPost("/{number:int}/steps/{step}/input", Result<Attempt> (
                 ExternalInputService inputs, HttpContext http, Id<Pipeline> pipelineId, int number, string step, AnswerInputRequest request)
-                => inputs.Answer(pipelineId, number, step, request.Name, request.Value, Kubernetes.Api.SecretEndpoints.Actor(http.User)))
+                => inputs.Answer(pipelineId, number, step, request.Name, request.Value, Kubernetes.Api.SecretViews.Actor(http.User)))
             .WithApiResultMapping<Attempt>()
             .WithName("AnswerStepInput")
             .WithTags("Steps")
@@ -136,7 +136,7 @@ public static class RunEndpoints
         group.MapPost("/{number:int}/steps/{step}/input/decline", Result<Attempt> (
                 ExternalInputService inputs, HttpContext http, Id<Pipeline> pipelineId, int number, string step,
                 [FromBody] DeclineInputRequest? request)
-                => inputs.Decline(pipelineId, number, step, request?.Comment, Kubernetes.Api.SecretEndpoints.Actor(http.User)))
+                => inputs.Decline(pipelineId, number, step, request?.Comment, Kubernetes.Api.SecretViews.Actor(http.User)))
             .WithApiResultMapping<Attempt>()
             .WithName("DeclineStepInput")
             .WithTags("Steps")

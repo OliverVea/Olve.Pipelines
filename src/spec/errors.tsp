@@ -54,3 +54,9 @@ model Conflict {
   @statusCode statusCode: 409;
   @body body: ApiProblem;
 }
+
+/** A dependency (Kubernetes, storage, GitHub) is unavailable; retry shortly. */
+model ServiceUnavailable {
+  @statusCode statusCode: 503;
+  @body body: ApiProblem;
+}

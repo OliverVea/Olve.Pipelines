@@ -325,60 +325,52 @@ The current document against `version` (default: the pending version, else the a
 
 ### Secrets
 
-#### List secrets
+#### Copy secrets from another pipeline
 
-`GET /api/pipelines/{pipelineId}/secrets`
-
-The secrets the active version (steps, failure handlers, poll triggers) or the binding uses, plus set but unused ones, each with `declaredBy` and `isSet` (null when Kubernetes can't be read). Values are never returned.
+`POST /api/pipelines/{pipelineId}/secrets/copy`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 
-**Returns:** `200` [PipelineSecretInfo](#pipelinesecretinfo)[]
+**Body** (`application/json`): [CopySecrets](#copysecrets)
 
-#### Set a secret
-
-`PUT /api/pipelines/{pipelineId}/secrets/{name}`
-
-Sets the value. Re-checks a pending version.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `name` | path | string | yes |
-
-**Body** (`application/json`): [SetSecretRequest](#setsecretrequest)
-
-**Returns:** `200`
+**Returns:** `200` [CopiedSecrets](#copiedsecrets)
 
 #### Delete a secret
 
 `DELETE /api/pipelines/{pipelineId}/secrets/{name}`
 
-Deleting a secret the current config references needs `force=true` (409 without). Re-checks a pending version.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 | `name` | path | string | yes |
 | `force` | query | boolean |  |
 
 **Returns:** `200`
 
-#### Copy secrets from another pipeline
+#### Set a secret
 
-`POST /api/pipelines/{pipelineId}/secrets/copy`
-
-Copies values server-side from `sourcePipelineId` (`names`, default all; `targetName` renames a single one). Existing names are refused without `overwrite`. Answers the copied names. Whoever can write the target pipeline can read the copied values from its steps.
+`PUT /api/pipelines/{pipelineId}/secrets/{name}`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
+| `name` | path | string | yes |
 
-**Body** (`application/json`): [CopySecretsRequest](#copysecretsrequest)
+**Body** (`application/json`): [SetSecret](#setsecret)
 
-**Returns:** `200` [CopySecretsResponse](#copysecretsresponse)
+**Returns:** `200`
+
+#### List secrets
+
+`GET /api/pipelines/{pipelineId}/secrets`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Returns:** `200` [PipelineSecret](#pipelinesecret)[]
 
 ### Runs
 
@@ -1002,20 +994,20 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `input` | object? |  |
 
-### CopySecretsRequest
+### CopiedSecrets
+
+| Field | Type | |
+|---|---|---|
+| `copied` | string[] | required |
+
+### CopySecrets
 
 | Field | Type | |
 |---|---|---|
 | `sourcePipelineId` | string (uuid) | required |
 | `names` | string[]? |  |
 | `targetName` | string? |  |
-| `overwrite` | boolean |  |
-
-### CopySecretsResponse
-
-| Field | Type | |
-|---|---|---|
-| `copied` | string[] | required |
+| `overwrite` | boolean? |  |
 
 ### CreatePipelineWithRepoRequest
 
@@ -1272,7 +1264,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `heldRuns` | [RunSummary](#runsummary)[] | required |
 | `pending` | [PendingVersionInfo](#pendingversioninfo)? |  |
 
-### PipelineSecretInfo
+### PipelineSecret
 
 | Field | Type | |
 |---|---|---|
@@ -1475,7 +1467,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `yaml` | string | required |
 
-### SetSecretRequest
+### SetSecret
 
 | Field | Type | |
 |---|---|---|

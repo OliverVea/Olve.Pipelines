@@ -1,12 +1,17 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { api, client } from '../api.js';
-import { pipelinesGet, pipelinesHealth, type PipelineHealth } from '@olve/api';
+import {
+  pipelinesGet,
+  pipelinesHealth,
+  secretsList,
+  type PipelineHealth,
+  type PipelineSecret,
+} from '@olve/api';
 import type {
   ActiveAttempt,
   CriticalPathReport,
   PipelineBindingStatus,
-  PipelineSecretInfo,
 } from '@olve/olve-pipelines-client/src/models/index.js';
 import {
   sharedStyles,
@@ -92,7 +97,7 @@ export class PipelineHeader extends LitElement {
   @state() declare private _name: string;
   @state() declare private _description: string;
   @state() declare private _binding: PipelineBindingStatus | null;
-  @state() declare private _secrets: PipelineSecretInfo[];
+  @state() declare private _secrets: PipelineSecret[];
   @state() declare private _health: PipelineHealth | null;
   @state() declare private _activation: Activation;
   @state() declare private _critical: CriticalPathReport | null;
@@ -134,7 +139,11 @@ export class PipelineHeader extends LitElement {
       pipelinesHealth({ client: api, path })
         .then((r) => r.data)
         .catch(() => null),
-      overview ? p.secrets.get().catch(() => null) : null, // needs auth
+      overview
+        ? secretsList({ client: api, path })
+            .then((r) => r.data)
+            .catch(() => null)
+        : null, // needs auth
       overview ? p.runs.criticalPath.get().catch(() => null) : null,
       overview
         ? client.api.attempts

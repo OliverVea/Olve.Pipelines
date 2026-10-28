@@ -1,7 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { PipelineBindingStatus } from '@olve/olve-pipelines-client/src/models/index.js';
-import { client, apiFetch, apiPost, errorMessages } from '../api.js';
+import { secretsList } from '@olve/api';
+import { api, client, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, shortSha, secretsPath } from '../v2/ui.js';
 import { LiveController, forPipeline } from '../v2/events.js';
 import './relative-time.js';
@@ -121,9 +122,9 @@ export class PipelineBindingView extends LitElement {
       const [binding, status, secrets] = await Promise.all([
         apiFetch<Binding>(`/api/pipelines/${this.pipelineId}/binding`).catch(() => null),
         p.binding.status.get().catch(() => null),
-        apiFetch<{ name: string }[]>(`/api/pipelines/${this.pipelineId}/secrets`).catch(
-          () => null,
-        ),
+        secretsList({ client: api, path: { pipelineId: this.pipelineId } })
+          .then((r) => r.data)
+          .catch(() => null),
       ]);
       this._binding = binding;
       this._status = status ?? null;

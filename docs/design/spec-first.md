@@ -49,6 +49,13 @@ tooling (ARM does the same with `-p:SkipSpecGen=true` in its Docker .NET stage).
 
 Do this first, verified against ARM (the existing consumer), before Olve.Pipelines uses any of it.
 
+**Done 2026-10-28**: `Olve.TypeSpec` and `@olivervea/typespec-csharp` 0.58.0 are published
+(Olve.Utilities #94, conformance suite `tests/Olve.TypeSpec.Conformance`, skill `olve-typespec`),
+and ARM builds on them with its own copies deleted. The emitter work Olve.Pipelines needs
+(auth per operation, binary responses, `Id<T>` parameters, offset/limit pagination) is still open
+and lands with the area that first needs it. Follow-ups: Olve.Utilities #97 (MSBuild targets +
+handler-registration source generator), #98 (PublishAot smoke test), #99 (skill evals).
+
 - **Runtime NuGet** (name to settle in that repo, e.g. `Olve.TypeSpec`): what ARM's `Api/` holds
   today, with the `Arm` prefix dropped: handler and response interfaces, the operation descriptor,
   the SSE result and item, validation, binding-failure middleware, the `UseApi` wiring with the

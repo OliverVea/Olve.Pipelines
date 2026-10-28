@@ -3,6 +3,7 @@ using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Problems;
+using Olve.Pipelines.Streaming;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Runs;
@@ -125,5 +126,24 @@ public sealed class GetStepLogsHandler(RunService runs, AttemptService attempts,
         return text.TryPickProblems(out var problems, out var value)
             ? new Contract.RunStepsLogsResponse.NotFound(ApiProblems.Of([.. problems]))
             : new Contract.RunStepsLogsResponse.Ok(value);
+    }
+}
+
+/// <summary>Without <c>attempt</c> the latest attempt. Ends with <c>end</c> once the attempt is terminal.</summary>
+public sealed class StreamStepLogsHandler(RunService runs, AttemptService attempts, AttemptLogStreamer streamer) : Contract.IRunStepsLogStreamHandler
+{
+    public Task<Contract.RunStepsLogStreamResponse> HandleAsync(Contract.RunStepsLogStreamRequest request, CancellationToken cancellationToken)
+    {
+        var id = PipelineViews.PipelineId(request.PipelineId);
+        if (!runs.TryGetByNumber(id, request.Number, out var run))
+            return Task.FromResult<Contract.RunStepsLogStreamResponse>(new Contract.RunStepsLogStreamResponse.NotFound(
+                ApiProblems.Of(new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", request.Number, id))));
+        var target = request.Attempt is { } n
+            ? attempts.ListForStep(run.Id, request.Step).FirstOrDefault(a => a.Number == n)
+            : attempts.ListForStep(run.Id, request.Step).LastOrDefault();
+        if (target is null)
+            return Task.FromResult<Contract.RunStepsLogStreamResponse>(new Contract.RunStepsLogStreamResponse.NotFound(
+                ApiProblems.Of(new NotFoundProblem("Run #{0} has no such attempt of step '{1}'.", request.Number, request.Step))));
+        return Task.FromResult<Contract.RunStepsLogStreamResponse>(new Contract.RunStepsLogStreamResponse.Ok(streamer.StreamAsync(target.Id, cancellationToken)));
     }
 }

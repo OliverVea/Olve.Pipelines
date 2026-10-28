@@ -40,7 +40,7 @@ internal partial class ApiProblemJsonContext : JsonSerializerContext;
 /// <summary>Builds <see cref="ApiProblem"/> bodies from problems or a bare status.</summary>
 public static class ApiProblems
 {
-    public const string ContentType = "application/problem+json";
+    public const string ContentType = "application/json";
 
     // Precedence: the most specific problem decides the status. A missing resource or a conflicting
     // state can't be fixed by retrying, so both outrank 503; plain problems are 400.

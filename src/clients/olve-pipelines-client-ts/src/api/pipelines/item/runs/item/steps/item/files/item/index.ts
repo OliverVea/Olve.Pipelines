@@ -44,7 +44,7 @@ export const WithPathItemRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{
 export const WithPathItemRequestBuilderRequestsMetadata: RequestsMetadata = {
     get: {
         uriTemplate: WithPathItemRequestBuilderUriTemplate,
-        responseBodyContentType: "application/problem+json",
+        responseBodyContentType: "application/json",
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,

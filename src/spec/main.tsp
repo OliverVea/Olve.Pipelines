@@ -3,6 +3,7 @@ import "@typespec/http";
 import "./bindings.tsp";
 import "./config.tsp";
 import "./errors.tsp";
+import "./events.tsp";
 import "./instance.tsp";
 import "./pipelines.tsp";
 import "./runs.tsp";

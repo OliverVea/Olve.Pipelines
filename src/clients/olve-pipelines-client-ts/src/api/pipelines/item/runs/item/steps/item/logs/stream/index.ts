@@ -11,25 +11,21 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface StreamRequestBuilder extends BaseRequestBuilder<StreamRequestBuilder> {
     /**
-     * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
+     * Stream a step's log
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<ArrayBuffer>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<StreamRequestBuilderGetQueryParameters> | undefined) : Promise<ArrayBuffer | undefined>;
     /**
-     * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
+     * Stream a step's log
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<StreamRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
+ * Stream a step's log
  */
 export interface StreamRequestBuilderGetQueryParameters {
     attempt?: number;
@@ -44,13 +40,9 @@ export const StreamRequestBuilderUriTemplate = "{+baseurl}/api/pipelines/{pipeli
 export const StreamRequestBuilderRequestsMetadata: RequestsMetadata = {
     get: {
         uriTemplate: StreamRequestBuilderUriTemplate,
-        responseBodyContentType: "text/event-stream, application/problem+json",
+        responseBodyContentType: "text/event-stream, application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendPrimitive",
         responseBodyFactory:  "ArrayBuffer",

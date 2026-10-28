@@ -1,4 +1,4 @@
-using System.Net.ServerSentEvents;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,7 +12,9 @@ using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Streaming;
 using Olve.Results;
+using Olve.TypeSpec;
 using Olve.Utilities.Ids;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.UnitTests.Streaming;
 
@@ -20,11 +22,15 @@ public class ChangeBroadcasterTests
 {
     private static ChangeBroadcaster New() => new(TimeProvider.System, NullLogger<ChangeBroadcaster>.Instance);
 
-    private static ChangeEvent Change(Id<Pipeline> pipelineId, string type = "run") => new(type, pipelineId, "{}");
+    private static ChangeEvent Change(Id<Pipeline> pipelineId, string type = "run") => new(pipelineId, type == "run"
+        ? new Contract.RunChanged { PipelineId = pipelineId.Value.Value, Run = 1, Status = "Running" }
+        : new Contract.AttemptChanged { PipelineId = pipelineId.Value.Value, Run = 1, Step = "build", Attempt = 1, Status = "scheduled" });
 
-    private static List<SseItem<string>> Drain(ChangeSubscription subscription)
+    private static string Json(ServerSentEvent<Contract.ChangeEvent> item) => JsonSerializer.Serialize(item.Data, Contract.PipelinesJsonContext.Default.ChangeEvent);
+
+    private static List<ServerSentEvent<Contract.ChangeEvent>> Drain(ChangeSubscription subscription)
     {
-        var items = new List<SseItem<string>>();
+        var items = new List<ServerSentEvent<Contract.ChangeEvent>>();
         while (subscription.Reader.TryRead(out var item)) items.Add(item);
         return items;
     }
@@ -41,10 +47,10 @@ public class ChangeBroadcasterTests
         broadcaster.Publish(Change(p1));
         broadcaster.Publish(Change(p2, "attempt"));
 
-        await Assert.That(Drain(all).Select(i => i.EventType)).IsEquivalentTo(["run", "attempt"]);
+        await Assert.That(Drain(all).Select(i => i.Data.EventType)).IsEquivalentTo(["run", "attempt"]);
         var filtered = Drain(onlyP1);
         await Assert.That(filtered.Count).IsEqualTo(1);
-        await Assert.That(filtered[0].EventId).EndsWith("-1");
+        await Assert.That(filtered[0].Id).EndsWith("-1");
     }
 
     [Test]
@@ -87,7 +93,7 @@ public class ChangeBroadcasterTests
         await using var stream = broadcaster.StreamAsync(null, null, cts.Token).GetAsyncEnumerator(cts.Token);
 
         await Assert.That(await stream.MoveNextAsync()).IsTrue();
-        await Assert.That(stream.Current.EventType).IsEqualTo("hello");
+        await Assert.That(stream.Current.Data.EventType).IsEqualTo("hello");
         await Assert.That(broadcaster.SubscriberCount).IsEqualTo(1);
 
         var next = stream.MoveNextAsync();
@@ -134,17 +140,16 @@ public class ChangeBroadcasterTests
     }
 
     [Test]
-    public async Task Stream_StartsWithHelloAndRetry_ThenResyncWhenStale()
+    public async Task Stream_StartsWithHello_ThenResyncWhenStale()
     {
         var broadcaster = New();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using var stream = broadcaster.StreamAsync(null, "1-1", cts.Token).GetAsyncEnumerator(cts.Token);
 
         await stream.MoveNextAsync();
-        await Assert.That(stream.Current.EventType).IsEqualTo("hello");
-        await Assert.That(stream.Current.ReconnectionInterval).IsNotNull();
+        await Assert.That(stream.Current.Data.EventType).IsEqualTo("hello");
         await stream.MoveNextAsync();
-        await Assert.That(stream.Current.EventType).IsEqualTo("resync");
+        await Assert.That(stream.Current.Data.EventType).IsEqualTo("resync");
     }
 
     [Test]
@@ -153,12 +158,12 @@ public class ChangeBroadcasterTests
         var broadcaster = New();
         using var subscription = broadcaster.Subscribe(null, null);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var stream = SseStreams.WithHeartbeat(subscription.Reader, TimeProvider.System, TimeSpan.FromMilliseconds(20), cts.Token)
+        await using var stream = SseStreams.WithHeartbeat(subscription.Reader, TimeProvider.System, TimeSpan.FromMilliseconds(20), ChangeBroadcaster.Heartbeat, cts.Token)
             .GetAsyncEnumerator(cts.Token);
 
         await stream.MoveNextAsync();
 
-        await Assert.That(stream.Current.EventType).IsEqualTo("ping");
+        await Assert.That(stream.Current.Data.EventType).IsEqualTo("ping");
     }
 
     [Test]
@@ -184,12 +189,12 @@ public class ChangeBroadcasterTests
         TestRunDomain.Pick(provider.GetRequiredService<AttemptService>().Schedule(run.Id, "build"));
 
         var items = Drain(subscription);
-        var types = items.Select(i => i.EventType).ToList();
+        var types = items.Select(i => i.Data.EventType).ToList();
         await Assert.That(types).Contains("pipeline");
         await Assert.That(types).Contains("version");
         await Assert.That(types).Contains("run");
         await Assert.That(types).Contains("attempt");
-        var attempt = items.First(i => i.EventType == "attempt").Data;
+        var attempt = Json(items.First(i => i.Data.EventType == "attempt"));
         await Assert.That(attempt).Contains("\"step\":\"build\"");
         await Assert.That(attempt).Contains($"\"pipelineId\":\"{pipeline.Id.Value.Value}\"");
     }
@@ -223,7 +228,7 @@ public class ChangeBroadcasterTests
         provider.GetRequiredService<PipelineSecretEvents>().OnChanged.Invoke(pipeline.Id);
         await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id).Succeeded).IsTrue();
 
-        var items = Drain(subscription).Select(i => $"{i.EventType} {i.Data}").ToList();
+        var items = Drain(subscription).Select(i => $"{i.Data.EventType} {Json(i)}").ToList();
         await Assert.That(items).Contains(i => i.StartsWith("config ") && i.Contains("\"snapshot\":1"));
         await Assert.That(items).Contains(i => i.StartsWith("pending ") && i.Contains($"\"version\":{version.Number}"));
         await Assert.That(items).Contains(i => i.StartsWith("pending ") && i.Contains("\"version\":null"));

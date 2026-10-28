@@ -1,18 +1,15 @@
 using System.Globalization;
-using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading.Channels;
 using Olve.Pipelines.Pipelines;
+using Olve.TypeSpec;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Streaming;
 
 /// <summary>
-/// Fans <see cref="ChangeEvent"/>s out to connected <c>/api/events</c> clients. Publishing never blocks
-/// (it runs inside store writes): each client has a bounded channel, and a client that falls
-/// <see cref="ClientCapacity"/> events behind is disconnected. Its browser reconnects with
-/// <c>Last-Event-ID</c> and gets <c>resync</c>. Event ids are <c>&lt;boot epoch&gt;-&lt;seq&gt;</c>;
-/// there is no replay buffer. Singleton.
+/// Fans change notices out to every subscribed stream (filtered per pipeline). Ids are <c>&lt;boot&gt;-&lt;seq&gt;</c>,
+/// so a reconnecting client's <c>Last-Event-ID</c> says whether it missed anything; nothing is replayed.
 /// </summary>
 public sealed class ChangeBroadcaster(TimeProvider time, ILogger<ChangeBroadcaster> logger)
 {
@@ -32,7 +29,7 @@ public sealed class ChangeBroadcaster(TimeProvider time, ILogger<ChangeBroadcast
         {
             _seq++;
             _lastSeqByPipeline[change.PipelineId] = _seq;
-            var item = new SseItem<string>(change.Data, change.Type) { EventId = IdOf(_seq) };
+            var item = new ServerSentEvent<Contract.ChangeEvent>(change.Payload, IdOf(_seq));
             foreach (var subscriber in _subscribers)
             {
                 if (subscriber.Filter is { } filter && filter != change.PipelineId) continue;
@@ -43,10 +40,9 @@ public sealed class ChangeBroadcaster(TimeProvider time, ILogger<ChangeBroadcast
         }
     }
 
-    /// <param name="lastEventId">The client's <c>Last-Event-ID</c>; when it is stale (or from another boot) the subscription needs a resync.</param>
     public ChangeSubscription Subscribe(Id<Pipeline>? filter, string? lastEventId)
     {
-        var channel = Channel.CreateBounded<SseItem<string>>(new BoundedChannelOptions(ClientCapacity)
+        var channel = Channel.CreateBounded<ServerSentEvent<Contract.ChangeEvent>>(new BoundedChannelOptions(ClientCapacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
@@ -62,22 +58,19 @@ public sealed class ChangeBroadcaster(TimeProvider time, ILogger<ChangeBroadcast
         }
     }
 
-    /// <summary>The client's stream: <c>hello</c> (with the <c>retry:</c> hint), <c>resync</c> when needed, then events and heartbeats until cancelled.</summary>
-    public async IAsyncEnumerable<SseItem<string>> StreamAsync(
+    public async IAsyncEnumerable<ServerSentEvent<Contract.ChangeEvent>> StreamAsync(
         Id<Pipeline>? filter, string? lastEventId, [EnumeratorCancellation] CancellationToken ct)
     {
         using var subscription = Subscribe(filter, lastEventId);
-        yield return new SseItem<string>(JsonSerializer.Serialize(new StreamHello(subscription.CurrentId), StreamingJsonContext.Default.StreamHello), "hello")
-        {
-            EventId = subscription.CurrentId,
-            ReconnectionInterval = SseStreams.Retry,
-        };
+        yield return new ServerSentEvent<Contract.ChangeEvent>(new Contract.StreamHello { LastEventId = subscription.CurrentId }, subscription.CurrentId);
         if (subscription.NeedsResync)
-            yield return new SseItem<string>(JsonSerializer.Serialize(new StreamResync("missed-events"), StreamingJsonContext.Default.StreamResync), "resync");
+            yield return new ServerSentEvent<Contract.ChangeEvent>(new Contract.StreamResync { Reason = "missed-events" });
 
-        await foreach (var item in SseStreams.WithHeartbeat(subscription.Reader, time, SseStreams.HeartbeatInterval, ct))
+        await foreach (var item in SseStreams.WithHeartbeat(subscription.Reader, time, SseStreams.HeartbeatInterval, Heartbeat, ct))
             yield return item;
     }
+
+    public static ServerSentEvent<Contract.ChangeEvent> Heartbeat() => new(new Contract.Ping());
 
     internal void Remove(ChangeSubscription subscription)
     {
@@ -96,13 +89,13 @@ public sealed class ChangeBroadcaster(TimeProvider time, ILogger<ChangeBroadcast
     }
 }
 
-/// <summary>One connected client. Dispose to unsubscribe.</summary>
 public sealed class ChangeSubscription : IDisposable
 {
     private readonly ChangeBroadcaster _owner;
-    private readonly Channel<SseItem<string>> _channel;
+    private readonly Channel<ServerSentEvent<Contract.ChangeEvent>> _channel;
 
-    internal ChangeSubscription(ChangeBroadcaster owner, Id<Pipeline>? filter, Channel<SseItem<string>> channel, string currentId, bool needsResync)
+    internal ChangeSubscription(
+        ChangeBroadcaster owner, Id<Pipeline>? filter, Channel<ServerSentEvent<Contract.ChangeEvent>> channel, string currentId, bool needsResync)
     {
         _owner = owner;
         _channel = channel;
@@ -114,8 +107,8 @@ public sealed class ChangeSubscription : IDisposable
     public Id<Pipeline>? Filter { get; }
     public string CurrentId { get; }
     public bool NeedsResync { get; }
-    public ChannelReader<SseItem<string>> Reader => _channel.Reader;
-    internal ChannelWriter<SseItem<string>> Writer => _channel.Writer;
+    public ChannelReader<ServerSentEvent<Contract.ChangeEvent>> Reader => _channel.Reader;
+    internal ChannelWriter<ServerSentEvent<Contract.ChangeEvent>> Writer => _channel.Writer;
 
     public void Dispose()
     {

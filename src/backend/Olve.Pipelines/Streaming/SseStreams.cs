@@ -1,4 +1,3 @@
-using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
@@ -7,14 +6,10 @@ namespace Olve.Pipelines.Streaming;
 internal static class SseStreams
 {
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
-    public static readonly TimeSpan Retry = TimeSpan.FromSeconds(5);
 
-    /// <summary>SseItem can't write a <c>:</c> comment, so the keep-alive is a named event nobody needs to listen for.</summary>
-    public static SseItem<string> Heartbeat() => new("", "ping");
-
-    /// <summary>Items from <paramref name="reader"/>, a heartbeat after each idle <paramref name="interval"/>; ends when the channel completes or on cancellation.</summary>
-    public static async IAsyncEnumerable<SseItem<string>> WithHeartbeat(
-        ChannelReader<SseItem<string>> reader, TimeProvider time, TimeSpan interval, [EnumeratorCancellation] CancellationToken ct)
+    /// <summary>The channel's items as they come, with <paramref name="heartbeat"/> whenever none came for <paramref name="interval"/>.</summary>
+    public static async IAsyncEnumerable<T> WithHeartbeat<T>(
+        ChannelReader<T> reader, TimeProvider time, TimeSpan interval, Func<T> heartbeat, [EnumeratorCancellation] CancellationToken ct)
     {
         while (true)
         {
@@ -24,7 +19,7 @@ internal static class SseStreams
             switch (await WaitAsync(reader, time, interval, ct))
             {
                 case WaitOutcome.Timeout:
-                    yield return Heartbeat();
+                    yield return heartbeat();
                     break;
                 case WaitOutcome.Done:
                     yield break;
@@ -32,7 +27,6 @@ internal static class SseStreams
         }
     }
 
-    /// <summary>Waits <paramref name="delay"/>; false when cancelled.</summary>
     public static async Task<bool> DelayAsync(TimeSpan delay, TimeProvider time, CancellationToken ct)
     {
         try
@@ -46,7 +40,7 @@ internal static class SseStreams
         }
     }
 
-    private static async Task<WaitOutcome> WaitAsync(ChannelReader<SseItem<string>> reader, TimeProvider time, TimeSpan interval, CancellationToken ct)
+    private static async Task<WaitOutcome> WaitAsync<T>(ChannelReader<T> reader, TimeProvider time, TimeSpan interval, CancellationToken ct)
     {
         using var timeout = new CancellationTokenSource(interval, time);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);

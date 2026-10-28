@@ -28,10 +28,14 @@ public class EventStreamEndpointTests
         builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client(new AnonymousAWSCredentials(), new AmazonS3Config { ServiceURL = "http://127.0.0.1:1" }));
         builder.Services.AddSingleton(new StorageOptions("unused"));
         builder.Configuration["Auth:Disable"] = "true";
+        builder.ConfigureJson();
         builder.ConfigureAuthentication();
+        builder.Services.AddApiErrors();
+        Olve.Pipelines.Api.PipelinesApi.AddPipelinesApi(builder.Services);
+        builder.Services.AddApiHandlers();
         var app = builder.Build();
         app.MapAuthentication();
-        app.MapEventStreamEndpoints();
+        app.MapApi();
         await app.StartAsync();
         var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         return (app, new HttpClient { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(20) });
@@ -64,7 +68,6 @@ public class EventStreamEndpointTests
 
         var hello = await ReadEventAsync(reader);
         await Assert.That(hello).Contains("event: hello");
-        await Assert.That(hello.Any(l => l.StartsWith("retry: "))).IsTrue();
 
         var broadcaster = app.Services.GetRequiredService<ChangeBroadcaster>();
         broadcaster.Publish(ChangeEvent.Pipeline(Id.New<Pipeline>(), "added"));
@@ -72,7 +75,7 @@ public class EventStreamEndpointTests
 
         var blocked = await ReadEventAsync(reader);
         await Assert.That(blocked).Contains("event: blocked");
-        await Assert.That(blocked).Contains($$"""data: {"pipelineId":"{{pipelineId.Value.Value}}","blockedSteps":["deploy"]}""");
+        await Assert.That(blocked).Contains($$"""data: {"type":"blocked","pipelineId":"{{pipelineId.Value.Value}}","blockedSteps":["deploy"]}""");
         await Assert.That(blocked.Any(l => l.StartsWith("id: ") && l.EndsWith("-2"))).IsTrue();
     }
 

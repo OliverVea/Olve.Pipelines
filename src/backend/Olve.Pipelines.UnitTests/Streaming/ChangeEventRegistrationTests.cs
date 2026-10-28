@@ -37,7 +37,7 @@ public class ChangeEventRegistrationTests
     {
         var types = new List<string>();
         while (subscription.Reader.TryRead(out var item))
-            types.Add(item.EventType ?? "");
+            types.Add(item.Data.EventType);
         return types;
     }
 

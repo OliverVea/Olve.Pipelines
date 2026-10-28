@@ -150,6 +150,14 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    `status` (`@discriminated` union); the run-scoped step operations (`RunSteps`) and the
    cross-pipeline attempt list moved with it. Still hand-written: the file download (binary) and
    the log stream (SSE), with the manifest validation and the webhooks.
+9. Triggers — decided 2026-10-28: the inbound deliveries (`POST /api/hooks/{pipelineId}/{trigger}`,
+   the callback-input hook, the GitHub binding webhook) stay hand-written. They are not client
+   operations: raw bodies verified by the trigger's own secret, answered with 202/401/413/429/503.
+10. Events — done 2026-10-28: `GET /api/events` and the step log stream are `SSEStream`s of
+    `@events` unions (`ChangeEvent`, `LogEvent`); the broadcaster and the log streamer yield the
+    contract's typed events, so each notice's data now also carries `type` (the event name) and
+    `hello` no longer sends `retry`. Errors became plain `application/json` with the `ApiProblem`
+    body: that is what the contract declares, and the body never was an RFC 9457 problem document.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)
@@ -157,8 +165,6 @@ Order, smallest and least coupled first, so the pattern settles before the big o
 6. Bindings (8)
 7. Steps (14)
 8. Runs (9) and Attempts (1)
-9. Triggers (1)
-10. Events (1, SSE) and the log stream
 
 Each push carries: the area's `.tsp` with its warts fixed, one handler class per operation calling
 the existing service (the endpoint lambdas' bodies move, the services don't change), the frontend's

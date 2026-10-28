@@ -17,7 +17,7 @@ The HTTP API that `pl` and the web UI use. This page is generated from the OpenA
 - **Addressing.** Pipelines by id (`{pipelineId}`), runs by number, steps by name:
   `/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/…`. Only cross-pipeline views are
   top-level (`/api/attempts`).
-- **Errors.** Any non-2xx answer except 401 and 403 is `application/problem+json`, an
+- **Errors.** Any non-2xx answer except 401 and 403 is `application/json`, an
   [ApiProblem](#apiproblem): `{type, title, status, detail, errors: [{code, message, field?}],
   traceId}`. The codes are `not-found` (404), `conflict` (409), `invalid` (400), `unavailable` (503,
   with `Retry-After`) and `internal` (500).
@@ -25,8 +25,8 @@ The HTTP API that `pl` and the web UI use. This page is generated from the OpenA
 ## Live events
 
 `GET /api/events?pipeline=<id>` (omit `pipeline` for every pipeline) is a `text/event-stream` of
-change notifications. Each event is a small "something changed" notice in camelCase JSON; the
-client re-fetches the view it affects.
+change notifications. Each event is a small "something changed" notice in camelCase JSON (its
+`type` repeats the event name); the client re-fetches the view it affects.
 
 | Event | Data | Fired when |
 |-------|------|------------|
@@ -41,9 +41,9 @@ client re-fetches the view it affects.
 | `queued` | `{pipelineId, queued}` | Run starts are queued during a switch with `--cancel-running`, or the queue empties |
 | `secrets` | `{pipelineId}` | A pipeline secret is set, deleted or copied in (names only, never values) |
 | `poll` | `{pipelineId}` | A poll trigger saw a new value |
-| `hello` | `{lastEventId}` | First event of every connection; carries `retry: 5000` |
+| `hello` | `{lastEventId}` | First event of every connection |
 | `resync` | `{reason}` | The client reconnected with a stale `Last-Event-ID` (or across a restart): refetch everything |
-| `ping` | (empty) | Keep-alive every 15 s while idle |
+| `ping` | `{}` | Keep-alive every 15 s while idle |
 
 Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behind is disconnected
 (its `EventSource` reconnects and gets `resync`). Streams end when the service shuts down.

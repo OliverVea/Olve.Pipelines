@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Streaming;
 
 namespace Olve.Pipelines.Configuration;
 
@@ -62,6 +63,8 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IRunStepsOutputHandler, GetStepOutputHandler>();
         services.AddTransient<IRunStepsLogsHandler, GetStepLogsHandler>();
         services.AddTransient<IAttemptsListHandler, ListActiveAttemptsHandler>();
+        services.AddTransient<IRunStepsLogStreamHandler, StreamStepLogsHandler>();
+        services.AddTransient<IEventsStreamHandler, StreamEventsHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -123,5 +126,7 @@ public static class ApiHandlerConfiguration
         api.RunStepsOutput.RequireRead().WithTags("Steps").WithSummary("Get a step's output");
         api.RunStepsLogs.RequireRead().WithTags("Steps").WithSummary("Get a step's log");
         api.AttemptsList.RequireRead().WithTags("Attempts").WithSummary("List running attempts");
+        api.RunStepsLogStream.RequireRead().WithTags("Steps").WithSummary("Stream a step's log");
+        api.EventsStream.RequireRead().WithTags("Events").WithSummary("Stream change events");
     }
 }

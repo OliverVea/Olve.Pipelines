@@ -743,6 +743,44 @@
         }
       }
     },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Stream change events",
+        "operationId": "Events_stream",
+        "parameters": [
+          {
+            "name": "pipeline",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeEvent"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/config/frontend": {
       "get": {
         "tags": [
@@ -1312,6 +1350,81 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StepFiles"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Stream a step's log",
+        "operationId": "RunSteps_logStream",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogEvent"
                 }
               }
             }
@@ -2984,7 +3097,7 @@
           "400": {
             "description": "Bad Request",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
                 }
@@ -2994,7 +3107,7 @@
           "404": {
             "description": "Not Found",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
                 }
@@ -3004,7 +3117,7 @@
           "409": {
             "description": "Conflict",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
                 }
@@ -3014,7 +3127,7 @@
           "500": {
             "description": "Internal Server Error",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
                 }
@@ -3024,7 +3137,7 @@
           "503": {
             "description": "Service Unavailable",
             "content": {
-              "application/problem+json": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiProblem"
                 }
@@ -3169,156 +3282,6 @@
         "responses": {
           "200": {
             "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/events": {
-      "get": {
-        "tags": [
-          "Events"
-        ],
-        "summary": "Stream change events",
-        "description": "Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.",
-        "operationId": "StreamEvents",
-        "parameters": [
-          {
-            "name": "pipeline",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Last-Event-ID",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Stream a step's log",
-        "description": "The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.",
-        "operationId": "StreamStepLogs",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
           }
         }
       }
@@ -3900,6 +3863,329 @@
             "type": "string"
           },
           "to": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEvent": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "hello": "#/components/schemas/ChangeEventStreamHello",
+            "resync": "#/components/schemas/ChangeEventStreamResync",
+            "ping": "#/components/schemas/ChangeEventPing",
+            "run": "#/components/schemas/ChangeEventRunChanged",
+            "attempt": "#/components/schemas/ChangeEventAttemptChanged",
+            "version": "#/components/schemas/ChangeEventVersionChanged",
+            "blocked": "#/components/schemas/ChangeEventBlockedStepsChanged",
+            "binding": "#/components/schemas/ChangeEventBindingChanged",
+            "pipeline": "#/components/schemas/ChangeEventPipelineChanged",
+            "config": "#/components/schemas/ChangeEventConfigChanged",
+            "pending": "#/components/schemas/ChangeEventPendingChanged",
+            "queued": "#/components/schemas/ChangeEventQueuedChanged",
+            "secrets": "#/components/schemas/ChangeEventSecretsChanged",
+            "poll": "#/components/schemas/ChangeEventPollChanged"
+          }
+        }
+      },
+      "ChangeEventAttemptChanged": {
+        "required": [
+          "pipelineId",
+          "run",
+          "step",
+          "attempt",
+          "status"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "step": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEventBindingChanged": {
+        "required": [
+          "pipelineId",
+          "state"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEventBlockedStepsChanged": {
+        "required": [
+          "pipelineId",
+          "blockedSteps"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "blockedSteps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ChangeEventConfigChanged": {
+        "required": [
+          "pipelineId",
+          "snapshot"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snapshot": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ChangeEventPendingChanged": {
+        "required": [
+          "pipelineId",
+          "version"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ChangeEventPing": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ]
+      },
+      "ChangeEventPipelineChanged": {
+        "required": [
+          "pipelineId",
+          "change"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "change": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEventPollChanged": {
+        "required": [
+          "pipelineId"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ChangeEventQueuedChanged": {
+        "required": [
+          "pipelineId",
+          "queued"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "queued": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChangeEventRunChanged": {
+        "required": [
+          "pipelineId",
+          "run",
+          "status"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEventSecretsChanged": {
+        "required": [
+          "pipelineId"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ChangeEventStreamHello": {
+        "required": [
+          "lastEventId"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "lastEventId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ChangeEventStreamResync": {
+        "required": [
+          "reason"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangeEventVersionChanged": {
+        "required": [
+          "pipelineId",
+          "version",
+          "change"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          }
+        ],
+        "properties": {
+          "pipelineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "change": {
             "type": "string"
           }
         }
@@ -4613,6 +4899,66 @@
         }
       },
       "JsonElement": { },
+      "LogEvent": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "log": "#/components/schemas/LogEventLogChunk",
+            "end": "#/components/schemas/LogEventLogStreamEnd",
+            "ping": "#/components/schemas/LogEventLogPing"
+          }
+        }
+      },
+      "LogEventLogChunk": {
+        "required": [
+          "text",
+          "reset"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LogEvent"
+          }
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "reset": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LogEventLogPing": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LogEvent"
+          }
+        ]
+      },
+      "LogEventLogStreamEnd": {
+        "required": [
+          "status"
+        ],
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LogEvent"
+          }
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "ManifestIssueView": {
         "required": [
           "code",
@@ -6119,6 +6465,9 @@
       "name": "Config"
     },
     {
+      "name": "Events"
+    },
+    {
       "name": "Instance"
     },
     {
@@ -6135,9 +6484,6 @@
     },
     {
       "name": "Triggers"
-    },
-    {
-      "name": "Events"
     }
   ]
 }

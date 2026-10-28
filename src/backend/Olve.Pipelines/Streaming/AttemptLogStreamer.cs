@@ -1,27 +1,26 @@
-using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using Amazon.Runtime;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.TypeSpec;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Streaming;
 
 /// <summary>
-/// Live log of one attempt as SSE: polls the pod log (<see cref="IAttemptLiveLogs"/> returns a snapshot,
-/// not a follow), waking early on a pod change, and sends what is new as <c>log</c> chunks; once the attempt
-/// is terminal, the persisted log's remainder and <c>end</c>. Transient.
+/// An attempt's log as server-sent events: the live pod log while it runs (appended as it grows, replaced when it
+/// was rewritten), the stored log once it is terminal, then <c>end</c> with the final status.
 /// </summary>
 public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLogs, JobLogService logs, PodChangeSignals podChanges, TimeProvider time)
 {
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
 
-    public async IAsyncEnumerable<SseItem<string>> StreamAsync(Id<Attempt> attemptId, [EnumeratorCancellation] CancellationToken ct)
+    public async IAsyncEnumerable<ServerSentEvent<Contract.LogEvent>> StreamAsync(Id<Attempt> attemptId, [EnumeratorCancellation] CancellationToken ct)
     {
         var sent = "";
         var idleSince = time.GetUtcNow();
-        yield return new SseItem<string>(Json(new LogChunk("", Reset: true)), "log") { ReconnectionInterval = SseStreams.Retry };
+        yield return Log("", reset: true);
 
         while (!ct.IsCancellationRequested)
         {
@@ -43,8 +42,8 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
             if (text is not null && text != sent)
             {
                 yield return text.StartsWith(sent, StringComparison.Ordinal)
-                    ? Log(new LogChunk(text[sent.Length..]))
-                    : Log(new LogChunk(text, Reset: true));
+                    ? Log(text[sent.Length..], reset: false)
+                    : Log(text, reset: true);
                 sent = text;
                 idleSince = time.GetUtcNow();
             }
@@ -58,7 +57,7 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
 
             if (time.GetUtcNow() - idleSince >= SseStreams.HeartbeatInterval)
             {
-                yield return SseStreams.Heartbeat();
+                yield return new ServerSentEvent<Contract.LogEvent>(new Contract.LogPing());
                 idleSince = time.GetUtcNow();
             }
 
@@ -87,10 +86,7 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
         }
     }
 
-    private static SseItem<string> Log(LogChunk chunk) => new(Json(chunk), "log");
+    private static ServerSentEvent<Contract.LogEvent> Log(string text, bool reset) => new(new Contract.LogChunk { Text = text, Reset = reset });
 
-    private static SseItem<string> End(string status)
-        => new(JsonSerializer.Serialize(new LogStreamEnd(status), StreamingJsonContext.Default.LogStreamEnd), "end");
-
-    private static string Json(LogChunk chunk) => JsonSerializer.Serialize(chunk, StreamingJsonContext.Default.LogChunk);
+    private static ServerSentEvent<Contract.LogEvent> End(string status) => new(new Contract.LogStreamEnd { Status = status });
 }

@@ -1,8 +1,10 @@
 import "@typespec/http";
 import "./errors.tsp";
+import "./events.tsp";
 import "./pipelines.tsp";
 
 using Http;
+using SSE;
 
 namespace Pipelines;
 
@@ -469,6 +471,14 @@ interface RunSteps {
     @path step: string,
     @query attempt?: int32,
   ): string | NotFound;
+
+  /** The attempt's log as server-sent events (default: the latest attempt): `log` chunks, then `end` once the attempt is finished. */
+  @get @route("logs/stream") logStream(
+    @path @format("uuid") pipelineId: string,
+    @path number: int32,
+    @path step: string,
+    @query attempt?: int32,
+  ): SSEStream<LogEvent> | NotFound;
 }
 
 @tag("Attempts")

@@ -51,7 +51,7 @@ public class EndpointAuthTests
         "GET /api/pipelines/{pipelineId}/runs/{number}/attempts",
         "GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts",
         "GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs",
-        "GET /api/pipelines/{pipelineId}/runs/{number:int}/steps/{step}/logs/stream",
+        "GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream",
         "GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output",
         "GET /api/pipelines/{pipelineId}/steps/{step}/history",
         "GET /api/pipelines/{pipelineId}/versions",

@@ -28,7 +28,7 @@ public class ApiErrorTests
         var (response, _, json) = await Send(host, HttpMethod.Get, "/api/t/missing");
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
-        await Assert.That(response.Content.Headers.ContentType!.MediaType).IsEqualTo("application/problem+json");
+        await Assert.That(response.Content.Headers.ContentType!.MediaType).IsEqualTo("application/json");
         await Assert.That(json.GetProperty("status").GetInt32()).IsEqualTo(404);
         await Assert.That(json.GetProperty("type").GetString()).IsEqualTo("urn:olve-pipelines:not-found");
         await Assert.That(json.GetProperty("detail").GetString()).IsEqualTo("Run #7 not found.");

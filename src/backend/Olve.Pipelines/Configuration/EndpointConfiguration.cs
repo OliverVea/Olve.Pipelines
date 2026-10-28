@@ -25,7 +25,6 @@ public static class EndpointConfiguration
         app.MapPipelineBindingEndpoints();
         app.MapWebhookTriggerEndpoints();
         app.MapCallbackInputEndpoints();
-        app.MapEventStreamEndpoints();
         app.MapFallbackToFile("index.html").AllowAnonymous();
     }
 }

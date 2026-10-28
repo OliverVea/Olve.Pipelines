@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Amazon.Runtime;
 using Amazon.S3;
 using Olve.Pipelines.Configuration;
@@ -7,6 +8,7 @@ using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Streaming;
 using Olve.Results;
 using Olve.Results.TUnit;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.UnitTests.Streaming;
 
@@ -38,18 +40,18 @@ public class AttemptLogStreamerTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         await foreach (var item in streamer.StreamAsync(attempt.Id, cts.Token))
         {
-            events.Add((item.EventType, item.Data));
-            if (events.Count(e => e.Type == "log") == 4 && item.EventType == "log")
+            events.Add((item.Data.EventType, JsonSerializer.Serialize(item.Data, Contract.PipelinesJsonContext.Default.LogEvent)));
+            if (events.Count(e => e.Type == "log") == 4 && item.Data.EventType == "log")
                 await Assert.That(domain.AttemptService.MarkFailed(attempt.Id, "boom")).Succeeded();
         }
 
         await Assert.That(string.Join("|", events.Select(e => e.Data))).IsEqualTo(string.Join("|", new[]
         {
-            """{"text":"","reset":true}""",
-            """{"text":"--- olve-init ---\nfetch\n","reset":false}""",
-            """{"text":"a\n","reset":true}""",
-            """{"text":"b\n","reset":false}""",
-            """{"status":"failed"}""",
+            """{"type":"log","text":"","reset":true}""",
+            """{"type":"log","text":"--- olve-init ---\nfetch\n","reset":false}""",
+            """{"type":"log","text":"a\n","reset":true}""",
+            """{"type":"log","text":"b\n","reset":false}""",
+            """{"type":"end","status":"failed"}""",
         }));
     }
 }

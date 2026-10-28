@@ -96,7 +96,7 @@ public class ProductionWiringTests
 
         var types = new List<string>();
         while (subscription.Reader.TryRead(out var item))
-            types.Add(item.EventType ?? "");
+            types.Add(item.Data.EventType);
         await Assert.That(types).Contains("version");
         await Assert.That(types).Contains("run");
         await Assert.That(types).Contains("attempt");

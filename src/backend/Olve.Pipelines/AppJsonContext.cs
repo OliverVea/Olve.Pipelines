@@ -21,5 +21,6 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(ManifestValidationResponse))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement))]
 [JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(Guid?))]
 [JsonSerializable(typeof(DeletionResult))]
 internal partial class AppJsonContext : JsonSerializerContext;

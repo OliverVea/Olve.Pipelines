@@ -17,7 +17,7 @@ The HTTP API that `pl` and the web UI use. This page is generated from the OpenA
 - **Addressing.** Pipelines by id (`{pipelineId}`), runs by number, steps by name:
   `/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/…`. Only cross-pipeline views are
   top-level (`/api/attempts`).
-- **Errors.** Any non-2xx answer except 401 and 403 is `application/problem+json`, an
+- **Errors.** Any non-2xx answer except 401 and 403 is `application/json`, an
   [ApiProblem](#apiproblem): `{type, title, status, detail, errors: [{code, message, field?}],
   traceId}`. The codes are `not-found` (404), `conflict` (409), `invalid` (400), `unavailable` (503,
   with `Retry-After`) and `internal` (500).
@@ -25,8 +25,8 @@ The HTTP API that `pl` and the web UI use. This page is generated from the OpenA
 ## Live events
 
 `GET /api/events?pipeline=<id>` (omit `pipeline` for every pipeline) is a `text/event-stream` of
-change notifications. Each event is a small "something changed" notice in camelCase JSON; the
-client re-fetches the view it affects.
+change notifications. Each event is a small "something changed" notice in camelCase JSON (its
+`type` repeats the event name); the client re-fetches the view it affects.
 
 | Event | Data | Fired when |
 |-------|------|------------|
@@ -41,9 +41,9 @@ client re-fetches the view it affects.
 | `queued` | `{pipelineId, queued}` | Run starts are queued during a switch with `--cancel-running`, or the queue empties |
 | `secrets` | `{pipelineId}` | A pipeline secret is set, deleted or copied in (names only, never values) |
 | `poll` | `{pipelineId}` | A poll trigger saw a new value |
-| `hello` | `{lastEventId}` | First event of every connection; carries `retry: 5000` |
+| `hello` | `{lastEventId}` | First event of every connection |
 | `resync` | `{reason}` | The client reconnected with a stale `Last-Event-ID` (or across a restart): refetch everything |
-| `ping` | (empty) | Keep-alive every 15 s while idle |
+| `ping` | `{}` | Keep-alive every 15 s while idle |
 
 Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behind is disconnected
 (its `EventSource` reconnects and gets `resync`). Streams end when the service shuts down.
@@ -529,6 +529,19 @@ Another system answers a step's external input with `from: [callback()]`. The UR
 
 **Returns:** `200` [StepFiles](#stepfiles)
 
+#### Stream a step's log
+
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+| `attempt` | query | integer |  |
+
+**Returns:** `200` [LogEvent](#logevent) (`text/event-stream`)
+
 #### Get a step's log
 
 `GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs`
@@ -629,21 +642,6 @@ One stored file; a directory `dir/` downloads as `dir.tar`.
 
 **Returns:** `200`
 
-#### Stream a step's log
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream`
-
-The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-| `attempt` | query | integer |  |
-
-**Returns:** `200` string (`text/event-stream`)
-
 ### Attempts
 
 #### List running attempts
@@ -677,14 +675,12 @@ A delivery for the pipeline's `onWebhook` trigger `trigger`. Anonymous, verified
 
 `GET /api/events`
 
-Server-sent change notifications for one pipeline (`pipeline`) or all; see Live events above.
-
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipeline` | query | string |  |
+| `pipeline` | query | string (uuid) |  |
 | `Last-Event-ID` | header | string |  |
 
-**Returns:** `200` string (`text/event-stream`)
+**Returns:** `200` [ChangeEvent](#changeevent) (`text/event-stream`)
 
 ### Instance
 
@@ -854,6 +850,108 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `stepStartedAt` | string (date-time)? | required |
 | `stepFinishedAt` | string (date-time)? | required |
 | `observedAt` | string (date-time)? |  |
+
+### ChangeEvent
+
+| Field | Type | |
+|---|---|---|
+| `type` | string | required |
+
+### ChangeEventAttemptChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `run` | integer | required |
+| `step` | string | required |
+| `attempt` | integer | required |
+| `status` | string | required |
+
+### ChangeEventBindingChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `state` | string | required |
+
+### ChangeEventBlockedStepsChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `blockedSteps` | string[] | required |
+
+### ChangeEventConfigChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `snapshot` | integer | required |
+
+### ChangeEventPendingChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `version` | integer? | required |
+
+### ChangeEventPing
+
+[ChangeEvent](#changeevent)
+
+### ChangeEventPipelineChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `change` | string | required |
+
+### ChangeEventPollChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+
+### ChangeEventQueuedChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `queued` | boolean | required |
+
+### ChangeEventRunChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `run` | integer | required |
+| `status` | string | required |
+
+### ChangeEventSecretsChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+
+### ChangeEventStreamHello
+
+| Field | Type | |
+|---|---|---|
+| `lastEventId` | string? | required |
+
+### ChangeEventStreamResync
+
+| Field | Type | |
+|---|---|---|
+| `reason` | string | required |
+
+### ChangeEventVersionChanged
+
+| Field | Type | |
+|---|---|---|
+| `pipelineId` | string (uuid) | required |
+| `version` | integer? | required |
+| `change` | string | required |
 
 ### ChangedDefault
 
@@ -1041,6 +1139,29 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `status` | string | required |
 | `image` | string? |  |
 | `version` | string? |  |
+
+### LogEvent
+
+| Field | Type | |
+|---|---|---|
+| `type` | string | required |
+
+### LogEventLogChunk
+
+| Field | Type | |
+|---|---|---|
+| `text` | string | required |
+| `reset` | boolean | required |
+
+### LogEventLogPing
+
+[LogEvent](#logevent)
+
+### LogEventLogStreamEnd
+
+| Field | Type | |
+|---|---|---|
+| `status` | string | required |
 
 ### ManifestIssueView
 

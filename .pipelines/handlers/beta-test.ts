@@ -101,8 +101,8 @@ export default implement(betaTest, async ({ release, source }, ctx) => {
     `an unknown pipeline answered ${missing.status}, expected 404`,
   );
   check(
-    missing.headers.get('content-type')?.startsWith('application/problem+json') ?? false,
-    'a 404 is not application/problem+json',
+    missing.headers.get('content-type')?.startsWith('application/json') ?? false,
+    'a 404 is not application/json',
   );
   const problem = (await missing.json()) as { status?: number; errors?: unknown[] };
   check(

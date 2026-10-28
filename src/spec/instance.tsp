@@ -34,13 +34,16 @@ model NotReady {
 interface Instance {
   /** Liveness: `status`, `image` (`Deployment:Image`, set by the compose deployer) and the server `version`. */
   @summary("Liveness")
+  @useAuth(NoAuth)
   @get @route("health") health(): HealthResponse;
 
   /** Readiness: 200 once persisted state is loaded, 503 before. */
   @summary("Readiness")
+  @useAuth(NoAuth)
   @get @route("ready") ready(): OkResponse | NotReady;
 
   /** The OIDC authority, client id and scopes the web UI and `pl login` use. */
   @summary("Get the login settings")
+  @useAuth(NoAuth)
   @get @route("config/frontend") frontendConfig(): FrontendConfig;
 }

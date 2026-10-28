@@ -226,4 +226,12 @@ is what a new service starts from.
 - ~~Whether the file download stays a hand-written endpoint declared in the spec for the clients.~~
   Hand-written and outside the spec (the emitter has no binary responses); the header lists it.
 - ~~Whether `docs/setup/api-reference.md` keeps a committed copy for GitHub readers or is build-only.~~
-  Build-only; the instance serves it.
+  Build-only; the instance serves it. Then (2026-10-28) removed with its generator: the contract
+  carries `@useAuth` and the error and event prose, and the instance serves the OpenAPI document
+  at `/docs/openapi.json`; the runtime OpenAPI generator went with it. Instance configuration is
+  never in the contract.
+
+## Follow-ups
+
+- Beta authenticates exactly as the contract says: drop `Auth:AnonymousReads` on beta and have
+  `beta-test` log in the way `pl` does, so one auth model covers both instances.

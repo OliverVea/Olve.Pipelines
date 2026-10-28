@@ -2,9 +2,9 @@
   "name": "olve-pipelines-spec",
   "private": true,
   "type": "module",
-  "description": "The API contract (TypeSpec): tsp compile writes artifacts/spec/openapi.json, the server's generated C# surface and the API reference page.",
+  "description": "The API contract (TypeSpec): tsp compile writes artifacts/spec/openapi.json and the server's generated C# surface.",
   "scripts": {
-    "compile": "tsp compile main.tsp && bun scripts/api-reference.ts",
+    "compile": "tsp compile main.tsp",
     "client": "openapi-ts -f openapi-ts.config.mjs",
     "build": "bun run compile && bun run client"
   },

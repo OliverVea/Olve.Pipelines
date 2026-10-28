@@ -4,7 +4,11 @@ using Http;
 
 namespace Pipelines;
 
-/** The body of every non-2xx answer except 401 and 403 (RFC 9457 style). */
+/**
+ * The body of every non-2xx answer except 401 and 403, as `application/json`. The status follows
+ * from the primary error's code: `not-found` 404, `conflict` 409, `invalid` 400, `unavailable` 503
+ * (with `Retry-After`), `internal` 500. 401 and 403 have no body.
+ */
 @error
 model ApiProblem {
   /** A URI naming the error class, e.g. `urn:olve-pipelines:not-found`. */

@@ -1,4 +1,6 @@
-// The API contract. One file per area is imported here as the areas move over (docs/design/spec-first.md).
+// The API contract (docs/design/spec-first.md): one file per area. Every operation needs a bearer token
+// unless it says `@useAuth(NoAuth)`; the OpenAPI document an instance serves at /docs/openapi.json is
+// compiled from these files.
 import "@typespec/http";
 import "./bindings.tsp";
 import "./config.tsp";
@@ -14,4 +16,5 @@ import "./versions.tsp";
 using Http;
 
 @service(#{ title: "Olve.Pipelines" })
+@useAuth(BearerAuth)
 namespace Pipelines;

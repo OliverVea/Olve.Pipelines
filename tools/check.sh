@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The checks the deploy runs (`spec`, `test`, `build-sdk`, `build-frontend`), locally, per project.
+# The checks the deploy runs (`spec`, `test`, `build-sdk`, `build-frontend`, `build-cli`), locally, per project.
 #
 #   tools/check.sh                 fast tier, every project: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
 #   tools/check.sh --changed       only the projects with changes against the upstream branch (plus uncommitted work)
@@ -23,7 +23,7 @@ prettier=src/sdk/node_modules/.bin/prettier
 TS_GLOBS=("src/sdk/src/**/*.ts" "src/sdk/tests/**/*.ts" "src/sdk/scripts/*.ts" ".pipelines/**/*.ts")
 
 # ── which projects changed ──
-declare -A want=([sdk]=1 [pipelines]=1 [frontend]=1 [spec]=1 [dotnet]=1)
+declare -A want=([sdk]=1 [pipelines]=1 [frontend]=1 [spec]=1 [cli]=1 [dotnet]=1)
 if [ $changed = 1 ]; then
   base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo origin/main)
   files=$( { git diff --name-only "$base" -- ; git ls-files --others --exclude-standard; } | sort -u)
@@ -33,7 +33,8 @@ if [ $changed = 1 ]; then
       src/sdk/*) want[sdk]=1 ;;
       .pipelines/*) want[pipelines]=1 ;;
       src/frontend/*) want[frontend]=1; want[spec]=1 ;;
-      src/spec/*) want[spec]=1; want[frontend]=1; want[dotnet]=1 ;;
+      src/cli/*) want[cli]=1; want[spec]=1 ;;
+      src/spec/*) want[spec]=1; want[frontend]=1; want[cli]=1; want[dotnet]=1 ;;
       src/*|tools/*|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
     esac
   done <<<"$files"
@@ -46,6 +47,7 @@ fi
 
 [ -x "$prettier" ] || { echo "src/sdk/node_modules missing: run (cd src/sdk && bun install)" >&2; exit 2; }
 [ -z "${want[frontend]:-}" ] || [ -d src/frontend/node_modules ] || { echo "src/frontend/node_modules missing: run (cd src/frontend && npm install)" >&2; exit 2; }
+[ -z "${want[cli]:-}" ] || [ -d src/cli/node_modules ] || { echo "src/cli/node_modules missing: run (cd src/cli && bun install)" >&2; exit 2; }
 
 run() { # run <name> <command...>
   local name=$1; shift
@@ -77,6 +79,7 @@ if [ $fix = 1 ]; then
   echo "fixing..."
   [ -z "${want[sdk]:-}${want[pipelines]:-}" ] || { "$prettier" --write "${TS_GLOBS[@]}" >/dev/null; (cd src/sdk && bun scripts/gen-manifest-schema.ts >/dev/null); }
   [ -z "${want[frontend]:-}" ] || (cd src/frontend && npm run -s format >/dev/null && npx eslint --fix src/ >/dev/null) || true
+  [ -z "${want[cli]:-}" ] || (cd src/cli && bun run format >/dev/null) || true
   [ -z "${want[dotnet]:-}" ] || dotnet format Olve.Pipelines.slnx --no-restore -v quiet
 fi
 
@@ -93,13 +96,18 @@ if [ -n "${want[pipelines]:-}" ]; then
 fi
 # The contract first: the server compiles its generated surface and the frontend type-checks against its client.
 if [ -n "${want[spec]:-}" ]; then
-  run "spec: contract, client, reference" bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run build'
+  run "spec: contract + client"    bash -c 'cd src/spec && bun install --frozen-lockfile >/dev/null && bun run build'
 fi
 if [ -n "${want[frontend]:-}" ]; then
   run "frontend: lint"                 bash -c 'cd src/frontend && npm run -s lint'
   run "frontend: prettier"             bash -c 'cd src/frontend && npm run -s format:check'
   run "frontend: typecheck"            bash -c 'cd src/frontend && npm run -s typecheck'
   [ $full = 0 ] || run "frontend: build" bash -c 'cd src/frontend && npm run -s build'
+fi
+if [ -n "${want[cli]:-}" ]; then
+  run "cli: prettier"                  bash -c 'cd src/cli && bun run format:check'
+  run "cli: typecheck"                 bash -c 'cd src/cli && bun run typecheck'
+  [ $full = 0 ] || run "cli: tests"    bash -c 'cd src/cli && bun test'
 fi
 if [ -n "${want[dotnet]:-}" ]; then
   run "dotnet: build"                  dotnet build Olve.Pipelines.slnx --nologo -v quiet

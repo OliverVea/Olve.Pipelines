@@ -104,7 +104,11 @@ model PollChanged {
   @format("uuid") pipelineId: string;
 }
 
-/** A change notice: the event name says what changed, the data just enough to know what to reload. */
+/**
+ * A change notice: the event name says what changed (`type` repeats it in the data), the data just
+ * enough to know what to reload. The client re-fetches the view the notice affects. `ping` keeps
+ * the connection alive every 15 s while idle.
+ */
 @TypeSpec.Events.events
 union ChangeEvent {
   @TypeSpec.Events.contentType("application/json") hello: StreamHello,

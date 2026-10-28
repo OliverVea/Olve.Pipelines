@@ -94,20 +94,17 @@ What an operator sees: [docs/setup/self-hosting.md](docs/setup/self-hosting.md#l
 The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area). `bun run build` there, which
 the server build runs when the contract changed, writes everything derived from it under the
 gitignored `artifacts/`: the OpenAPI document, the server's generated C# surface (operation
-handlers, models, JSON context), the TypeScript client `@olve/api` (Hey API) and the API reference
-page. Nothing generated is committed; the deploy's `spec` step emits the same files for the build
+handlers, models, JSON context) and the TypeScript client `@olve/api` (Hey API). Nothing generated is committed; the deploy's `spec` step emits the same files for the build
 steps, and the frontend type-checks against the client.
 
 An API change is a `.tsp` change plus the handler class behind the operation (one per operation,
 in the area's folder, registered in `ApiHandlerConfiguration`). The server refuses to start while
 an operation has no handler, and a handler can only answer the statuses its operation declares.
 
-### API reference
-
-`src/spec/scripts/api-reference.ts` renders `artifacts/spec/api-reference.md` from the OpenAPI
-document and `src/spec/api-reference.header.md` (hand-written: auth, errors, live events, the
-routes outside the contract); the server serves it at `/docs/api-reference.md`. Operation text is
-the `@summary` and the doc comment on the operation in the `.tsp`.
+The contract is the API's documentation: an operation's `@summary`, its doc comment and `@useAuth`
+(bearer everywhere unless `NoAuth`). The server serves the compiled OpenAPI document at
+`/docs/openapi.json`. The routes outside it (the step file download, the inbound hooks) are
+described in the setup pages of the features they belong to.
 
 ### C#
 

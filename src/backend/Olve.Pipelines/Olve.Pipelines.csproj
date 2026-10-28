@@ -9,8 +9,8 @@
   </ItemGroup>
 
   <!-- The API surface generated from the contract (src/spec/main.tsp → artifacts/generated/backend/*.g.cs,
-       docs/design/spec-first.md), with the OpenAPI document and the API reference page it serves at
-       /docs/api-reference.md. The compile runs before the build when its inputs changed;
+       docs/design/spec-first.md) and the OpenAPI document it serves at /docs/openapi.json. The compile
+       runs before the build when its inputs changed;
        -p:SkipSpecGen=true compiles already-generated files without bun (the deploy's spec step emits them). -->
   <PropertyGroup>
     <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</RepoRoot>
@@ -19,8 +19,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <SpecInput Include="$(SpecDir)**/*.tsp;$(SpecDir)tspconfig.yaml;$(SpecDir)package.json;$(SpecDir)bun.lock;$(SpecDir)scripts/api-reference.ts;$(SpecDir)api-reference.header.md" />
-    <SpecOutput Include="$(SpecGeneratedDir)PipelinesApi.g.cs;$(SpecGeneratedDir)PipelinesModels.g.cs;$(SpecGeneratedDir)PipelinesJsonContext.g.cs;$(RepoRoot)artifacts/spec/openapi.json;$(RepoRoot)artifacts/spec/api-reference.md" />
+    <SpecInput Include="$(SpecDir)**/*.tsp;$(SpecDir)tspconfig.yaml;$(SpecDir)package.json;$(SpecDir)bun.lock" />
+    <SpecOutput Include="$(SpecGeneratedDir)PipelinesApi.g.cs;$(SpecGeneratedDir)PipelinesModels.g.cs;$(SpecGeneratedDir)PipelinesJsonContext.g.cs;$(RepoRoot)artifacts/spec/openapi.json" />
     <!-- Static include for IDEs; re-added after generation below for a clean checkout. -->
     <Compile Include="$(SpecGeneratedDir)*.g.cs" Link="Api/Generated/%(Filename)%(Extension)" />
   </ItemGroup>
@@ -51,9 +51,9 @@
              Link="wwwroot\docs\%(RecursiveDir)%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
-    <!-- The API reference is generated from the contract (GenerateApi above), not committed. -->
-    <Content Include="$(RepoRoot)artifacts/spec/api-reference.md"
-             Link="wwwroot\docs\api-reference.md"
+    <!-- The contract's OpenAPI document (GenerateApi above), not committed. -->
+    <Content Include="$(RepoRoot)artifacts/spec/openapi.json"
+             Link="wwwroot\docs\openapi.json"
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="PreserveNewest" />
     <!-- llms.txt is the agent-discovery entry point: served at the site root (/llms.txt),
@@ -74,7 +74,6 @@
   <ItemGroup>
     <PackageReference Include="Duende.IdentityModel" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Olve.MinimalApi" />
     <PackageReference Include="Olve.Results" />

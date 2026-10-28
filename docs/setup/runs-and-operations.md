@@ -233,7 +233,9 @@ runs/<pipelineId>/<run>/_failure/<handler>/<id>/    failure-handler input + log
 ```
 
 A file reference carries its full address (`{ run, step, attempt, path, sha256 }`), so continues and
-reruns reuse earlier outputs without copying them.
+reruns reuse earlier outputs without copying them. `pl step file` downloads one stored file
+(`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}?attempt=<n>`; a directory
+ref downloads as a tar). It is the one read outside the OpenAPI document, which has no binary bodies.
 
 ## Retention
 

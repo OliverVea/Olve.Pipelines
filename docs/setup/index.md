@@ -61,8 +61,8 @@ continuing, blocking a step, switching versions, setting secret values — go th
 6. **[Runs & Operations](runs-and-operations.md)** — runs, attempts, latest-wins, de-duplication,
    rerun and continue, outputs and files, how a step runs, retention.
 7. **[The `pl` CLI](cli.md)** — installing `pl`, profiles, every command.
-8. **[API Reference](api-reference.md)** — every endpoint and schema, generated from the OpenAPI
-   document; auth, errors and live events.
+8. **The API** — the contract (`src/spec/*.tsp`) describes every operation, its auth, the error
+   model and the event stream; an instance serves it as OpenAPI at `/docs/openapi.json`.
 9. **[Running an Instance](self-hosting.md)** — server configuration, logging, a local instance
    with Docker Compose.
 10. **[Deploying to Docker Compose](compose-deploy.md)** — the compose deployer, `deployTarget()`

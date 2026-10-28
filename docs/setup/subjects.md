@@ -17,7 +17,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | [configuration.md](configuration.md) | Typed config entries, the YAML document and snapshots, secretRefs, pending versions, runs pinning config, defaults, `pl config` |
 | [runs-and-operations.md](runs-and-operations.md) | Runs, attempts, scheduling, latest-wins, de-dup, rerun/continue/cancel, addresses, how a step runs, storage, retention |
 | [cli.md](cli.md) | Installing `pl`, profiles and login, every command |
-| [api-reference.md](api-reference.md) | Every endpoint and schema (generated), auth, the error model, live events |
+| `/docs/openapi.json` | The API contract as OpenAPI: every operation and schema, auth, the error model, the event stream |
 | [self-hosting.md](self-hosting.md) | Server configuration keys, logging, a local instance with Docker Compose, self-deploy |
 | [compose-deploy.md](compose-deploy.md) | The compose deployer, its API and rollback, `deployTarget()`, `steps.composeDeploy` |
 | [blocking-steps.md](blocking-steps.md) | Blocking a step, held runs |

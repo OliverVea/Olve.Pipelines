@@ -17,7 +17,6 @@ public static class EndpointConfiguration
     /// <summary>Every endpoint the service serves (the auth-table test maps exactly these).</summary>
     public static void MapEndpoints(this WebApplication app)
     {
-        app.MapJson();
         app.MapApi();
         app.MapCliDownloadEndpoints();
         app.MapRunEndpoints();

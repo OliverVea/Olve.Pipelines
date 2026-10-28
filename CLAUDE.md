@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, build and client/API-reference generation; server configuration is in [docs/setup/self-hosting.md](docs/setup/self-hosting.md), the `pl` CLI in [docs/setup/cli.md](docs/setup/cli.md), the API in [docs/setup/api-reference.md](docs/setup/api-reference.md) (generated from `api.json`). The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, build and client/API-reference generation; server configuration is in [docs/setup/self-hosting.md](docs/setup/self-hosting.md), the `pl` CLI in [docs/setup/cli.md](docs/setup/cli.md), the API in the contract `src/spec/*.tsp` (served as OpenAPI at `/docs/openapi.json`). The v2 spec is [docs/design/pipelines-v2.md](docs/design/pipelines-v2.md); what was actually built, per track, with decisions, deviations and known gaps, is [docs/design/pipelines-v2-plan.md](docs/design/pipelines-v2-plan.md). User-facing docs (served at `/docs`) are in [docs/setup](docs/setup).
 
 ## Start here: load the agent playbook
 
@@ -144,13 +144,13 @@ cd src/frontend && npm run build                                # Production bui
 - .NET 10, C# with file-scoped namespaces, nullable enabled, implicit usings
 - Package versions managed centrally in `Directory.Packages.props` — do not add `Version` attributes in csproj files
 - Local config via `dotnet user-secrets`, not appsettings files
-- The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area, `docs/design/spec-first.md`); the server build compiles it into the generated C# surface, the OpenAPI document, the Hey API client and the API reference page under `artifacts/` (gitignored). Only the inbound webhooks and the step file download are hand-written minimal APIs
+- The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area, `docs/design/spec-first.md`); the server build compiles it into the generated C# surface, the OpenAPI document and the Hey API client under `artifacts/` (gitignored). Only the inbound webhooks and the step file download are hand-written minimal APIs
 - AOT publishing enabled — do not add AOT-incompatible libraries (e.g. EF Core)
 - Namespaces are always plural/more general than contained types (e.g. `Pipeline` type in `Pipelines` namespace)
 - Domain subnamespaces nest under their parent (e.g. `Pipelines.Runs`, `Pipelines.Scheduling`, `Pipelines.Versions`)
 - Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, step outputs/files/logs under `runs/<p>/<run>/<step>/<attempt>/`, binaries and manifests under `versions/` (see `StorageLayout`). Step pods only ever get pre-signed URLs, signed for `Storage:InClusterEndpoint`
 - New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
-- An API change is a change to `src/spec/*.tsp` and the handler class behind the operation (one per operation, registered in `ApiHandlerConfiguration`). The API reference served at `/docs/api-reference.md` is generated from the contract at build (`src/spec/scripts/api-reference.ts` + `src/spec/api-reference.header.md`), never committed: an operation's `@summary` and doc comment in the `.tsp` are its text
+- An API change is a change to `src/spec/*.tsp` and the handler class behind the operation (one per operation, registered in `ApiHandlerConfiguration`). The contract is the API's whole documentation: an operation's `@summary`, doc comment and `@useAuth` (bearer unless `NoAuth`); instance configuration (beta's anonymous reads) is never described there
 - The `pl` CLI has a hand-rolled AOT-safe client in `src/backend/Olve.Pipelines.Cli/Api/` (add each endpoint there by hand).
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See [docs/setup/self-hosting.md](docs/setup/self-hosting.md#logging).
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.

@@ -28,11 +28,11 @@ src/
 │   │   │   ├── Triggers/           push / poll / manual triggers, map-trigger, input validation
 │   │   │   └── Versions/           PipelineVersion, activation (Active / Draining), version endpoints
 │   │   └── Shared/                 AttachmentStore, startup runner, persistence, S3 presigning
-│   ├── Olve.Pipelines.Cli/         `pl` operator CLI (Native AOT, hand-rolled HTTP client)
 │   └── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
 ├── spec/                           The API contract (TypeSpec, one .tsp per area); bun run build → artifacts/ (gitignored): openapi.json, the server's generated C#, the TypeScript client, the API reference (docs/design/spec-first.md)
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
+├── cli/                            `pl` operator CLI (Bun + TypeScript on the generated client, compiled per platform)
 ├── frontend/                       Dashboard UI (Lit + Vite + TypeScript)
 └── deploy/
     ├── helm/                       Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
@@ -106,10 +106,9 @@ The contract is the API's documentation: an operation's `@summary`, its doc comm
 `/docs/openapi.json`. The routes outside it (the step file download, the inbound hooks) are
 described in the setup pages of the features they belong to.
 
-### C#
+### Clients
 
-There is no generated C# client. `pl` has a hand-rolled AOT-safe client in `src/backend/Olve.Pipelines.Cli/Api/`
-(Refit can't Native-AOT here); add each new endpoint there.
+There is no C# client. The frontend and `pl` (`src/cli/`) both use the generated TypeScript client.
 
 ## Versioning
 

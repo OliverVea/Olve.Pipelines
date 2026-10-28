@@ -167,18 +167,14 @@ services:
     depends_on:
       - registry
 
-  # One-shot: build pl from source for /download and /install.sh. The server doesn't wait for it (minutes
-  # of AOT compiling); until it lands, those answer "pl is still being built".
+  # One-shot: build pl from source for /download and /install.sh. The server doesn't wait for it; until
+  # it lands, those answer "pl is still being built".
   pl-build:
-    image: mcr.microsoft.com/dotnet/sdk:10.0-noble-aot
-    entrypoint: ["/bin/sh", "/repo/compose/pl-build.sh"]
-    environment:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
+    image: oven/bun:1.4.3-slim
+    entrypoint: ["/bin/sh", "/repo/src/deploy/compose/pl-build.sh"]
     volumes:
       - .:/repo:ro
       - pl-dist:/dist
-      - nuget-cache:/root/.nuget/packages
 
   k3s:
     image: rancher/k3s:v1.31.4-k3s1
@@ -228,7 +224,6 @@ volumes:
   garage-data:
   registry-data:
   pl-dist:
-  nuget-cache:
   k3s-output:
   k3s-data:
   k3s-sa:

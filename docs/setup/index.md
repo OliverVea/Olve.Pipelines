@@ -126,8 +126,7 @@ than Olve.Pipelines: **[Getting Started](getting-started.md)**.
 
 - [`.pipelines/`](https://github.com/OliverVea/Olve.Pipelines/tree/main/.pipelines) — Olve.Pipelines
   deploys itself, driven by config (`config.ts`): `gitHubSource` → custom `compile-server` (Native
-  AOT or JIT, per `build.runtime`), `build-frontend`, `test`, `build-sdk`, `build-cli`,
-  `build-cli-windows` ∥ `imageBuild` (harness) → custom `build-server` (crane puts the server and
+  AOT or JIT, per `build.runtime`), `build-frontend`, `test`, `build-sdk`, `build-cli` ∥ `imageBuild` (harness) → custom `build-server` (crane puts the server and
   frontend layers on the .NET base image; no Dockerfile build), `publish-sdk`, `publish-cli` →
   `select` on `target.beta.kind`: `helmDeployOverSsh` or `helmDeployInCluster` then custom
   `beta-test`, `composeDeploy`, or nothing (`none`), each next to `publish-images` → when

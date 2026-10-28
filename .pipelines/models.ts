@@ -38,7 +38,8 @@ export const CliBuild = model(
   'CliBuild',
   z.object({
     version: z.string(),
-    binary: fileRef(),
+    linuxX64: fileRef(),
+    winX64: fileRef(),
   }),
 );
 

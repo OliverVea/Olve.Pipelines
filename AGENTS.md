@@ -8,7 +8,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 ## How it's built
 
 - .NET 10, Native-AOT published. Controller: `src/backend/Olve.Pipelines`. Operator CLI:
-  `src/backend/Olve.Pipelines.Cli` (binary `pl`, a separate AOT project that shares ~no runtime code).
+  `src/cli` (binary `pl`, Bun + TypeScript compiled with `bun build --compile`).
 - `dotnet build` / `dotnet test`.
 - SDK (`src/sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
 - In the v2 pipeline (`.pipelines/pipeline.ts`), the container is built with **kaniko**
@@ -21,7 +21,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 
 CLAUDE.md is the detailed map (service-layer architecture: EntityStore / AttachmentStore / event
 hubs / domain services, plus conventions). Top level: `src/backend/Olve.Pipelines` (controller),
-`src/backend/Olve.Pipelines.Cli` (`pl`), `src/sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
+`src/cli/` (`pl`), `src/sdk/` (`@olivervea/pipelines`), `harness/` (step-pod init image),
 `src/deploy/helm/` (chart + per-env values), `.pipelines/` (this repo's own pipeline), `.pipelines-test/` (v2
 fixture), `src/frontend/` (Lit SPA), `docs/`.
 
@@ -70,12 +70,10 @@ specs under `docs/superpowers/specs/` (`pl-cli-self-installation`, `self-bootstr
 
 The `pl` binaries are built and served by this repo's own pipeline — no GitHub Releases.
 
-**v2 (this branch):** the `publish-cli` step of `.pipelines/pipeline.ts` (custom step, handler
-`.pipelines/handlers/publish-cli.ts`, image `dotnet/sdk:10.0-noble`; its own stage after
-`deploy-prod`, inside the `deployTo: "prod"` `when`, so only runs that reach prod publish) builds `linux-x64` (Native AOT;
-the handler apt-installs clang + zlib1g-dev) + `win-x64` (self-contained single-file — AOT can't
-cross-compile to Windows from Linux), stamped `InformationalVersion` = the run's version stamp
-(`pl --version`), and returns them as **output files** (`pl-linux-x64`, `pl-win-x64.exe`; output
+**v2 (this branch):** the `build-cli` step of `.pipelines/pipeline.ts` (image `oven/bun`) checks
+`src/cli` (prettier, tsc, `bun test`) and compiles `pl` with `bun build --compile` for `bun-linux-x64`
+and `bun-windows-x64`, with the run's version stamp defined in (`pl --version`). `publish-cli`
+re-emits both as **output files** (`pl-linux-x64`, `pl-win-x64.exe`; output
 model `CliRelease`). No storage credentials in the step pod: the files travel in the normal result
 upload into `runs/<p>/<run>/publish-cli/<attempt>/files/`. The app serves the latest successful
 `publish-cli` attempt of the pipeline named by `Distribution__CliPipeline` (`values-v2-prod.yaml`:

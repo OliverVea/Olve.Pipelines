@@ -18,9 +18,10 @@ pl --version                                                                    
 
 Every instance also serves the `pl` it was deployed with, which always matches its API: the same
 scripts from the instance (`curl -fsSL https://<instance>/install.sh | sh`), or the binaries alone at
-`/download/pl-linux-x64` (Native AOT) and `/download/pl-win-x64.exe` (self-contained single-file).
-`PL_API_URL` makes the repo's script fetch from an instance. From source:
-`dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/opt/pl`.
+`/download/pl-linux-x64` and `/download/pl-win-x64.exe` (single executables; nothing else to install).
+`PL_API_URL` makes the repo's script fetch from an instance. From source (needs Bun):
+`cd src/spec && bun install && bun run build`, then `cd src/cli && bun install && bun run build`
+(writes `artifacts/cli/pl`).
 
 ```bash
 pl login --api-url https://pipelines-private.ovea.pro           # profile 'default'; add --device over SSH

@@ -23,7 +23,7 @@ v2 prod. Don't create it on v2 beta.
 ## Step 0: v2 `pl` and session
 
 ```bash
-dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin   # a reset prod serves no pl yet
+(cd src/spec && bun install && bun run build) && (cd src/cli && bun install && bun run build) && cp artifacts/cli/pl ~/.local/bin/   # a reset prod serves no pl yet
 pl login --device --api-url https://pipelines-private.ovea.pro   # Dex sends you to GitHub
 ```
 

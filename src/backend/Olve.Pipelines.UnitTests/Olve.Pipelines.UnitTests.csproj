@@ -20,7 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../Olve.Pipelines/Olve.Pipelines.csproj" />
-    <ProjectReference Include="../Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/backend/">
     <Project Path="src/backend/Olve.Pipelines/Olve.Pipelines.csproj" />
-    <Project Path="src/backend/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj" />
     <Project Path="src/backend/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj" />
   </Folder>
 </Solution>

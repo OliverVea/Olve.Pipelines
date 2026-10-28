@@ -12,11 +12,9 @@ WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/backend/Olve.Pipelines/Olve.Pipelines.csproj src/backend/Olve.Pipelines/
-COPY src/backend/Olve.Pipelines.Cli/Olve.Pipelines.Cli.csproj src/backend/Olve.Pipelines.Cli/
 RUN dotnet restore src/backend/Olve.Pipelines -r linux-x64
 
 COPY src/backend/Olve.Pipelines/ src/backend/Olve.Pipelines/
-COPY src/backend/Olve.Pipelines.Cli/ src/backend/Olve.Pipelines.Cli/
 COPY --from=spec /src/artifacts/generated/backend/ artifacts/generated/backend/
 # The OpenAPI document, linked into wwwroot/docs by the csproj.
 COPY --from=spec /src/artifacts/spec/openapi.json artifacts/spec/openapi.json

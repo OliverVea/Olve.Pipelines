@@ -33,7 +33,7 @@ first.
   irm https://pipelines-private.ovea.pro/install.ps1 | iex             # Windows
   pl --version
   ```
-  From source: `dotnet publish src/backend/Olve.Pipelines.Cli -c Release -r linux-x64 -o ~/.local/bin`.
+  From source, with Bun: `bun run build` in `src/spec`, then in `src/cli` (writes `artifacts/cli/pl`).
 - A session. `pl login` stores the instance URL with the token in a **profile** of `~/.pl`
   (`default` unless you pass `--profile`), so name the instance once:
   ```sh

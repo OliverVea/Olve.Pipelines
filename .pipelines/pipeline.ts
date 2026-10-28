@@ -121,20 +121,12 @@ export const buildSdk = step({
 
 export const buildCli = step({
   name: 'build-cli',
-  description: 'Builds the pl CLI for Linux (Native AOT).',
-  image: DOTNET_AOT_SDK,
-  input: { source: Source },
+  description:
+    'Checks src/cli/ (prettier, tsc, bun test) and compiles pl for Linux and Windows.',
+  image: 'oven/bun:1.4.3-slim',
+  input: { source: Source, spec: M.SpecBuild },
   output: M.CliBuild,
-  timeoutSeconds: 1800,
-});
-
-export const buildCliWindows = step({
-  name: 'build-cli-windows',
-  description: 'Builds the pl CLI for Windows (self-contained single file).',
-  image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
-  input: { source: Source },
-  output: M.CliBuild,
-  timeoutSeconds: 1800,
+  timeoutSeconds: 900,
 });
 
 export const publishImages = step({
@@ -165,7 +157,7 @@ export const publishCli = step({
   description:
     "Releases this run's pl build: the instance serves it at /download once the run is promoted.",
   image: 'alpine:3.22',
-  input: { linux: M.CliBuild, windows: M.CliBuild },
+  input: { build: M.CliBuild },
   output: M.CliRelease,
   config: [PUBLISH],
   secrets: REGISTRY_SECRETS,
@@ -227,19 +219,8 @@ export default pipeline({
   .onPush((e) => ({ repo: e.repository.full_name, sha: e.after, deployTo: 'prod' }))
   .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(spec)
-  .stage(
-    compileServer,
-    buildFrontend,
-    buildHarness,
-    test,
-    buildSdk,
-    buildCli,
-    buildCliWindows,
-  )
-  .stage(buildServer, publishSdk, [
-    publishCli,
-    (from) => ({ linux: from['build-cli'], windows: from['build-cli-windows'] }),
-  ])
+  .stage(compileServer, buildFrontend, buildHarness, test, buildSdk, buildCli)
+  .stage(buildServer, publishSdk, publishCli)
   .select(TARGET.beta, {
     ssh: (p, beta) =>
       p

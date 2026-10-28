@@ -219,6 +219,11 @@ the step file download (binary) and the three inbound hooks. The runtime OpenAPI
   Reproducing a deployed version exactly would instead run that version's own compiled binary.
 - `src/backend/Olve.Pipelines.Cli` is deleted. The `ovea-olve-pipelines` skill is updated and the plugin
   version bumped in the same work.
+- Built (2026-10-28): every command of the C# `pl`, checked side by side against prod (lists, run
+  views, waits, `pipeline manifest`, `pl dev` describe/validate/run on `.pipelines` and the fixture,
+  teardown against the cluster). The lock moved to `~/.pl.lock.d` (a directory, `mkdir`-atomic,
+  stale after 60 s) because Bun has no file lock; the C# `pl` kept `~/.pl.lock`, and both are never
+  in use at once. The binaries are ~90 MB each (the Bun runtime), against 10 MB for the AOT Linux build.
 
 ## Phase 4: Olve.Template.Api
 

@@ -116,9 +116,12 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    (`@olve/api`, built by `src/spec`'s `bun run build` into `artifacts/clients/ts`) starts here:
    the list, header, detail, config and secrets views call it; the rest stays on Kiota meanwhile.
    A contract handler answers its 404 with an `ApiProblem` whose trace id comes from the current
-   activity (`ApiProblems.Of`). Renamed on the way: the list page's rich object is
-   `PipelineOverview` at `GET /api/pipelines/overview` (it used to be `PipelineSummary`, while
-   `Pipeline` is the bare entity), and the problem code is the `ApiProblemCode` enum.
+   activity (`ApiProblems.Of`). The problem code is the `ApiProblemCode` enum.
+   **Naming rule, for every area** (decided 2026-10-28): the resource's name is the whole object
+   and `<Resource>Summary` is its list form. `Pipeline` therefore carries the repo, health and
+   stages, `GET /api/pipelines` answers whole pipelines and the separate list-page card is gone;
+   `PipelineVersion` / `PipelineVersionSummary` already follow it; `Run` becomes the whole run
+   (today's `RunDetail`) with `RunSummary` as the list item when the Runs area moves.
 3. Versions (4) — done 2026-10-28: list, get, effective, switch, with every status a handler
    answers declared (`BadRequest`, `NotFound`, `Conflict`) and `binaryKey` (a storage key) off the
    wire. `POST /api/manifests/validate` stays hand-written outside the contract: it reads the raw

@@ -6,8 +6,6 @@ import { createPipelineFromDiscriminatorValue, type Pipeline } from '../../model
 // @ts-ignore
 import { type WithPipelineItemRequestBuilder, WithPipelineItemRequestBuilderNavigationMetadata, WithPipelineItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
-import { OverviewRequestBuilderRequestsMetadata, type OverviewRequestBuilder } from './overview/index.js';
-// @ts-ignore
 import { type WithRepoRequestBuilder, WithRepoRequestBuilderRequestsMetadata } from './withRepo/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMetadata, type NavigationMetadata, type Parsable, type ParsableFactory, type RequestConfiguration, type RequestInformation, type RequestsMetadata } from '@microsoft/kiota-abstractions';
@@ -16,10 +14,6 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
  * Builds and executes requests for operations under /api/pipelines
  */
 export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesRequestBuilder> {
-    /**
-     * The overview property
-     */
-    get overview(): OverviewRequestBuilder;
     /**
      * The withRepo property
      */
@@ -55,9 +49,6 @@ export const PipelinesRequestBuilderNavigationMetadata: Record<Exclude<keyof Pip
         requestsMetadata: WithPipelineItemRequestBuilderRequestsMetadata,
         navigationMetadata: WithPipelineItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["pipelineId"],
-    },
-    overview: {
-        requestsMetadata: OverviewRequestBuilderRequestsMetadata,
     },
     withRepo: {
         requestsMetadata: WithRepoRequestBuilderRequestsMetadata,

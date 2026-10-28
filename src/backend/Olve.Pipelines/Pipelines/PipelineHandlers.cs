@@ -5,19 +5,13 @@ using Api = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines;
 
-public sealed class ListPipelinesHandler(PipelineService pipelines) : Api.IPipelinesListHandler
+public sealed class ListPipelinesHandler(PipelineSummaryService pipelines) : Api.IPipelinesListHandler
 {
     public Task<Api.PipelinesListResponse> HandleAsync(Api.PipelinesListRequest request, CancellationToken cancellationToken) =>
         Task.FromResult<Api.PipelinesListResponse>(new Api.PipelinesListResponse.Ok([.. pipelines.List().Select(PipelineViews.ToApi)]));
 }
 
-public sealed class ListPipelineOverviewsHandler(PipelineSummaryService summaries) : Api.IPipelinesOverviewsHandler
-{
-    public Task<Api.PipelinesOverviewsResponse> HandleAsync(Api.PipelinesOverviewsRequest request, CancellationToken cancellationToken) =>
-        Task.FromResult<Api.PipelinesOverviewsResponse>(new Api.PipelinesOverviewsResponse.Ok([.. summaries.List().Select(PipelineViews.ToApi)]));
-}
-
-public sealed class GetPipelineHandler(PipelineService pipelines) : Api.IPipelinesGetHandler
+public sealed class GetPipelineHandler(PipelineSummaryService pipelines) : Api.IPipelinesGetHandler
 {
     public Task<Api.PipelinesGetResponse> HandleAsync(Api.PipelinesGetRequest request, CancellationToken cancellationToken)
     {
@@ -58,9 +52,7 @@ public static class PipelineViews
 
     public static ApiProblem NotFound(Id<Pipeline> id) => ApiProblems.Of(new NotFoundProblem("Pipeline '{0}' not found.", id));
 
-    public static Api.Pipeline ToApi(Pipeline p) => new() { Id = p.Id.Value.Value, Name = p.Name, Description = p.Description };
-
-    public static Api.PipelineOverview ToApi(PipelineSummary s) => new()
+    public static Api.Pipeline ToApi(PipelineSummary s) => new()
     {
         Id = s.Id.Value.Value,
         Name = s.Name,

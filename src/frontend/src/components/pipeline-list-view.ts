@@ -3,8 +3,8 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { api, client, extractErrorMessage } from '../api.js';
 import {
   pipelinesDelete,
-  pipelinesOverviews,
-  type PipelineOverview,
+  pipelinesList,
+  type Pipeline,
   type PipelineStepSummary,
 } from '@olve/api';
 import { navigate } from '../router.js';
@@ -298,12 +298,12 @@ export class PipelineListView extends LitElement {
     `,
   ];
 
-  @state() declare private _pipelines: PipelineOverview[];
+  @state() declare private _pipelines: Pipeline[];
   @state() declare private _waiting: ActiveAttempt[];
   @state() declare private _loading: boolean;
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
-  @state() declare private _deleting: PipelineOverview | null;
+  @state() declare private _deleting: Pipeline | null;
   @query('confirm-delete-dialog') declare private _confirmDelete: ConfirmDeleteDialog;
 
   constructor() {
@@ -333,7 +333,7 @@ export class PipelineListView extends LitElement {
     }
     try {
       const [pipelines, waiting] = await Promise.all([
-        pipelinesOverviews({ client: api }).then((r) => r.data),
+        pipelinesList({ client: api }).then((r) => r.data),
         client.api.attempts
           .get({ queryParameters: { status: 'waiting' } })
           .catch(() => null),
@@ -397,7 +397,7 @@ export class PipelineListView extends LitElement {
     `;
   }
 
-  private _renderRow(p: PipelineOverview) {
+  private _renderRow(p: Pipeline) {
     return html`
       <div class="pipeline-row" @click=${(e: MouseEvent) => this._cardClick(e, p)}>
         <div class="pr-status">
@@ -434,7 +434,7 @@ export class PipelineListView extends LitElement {
   }
 
   /** Stages left to right, a stage's steps stacked and centred. */
-  private _renderCubes(p: PipelineOverview) {
+  private _renderCubes(p: Pipeline) {
     const held = new Set(
       (p.health?.heldRuns ?? []).map((r) => r.heldAt).filter((x): x is string => !!x),
     );
@@ -478,7 +478,7 @@ export class PipelineListView extends LitElement {
     ></a>`;
   }
 
-  private _renderFoot(p: PipelineOverview) {
+  private _renderFoot(p: Pipeline) {
     const h = p.health;
     if (!h) return nothing;
     const a = toActivation(h.activation);
@@ -536,7 +536,7 @@ export class PipelineListView extends LitElement {
   }
 
   // Links, cubes and buttons keep their own targets; text selection doesn't navigate.
-  private _cardClick(e: MouseEvent, p: PipelineOverview) {
+  private _cardClick(e: MouseEvent, p: Pipeline) {
     if (
       e.composedPath().some((el) => el instanceof HTMLElement && el.matches('a, button'))
     )
@@ -560,7 +560,7 @@ export class PipelineListView extends LitElement {
     await this._load();
   }
 
-  private async _askDelete(p: PipelineOverview) {
+  private async _askDelete(p: Pipeline) {
     this._deleting = p;
     await this.updateComplete;
     this._confirmDelete.open();

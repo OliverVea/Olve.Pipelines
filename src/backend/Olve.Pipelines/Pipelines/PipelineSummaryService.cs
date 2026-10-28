@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
@@ -5,7 +6,7 @@ using Olve.Pipelines.Pipelines.Versions;
 
 namespace Olve.Pipelines.Pipelines;
 
-/// <summary>Assembles the list-page summaries. Stateless query; transient.</summary>
+/// <summary>Assembles a pipeline with its repo, health and stages (the API's whole pipeline). Stateless query; transient.</summary>
 public class PipelineSummaryService(
     PipelineService pipelines,
     PipelineConfigBindingService bindings,
@@ -15,14 +16,19 @@ public class PipelineSummaryService(
     RunViewService views,
     Configs.ConfigSnapshotService snapshots)
 {
-    public IReadOnlyList<PipelineSummary> List()
-        => pipelines.List()
-            .Select(p => new PipelineSummary(
-                p.Id, p.Name, p.Description,
-                bindings.GetByPipelineId(p.Id).TryPickProblems(out _, out var binding) ? null : binding.Repo,
-                health.Get(p.Id),
-                Stages(p.Id)))
-            .ToList();
+    public IReadOnlyList<PipelineSummary> List() => [.. pipelines.List().Select(Summarize)];
+
+    public bool TryGet(Id<Pipeline> id, [NotNullWhen(true)] out PipelineSummary? summary)
+    {
+        summary = pipelines.TryGet(id, out var pipeline) ? Summarize(pipeline) : null;
+        return summary is not null;
+    }
+
+    private PipelineSummary Summarize(Pipeline p) => new(
+        p.Id, p.Name, p.Description,
+        bindings.GetByPipelineId(p.Id).TryPickProblems(out _, out var binding) ? null : binding.Repo,
+        health.Get(p.Id),
+        Stages(p.Id));
 
     private PipelineStageSummary[] Stages(Id<Pipeline> pipelineId)
     {

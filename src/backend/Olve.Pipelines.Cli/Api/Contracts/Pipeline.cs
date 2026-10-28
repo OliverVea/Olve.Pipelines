@@ -10,13 +10,6 @@ public sealed class Pipeline
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";
-}
-
-/// <summary>One list-page card (<c>GET /api/pipelines/overview</c>).</summary>
-public sealed class PipelineOverview
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string? Repo { get; set; }
     public PipelineHealth Health { get; set; } = new();

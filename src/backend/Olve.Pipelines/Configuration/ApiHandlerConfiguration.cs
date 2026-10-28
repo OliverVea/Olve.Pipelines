@@ -14,7 +14,6 @@ public static class ApiHandlerConfiguration
         services.AddSingleton<IInstanceReadyHandler, ReadinessHandler>();
         services.AddSingleton<IInstanceFrontendConfigHandler, FrontendConfigHandler>();
         services.AddTransient<IPipelinesListHandler, ListPipelinesHandler>();
-        services.AddTransient<IPipelinesOverviewsHandler, ListPipelineOverviewsHandler>();
         services.AddTransient<IPipelinesGetHandler, GetPipelineHandler>();
         services.AddTransient<IPipelinesDeleteHandler, DeletePipelineHandler>();
         services.AddTransient<IPipelinesHealthHandler, GetPipelineHealthHandler>();
@@ -37,7 +36,6 @@ public static class ApiHandlerConfiguration
         api.InstanceReady.AllowAnonymous().WithTags("Instance").WithSummary("Readiness");
         api.InstanceFrontendConfig.AllowAnonymous().WithTags("Instance").WithSummary("Get the login settings");
         api.PipelinesList.RequireRead().WithTags("Pipelines").WithSummary("List pipelines");
-        api.PipelinesOverviews.RequireRead().WithTags("Pipelines").WithSummary("List pipeline overviews");
         api.PipelinesGet.RequireRead().WithTags("Pipelines").WithSummary("Get a pipeline");
         api.PipelinesDelete.WithTags("Pipelines").WithSummary("Delete a pipeline");
         api.PipelinesHealth.RequireRead().WithTags("Pipelines").WithSummary("Get a pipeline's health");

@@ -26,8 +26,6 @@ namespace Olve.Pipelines.Cli.Api;
 // Pipelines
 [JsonSerializable(typeof(Pipeline))]
 [JsonSerializable(typeof(Pipeline[]))]
-[JsonSerializable(typeof(PipelineOverview))]
-[JsonSerializable(typeof(PipelineOverview[]))]
 // Attempts
 [JsonSerializable(typeof(Attempt))]
 [JsonSerializable(typeof(AttemptStatus))]

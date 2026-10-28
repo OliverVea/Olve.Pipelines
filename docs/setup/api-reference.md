@@ -96,12 +96,6 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 **Returns:** `200` [Pipeline](#pipeline)[]
 
-#### List pipeline overviews
-
-`GET /api/pipelines/overview`
-
-**Returns:** `200` [PipelineOverview](#pipelineoverview)[]
-
 ### Bindings
 
 #### Create a pipeline bound to a repo
@@ -1197,7 +1191,10 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `id` | string (uuid) | required |
 | `name` | string | required |
-| `description` | string? |  |
+| `description` | string? | required |
+| `repo` | string? | required |
+| `health` | [PipelineHealth](#pipelinehealth) | required |
+| `stages` | [PipelineStageSummary](#pipelinestagesummary)[] | required |
 
 ### PipelineActivation
 
@@ -1274,17 +1271,6 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `blockedSteps` | string[] | required |
 | `heldRuns` | [RunSummary](#runsummary)[] | required |
 | `pending` | [PendingVersionInfo](#pendingversioninfo)? |  |
-
-### PipelineOverview
-
-| Field | Type | |
-|---|---|---|
-| `id` | string (uuid) | required |
-| `name` | string | required |
-| `description` | string? | required |
-| `repo` | string? | required |
-| `health` | [PipelineHealth](#pipelinehealth) | required |
-| `stages` | [PipelineStageSummary](#pipelinestagesummary)[] | required |
 
 ### PipelineSecretInfo
 

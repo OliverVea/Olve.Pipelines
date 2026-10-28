@@ -1022,15 +1022,6 @@ export function createPipelineHealthFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineOverview}
- */
-// @ts-ignore
-export function createPipelineOverviewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineOverview;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineSecretInfo}
  */
 // @ts-ignore
@@ -2179,8 +2170,11 @@ export function deserializeIntoPendingVersionInfo(pendingVersionInfo: Partial<Pe
 export function deserializeIntoPipeline(pipeline: Partial<Pipeline> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "description": n => { pipeline.description = n.getStringValue(); },
+        "health": n => { pipeline.health = n.getObjectValue<PipelineHealth>(createPipelineHealthFromDiscriminatorValue); },
         "id": n => { pipeline.id = n.getGuidValue(); },
         "name": n => { pipeline.name = n.getStringValue(); },
+        "repo": n => { pipeline.repo = n.getStringValue(); },
+        "stages": n => { pipeline.stages = n.getCollectionOfObjectValues<PipelineStageSummary>(createPipelineStageSummaryFromDiscriminatorValue); },
     }
 }
 /**
@@ -2289,22 +2283,6 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
         "pending": n => { pipelineHealth.pending = n.getObjectValue<PendingVersionInfo>(createPendingVersionInfoFromDiscriminatorValue); },
         "runningRuns": n => { pipelineHealth.runningRuns = n.getNumberValue(); },
         "status": n => { pipelineHealth.status = n.getEnumValue<PipelineStatus>(PipelineStatusObject); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PipelineOverview The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPipelineOverview(pipelineOverview: Partial<PipelineOverview> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "description": n => { pipelineOverview.description = n.getStringValue(); },
-        "health": n => { pipelineOverview.health = n.getObjectValue<PipelineHealth>(createPipelineHealthFromDiscriminatorValue); },
-        "id": n => { pipelineOverview.id = n.getGuidValue(); },
-        "name": n => { pipelineOverview.name = n.getStringValue(); },
-        "repo": n => { pipelineOverview.repo = n.getStringValue(); },
-        "stages": n => { pipelineOverview.stages = n.getCollectionOfObjectValues<PipelineStageSummary>(createPipelineStageSummaryFromDiscriminatorValue); },
     }
 }
 /**
@@ -2898,6 +2876,10 @@ export interface Pipeline extends AdditionalDataHolder, Parsable {
      */
     description?: string | null;
     /**
+     * The health property
+     */
+    health?: PipelineHealth | null;
+    /**
      * The id property
      */
     id?: Guid | null;
@@ -2905,6 +2887,14 @@ export interface Pipeline extends AdditionalDataHolder, Parsable {
      * The name property
      */
     name?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The stages property
+     */
+    stages?: PipelineStageSummary[] | null;
 }
 export interface PipelineActivation extends AdditionalDataHolder, Parsable {
     /**
@@ -3101,32 +3091,6 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
      * The status property
      */
     status?: PipelineStatus | null;
-}
-export interface PipelineOverview extends AdditionalDataHolder, Parsable {
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The health property
-     */
-    health?: PipelineHealth | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The repo property
-     */
-    repo?: string | null;
-    /**
-     * The stages property
-     */
-    stages?: PipelineStageSummary[] | null;
 }
 export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
     /**
@@ -4330,8 +4294,11 @@ export function serializePendingVersionInfo(writer: SerializationWriter, pending
 export function serializePipeline(writer: SerializationWriter, pipeline: Partial<Pipeline> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipeline || isSerializingDerivedType) { return; }
     writer.writeStringValue("description", pipeline.description);
+    writer.writeObjectValue<PipelineHealth>("health", pipeline.health, serializePipelineHealth);
     writer.writeGuidValue("id", pipeline.id);
     writer.writeStringValue("name", pipeline.name);
+    writer.writeStringValue("repo", pipeline.repo);
+    writer.writeCollectionOfObjectValues<PipelineStageSummary>("stages", pipeline.stages, serializePipelineStageSummary);
     writer.writeAdditionalData(pipeline.additionalData);
 }
 /**
@@ -4453,23 +4420,6 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
     writer.writeNumberValue("runningRuns", pipelineHealth.runningRuns);
     writer.writeEnumValue<PipelineStatus>("status", pipelineHealth.status);
     writer.writeAdditionalData(pipelineHealth.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineOverview The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePipelineOverview(writer: SerializationWriter, pipelineOverview: Partial<PipelineOverview> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineOverview || isSerializingDerivedType) { return; }
-    writer.writeStringValue("description", pipelineOverview.description);
-    writer.writeObjectValue<PipelineHealth>("health", pipelineOverview.health, serializePipelineHealth);
-    writer.writeGuidValue("id", pipelineOverview.id);
-    writer.writeStringValue("name", pipelineOverview.name);
-    writer.writeStringValue("repo", pipelineOverview.repo);
-    writer.writeCollectionOfObjectValues<PipelineStageSummary>("stages", pipelineOverview.stages, serializePipelineStageSummary);
-    writer.writeAdditionalData(pipelineOverview.additionalData);
 }
 /**
  * Serializes information the current object

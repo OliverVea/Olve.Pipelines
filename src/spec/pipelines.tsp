@@ -6,18 +6,15 @@ using Http;
 
 namespace Pipelines;
 
+/** A pipeline with its bound repo, its health over runs and its current version's stages. */
 model Pipeline {
   @format("uuid") id: string;
   name: string;
-  description?: string | null;
-}
-
-/** A pipeline with its bound repo, its health over runs and its current version's stages: the list page's card. */
-model PipelineOverview {
-  @format("uuid") id: string;
-  name: string;
   description: string | null;
+
+  /** The bound repository (`owner/name`), if any. */
   repo: string | null;
+
   health: PipelineHealth;
 
   /** The current version's barrier stages (the switch target while draining); empty without a version. */
@@ -126,11 +123,8 @@ model ChangedDefault {
 @tag("Pipelines")
 @route("/api/pipelines")
 interface Pipelines {
-  /** Every pipeline. */
+  /** Every pipeline, whole. */
   @get list(): Pipeline[];
-
-  /** Every pipeline with its repo, health and stages: the list page. */
-  @get @route("overview") overviews(): PipelineOverview[];
 
   @get @route("{pipelineId}") get(@path @format("uuid") pipelineId: string): Pipeline | NotFound;
 

@@ -205,30 +205,6 @@
         }
       }
     },
-    "/api/pipelines/overview": {
-      "get": {
-        "tags": [
-          "Pipelines"
-        ],
-        "summary": "List pipeline overviews",
-        "operationId": "Pipelines_overviews",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PipelineOverview"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/pipelines/{pipelineId}/versions/{number}/effective": {
       "get": {
         "tags": [
@@ -6013,7 +5989,11 @@
       "Pipeline": {
         "required": [
           "id",
-          "name"
+          "name",
+          "description",
+          "repo",
+          "health",
+          "stages"
         ],
         "type": "object",
         "properties": {
@@ -6029,6 +6009,21 @@
               "null",
               "string"
             ]
+          },
+          "repo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "health": {
+            "$ref": "#/components/schemas/PipelineHealth"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineStageSummary"
+            }
           }
         }
       },
@@ -6365,47 +6360,6 @@
                 "$ref": "#/components/schemas/PendingVersionInfo"
               }
             ]
-          }
-        }
-      },
-      "PipelineOverview": {
-        "required": [
-          "id",
-          "name",
-          "description",
-          "repo",
-          "health",
-          "stages"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "repo": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "health": {
-            "$ref": "#/components/schemas/PipelineHealth"
-          },
-          "stages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PipelineStageSummary"
-            }
           }
         }
       },

@@ -204,14 +204,19 @@ the step file download (binary) and the three inbound hooks. The runtime OpenAPI
 
 ## Phase 3: `pl` in TypeScript
 
-- `cli/` beside `src/sdk/` and `src/frontend/`, Bun, compiled with `bun build --compile` for
+- `src/cli/` beside `src/sdk/` and `src/frontend/`, Bun, compiled with `bun build --compile` for
   `bun-linux-x64` and `bun-windows-x64` (the two `build-cli*` steps become one bun step).
 - Taken from `arm`: the OIDC browser and device flows with the terminal QR code, credential storage,
   the client wrapper with the error envelope, SSE tailing with reconnect and `Last-Event-ID`,
   `--json` output, the command registry and help.
 - Kept from today's `pl`: the `~/.pl` profile file format (existing logins survive), command names
-  and exit codes (`pl wait`: 0/1/2/3/124, Ctrl-C 130), `pl dev` (now importing `olve-dev` from the
-  SDK), `install.sh` / `install.ps1` and `/download`.
+  and exit codes (`pl wait`: 0/1/2/3/124, Ctrl-C 130), `pl dev`, `install.sh` / `install.ps1` and
+  `/download`.
+- `pl dev` runs the `olve-dev` of the SDK the pipeline's `package.json` pins, resolved from the
+  pipeline directory as installed (decided 2026-10-28, instead of bundling `olve-dev` into `pl`).
+  The SDK version is part of the pipeline's source: reconcile builds with that same pin, so a local
+  describe matches what the next push reconciles, whatever SDK version `pl` itself was built with.
+  Reproducing a deployed version exactly would instead run that version's own compiled binary.
 - `src/backend/Olve.Pipelines.Cli` is deleted. The `ovea-olve-pipelines` skill is updated and the plugin
   version bumped in the same work.
 

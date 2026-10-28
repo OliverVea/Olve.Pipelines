@@ -2,6 +2,7 @@ import type { Command } from '../registry';
 import { attemptCommands } from './attempt';
 import { bindingCommands } from './binding';
 import { configCommands } from './config';
+import { devCommands } from './dev';
 import { loginCommand } from './login';
 import { pipelineCommands } from './pipeline';
 import { profileCommands } from './profile';
@@ -24,4 +25,5 @@ export const commands: readonly Command[] = [
   ...secretCommands,
   ...configCommands,
   ...bindingCommands,
+  ...devCommands,
 ];

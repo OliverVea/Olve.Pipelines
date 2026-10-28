@@ -2,6 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type Io, run } from '../src/cli';
+import type { ProcessRunner } from '../src/process';
 
 export type Recorded = {
   method: string;
@@ -92,6 +93,9 @@ export async function pl(
     home?: string;
     sleep?: (ms: number) => Promise<void>;
     stdin?: string;
+    run?: ProcessRunner;
+    stdinIsTerminal?: boolean;
+    prompt?: (text: string) => Promise<string>;
   } = {},
 ) {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'pl-test-'));
@@ -107,7 +111,9 @@ export async function pl(
     sleep: options.sleep ?? (async () => {}),
     stdoutBytes: (bytes) => stdout.push(new TextDecoder().decode(bytes)),
     stdin: async () => options.stdin ?? '',
-    stdinIsTerminal: options.stdin === undefined,
+    stdinIsTerminal: options.stdinIsTerminal ?? options.stdin === undefined,
+    run: options.run,
+    prompt: options.prompt,
   };
   const code = await run(argv, io);
   return { code, stdout: stdout.join(''), stderr: stderr.join('\n'), home };

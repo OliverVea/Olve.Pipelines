@@ -1,0 +1,171 @@
+{
+  "apiVersion": "2.0",
+  "name": "demo",
+  "description": "A demo pipeline.",
+  "input": "Req",
+  "models": {
+    "Req": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "sha": { "type": "string" },
+          "deployTo": { "type": "string", "enum": ["beta", "prod"], "default": "beta" },
+          "publish": { "type": "boolean", "default": false },
+          "replicas": { "type": "integer", "default": 1 },
+          "labels": { "type": "object" }
+        },
+        "required": ["sha"]
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sha": { "type": "string" },
+          "deployTo": { "type": "string", "enum": ["beta", "prod"], "default": "beta" },
+          "publish": { "type": "boolean", "default": false },
+          "replicas": { "type": "integer", "default": 1 },
+          "labels": { "type": "object" }
+        },
+        "required": ["sha", "deployTo", "publish", "replicas"]
+      }
+    }
+  },
+  "secrets": [
+    { "name": "TOKEN", "description": "t" },
+    { "name": "SSH_KEY", "description": "s" }
+  ],
+  "triggers": [{ "kind": "push", "name": "push" }],
+  "stages": [
+    {
+      "steps": [
+        {
+          "name": "src",
+          "kind": "custom",
+          "image": "alpine",
+          "output": "Source",
+          "secrets": ["TOKEN"],
+          "input": {
+            "sha": { "ref": "input.sha" },
+            "opts": { "depth": { "const": 1 }, "target": { "ref": "input.deployTo" } }
+          },
+          "inputTypes": {
+            "sha": { "schema": { "output": { "type": "string" } } },
+            "opts": { "schema": { "output": { "type": "object" } } }
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "name": "build",
+          "kind": "custom",
+          "image": "alpine",
+          "output": "Artifact",
+          "secrets": [],
+          "input": { "source": { "ref": "src" }, "commit": { "ref": "src.sha" } },
+          "inputTypes": {
+            "source": { "model": "Source", "optional": false },
+            "commit": { "schema": { "output": { "type": "string" } } }
+          }
+        },
+        {
+          "name": "lint",
+          "kind": "custom",
+          "image": "alpine",
+          "output": null,
+          "secrets": [],
+          "input": { "source": { "ref": "src" } },
+          "inputTypes": { "source": { "model": "Source", "optional": false } }
+        }
+      ]
+    },
+    {
+      "when": { "deployTo": ["prod"] },
+      "stages": [
+        {
+          "steps": [
+            {
+              "name": "deploy",
+              "kind": "custom",
+              "image": "alpine",
+              "output": "Release",
+              "secrets": ["SSH_KEY"],
+              "input": { "artifact": { "ref": "build" } },
+              "inputTypes": { "artifact": { "model": "Artifact", "optional": false } }
+            }
+          ]
+        },
+        {
+          "when": { "publish": [true] },
+          "stages": [
+            {
+              "steps": [
+                {
+                  "name": "publish",
+                  "kind": "custom",
+                  "image": "alpine",
+                  "output": null,
+                  "secrets": ["TOKEN"],
+                  "input": { "release": { "ref": "deploy" } },
+                  "inputTypes": { "release": { "model": "Release", "optional": false } },
+                  "externalInputs": {
+                    "verdict": {
+                      "model": "Verdict",
+                      "title": "Accepted?",
+                      "description": "",
+                      "from": [{ "kind": "person" }]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "name": "summary",
+          "kind": "custom",
+          "image": "alpine",
+          "output": null,
+          "secrets": [],
+          "input": { "artifact": { "ref": "build" }, "release": { "ref": "deploy" } },
+          "inputTypes": {
+            "artifact": { "model": "Artifact", "optional": false },
+            "release": { "model": "Release", "optional": true }
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "name": "notify",
+          "kind": "custom",
+          "image": "alpine",
+          "output": null,
+          "secrets": [],
+          "input": { "release": { "ref": "deploy" } },
+          "inputTypes": { "release": { "model": "Release", "optional": false } }
+        }
+      ]
+    }
+  ],
+  "failureHandlers": [
+    {
+      "step": {
+        "name": "triage",
+        "kind": "custom",
+        "image": "alpine",
+        "output": null,
+        "secrets": [],
+        "input": { "failure": { "ref": "failure" } },
+        "inputTypes": { "failure": { "model": "FailureContext", "optional": false } }
+      },
+      "steps": ["deploy"]
+    }
+  ]
+}

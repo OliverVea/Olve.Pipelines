@@ -1,6 +1,7 @@
 import type { Client } from '@olve/api/client';
 import type { Args } from './args';
 import type { Output } from './output';
+import type { ProcessRunner } from './process';
 import type { Env, Profile } from './profiles';
 
 export type CommandContext = {
@@ -38,6 +39,8 @@ export type CommandContext = {
   stdinIsTerminal: boolean;
   /** Asks on the terminal; `hidden` for secrets (no echo). */
   prompt(text: string, options?: { hidden?: boolean }): Promise<string>;
+  /** Starts child processes (bun, docker). */
+  run: ProcessRunner;
   /** A command's own exit code (waits and checks); 0 when unset. */
   exitCode?: number;
 };

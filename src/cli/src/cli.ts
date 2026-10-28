@@ -12,6 +12,7 @@ import { commands as defaultCommands } from './commands';
 import { CliError, ExitCode, UsageError, describe } from './errors';
 import { commandHelp, nounHelp, usage } from './help';
 import { Output } from './output';
+import { runProcess, type ProcessRunner } from './process';
 import {
   configPath,
   loadProfile,
@@ -41,6 +42,7 @@ export type Io = {
   stdoutBytes?(bytes: Uint8Array): void;
   stdinIsTerminal?: boolean;
   prompt?(text: string, options?: { hidden?: boolean }): Promise<string>;
+  run?: ProcessRunner;
 };
 
 /** Runs one invocation and returns the exit code. Never calls process.exit. */
@@ -188,6 +190,7 @@ export async function run(
         io.stdoutBytes ?? ((bytes) => io.stdout(new TextDecoder().decode(bytes))),
       stdinIsTerminal: io.stdinIsTerminal ?? false,
       prompt: io.prompt ?? (async () => ''),
+      run: io.run ?? runProcess,
     };
   } catch (error) {
     if (error instanceof CliError) return fail(error.problems);

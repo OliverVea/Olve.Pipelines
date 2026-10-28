@@ -1,0 +1,87 @@
+{
+  "apiVersion": "2.0",
+  "name": "demo",
+  "description": "d",
+  "input": "Req",
+  "models": {
+    "Req": {
+      "input": {
+        "type": "object",
+        "properties": { "sha": { "type": "string" } },
+        "required": ["sha"]
+      },
+      "output": {
+        "type": "object",
+        "properties": { "sha": { "type": "string" } },
+        "required": ["sha"]
+      }
+    }
+  },
+  "secrets": [],
+  "triggers": [],
+  "stages": [
+    {
+      "steps": [
+        {
+          "name": "build",
+          "kind": "custom",
+          "image": "build-img",
+          "output": null,
+          "secrets": [],
+          "input": {},
+          "inputTypes": {}
+        }
+      ]
+    },
+    {
+      "select": "target",
+      "discriminator": "kind",
+      "cases": {
+        "ssh": [
+          {
+            "steps": [
+              {
+                "name": "deploy",
+                "kind": "helmDeployOverSsh",
+                "image": "ssh-img",
+                "output": null,
+                "secrets": [],
+                "input": {},
+                "inputTypes": {}
+              }
+            ]
+          }
+        ],
+        "inCluster": [
+          {
+            "steps": [
+              {
+                "name": "deploy",
+                "kind": "helmDeployInCluster",
+                "image": "cluster-img",
+                "output": null,
+                "secrets": [],
+                "input": {},
+                "inputTypes": {}
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "steps": [
+        {
+          "name": "summary",
+          "kind": "custom",
+          "image": "build-img",
+          "output": null,
+          "secrets": [],
+          "input": {},
+          "inputTypes": {}
+        }
+      ]
+    }
+  ],
+  "failureHandlers": []
+}

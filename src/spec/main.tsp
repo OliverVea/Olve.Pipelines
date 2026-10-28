@@ -7,6 +7,7 @@ import "./instance.tsp";
 import "./pipelines.tsp";
 import "./runs.tsp";
 import "./secrets.tsp";
+import "./steps.tsp";
 import "./versions.tsp";
 
 using Http;

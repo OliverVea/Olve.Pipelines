@@ -11,25 +11,21 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface HistoryRequestBuilder extends BaseRequestBuilder<HistoryRequestBuilder> {
     /**
-     * The step's attempts across runs, with markers where the step's definition changed.
+     * Get a step's history
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<StepHistoryItem[]>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<HistoryRequestBuilderGetQueryParameters> | undefined) : Promise<StepHistoryItem[] | undefined>;
     /**
-     * The step's attempts across runs, with markers where the step's definition changed.
+     * Get a step's history
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<HistoryRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * The step's attempts across runs, with markers where the step's definition changed.
+ * Get a step's history
  */
 export interface HistoryRequestBuilderGetQueryParameters {
     limit?: number;
@@ -46,11 +42,7 @@ export const HistoryRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: HistoryRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendCollection",
         responseBodyFactory:  createStepHistoryItemFromDiscriminatorValue,

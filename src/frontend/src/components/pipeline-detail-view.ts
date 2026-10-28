@@ -1,13 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, client, apiPost, errorMessages } from '../api.js';
+import { api, apiPost, errorMessages } from '../api.js';
 import {
   pipelinesGet,
   pipelinesHealth,
   type Pipeline,
   type PipelineHealth,
 } from '@olve/api';
-import type { StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
+import { stepsHistory, type StepHistoryItem } from '@olve/api';
 import {
   sharedStyles,
   toneOf,
@@ -149,7 +149,6 @@ export class PipelineDetailView extends LitElement {
 
   async reload() {
     try {
-      const p = client.api.pipelines.byPipelineId(this.pipelineId);
       const path = { pipelineId: this.pipelineId };
       const [pipeline, health] = await Promise.all([
         pipelinesGet({ client: api, path }).then((r) => r.data),
@@ -171,10 +170,12 @@ export class PipelineDetailView extends LitElement {
       const names = effective ? allSteps(effective.stages).map((s) => s.name) : [];
       const latest = await Promise.all(
         names.map((n) =>
-          p.steps
-            .byStep(n)
-            .history.get({ queryParameters: { limit: RECENT } })
-            .then((h): [string, StepHistoryItem[]] => [n, h ?? []])
+          stepsHistory({
+            client: api,
+            path: { ...path, step: n },
+            query: { limit: RECENT },
+          })
+            .then((r): [string, StepHistoryItem[]] => [n, r.data ?? []])
             .catch((): [string, StepHistoryItem[]] => [n, []]),
         ),
       );

@@ -26,7 +26,6 @@ namespace Olve.Pipelines;
 [JsonSerializable(typeof(Result<Run>))]
 [JsonSerializable(typeof(Result<Page<RunSummary>>))]
 [JsonSerializable(typeof(Result<RunDetail>))]
-[JsonSerializable(typeof(Result<StepHistoryItem[]>))]
 [JsonSerializable(typeof(Result<CriticalPathReport>))]
 [JsonSerializable(typeof(Result<AttemptFilesResponse>))]
 [JsonSerializable(typeof(RerunStepRequest))]

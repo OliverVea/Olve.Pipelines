@@ -14,11 +14,7 @@ export interface BlockedStepsRequestBuilder extends BaseRequestBuilder<BlockedSt
      * List blocked steps
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string[]>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<string[] | undefined>;
     /**
@@ -40,11 +36,7 @@ export const BlockedStepsRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: BlockedStepsRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendCollectionOfPrimitive",
         responseBodyFactory:  "string",

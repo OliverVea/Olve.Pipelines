@@ -478,6 +478,50 @@ Continues the run with `input` merged over its stored input. Fields consumed by 
 
 ### Steps
 
+#### Block a step
+
+`POST /api/pipelines/{pipelineId}/steps/{step}/block`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `step` | path | string | yes |
+
+**Returns:** `200` string[]
+
+#### List blocked steps
+
+`GET /api/pipelines/{pipelineId}/blocked-steps`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Returns:** `200` string[]
+
+#### Get a step's history
+
+`GET /api/pipelines/{pipelineId}/steps/{step}/history`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `step` | path | string | yes |
+| `limit` | query | integer |  |
+
+**Returns:** `200` [StepHistoryItem](#stephistoryitem)[]
+
+#### Unblock a step
+
+`POST /api/pipelines/{pipelineId}/steps/{step}/unblock`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `step` | path | string | yes |
+
+**Returns:** `200` string[]
+
 #### Stream a step's log
 
 `GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream`
@@ -627,56 +671,6 @@ The attempt's log; the live pod log while it runs.
 | `attempt` | query | integer |  |
 
 **Returns:** `200` string
-
-#### List blocked steps
-
-`GET /api/pipelines/{pipelineId}/blocked-steps`
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Returns:** `200` string[]
-
-#### Block a step
-
-`POST /api/pipelines/{pipelineId}/steps/{step}/block`
-
-Runs that reach the step are held there until it is unblocked. Answers the blocked step names.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `step` | path | string | yes |
-
-**Returns:** `200` string[]
-
-#### Unblock a step
-
-`POST /api/pipelines/{pipelineId}/steps/{step}/unblock`
-
-Held runs resume. Answers the blocked step names.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `step` | path | string | yes |
-
-**Returns:** `200` string[]
-
-#### Get a step's history
-
-`GET /api/pipelines/{pipelineId}/steps/{step}/history`
-
-The step's attempts across runs, with markers where the step's definition changed.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `step` | path | string | yes |
-| `limit` | query | integer |  |
-
-**Returns:** `200` [StepHistoryItem](#stephistoryitem)[]
 
 ### Attempts
 

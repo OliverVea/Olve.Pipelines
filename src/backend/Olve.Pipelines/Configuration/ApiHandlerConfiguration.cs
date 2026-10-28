@@ -40,6 +40,10 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IBindingsSetBranchHandler, SetBindingBranchHandler>();
         services.AddTransient<IBindingsSetPollingHandler, SetBindingPollingHandler>();
         services.AddTransient<IBindingsReconcileHandler, ReconcileBindingHandler>();
+        services.AddTransient<IStepsBlockedHandler, ListBlockedStepsHandler>();
+        services.AddTransient<IStepsBlockHandler, BlockStepHandler>();
+        services.AddTransient<IStepsUnblockHandler, UnblockStepHandler>();
+        services.AddTransient<IStepsHistoryHandler, GetStepHistoryHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -80,5 +84,9 @@ public static class ApiHandlerConfiguration
         api.BindingsSetBranch.WithTags("Bindings").WithSummary("Move the binding to another branch");
         api.BindingsSetPolling.WithTags("Bindings").WithSummary("Turn the binding's polling on or off");
         api.BindingsReconcile.WithTags("Bindings").WithSummary("Reconcile now");
+        api.StepsBlocked.RequireRead().WithTags("Steps").WithSummary("List blocked steps");
+        api.StepsBlock.WithTags("Steps").WithSummary("Block a step");
+        api.StepsUnblock.WithTags("Steps").WithSummary("Unblock a step");
+        api.StepsHistory.RequireRead().WithTags("Steps").WithSummary("Get a step's history");
     }
 }

@@ -139,6 +139,10 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    and the create is `POST /api/pipelines` answering 201 (it was `/with-repo`). The GitHub push
    webhook stays hand-written, like the manifest validate: HMAC over the raw body. The binding
    view and the header use the Hey API client; `pl`'s create path and enum follow.
+7. Steps, the pipeline-scoped part (4) — done 2026-10-28: blocked steps, block, unblock, history
+   (`StepHistoryItem`, `AttemptPhases`). The run-scoped step operations (attempts, rerun, cancel,
+   input, output, files, logs) share `Attempt` with the Runs area and move with it; the log and
+   file streams stay hand-written until the emitter takes text and binary responses.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

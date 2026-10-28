@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { StepHistoryItem } from '@olve/olve-pipelines-client/src/models/index.js';
-import { client, errorMessages } from '../api.js';
+import { stepsHistory, type StepHistoryItem } from '@olve/api';
+import { api, errorMessages } from '../api.js';
 import {
   sharedStyles,
   statusCardStyles,
@@ -28,8 +28,10 @@ const FILTERS: [Filter, string][] = [
   ['other', 'Other'],
 ];
 
-const seconds = (from: Date | null | undefined, to: Date | null | undefined) =>
-  from && to ? (new Date(to).getTime() - new Date(from).getTime()) / 1000 : null;
+const seconds = (
+  from: Date | string | null | undefined,
+  to: Date | string | null | undefined,
+) => (from && to ? (new Date(to).getTime() - new Date(from).getTime()) / 1000 : null);
 
 function quantile(sorted: number[], q: number): number | null {
   if (!sorted.length) return null;
@@ -158,11 +160,13 @@ export class StepRunsView extends LitElement {
 
   async reload() {
     try {
-      const rows = await client.api.pipelines
-        .byPipelineId(this.pipelineId)
-        .steps.byStep(this.step)
-        .history.get({ queryParameters: { limit: 200 } });
-      this._rows = rows ?? [];
+      const { data: rows } = await stepsHistory({
+        client: api,
+        throwOnError: true,
+        path: { pipelineId: this.pipelineId, step: this.step },
+        query: { limit: 200 },
+      });
+      this._rows = rows;
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');

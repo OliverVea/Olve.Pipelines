@@ -1,4 +1,5 @@
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Problems;
 using Api = Olve.Pipelines.Api;
@@ -65,14 +66,47 @@ public static class PipelineViews
     public static Api.PipelineHealth ToApi(PipelineHealth h) => new()
     {
         Status = Status(h.Status),
-        LastRun = h.LastRun,
-        LastSettledRun = h.LastSettledRun,
+        LastRun = h.LastRun is null ? null : ToApi(h.LastRun),
+        LastSettledRun = h.LastSettledRun is null ? null : ToApi(h.LastSettledRun),
         RunningRuns = h.RunningRuns,
         Activation = ToApi(h.Activation),
         Draining = h.Draining,
         BlockedSteps = h.BlockedSteps,
-        HeldRuns = h.HeldRuns,
+        HeldRuns = [.. h.HeldRuns.Select(ToApi)],
         Pending = h.Pending is null ? null : ToApi(h.Pending),
+    };
+
+    public static Api.RunSummary ToApi(RunSummary r) => new()
+    {
+        Id = r.Id.Value.Value,
+        Number = r.Number,
+        Status = ToApi(r.Status),
+        TriggerKind = ToApi(r.TriggerKind),
+        VersionNumber = r.VersionNumber,
+        VersionStamp = r.VersionStamp,
+        CreatedAt = r.CreatedAt,
+        FinishedAt = r.FinishedAt,
+        HeldAt = r.HeldAt,
+        SupersededByNumber = r.SupersededByNumber,
+        RerunOfNumber = r.RerunOfNumber,
+        ConfigSnapshot = r.ConfigSnapshot,
+    };
+
+    public static Api.RunStatus ToApi(RunStatus s) => s switch
+    {
+        RunStatus.Running => Api.RunStatus.Running,
+        RunStatus.Succeeded => Api.RunStatus.Succeeded,
+        RunStatus.Failed => Api.RunStatus.Failed,
+        RunStatus.Cancelled => Api.RunStatus.Cancelled,
+        _ => Api.RunStatus.Superseded,
+    };
+
+    public static Api.RunTriggerKind ToApi(RunTriggerKind k) => k switch
+    {
+        RunTriggerKind.Push => Api.RunTriggerKind.Push,
+        RunTriggerKind.Poll => Api.RunTriggerKind.Poll,
+        RunTriggerKind.Manual => Api.RunTriggerKind.Manual,
+        _ => Api.RunTriggerKind.Webhook,
     };
 
     public static Api.PipelineActivation? ToApi(PipelineActivation? activation) => activation switch

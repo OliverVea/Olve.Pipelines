@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client, apiPost, errorMessages } from '../api.js';
-import type { Attempt } from '@olve/olve-pipelines-client/src/models/index.js';
+import { api, errorMessages } from '../api.js';
+import { pipelinesGet, runsAttempts, runStepsCancel, type Attempt } from '@olve/api';
 import {
   sharedStyles,
   toneOf,
@@ -18,13 +18,13 @@ import './log-pane.js';
 
 type AttemptStatusFields = {
   type?: string | null;
-  startedAt?: Date | null;
-  finishedAt?: Date | null;
-  cancelledAt?: Date | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  cancelledAt?: string | null;
   reason?: string | null;
 };
 
-const statusOf = (a: Attempt) => (a.status ?? {}) as AttemptStatusFields;
+const statusOf = (a: Attempt) => a.status as AttemptStatusFields;
 
 /** The log of one step's attempt in a run, full height. */
 @customElement('step-logs-view')
@@ -106,11 +106,13 @@ export class StepLogsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
+    const path = { pipelineId: this.pipelineId };
     try {
       const [pipeline, attempts] = await Promise.all([
-        this._name ? null : p.get(),
-        p.runs.byNumber(Number(this.run)).attempts.get(),
+        this._name ? null : pipelinesGet({ client: api, path }).then((r) => r.data),
+        runsAttempts({ client: api, path: { ...path, number: Number(this.run) } }).then(
+          (r) => r.data,
+        ),
       ]);
       if (pipeline) this._name = pipeline.name ?? '';
       this._attempts = (attempts ?? [])
@@ -136,9 +138,10 @@ export class StepLogsView extends LitElement {
       return;
     this._busy = true;
     try {
-      await apiPost(
-        `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(this.step)}/cancel`,
-      );
+      await runStepsCancel({
+        client: api,
+        path: { pipelineId: this.pipelineId, number: Number(this.run), step: this.step },
+      });
       await this.reload();
     } catch (e) {
       this._error = errorMessages(e).join(' ');

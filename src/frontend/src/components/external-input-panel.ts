@@ -1,8 +1,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
-import type { Attempt } from '@olve/olve-pipelines-client/src/models/index.js';
-import { apiPost, errorMessages, untypedToJson } from '../api.js';
+import { runStepsAnswer, runStepsDecline, type Attempt } from '@olve/api';
+import { api, errorMessages, untypedToJson } from '../api.js';
 import { sharedStyles } from '../v2/ui.js';
 import {
   byPerson,
@@ -287,8 +287,8 @@ export class ExternalInputPanel extends LitElement {
     </div>`;
   }
 
-  private get _url() {
-    return `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(this.step)}/input`;
+  private get _path() {
+    return { pipelineId: this.pipelineId, number: Number(this.run), step: this.step };
   }
 
   /** The value to send for one input, or null when its form has errors. */
@@ -329,7 +329,7 @@ export class ExternalInputPanel extends LitElement {
     let ok = true;
     for (const [name, value] of values) {
       try {
-        await apiPost(this._url, { name, value });
+        await runStepsAnswer({ client: api, path: this._path, body: { name, value } });
       } catch (e) {
         ok = false;
         this._errors = { ...this._errors, [name]: errorMessages(e) };
@@ -349,10 +349,11 @@ export class ExternalInputPanel extends LitElement {
     this._busy = true;
     this._errors = {};
     try {
-      await apiPost(
-        `${this._url}/decline`,
-        this._comment ? { comment: this._comment } : {},
-      );
+      await runStepsDecline({
+        client: api,
+        path: this._path,
+        body: this._comment ? { comment: this._comment } : {},
+      });
       this._comment = '';
       this._done(true);
     } catch (e) {

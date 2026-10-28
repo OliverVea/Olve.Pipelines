@@ -1,11 +1,12 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type {
-  CriticalPathLead,
-  CriticalPathReport,
-} from '@olve/olve-pipelines-client/src/models/index.js';
-import { api, client, errorMessages } from '../api.js';
-import { versionsList } from '@olve/api';
+import { api, errorMessages } from '../api.js';
+import {
+  runsCriticalPath,
+  versionsList,
+  type CriticalPathLead,
+  type CriticalPathReport,
+} from '@olve/api';
 import {
   sharedStyles,
   statusCardStyles,
@@ -188,22 +189,26 @@ export class CriticalPathView extends LitElement {
 
   async reload() {
     try {
-      const api = client.api.pipelines.byPipelineId(this.pipelineId).runs.criticalPath;
-      let report = await api.get({
-        queryParameters: {
+      const path = { pipelineId: this.pipelineId };
+      let report = await runsCriticalPath({
+        client: api,
+        path,
+        query: {
           includeUnsuccessful: this._all,
           sinceVersion: this._sinceVersion ?? undefined,
         },
-      });
+      }).then((r) => r.data);
       const to = report?.to ?? 0;
       if (this._sinceVersion === null && this._range !== 20 && to > 0)
-        report = await api.get({
-          queryParameters: {
+        report = await runsCriticalPath({
+          client: api,
+          path,
+          query: {
             from: Math.max(1, to - this._range + 1),
             to,
             includeUnsuccessful: this._all,
           },
-        });
+        }).then((r) => r.data);
       this._report = report ?? null;
       this._error = null;
     } catch (e) {

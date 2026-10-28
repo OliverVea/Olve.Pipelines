@@ -72,7 +72,7 @@ internal sealed class ApiErrorHost : IAsyncDisposable
         app.MapGet("/api/t/throw", Result () => throw new InvalidOperationException(Secret)).WithApiResultMapping();
         app.MapGet("/api/t/throw-transient", Result () => throw new HttpRequestException(Secret)).WithApiResultMapping();
         app.MapGet("/api/t/number/{n:int}", Result<string> (int n, int limit) => n.ToString()).WithApiResultMapping<string>();
-        app.MapPost("/api/t/body", Result<string> ([FromBody] RerunStepRequest body) => body.ToString())
+        app.MapPost("/api/t/body", Result<string> ([FromBody] Dictionary<string, string> body) => body.Count.ToString())
             .WithApiResultMapping<string>();
         app.MapDelete("/api/t/gone", DeletionResult () => DeletionResult.NotFound()).WithDeletionMapping();
 

@@ -5,6 +5,39 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/attempts": {
+      "get": {
+        "tags": [
+          "Attempts"
+        ],
+        "summary": "List running attempts",
+        "operationId": "Attempts_list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveAttempt"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines": {
       "post": {
         "tags": [
@@ -886,6 +919,1238 @@
         }
       }
     },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Answer a step's external input",
+        "operationId": "RunSteps_answer",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "List a step's attempts in a run",
+        "operationId": "RunSteps_attempts",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attempt"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Cancel a step",
+        "operationId": "RunSteps_cancel",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Decline a step's external input",
+        "operationId": "RunSteps_decline",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeclineInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "List a step's files",
+        "operationId": "RunSteps_files",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepFiles"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Get a step's log",
+        "operationId": "RunSteps_logs",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output": {
+      "get": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Get a step's output",
+        "operationId": "RunSteps_output",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepOutput"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun": {
+      "post": {
+        "tags": [
+          "Steps"
+        ],
+        "summary": "Rerun a step",
+        "operationId": "RunSteps_rerun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RerunStep"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attempt"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/attempts": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "List a run's attempts",
+        "operationId": "Runs_attempts",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attempt"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/cancel": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Cancel a run",
+        "operationId": "Runs_cancel",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/continue": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Continue a run",
+        "operationId": "Runs_continue",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContinueRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/critical-path": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Get the critical path of a range of runs",
+        "operationId": "Runs_criticalPath",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "includeUnsuccessful",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sinceVersion",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CriticalPathReport"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Get a run",
+        "operationId": "Runs_get",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs": {
+      "get": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "List runs",
+        "operationId": "Runs_list",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Start a run",
+        "operationId": "Runs_start",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStart"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pipelines/{pipelineId}/runs/{number}/rerun": {
+      "post": {
+        "tags": [
+          "Runs"
+        ],
+        "summary": "Rerun a run",
+        "operationId": "Runs_rerun",
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStart"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pipelines/{pipelineId}/secrets/copy": {
       "post": {
         "tags": [
@@ -1656,36 +2921,65 @@
         }
       }
     },
-    "/api/attempts": {
+    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}": {
       "get": {
         "tags": [
-          "Attempts"
+          "Steps"
         ],
-        "summary": "List running attempts",
-        "description": "`status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.",
-        "operationId": "ListActiveAttempts",
+        "summary": "Download a step file",
+        "description": "One stored file; a directory `dir/` downloads as `dir.tar`.",
+        "operationId": "GetStepFile",
         "parameters": [
           {
-            "name": "status",
-            "in": "query",
+            "name": "pipelineId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attempt",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ActiveAttempt"
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request",
@@ -2028,1800 +3322,6 @@
           }
         }
       }
-    },
-    "/api/pipelines/{pipelineId}/runs": {
-      "get": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "List runs",
-        "description": "Runs of the pipeline, newest first, paged.",
-        "operationId": "ListRuns",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Page",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32",
-              "default": 0
-            }
-          },
-          {
-            "name": "PageSize",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageOfRunSummary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Start a run",
-        "description": "Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).",
-        "operationId": "TriggerRun",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TriggerRunRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerRunResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/critical-path": {
-      "get": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Get the critical path of a range of runs",
-        "description": "Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.",
-        "operationId": "GetCriticalPath",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "from",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "includeUnsuccessful",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "sinceVersion",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CriticalPathReport"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}": {
-      "get": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Get a run",
-        "description": "Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.",
-        "operationId": "GetRun",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunDetail"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/cancel": {
-      "post": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Cancel a run",
-        "description": "Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).",
-        "operationId": "CancelRun",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Run"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/rerun": {
-      "post": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Rerun a run",
-        "description": "Starts a new run with the same input (`rerunOf` points back).",
-        "operationId": "RerunRun",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TriggerRunResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/continue": {
-      "post": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "Continue a run",
-        "description": "Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.",
-        "operationId": "ContinueRun",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ContinueRunRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Run"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "List a step's attempts in a run",
-        "operationId": "ListStepAttempts",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Attempt"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun": {
-      "post": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Rerun a step",
-        "description": "A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.",
-        "operationId": "RerunStep",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/RerunStepRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Attempt"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel": {
-      "post": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Cancel a step",
-        "description": "Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.",
-        "operationId": "CancelStep",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Attempt"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input": {
-      "post": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Answer a step's external input",
-        "description": "Gives the value of an external input of a step that waits for it (`name` may be omitted when the step has one). The value is validated against the input's model; once every external input is answered the step is scheduled.",
-        "operationId": "AnswerStepInput",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnswerInputRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Attempt"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline": {
-      "post": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Decline a step's external input",
-        "description": "Fails a step that waits for input without running it; the reason names who declined and the comment.",
-        "operationId": "DeclineStepInput",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/DeclineInputRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Attempt"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "List a step's files",
-        "description": "The files an attempt stored.",
-        "operationId": "ListStepFiles",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AttemptFilesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Download a step file",
-        "description": "One stored file; a directory `dir/` downloads as `dir.tar`.",
-        "operationId": "GetStepFile",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "path",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/attempts": {
-      "get": {
-        "tags": [
-          "Runs"
-        ],
-        "summary": "List a run's attempts",
-        "operationId": "ListRunAttempts",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Attempt"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Get a step's output",
-        "description": "The output JSON of `attempt` (default: the latest successful attempt).",
-        "operationId": "GetStepOutput",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AttemptOutputResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs": {
-      "get": {
-        "tags": [
-          "Steps"
-        ],
-        "summary": "Get a step's log",
-        "description": "The attempt's log; the live pod log while it runs.",
-        "operationId": "GetStepLogs",
-        "parameters": [
-          {
-            "name": "pipelineId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "number",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "step",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "attempt",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiProblem"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -3840,7 +3340,8 @@
         "type": "object",
         "properties": {
           "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "pipelineName": {
             "type": "string"
@@ -3874,7 +3375,7 @@
           }
         }
       },
-      "AnswerInputRequest": {
+      "AnswerInput": {
         "required": [
           "value"
         ],
@@ -3977,13 +3478,16 @@
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfAttempt"
+            "type": "string",
+            "format": "uuid"
           },
           "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "runId": {
-            "$ref": "#/components/schemas/IdOfRun"
+            "type": "string",
+            "format": "uuid"
           },
           "runNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -4048,61 +3552,6 @@
           }
         }
       },
-      "AttemptFileEntry": {
-        "required": [
-          "path",
-          "size",
-          "lastModified"
-        ],
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "size": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int64"
-          },
-          "lastModified": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
-      "AttemptFilesResponse": {
-        "required": [
-          "run",
-          "step",
-          "attempt",
-          "files"
-        ],
-        "type": "object",
-        "properties": {
-          "run": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "step": {
-            "type": "string"
-          },
-          "attempt": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "files": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AttemptFileEntry"
-            }
-          }
-        }
-      },
       "AttemptOutput": {
         "required": [
           "key",
@@ -4115,51 +3564,6 @@
           },
           "json": {
             "type": "string"
-          }
-        }
-      },
-      "AttemptOutputResponse": {
-        "required": [
-          "run",
-          "step",
-          "attempt",
-          "status",
-          "output",
-          "outputKey"
-        ],
-        "type": "object",
-        "properties": {
-          "run": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "step": {
-            "type": "string"
-          },
-          "attempt": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "status": {
-            "type": "string"
-          },
-          "output": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/JsonElement"
-              }
-            ]
-          },
-          "outputKey": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -4251,18 +3655,18 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "waiting": "#/components/schemas/AttemptStatusWaiting",
-            "scheduled": "#/components/schemas/AttemptStatusScheduled",
-            "in-progress": "#/components/schemas/AttemptStatusInProgress",
-            "succeeded": "#/components/schemas/AttemptStatusSucceeded",
-            "failed": "#/components/schemas/AttemptStatusFailed",
-            "skipped": "#/components/schemas/AttemptStatusSkipped",
-            "cancelled": "#/components/schemas/AttemptStatusCancelled",
-            "obsolete": "#/components/schemas/AttemptStatusObsolete"
+            "waiting": "#/components/schemas/AttemptStatusAttemptStatusWaiting",
+            "scheduled": "#/components/schemas/AttemptStatusAttemptStatusScheduled",
+            "in-progress": "#/components/schemas/AttemptStatusAttemptStatusInProgress",
+            "succeeded": "#/components/schemas/AttemptStatusAttemptStatusSucceeded",
+            "failed": "#/components/schemas/AttemptStatusAttemptStatusFailed",
+            "skipped": "#/components/schemas/AttemptStatusAttemptStatusSkipped",
+            "cancelled": "#/components/schemas/AttemptStatusAttemptStatusCancelled",
+            "obsolete": "#/components/schemas/AttemptStatusAttemptStatusObsolete"
           }
         }
       },
-      "AttemptStatusCancelled": {
+      "AttemptStatusAttemptStatusCancelled": {
         "required": [
           "startedAt",
           "cancelledAt"
@@ -4286,7 +3690,7 @@
           }
         }
       },
-      "AttemptStatusFailed": {
+      "AttemptStatusAttemptStatusFailed": {
         "required": [
           "startedAt",
           "finishedAt"
@@ -4313,7 +3717,7 @@
           }
         }
       },
-      "AttemptStatusInProgress": {
+      "AttemptStatusAttemptStatusInProgress": {
         "required": [
           "startedAt"
         ],
@@ -4329,7 +3733,7 @@
           }
         }
       },
-      "AttemptStatusObsolete": {
+      "AttemptStatusAttemptStatusObsolete": {
         "required": [
           "supersedingAttemptId"
         ],
@@ -4340,11 +3744,12 @@
         ],
         "properties": {
           "supersedingAttemptId": {
-            "$ref": "#/components/schemas/IdOfAttempt"
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
-      "AttemptStatusScheduled": {
+      "AttemptStatusAttemptStatusScheduled": {
         "allOf": [
           {
             "$ref": "#/components/schemas/AttemptStatus"
@@ -4353,13 +3758,15 @@
         "properties": {
           "submissionAttempts": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32",
-            "default": 0
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
-      "AttemptStatusSkipped": {
+      "AttemptStatusAttemptStatusSkipped": {
         "required": [
           "reason",
           "startedAt",
@@ -4387,7 +3794,7 @@
           }
         }
       },
-      "AttemptStatusSucceeded": {
+      "AttemptStatusAttemptStatusSucceeded": {
         "required": [
           "startedAt",
           "finishedAt"
@@ -4408,7 +3815,7 @@
           }
         }
       },
-      "AttemptStatusWaiting": {
+      "AttemptStatusAttemptStatusWaiting": {
         "required": [
           "since"
         ],
@@ -4655,7 +4062,7 @@
           }
         }
       },
-      "ContinueRunRequest": {
+      "ContinueRun": {
         "type": "object",
         "properties": {
           "input": {
@@ -5079,7 +4486,7 @@
           }
         }
       },
-      "DeclineInputRequest": {
+      "DeclineInput": {
         "type": "object",
         "properties": {
           "comment": {
@@ -5152,8 +4559,10 @@
             "format": "date-time"
           },
           "source": {
-            "type": "string",
-            "default": "person"
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -5202,22 +4611,6 @@
             ]
           }
         }
-      },
-      "IdOfAttempt": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "IdOfPipeline": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "IdOfPipelineVersion": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "IdOfRun": {
-        "type": "string",
-        "format": "uuid"
       },
       "JsonElement": { },
       "ManifestIssueView": {
@@ -5279,69 +4672,6 @@
             "items": {
               "$ref": "#/components/schemas/ManifestIssueView"
             }
-          }
-        }
-      },
-      "PageOfRunSummary": {
-        "required": [
-          "items",
-          "pageNumber",
-          "pageSize",
-          "totalCount"
-        ],
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RunSummary"
-            }
-          },
-          "pageNumber": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalPages": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "hasNextPage": {
-            "type": "boolean"
-          },
-          "next": {
-            "$ref": "#/components/schemas/Pagination"
-          }
-        }
-      },
-      "Pagination": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
-          },
-          "offset": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": "integer",
-            "format": "int32"
           }
         }
       },
@@ -6068,12 +5398,14 @@
           }
         }
       },
-      "RerunStepRequest": {
+      "RerunStep": {
         "type": "object",
         "properties": {
           "continue": {
-            "type": "boolean",
-            "default": false
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -6093,48 +5425,46 @@
       "Run": {
         "required": [
           "id",
-          "pipelineId",
           "number",
-          "versionId",
-          "versionNumber",
-          "input",
-          "versionStamp",
           "status",
-          "trigger",
-          "createdAt"
+          "triggerKind",
+          "versionNumber",
+          "versionStamp",
+          "createdAt",
+          "finishedAt",
+          "heldAt",
+          "supersededByNumber",
+          "rerunOfNumber",
+          "versionId",
+          "commitSha",
+          "input",
+          "continuable",
+          "stages"
         ],
         "type": "object",
         "properties": {
           "id": {
-            "$ref": "#/components/schemas/IdOfRun"
-          },
-          "pipelineId": {
-            "$ref": "#/components/schemas/IdOfPipeline"
+            "type": "string",
+            "format": "uuid"
           },
           "number": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": "integer",
             "format": "int32"
           },
-          "versionId": {
-            "$ref": "#/components/schemas/IdOfPipelineVersion"
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "triggerKind": {
+            "$ref": "#/components/schemas/RunTriggerKind"
           },
           "versionNumber": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": "integer",
             "format": "int32"
           },
-          "input": {
-            "type": "string"
-          },
           "versionStamp": {
             "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/RunStatus"
-          },
-          "trigger": {
-            "$ref": "#/components/schemas/RunTrigger"
           },
           "createdAt": {
             "type": "string",
@@ -6147,32 +5477,27 @@
             ],
             "format": "date-time"
           },
-          "supersededBy": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "rerunOf": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
           "heldAt": {
             "type": [
               "null",
               "string"
             ]
           },
-          "resumedAt": {
+          "supersededByNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
-              "string"
+              "integer"
             ],
-            "format": "date-time"
+            "format": "int32"
+          },
+          "rerunOfNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           },
           "configSnapshot": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -6182,30 +5507,9 @@
             ],
             "format": "int32"
           },
-          "config": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "RunDetail": {
-        "required": [
-          "run",
-          "versionId",
-          "commitSha",
-          "input",
-          "continuable",
-          "stages"
-        ],
-        "type": "object",
-        "properties": {
-          "run": {
-            "$ref": "#/components/schemas/RunSummary"
-          },
           "versionId": {
-            "$ref": "#/components/schemas/IdOfPipelineVersion"
+            "type": "string",
+            "format": "uuid"
           },
           "commitSha": {
             "type": [
@@ -6214,7 +5518,7 @@
             ]
           },
           "input": {
-            "$ref": "#/components/schemas/JsonElement"
+            "type": "object"
           },
           "continuable": {
             "type": "boolean"
@@ -6222,7 +5526,7 @@
           "stages": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RunStageView"
+              "$ref": "#/components/schemas/RunStage"
             }
           },
           "config": {
@@ -6233,66 +5537,39 @@
           }
         }
       },
-      "RunOrigin": {
+      "RunList": {
         "required": [
-          "noticedAt",
-          "via"
+          "items",
+          "offset",
+          "limit",
+          "total"
         ],
         "type": "object",
         "properties": {
-          "noticedAt": {
-            "type": "string",
-            "format": "date-time"
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
+            }
           },
-          "via": {
-            "type": "string"
+          "offset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
           },
-          "pushedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
           },
-          "configReadyAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "mapStartedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "mapFinishedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
-      "RunStageCondition": {
-        "required": [
-          "field",
-          "values"
-        ],
-        "type": "object",
-        "properties": {
-          "field": {
-            "type": "string"
-          },
-          "values": {
-            "type": "array"
-          }
-        }
-      },
-      "RunStageView": {
+      "RunStage": {
         "required": [
           "index",
           "when",
@@ -6314,10 +5591,54 @@
           "steps": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RunStepView"
+              "$ref": "#/components/schemas/RunStep"
             }
           }
         }
+      },
+      "RunStageCondition": {
+        "required": [
+          "field",
+          "values"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array"
+          }
+        }
+      },
+      "RunStart": {
+        "required": [
+          "outcome",
+          "run"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/RunStartOutcome"
+          },
+          "run": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Run"
+              }
+            ]
+          }
+        }
+      },
+      "RunStartOutcome": {
+        "enum": [
+          "started",
+          "deduplicated",
+          "queued"
+        ]
       },
       "RunStatus": {
         "enum": [
@@ -6328,7 +5649,7 @@
           "Superseded"
         ]
       },
-      "RunStepView": {
+      "RunStep": {
         "required": [
           "name",
           "stepVersion",
@@ -6504,33 +5825,6 @@
           }
         }
       },
-      "RunTrigger": {
-        "required": [
-          "kind"
-        ],
-        "type": "object",
-        "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/RunTriggerKind"
-          },
-          "dedupKey": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "origin": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RunOrigin"
-              }
-            ]
-          }
-        }
-      },
       "RunTriggerKind": {
         "enum": [
           "Push",
@@ -6580,6 +5874,61 @@
         "properties": {
           "value": {
             "type": "string"
+          }
+        }
+      },
+      "StepFile": {
+        "required": [
+          "path",
+          "size",
+          "lastModified"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "size": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastModified": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "StepFiles": {
+        "required": [
+          "run",
+          "step",
+          "attempt",
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "run": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "step": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepFile"
+            }
           }
         }
       },
@@ -6676,6 +6025,51 @@
           }
         }
       },
+      "StepOutput": {
+        "required": [
+          "run",
+          "step",
+          "attempt",
+          "status",
+          "output",
+          "outputKey"
+        ],
+        "type": "object",
+        "properties": {
+          "run": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "step": {
+            "type": "string"
+          },
+          "attempt": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "output": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonElement"
+              }
+            ]
+          },
+          "outputKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SwitchVersion": {
         "required": [
           "version"
@@ -6691,31 +6085,6 @@
             "type": [
               "null",
               "boolean"
-            ]
-          }
-        }
-      },
-      "TriggerRunRequest": {
-        "type": "object"
-      },
-      "TriggerRunResponse": {
-        "required": [
-          "outcome",
-          "run"
-        ],
-        "type": "object",
-        "properties": {
-          "outcome": {
-            "type": "string"
-          },
-          "run": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Run"
-              }
             ]
           }
         }
@@ -6738,6 +6107,9 @@
   },
   "tags": [
     {
+      "name": "Attempts"
+    },
+    {
       "name": "Bindings"
     },
     {
@@ -6750,22 +6122,19 @@
       "name": "Instance"
     },
     {
-      "name": "Secrets"
+      "name": "Steps"
     },
     {
-      "name": "Steps"
+      "name": "Runs"
+    },
+    {
+      "name": "Secrets"
     },
     {
       "name": "Versions"
     },
     {
-      "name": "Attempts"
-    },
-    {
       "name": "Triggers"
-    },
-    {
-      "name": "Runs"
     },
     {
       "name": "Events"

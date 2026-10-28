@@ -42,9 +42,10 @@ public class WaitCommandTests
     [Test]
     public async Task RunWaitingForInput_EndsTheWaitWithItsOwnOutcome()
     {
-        static RunDetail Detail(string runStatus, string stepStatus) => new()
+        static Run Detail(string runStatus, string stepStatus) => new()
         {
-            Run = new RunSummary { Number = 7, Status = runStatus },
+            Number = 7,
+            Status = runStatus,
             Stages = [new RunStageView { Steps = [new RunStepView { Name = "build", Status = "succeeded" }, new RunStepView { Name = "approve", Status = stepStatus }] }],
         };
 

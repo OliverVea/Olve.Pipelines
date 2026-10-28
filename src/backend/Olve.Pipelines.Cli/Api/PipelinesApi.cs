@@ -124,12 +124,12 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
 
     private static string AttemptQuery(int? attempt) => attempt is { } n ? $"?attempt={n}" : "";
 
-    public Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct) =>
+    public Task<Result<RunStart>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, Runs(pipelineId), ApiTransport.RawJson(inputJson),
-            CliJsonContext.Default.TriggerRunResponse, ct);
+            CliJsonContext.Default.RunStart, ct);
 
-    public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct) =>
-        transport.GetAsync($"{Runs(pipelineId)}?Page={page}&PageSize={pageSize}", CliJsonContext.Default.PageOfRunSummary, ct);
+    public Task<Result<RunList>> ListRuns(string pipelineId, int offset, int limit, CancellationToken ct) =>
+        transport.GetAsync($"{Runs(pipelineId)}?offset={offset}&limit={limit}", CliJsonContext.Default.RunList, ct);
 
     public Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, int? sinceVersion, CancellationToken ct)
     {
@@ -144,14 +144,14 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
             CliJsonContext.Default.CriticalPathReport, ct);
     }
 
-    public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct) =>
-        transport.GetAsync($"{Runs(pipelineId)}/{run}", CliJsonContext.Default.RunDetail, ct);
+    public Task<Result<Run>> GetRun(string pipelineId, int run, CancellationToken ct) =>
+        transport.GetAsync($"{Runs(pipelineId)}/{run}", CliJsonContext.Default.Run, ct);
 
     public Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct) =>
         transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/cancel", body: null, CliJsonContext.Default.Run, ct);
 
-    public Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct) =>
-        transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/rerun", body: null, CliJsonContext.Default.TriggerRunResponse, ct);
+    public Task<Result<RunStart>> RerunRun(string pipelineId, int run, CancellationToken ct) =>
+        transport.SendAsync(HttpMethod.Post, $"{Runs(pipelineId)}/{run}/rerun", body: null, CliJsonContext.Default.RunStart, ct);
 
     // Continue's body is {"input": {changed fields}} (or {} for none); the changes are spliced in as raw JSON.
     public Task<Result<Run>> ContinueRun(string pipelineId, int run, string? inputChangesJson, CancellationToken ct) =>

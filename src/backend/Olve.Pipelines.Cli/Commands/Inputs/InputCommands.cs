@@ -88,7 +88,7 @@ public sealed class InputAnswerCommand : ICliCommand
     private static async Task<JsonObject?> ModelSchemaAsync(CommandContext ctx, ResolvedAddress addr, string? name, CancellationToken ct)
     {
         if ((await ctx.Api.GetRun(addr.Id, addr.Run, ct)).TryPickProblems(out _, out var run)
-            || (await ctx.Api.GetPipelineVersion(addr.Id, run.Run.VersionNumber, ct)).TryPickProblems(out _, out var version))
+            || (await ctx.Api.GetPipelineVersion(addr.Id, run.VersionNumber, ct)).TryPickProblems(out _, out var version))
             return null;
         try
         {

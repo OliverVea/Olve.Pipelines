@@ -46,11 +46,10 @@ namespace Olve.Pipelines.Cli.Api;
 [JsonSerializable(typeof(string))]
 // Runs (v2)
 [JsonSerializable(typeof(Attempt[]))]
-[JsonSerializable(typeof(PageOfRunSummary))]
+[JsonSerializable(typeof(RunList))]
 [JsonSerializable(typeof(CriticalPathReport))]
-[JsonSerializable(typeof(RunDetail))]
 [JsonSerializable(typeof(Run))]
-[JsonSerializable(typeof(TriggerRunResponse))]
+[JsonSerializable(typeof(RunStart))]
 [JsonSerializable(typeof(AttemptOutputResponse))]
 [JsonSerializable(typeof(AttemptFilesResponse))]
 [JsonSerializable(typeof(StepHistoryItem[]))]

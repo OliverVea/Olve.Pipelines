@@ -11,18 +11,16 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CancelRequestBuilder extends BaseRequestBuilder<CancelRequestBuilder> {
     /**
-     * Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).
+     * Cancel a run
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<Run>}
      * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
      * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      post(requestConfiguration?: RequestConfiguration<object> | undefined) : Promise<Run | undefined>;
     /**
-     * Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).
+     * Cancel a run
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
@@ -43,8 +41,6 @@ export const CancelRequestBuilderRequestsMetadata: RequestsMetadata = {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",
         responseBodyFactory:  createRunFromDiscriminatorValue,

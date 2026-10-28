@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client, errorMessages } from '../api.js';
-import type { RunSummary } from '@olve/olve-pipelines-client/src/models/index.js';
+import { api, errorMessages } from '../api.js';
+import { runsList, type RunSummary } from '@olve/api';
 import {
   sharedStyles,
   toneOf,
@@ -54,11 +54,14 @@ export class PipelineRunsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
-      const runs = await p.runs.get({ queryParameters: { pageSize: 50 } });
+      const { data: runs } = await runsList({
+        client: api,
+        path: { pipelineId: this.pipelineId },
+        query: { limit: 50 },
+      });
       this._runs = runs?.items ?? [];
-      this._total = runs?.totalCount ?? this._runs.length;
+      this._total = runs?.total ?? this._runs.length;
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');

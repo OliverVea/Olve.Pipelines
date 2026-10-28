@@ -1,13 +1,20 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, apiPost, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api.js';
 import {
   pipelinesGet,
   pipelinesHealth,
   type Pipeline,
   type PipelineHealth,
 } from '@olve/api';
-import { stepsHistory, type StepHistoryItem } from '@olve/api';
+import {
+  runStepsCancel,
+  runStepsRerun,
+  stepsBlock,
+  stepsHistory,
+  stepsUnblock,
+  type StepHistoryItem,
+} from '@olve/api';
 import {
   sharedStyles,
   toneOf,
@@ -429,9 +436,10 @@ export class PipelineDetailView extends LitElement {
       return;
     this._stepErrors = [];
     try {
-      await apiPost(
-        `/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/cancel`,
-      );
+      await runStepsCancel({
+        client: api,
+        path: { pipelineId: this.pipelineId, number: run, step },
+      });
       await this.reload();
     } catch (err) {
       this._stepErrors = errorMessages(err);
@@ -444,10 +452,11 @@ export class PipelineDetailView extends LitElement {
     this._stepErrors = [];
     this._retrying = new Set([...this._retrying, step]);
     try {
-      await apiPost(
-        `/api/pipelines/${this.pipelineId}/runs/${run}/steps/${encodeURIComponent(step)}/rerun`,
-        { continue: true },
-      );
+      await runStepsRerun({
+        client: api,
+        path: { pipelineId: this.pipelineId, number: run, step },
+        body: { continue: true },
+      });
       await this.reload();
     } catch (err) {
       this._stepErrors = errorMessages(err);
@@ -459,10 +468,11 @@ export class PipelineDetailView extends LitElement {
   private async _setBlocked(step: string, block: boolean) {
     this._stepErrors = [];
     try {
-      const list = await apiPost<string[]>(
-        `/api/pipelines/${this.pipelineId}/steps/${encodeURIComponent(step)}/${block ? 'block' : 'unblock'}`,
-      );
-      this._blocked = new Set(Array.isArray(list) ? list : []);
+      const { data: list } = await (block ? stepsBlock : stepsUnblock)({
+        client: api,
+        path: { pipelineId: this.pipelineId, step },
+      });
+      this._blocked = new Set(list ?? []);
       this.reload();
     } catch (err) {
       this._stepErrors = errorMessages(err);

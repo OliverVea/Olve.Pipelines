@@ -1,18 +1,20 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import type {
-  Attempt,
-  RunDetail,
-  AttemptFileEntry,
-} from '@olve/olve-pipelines-client/src/models/index.js';
 import {
-  client,
-  apiPost,
-  downloadFile,
-  encodePath,
-  errorMessages,
-  untypedToJson,
-} from '../api.js';
+  pipelinesGet,
+  runsAttempts,
+  runsCancel,
+  runsContinue,
+  runsGet,
+  runsRerun,
+  runStepsCancel,
+  runStepsFiles,
+  runStepsRerun,
+  type Attempt,
+  type Run,
+  type StepFile,
+} from '@olve/api';
+import { api, downloadFile, encodePath, errorMessages, untypedToJson } from '../api.js';
 import { navigate } from '../router.js';
 import {
   sharedStyles,
@@ -60,14 +62,14 @@ import { LiveController } from '../v2/events.js';
 
 type AttemptStatusFields = {
   type?: string | null;
-  startedAt?: Date | null;
-  finishedAt?: Date | null;
-  cancelledAt?: Date | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  cancelledAt?: string | null;
   reason?: string | null;
 };
 
 function attemptStatus(a: Attempt): AttemptStatusFields {
-  return (a.status ?? {}) as AttemptStatusFields;
+  return a.status as AttemptStatusFields;
 }
 
 function parseJson(s: string | null | undefined): unknown {
@@ -179,7 +181,7 @@ export class RunView extends LitElement {
   @property() declare pipelineId: string;
   @property() declare run: string;
 
-  @state() declare private _detail: RunDetail | null;
+  @state() declare private _detail: Run | null;
   @state() declare private _attempts: Attempt[];
   @state() declare private _version: LoadedVersion | null;
   /** The run's pinned version as its pinned config snapshot ran it. */
@@ -190,7 +192,7 @@ export class RunView extends LitElement {
   @state() declare private _busy: boolean;
   @state() declare private _step: string;
   @state() declare private _attempt: number | null;
-  @state() declare private _files: AttemptFileEntry[] | null;
+  @state() declare private _files: StepFile[] | null;
   @state() declare private _filesError: string | null;
   @state() declare private _continueErrors: string[];
   @state() declare private _detailsOpen: boolean;
@@ -247,18 +249,14 @@ export class RunView extends LitElement {
       this._step = q.get('step') ?? '';
       this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
       this._load();
-      client.api.pipelines
-        .byPipelineId(this.pipelineId)
-        .get()
-        .then((p) => (this._pipelineName = p?.name ?? ''))
+      pipelinesGet({ client: api, path: { pipelineId: this.pipelineId } })
+        .then((r) => (this._pipelineName = r.data?.name ?? ''))
         .catch(() => {});
     }
   }
 
-  private get _runApi() {
-    return client.api.pipelines
-      .byPipelineId(this.pipelineId)
-      .runs.byNumber(Number(this.run));
+  private get _path() {
+    return { pipelineId: this.pipelineId, number: Number(this.run) };
   }
 
   private get _base() {
@@ -272,18 +270,18 @@ export class RunView extends LitElement {
     this._loading = true;
     try {
       const [detail, attempts] = await Promise.all([
-        this._runApi.get(),
-        this._runApi.attempts.get(),
+        runsGet({ client: api, path: this._path }).then((r) => r.data),
+        runsAttempts({ client: api, path: this._path }).then((r) => r.data),
       ]);
       if (!current()) return;
       this._detail = detail ?? null;
       this._attempts = attempts ?? [];
       this._error = null;
-      const vn = detail?.run?.versionNumber;
+      const vn = detail?.versionNumber;
       if (vn !== undefined && vn !== null && this._version?.number !== vn) {
         const version = await loadVersion(this.pipelineId, vn);
         const effective = version
-          ? await loadEffective(this.pipelineId, version, detail?.run?.configSnapshot)
+          ? await loadEffective(this.pipelineId, version, detail?.configSnapshot)
           : null;
         if (!current()) return;
         this._version = version;
@@ -326,10 +324,12 @@ export class RunView extends LitElement {
     this._filesError = null;
     if (!a || st !== 'succeeded') return;
     try {
-      const res = await this._runApi.steps
-        .byStep(a.stepName ?? '')
-        .files.get({ queryParameters: { attempt: a.number ?? undefined } });
-      if (this._filesKey === key) this._files = res?.files ?? [];
+      const res = await runStepsFiles({
+        client: api,
+        path: { ...this._path, step: a.stepName },
+        query: { attempt: a.number },
+      });
+      if (this._filesKey === key) this._files = res.data?.files ?? [];
     } catch (e) {
       if (this._filesKey === key) this._filesError = errorMessages(e).join(' ');
     }
@@ -353,7 +353,7 @@ export class RunView extends LitElement {
     if (this._error && !this._detail) return html`<p class="error">${this._error}</p>`;
     const d = this._detail;
     if (!d) return html`<p class="muted">Loading run…</p>`;
-    const r = d.run!;
+    const r = d;
     const input = untypedToJson(d.input) as Record<string, unknown>;
     const m = this._runManifest();
     const states = new Map<string, StepState>();
@@ -773,7 +773,7 @@ export class RunView extends LitElement {
   private _cancel = () =>
     this._act(async () => {
       if (!confirm(`Cancel run #${this.run}? Running steps are stopped.`)) return;
-      await apiPost(`${this._base}/cancel`);
+      await runsCancel({ client: api, path: this._path });
       await this._load();
     });
 
@@ -786,16 +786,14 @@ export class RunView extends LitElement {
         )
       )
         return;
-      await apiPost(`${this._base}/steps/${encodeURIComponent(step)}/cancel`);
+      await runStepsCancel({ client: api, path: { ...this._path, step } });
       await this._load();
       this._selectStep(step, null);
     });
 
   private _rerunRun = () =>
     this._act(async () => {
-      const res = await apiPost<{ outcome: string; run: { number: number } | null }>(
-        `${this._base}/rerun`,
-      );
+      const { data: res } = await runsRerun({ client: api, path: this._path });
       if (res?.run?.number) navigate(runPath(this.pipelineId, res.run.number));
       else this._actionErrors = [`Rerun: ${res?.outcome ?? 'no run started'}.`];
     });
@@ -807,7 +805,7 @@ export class RunView extends LitElement {
         this._continueErrors = ['Fix the highlighted fields.'];
         return;
       }
-      await apiPost(`${this._base}/continue`, { input: r.value });
+      await runsContinue({ client: api, path: this._path, body: { input: r.value } });
       this._continueDialog.close();
       await this._load();
     }, 'continue');
@@ -815,12 +813,11 @@ export class RunView extends LitElement {
   private _rerunStep = (cont: boolean) =>
     this._act(async () => {
       const step = this._step;
-      const a = await apiPost<{ number?: number }>(
-        `${this._base}/steps/${encodeURIComponent(step)}/rerun`,
-        {
-          continue: cont,
-        },
-      );
+      const { data: a } = await runStepsRerun({
+        client: api,
+        path: { ...this._path, step },
+        body: { continue: cont },
+      });
       await this._load();
       this._selectStep(step, a?.number ?? null);
     });

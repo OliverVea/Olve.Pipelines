@@ -8,7 +8,7 @@ namespace Olve.Pipelines.Cli.Api.Contracts;
 // renders instead of failing deserialization.
 
 /// <summary>A run as listed (<c>ListRuns</c>); links to other runs are by number.</summary>
-public sealed class RunSummary
+public class RunSummary
 {
     public Guid Id { get; set; }
     public int Number { get; set; }
@@ -24,42 +24,24 @@ public sealed class RunSummary
     public int? ConfigSnapshot { get; set; }
 }
 
-public sealed class PageOfRunSummary
+public sealed class RunList
 {
     public RunSummary[] Items { get; set; } = [];
-    public int PageNumber { get; set; }
-    public int PageSize { get; set; }
-    public int TotalCount { get; set; }
-    public int TotalPages { get; set; }
-    public bool HasNextPage { get; set; }
+    public int Offset { get; set; }
+    public int Limit { get; set; }
+    public int Total { get; set; }
 }
 
-/// <summary>A run entity (returned by cancel/continue and inside <see cref="TriggerRunResponse"/>). <see cref="Input"/> is the stored input JSON text.</summary>
-public sealed class Run
-{
-    public Guid Id { get; set; }
-    public Guid PipelineId { get; set; }
-    public int Number { get; set; }
-    public int VersionNumber { get; set; }
-    public string Input { get; set; } = "";
-    public string VersionStamp { get; set; } = "";
-    public string Status { get; set; } = "";
-    public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset? FinishedAt { get; set; }
-    public string? HeldAt { get; set; }
-}
-
-/// <summary><c>started</c> (with the run), <c>deduplicated</c> (the existing run) or <c>queued</c> (switching versions; no run yet).</summary>
-public sealed class TriggerRunResponse
+/// <summary>What starting a run did: <c>started</c>, <c>deduplicated</c> (with the run) or <c>queued</c>.</summary>
+public sealed class RunStart
 {
     public string Outcome { get; set; } = "";
     public Run? Run { get; set; }
 }
 
-/// <summary>One run in full (<c>GetRun</c>): input, pinned version, and the pinned manifest's stage layout.</summary>
-public sealed class RunDetail
+/// <summary>A run in full: the summary's fields plus its version, commit, input, continuability, stages and config.</summary>
+public sealed class Run : RunSummary
 {
-    public RunSummary Run { get; set; } = new();
     public Guid VersionId { get; set; }
     public string? CommitSha { get; set; }
     public JsonElement Input { get; set; }

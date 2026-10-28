@@ -1,19 +1,19 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, client } from '../api.js';
+import { api } from '../api.js';
 import {
+  attemptsList,
   bindingsStatus,
   pipelinesGet,
+  runsCriticalPath,
   pipelinesHealth,
   secretsList,
   type PipelineBindingStatus,
   type PipelineHealth,
   type PipelineSecret,
+  type ActiveAttempt,
+  type CriticalPathReport,
 } from '@olve/api';
-import type {
-  ActiveAttempt,
-  CriticalPathReport,
-} from '@olve/olve-pipelines-client/src/models/index.js';
 import {
   sharedStyles,
   headerStyles,
@@ -129,7 +129,6 @@ export class PipelineHeader extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     const path = { pipelineId: this.pipelineId };
     const overview = this.tab === 'overview';
     const [pipeline, binding, health, secrets, critical, waiting] = await Promise.all([
@@ -147,10 +146,14 @@ export class PipelineHeader extends LitElement {
             .then((r) => r.data)
             .catch(() => null)
         : null, // needs auth
-      overview ? p.runs.criticalPath.get().catch(() => null) : null,
       overview
-        ? client.api.attempts
-            .get({ queryParameters: { status: 'waiting' } })
+        ? runsCriticalPath({ client: api, path })
+            .then((r) => r.data)
+            .catch(() => null)
+        : null,
+      overview
+        ? attemptsList({ client: api, query: { status: 'waiting' } })
+            .then((r) => r.data)
             .catch(() => null)
         : null,
     ]);

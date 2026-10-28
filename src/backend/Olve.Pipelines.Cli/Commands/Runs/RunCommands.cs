@@ -44,11 +44,11 @@ public sealed class TriggerCommand : ICliCommand
         if ((await ctx.Api.TriggerRun(pipeline.Id.ToString(), input.ToJsonString(), ct)).TryPickProblems(out var triggerProblems, out var response))
             return triggerProblems;
 
-        ctx.Output.Emit(response, CliJsonContext.Default.TriggerRunResponse, () => PrintOutcome(ctx.Output, pipeline.Label, response));
+        ctx.Output.Emit(response, CliJsonContext.Default.RunStart, () => PrintOutcome(ctx.Output, pipeline.Label, response));
         return Result.Success();
     }
 
-    public static void PrintOutcome(IOutputWriter output, string label, TriggerRunResponse response)
+    public static void PrintOutcome(IOutputWriter output, string label, RunStart response)
     {
         switch (response.Outcome, response.Run)
         {
@@ -95,17 +95,17 @@ public sealed class RunListCommand : ICliCommand
 
         if ((await ResolvePipelineAsync(ctx, cli.Operand(0)!, ct)).TryPickProblems(out var problems, out var pipeline))
             return problems;
-        if ((await ctx.Api.ListRuns(pipeline.Id.ToString(), page, pageSize, ct)).TryPickProblems(out var listProblems, out var runs))
+        if ((await ctx.Api.ListRuns(pipeline.Id.ToString(), page * pageSize, pageSize, ct)).TryPickProblems(out var listProblems, out var runs))
             return listProblems;
 
-        ctx.Output.Emit(runs, CliJsonContext.Default.PageOfRunSummary, () =>
+        ctx.Output.Emit(runs, CliJsonContext.Default.RunList, () =>
         {
             var rows = runs.Items.Select(r => (IReadOnlyList<string>)
                 [$"#{r.Number}", r.Status, r.TriggerKind, $"v{r.VersionNumber}", Time(r.CreatedAt), Duration(r.CreatedAt, r.FinishedAt), Note(r)]).ToList();
             foreach (var line in Table.Render(["RUN", "STATUS", "TRIGGER", "VERSION", "CREATED", "TOOK", "NOTE"], rows))
                 ctx.Output.Line(line);
             ctx.Output.Line();
-            ctx.Output.Line($"page {runs.PageNumber} · {runs.Items.Length} of {runs.TotalCount} run(s)");
+            ctx.Output.Line($"page {page} · {runs.Items.Length} of {runs.Total} run(s)");
         });
         return Result.Success();
     }
@@ -148,13 +148,13 @@ public sealed class RunGetCommand : ICliCommand
         if ((await ctx.Api.GetRun(addr.Id, addr.Run, ct)).TryPickProblems(out var getProblems, out var detail))
             return getProblems;
 
-        ctx.Output.Emit(detail, CliJsonContext.Default.RunDetail, () => Print(ctx.Output, addr.Label, detail));
+        ctx.Output.Emit(detail, CliJsonContext.Default.Run, () => Print(ctx.Output, addr.Label, detail));
         return Result.Success();
     }
 
-    public static void Print(IOutputWriter o, string label, RunDetail d)
+    public static void Print(IOutputWriter o, string label, Run d)
     {
-        var r = d.Run;
+        var r = d;
         o.Line($"{RunAddress.Format(label, r.Number)}  {r.Status}");
         o.Line($"version:   v{r.VersionNumber}{(r.ConfigSnapshot is { } c ? $", config #{c}" : "")} · {r.VersionStamp} · commit {Short(d.CommitSha)}");
         o.Line($"trigger:   {r.TriggerKind} · created {Time(r.CreatedAt)} · finished {Time(r.FinishedAt)} · took {Duration(r.CreatedAt, r.FinishedAt)}");
@@ -236,7 +236,7 @@ public sealed class RunRerunCommand : ICliCommand
         if ((await ctx.Api.RerunRun(addr.Id, addr.Run, ct)).TryPickProblems(out var rerunProblems, out var response))
             return rerunProblems;
 
-        ctx.Output.Emit(response, CliJsonContext.Default.TriggerRunResponse, () => TriggerCommand.PrintOutcome(ctx.Output, addr.Label, response));
+        ctx.Output.Emit(response, CliJsonContext.Default.RunStart, () => TriggerCommand.PrintOutcome(ctx.Output, addr.Label, response));
         return Result.Success();
     }
 }
@@ -272,7 +272,7 @@ public sealed class RunContinueCommand : ICliCommand
             // Type --field values by the run's *pinned* input model.
             System.Text.Json.Nodes.JsonObject? schema = null;
             if (fields.Count > 0 && !(await ctx.Api.GetRun(addr.Id, addr.Run, ct)).TryPickProblems(out _, out var detail))
-                schema = await InputSchemaAsync(ctx, addr.Id, detail.Run.VersionNumber, ct);
+                schema = await InputSchemaAsync(ctx, addr.Id, detail.VersionNumber, ct);
             if (BuildInput(cli.Option("input"), fields, schema).TryPickProblems(out var inputProblems, out var input))
                 return inputProblems;
             changes = input.ToJsonString();
@@ -282,7 +282,7 @@ public sealed class RunContinueCommand : ICliCommand
             return continueProblems;
 
         ctx.Output.Emit(run, CliJsonContext.Default.Run, () =>
-            ctx.Output.Line($"{RunAddress.Format(addr.Label, run.Number)}  {run.Status} (input {run.Input})"));
+            ctx.Output.Line($"{RunAddress.Format(addr.Label, run.Number)}  {run.Status} (input {Json(run.Input)})"));
         return Result.Success();
     }
 }

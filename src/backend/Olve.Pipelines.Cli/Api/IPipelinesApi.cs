@@ -52,12 +52,12 @@ public interface IPipelinesApi
     Task<Result<EffectivePipelineResponse>> GetEffectivePipeline(string pipelineId, int version, CancellationToken ct);
 
     // Runs (v2, spec §5) — pipelineId is always the resolved id; runs are addressed by number.
-    Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct);
-    Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct);
+    Task<Result<RunStart>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct);
+    Task<Result<RunList>> ListRuns(string pipelineId, int offset, int limit, CancellationToken ct);
     Task<Result<CriticalPathReport>> GetCriticalPath(string pipelineId, int? from, int? to, bool includeUnsuccessful, int? sinceVersion, CancellationToken ct);
-    Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct);
+    Task<Result<Run>> GetRun(string pipelineId, int run, CancellationToken ct);
     Task<Result<Run>> CancelRun(string pipelineId, int run, CancellationToken ct);
-    Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct);
+    Task<Result<RunStart>> RerunRun(string pipelineId, int run, CancellationToken ct);
     Task<Result<Run>> ContinueRun(string pipelineId, int run, string? inputChangesJson, CancellationToken ct);
 
     // Steps of a run (attempt null = latest successful for output/files, latest for logs)

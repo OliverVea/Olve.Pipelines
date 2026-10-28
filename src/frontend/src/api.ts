@@ -1,10 +1,3 @@
-import {
-  AllowedHostsValidator,
-  BaseBearerTokenAuthenticationProvider,
-  type AccessTokenProvider,
-} from '@microsoft/kiota-abstractions';
-import { FetchRequestAdapter } from '@microsoft/kiota-http-fetchlibrary';
-import { createApiClient } from '@olve/olve-pipelines-client/src/apiClient.js';
 import { createClient, createConfig } from '@olve/api/client';
 import { getAccessToken, login, devAuthBypass } from './auth.js';
 
@@ -35,33 +28,6 @@ api.interceptors.response.use(async (response) => {
     problems.push('Not allowed (HTTP 403).');
   throw new ApiError(response.status, problems);
 });
-
-const allowAllHosts = new AllowedHostsValidator();
-
-const tokenProvider: AccessTokenProvider = {
-  getAuthorizationToken: async () => {
-    const token = await getAccessToken();
-    if (!token) {
-      if (!devAuthBypass) await login();
-      return '';
-    }
-    return token;
-  },
-  getAllowedHostsValidator: () => allowAllHosts,
-};
-
-const authProvider = new BaseBearerTokenAuthenticationProvider(tokenProvider);
-const adapter = new FetchRequestAdapter(authProvider);
-adapter.baseUrl = '';
-
-/**
- * Kiota client — used for the typed reads. Mutations and the untyped/binary
- * endpoints go through {@link apiFetch} instead: Kiota maps a 400 to a single
- * `ResultProblem` while the API returns an array (all messages are lost), sends
- * a `JsonElement` body via `setContentFromScalar` (fails for objects), and would
- * escape `/` in the `{*path}` catch-all of file downloads.
- */
-export const client = createApiClient(adapter);
 
 /** A failed API call, carrying every server-supplied problem message. */
 export class ApiError extends Error {

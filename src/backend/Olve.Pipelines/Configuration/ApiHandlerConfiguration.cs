@@ -3,6 +3,7 @@ using Olve.Pipelines.Health;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Versions;
 
@@ -44,6 +45,23 @@ public static class ApiHandlerConfiguration
         services.AddTransient<IStepsBlockHandler, BlockStepHandler>();
         services.AddTransient<IStepsUnblockHandler, UnblockStepHandler>();
         services.AddTransient<IStepsHistoryHandler, GetStepHistoryHandler>();
+        services.AddTransient<IRunsListHandler, ListRunsHandler>();
+        services.AddTransient<IRunsStartHandler, StartRunHandler>();
+        services.AddTransient<IRunsCriticalPathHandler, GetCriticalPathHandler>();
+        services.AddTransient<IRunsGetHandler, GetRunHandler>();
+        services.AddTransient<IRunsCancelHandler, CancelRunHandler>();
+        services.AddTransient<IRunsRerunHandler, RerunRunHandler>();
+        services.AddTransient<IRunsContinueHandler, ContinueRunHandler>();
+        services.AddTransient<IRunsAttemptsHandler, ListRunAttemptsHandler>();
+        services.AddTransient<IRunStepsAttemptsHandler, ListStepAttemptsHandler>();
+        services.AddTransient<IRunStepsRerunHandler, RerunStepHandler>();
+        services.AddTransient<IRunStepsCancelHandler, CancelStepHandler>();
+        services.AddTransient<IRunStepsAnswerHandler, AnswerStepInputHandler>();
+        services.AddTransient<IRunStepsDeclineHandler, DeclineStepInputHandler>();
+        services.AddTransient<IRunStepsFilesHandler, ListStepFilesHandler>();
+        services.AddTransient<IRunStepsOutputHandler, GetStepOutputHandler>();
+        services.AddTransient<IRunStepsLogsHandler, GetStepLogsHandler>();
+        services.AddTransient<IAttemptsListHandler, ListActiveAttemptsHandler>();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 
@@ -88,5 +106,22 @@ public static class ApiHandlerConfiguration
         api.StepsBlock.WithTags("Steps").WithSummary("Block a step");
         api.StepsUnblock.WithTags("Steps").WithSummary("Unblock a step");
         api.StepsHistory.RequireRead().WithTags("Steps").WithSummary("Get a step's history");
+        api.RunsList.RequireRead().WithTags("Runs").WithSummary("List runs");
+        api.RunsStart.WithTags("Runs").WithSummary("Start a run");
+        api.RunsCriticalPath.RequireRead().WithTags("Runs").WithSummary("Get the critical path of a range of runs");
+        api.RunsGet.RequireRead().WithTags("Runs").WithSummary("Get a run");
+        api.RunsCancel.WithTags("Runs").WithSummary("Cancel a run");
+        api.RunsRerun.WithTags("Runs").WithSummary("Rerun a run");
+        api.RunsContinue.WithTags("Runs").WithSummary("Continue a run");
+        api.RunsAttempts.RequireRead().WithTags("Runs").WithSummary("List a run's attempts");
+        api.RunStepsAttempts.RequireRead().WithTags("Steps").WithSummary("List a step's attempts in a run");
+        api.RunStepsRerun.WithTags("Steps").WithSummary("Rerun a step");
+        api.RunStepsCancel.WithTags("Steps").WithSummary("Cancel a step");
+        api.RunStepsAnswer.WithTags("Steps").WithSummary("Answer a step's external input");
+        api.RunStepsDecline.WithTags("Steps").WithSummary("Decline a step's external input");
+        api.RunStepsFiles.WithTags("Steps").WithSummary("List a step's files");
+        api.RunStepsOutput.RequireRead().WithTags("Steps").WithSummary("Get a step's output");
+        api.RunStepsLogs.RequireRead().WithTags("Steps").WithSummary("Get a step's log");
+        api.AttemptsList.RequireRead().WithTags("Attempts").WithSummary("List running attempts");
     }
 }

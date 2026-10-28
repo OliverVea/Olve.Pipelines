@@ -4,6 +4,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
+using PipelinesJsonContext = Olve.Pipelines.Api.PipelinesJsonContext;
 
 namespace Olve.Pipelines.UnitTests.Cli;
 
@@ -13,10 +14,6 @@ namespace Olve.Pipelines.UnitTests.Cli;
 /// </summary>
 public class AttemptContractTests
 {
-    private static readonly JsonSerializerOptions ServerOptions = new(JsonSerializerDefaults.Web)
-    {
-        TypeInfoResolver = AppJsonContext.Default,
-    };
 
     public static IEnumerable<Func<AttemptStatus>> Statuses()
     {
@@ -36,7 +33,7 @@ public class AttemptContractTests
     public async Task ServerAttempt_DeserializesIntoCliAttempt(AttemptStatus status)
     {
         var attempt = TestAttempts.Make(stepName: "deploy-beta", runNumber: 412, number: 2, status: status);
-        var json = JsonSerializer.Serialize(attempt, ServerOptions);
+        var json = JsonSerializer.Serialize(RunViews.ToApi(attempt), PipelinesJsonContext.Default.Attempt);
 
         var job = JsonSerializer.Deserialize(json, CliJsonContext.Default.Attempt)!;
 
@@ -56,7 +53,7 @@ public class AttemptContractTests
             Answers = new Dictionary<string, ExternalAnswer> { ["decision"] = new("""{"approved":true}""", "oliver", t) },
         };
 
-        var cli = JsonSerializer.Deserialize(JsonSerializer.Serialize(attempt, ServerOptions), CliJsonContext.Default.Attempt)!;
+        var cli = JsonSerializer.Deserialize(JsonSerializer.Serialize(RunViews.ToApi(attempt), PipelinesJsonContext.Default.Attempt), CliJsonContext.Default.Attempt)!;
 
         await Assert.That(cli.Answers!["decision"].AnsweredBy).IsEqualTo("oliver");
         await Assert.That(cli.Answers["decision"].Value).IsEqualTo("""{"approved":true}""");
@@ -64,41 +61,17 @@ public class AttemptContractTests
 }
 
 /// <summary>
-/// AOT guard: every response type of the run/attempt endpoints serializes through the source-gen
-/// <see cref="AppJsonContext"/> alone (a missing registration throws <see cref="NotSupportedException"/>).
+/// The contract's attempt views serialize through the generated context and read into the CLI's contract.
 /// </summary>
 public class RunApiSerializationTests
 {
-    private static readonly JsonSerializerOptions ServerOptions = new(JsonSerializerDefaults.Web)
-    {
-        TypeInfoResolver = AppJsonContext.Default,
-    };
-
     [Test]
-    public async Task FullyPopulatedRun_RoundTripsThroughAppJsonContext()
-    {
-        var t = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
-        var run = new Run(
-            Olve.Utilities.Ids.Id.New<Run>(), Olve.Utilities.Ids.Id.New<Pipeline>(), 412,
-            Olve.Utilities.Ids.Id.New<PipelineVersion>(), 8, """{"sha":"abc"}""", "2026.10.21.412",
-            RunStatus.Superseded, new RunTrigger(RunTriggerKind.Poll, "sha:abc"), t, t.AddMinutes(3),
-            SupersededBy: Olve.Utilities.Ids.Id.New<Run>(), RerunOf: Olve.Utilities.Ids.Id.New<Run>());
-
-        var json = JsonSerializer.Serialize(run, ServerOptions);
-        var back = JsonSerializer.Deserialize<Run>(json, ServerOptions)!;
-
-        await Assert.That(back).IsEqualTo(run);
-        await Assert.That(json).Contains("\"status\":\"Superseded\"");
-        await Assert.That(json).Contains("\"kind\":\"Poll\"");
-    }
-
-    [Test]
-    public async Task ActiveAttempts_SerializeThroughAppJsonContext_AndReadIntoTheCliContract()
+    public async Task ActiveAttempts_SerializeThroughTheContract_AndReadIntoTheCliContract()
     {
         var t = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
         var active = new ActiveAttempt(Olve.Utilities.Ids.Id.New<Pipeline>(), "Olve.Pipelines v2", 12, "deploy", 2, "in-progress", t, t.AddSeconds(5));
 
-        var json = JsonSerializer.Serialize(new[] { active }, ServerOptions);
+        var json = JsonSerializer.Serialize<IReadOnlyList<Olve.Pipelines.Api.ActiveAttempt>>([RunViews.ToApi(active)], PipelinesJsonContext.Default.IReadOnlyListActiveAttempt);
         var back = JsonSerializer.Deserialize(json, CliJsonContext.Default.ActiveAttemptArray)!;
 
         await Assert.That(back[0].PipelineName).IsEqualTo("Olve.Pipelines v2");

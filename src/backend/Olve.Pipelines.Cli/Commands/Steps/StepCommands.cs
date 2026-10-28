@@ -209,8 +209,8 @@ public sealed class StepLogsCommand : ICliCommand
                 {
                     if ((await ctx.Api.GetRun(addr.Id, addr.Run, ct)).TryPickProblems(out var runProblems, out var detail))
                         return runProblems;
-                    if (detail.Run.Status != "Running")
-                        return new ResultProblem("Run #{0} is {1} and has no {2} of step '{3}'.", addr.Run, detail.Run.Status,
+                    if (detail.Status != "Running")
+                        return new ResultProblem("Run #{0} is {1} and has no {2} of step '{3}'.", addr.Run, detail.Status,
                             addr.Attempt is { } a ? $"attempt {a}" : "attempt", addr.Step);
                 }
 

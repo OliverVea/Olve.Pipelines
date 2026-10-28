@@ -164,14 +164,14 @@ internal static class Waiter
     /// a superseded run's work continues in the newer run (for pushes, a newer commit containing this one).
     /// Moves <paramref name="number"/> along the chain.
     /// </summary>
-    internal static async Task<Result<RunDetail>> GetRunFollowingAsync(
+    internal static async Task<Result<Run>> GetRunFollowingAsync(
         CommandContext ctx, string pipelineId, string label, RunCursor number, bool follow, CancellationToken ct)
     {
         while (true)
         {
             if ((await ctx.Api.GetRun(pipelineId, number.Value, ct)).TryPickProblems(out var problems, out var detail))
                 return problems;
-            if (!follow || detail.Run.Status != "Superseded" || detail.Run.SupersededByNumber is not { } next)
+            if (!follow || detail.Status != "Superseded" || detail.SupersededByNumber is not { } next)
                 return detail;
             Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss}  {RunAddress.Format(label, number.Value)} superseded by #{next}, following");
             number.Value = next;
@@ -189,10 +189,10 @@ internal static class Waiter
         : new WaitCheck.Pending($"{RunAddress.Format(label, run.Number)}: {run.Status}");
 
     /// <summary><see cref="RunFinished(string, RunSummary)"/>, but a run that waits for input is reported as such.</summary>
-    internal static WaitCheck RunFinished(string label, RunDetail detail) =>
-        !IsTerminal(detail.Run.Status) && detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(NeedsPerson) is { } waiting
-            ? new WaitCheck.NeedsInput($"{RunAddress.Format(label, detail.Run.Number)}/{waiting.Name}  waiting for input")
-            : RunFinished(label, detail.Run);
+    internal static WaitCheck RunFinished(string label, Run detail) =>
+        !IsTerminal(detail.Status) && detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(NeedsPerson) is { } waiting
+            ? new WaitCheck.NeedsInput($"{RunAddress.Format(label, detail.Number)}/{waiting.Name}  waiting for input")
+            : RunFinished(label, (RunSummary)detail);
 }
 
 internal sealed class RunCursor(int value)
@@ -248,7 +248,7 @@ public sealed class WaitRunCommand : ICliCommand
                 return getProblems;
             return address.Step is { } step
                 ? StepState(address.Pipeline, detail, step, until)
-                : until == "finished" ? Waiter.RunFinished(address.Pipeline, detail) : RunState(address.Pipeline, detail.Run, until);
+                : until == "finished" ? Waiter.RunFinished(address.Pipeline, detail) : RunState(address.Pipeline, detail, until);
         }, ct);
     }
 
@@ -261,13 +261,13 @@ public sealed class WaitRunCommand : ICliCommand
         _ => Waiter.RunFinished(label, run),
     };
 
-    private static Result<WaitCheck> StepState(string label, RunDetail detail, string step, string until)
+    private static Result<WaitCheck> StepState(string label, Run detail, string step, string until)
     {
         var view = detail.Stages.SelectMany(s => s.Steps).FirstOrDefault(s => s.Name == step);
         if (view is null)
-            return new ResultProblem("Run #{0} has no step '{1}'.", detail.Run.Number, step);
+            return new ResultProblem("Run #{0} has no step '{1}'.", detail.Number, step);
 
-        var name = $"{RunAddress.Format(label, detail.Run.Number)}/{step}";
+        var name = $"{RunAddress.Format(label, detail.Number)}/{step}";
         var line = $"{name}  {view.Status}{(view.Reason is { } r ? $" ({r})" : "")}";
         var settled = view.Status is "succeeded" or "skipped" or "excluded" or "failed" or "cancelled" or "obsolete";
         if (Waiter.NeedsPerson(view) && until != "started")
@@ -286,8 +286,8 @@ public sealed class WaitRunCommand : ICliCommand
     }
 
     /// <summary>The run finished without settling the step: the wait can never succeed.</summary>
-    private static WaitCheck? RunEnded(RunDetail detail, string line) =>
-        Waiter.IsTerminal(detail.Run.Status) ? new WaitCheck.Done($"{line} (run {detail.Run.Status})", false) : null;
+    private static WaitCheck? RunEnded(Run detail, string line) =>
+        Waiter.IsTerminal(detail.Status) ? new WaitCheck.Done($"{line} (run {detail.Status})", false) : null;
 }
 
 /// <summary><c>pl wait push &lt;pipeline&gt; &lt;sha&gt;</c> — wait for a run of a commit to appear (and finish).</summary>
@@ -353,7 +353,7 @@ public sealed class WaitPushCommand : ICliCommand
                     return new WaitCheck.Done(RunAddress.Format(label, run.Number), true);
                 found = new RunCursor(run.Number);
                 Console.Error.WriteLine($"{DateTime.Now:HH:mm:ss}  {RunAddress.Format(label, run.Number)} is the run of {sha}");
-                if (follow && detail.Run.Status == "Superseded"
+                if (follow && detail.Status == "Superseded"
                     && (await Waiter.GetRunFollowingAsync(ctx, id, label, found, follow, c)).TryPickProblems(out var followProblems, out detail))
                     return followProblems;
                 return Waiter.RunFinished(label, detail);
@@ -367,7 +367,7 @@ public sealed class WaitPushCommand : ICliCommand
         }, ct);
     }
 
-    private static string InputSha(RunDetail detail) =>
+    private static string InputSha(Run detail) =>
         detail.Input.ValueKind == JsonValueKind.Object && detail.Input.TryGetProperty("sha", out var sha) && sha.ValueKind == JsonValueKind.String
             ? sha.GetString()!
             : "";

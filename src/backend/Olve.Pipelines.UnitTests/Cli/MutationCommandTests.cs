@@ -81,7 +81,7 @@ public class MutationCommandTests
             """;
         var api = new FakePipelinesApi
         {
-            GetRunResult = new RunDetail { Run = new RunSummary { Number = 12, VersionNumber = 3 } },
+            GetRunResult = new Run { Number = 12, VersionNumber = 3 },
             GetPipelineVersionResult = new PipelineVersion { Manifest = manifest },
             AnswerStepInputResult = new Attempt { RunNumber = 12, StepName = "approve", Number = 1, Status = new ScheduledStatus() },
         };

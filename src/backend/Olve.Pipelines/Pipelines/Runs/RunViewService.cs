@@ -18,13 +18,13 @@ public class RunViewService(
     RunPlanCache plans,
     StepBlockService blocks)
 {
-    public Page<RunSummary> List(Id<Pipeline> pipelineId, ListRunsRequest request)
+    public Slice<RunSummary> List(Id<Pipeline> pipelineId, int offset, int limit)
     {
         var all = runs.ListByPipeline(pipelineId); // newest first
-        var page = Math.Max(0, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 500);
-        var items = all.Skip(page * pageSize).Take(pageSize).Select(Summarize).ToList();
-        return new Page<RunSummary>(items, page, pageSize, all.Count);
+        offset = Math.Max(0, offset);
+        limit = Math.Clamp(limit, 1, 500);
+        var items = all.Skip(offset).Take(limit).Select(Summarize).ToList();
+        return new Slice<RunSummary>(items, offset, limit, all.Count);
     }
 
     public RunSummary Summarize(Run run) => new(

@@ -17,25 +17,21 @@ export interface LogsRequestBuilder extends BaseRequestBuilder<LogsRequestBuilde
      */
     get stream(): StreamRequestBuilder;
     /**
-     * The attempt's log; the live pod log while it runs.
+     * Get a step's log
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<string>}
-     * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<LogsRequestBuilderGetQueryParameters> | undefined) : Promise<string | undefined>;
     /**
-     * The attempt's log; the live pod log while it runs.
+     * Get a step's log
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<LogsRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * The attempt's log; the live pod log while it runs.
+ * Get a step's log
  */
 export interface LogsRequestBuilderGetQueryParameters {
     attempt?: number;
@@ -60,11 +56,7 @@ export const LogsRequestBuilderRequestsMetadata: RequestsMetadata = {
         uriTemplate: LogsRequestBuilderUriTemplate,
         responseBodyContentType: "application/json",
         errorMappings: {
-            400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "sendPrimitive",
         responseBodyFactory:  "string",

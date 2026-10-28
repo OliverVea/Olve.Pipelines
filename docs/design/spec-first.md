@@ -143,6 +143,13 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    (`StepHistoryItem`, `AttemptPhases`). The run-scoped step operations (attempts, rerun, cancel,
    input, output, files, logs) share `Attempt` with the Runs area and move with it; the log and
    file streams stay hand-written until the emitter takes text and binary responses.
+8. Runs and Attempts — done 2026-10-28: `Run` is the whole run (the summary's fields plus version,
+   commit, input, continuability, stages and config); `RunSummary` the list item; the list takes
+   `offset`/`limit` and answers `RunList {items, offset, limit, total}` (the server's page type is
+   gone). `RunStart {outcome, run}` answers start and rerun; `Attempt` keeps its discriminated
+   `status` (`@discriminated` union); the run-scoped step operations (`RunSteps`) and the
+   cross-pipeline attempt list moved with it. Still hand-written: the file download (binary) and
+   the log stream (SSE), with the manifest validation and the webhooks.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

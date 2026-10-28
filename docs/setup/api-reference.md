@@ -352,6 +352,101 @@ Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `v
 
 ### Runs
 
+#### List a run's attempts
+
+`GET /api/pipelines/{pipelineId}/runs/{number}/attempts`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Returns:** `200` [Attempt](#attempt)[]
+
+#### Cancel a run
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/cancel`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Returns:** `200` [Run](#run)
+
+#### Continue a run
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/continue`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Body** (`application/json`): [ContinueRun](#continuerun)
+
+**Returns:** `200` [Run](#run)
+
+#### Get the critical path of a range of runs
+
+`GET /api/pipelines/{pipelineId}/runs/critical-path`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `from` | query | integer |  |
+| `to` | query | integer |  |
+| `includeUnsuccessful` | query | boolean |  |
+| `sinceVersion` | query | integer |  |
+
+**Returns:** `200` [CriticalPathReport](#criticalpathreport)
+
+#### Get a run
+
+`GET /api/pipelines/{pipelineId}/runs/{number}`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Returns:** `200` [Run](#run)
+
+#### List runs
+
+`GET /api/pipelines/{pipelineId}/runs`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `offset` | query | integer |  |
+| `limit` | query | integer |  |
+
+**Returns:** `200` [RunList](#runlist)
+
+#### Start a run
+
+`POST /api/pipelines/{pipelineId}/runs`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Body** (`application/json`): object
+
+**Returns:** `200` [RunStart](#runstart)
+
+#### Rerun a run
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/rerun`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Returns:** `200` [RunStart](#runstart)
+
 #### Answer a callback input
 
 `POST /api/hooks/inputs/{runId}/{step}/{input}/{mac}`
@@ -367,116 +462,112 @@ Another system answers a step's external input with `from: [callback()]`. The UR
 
 **Returns:** `200`
 
-#### List runs
+### Steps
 
-`GET /api/pipelines/{pipelineId}/runs`
+#### Answer a step's external input
 
-Runs of the pipeline, newest first, paged.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `Page` | query | integer |  |
-| `PageSize` | query | integer |  |
-
-**Returns:** `200` [PageOfRunSummary](#pageofrunsummary)
-
-#### Start a run
-
-`POST /api/pipelines/{pipelineId}/runs`
-
-Starts a manual run; the body is the pipeline input, validated against the input model. `outcome` is `started` or `queued` (during a draining switch).
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Body** (`application/json`): object
-
-**Returns:** `200` [TriggerRunResponse](#triggerrunresponse)
-
-#### Get the critical path of a range of runs
-
-`GET /api/pipelines/{pipelineId}/runs/critical-path`
-
-Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `from` | query | integer |  |
-| `to` | query | integer |  |
-| `includeUnsuccessful` | query | boolean |  |
-| `sinceVersion` | query | integer |  |
-
-**Returns:** `200` [CriticalPathReport](#criticalpathreport)
-
-#### Get a run
-
-`GET /api/pipelines/{pipelineId}/runs/{number}`
-
-Input, pinned version, commit and config snapshot, links, whether it can be continued, and its stages with each step's status.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 | `number` | path | integer | yes |
+| `step` | path | string | yes |
 
-**Returns:** `200` [RunDetail](#rundetail)
+**Body** (`application/json`): [AnswerInput](#answerinput)
 
-#### Cancel a run
+**Returns:** `200` [Attempt](#attempt)
 
-`POST /api/pipelines/{pipelineId}/runs/{number}/cancel`
+#### List a step's attempts in a run
 
-Cancels the run and its scheduled and in-progress attempts (their Jobs are deleted).
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-
-**Returns:** `200` [Run](#run)
-
-#### Rerun a run
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/rerun`
-
-Starts a new run with the same input (`rerunOf` points back).
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts`
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
-| `pipelineId` | path | string | yes |
+| `pipelineId` | path | string (uuid) | yes |
 | `number` | path | integer | yes |
-
-**Returns:** `200` [TriggerRunResponse](#triggerrunresponse)
-
-#### Continue a run
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/continue`
-
-Continues the run with `input` merged over its stored input. Fields consumed by completed steps can't change; the run's version must be active.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-
-**Body** (`application/json`): [ContinueRunRequest](#continuerunrequest)?
-
-**Returns:** `200` [Run](#run)
-
-#### List a run's attempts
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/attempts`
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
+| `step` | path | string | yes |
 
 **Returns:** `200` [Attempt](#attempt)[]
 
-### Steps
+#### Cancel a step
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+
+**Returns:** `200` [Attempt](#attempt)
+
+#### Decline a step's external input
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+
+**Body** (`application/json`): [DeclineInput](#declineinput)
+
+**Returns:** `200` [Attempt](#attempt)
+
+#### List a step's files
+
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+| `attempt` | query | integer |  |
+
+**Returns:** `200` [StepFiles](#stepfiles)
+
+#### Get a step's log
+
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+| `attempt` | query | integer |  |
+
+**Returns:** `200` string
+
+#### Get a step's output
+
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+| `attempt` | query | integer |  |
+
+**Returns:** `200` [StepOutput](#stepoutput)
+
+#### Rerun a step
+
+`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `step` | path | string | yes |
+
+**Body** (`application/json`): [RerunStep](#rerunstep)
+
+**Returns:** `200` [Attempt](#attempt)
 
 #### Block a step
 
@@ -522,110 +613,6 @@ Continues the run with `input` merged over its stored input. Fields consumed by 
 
 **Returns:** `200` string[]
 
-#### Stream a step's log
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream`
-
-The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-| `attempt` | query | integer |  |
-
-**Returns:** `200` string (`text/event-stream`)
-
-#### List a step's attempts in a run
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/attempts`
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-
-**Returns:** `200` [Attempt](#attempt)[]
-
-#### Rerun a step
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/rerun`
-
-A new attempt of the step on the run's pinned version and pool. With `continue`, the run goes on downstream afterwards.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-
-**Body** (`application/json`): [RerunStepRequest](#rerunsteprequest)?
-
-**Returns:** `200` [Attempt](#attempt)
-
-#### Cancel a step
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/cancel`
-
-Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-
-**Returns:** `200` [Attempt](#attempt)
-
-#### Answer a step's external input
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input`
-
-Gives the value of an external input of a step that waits for it (`name` may be omitted when the step has one). The value is validated against the input's model; once every external input is answered the step is scheduled.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-
-**Body** (`application/json`): [AnswerInputRequest](#answerinputrequest)
-
-**Returns:** `200` [Attempt](#attempt)
-
-#### Decline a step's external input
-
-`POST /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/input/decline`
-
-Fails a step that waits for input without running it; the reason names who declined and the comment.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-
-**Body** (`application/json`): [DeclineInputRequest](#declineinputrequest)?
-
-**Returns:** `200` [Attempt](#attempt)
-
-#### List a step's files
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files`
-
-The files an attempt stored.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-| `attempt` | query | integer |  |
-
-**Returns:** `200` [AttemptFilesResponse](#attemptfilesresponse)
-
 #### Download a step file
 
 `GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}`
@@ -642,26 +629,11 @@ One stored file; a directory `dir/` downloads as `dir.tar`.
 
 **Returns:** `200`
 
-#### Get a step's output
+#### Stream a step's log
 
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output`
+`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs/stream`
 
-The output JSON of `attempt` (default: the latest successful attempt).
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `step` | path | string | yes |
-| `attempt` | query | integer |  |
-
-**Returns:** `200` [AttemptOutputResponse](#attemptoutputresponse)
-
-#### Get a step's log
-
-`GET /api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs`
-
-The attempt's log; the live pod log while it runs.
+The attempt's log as server-sent events (`attempt`, default the latest): `log` events `{text, reset}`, then `end` `{status}` once the attempt is finished.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
@@ -670,15 +642,13 @@ The attempt's log; the live pod log while it runs.
 | `step` | path | string | yes |
 | `attempt` | query | integer |  |
 
-**Returns:** `200` string
+**Returns:** `200` string (`text/event-stream`)
 
 ### Attempts
 
 #### List running attempts
 
 `GET /api/attempts`
-
-`status=active` (default): every waiting, scheduled or in-progress attempt across pipelines, oldest first. `status=waiting`: only the ones waiting for external input.
 
 | Parameter | In | Type | Required |
 |---|---|---|---|
@@ -751,7 +721,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `createdAt` | string (date-time) | required |
 | `startedAt` | string (date-time)? | required |
 
-### AnswerInputRequest
+### AnswerInput
 
 | Field | Type | |
 |---|---|---|
@@ -795,40 +765,12 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `timings` | [AttemptTimings](#attempttimings)? |  |
 | `answers` | map of [ExternalAnswer](#externalanswer)? |  |
 
-### AttemptFileEntry
-
-| Field | Type | |
-|---|---|---|
-| `path` | string | required |
-| `size` | integer | required |
-| `lastModified` | string (date-time)? | required |
-
-### AttemptFilesResponse
-
-| Field | Type | |
-|---|---|---|
-| `run` | integer | required |
-| `step` | string | required |
-| `attempt` | integer | required |
-| `files` | [AttemptFileEntry](#attemptfileentry)[] | required |
-
 ### AttemptOutput
 
 | Field | Type | |
 |---|---|---|
 | `key` | string | required |
 | `json` | string | required |
-
-### AttemptOutputResponse
-
-| Field | Type | |
-|---|---|---|
-| `run` | integer | required |
-| `step` | string | required |
-| `attempt` | integer | required |
-| `status` | string | required |
-| `output` | any? | required |
-| `outputKey` | string? | required |
 
 ### AttemptPhases
 
@@ -848,14 +790,14 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `type` | string | required |
 
-### AttemptStatusCancelled
+### AttemptStatusAttemptStatusCancelled
 
 | Field | Type | |
 |---|---|---|
 | `startedAt` | string (date-time)? | required |
 | `cancelledAt` | string (date-time) | required |
 
-### AttemptStatusFailed
+### AttemptStatusAttemptStatusFailed
 
 | Field | Type | |
 |---|---|---|
@@ -863,25 +805,25 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `finishedAt` | string (date-time) | required |
 | `reason` | string? |  |
 
-### AttemptStatusInProgress
+### AttemptStatusAttemptStatusInProgress
 
 | Field | Type | |
 |---|---|---|
 | `startedAt` | string (date-time) | required |
 
-### AttemptStatusObsolete
+### AttemptStatusAttemptStatusObsolete
 
 | Field | Type | |
 |---|---|---|
 | `supersedingAttemptId` | string (uuid) | required |
 
-### AttemptStatusScheduled
+### AttemptStatusAttemptStatusScheduled
 
 | Field | Type | |
 |---|---|---|
-| `submissionAttempts` | integer |  |
+| `submissionAttempts` | integer? |  |
 
-### AttemptStatusSkipped
+### AttemptStatusAttemptStatusSkipped
 
 | Field | Type | |
 |---|---|---|
@@ -889,14 +831,14 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `startedAt` | string (date-time)? | required |
 | `finishedAt` | string (date-time) | required |
 
-### AttemptStatusSucceeded
+### AttemptStatusAttemptStatusSucceeded
 
 | Field | Type | |
 |---|---|---|
 | `startedAt` | string (date-time) | required |
 | `finishedAt` | string (date-time) | required |
 
-### AttemptStatusWaiting
+### AttemptStatusAttemptStatusWaiting
 
 | Field | Type | |
 |---|---|---|
@@ -960,7 +902,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `createdAt` | string (date-time) | required |
 | `restoredFrom` | integer? | required |
 
-### ContinueRunRequest
+### ContinueRun
 
 | Field | Type | |
 |---|---|---|
@@ -1059,7 +1001,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `runNumbers` | integer[] | required |
 | `overheadSeconds` | number? |  |
 
-### DeclineInputRequest
+### DeclineInput
 
 | Field | Type | |
 |---|---|---|
@@ -1082,7 +1024,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `value` | string | required |
 | `answeredBy` | string | required |
 | `answeredAt` | string (date-time) | required |
-| `source` | string |  |
+| `source` | string? |  |
 
 ### FrontendConfig
 
@@ -1118,26 +1060,6 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `manifestHash` | string? | required |
 | `errors` | [ManifestIssueView](#manifestissueview)[] | required |
 | `warnings` | [ManifestIssueView](#manifestissueview)[] | required |
-
-### PageOfRunSummary
-
-| Field | Type | |
-|---|---|---|
-| `items` | [RunSummary](#runsummary)[] | required |
-| `pageNumber` | integer | required |
-| `pageSize` | integer | required |
-| `totalCount` | integer | required |
-| `totalPages` | integer |  |
-| `hasNextPage` | boolean |  |
-| `next` | [Pagination](#pagination) |  |
-
-### Pagination
-
-| Field | Type | |
-|---|---|---|
-| `page` | integer |  |
-| `pageSize` | integer |  |
-| `offset` | integer |  |
 
 ### PendingVersionInfo
 
@@ -1306,11 +1228,11 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `inProgress` | boolean | required |
 | `versionNumber` | integer? | required |
 
-### RerunStepRequest
+### RerunStep
 
 | Field | Type | |
 |---|---|---|
-| `continue` | boolean |  |
+| `continue` | boolean? |  |
 
 ### RollbackConfig
 
@@ -1323,45 +1245,40 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | Field | Type | |
 |---|---|---|
 | `id` | string (uuid) | required |
-| `pipelineId` | string (uuid) | required |
 | `number` | integer | required |
-| `versionId` | string (uuid) | required |
-| `versionNumber` | integer | required |
-| `input` | string | required |
-| `versionStamp` | string | required |
 | `status` | `"Running"` \| `"Succeeded"` \| `"Failed"` \| `"Cancelled"` \| `"Superseded"` | required |
-| `trigger` | [RunTrigger](#runtrigger) | required |
+| `triggerKind` | `"Push"` \| `"Poll"` \| `"Manual"` \| `"Webhook"` | required |
+| `versionNumber` | integer | required |
+| `versionStamp` | string | required |
 | `createdAt` | string (date-time) | required |
-| `finishedAt` | string (date-time)? |  |
-| `supersededBy` | string (uuid)? |  |
-| `rerunOf` | string (uuid)? |  |
-| `heldAt` | string? |  |
-| `resumedAt` | string (date-time)? |  |
+| `finishedAt` | string (date-time)? | required |
+| `heldAt` | string? | required |
+| `supersededByNumber` | integer? | required |
+| `rerunOfNumber` | integer? | required |
 | `configSnapshot` | integer? |  |
-| `config` | string? |  |
-
-### RunDetail
-
-| Field | Type | |
-|---|---|---|
-| `run` | [RunSummary](#runsummary) | required |
 | `versionId` | string (uuid) | required |
 | `commitSha` | string? | required |
-| `input` | any | required |
+| `input` | object | required |
 | `continuable` | boolean | required |
-| `stages` | [RunStageView](#runstageview)[] | required |
+| `stages` | [RunStage](#runstage)[] | required |
 | `config` | string? |  |
 
-### RunOrigin
+### RunList
 
 | Field | Type | |
 |---|---|---|
-| `noticedAt` | string (date-time) | required |
-| `via` | string | required |
-| `pushedAt` | string (date-time)? |  |
-| `configReadyAt` | string (date-time)? |  |
-| `mapStartedAt` | string (date-time)? |  |
-| `mapFinishedAt` | string (date-time)? |  |
+| `items` | [RunSummary](#runsummary)[] | required |
+| `offset` | integer | required |
+| `limit` | integer | required |
+| `total` | integer | required |
+
+### RunStage
+
+| Field | Type | |
+|---|---|---|
+| `index` | integer | required |
+| `when` | [RunStageCondition](#runstagecondition)[] | required |
+| `steps` | [RunStep](#runstep)[] | required |
 
 ### RunStageCondition
 
@@ -1370,15 +1287,14 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `field` | string | required |
 | `values` | any[] | required |
 
-### RunStageView
+### RunStart
 
 | Field | Type | |
 |---|---|---|
-| `index` | integer | required |
-| `when` | [RunStageCondition](#runstagecondition)[] | required |
-| `steps` | [RunStepView](#runstepview)[] | required |
+| `outcome` | `"started"` \| `"deduplicated"` \| `"queued"` | required |
+| `run` | [Run](#run)? | required |
 
-### RunStepView
+### RunStep
 
 | Field | Type | |
 |---|---|---|
@@ -1412,14 +1328,6 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `rerunOfNumber` | integer? | required |
 | `configSnapshot` | integer? |  |
 
-### RunTrigger
-
-| Field | Type | |
-|---|---|---|
-| `kind` | `"Push"` \| `"Poll"` \| `"Manual"` \| `"Webhook"` | required |
-| `dedupKey` | string? |  |
-| `origin` | [RunOrigin](#runorigin)? |  |
-
 ### SetBindingBranch
 
 | Field | Type | |
@@ -1444,6 +1352,23 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `value` | string | required |
 
+### StepFile
+
+| Field | Type | |
+|---|---|---|
+| `path` | string | required |
+| `size` | integer | required |
+| `lastModified` | string (date-time)? | required |
+
+### StepFiles
+
+| Field | Type | |
+|---|---|---|
+| `run` | integer | required |
+| `step` | string | required |
+| `attempt` | integer | required |
+| `files` | [StepFile](#stepfile)[] | required |
+
 ### StepHistoryItem
 
 | Field | Type | |
@@ -1463,19 +1388,23 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `stepVersionChanged` | boolean | required |
 | `phases` | [AttemptPhases](#attemptphases)? |  |
 
+### StepOutput
+
+| Field | Type | |
+|---|---|---|
+| `run` | integer | required |
+| `step` | string | required |
+| `attempt` | integer | required |
+| `status` | string | required |
+| `output` | any? | required |
+| `outputKey` | string? | required |
+
 ### SwitchVersion
 
 | Field | Type | |
 |---|---|---|
 | `version` | integer | required |
 | `cancelRunning` | boolean? |  |
-
-### TriggerRunResponse
-
-| Field | Type | |
-|---|---|---|
-| `outcome` | string | required |
-| `run` | [Run](#run)? | required |
 
 ### UpdateBinding
 

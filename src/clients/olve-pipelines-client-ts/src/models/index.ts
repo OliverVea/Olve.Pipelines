@@ -38,7 +38,7 @@ export interface ActiveAttempt extends AdditionalDataHolder, Parsable {
      */
     step?: string | null;
 }
-export interface AnswerInputRequest extends AdditionalDataHolder, Parsable {
+export interface AnswerInput extends AdditionalDataHolder, Parsable {
     /**
      * The name property
      */
@@ -145,38 +145,6 @@ export interface Attempt extends AdditionalDataHolder, Parsable {
 }
 export interface Attempt_answers extends AdditionalDataHolder, Parsable {
 }
-export interface AttemptFileEntry extends AdditionalDataHolder, Parsable {
-    /**
-     * The lastModified property
-     */
-    lastModified?: Date | null;
-    /**
-     * The path property
-     */
-    path?: string | null;
-    /**
-     * The size property
-     */
-    size?: number | null;
-}
-export interface AttemptFilesResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The attempt property
-     */
-    attempt?: number | null;
-    /**
-     * The files property
-     */
-    files?: AttemptFileEntry[] | null;
-    /**
-     * The run property
-     */
-    run?: number | null;
-    /**
-     * The step property
-     */
-    step?: string | null;
-}
 export interface AttemptOutput extends AdditionalDataHolder, Parsable {
     /**
      * The json property
@@ -186,32 +154,6 @@ export interface AttemptOutput extends AdditionalDataHolder, Parsable {
      * The key property
      */
     key?: string | null;
-}
-export interface AttemptOutputResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The attempt property
-     */
-    attempt?: number | null;
-    /**
-     * The output property
-     */
-    output?: JsonElement | null;
-    /**
-     * The outputKey property
-     */
-    outputKey?: string | null;
-    /**
-     * The run property
-     */
-    run?: number | null;
-    /**
-     * The status property
-     */
-    status?: string | null;
-    /**
-     * The step property
-     */
-    step?: string | null;
 }
 export interface AttemptPhases extends AdditionalDataHolder, Parsable {
     /**
@@ -249,7 +191,7 @@ export interface AttemptStatus extends AdditionalDataHolder, Parsable {
      */
     type?: string | null;
 }
-export interface AttemptStatusCancelled extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusCancelled extends AttemptStatus, Parsable {
     /**
      * The cancelledAt property
      */
@@ -259,7 +201,7 @@ export interface AttemptStatusCancelled extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
-export interface AttemptStatusFailed extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusFailed extends AttemptStatus, Parsable {
     /**
      * The finishedAt property
      */
@@ -273,25 +215,25 @@ export interface AttemptStatusFailed extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
-export interface AttemptStatusInProgress extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusInProgress extends AttemptStatus, Parsable {
     /**
      * The startedAt property
      */
     startedAt?: Date | null;
 }
-export interface AttemptStatusObsolete extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusObsolete extends AttemptStatus, Parsable {
     /**
      * The supersedingAttemptId property
      */
     supersedingAttemptId?: Guid | null;
 }
-export interface AttemptStatusScheduled extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusScheduled extends AttemptStatus, Parsable {
     /**
      * The submissionAttempts property
      */
     submissionAttempts?: number | null;
 }
-export interface AttemptStatusSkipped extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusSkipped extends AttemptStatus, Parsable {
     /**
      * The finishedAt property
      */
@@ -305,7 +247,7 @@ export interface AttemptStatusSkipped extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
-export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusSucceeded extends AttemptStatus, Parsable {
     /**
      * The finishedAt property
      */
@@ -315,7 +257,7 @@ export interface AttemptStatusSucceeded extends AttemptStatus, Parsable {
      */
     startedAt?: Date | null;
 }
-export interface AttemptStatusWaiting extends AttemptStatus, Parsable {
+export interface AttemptStatusAttemptStatusWaiting extends AttemptStatus, Parsable {
     /**
      * The since property
      */
@@ -445,13 +387,13 @@ export interface ConfigSnapshotSummary extends AdditionalDataHolder, Parsable {
      */
     restoredFrom?: number | null;
 }
-export interface ContinueRunRequest extends AdditionalDataHolder, Parsable {
+export interface ContinueRun extends AdditionalDataHolder, Parsable {
     /**
      * The input property
      */
-    input?: ContinueRunRequest_input | null;
+    input?: ContinueRun_input | null;
 }
-export interface ContinueRunRequest_input extends AdditionalDataHolder, Parsable {
+export interface ContinueRun_input extends AdditionalDataHolder, Parsable {
 }
 export interface CopiedSecrets extends AdditionalDataHolder, Parsable {
     /**
@@ -489,11 +431,11 @@ export function createActiveAttemptFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AnswerInputRequest}
+ * @returns {AnswerInput}
  */
 // @ts-ignore
-export function createAnswerInputRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAnswerInputRequest;
+export function createAnswerInputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAnswerInput;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -525,24 +467,6 @@ export function createAttempt_answersFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptFileEntry}
- */
-// @ts-ignore
-export function createAttemptFileEntryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptFileEntry;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptFilesResponse}
- */
-// @ts-ignore
-export function createAttemptFilesResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptFilesResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {Attempt}
  */
 // @ts-ignore
@@ -561,15 +485,6 @@ export function createAttemptOutputFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptOutputResponse}
- */
-// @ts-ignore
-export function createAttemptOutputResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptOutputResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {AttemptPhases}
  */
 // @ts-ignore
@@ -579,20 +494,74 @@ export function createAttemptPhasesFromDiscriminatorValue(parseNode: ParseNode |
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusCancelled}
+ * @returns {AttemptStatusAttemptStatusCancelled}
  */
 // @ts-ignore
-export function createAttemptStatusCancelledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusCancelled;
+export function createAttemptStatusAttemptStatusCancelledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusCancelled;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusFailed}
+ * @returns {AttemptStatusAttemptStatusFailed}
  */
 // @ts-ignore
-export function createAttemptStatusFailedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusFailed;
+export function createAttemptStatusAttemptStatusFailedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusFailed;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusInProgress}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusInProgressFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusInProgress;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusObsolete}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusObsoleteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusObsolete;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusScheduled}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusScheduledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusScheduled;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusSkipped}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusSkippedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusSkipped;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusSucceeded}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusSucceeded;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {AttemptStatusAttemptStatusWaiting}
+ */
+// @ts-ignore
+export function createAttemptStatusAttemptStatusWaitingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoAttemptStatusAttemptStatusWaiting;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -608,79 +577,25 @@ export function createAttemptStatusFromDiscriminatorValue(parseNode: ParseNode |
         if (mappingValue) {
             switch (mappingValue) {
                 case "cancelled":
-                    return deserializeIntoAttemptStatusCancelled;
+                    return deserializeIntoAttemptStatusAttemptStatusCancelled;
                 case "failed":
-                    return deserializeIntoAttemptStatusFailed;
+                    return deserializeIntoAttemptStatusAttemptStatusFailed;
                 case "in-progress":
-                    return deserializeIntoAttemptStatusInProgress;
+                    return deserializeIntoAttemptStatusAttemptStatusInProgress;
                 case "obsolete":
-                    return deserializeIntoAttemptStatusObsolete;
+                    return deserializeIntoAttemptStatusAttemptStatusObsolete;
                 case "scheduled":
-                    return deserializeIntoAttemptStatusScheduled;
+                    return deserializeIntoAttemptStatusAttemptStatusScheduled;
                 case "skipped":
-                    return deserializeIntoAttemptStatusSkipped;
+                    return deserializeIntoAttemptStatusAttemptStatusSkipped;
                 case "succeeded":
-                    return deserializeIntoAttemptStatusSucceeded;
+                    return deserializeIntoAttemptStatusAttemptStatusSucceeded;
                 case "waiting":
-                    return deserializeIntoAttemptStatusWaiting;
+                    return deserializeIntoAttemptStatusAttemptStatusWaiting;
             }
         }
     }
     return deserializeIntoAttemptStatus;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusInProgress}
- */
-// @ts-ignore
-export function createAttemptStatusInProgressFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusInProgress;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusObsolete}
- */
-// @ts-ignore
-export function createAttemptStatusObsoleteFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusObsolete;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusScheduled}
- */
-// @ts-ignore
-export function createAttemptStatusScheduledFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusScheduled;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusSkipped}
- */
-// @ts-ignore
-export function createAttemptStatusSkippedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusSkipped;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusSucceeded}
- */
-// @ts-ignore
-export function createAttemptStatusSucceededFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusSucceeded;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {AttemptStatusWaiting}
- */
-// @ts-ignore
-export function createAttemptStatusWaitingFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoAttemptStatusWaiting;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -739,20 +654,20 @@ export function createConfigSnapshotSummaryFromDiscriminatorValue(parseNode: Par
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ContinueRunRequest_input}
+ * @returns {ContinueRun_input}
  */
 // @ts-ignore
-export function createContinueRunRequest_inputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoContinueRunRequest_input;
+export function createContinueRun_inputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContinueRun_input;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {ContinueRunRequest}
+ * @returns {ContinueRun}
  */
 // @ts-ignore
-export function createContinueRunRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoContinueRunRequest;
+export function createContinueRunFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoContinueRun;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -838,11 +753,11 @@ export function createCriticalPathStepFromDiscriminatorValue(parseNode: ParseNod
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {DeclineInputRequest}
+ * @returns {DeclineInput}
  */
 // @ts-ignore
-export function createDeclineInputRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoDeclineInputRequest;
+export function createDeclineInputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoDeclineInput;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -915,24 +830,6 @@ export function createManifestIssueViewFromDiscriminatorValue(parseNode: ParseNo
 // @ts-ignore
 export function createManifestValidationResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoManifestValidationResponse;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PageOfRunSummary}
- */
-// @ts-ignore
-export function createPageOfRunSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPageOfRunSummary;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {Pagination}
- */
-// @ts-ignore
-export function createPaginationFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPagination;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1139,11 +1036,11 @@ export function createReconcileStatusFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RerunStepRequest}
+ * @returns {RerunStep}
  */
 // @ts-ignore
-export function createRerunStepRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRerunStepRequest;
+export function createRerunStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRerunStep;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1157,11 +1054,11 @@ export function createRollbackConfigFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RunDetail}
+ * @returns {Run_input}
  */
 // @ts-ignore
-export function createRunDetailFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRunDetail;
+export function createRun_inputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRun_input;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1175,11 +1072,11 @@ export function createRunFromDiscriminatorValue(parseNode: ParseNode | undefined
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RunOrigin}
+ * @returns {RunList}
  */
 // @ts-ignore
-export function createRunOriginFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRunOrigin;
+export function createRunListFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunList;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1193,20 +1090,29 @@ export function createRunStageConditionFromDiscriminatorValue(parseNode: ParseNo
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RunStageView}
+ * @returns {RunStage}
  */
 // @ts-ignore
-export function createRunStageViewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRunStageView;
+export function createRunStageFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunStage;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RunStepView}
+ * @returns {RunStart}
  */
 // @ts-ignore
-export function createRunStepViewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRunStepView;
+export function createRunStartFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunStart;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RunStep}
+ */
+// @ts-ignore
+export function createRunStepFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRunStep;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1216,15 +1122,6 @@ export function createRunStepViewFromDiscriminatorValue(parseNode: ParseNode | u
 // @ts-ignore
 export function createRunSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRunSummary;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {RunTrigger}
- */
-// @ts-ignore
-export function createRunTriggerFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoRunTrigger;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1265,6 +1162,24 @@ export function createSetSecretFromDiscriminatorValue(parseNode: ParseNode | und
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepFile}
+ */
+// @ts-ignore
+export function createStepFileFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepFile;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepFiles}
+ */
+// @ts-ignore
+export function createStepFilesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepFiles;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {StepHistoryItem}
  */
 // @ts-ignore
@@ -1274,29 +1189,20 @@ export function createStepHistoryItemFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {StepOutput}
+ */
+// @ts-ignore
+export function createStepOutputFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoStepOutput;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SwitchVersion}
  */
 // @ts-ignore
 export function createSwitchVersionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoSwitchVersion;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {TriggerRunRequest}
- */
-// @ts-ignore
-export function createTriggerRunRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoTriggerRunRequest;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {TriggerRunResponse}
- */
-// @ts-ignore
-export function createTriggerRunResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoTriggerRunResponse;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1475,7 +1381,7 @@ export interface CriticalPathStep extends AdditionalDataHolder, Parsable {
      */
     waitSeconds?: number | null;
 }
-export interface DeclineInputRequest extends AdditionalDataHolder, Parsable {
+export interface DeclineInput extends AdditionalDataHolder, Parsable {
     /**
      * The comment property
      */
@@ -1501,14 +1407,14 @@ export function deserializeIntoActiveAttempt(activeAttempt: Partial<ActiveAttemp
 }
 /**
  * The deserialization information for the current model
- * @param AnswerInputRequest The instance to deserialize into.
+ * @param AnswerInput The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAnswerInputRequest(answerInputRequest: Partial<AnswerInputRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAnswerInput(answerInput: Partial<AnswerInput> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "name": n => { answerInputRequest.name = n.getStringValue(); },
-        "value": n => { answerInputRequest.value = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "name": n => { answerInput.name = n.getStringValue(); },
+        "value": n => { answerInput.value = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
     }
 }
 /**
@@ -1575,33 +1481,6 @@ export function deserializeIntoAttempt_answers(attempt_answers: Partial<Attempt_
 }
 /**
  * The deserialization information for the current model
- * @param AttemptFileEntry The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAttemptFileEntry(attemptFileEntry: Partial<AttemptFileEntry> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "lastModified": n => { attemptFileEntry.lastModified = n.getDateValue(); },
-        "path": n => { attemptFileEntry.path = n.getStringValue(); },
-        "size": n => { attemptFileEntry.size = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param AttemptFilesResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAttemptFilesResponse(attemptFilesResponse: Partial<AttemptFilesResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "attempt": n => { attemptFilesResponse.attempt = n.getNumberValue(); },
-        "files": n => { attemptFilesResponse.files = n.getCollectionOfObjectValues<AttemptFileEntry>(createAttemptFileEntryFromDiscriminatorValue); },
-        "run": n => { attemptFilesResponse.run = n.getNumberValue(); },
-        "step": n => { attemptFilesResponse.step = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param AttemptOutput The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1610,22 +1489,6 @@ export function deserializeIntoAttemptOutput(attemptOutput: Partial<AttemptOutpu
     return {
         "json": n => { attemptOutput.json = n.getStringValue(); },
         "key": n => { attemptOutput.key = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param AttemptOutputResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoAttemptOutputResponse(attemptOutputResponse: Partial<AttemptOutputResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "attempt": n => { attemptOutputResponse.attempt = n.getNumberValue(); },
-        "output": n => { attemptOutputResponse.output = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
-        "outputKey": n => { attemptOutputResponse.outputKey = n.getStringValue(); },
-        "run": n => { attemptOutputResponse.run = n.getNumberValue(); },
-        "status": n => { attemptOutputResponse.status = n.getStringValue(); },
-        "step": n => { attemptOutputResponse.step = n.getStringValue(); },
     }
 }
 /**
@@ -1658,104 +1521,104 @@ export function deserializeIntoAttemptStatus(attemptStatus: Partial<AttemptStatu
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusCancelled The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusCancelled The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusCancelled(attemptStatusCancelled: Partial<AttemptStatusCancelled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusCancelled(attemptStatusAttemptStatusCancelled: Partial<AttemptStatusAttemptStatusCancelled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusCancelled),
-        "cancelledAt": n => { attemptStatusCancelled.cancelledAt = n.getDateValue(); },
-        "startedAt": n => { attemptStatusCancelled.startedAt = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusCancelled),
+        "cancelledAt": n => { attemptStatusAttemptStatusCancelled.cancelledAt = n.getDateValue(); },
+        "startedAt": n => { attemptStatusAttemptStatusCancelled.startedAt = n.getDateValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusFailed The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusFailed The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusFailed(attemptStatusFailed: Partial<AttemptStatusFailed> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusFailed(attemptStatusAttemptStatusFailed: Partial<AttemptStatusAttemptStatusFailed> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusFailed),
-        "finishedAt": n => { attemptStatusFailed.finishedAt = n.getDateValue(); },
-        "reason": n => { attemptStatusFailed.reason = n.getStringValue(); },
-        "startedAt": n => { attemptStatusFailed.startedAt = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusFailed),
+        "finishedAt": n => { attemptStatusAttemptStatusFailed.finishedAt = n.getDateValue(); },
+        "reason": n => { attemptStatusAttemptStatusFailed.reason = n.getStringValue(); },
+        "startedAt": n => { attemptStatusAttemptStatusFailed.startedAt = n.getDateValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusInProgress The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusInProgress The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusInProgress(attemptStatusInProgress: Partial<AttemptStatusInProgress> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusInProgress(attemptStatusAttemptStatusInProgress: Partial<AttemptStatusAttemptStatusInProgress> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusInProgress),
-        "startedAt": n => { attemptStatusInProgress.startedAt = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusInProgress),
+        "startedAt": n => { attemptStatusAttemptStatusInProgress.startedAt = n.getDateValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusObsolete The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusObsolete The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusObsolete(attemptStatusObsolete: Partial<AttemptStatusObsolete> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusObsolete(attemptStatusAttemptStatusObsolete: Partial<AttemptStatusAttemptStatusObsolete> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusObsolete),
-        "supersedingAttemptId": n => { attemptStatusObsolete.supersedingAttemptId = n.getGuidValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusObsolete),
+        "supersedingAttemptId": n => { attemptStatusAttemptStatusObsolete.supersedingAttemptId = n.getGuidValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusScheduled The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusScheduled The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusScheduled(attemptStatusScheduled: Partial<AttemptStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusScheduled(attemptStatusAttemptStatusScheduled: Partial<AttemptStatusAttemptStatusScheduled> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusScheduled),
-        "submissionAttempts": n => { attemptStatusScheduled.submissionAttempts = n.getNumberValue() ?? 0; },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusScheduled),
+        "submissionAttempts": n => { attemptStatusAttemptStatusScheduled.submissionAttempts = n.getNumberValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusSkipped The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusSkipped The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusSkipped(attemptStatusSkipped: Partial<AttemptStatusSkipped> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusSkipped(attemptStatusAttemptStatusSkipped: Partial<AttemptStatusAttemptStatusSkipped> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusSkipped),
-        "finishedAt": n => { attemptStatusSkipped.finishedAt = n.getDateValue(); },
-        "reason": n => { attemptStatusSkipped.reason = n.getStringValue(); },
-        "startedAt": n => { attemptStatusSkipped.startedAt = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusSkipped),
+        "finishedAt": n => { attemptStatusAttemptStatusSkipped.finishedAt = n.getDateValue(); },
+        "reason": n => { attemptStatusAttemptStatusSkipped.reason = n.getStringValue(); },
+        "startedAt": n => { attemptStatusAttemptStatusSkipped.startedAt = n.getDateValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusSucceeded The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusSucceeded The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusSucceeded(attemptStatusSucceeded: Partial<AttemptStatusSucceeded> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusSucceeded(attemptStatusAttemptStatusSucceeded: Partial<AttemptStatusAttemptStatusSucceeded> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusSucceeded),
-        "finishedAt": n => { attemptStatusSucceeded.finishedAt = n.getDateValue(); },
-        "startedAt": n => { attemptStatusSucceeded.startedAt = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusSucceeded),
+        "finishedAt": n => { attemptStatusAttemptStatusSucceeded.finishedAt = n.getDateValue(); },
+        "startedAt": n => { attemptStatusAttemptStatusSucceeded.startedAt = n.getDateValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param AttemptStatusWaiting The instance to deserialize into.
+ * @param AttemptStatusAttemptStatusWaiting The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoAttemptStatusWaiting(attemptStatusWaiting: Partial<AttemptStatusWaiting> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoAttemptStatusAttemptStatusWaiting(attemptStatusAttemptStatusWaiting: Partial<AttemptStatusAttemptStatusWaiting> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        ...deserializeIntoAttemptStatus(attemptStatusWaiting),
-        "since": n => { attemptStatusWaiting.since = n.getDateValue(); },
+        ...deserializeIntoAttemptStatus(attemptStatusAttemptStatusWaiting),
+        "since": n => { attemptStatusAttemptStatusWaiting.since = n.getDateValue(); },
     }
 }
 /**
@@ -1848,22 +1711,22 @@ export function deserializeIntoConfigSnapshotSummary(configSnapshotSummary: Part
 }
 /**
  * The deserialization information for the current model
- * @param ContinueRunRequest The instance to deserialize into.
+ * @param ContinueRun The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoContinueRunRequest(continueRunRequest: Partial<ContinueRunRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoContinueRun(continueRun: Partial<ContinueRun> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "input": n => { continueRunRequest.input = n.getObjectValue<ContinueRunRequest_input>(createContinueRunRequest_inputFromDiscriminatorValue); },
+        "input": n => { continueRun.input = n.getObjectValue<ContinueRun_input>(createContinueRun_inputFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param ContinueRunRequest_input The instance to deserialize into.
+ * @param ContinueRun_input The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoContinueRunRequest_input(continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoContinueRun_input(continueRun_input: Partial<ContinueRun_input> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
     }
 }
@@ -2007,13 +1870,13 @@ export function deserializeIntoCriticalPathStep(criticalPathStep: Partial<Critic
 }
 /**
  * The deserialization information for the current model
- * @param DeclineInputRequest The instance to deserialize into.
+ * @param DeclineInput The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoDeclineInputRequest(declineInputRequest: Partial<DeclineInputRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoDeclineInput(declineInput: Partial<DeclineInput> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "comment": n => { declineInputRequest.comment = n.getStringValue(); },
+        "comment": n => { declineInput.comment = n.getStringValue(); },
     }
 }
 /**
@@ -2114,36 +1977,6 @@ export function deserializeIntoManifestValidationResponse(manifestValidationResp
         "manifestHash": n => { manifestValidationResponse.manifestHash = n.getStringValue(); },
         "valid": n => { manifestValidationResponse.valid = n.getBooleanValue(); },
         "warnings": n => { manifestValidationResponse.warnings = n.getCollectionOfObjectValues<ManifestIssueView>(createManifestIssueViewFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param PageOfRunSummary The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPageOfRunSummary(pageOfRunSummary: Partial<PageOfRunSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "hasNextPage": n => { pageOfRunSummary.hasNextPage = n.getBooleanValue(); },
-        "items": n => { pageOfRunSummary.items = n.getCollectionOfObjectValues<RunSummary>(createRunSummaryFromDiscriminatorValue); },
-        "next": n => { pageOfRunSummary.next = n.getObjectValue<Pagination>(createPaginationFromDiscriminatorValue); },
-        "pageNumber": n => { pageOfRunSummary.pageNumber = n.getNumberValue(); },
-        "pageSize": n => { pageOfRunSummary.pageSize = n.getNumberValue(); },
-        "totalCount": n => { pageOfRunSummary.totalCount = n.getNumberValue(); },
-        "totalPages": n => { pageOfRunSummary.totalPages = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param Pagination The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPagination(pagination: Partial<Pagination> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "offset": n => { pagination.offset = n.getNumberValue(); },
-        "page": n => { pagination.page = n.getNumberValue(); },
-        "pageSize": n => { pagination.pageSize = n.getNumberValue(); },
     }
 }
 /**
@@ -2432,13 +2265,13 @@ export function deserializeIntoReconcileStatus(reconcileStatus: Partial<Reconcil
 }
 /**
  * The deserialization information for the current model
- * @param RerunStepRequest The instance to deserialize into.
+ * @param RerunStep The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoRerunStepRequest(rerunStepRequest: Partial<RerunStepRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoRerunStep(rerunStep: Partial<RerunStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "continue": n => { rerunStepRequest.continueEscaped = n.getBooleanValue() ?? false; },
+        "continue": n => { rerunStep.continueEscaped = n.getBooleanValue(); },
     }
 }
 /**
@@ -2460,20 +2293,21 @@ export function deserializeIntoRollbackConfig(rollbackConfig: Partial<RollbackCo
 // @ts-ignore
 export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "commitSha": n => { run.commitSha = n.getStringValue(); },
         "config": n => { run.config = n.getStringValue(); },
         "configSnapshot": n => { run.configSnapshot = n.getNumberValue(); },
+        "continuable": n => { run.continuable = n.getBooleanValue(); },
         "createdAt": n => { run.createdAt = n.getDateValue(); },
         "finishedAt": n => { run.finishedAt = n.getDateValue(); },
         "heldAt": n => { run.heldAt = n.getStringValue(); },
         "id": n => { run.id = n.getGuidValue(); },
-        "input": n => { run.input = n.getStringValue(); },
+        "input": n => { run.input = n.getObjectValue<Run_input>(createRun_inputFromDiscriminatorValue); },
         "number": n => { run.number = n.getNumberValue(); },
-        "pipelineId": n => { run.pipelineId = n.getGuidValue(); },
-        "rerunOf": n => { run.rerunOf = n.getGuidValue(); },
-        "resumedAt": n => { run.resumedAt = n.getDateValue(); },
+        "rerunOfNumber": n => { run.rerunOfNumber = n.getNumberValue(); },
+        "stages": n => { run.stages = n.getCollectionOfObjectValues<RunStage>(createRunStageFromDiscriminatorValue); },
         "status": n => { run.status = n.getEnumValue<RunStatus>(RunStatusObject); },
-        "supersededBy": n => { run.supersededBy = n.getGuidValue(); },
-        "trigger": n => { run.trigger = n.getObjectValue<RunTrigger>(createRunTriggerFromDiscriminatorValue); },
+        "supersededByNumber": n => { run.supersededByNumber = n.getNumberValue(); },
+        "triggerKind": n => { run.triggerKind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
         "versionId": n => { run.versionId = n.getGuidValue(); },
         "versionNumber": n => { run.versionNumber = n.getNumberValue(); },
         "versionStamp": n => { run.versionStamp = n.getStringValue(); },
@@ -2481,35 +2315,39 @@ export function deserializeIntoRun(run: Partial<Run> | undefined = {}) : Record<
 }
 /**
  * The deserialization information for the current model
- * @param RunDetail The instance to deserialize into.
+ * @param Run_input The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoRunDetail(runDetail: Partial<RunDetail> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoRun_input(run_input: Partial<Run_input> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "commitSha": n => { runDetail.commitSha = n.getStringValue(); },
-        "config": n => { runDetail.config = n.getStringValue(); },
-        "continuable": n => { runDetail.continuable = n.getBooleanValue(); },
-        "input": n => { runDetail.input = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
-        "run": n => { runDetail.run = n.getObjectValue<RunSummary>(createRunSummaryFromDiscriminatorValue); },
-        "stages": n => { runDetail.stages = n.getCollectionOfObjectValues<RunStageView>(createRunStageViewFromDiscriminatorValue); },
-        "versionId": n => { runDetail.versionId = n.getGuidValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param RunOrigin The instance to deserialize into.
+ * @param RunList The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoRunOrigin(runOrigin: Partial<RunOrigin> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoRunList(runList: Partial<RunList> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "configReadyAt": n => { runOrigin.configReadyAt = n.getDateValue(); },
-        "mapFinishedAt": n => { runOrigin.mapFinishedAt = n.getDateValue(); },
-        "mapStartedAt": n => { runOrigin.mapStartedAt = n.getDateValue(); },
-        "noticedAt": n => { runOrigin.noticedAt = n.getDateValue(); },
-        "pushedAt": n => { runOrigin.pushedAt = n.getDateValue(); },
-        "via": n => { runOrigin.via = n.getStringValue(); },
+        "items": n => { runList.items = n.getCollectionOfObjectValues<RunSummary>(createRunSummaryFromDiscriminatorValue); },
+        "limit": n => { runList.limit = n.getNumberValue(); },
+        "offset": n => { runList.offset = n.getNumberValue(); },
+        "total": n => { runList.total = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RunStage The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRunStage(runStage: Partial<RunStage> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "index": n => { runStage.index = n.getNumberValue(); },
+        "steps": n => { runStage.steps = n.getCollectionOfObjectValues<RunStep>(createRunStepFromDiscriminatorValue); },
+        "when": n => { runStage.when = n.getCollectionOfObjectValues<RunStageCondition>(createRunStageConditionFromDiscriminatorValue); },
     }
 }
 /**
@@ -2526,37 +2364,36 @@ export function deserializeIntoRunStageCondition(runStageCondition: Partial<RunS
 }
 /**
  * The deserialization information for the current model
- * @param RunStageView The instance to deserialize into.
+ * @param RunStart The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoRunStageView(runStageView: Partial<RunStageView> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoRunStart(runStart: Partial<RunStart> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "index": n => { runStageView.index = n.getNumberValue(); },
-        "steps": n => { runStageView.steps = n.getCollectionOfObjectValues<RunStepView>(createRunStepViewFromDiscriminatorValue); },
-        "when": n => { runStageView.when = n.getCollectionOfObjectValues<RunStageCondition>(createRunStageConditionFromDiscriminatorValue); },
+        "outcome": n => { runStart.outcome = n.getEnumValue<RunStartOutcome>(RunStartOutcomeObject); },
+        "run": n => { runStart.run = n.getObjectValue<Run>(createRunFromDiscriminatorValue); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param RunStepView The instance to deserialize into.
+ * @param RunStep The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoRunStepView(runStepView: Partial<RunStepView> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoRunStep(runStep: Partial<RunStep> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "attemptCount": n => { runStepView.attemptCount = n.getNumberValue(); },
-        "blocked": n => { runStepView.blocked = n.getBooleanValue(); },
-        "finishedAt": n => { runStepView.finishedAt = n.getDateValue(); },
-        "latestAttempt": n => { runStepView.latestAttempt = n.getNumberValue(); },
-        "name": n => { runStepView.name = n.getStringValue(); },
-        "phases": n => { runStepView.phases = n.getObjectValue<AttemptPhases>(createAttemptPhasesFromDiscriminatorValue); },
-        "reason": n => { runStepView.reason = n.getStringValue(); },
-        "startedAt": n => { runStepView.startedAt = n.getDateValue(); },
-        "status": n => { runStepView.status = n.getStringValue(); },
-        "stepVersion": n => { runStepView.stepVersion = n.getNumberValue(); },
-        "succeededAttempt": n => { runStepView.succeededAttempt = n.getNumberValue(); },
-        "waitingFor": n => { runStepView.waitingFor = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "attemptCount": n => { runStep.attemptCount = n.getNumberValue(); },
+        "blocked": n => { runStep.blocked = n.getBooleanValue(); },
+        "finishedAt": n => { runStep.finishedAt = n.getDateValue(); },
+        "latestAttempt": n => { runStep.latestAttempt = n.getNumberValue(); },
+        "name": n => { runStep.name = n.getStringValue(); },
+        "phases": n => { runStep.phases = n.getObjectValue<AttemptPhases>(createAttemptPhasesFromDiscriminatorValue); },
+        "reason": n => { runStep.reason = n.getStringValue(); },
+        "startedAt": n => { runStep.startedAt = n.getDateValue(); },
+        "status": n => { runStep.status = n.getStringValue(); },
+        "stepVersion": n => { runStep.stepVersion = n.getNumberValue(); },
+        "succeededAttempt": n => { runStep.succeededAttempt = n.getNumberValue(); },
+        "waitingFor": n => { runStep.waitingFor = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -2579,19 +2416,6 @@ export function deserializeIntoRunSummary(runSummary: Partial<RunSummary> | unde
         "triggerKind": n => { runSummary.triggerKind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
         "versionNumber": n => { runSummary.versionNumber = n.getNumberValue(); },
         "versionStamp": n => { runSummary.versionStamp = n.getStringValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param RunTrigger The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoRunTrigger(runTrigger: Partial<RunTrigger> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "dedupKey": n => { runTrigger.dedupKey = n.getStringValue(); },
-        "kind": n => { runTrigger.kind = n.getEnumValue<RunTriggerKind>(RunTriggerKindObject); },
-        "origin": n => { runTrigger.origin = n.getObjectValue<RunOrigin>(createRunOriginFromDiscriminatorValue); },
     }
 }
 /**
@@ -2640,6 +2464,33 @@ export function deserializeIntoSetSecret(setSecret: Partial<SetSecret> | undefin
 }
 /**
  * The deserialization information for the current model
+ * @param StepFile The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepFile(stepFile: Partial<StepFile> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "lastModified": n => { stepFile.lastModified = n.getDateValue(); },
+        "path": n => { stepFile.path = n.getStringValue(); },
+        "size": n => { stepFile.size = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param StepFiles The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepFiles(stepFiles: Partial<StepFiles> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attempt": n => { stepFiles.attempt = n.getNumberValue(); },
+        "files": n => { stepFiles.files = n.getCollectionOfObjectValues<StepFile>(createStepFileFromDiscriminatorValue); },
+        "run": n => { stepFiles.run = n.getNumberValue(); },
+        "step": n => { stepFiles.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param StepHistoryItem The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2664,6 +2515,22 @@ export function deserializeIntoStepHistoryItem(stepHistoryItem: Partial<StepHist
 }
 /**
  * The deserialization information for the current model
+ * @param StepOutput The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoStepOutput(stepOutput: Partial<StepOutput> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "attempt": n => { stepOutput.attempt = n.getNumberValue(); },
+        "output": n => { stepOutput.output = n.getObjectValue<JsonElement>(createJsonElementFromDiscriminatorValue); },
+        "outputKey": n => { stepOutput.outputKey = n.getStringValue(); },
+        "run": n => { stepOutput.run = n.getNumberValue(); },
+        "status": n => { stepOutput.status = n.getStringValue(); },
+        "step": n => { stepOutput.step = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param SwitchVersion The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2672,28 +2539,6 @@ export function deserializeIntoSwitchVersion(switchVersion: Partial<SwitchVersio
     return {
         "cancelRunning": n => { switchVersion.cancelRunning = n.getBooleanValue(); },
         "version": n => { switchVersion.version = n.getNumberValue(); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param TriggerRunRequest The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoTriggerRunRequest(triggerRunRequest: Partial<TriggerRunRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-    }
-}
-/**
- * The deserialization information for the current model
- * @param TriggerRunResponse The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoTriggerRunResponse(triggerRunResponse: Partial<TriggerRunResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "outcome": n => { triggerRunResponse.outcome = n.getStringValue(); },
-        "run": n => { triggerRunResponse.run = n.getObjectValue<Run>(createRunFromDiscriminatorValue); },
     }
 }
 /**
@@ -2802,50 +2647,6 @@ export interface ManifestValidationResponse extends AdditionalDataHolder, Parsab
      * The warnings property
      */
     warnings?: ManifestIssueView[] | null;
-}
-export interface PageOfRunSummary extends AdditionalDataHolder, Parsable {
-    /**
-     * The hasNextPage property
-     */
-    hasNextPage?: boolean | null;
-    /**
-     * The items property
-     */
-    items?: RunSummary[] | null;
-    /**
-     * The next property
-     */
-    next?: Pagination | null;
-    /**
-     * The pageNumber property
-     */
-    pageNumber?: number | null;
-    /**
-     * The pageSize property
-     */
-    pageSize?: number | null;
-    /**
-     * The totalCount property
-     */
-    totalCount?: number | null;
-    /**
-     * The totalPages property
-     */
-    totalPages?: number | null;
-}
-export interface Pagination extends AdditionalDataHolder, Parsable {
-    /**
-     * The offset property
-     */
-    offset?: number | null;
-    /**
-     * The page property
-     */
-    page?: number | null;
-    /**
-     * The pageSize property
-     */
-    pageSize?: number | null;
 }
 export interface PendingVersionInfo extends AdditionalDataHolder, Parsable {
     /**
@@ -3255,7 +3056,7 @@ export interface ReconcileStatus extends AdditionalDataHolder, Parsable {
      */
     warnings?: string[] | null;
 }
-export interface RerunStepRequest extends AdditionalDataHolder, Parsable {
+export interface RerunStep extends AdditionalDataHolder, Parsable {
     /**
      * The continue property
      */
@@ -3269,6 +3070,10 @@ export interface RollbackConfig extends AdditionalDataHolder, Parsable {
 }
 export interface Run extends AdditionalDataHolder, Parsable {
     /**
+     * The commitSha property
+     */
+    commitSha?: string | null;
+    /**
      * The config property
      */
     config?: string | null;
@@ -3276,6 +3081,10 @@ export interface Run extends AdditionalDataHolder, Parsable {
      * The configSnapshot property
      */
     configSnapshot?: number | null;
+    /**
+     * The continuable property
+     */
+    continuable?: boolean | null;
     /**
      * The createdAt property
      */
@@ -3295,35 +3104,31 @@ export interface Run extends AdditionalDataHolder, Parsable {
     /**
      * The input property
      */
-    input?: string | null;
+    input?: Run_input | null;
     /**
      * The number property
      */
     number?: number | null;
     /**
-     * The pipelineId property
+     * The rerunOfNumber property
      */
-    pipelineId?: Guid | null;
+    rerunOfNumber?: number | null;
     /**
-     * The rerunOf property
+     * The stages property
      */
-    rerunOf?: Guid | null;
-    /**
-     * The resumedAt property
-     */
-    resumedAt?: Date | null;
+    stages?: RunStage[] | null;
     /**
      * The status property
      */
     status?: RunStatus | null;
     /**
-     * The supersededBy property
+     * The supersededByNumber property
      */
-    supersededBy?: Guid | null;
+    supersededByNumber?: number | null;
     /**
-     * The trigger property
+     * The triggerKind property
      */
-    trigger?: RunTrigger | null;
+    triggerKind?: RunTriggerKind | null;
     /**
      * The versionId property
      */
@@ -3337,61 +3142,39 @@ export interface Run extends AdditionalDataHolder, Parsable {
      */
     versionStamp?: string | null;
 }
-export interface RunDetail extends AdditionalDataHolder, Parsable {
-    /**
-     * The commitSha property
-     */
-    commitSha?: string | null;
-    /**
-     * The config property
-     */
-    config?: string | null;
-    /**
-     * The continuable property
-     */
-    continuable?: boolean | null;
-    /**
-     * The input property
-     */
-    input?: UntypedNode | null;
-    /**
-     * The run property
-     */
-    run?: RunSummary | null;
-    /**
-     * The stages property
-     */
-    stages?: RunStageView[] | null;
-    /**
-     * The versionId property
-     */
-    versionId?: Guid | null;
+export interface Run_input extends AdditionalDataHolder, Parsable {
 }
-export interface RunOrigin extends AdditionalDataHolder, Parsable {
+export interface RunList extends AdditionalDataHolder, Parsable {
     /**
-     * The configReadyAt property
+     * The items property
      */
-    configReadyAt?: Date | null;
+    items?: RunSummary[] | null;
     /**
-     * The mapFinishedAt property
+     * The limit property
      */
-    mapFinishedAt?: Date | null;
+    limit?: number | null;
     /**
-     * The mapStartedAt property
+     * The offset property
      */
-    mapStartedAt?: Date | null;
+    offset?: number | null;
     /**
-     * The noticedAt property
+     * The total property
      */
-    noticedAt?: Date | null;
+    total?: number | null;
+}
+export interface RunStage extends AdditionalDataHolder, Parsable {
     /**
-     * The pushedAt property
+     * The index property
      */
-    pushedAt?: Date | null;
+    index?: number | null;
     /**
-     * The via property
+     * The steps property
      */
-    via?: string | null;
+    steps?: RunStep[] | null;
+    /**
+     * The when property
+     */
+    when?: RunStageCondition[] | null;
 }
 export interface RunStageCondition extends AdditionalDataHolder, Parsable {
     /**
@@ -3403,22 +3186,19 @@ export interface RunStageCondition extends AdditionalDataHolder, Parsable {
      */
     values?: UntypedNode | null;
 }
-export interface RunStageView extends AdditionalDataHolder, Parsable {
+export interface RunStart extends AdditionalDataHolder, Parsable {
     /**
-     * The index property
+     * The outcome property
      */
-    index?: number | null;
+    outcome?: RunStartOutcome | null;
     /**
-     * The steps property
+     * The run property
      */
-    steps?: RunStepView[] | null;
-    /**
-     * The when property
-     */
-    when?: RunStageCondition[] | null;
+    run?: Run | null;
 }
+export type RunStartOutcome = (typeof RunStartOutcomeObject)[keyof typeof RunStartOutcomeObject];
 export type RunStatus = (typeof RunStatusObject)[keyof typeof RunStatusObject];
-export interface RunStepView extends AdditionalDataHolder, Parsable {
+export interface RunStep extends AdditionalDataHolder, Parsable {
     /**
      * The attemptCount property
      */
@@ -3518,20 +3298,6 @@ export interface RunSummary extends AdditionalDataHolder, Parsable {
      */
     versionStamp?: string | null;
 }
-export interface RunTrigger extends AdditionalDataHolder, Parsable {
-    /**
-     * The dedupKey property
-     */
-    dedupKey?: string | null;
-    /**
-     * The kind property
-     */
-    kind?: RunTriggerKind | null;
-    /**
-     * The origin property
-     */
-    origin?: RunOrigin | null;
-}
 export type RunTriggerKind = (typeof RunTriggerKindObject)[keyof typeof RunTriggerKindObject];
 /**
  * Serializes information the current object
@@ -3554,16 +3320,16 @@ export function serializeActiveAttempt(writer: SerializationWriter, activeAttemp
 }
 /**
  * Serializes information the current object
- * @param AnswerInputRequest The instance to serialize from.
+ * @param AnswerInput The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAnswerInputRequest(writer: SerializationWriter, answerInputRequest: Partial<AnswerInputRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!answerInputRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("name", answerInputRequest.name);
-    writer.writeObjectValue("value", answerInputRequest.value);
-    writer.writeAdditionalData(answerInputRequest.additionalData);
+export function serializeAnswerInput(writer: SerializationWriter, answerInput: Partial<AnswerInput> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!answerInput || isSerializingDerivedType) { return; }
+    writer.writeStringValue("name", answerInput.name);
+    writer.writeObjectValue("value", answerInput.value);
+    writer.writeAdditionalData(answerInput.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3633,35 +3399,6 @@ export function serializeAttempt_answers(writer: SerializationWriter, attempt_an
 }
 /**
  * Serializes information the current object
- * @param AttemptFileEntry The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAttemptFileEntry(writer: SerializationWriter, attemptFileEntry: Partial<AttemptFileEntry> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptFileEntry || isSerializingDerivedType) { return; }
-    writer.writeDateValue("lastModified", attemptFileEntry.lastModified);
-    writer.writeStringValue("path", attemptFileEntry.path);
-    writer.writeNumberValue("size", attemptFileEntry.size);
-    writer.writeAdditionalData(attemptFileEntry.additionalData);
-}
-/**
- * Serializes information the current object
- * @param AttemptFilesResponse The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAttemptFilesResponse(writer: SerializationWriter, attemptFilesResponse: Partial<AttemptFilesResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptFilesResponse || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("attempt", attemptFilesResponse.attempt);
-    writer.writeCollectionOfObjectValues<AttemptFileEntry>("files", attemptFilesResponse.files, serializeAttemptFileEntry);
-    writer.writeNumberValue("run", attemptFilesResponse.run);
-    writer.writeStringValue("step", attemptFilesResponse.step);
-    writer.writeAdditionalData(attemptFilesResponse.additionalData);
-}
-/**
- * Serializes information the current object
  * @param AttemptOutput The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -3672,23 +3409,6 @@ export function serializeAttemptOutput(writer: SerializationWriter, attemptOutpu
     writer.writeStringValue("json", attemptOutput.json);
     writer.writeStringValue("key", attemptOutput.key);
     writer.writeAdditionalData(attemptOutput.additionalData);
-}
-/**
- * Serializes information the current object
- * @param AttemptOutputResponse The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeAttemptOutputResponse(writer: SerializationWriter, attemptOutputResponse: Partial<AttemptOutputResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptOutputResponse || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("attempt", attemptOutputResponse.attempt);
-    writer.writeObjectValue<JsonElement>("output", attemptOutputResponse.output, serializeJsonElement);
-    writer.writeStringValue("outputKey", attemptOutputResponse.outputKey);
-    writer.writeNumberValue("run", attemptOutputResponse.run);
-    writer.writeStringValue("status", attemptOutputResponse.status);
-    writer.writeStringValue("step", attemptOutputResponse.step);
-    writer.writeAdditionalData(attemptOutputResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3721,132 +3441,132 @@ export function serializeAttemptStatus(writer: SerializationWriter, attemptStatu
     writer.writeAdditionalData(attemptStatus.additionalData);
     switch (attemptStatus.type) {
         case "cancelled":
-            serializeAttemptStatusCancelled(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusCancelled(writer, attemptStatus, true);
         break;
         case "failed":
-            serializeAttemptStatusFailed(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusFailed(writer, attemptStatus, true);
         break;
         case "in-progress":
-            serializeAttemptStatusInProgress(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusInProgress(writer, attemptStatus, true);
         break;
         case "obsolete":
-            serializeAttemptStatusObsolete(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusObsolete(writer, attemptStatus, true);
         break;
         case "scheduled":
-            serializeAttemptStatusScheduled(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusScheduled(writer, attemptStatus, true);
         break;
         case "skipped":
-            serializeAttemptStatusSkipped(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusSkipped(writer, attemptStatus, true);
         break;
         case "succeeded":
-            serializeAttemptStatusSucceeded(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusSucceeded(writer, attemptStatus, true);
         break;
         case "waiting":
-            serializeAttemptStatusWaiting(writer, attemptStatus, true);
+            serializeAttemptStatusAttemptStatusWaiting(writer, attemptStatus, true);
         break;
     }
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusCancelled The instance to serialize from.
+ * @param AttemptStatusAttemptStatusCancelled The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusCancelled(writer: SerializationWriter, attemptStatusCancelled: Partial<AttemptStatusCancelled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusCancelled || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusCancelled, isSerializingDerivedType)
-    writer.writeDateValue("cancelledAt", attemptStatusCancelled.cancelledAt);
-    writer.writeDateValue("startedAt", attemptStatusCancelled.startedAt);
+export function serializeAttemptStatusAttemptStatusCancelled(writer: SerializationWriter, attemptStatusAttemptStatusCancelled: Partial<AttemptStatusAttemptStatusCancelled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusCancelled || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusCancelled, isSerializingDerivedType)
+    writer.writeDateValue("cancelledAt", attemptStatusAttemptStatusCancelled.cancelledAt);
+    writer.writeDateValue("startedAt", attemptStatusAttemptStatusCancelled.startedAt);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusFailed The instance to serialize from.
+ * @param AttemptStatusAttemptStatusFailed The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusFailed(writer: SerializationWriter, attemptStatusFailed: Partial<AttemptStatusFailed> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusFailed || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusFailed, isSerializingDerivedType)
-    writer.writeDateValue("finishedAt", attemptStatusFailed.finishedAt);
-    writer.writeStringValue("reason", attemptStatusFailed.reason);
-    writer.writeDateValue("startedAt", attemptStatusFailed.startedAt);
+export function serializeAttemptStatusAttemptStatusFailed(writer: SerializationWriter, attemptStatusAttemptStatusFailed: Partial<AttemptStatusAttemptStatusFailed> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusFailed || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusFailed, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusAttemptStatusFailed.finishedAt);
+    writer.writeStringValue("reason", attemptStatusAttemptStatusFailed.reason);
+    writer.writeDateValue("startedAt", attemptStatusAttemptStatusFailed.startedAt);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusInProgress The instance to serialize from.
+ * @param AttemptStatusAttemptStatusInProgress The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusInProgress(writer: SerializationWriter, attemptStatusInProgress: Partial<AttemptStatusInProgress> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusInProgress || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusInProgress, isSerializingDerivedType)
-    writer.writeDateValue("startedAt", attemptStatusInProgress.startedAt);
+export function serializeAttemptStatusAttemptStatusInProgress(writer: SerializationWriter, attemptStatusAttemptStatusInProgress: Partial<AttemptStatusAttemptStatusInProgress> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusInProgress || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusInProgress, isSerializingDerivedType)
+    writer.writeDateValue("startedAt", attemptStatusAttemptStatusInProgress.startedAt);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusObsolete The instance to serialize from.
+ * @param AttemptStatusAttemptStatusObsolete The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusObsolete(writer: SerializationWriter, attemptStatusObsolete: Partial<AttemptStatusObsolete> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusObsolete || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusObsolete, isSerializingDerivedType)
-    writer.writeGuidValue("supersedingAttemptId", attemptStatusObsolete.supersedingAttemptId);
+export function serializeAttemptStatusAttemptStatusObsolete(writer: SerializationWriter, attemptStatusAttemptStatusObsolete: Partial<AttemptStatusAttemptStatusObsolete> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusObsolete || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusObsolete, isSerializingDerivedType)
+    writer.writeGuidValue("supersedingAttemptId", attemptStatusAttemptStatusObsolete.supersedingAttemptId);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusScheduled The instance to serialize from.
+ * @param AttemptStatusAttemptStatusScheduled The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusScheduled(writer: SerializationWriter, attemptStatusScheduled: Partial<AttemptStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusScheduled || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusScheduled, isSerializingDerivedType)
-    writer.writeNumberValue("submissionAttempts", attemptStatusScheduled.submissionAttempts ?? 0);
+export function serializeAttemptStatusAttemptStatusScheduled(writer: SerializationWriter, attemptStatusAttemptStatusScheduled: Partial<AttemptStatusAttemptStatusScheduled> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusScheduled || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusScheduled, isSerializingDerivedType)
+    writer.writeNumberValue("submissionAttempts", attemptStatusAttemptStatusScheduled.submissionAttempts);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusSkipped The instance to serialize from.
+ * @param AttemptStatusAttemptStatusSkipped The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusSkipped(writer: SerializationWriter, attemptStatusSkipped: Partial<AttemptStatusSkipped> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusSkipped || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusSkipped, isSerializingDerivedType)
-    writer.writeDateValue("finishedAt", attemptStatusSkipped.finishedAt);
-    writer.writeStringValue("reason", attemptStatusSkipped.reason);
-    writer.writeDateValue("startedAt", attemptStatusSkipped.startedAt);
+export function serializeAttemptStatusAttemptStatusSkipped(writer: SerializationWriter, attemptStatusAttemptStatusSkipped: Partial<AttemptStatusAttemptStatusSkipped> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusSkipped || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusSkipped, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusAttemptStatusSkipped.finishedAt);
+    writer.writeStringValue("reason", attemptStatusAttemptStatusSkipped.reason);
+    writer.writeDateValue("startedAt", attemptStatusAttemptStatusSkipped.startedAt);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusSucceeded The instance to serialize from.
+ * @param AttemptStatusAttemptStatusSucceeded The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusSucceeded(writer: SerializationWriter, attemptStatusSucceeded: Partial<AttemptStatusSucceeded> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusSucceeded || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusSucceeded, isSerializingDerivedType)
-    writer.writeDateValue("finishedAt", attemptStatusSucceeded.finishedAt);
-    writer.writeDateValue("startedAt", attemptStatusSucceeded.startedAt);
+export function serializeAttemptStatusAttemptStatusSucceeded(writer: SerializationWriter, attemptStatusAttemptStatusSucceeded: Partial<AttemptStatusAttemptStatusSucceeded> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusSucceeded || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusSucceeded, isSerializingDerivedType)
+    writer.writeDateValue("finishedAt", attemptStatusAttemptStatusSucceeded.finishedAt);
+    writer.writeDateValue("startedAt", attemptStatusAttemptStatusSucceeded.startedAt);
 }
 /**
  * Serializes information the current object
- * @param AttemptStatusWaiting The instance to serialize from.
+ * @param AttemptStatusAttemptStatusWaiting The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeAttemptStatusWaiting(writer: SerializationWriter, attemptStatusWaiting: Partial<AttemptStatusWaiting> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!attemptStatusWaiting || isSerializingDerivedType) { return; }
-    serializeAttemptStatus(writer, attemptStatusWaiting, isSerializingDerivedType)
-    writer.writeDateValue("since", attemptStatusWaiting.since);
+export function serializeAttemptStatusAttemptStatusWaiting(writer: SerializationWriter, attemptStatusAttemptStatusWaiting: Partial<AttemptStatusAttemptStatusWaiting> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!attemptStatusAttemptStatusWaiting || isSerializingDerivedType) { return; }
+    serializeAttemptStatus(writer, attemptStatusAttemptStatusWaiting, isSerializingDerivedType)
+    writer.writeDateValue("since", attemptStatusAttemptStatusWaiting.since);
 }
 /**
  * Serializes information the current object
@@ -3944,26 +3664,26 @@ export function serializeConfigSnapshotSummary(writer: SerializationWriter, conf
 }
 /**
  * Serializes information the current object
- * @param ContinueRunRequest The instance to serialize from.
+ * @param ContinueRun The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeContinueRunRequest(writer: SerializationWriter, continueRunRequest: Partial<ContinueRunRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!continueRunRequest || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<ContinueRunRequest_input>("input", continueRunRequest.input, serializeContinueRunRequest_input);
-    writer.writeAdditionalData(continueRunRequest.additionalData);
+export function serializeContinueRun(writer: SerializationWriter, continueRun: Partial<ContinueRun> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!continueRun || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<ContinueRun_input>("input", continueRun.input, serializeContinueRun_input);
+    writer.writeAdditionalData(continueRun.additionalData);
 }
 /**
  * Serializes information the current object
- * @param ContinueRunRequest_input The instance to serialize from.
+ * @param ContinueRun_input The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeContinueRunRequest_input(writer: SerializationWriter, continueRunRequest_input: Partial<ContinueRunRequest_input> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!continueRunRequest_input || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(continueRunRequest_input.additionalData);
+export function serializeContinueRun_input(writer: SerializationWriter, continueRun_input: Partial<ContinueRun_input> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!continueRun_input || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(continueRun_input.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4114,15 +3834,15 @@ export function serializeCriticalPathStep(writer: SerializationWriter, criticalP
 }
 /**
  * Serializes information the current object
- * @param DeclineInputRequest The instance to serialize from.
+ * @param DeclineInput The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeDeclineInputRequest(writer: SerializationWriter, declineInputRequest: Partial<DeclineInputRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!declineInputRequest || isSerializingDerivedType) { return; }
-    writer.writeStringValue("comment", declineInputRequest.comment);
-    writer.writeAdditionalData(declineInputRequest.additionalData);
+export function serializeDeclineInput(writer: SerializationWriter, declineInput: Partial<DeclineInput> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!declineInput || isSerializingDerivedType) { return; }
+    writer.writeStringValue("comment", declineInput.comment);
+    writer.writeAdditionalData(declineInput.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4231,38 +3951,6 @@ export function serializeManifestValidationResponse(writer: SerializationWriter,
     writer.writeBooleanValue("valid", manifestValidationResponse.valid);
     writer.writeCollectionOfObjectValues<ManifestIssueView>("warnings", manifestValidationResponse.warnings, serializeManifestIssueView);
     writer.writeAdditionalData(manifestValidationResponse.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PageOfRunSummary The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePageOfRunSummary(writer: SerializationWriter, pageOfRunSummary: Partial<PageOfRunSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pageOfRunSummary || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("hasNextPage", pageOfRunSummary.hasNextPage);
-    writer.writeCollectionOfObjectValues<RunSummary>("items", pageOfRunSummary.items, serializeRunSummary);
-    writer.writeObjectValue<Pagination>("next", pageOfRunSummary.next, serializePagination);
-    writer.writeNumberValue("pageNumber", pageOfRunSummary.pageNumber);
-    writer.writeNumberValue("pageSize", pageOfRunSummary.pageSize);
-    writer.writeNumberValue("totalCount", pageOfRunSummary.totalCount);
-    writer.writeNumberValue("totalPages", pageOfRunSummary.totalPages);
-    writer.writeAdditionalData(pageOfRunSummary.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param Pagination The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePagination(writer: SerializationWriter, pagination: Partial<Pagination> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pagination || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("offset", pagination.offset);
-    writer.writeNumberValue("page", pagination.page);
-    writer.writeNumberValue("pageSize", pagination.pageSize);
-    writer.writeAdditionalData(pagination.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4576,14 +4264,14 @@ export function serializeReconcileStatus(writer: SerializationWriter, reconcileS
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RerunStepRequest The instance to serialize from.
+ * @param RerunStep The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeRerunStepRequest(writer: SerializationWriter, rerunStepRequest: Partial<RerunStepRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!rerunStepRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("continue", rerunStepRequest.continueEscaped ?? false);
-    writer.writeAdditionalData(rerunStepRequest.additionalData);
+export function serializeRerunStep(writer: SerializationWriter, rerunStep: Partial<RerunStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!rerunStep || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("continue", rerunStep.continueEscaped);
+    writer.writeAdditionalData(rerunStep.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4606,20 +4294,21 @@ export function serializeRollbackConfig(writer: SerializationWriter, rollbackCon
 // @ts-ignore
 export function serializeRun(writer: SerializationWriter, run: Partial<Run> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!run || isSerializingDerivedType) { return; }
+    writer.writeStringValue("commitSha", run.commitSha);
     writer.writeStringValue("config", run.config);
     writer.writeNumberValue("configSnapshot", run.configSnapshot);
+    writer.writeBooleanValue("continuable", run.continuable);
     writer.writeDateValue("createdAt", run.createdAt);
     writer.writeDateValue("finishedAt", run.finishedAt);
     writer.writeStringValue("heldAt", run.heldAt);
     writer.writeGuidValue("id", run.id);
-    writer.writeStringValue("input", run.input);
+    writer.writeObjectValue<Run_input>("input", run.input, serializeRun_input);
     writer.writeNumberValue("number", run.number);
-    writer.writeGuidValue("pipelineId", run.pipelineId);
-    writer.writeGuidValue("rerunOf", run.rerunOf);
-    writer.writeDateValue("resumedAt", run.resumedAt);
+    writer.writeNumberValue("rerunOfNumber", run.rerunOfNumber);
+    writer.writeCollectionOfObjectValues<RunStage>("stages", run.stages, serializeRunStage);
     writer.writeEnumValue<RunStatus>("status", run.status);
-    writer.writeGuidValue("supersededBy", run.supersededBy);
-    writer.writeObjectValue<RunTrigger>("trigger", run.trigger, serializeRunTrigger);
+    writer.writeNumberValue("supersededByNumber", run.supersededByNumber);
+    writer.writeEnumValue<RunTriggerKind>("triggerKind", run.triggerKind);
     writer.writeGuidValue("versionId", run.versionId);
     writer.writeNumberValue("versionNumber", run.versionNumber);
     writer.writeStringValue("versionStamp", run.versionStamp);
@@ -4628,37 +4317,42 @@ export function serializeRun(writer: SerializationWriter, run: Partial<Run> | un
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RunDetail The instance to serialize from.
+ * @param Run_input The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeRunDetail(writer: SerializationWriter, runDetail: Partial<RunDetail> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!runDetail || isSerializingDerivedType) { return; }
-    writer.writeStringValue("commitSha", runDetail.commitSha);
-    writer.writeStringValue("config", runDetail.config);
-    writer.writeBooleanValue("continuable", runDetail.continuable);
-    writer.writeObjectValue("input", runDetail.input);
-    writer.writeObjectValue<RunSummary>("run", runDetail.run, serializeRunSummary);
-    writer.writeCollectionOfObjectValues<RunStageView>("stages", runDetail.stages, serializeRunStageView);
-    writer.writeGuidValue("versionId", runDetail.versionId);
-    writer.writeAdditionalData(runDetail.additionalData);
+export function serializeRun_input(writer: SerializationWriter, run_input: Partial<Run_input> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!run_input || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(run_input.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RunOrigin The instance to serialize from.
+ * @param RunList The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeRunOrigin(writer: SerializationWriter, runOrigin: Partial<RunOrigin> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!runOrigin || isSerializingDerivedType) { return; }
-    writer.writeDateValue("configReadyAt", runOrigin.configReadyAt);
-    writer.writeDateValue("mapFinishedAt", runOrigin.mapFinishedAt);
-    writer.writeDateValue("mapStartedAt", runOrigin.mapStartedAt);
-    writer.writeDateValue("noticedAt", runOrigin.noticedAt);
-    writer.writeDateValue("pushedAt", runOrigin.pushedAt);
-    writer.writeStringValue("via", runOrigin.via);
-    writer.writeAdditionalData(runOrigin.additionalData);
+export function serializeRunList(writer: SerializationWriter, runList: Partial<RunList> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runList || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RunSummary>("items", runList.items, serializeRunSummary);
+    writer.writeNumberValue("limit", runList.limit);
+    writer.writeNumberValue("offset", runList.offset);
+    writer.writeNumberValue("total", runList.total);
+    writer.writeAdditionalData(runList.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RunStage The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRunStage(writer: SerializationWriter, runStage: Partial<RunStage> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runStage || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("index", runStage.index);
+    writer.writeCollectionOfObjectValues<RunStep>("steps", runStage.steps, serializeRunStep);
+    writer.writeCollectionOfObjectValues<RunStageCondition>("when", runStage.when, serializeRunStageCondition);
+    writer.writeAdditionalData(runStage.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4676,39 +4370,38 @@ export function serializeRunStageCondition(writer: SerializationWriter, runStage
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RunStageView The instance to serialize from.
+ * @param RunStart The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeRunStageView(writer: SerializationWriter, runStageView: Partial<RunStageView> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!runStageView || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("index", runStageView.index);
-    writer.writeCollectionOfObjectValues<RunStepView>("steps", runStageView.steps, serializeRunStepView);
-    writer.writeCollectionOfObjectValues<RunStageCondition>("when", runStageView.when, serializeRunStageCondition);
-    writer.writeAdditionalData(runStageView.additionalData);
+export function serializeRunStart(writer: SerializationWriter, runStart: Partial<RunStart> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runStart || isSerializingDerivedType) { return; }
+    writer.writeEnumValue<RunStartOutcome>("outcome", runStart.outcome);
+    writer.writeObjectValue<Run>("run", runStart.run, serializeRun);
+    writer.writeAdditionalData(runStart.additionalData);
 }
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RunStepView The instance to serialize from.
+ * @param RunStep The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeRunStepView(writer: SerializationWriter, runStepView: Partial<RunStepView> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!runStepView || isSerializingDerivedType) { return; }
-    writer.writeNumberValue("attemptCount", runStepView.attemptCount);
-    writer.writeBooleanValue("blocked", runStepView.blocked);
-    writer.writeDateValue("finishedAt", runStepView.finishedAt);
-    writer.writeNumberValue("latestAttempt", runStepView.latestAttempt);
-    writer.writeStringValue("name", runStepView.name);
-    writer.writeObjectValue<AttemptPhases>("phases", runStepView.phases, serializeAttemptPhases);
-    writer.writeStringValue("reason", runStepView.reason);
-    writer.writeDateValue("startedAt", runStepView.startedAt);
-    writer.writeStringValue("status", runStepView.status);
-    writer.writeNumberValue("stepVersion", runStepView.stepVersion);
-    writer.writeNumberValue("succeededAttempt", runStepView.succeededAttempt);
-    writer.writeCollectionOfPrimitiveValues<string>("waitingFor", runStepView.waitingFor);
-    writer.writeAdditionalData(runStepView.additionalData);
+export function serializeRunStep(writer: SerializationWriter, runStep: Partial<RunStep> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!runStep || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attemptCount", runStep.attemptCount);
+    writer.writeBooleanValue("blocked", runStep.blocked);
+    writer.writeDateValue("finishedAt", runStep.finishedAt);
+    writer.writeNumberValue("latestAttempt", runStep.latestAttempt);
+    writer.writeStringValue("name", runStep.name);
+    writer.writeObjectValue<AttemptPhases>("phases", runStep.phases, serializeAttemptPhases);
+    writer.writeStringValue("reason", runStep.reason);
+    writer.writeDateValue("startedAt", runStep.startedAt);
+    writer.writeStringValue("status", runStep.status);
+    writer.writeNumberValue("stepVersion", runStep.stepVersion);
+    writer.writeNumberValue("succeededAttempt", runStep.succeededAttempt);
+    writer.writeCollectionOfPrimitiveValues<string>("waitingFor", runStep.waitingFor);
+    writer.writeAdditionalData(runStep.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4732,20 +4425,6 @@ export function serializeRunSummary(writer: SerializationWriter, runSummary: Par
     writer.writeNumberValue("versionNumber", runSummary.versionNumber);
     writer.writeStringValue("versionStamp", runSummary.versionStamp);
     writer.writeAdditionalData(runSummary.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param RunTrigger The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeRunTrigger(writer: SerializationWriter, runTrigger: Partial<RunTrigger> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!runTrigger || isSerializingDerivedType) { return; }
-    writer.writeStringValue("dedupKey", runTrigger.dedupKey);
-    writer.writeEnumValue<RunTriggerKind>("kind", runTrigger.kind);
-    writer.writeObjectValue<RunOrigin>("origin", runTrigger.origin, serializeRunOrigin);
-    writer.writeAdditionalData(runTrigger.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4798,6 +4477,35 @@ export function serializeSetSecret(writer: SerializationWriter, setSecret: Parti
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepFile The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepFile(writer: SerializationWriter, stepFile: Partial<StepFile> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepFile || isSerializingDerivedType) { return; }
+    writer.writeDateValue("lastModified", stepFile.lastModified);
+    writer.writeStringValue("path", stepFile.path);
+    writer.writeNumberValue("size", stepFile.size);
+    writer.writeAdditionalData(stepFile.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepFiles The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepFiles(writer: SerializationWriter, stepFiles: Partial<StepFiles> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepFiles || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attempt", stepFiles.attempt);
+    writer.writeCollectionOfObjectValues<StepFile>("files", stepFiles.files, serializeStepFile);
+    writer.writeNumberValue("run", stepFiles.run);
+    writer.writeStringValue("step", stepFiles.step);
+    writer.writeAdditionalData(stepFiles.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param StepHistoryItem The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4823,6 +4531,23 @@ export function serializeStepHistoryItem(writer: SerializationWriter, stepHistor
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param StepOutput The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeStepOutput(writer: SerializationWriter, stepOutput: Partial<StepOutput> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!stepOutput || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("attempt", stepOutput.attempt);
+    writer.writeObjectValue<JsonElement>("output", stepOutput.output, serializeJsonElement);
+    writer.writeStringValue("outputKey", stepOutput.outputKey);
+    writer.writeNumberValue("run", stepOutput.run);
+    writer.writeStringValue("status", stepOutput.status);
+    writer.writeStringValue("step", stepOutput.step);
+    writer.writeAdditionalData(stepOutput.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SwitchVersion The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4832,30 +4557,6 @@ export function serializeSwitchVersion(writer: SerializationWriter, switchVersio
     writer.writeBooleanValue("cancelRunning", switchVersion.cancelRunning);
     writer.writeNumberValue("version", switchVersion.version);
     writer.writeAdditionalData(switchVersion.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param TriggerRunRequest The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeTriggerRunRequest(writer: SerializationWriter, triggerRunRequest: Partial<TriggerRunRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!triggerRunRequest || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(triggerRunRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param TriggerRunResponse The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeTriggerRunResponse(writer: SerializationWriter, triggerRunResponse: Partial<TriggerRunResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!triggerRunResponse || isSerializingDerivedType) { return; }
-    writer.writeStringValue("outcome", triggerRunResponse.outcome);
-    writer.writeObjectValue<Run>("run", triggerRunResponse.run, serializeRun);
-    writer.writeAdditionalData(triggerRunResponse.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4892,6 +4593,38 @@ export interface SetSecret extends AdditionalDataHolder, Parsable {
      * The value property
      */
     value?: string | null;
+}
+export interface StepFile extends AdditionalDataHolder, Parsable {
+    /**
+     * The lastModified property
+     */
+    lastModified?: Date | null;
+    /**
+     * The path property
+     */
+    path?: string | null;
+    /**
+     * The size property
+     */
+    size?: number | null;
+}
+export interface StepFiles extends AdditionalDataHolder, Parsable {
+    /**
+     * The attempt property
+     */
+    attempt?: number | null;
+    /**
+     * The files property
+     */
+    files?: StepFile[] | null;
+    /**
+     * The run property
+     */
+    run?: number | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
 }
 export interface StepHistoryItem extends AdditionalDataHolder, Parsable {
     /**
@@ -4951,6 +4684,32 @@ export interface StepHistoryItem extends AdditionalDataHolder, Parsable {
      */
     versionStamp?: string | null;
 }
+export interface StepOutput extends AdditionalDataHolder, Parsable {
+    /**
+     * The attempt property
+     */
+    attempt?: number | null;
+    /**
+     * The output property
+     */
+    output?: JsonElement | null;
+    /**
+     * The outputKey property
+     */
+    outputKey?: string | null;
+    /**
+     * The run property
+     */
+    run?: number | null;
+    /**
+     * The status property
+     */
+    status?: string | null;
+    /**
+     * The step property
+     */
+    step?: string | null;
+}
 export interface SwitchVersion extends AdditionalDataHolder, Parsable {
     /**
      * The cancelRunning property
@@ -4960,18 +4719,6 @@ export interface SwitchVersion extends AdditionalDataHolder, Parsable {
      * The version property
      */
     version?: number | null;
-}
-export interface TriggerRunRequest extends AdditionalDataHolder, Parsable {
-}
-export interface TriggerRunResponse extends AdditionalDataHolder, Parsable {
-    /**
-     * The outcome property
-     */
-    outcome?: string | null;
-    /**
-     * The run property
-     */
-    run?: Run | null;
 }
 export interface UpdateBinding extends AdditionalDataHolder, Parsable {
     /**
@@ -4997,6 +4744,11 @@ export const ReconcileResultObject = {
     NeverRun: "NeverRun",
     Success: "Success",
     ErrorEscaped: "Error",
+} as const;
+export const RunStartOutcomeObject = {
+    Started: "started",
+    Deduplicated: "deduplicated",
+    Queued: "queued",
 } as const;
 export const RunStatusObject = {
     Running: "Running",

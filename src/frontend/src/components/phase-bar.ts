@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { AttemptPhases } from '@olve/olve-pipelines-client/src/models/index.js';
+import type { AttemptPhases } from '@olve/api';
 import { formatSeconds } from '../v2/ui.js';
 
 const PHASES: [keyof AttemptPhases & string, string][] = [

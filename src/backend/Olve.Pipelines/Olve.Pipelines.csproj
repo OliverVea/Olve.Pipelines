@@ -5,7 +5,6 @@
     <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\..\</OpenApiDocumentsDirectory>
     <OpenApiGenerateDocumentsOptions>--file-name api</OpenApiGenerateDocumentsOptions>
     <!-- Page<T> (the runs list) is obsolete in Olve.Utilities; it goes when that list moves to the spec (offset/limit). -->
-    <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>

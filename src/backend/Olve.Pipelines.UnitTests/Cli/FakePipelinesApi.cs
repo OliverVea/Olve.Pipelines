@@ -210,14 +210,14 @@ public sealed class FakePipelinesApi : IPipelinesApi
     }
 
     // Runs (v2)
-    public Result<TriggerRunResponse>? TriggerRunResult { get; set; }
-    public Result<PageOfRunSummary>? ListRunsResult { get; set; }
+    public Result<RunStart>? TriggerRunResult { get; set; }
+    public Result<RunList>? ListRunsResult { get; set; }
     public Result<CriticalPathReport>? GetCriticalPathResult { get; set; }
     public (int? From, int? To, bool IncludeUnsuccessful, int? SinceVersion)? LastCriticalPathQuery { get; private set; }
-    public Result<RunDetail>? GetRunResult { get; set; }
-    public Func<int, Result<RunDetail>?>? GetRunByNumber { get; set; }
+    public Result<Run>? GetRunResult { get; set; }
+    public Func<int, Result<Run>?>? GetRunByNumber { get; set; }
     public Result<Run>? CancelRunResult { get; set; }
-    public Result<TriggerRunResponse>? RerunRunResult { get; set; }
+    public Result<RunStart>? RerunRunResult { get; set; }
     public Result<Run>? ContinueRunResult { get; set; }
     public Queue<Result<Attempt[]>> ListStepAttemptsResults { get; } = new();
     public Result<Attempt>? RerunStepResult { get; set; }
@@ -245,13 +245,13 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public string? LastPath { get; private set; }
     public bool? LastFlag { get; private set; }
 
-    public Task<Result<TriggerRunResponse>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct)
+    public Task<Result<RunStart>> TriggerRun(string pipelineId, string inputJson, CancellationToken ct)
     {
         (LastPipelineId, LastBody) = (pipelineId, inputJson);
         return Record(TriggerRunResult, nameof(TriggerRun));
     }
 
-    public Task<Result<PageOfRunSummary>> ListRuns(string pipelineId, int page, int pageSize, CancellationToken ct)
+    public Task<Result<RunList>> ListRuns(string pipelineId, int offset, int limit, CancellationToken ct)
     {
         LastPipelineId = pipelineId;
         return Record(ListRunsResult, nameof(ListRuns));
@@ -263,7 +263,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(GetCriticalPathResult, nameof(GetCriticalPath));
     }
 
-    public Task<Result<RunDetail>> GetRun(string pipelineId, int run, CancellationToken ct)
+    public Task<Result<Run>> GetRun(string pipelineId, int run, CancellationToken ct)
     {
         (LastPipelineId, LastRun) = (pipelineId, run);
         return Record(GetRunByNumber?.Invoke(run) ?? GetRunResult, nameof(GetRun));
@@ -275,7 +275,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
         return Record(CancelRunResult, nameof(CancelRun));
     }
 
-    public Task<Result<TriggerRunResponse>> RerunRun(string pipelineId, int run, CancellationToken ct)
+    public Task<Result<RunStart>> RerunRun(string pipelineId, int run, CancellationToken ct)
     {
         (LastPipelineId, LastRun) = (pipelineId, run);
         return Record(RerunRunResult, nameof(RerunRun));

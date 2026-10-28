@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import { apiPost, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api.js';
+import { runsStart } from '@olve/api';
 import { navigate } from '../router.js';
 import { sharedStyles, runPath } from '../v2/ui.js';
 import { inputSchemaOf, type Manifest } from '../v2/manifest.js';
@@ -90,10 +91,11 @@ export class TriggerPanel extends LitElement {
     this._errors = [];
     this._outcome = '';
     try {
-      const res = await apiPost<{ outcome: string; run: { number: number } | null }>(
-        `/api/pipelines/${this.pipelineId}/runs`,
-        r.value,
-      );
+      const { data: res } = await runsStart({
+        client: api,
+        path: { pipelineId: this.pipelineId },
+        body: r.value,
+      });
       if (res?.run?.number) navigate(runPath(this.pipelineId, res.run.number));
       else this._outcome = `No run started: ${res?.outcome ?? 'unknown outcome'}.`;
     } catch (e) {

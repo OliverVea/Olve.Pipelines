@@ -11,25 +11,22 @@ import { type BaseRequestBuilder, type Parsable, type ParsableFactory, type Requ
  */
 export interface CriticalPathRequestBuilder extends BaseRequestBuilder<CriticalPathRequestBuilder> {
     /**
-     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+     * Get the critical path of a range of runs
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {Promise<CriticalPathReport>}
      * @throws {ApiProblem} error when the service returns a 400 status code
      * @throws {ApiProblem} error when the service returns a 404 status code
-     * @throws {ApiProblem} error when the service returns a 409 status code
-     * @throws {ApiProblem} error when the service returns a 500 status code
-     * @throws {ApiProblem} error when the service returns a 503 status code
      */
      get(requestConfiguration?: RequestConfiguration<CriticalPathRequestBuilderGetQueryParameters> | undefined) : Promise<CriticalPathReport | undefined>;
     /**
-     * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+     * Get the critical path of a range of runs
      * @param requestConfiguration Configuration for the request such as headers, query parameters, and middleware options.
      * @returns {RequestInformation}
      */
      toGetRequestInformation(requestConfiguration?: RequestConfiguration<CriticalPathRequestBuilderGetQueryParameters> | undefined) : RequestInformation;
 }
 /**
- * Per run, each stage's critical step (the one that finished last) and its time; per step, how often it was on the path and its share of the total. `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion` starts at the first run on that pipeline version or a later one. Only succeeded runs unless `includeUnsuccessful`. A stage counts one pass of attempts: automatic retries are included, later reruns are not.
+ * Get the critical path of a range of runs
  */
 export interface CriticalPathRequestBuilderGetQueryParameters {
     from?: number;
@@ -51,9 +48,6 @@ export const CriticalPathRequestBuilderRequestsMetadata: RequestsMetadata = {
         errorMappings: {
             400: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
             404: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            409: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            500: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
-            503: createApiProblemFromDiscriminatorValue as ParsableFactory<Parsable>,
         },
         adapterMethodName: "send",
         responseBodyFactory:  createCriticalPathReportFromDiscriminatorValue,

@@ -65,11 +65,11 @@ public class RunViewTests
         var second = s.Start(Input());
         var third = s.Start(Input());
 
-        var page = s.D.Views.List(s.Pipeline.Id, new ListRunsRequest(Page: 0, PageSize: 2));
+        var page = s.D.Views.List(s.Pipeline.Id, offset: 0, limit: 2);
 
         await Assert.That(page.Items.Select(r => r.Number)).IsEquivalentTo([third.Number, second.Number]);
         await Assert.That(page.TotalCount).IsEqualTo(3);
-        await Assert.That(s.D.Views.List(s.Pipeline.Id, new ListRunsRequest(1, 2)).Items.Single().Number).IsEqualTo(first.Number);
+        await Assert.That(s.D.Views.List(s.Pipeline.Id, 2, 2).Items.Single().Number).IsEqualTo(first.Number);
     }
 
     [Test]

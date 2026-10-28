@@ -60,8 +60,8 @@ public class RunCommandTests
     [Arguments(true, "#14  Superseded", 1)]
     public async Task WaitRun_FollowsSupersededRuns_UnlessNoFollow(bool noFollow, string expected, int exitCode)
     {
-        static RunDetail Detail(int number, string status, int? next) =>
-            new() { Run = new RunSummary { Number = number, Status = status, SupersededByNumber = next } };
+        static Run Detail(int number, string status, int? next) =>
+            new() { Number = number, Status = status, SupersededByNumber = next };
         var api = Api();
         api.GetRunByNumber = n => n switch
         {
@@ -98,7 +98,7 @@ public class RunCommandTests
     {
         var api = Api();
         WithActiveVersion(api);
-        api.TriggerRunResult = new TriggerRunResponse { Outcome = "started", Run = new Run { Number = 15, VersionNumber = 4, VersionStamp = "2026.10.21.15" } };
+        api.TriggerRunResult = new RunStart { Outcome = "started", Run = new Run { Number = 15, VersionNumber = 4, VersionStamp = "2026.10.21.15" } };
 
         var (result, output) = await Run(new TriggerCommand(), api, "trigger", Name, "--field", "sha=1234567", "--field", "mode=normal");
 
@@ -113,7 +113,7 @@ public class RunCommandTests
     public async Task Trigger_WithoutFields_SkipsTheSchemaLookup_AndReportsQueued()
     {
         var api = Api();
-        api.TriggerRunResult = new TriggerRunResponse { Outcome = "queued" };
+        api.TriggerRunResult = new RunStart { Outcome = "queued" };
 
         var (result, output) = await Run(new TriggerCommand(), api, "trigger", Id, "--input", """{"sha":"abc"}""");
 
@@ -135,9 +135,13 @@ public class RunCommandTests
         await Assert.That(problems!.First().ToString()).Contains("input.sha");
     }
 
-    private static RunDetail HeldRun() => new()
+    private static Run HeldRun() => new()
     {
-        Run = new RunSummary { Number = 15, Status = "Running", TriggerKind = "Manual", VersionNumber = 4, HeldAt = "last" },
+        Number = 15,
+        Status = "Running",
+        TriggerKind = "Manual",
+        VersionNumber = 4,
+        HeldAt = "last",
         CommitSha = "dbdb4b02dc1f",
         Input = JsonDocument.Parse("""{"mode":"normal"}""").RootElement.Clone(),
         Continuable = true,
@@ -198,7 +202,7 @@ public class RunCommandTests
         var api = Api();
         WithActiveVersion(api);
         api.GetRunResult = HeldRun();
-        api.ContinueRunResult = new Run { Number = 15, Status = "Running", Input = """{"mode":"skip-last"}""" };
+        api.ContinueRunResult = new Run { Number = 15, Status = "Running", Input = JsonDocument.Parse("""{"mode":"skip-last"}""").RootElement.Clone() };
 
         var (result, _) = await Run(new RunContinueCommand(), api, "run", "continue", $"{Name}#15", "--field", "mode=skip-last");
 
@@ -323,7 +327,7 @@ public class RunCommandTests
     {
         var api = Api();
         api.ListStepAttemptsResults.Enqueue(Result.Success<Attempt[]>([]));
-        api.GetRunResult = new RunDetail { Run = new RunSummary { Number = 15, Status = "Cancelled" } };
+        api.GetRunResult = new Run { Number = 15, Status = "Cancelled" };
         var command = new StepLogsCommand { Delay = (_, _) => Task.CompletedTask };
 
         var (result, _) = await Run(command, api, "step", "logs", $"{Name}#15/last", "--follow");

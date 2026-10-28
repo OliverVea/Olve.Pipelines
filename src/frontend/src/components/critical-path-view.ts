@@ -4,7 +4,8 @@ import type {
   CriticalPathLead,
   CriticalPathReport,
 } from '@olve/olve-pipelines-client/src/models/index.js';
-import { client, errorMessages } from '../api.js';
+import { api, client, errorMessages } from '../api.js';
+import { versionsList } from '@olve/api';
 import {
   sharedStyles,
   statusCardStyles,
@@ -211,12 +212,14 @@ export class CriticalPathView extends LitElement {
   }
 
   private async _loadVersions() {
-    const list = await client.api.pipelines
-      .byPipelineId(this.pipelineId)
-      .versions.get()
+    const list = await versionsList({
+      client: api,
+      path: { pipelineId: this.pipelineId },
+    })
+      .then((r) => r.data)
       .catch(() => null);
     this._versions = (list?.versions ?? [])
-      .map((v) => v.number ?? 0)
+      .map((v) => v.number)
       .filter((n) => n > 0)
       .sort((a, b) => b - a);
   }

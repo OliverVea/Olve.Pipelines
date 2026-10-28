@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { pipelinesSummaries, type PipelineSummary } from '@olve/api';
+import { pipelinesOverviews, type PipelineOverview } from '@olve/api';
 import { api, apiFetch, apiPost, errorMessages } from '../api.js';
 import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
 import './pipeline-header.js';
@@ -116,7 +116,7 @@ export class PipelineSecretsView extends LitElement {
   @property() declare pipelineId: string;
 
   @state() declare private _secrets: SecretInfo[] | null;
-  @state() declare private _pipelines: PipelineSummary[];
+  @state() declare private _pipelines: PipelineOverview[];
   @state() declare private _editing: string | null;
   @state() declare private _busy: boolean;
   @state() declare private _errors: string[];
@@ -146,7 +146,7 @@ export class PipelineSecretsView extends LitElement {
     try {
       const [secrets, pipelines] = await Promise.all([
         apiFetch<SecretInfo[]>(`/api/pipelines/${this.pipelineId}/secrets`),
-        pipelinesSummaries({ client: api })
+        pipelinesOverviews({ client: api })
           .then((r) => r.data)
           .catch(() => null),
       ]);

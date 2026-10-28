@@ -847,29 +847,29 @@ export function createDeclineInputRequestFromDiscriminatorValue(parseNode: Parse
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {EffectivePipelineResponse_cases}
+ * @returns {EffectivePipeline_cases}
  */
 // @ts-ignore
-export function createEffectivePipelineResponse_casesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoEffectivePipelineResponse_cases;
+export function createEffectivePipeline_casesFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipeline_cases;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {EffectivePipelineResponse_selected}
+ * @returns {EffectivePipeline_selected}
  */
 // @ts-ignore
-export function createEffectivePipelineResponse_selectedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoEffectivePipelineResponse_selected;
+export function createEffectivePipeline_selectedFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipeline_selected;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {EffectivePipelineResponse}
+ * @returns {EffectivePipeline}
  */
 // @ts-ignore
-export function createEffectivePipelineResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoEffectivePipelineResponse;
+export function createEffectivePipelineFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEffectivePipeline;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1022,6 +1022,15 @@ export function createPipelineHealthFromDiscriminatorValue(parseNode: ParseNode 
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PipelineOverview}
+ */
+// @ts-ignore
+export function createPipelineOverviewFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineOverview;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PipelineSecretInfo}
  */
 // @ts-ignore
@@ -1045,15 +1054,6 @@ export function createPipelineStageSummaryFromDiscriminatorValue(parseNode: Pars
 // @ts-ignore
 export function createPipelineStepSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoPipelineStepSummary;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineSummary}
- */
-// @ts-ignore
-export function createPipelineSummaryFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineSummary;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1085,11 +1085,11 @@ export function createPipelineVersionFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {PipelineVersionsResponse}
+ * @returns {PipelineVersions}
  */
 // @ts-ignore
-export function createPipelineVersionsResponseFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoPipelineVersionsResponse;
+export function createPipelineVersionsFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPipelineVersions;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1283,11 +1283,11 @@ export function createStepHistoryItemFromDiscriminatorValue(parseNode: ParseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {SwitchVersionRequest}
+ * @returns {SwitchVersion}
  */
 // @ts-ignore
-export function createSwitchVersionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoSwitchVersionRequest;
+export function createSwitchVersionFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSwitchVersion;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2027,36 +2027,36 @@ export function deserializeIntoDeclineInputRequest(declineInputRequest: Partial<
 }
 /**
  * The deserialization information for the current model
- * @param EffectivePipelineResponse The instance to deserialize into.
+ * @param EffectivePipeline The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoEffectivePipelineResponse(effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoEffectivePipeline(effectivePipeline: Partial<EffectivePipeline> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "cases": n => { effectivePipelineResponse.cases = n.getObjectValue<EffectivePipelineResponse_cases>(createEffectivePipelineResponse_casesFromDiscriminatorValue); },
-        "configSnapshot": n => { effectivePipelineResponse.configSnapshot = n.getNumberValue(); },
-        "manifest": n => { effectivePipelineResponse.manifest = n.getStringValue(); },
-        "selected": n => { effectivePipelineResponse.selected = n.getObjectValue<EffectivePipelineResponse_selected>(createEffectivePipelineResponse_selectedFromDiscriminatorValue); },
-        "version": n => { effectivePipelineResponse.version = n.getNumberValue(); },
+        "cases": n => { effectivePipeline.cases = n.getObjectValue<EffectivePipeline_cases>(createEffectivePipeline_casesFromDiscriminatorValue); },
+        "configSnapshot": n => { effectivePipeline.configSnapshot = n.getNumberValue(); },
+        "manifest": n => { effectivePipeline.manifest = n.getStringValue(); },
+        "selected": n => { effectivePipeline.selected = n.getObjectValue<EffectivePipeline_selected>(createEffectivePipeline_selectedFromDiscriminatorValue); },
+        "version": n => { effectivePipeline.version = n.getNumberValue(); },
     }
 }
 /**
  * The deserialization information for the current model
- * @param EffectivePipelineResponse_cases The instance to deserialize into.
+ * @param EffectivePipeline_cases The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoEffectivePipelineResponse_cases(effectivePipelineResponse_cases: Partial<EffectivePipelineResponse_cases> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoEffectivePipeline_cases(effectivePipeline_cases: Partial<EffectivePipeline_cases> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
     }
 }
 /**
  * The deserialization information for the current model
- * @param EffectivePipelineResponse_selected The instance to deserialize into.
+ * @param EffectivePipeline_selected The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoEffectivePipelineResponse_selected(effectivePipelineResponse_selected: Partial<EffectivePipelineResponse_selected> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoEffectivePipeline_selected(effectivePipeline_selected: Partial<EffectivePipeline_selected> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
     }
 }
@@ -2293,6 +2293,22 @@ export function deserializeIntoPipelineHealth(pipelineHealth: Partial<PipelineHe
 }
 /**
  * The deserialization information for the current model
+ * @param PipelineOverview The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPipelineOverview(pipelineOverview: Partial<PipelineOverview> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "description": n => { pipelineOverview.description = n.getStringValue(); },
+        "health": n => { pipelineOverview.health = n.getObjectValue<PipelineHealth>(createPipelineHealthFromDiscriminatorValue); },
+        "id": n => { pipelineOverview.id = n.getGuidValue(); },
+        "name": n => { pipelineOverview.name = n.getStringValue(); },
+        "repo": n => { pipelineOverview.repo = n.getStringValue(); },
+        "stages": n => { pipelineOverview.stages = n.getCollectionOfObjectValues<PipelineStageSummary>(createPipelineStageSummaryFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PipelineSecretInfo The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2334,29 +2350,12 @@ export function deserializeIntoPipelineStepSummary(pipelineStepSummary: Partial<
 }
 /**
  * The deserialization information for the current model
- * @param PipelineSummary The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoPipelineSummary(pipelineSummary: Partial<PipelineSummary> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        "description": n => { pipelineSummary.description = n.getStringValue(); },
-        "health": n => { pipelineSummary.health = n.getObjectValue<PipelineHealth>(createPipelineHealthFromDiscriminatorValue); },
-        "id": n => { pipelineSummary.id = n.getGuidValue(); },
-        "name": n => { pipelineSummary.name = n.getStringValue(); },
-        "repo": n => { pipelineSummary.repo = n.getStringValue(); },
-        "stages": n => { pipelineSummary.stages = n.getCollectionOfObjectValues<PipelineStageSummary>(createPipelineStageSummaryFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
  * @param PipelineVersion The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
 export function deserializeIntoPipelineVersion(pipelineVersion: Partial<PipelineVersion> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "binaryKey": n => { pipelineVersion.binaryKey = n.getStringValue(); },
         "commitSha": n => { pipelineVersion.commitSha = n.getStringValue(); },
         "createdAt": n => { pipelineVersion.createdAt = n.getDateValue(); },
         "id": n => { pipelineVersion.id = n.getGuidValue(); },
@@ -2390,14 +2389,14 @@ export function deserializeIntoPipelineVersion_stepVersions(pipelineVersion_step
 }
 /**
  * The deserialization information for the current model
- * @param PipelineVersionsResponse The instance to deserialize into.
+ * @param PipelineVersions The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoPipelineVersionsResponse(pipelineVersionsResponse: Partial<PipelineVersionsResponse> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoPipelineVersions(pipelineVersions: Partial<PipelineVersions> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "activation": n => { pipelineVersionsResponse.activation = n.getObjectValue<PipelineActivation>(createPipelineActivationFromDiscriminatorValue); },
-        "versions": n => { pipelineVersionsResponse.versions = n.getCollectionOfObjectValues<PipelineVersionSummary>(createPipelineVersionSummaryFromDiscriminatorValue); },
+        "activation": n => { pipelineVersions.activation = n.getObjectValue<PipelineActivation>(createPipelineActivationFromDiscriminatorValue); },
+        "versions": n => { pipelineVersions.versions = n.getCollectionOfObjectValues<PipelineVersionSummary>(createPipelineVersionSummaryFromDiscriminatorValue); },
     }
 }
 /**
@@ -2688,14 +2687,14 @@ export function deserializeIntoStepHistoryItem(stepHistoryItem: Partial<StepHist
 }
 /**
  * The deserialization information for the current model
- * @param SwitchVersionRequest The instance to deserialize into.
+ * @param SwitchVersion The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoSwitchVersionRequest(switchVersionRequest: Partial<SwitchVersionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoSwitchVersion(switchVersion: Partial<SwitchVersion> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "cancelRunning": n => { switchVersionRequest.cancelRunning = n.getBooleanValue() ?? false; },
-        "version": n => { switchVersionRequest.version = n.getNumberValue(); },
+        "cancelRunning": n => { switchVersion.cancelRunning = n.getBooleanValue(); },
+        "version": n => { switchVersion.version = n.getNumberValue(); },
     }
 }
 /**
@@ -2731,11 +2730,11 @@ export function deserializeIntoUpdateBindingRequest(updateBindingRequest: Partia
         "credentialsSecret": n => { updateBindingRequest.credentialsSecret = n.getStringValue(); },
     }
 }
-export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsable {
+export interface EffectivePipeline extends AdditionalDataHolder, Parsable {
     /**
      * The cases property
      */
-    cases?: EffectivePipelineResponse_cases | null;
+    cases?: EffectivePipeline_cases | null;
     /**
      * The configSnapshot property
      */
@@ -2747,15 +2746,15 @@ export interface EffectivePipelineResponse extends AdditionalDataHolder, Parsabl
     /**
      * The selected property
      */
-    selected?: EffectivePipelineResponse_selected | null;
+    selected?: EffectivePipeline_selected | null;
     /**
      * The version property
      */
     version?: number | null;
 }
-export interface EffectivePipelineResponse_cases extends AdditionalDataHolder, Parsable {
+export interface EffectivePipeline_cases extends AdditionalDataHolder, Parsable {
 }
-export interface EffectivePipelineResponse_selected extends AdditionalDataHolder, Parsable {
+export interface EffectivePipeline_selected extends AdditionalDataHolder, Parsable {
 }
 export interface FrontendConfig extends AdditionalDataHolder, Parsable {
     /**
@@ -3103,6 +3102,32 @@ export interface PipelineHealth extends AdditionalDataHolder, Parsable {
      */
     status?: PipelineStatus | null;
 }
+export interface PipelineOverview extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The health property
+     */
+    health?: PipelineHealth | null;
+    /**
+     * The id property
+     */
+    id?: Guid | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The repo property
+     */
+    repo?: string | null;
+    /**
+     * The stages property
+     */
+    stages?: PipelineStageSummary[] | null;
+}
 export interface PipelineSecretInfo extends AdditionalDataHolder, Parsable {
     /**
      * The declaredBy property
@@ -3154,37 +3179,7 @@ export interface PipelineStepSummary extends AdditionalDataHolder, Parsable {
      */
     status?: string | null;
 }
-export interface PipelineSummary extends AdditionalDataHolder, Parsable {
-    /**
-     * The description property
-     */
-    description?: string | null;
-    /**
-     * The health property
-     */
-    health?: PipelineHealth | null;
-    /**
-     * The id property
-     */
-    id?: Guid | null;
-    /**
-     * The name property
-     */
-    name?: string | null;
-    /**
-     * The repo property
-     */
-    repo?: string | null;
-    /**
-     * The stages property
-     */
-    stages?: PipelineStageSummary[] | null;
-}
 export interface PipelineVersion extends AdditionalDataHolder, Parsable {
-    /**
-     * The binaryKey property
-     */
-    binaryKey?: string | null;
     /**
      * The commitSha property
      */
@@ -3226,7 +3221,7 @@ export interface PipelineVersion_modelVersions extends AdditionalDataHolder, Par
 }
 export interface PipelineVersion_stepVersions extends AdditionalDataHolder, Parsable {
 }
-export interface PipelineVersionsResponse extends AdditionalDataHolder, Parsable {
+export interface PipelineVersions extends AdditionalDataHolder, Parsable {
     /**
      * The activation property
      */
@@ -4171,41 +4166,41 @@ export function serializeDeclineInputRequest(writer: SerializationWriter, declin
 }
 /**
  * Serializes information the current object
- * @param EffectivePipelineResponse The instance to serialize from.
+ * @param EffectivePipeline The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeEffectivePipelineResponse(writer: SerializationWriter, effectivePipelineResponse: Partial<EffectivePipelineResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!effectivePipelineResponse || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<EffectivePipelineResponse_cases>("cases", effectivePipelineResponse.cases, serializeEffectivePipelineResponse_cases);
-    writer.writeNumberValue("configSnapshot", effectivePipelineResponse.configSnapshot);
-    writer.writeStringValue("manifest", effectivePipelineResponse.manifest);
-    writer.writeObjectValue<EffectivePipelineResponse_selected>("selected", effectivePipelineResponse.selected, serializeEffectivePipelineResponse_selected);
-    writer.writeNumberValue("version", effectivePipelineResponse.version);
-    writer.writeAdditionalData(effectivePipelineResponse.additionalData);
+export function serializeEffectivePipeline(writer: SerializationWriter, effectivePipeline: Partial<EffectivePipeline> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipeline || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<EffectivePipeline_cases>("cases", effectivePipeline.cases, serializeEffectivePipeline_cases);
+    writer.writeNumberValue("configSnapshot", effectivePipeline.configSnapshot);
+    writer.writeStringValue("manifest", effectivePipeline.manifest);
+    writer.writeObjectValue<EffectivePipeline_selected>("selected", effectivePipeline.selected, serializeEffectivePipeline_selected);
+    writer.writeNumberValue("version", effectivePipeline.version);
+    writer.writeAdditionalData(effectivePipeline.additionalData);
 }
 /**
  * Serializes information the current object
- * @param EffectivePipelineResponse_cases The instance to serialize from.
+ * @param EffectivePipeline_cases The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeEffectivePipelineResponse_cases(writer: SerializationWriter, effectivePipelineResponse_cases: Partial<EffectivePipelineResponse_cases> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!effectivePipelineResponse_cases || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(effectivePipelineResponse_cases.additionalData);
+export function serializeEffectivePipeline_cases(writer: SerializationWriter, effectivePipeline_cases: Partial<EffectivePipeline_cases> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipeline_cases || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(effectivePipeline_cases.additionalData);
 }
 /**
  * Serializes information the current object
- * @param EffectivePipelineResponse_selected The instance to serialize from.
+ * @param EffectivePipeline_selected The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeEffectivePipelineResponse_selected(writer: SerializationWriter, effectivePipelineResponse_selected: Partial<EffectivePipelineResponse_selected> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!effectivePipelineResponse_selected || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(effectivePipelineResponse_selected.additionalData);
+export function serializeEffectivePipeline_selected(writer: SerializationWriter, effectivePipeline_selected: Partial<EffectivePipeline_selected> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!effectivePipeline_selected || isSerializingDerivedType) { return; }
+    writer.writeAdditionalData(effectivePipeline_selected.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4462,6 +4457,23 @@ export function serializePipelineHealth(writer: SerializationWriter, pipelineHea
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PipelineOverview The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePipelineOverview(writer: SerializationWriter, pipelineOverview: Partial<PipelineOverview> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineOverview || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", pipelineOverview.description);
+    writer.writeObjectValue<PipelineHealth>("health", pipelineOverview.health, serializePipelineHealth);
+    writer.writeGuidValue("id", pipelineOverview.id);
+    writer.writeStringValue("name", pipelineOverview.name);
+    writer.writeStringValue("repo", pipelineOverview.repo);
+    writer.writeCollectionOfObjectValues<PipelineStageSummary>("stages", pipelineOverview.stages, serializePipelineStageSummary);
+    writer.writeAdditionalData(pipelineOverview.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PipelineSecretInfo The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4506,30 +4518,12 @@ export function serializePipelineStepSummary(writer: SerializationWriter, pipeli
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineSummary The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializePipelineSummary(writer: SerializationWriter, pipelineSummary: Partial<PipelineSummary> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineSummary || isSerializingDerivedType) { return; }
-    writer.writeStringValue("description", pipelineSummary.description);
-    writer.writeObjectValue<PipelineHealth>("health", pipelineSummary.health, serializePipelineHealth);
-    writer.writeGuidValue("id", pipelineSummary.id);
-    writer.writeStringValue("name", pipelineSummary.name);
-    writer.writeStringValue("repo", pipelineSummary.repo);
-    writer.writeCollectionOfObjectValues<PipelineStageSummary>("stages", pipelineSummary.stages, serializePipelineStageSummary);
-    writer.writeAdditionalData(pipelineSummary.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PipelineVersion The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
 export function serializePipelineVersion(writer: SerializationWriter, pipelineVersion: Partial<PipelineVersion> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!pipelineVersion || isSerializingDerivedType) { return; }
-    writer.writeStringValue("binaryKey", pipelineVersion.binaryKey);
     writer.writeStringValue("commitSha", pipelineVersion.commitSha);
     writer.writeDateValue("createdAt", pipelineVersion.createdAt);
     writer.writeGuidValue("id", pipelineVersion.id);
@@ -4566,15 +4560,15 @@ export function serializePipelineVersion_stepVersions(writer: SerializationWrite
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param PipelineVersionsResponse The instance to serialize from.
+ * @param PipelineVersions The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializePipelineVersionsResponse(writer: SerializationWriter, pipelineVersionsResponse: Partial<PipelineVersionsResponse> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!pipelineVersionsResponse || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<PipelineActivation>("activation", pipelineVersionsResponse.activation, serializePipelineActivation);
-    writer.writeCollectionOfObjectValues<PipelineVersionSummary>("versions", pipelineVersionsResponse.versions, serializePipelineVersionSummary);
-    writer.writeAdditionalData(pipelineVersionsResponse.additionalData);
+export function serializePipelineVersions(writer: SerializationWriter, pipelineVersions: Partial<PipelineVersions> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pipelineVersions || isSerializingDerivedType) { return; }
+    writer.writeObjectValue<PipelineActivation>("activation", pipelineVersions.activation, serializePipelineActivation);
+    writer.writeCollectionOfObjectValues<PipelineVersionSummary>("versions", pipelineVersions.versions, serializePipelineVersionSummary);
+    writer.writeAdditionalData(pipelineVersions.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4884,15 +4878,15 @@ export function serializeStepHistoryItem(writer: SerializationWriter, stepHistor
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param SwitchVersionRequest The instance to serialize from.
+ * @param SwitchVersion The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeSwitchVersionRequest(writer: SerializationWriter, switchVersionRequest: Partial<SwitchVersionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!switchVersionRequest || isSerializingDerivedType) { return; }
-    writer.writeBooleanValue("cancelRunning", switchVersionRequest.cancelRunning ?? false);
-    writer.writeNumberValue("version", switchVersionRequest.version);
-    writer.writeAdditionalData(switchVersionRequest.additionalData);
+export function serializeSwitchVersion(writer: SerializationWriter, switchVersion: Partial<SwitchVersion> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!switchVersion || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("cancelRunning", switchVersion.cancelRunning);
+    writer.writeNumberValue("version", switchVersion.version);
+    writer.writeAdditionalData(switchVersion.additionalData);
 }
 /**
  * Serializes information the current object
@@ -5012,7 +5006,7 @@ export interface StepHistoryItem extends AdditionalDataHolder, Parsable {
      */
     versionStamp?: string | null;
 }
-export interface SwitchVersionRequest extends AdditionalDataHolder, Parsable {
+export interface SwitchVersion extends AdditionalDataHolder, Parsable {
     /**
      * The cancelRunning property
      */

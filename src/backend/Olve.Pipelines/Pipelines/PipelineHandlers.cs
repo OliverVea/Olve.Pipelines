@@ -11,10 +11,10 @@ public sealed class ListPipelinesHandler(PipelineService pipelines) : Api.IPipel
         Task.FromResult<Api.PipelinesListResponse>(new Api.PipelinesListResponse.Ok([.. pipelines.List().Select(PipelineViews.ToApi)]));
 }
 
-public sealed class ListPipelineSummariesHandler(PipelineSummaryService summaries) : Api.IPipelinesSummariesHandler
+public sealed class ListPipelineOverviewsHandler(PipelineSummaryService summaries) : Api.IPipelinesOverviewsHandler
 {
-    public Task<Api.PipelinesSummariesResponse> HandleAsync(Api.PipelinesSummariesRequest request, CancellationToken cancellationToken) =>
-        Task.FromResult<Api.PipelinesSummariesResponse>(new Api.PipelinesSummariesResponse.Ok([.. summaries.List().Select(PipelineViews.ToApi)]));
+    public Task<Api.PipelinesOverviewsResponse> HandleAsync(Api.PipelinesOverviewsRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult<Api.PipelinesOverviewsResponse>(new Api.PipelinesOverviewsResponse.Ok([.. summaries.List().Select(PipelineViews.ToApi)]));
 }
 
 public sealed class GetPipelineHandler(PipelineService pipelines) : Api.IPipelinesGetHandler
@@ -60,7 +60,7 @@ public static class PipelineViews
 
     public static Api.Pipeline ToApi(Pipeline p) => new() { Id = p.Id.Value.Value, Name = p.Name, Description = p.Description };
 
-    public static Api.PipelineSummary ToApi(PipelineSummary s) => new()
+    public static Api.PipelineOverview ToApi(PipelineSummary s) => new()
     {
         Id = s.Id.Value.Value,
         Name = s.Name,

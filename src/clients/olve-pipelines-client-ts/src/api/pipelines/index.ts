@@ -6,7 +6,7 @@ import { createPipelineFromDiscriminatorValue, type Pipeline } from '../../model
 // @ts-ignore
 import { type WithPipelineItemRequestBuilder, WithPipelineItemRequestBuilderNavigationMetadata, WithPipelineItemRequestBuilderRequestsMetadata } from './item/index.js';
 // @ts-ignore
-import { SummaryRequestBuilderRequestsMetadata, type SummaryRequestBuilder } from './summary/index.js';
+import { OverviewRequestBuilderRequestsMetadata, type OverviewRequestBuilder } from './overview/index.js';
 // @ts-ignore
 import { type WithRepoRequestBuilder, WithRepoRequestBuilderRequestsMetadata } from './withRepo/index.js';
 // @ts-ignore
@@ -17,9 +17,9 @@ import { type BaseRequestBuilder, type Guid, type KeysToExcludeForNavigationMeta
  */
 export interface PipelinesRequestBuilder extends BaseRequestBuilder<PipelinesRequestBuilder> {
     /**
-     * The summary property
+     * The overview property
      */
-    get summary(): SummaryRequestBuilder;
+    get overview(): OverviewRequestBuilder;
     /**
      * The withRepo property
      */
@@ -56,8 +56,8 @@ export const PipelinesRequestBuilderNavigationMetadata: Record<Exclude<keyof Pip
         navigationMetadata: WithPipelineItemRequestBuilderNavigationMetadata,
         pathParametersMappings: ["pipelineId"],
     },
-    summary: {
-        requestsMetadata: SummaryRequestBuilderRequestsMetadata,
+    overview: {
+        requestsMetadata: OverviewRequestBuilderRequestsMetadata,
     },
     withRepo: {
         requestsMetadata: WithRepoRequestBuilderRequestsMetadata,

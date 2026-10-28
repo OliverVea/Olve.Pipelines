@@ -96,11 +96,11 @@ Ids are `<boot>-<seq>`; there is no replay. A client that falls 256 events behin
 
 **Returns:** `200` [Pipeline](#pipeline)[]
 
-#### List pipeline cards
+#### List pipeline overviews
 
-`GET /api/pipelines/summary`
+`GET /api/pipelines/overview`
 
-**Returns:** `200` [PipelineSummary](#pipelinesummary)[]
+**Returns:** `200` [PipelineOverview](#pipelineoverview)[]
 
 ### Bindings
 
@@ -206,6 +206,51 @@ The last reconcile's result and commit, whether one is in progress, the resultin
 
 ### Versions
 
+#### Get a version's effective pipeline
+
+`GET /api/pipelines/{pipelineId}/versions/{number}/effective`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+| `snapshot` | query | integer |  |
+
+**Returns:** `200` [EffectivePipeline](#effectivepipeline)
+
+#### Get a version
+
+`GET /api/pipelines/{pipelineId}/versions/{number}`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+| `number` | path | integer | yes |
+
+**Returns:** `200` [PipelineVersion](#pipelineversion)
+
+#### List versions
+
+`GET /api/pipelines/{pipelineId}/versions`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Returns:** `200` [PipelineVersions](#pipelineversions)
+
+#### Switch the active version
+
+`POST /api/pipelines/{pipelineId}/switch`
+
+| Parameter | In | Type | Required |
+|---|---|---|---|
+| `pipelineId` | path | string (uuid) | yes |
+
+**Body** (`application/json`): [SwitchVersion](#switchversion)
+
+**Returns:** `200` [PipelineActivation](#pipelineactivation)
+
 #### Validate a manifest
 
 `POST /api/manifests/validate`
@@ -215,59 +260,6 @@ Runs the reconcile checks on a manifest (`pl dev validate`). Always 200, with `v
 **Body** (`application/json`): any
 
 **Returns:** `200` [ManifestValidationResponse](#manifestvalidationresponse)
-
-#### Switch the active version
-
-`POST /api/pipelines/{pipelineId}/switch`
-
-New runs start on `version`. `cancelRunning` cancels the other versions' runs and drains first. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Body** (`application/json`): [SwitchVersionRequest](#switchversionrequest)
-
-**Returns:** `200` [PipelineActivation](#pipelineactivation)
-
-#### List versions
-
-`GET /api/pipelines/{pipelineId}/versions`
-
-Every version (commit, step and model versions) and the current activation.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-
-**Returns:** `200` [PipelineVersionsResponse](#pipelineversionsresponse)
-
-#### Get a version
-
-`GET /api/pipelines/{pipelineId}/versions/{number}`
-
-One version, including its canonical manifest.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-
-**Returns:** `200` [PipelineVersion](#pipelineversion)
-
-#### Get a version's effective pipeline
-
-`GET /api/pipelines/{pipelineId}/versions/{number}/effective`
-
-The version with each `select` resolved by a config snapshot: the steps a run of it would have.
-
-| Parameter | In | Type | Required |
-|---|---|---|---|
-| `pipelineId` | path | string | yes |
-| `number` | path | integer | yes |
-| `snapshot` | query | integer |  |
-
-**Returns:** `200` [EffectivePipelineResponse](#effectivepipelineresponse)
 
 ### Config
 
@@ -1115,7 +1107,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 |---|---|---|
 | `comment` | string? |  |
 
-### EffectivePipelineResponse
+### EffectivePipeline
 
 | Field | Type | |
 |---|---|---|
@@ -1283,6 +1275,17 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `heldRuns` | [RunSummary](#runsummary)[] | required |
 | `pending` | [PendingVersionInfo](#pendingversioninfo)? |  |
 
+### PipelineOverview
+
+| Field | Type | |
+|---|---|---|
+| `id` | string (uuid) | required |
+| `name` | string | required |
+| `description` | string? | required |
+| `repo` | string? | required |
+| `health` | [PipelineHealth](#pipelinehealth) | required |
+| `stages` | [PipelineStageSummary](#pipelinestagesummary)[] | required |
+
 ### PipelineSecretInfo
 
 | Field | Type | |
@@ -1309,31 +1312,19 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `runNumber` | integer? | required |
 | `at` | string (date-time)? | required |
 
-### PipelineSummary
-
-| Field | Type | |
-|---|---|---|
-| `id` | string (uuid) | required |
-| `name` | string | required |
-| `description` | string? | required |
-| `repo` | string? | required |
-| `health` | [PipelineHealth](#pipelinehealth) | required |
-| `stages` | [PipelineStageSummary](#pipelinestagesummary)[] | required |
-
 ### PipelineVersion
 
 | Field | Type | |
 |---|---|---|
 | `id` | string (uuid) | required |
-| `pipelineId` | string (uuid) | required |
 | `number` | integer | required |
-| `manifest` | string | required |
 | `manifestHash` | string | required |
 | `commitSha` | string? | required |
-| `binaryKey` | string | required |
 | `stepVersions` | map of integer | required |
 | `modelVersions` | map of integer | required |
 | `createdAt` | string (date-time) | required |
+| `pipelineId` | string (uuid) | required |
+| `manifest` | string | required |
 
 ### PipelineVersionSummary
 
@@ -1347,7 +1338,7 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `modelVersions` | map of integer | required |
 | `createdAt` | string (date-time) | required |
 
-### PipelineVersionsResponse
+### PipelineVersions
 
 | Field | Type | |
 |---|---|---|
@@ -1523,12 +1514,12 @@ Server-sent change notifications for one pipeline (`pipeline`) or all; see Live 
 | `stepVersionChanged` | boolean | required |
 | `phases` | [AttemptPhases](#attemptphases)? |  |
 
-### SwitchVersionRequest
+### SwitchVersion
 
 | Field | Type | |
 |---|---|---|
 | `version` | integer | required |
-| `cancelRunning` | boolean |  |
+| `cancelRunning` | boolean? |  |
 
 ### TriggerRunResponse
 

@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import type { PipelineVersionSummary } from '@olve/olve-pipelines-client/src/models/index.js';
-import { apiPost, errorMessages, numberMap } from '../api.js';
+import { versionsSwitch, type PipelineVersionSummary } from '@olve/api';
+import { api, errorMessages } from '../api.js';
 import { sharedStyles, shortSha } from '../v2/ui.js';
 import { loadVersion, type Activation } from '../v2/versions.js';
 import { canonicalJson } from '../v2/manifest.js';
@@ -208,12 +208,8 @@ export class VersionsPanel extends LitElement {
     const isActive = act.kind === 'active' && act.version === n;
     const isTarget = act.kind === 'draining' && act.to === n;
     const isDraining = act.kind === 'draining' && act.from === n;
-    const stepChanges = prev
-      ? changes(numberMap(prev.stepVersions), numberMap(v.stepVersions))
-      : [];
-    const modelChanges = prev
-      ? changes(numberMap(prev.modelVersions), numberMap(v.modelVersions))
-      : [];
+    const stepChanges = prev ? changes(prev.stepVersions, v.stepVersions) : [];
+    const modelChanges = prev ? changes(prev.modelVersions, v.modelVersions) : [];
     return html`<tr>
       <td>
         <b class="mono">v${n}</b>
@@ -252,8 +248,8 @@ export class VersionsPanel extends LitElement {
     const a = this._from !== null ? byNumber.get(this._from) : undefined;
     const b = this._to !== null ? byNumber.get(this._to) : undefined;
     if (!a || !b) return nothing;
-    const steps = changes(numberMap(a.stepVersions), numberMap(b.stepVersions));
-    const models = changes(numberMap(a.modelVersions), numberMap(b.modelVersions));
+    const steps = changes(a.stepVersions, b.stepVersions);
+    const models = changes(a.modelVersions, b.modelVersions);
     return html`<div class="summary">
       <span
         >Steps:
@@ -328,12 +324,14 @@ export class VersionsPanel extends LitElement {
   }
 
   private _switch = async () => {
+    if (this._switchTarget === null) return;
     this._busy = true;
     this._switchErrors = [];
     try {
-      await apiPost(`/api/pipelines/${this.pipelineId}/switch`, {
-        version: this._switchTarget,
-        cancelRunning: this._cancelRunning,
+      await versionsSwitch({
+        client: api,
+        path: { pipelineId: this.pipelineId },
+        body: { version: this._switchTarget, cancelRunning: this._cancelRunning },
       });
       this._dialog.close();
       this.dispatchEvent(new CustomEvent('switched'));

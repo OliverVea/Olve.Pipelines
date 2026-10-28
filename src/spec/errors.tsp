@@ -40,7 +40,17 @@ model ApiProblemError {
   field?: string;
 }
 
+model BadRequest {
+  @statusCode statusCode: 400;
+  @body body: ApiProblem;
+}
+
 model NotFound {
   @statusCode statusCode: 404;
+  @body body: ApiProblem;
+}
+
+model Conflict {
+  @statusCode statusCode: 409;
   @body body: ApiProblem;
 }

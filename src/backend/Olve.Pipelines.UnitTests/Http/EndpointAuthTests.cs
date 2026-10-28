@@ -37,7 +37,7 @@ public class EndpointAuthTests
         "GET /api/attempts",
         "GET /api/events",
         "GET /api/pipelines",
-        "GET /api/pipelines/summary",
+        "GET /api/pipelines/overview",
         "GET /api/pipelines/{pipelineId}",
         "GET /api/pipelines/{pipelineId}/binding",
         "GET /api/pipelines/{pipelineId}/binding/status",
@@ -55,9 +55,9 @@ public class EndpointAuthTests
         "GET /api/pipelines/{pipelineId}/runs/{number:int}/steps/{step}/logs/stream",
         "GET /api/pipelines/{pipelineId}/runs/{number:int}/steps/{step}/output",
         "GET /api/pipelines/{pipelineId}/steps/{step}/history",
-        "GET /api/pipelines/{pipelineId}/versions/",
-        "GET /api/pipelines/{pipelineId}/versions/{number:int}",
-        "GET /api/pipelines/{pipelineId}/versions/{number:int}/effective",
+        "GET /api/pipelines/{pipelineId}/versions",
+        "GET /api/pipelines/{pipelineId}/versions/{number}",
+        "GET /api/pipelines/{pipelineId}/versions/{number}/effective",
     ];
 
     private static async Task<(IReadOnlyList<(string Endpoint, bool Anonymous, string[] Policies)> Table, AuthorizationOptions Options)> MapAll()

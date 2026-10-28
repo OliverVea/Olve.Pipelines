@@ -12,8 +12,8 @@ public sealed class Pipeline
     public string Name { get; set; } = "";
 }
 
-/// <summary>One list-page card (<c>GET /api/pipelines/summary</c>).</summary>
-public sealed class PipelineSummary
+/// <summary>One list-page card (<c>GET /api/pipelines/overview</c>).</summary>
+public sealed class PipelineOverview
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = "";

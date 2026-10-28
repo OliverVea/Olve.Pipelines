@@ -17,7 +17,7 @@ public sealed class FakePipelinesApi : IPipelinesApi
 
     // Pipelines
     public Result<Pipeline[]>? ListPipelinesResult { get; set; }
-    public Result<PipelineSummary[]>? ListPipelineSummariesResult { get; set; }
+    public Result<PipelineOverview[]>? ListPipelineOverviewsResult { get; set; }
     public Result<Pipeline>? GetPipelineResult { get; set; }
 
     // Attempts across pipelines
@@ -67,8 +67,8 @@ public sealed class FakePipelinesApi : IPipelinesApi
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
         Record(ListPipelinesResult, nameof(ListPipelines));
 
-    public Task<Result<PipelineSummary[]>> ListPipelineSummaries(CancellationToken ct) =>
-        Record(ListPipelineSummariesResult, nameof(ListPipelineSummaries));
+    public Task<Result<PipelineOverview[]>> ListPipelineOverviews(CancellationToken ct) =>
+        Record(ListPipelineOverviewsResult, nameof(ListPipelineOverviews));
 
     public Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct) =>
         Record(GetPipelineResult, nameof(GetPipeline));

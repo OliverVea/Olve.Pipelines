@@ -133,7 +133,7 @@ src/frontend/src/
 ## API usage
 
 The API is moving to a TypeSpec contract area by area (`docs/design/spec-first.md`). Operations on
-the contract (Instance, Pipelines so far) are called through the Hey API client `@olve/api`, generated
+the contract (Instance, Pipelines and Versions so far) are called through the Hey API client `@olve/api`, generated
 from the contract into the repo-root `artifacts/clients/ts` (`cd src/spec && bun run build`; the alias
 is in `vite.config.ts` and `tsconfig.json`): `pipelinesSummaries({ client: api })` returns `{ data }`,
 and a non-2xx answer throws `ApiError` like `apiFetch`. Dates arrive as ISO strings.

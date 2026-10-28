@@ -12,8 +12,8 @@ model Pipeline {
   description?: string | null;
 }
 
-/** One list-page card: the pipeline, its bound repo, its health over runs and its current version's stages. */
-model PipelineSummary {
+/** A pipeline with its bound repo, its health over runs and its current version's stages: the list page's card. */
+model PipelineOverview {
   @format("uuid") id: string;
   name: string;
   description: string | null;
@@ -129,8 +129,8 @@ interface Pipelines {
   /** Every pipeline. */
   @get list(): Pipeline[];
 
-  /** One card per pipeline for the list page: id, name, description, repo and health. */
-  @get @route("summary") summaries(): PipelineSummary[];
+  /** Every pipeline with its repo, health and stages: the list page. */
+  @get @route("overview") overviews(): PipelineOverview[];
 
   @get @route("{pipelineId}") get(@path @format("uuid") pipelineId: string): Pipeline | NotFound;
 

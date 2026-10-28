@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { api, client, errorMessages } from '../api.js';
-import { pipelinesHealth, type PendingVersionInfo } from '@olve/api';
+import { pipelinesHealth, versionsList, type PendingVersionInfo } from '@olve/api';
 import type {
   ConfigCheckResponse,
   ConfigSaveResponse,
@@ -152,7 +152,9 @@ export class PipelineConfigView extends LitElement {
       const [doc, history, versions, health] = await Promise.all([
         p.config.get(),
         p.config.history.get(),
-        p.versions.get(),
+        versionsList({ client: api, path: { pipelineId: this.pipelineId } }).then(
+          (r) => r.data,
+        ),
         pipelinesHealth({ client: api, path: { pipelineId: this.pipelineId } }).then(
           (r) => r.data,
         ),

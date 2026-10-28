@@ -5,7 +5,9 @@ emit:
   - "@olivervea/typespec-csharp"
 options:
   "@typespec/openapi3":
-    openapi-versions: ["3.2.0"]
+    # 3.0: TypeSpec writes a `Record<T>` as `additionalProperties` there, which Hey API types; 3.1 and
+    # 3.2 get `unevaluatedProperties`, which it doesn't.
+    openapi-versions: ["3.0.0"]
     file-type: json
     emitter-output-dir: "{output-dir}/spec"
   # The server's C# surface (runtime: Olve.TypeSpec), compiled into src/backend/Olve.Pipelines by its csproj.

@@ -29,12 +29,12 @@ public sealed class PipelineListCommand : ICliCommand
 
     public async Task<Result> Execute(CliArgs cli, CommandContext ctx, CancellationToken ct)
     {
-        if ((await ctx.Api.ListPipelineSummaries(ct)).TryPickProblems(out var problems, out var summaries))
+        if ((await ctx.Api.ListPipelineOverviews(ct)).TryPickProblems(out var problems, out var summaries))
             return problems;
 
         var detailed = cli.HasFlag("summaries");
 
-        ctx.Output.Emit(summaries, CliJsonContext.Default.PipelineSummaryArray, () =>
+        ctx.Output.Emit(summaries, CliJsonContext.Default.PipelineOverviewArray, () =>
         {
             var rows = summaries.Select(s =>
             {

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Olve.Pipelines.Pipelines.Manifests;
-using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests.Http;
@@ -72,7 +72,7 @@ internal sealed class ApiErrorHost : IAsyncDisposable
         app.MapGet("/api/t/throw", Result () => throw new InvalidOperationException(Secret)).WithApiResultMapping();
         app.MapGet("/api/t/throw-transient", Result () => throw new HttpRequestException(Secret)).WithApiResultMapping();
         app.MapGet("/api/t/number/{n:int}", Result<string> (int n, int limit) => n.ToString()).WithApiResultMapping<string>();
-        app.MapPost("/api/t/body", Result<string> ([FromBody] SwitchVersionRequest body) => body.Version.ToString())
+        app.MapPost("/api/t/body", Result<string> ([FromBody] RerunStepRequest body) => body.ToString())
             .WithApiResultMapping<string>();
         app.MapDelete("/api/t/gone", DeletionResult () => DeletionResult.NotFound()).WithDeletionMapping();
 

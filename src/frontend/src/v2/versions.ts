@@ -1,4 +1,5 @@
-import { client, numberMap } from '../api.js';
+import { versionsEffective, versionsGet } from '@olve/api';
+import { api } from '../api.js';
 import { parseManifest, type Manifest } from './manifest.js';
 
 export type LoadedVersion = {
@@ -54,23 +55,19 @@ export function loadVersion(
   const key = `${pipelineId}#${number}`;
   let p = cache.get(key);
   if (!p) {
-    p = client.api.pipelines
-      .byPipelineId(pipelineId)
-      .versions.byNumber(number)
-      .get()
-      .then((v) =>
-        v
-          ? {
-              number: v.number ?? number,
-              manifest: parseManifest(v.manifest),
-              manifestText: v.manifest ?? '',
-              stepVersions: numberMap(v.stepVersions),
-              modelVersions: numberMap(v.modelVersions),
-              commitSha: v.commitSha ?? null,
-              createdAt: v.createdAt ?? null,
-            }
-          : null,
-      );
+    p = versionsGet({
+      client: api,
+      throwOnError: true,
+      path: { pipelineId, number },
+    }).then(({ data: v }) => ({
+      number: v.number,
+      manifest: parseManifest(v.manifest),
+      manifestText: v.manifest,
+      stepVersions: v.stepVersions,
+      modelVersions: v.modelVersions,
+      commitSha: v.commitSha,
+      createdAt: new Date(v.createdAt),
+    }));
     p.catch(() => cache.delete(key));
     cache.set(key, p);
   }
@@ -100,15 +97,13 @@ export async function loadEffective(
   });
   if (!hasSelect) return { ok: true, manifest: version.manifest, cases: {} };
   try {
-    const r = await client.api.pipelines
-      .byPipelineId(pipelineId)
-      .versions.byNumber(version.number)
-      .effective.get(snapshot ? { queryParameters: { snapshot } } : undefined);
-    const raw = (r?.cases?.additionalData ?? {}) as Record<string, unknown>;
-    const cases = Object.fromEntries(
-      Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? v.map(String) : []]),
-    );
-    return { ok: true, manifest: parseManifest(r?.manifest), cases };
+    const { data: r } = await versionsEffective({
+      client: api,
+      throwOnError: true,
+      path: { pipelineId, number: version.number },
+      query: snapshot ? { snapshot } : undefined,
+    });
+    return { ok: true, manifest: parseManifest(r.manifest), cases: r.cases };
   } catch (e) {
     return {
       ok: false,

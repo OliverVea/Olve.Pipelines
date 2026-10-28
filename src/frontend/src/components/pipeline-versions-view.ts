@@ -1,7 +1,7 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { client, errorMessages } from '../api.js';
-import type { PipelineVersionSummary } from '@olve/olve-pipelines-client/src/models/index.js';
+import { api, errorMessages } from '../api.js';
+import { versionsList, type PipelineVersionSummary } from '@olve/api';
 import { sharedStyles } from '../v2/ui.js';
 import { toActivation, type Activation } from '../v2/versions.js';
 import { LiveController, forPipeline } from '../v2/events.js';
@@ -36,11 +36,14 @@ export class PipelineVersionsView extends LitElement {
   }
 
   async reload() {
-    const p = client.api.pipelines.byPipelineId(this.pipelineId);
     try {
-      const versions = await p.versions.get();
-      this._versions = versions?.versions ?? [];
-      this._activation = toActivation(versions?.activation);
+      const { data: versions } = await versionsList({
+        client: api,
+        throwOnError: true,
+        path: { pipelineId: this.pipelineId },
+      });
+      this._versions = versions.versions;
+      this._activation = toActivation(versions.activation);
       this._error = null;
     } catch (e) {
       this._error = errorMessages(e).join(' ');

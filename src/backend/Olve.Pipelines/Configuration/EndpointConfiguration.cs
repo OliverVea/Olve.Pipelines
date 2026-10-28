@@ -26,7 +26,6 @@ public static class EndpointConfiguration
         app.MapRunEndpoints();
         app.MapPipelineStepEndpoints();
         app.MapManifestEndpoints();
-        app.MapPipelineVersionEndpoints();
         app.MapPipelineBindingEndpoints();
         app.MapWebhookTriggerEndpoints();
         app.MapCallbackInputEndpoints();

@@ -116,7 +116,15 @@ Order, smallest and least coupled first, so the pattern settles before the big o
    (`@olve/api`, built by `src/spec`'s `bun run build` into `artifacts/clients/ts`) starts here:
    the list, header, detail, config and secrets views call it; the rest stays on Kiota meanwhile.
    A contract handler answers its 404 with an `ApiProblem` whose trace id comes from the current
-   activity (`ApiProblems.Of`).
+   activity (`ApiProblems.Of`). Renamed on the way: the list page's rich object is
+   `PipelineOverview` at `GET /api/pipelines/overview` (it used to be `PipelineSummary`, while
+   `Pipeline` is the bare entity), and the problem code is the `ApiProblemCode` enum.
+3. Versions (4) — done 2026-10-28: list, get, effective, switch, with every status a handler
+   answers declared (`BadRequest`, `NotFound`, `Conflict`) and `binaryKey` (a storage key) off the
+   wire. `POST /api/manifests/validate` stays hand-written outside the contract: it reads the raw
+   body so that invalid JSON, duplicate keys and size are a verdict, not a request error, which a
+   generated `JsonElement` body can't give. It joins the contract when the emitter can take a raw
+   body. The versions panel and the version cache use the Hey API client.
 2. Pipelines (5)
 3. Versions (5)
 4. Secrets (4)

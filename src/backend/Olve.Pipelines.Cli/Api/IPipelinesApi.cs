@@ -12,7 +12,7 @@ public interface IPipelinesApi
 {
     // Pipelines
     Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct);
-    Task<Result<PipelineSummary[]>> ListPipelineSummaries(CancellationToken ct);
+    Task<Result<PipelineOverview[]>> ListPipelineOverviews(CancellationToken ct);
     Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct);
 
     // Attempts across pipelines (what's running)

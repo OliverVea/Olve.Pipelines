@@ -90,7 +90,10 @@ public static class ApiProblems
     }
 
     /// <summary>A problem answered by a contract handler, which has no <see cref="HttpContext"/>: the trace id comes from the current activity.</summary>
-    public static ApiProblem Of(ResultProblem problem) => From([problem], Activity.Current?.TraceId.ToHexString());
+    public static ApiProblem Of(ResultProblem problem) => Of([problem]);
+
+    /// <inheritdoc cref="Of(ResultProblem)"/>
+    public static ApiProblem Of(IReadOnlyCollection<ResultProblem> problems) => From(problems, Activity.Current?.TraceId.ToHexString());
 
     /// <summary>The W3C trace id of the request (what the log scope carries), else ASP.NET's request id.</summary>
     public static string TraceId(HttpContext http) => Activity.Current?.TraceId.ToHexString() ?? http.TraceIdentifier;

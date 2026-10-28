@@ -12,8 +12,8 @@ public sealed class PipelinesApi(ApiTransport transport) : IPipelinesApi
     public Task<Result<Pipeline[]>> ListPipelines(CancellationToken ct) =>
         transport.GetAsync("/api/pipelines/", CliJsonContext.Default.PipelineArray, ct);
 
-    public Task<Result<PipelineSummary[]>> ListPipelineSummaries(CancellationToken ct) =>
-        transport.GetAsync("/api/pipelines/summary", CliJsonContext.Default.PipelineSummaryArray, ct);
+    public Task<Result<PipelineOverview[]>> ListPipelineOverviews(CancellationToken ct) =>
+        transport.GetAsync("/api/pipelines/overview", CliJsonContext.Default.PipelineOverviewArray, ct);
 
     public Task<Result<Pipeline>> GetPipeline(string id, CancellationToken ct) =>
         transport.GetAsync($"/api/pipelines/{Enc(id)}", CliJsonContext.Default.Pipeline, ct);

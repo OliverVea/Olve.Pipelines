@@ -15,5 +15,6 @@ public sealed class FrontendConfigHandler(IConfiguration config) : IInstanceFron
             OidcAuthority = config["Auth:FrontendAuthority"],
             OidcClientId = config["Auth:FrontendAudience"],
             OidcScopes = Scopes(AuthAllowList.From(config)),
+            ApiReference = config.GetValue("Docs:ApiReference", false),
         });
 }

@@ -1,4 +1,6 @@
 import { User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
+import { instanceFrontendConfig, type FrontendConfig } from '@olve/api';
+import { createClient, createConfig } from '@olve/api/client';
 
 /**
  * Dev-only auth bypass (`VITE_DEV_AUTH=bypass`, ignored in production builds):
@@ -27,45 +29,54 @@ const devUser: User | null = devAuthBypass
     })
   : null;
 
-type FrontendConfig = {
-  oidcAuthority: string;
-  oidcClientId: string;
-  oidcScopes: string;
-};
+// Anonymous: signing in needs these settings first.
+const anonymous = createClient(createConfig({ baseUrl: '', throwOnError: true }));
+let frontendConfigPromise: Promise<FrontendConfig> | null = null;
+
+/** The instance's settings for the web UI, fetched once. */
+export function frontendConfig(): Promise<FrontendConfig> {
+  const config = (frontendConfigPromise ??= instanceFrontendConfig({
+    client: anonymous,
+    throwOnError: true,
+  }).then(
+    (r) => r.data,
+    (e: unknown) => {
+      frontendConfigPromise = null;
+      throw e;
+    },
+  ));
+  return config;
+}
 
 let userManagerPromise: Promise<UserManager> | null = null;
 
-async function fetchFrontendConfig(): Promise<FrontendConfig> {
-  const response = await fetch('/api/config/frontend');
-  if (!response.ok) {
-    throw new Error(`Failed to load frontend config: ${response.status}`);
-  }
-  const raw = (await response.json()) as {
-    oidcAuthority?: string | null;
-    oidcClientId?: string | null;
-    oidcScopes?: string | null;
-  };
-  if (!raw.oidcAuthority || !raw.oidcClientId) {
+async function fetchOidcConfig(): Promise<{
+  authority: string;
+  clientId: string;
+  scopes: string;
+}> {
+  const config = await frontendConfig();
+  if (!config.oidcAuthority || !config.oidcClientId) {
     throw new Error('Frontend config missing oidcAuthority or oidcClientId');
   }
   return {
-    oidcAuthority: raw.oidcAuthority,
-    oidcClientId: raw.oidcClientId,
-    oidcScopes: raw.oidcScopes || 'openid profile email',
+    authority: config.oidcAuthority,
+    clientId: config.oidcClientId,
+    scopes: config.oidcScopes || 'openid profile email',
   };
 }
 
 function getUserManager(): Promise<UserManager> {
   if (!userManagerPromise) {
-    userManagerPromise = fetchFrontendConfig().then(
+    userManagerPromise = fetchOidcConfig().then(
       (config) =>
         new UserManager({
-          authority: config.oidcAuthority,
-          client_id: config.oidcClientId,
+          authority: config.authority,
+          client_id: config.clientId,
           redirect_uri: `${window.location.origin}/callback`,
           post_logout_redirect_uri: window.location.origin,
           response_type: 'code',
-          scope: config.oidcScopes,
+          scope: config.scopes,
           automaticSilentRenew: true,
           userStore: new WebStorageStateStore({ store: sessionStorage }),
         }),

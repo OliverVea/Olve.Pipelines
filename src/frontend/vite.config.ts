@@ -13,11 +13,24 @@ export default defineConfig(({ mode }) => {
         '@olve/api': fileURLToPath(new URL('../../artifacts/clients/ts', import.meta.url)),
       },
     },
+    build: {
+      rollupOptions: {
+        input: {
+          main: fileURLToPath(new URL('index.html', import.meta.url)),
+          'api-reference': fileURLToPath(new URL('api-reference.html', import.meta.url)),
+        },
+      },
+    },
     server: {
       host: '0.0.0.0',
       allowedHosts: ['bulwark-m2'],
       proxy: {
-        '/api': {
+        '/docs/openapi.json': {
+          target: apiTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/api/': {
           target: apiTarget,
           changeOrigin: true,
           secure: false,

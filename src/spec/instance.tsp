@@ -22,6 +22,9 @@ model FrontendConfig {
 
   /** Space-separated scopes to request; `groups` only when `Auth:Allow:Orgs` needs the claim. */
   oidcScopes: string;
+
+  /** The web UI shows the API reference at `/docs/api`. */
+  apiReference: boolean;
 }
 
 /** Persisted state is not loaded yet. */

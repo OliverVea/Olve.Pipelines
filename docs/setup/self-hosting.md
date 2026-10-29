@@ -83,6 +83,7 @@ Sources in priority order (highest wins): CLI args (`--Port 9090`), user secrets
 | `Distribution:CliPipeline` / `Distribution:CliStep` | — / `publish-cli` | Pipeline (name or id) whose latest successful `CliStep` attempt `/download` serves; unset = nothing served. Retention keeps that run |
 | `Distribution:CliPromotedBy` | — | Only runs in which this step (e.g. `promote`) also succeeded count for `/download` |
 | `Distribution:LocalDirectory` | — | Serve `/download` assets from this directory when it has them (the compose stack builds `pl` from source) |
+| `Docs:ApiReference` | `false` | Show the API reference (Redoc, over `/docs/openapi.json`) in the web UI at `/docs/api` |
 | `Deployment:Image` | — | The image this instance runs, reported by `/api/health`. The compose deployer sets it (`Deployment__Image`) when it recreates the container |
 | `OpenTelemetry:Endpoint` | — | OTLP endpoint (traces, metrics and logs under `/v1/…`); unset or empty = no exporter |
 | `OpenTelemetry:Protocol` | gRPC | `http` for OTLP over HTTP/protobuf |

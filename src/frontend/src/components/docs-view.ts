@@ -5,6 +5,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import MiniSearch from 'minisearch';
 import { navigate } from '../router.js';
+import { frontendConfig } from '../auth.js';
 
 interface DocRecord {
   slug: string;
@@ -27,6 +28,7 @@ interface DocHit {
 // the output through DOMPurify so the rendered HTML is XSS-safe before it hits the DOM.
 
 const DEFAULT_PAGE = 'index';
+const API_PAGE = 'api';
 
 // GitHub-flavoured Markdown: tables, strikethrough, task lists, autolinks.
 marked.setOptions({ gfm: true, breaks: false });
@@ -309,6 +311,14 @@ export class DocsView extends LitElement {
     .error {
       color: var(--color-danger);
     }
+
+    .api-reference {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 10rem);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+    }
   `;
 
   /** The doc page slug, e.g. "index", "getting-started". */
@@ -320,6 +330,7 @@ export class DocsView extends LitElement {
   @state() declare private _query: string;
   @state() declare private _hits: DocHit[];
   @state() declare private _activeHit: number;
+  @state() declare private _apiReference: boolean;
 
   /** Lazily built on first search (and cached) from /docs-index.json. */
   private _search: MiniSearch<DocRecord> | null = null;
@@ -334,6 +345,7 @@ export class DocsView extends LitElement {
     this._query = '';
     this._hits = [];
     this._activeHit = -1;
+    this._apiReference = false;
   }
 
   connectedCallback(): void {
@@ -349,6 +361,15 @@ export class DocsView extends LitElement {
     this._loading = true;
     this._error = null;
     const slug = this.page || DEFAULT_PAGE;
+    try {
+      this._apiReference = (await frontendConfig()).apiReference;
+    } catch {
+      this._apiReference = false;
+    }
+    if (slug === API_PAGE) {
+      this._loading = false;
+      return;
+    }
     try {
       const res = await fetch(`/docs/${slug}.md`);
       if (!res.ok) throw new Error(`Failed to load docs page "${slug}" (${res.status})`);
@@ -367,17 +388,36 @@ export class DocsView extends LitElement {
       <div class="doc-top">
         <div class="doc-nav">
           <a href="/" @click=${this._navHome}>&larr; Back to pipelines</a>
+          ${this._apiReference
+            ? html` ·
+                <a href="/docs/${API_PAGE}" @click=${this._onLinkClick}>API reference</a>`
+            : null}
         </div>
         ${this._renderSearch()}
       </div>
       ${this._loading
         ? html`<p class="loading">Loading docs…</p>`
-        : this._error
-          ? html`<p class="error">${this._error}</p>`
-          : html`<article class="doc" @click=${this._onLinkClick}>
-              ${unsafeHTML(this._html)}
-            </article>`}
+        : (this.page || DEFAULT_PAGE) === API_PAGE
+          ? this._renderApiReference()
+          : this._error
+            ? html`<p class="error">${this._error}</p>`
+            : html`<article class="doc" @click=${this._onLinkClick}>
+                ${unsafeHTML(this._html)}
+              </article>`}
     `;
+  }
+
+  private _renderApiReference() {
+    return this._apiReference
+      ? html`<iframe
+          class="api-reference"
+          src="/api-reference.html"
+          title="API reference"
+        ></iframe>`
+      : html`<p class="loading">
+          The API reference isn't shown on this instance. The contract is at
+          <a href="/docs/openapi.json">/docs/openapi.json</a>.
+        </p>`;
   }
 
   private _renderSearch() {

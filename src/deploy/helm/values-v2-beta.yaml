@@ -13,6 +13,8 @@ config:
   Links__BaseUrl: "https://pipelines-beta.ovea.pro"
   # Beta only: reads without a session, for beta-test's smoke check and the dev server's auth bypass.
   Auth__AnonymousReads: "true"
+  # The API reference (Redoc) at /docs/api.
+  Docs__ApiReference: "true"
   # The deployer's beta-test (its BETA_TOKEN secret on prod); sha256 of the token, not the token.
   Auth__Tokens__deployer: "781d1d6226f589e48c8aad57fd05980cb60801b7f30cf87d033a9870f497323a"
   # The signal-test companion below, for poll inputs (private addresses are otherwise refused).

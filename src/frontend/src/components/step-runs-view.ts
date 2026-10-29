@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { stepsHistory, type StepHistoryItem } from '@olve/api';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import {
   sharedStyles,
   statusCardStyles,
@@ -14,8 +14,8 @@ import {
   runPath,
   stepPath,
   stepLogsPath,
-} from '../v2/ui.js';
-import { LiveController } from '../v2/events.js';
+} from '../styles/ui.js';
+import { LiveController } from '../api/events.js';
 import './phase-bar.js';
 import './pipeline-header.js';
 import './relative-time.js';

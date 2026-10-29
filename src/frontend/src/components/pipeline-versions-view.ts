@@ -1,10 +1,10 @@
 import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import { versionsList, type PipelineVersionSummary } from '@olve/api';
-import { sharedStyles } from '../v2/ui.js';
-import { toActivation, type Activation } from '../v2/versions.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+import { sharedStyles } from '../styles/ui.js';
+import { toActivation, type Activation } from '../model/versions.js';
+import { LiveController, forPipeline } from '../api/events.js';
 import './versions-panel.js';
 import './pipeline-header.js';
 

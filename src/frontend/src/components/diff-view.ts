@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { DiffHunk } from '../v2/diff.js';
+import type { DiffHunk } from '../model/diff.js';
 
 /** A folded line diff: two line-number columns, +/− markers, collapsed unchanged runs. */
 @customElement('diff-view')

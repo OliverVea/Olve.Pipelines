@@ -1,14 +1,14 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { JsonSchema } from '../v2/manifest.js';
+import type { JsonSchema } from '../model/manifest.js';
 import {
   formFields,
   parseField,
   toText,
   constraintHint,
   type FormField,
-} from '../v2/schema-form.js';
-import { sharedStyles } from '../v2/ui.js';
+} from '../model/schema-form.js';
+import { sharedStyles } from '../styles/ui.js';
 
 export type FormResult = { ok: true; value: Record<string, unknown> } | { ok: false };
 

@@ -111,13 +111,11 @@ have no gate.
 
 ## Served by a tiny static server
 
-Mocks are served over http, **not** opened from `file://`. From `frontend/`:
+Mocks are served over http, **not** opened from `file://`. From the repo root:
 
 ```
-npm run mocks    # serves ../docs/mocks at http://localhost:4173 (+ LAN via --host)
+npx sirv-cli docs/mocks --dev --port 4173 --host    # http://localhost:4173 (+ LAN via --host)
 ```
-
-(`sirv-cli`, a zero-config static server, added as a frontend devDependency.)
 
 ## Adding a new mock
 
@@ -127,4 +125,4 @@ npm run mocks    # serves ../docs/mocks at http://localhost:4173 (+ LAN via --ho
    before any real interaction logic.
 3. Reuse shared components; lift anything reusable into `mocks.css`.
 4. Add `<script src="footer.js" defer></script>` before `</body>`.
-5. Run `npm run mocks` and check it before calling it done.
+5. Serve the mocks and check it before calling it done.

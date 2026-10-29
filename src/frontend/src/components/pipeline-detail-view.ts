@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import {
   pipelinesGet,
   pipelinesHealth,
@@ -25,8 +25,8 @@ import {
   stepLogsPath,
   isActiveStatus,
   formatDuration,
-} from '../v2/ui.js';
-import { allSteps, type Manifest } from '../v2/manifest.js';
+} from '../styles/ui.js';
+import { allSteps, type Manifest } from '../model/manifest.js';
 import {
   loadVersion,
   loadEffective,
@@ -35,8 +35,8 @@ import {
   currentVersion,
   type Activation,
   type LoadedVersion,
-} from '../v2/versions.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+} from '../model/versions.js';
+import { LiveController, forPipeline } from '../api/events.js';
 import type { StepState } from './stage-graph.js';
 import { sheetContentStyles } from './step-sheet.js';
 import './phase-bar.js';

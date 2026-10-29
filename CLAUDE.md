@@ -110,7 +110,7 @@ See [src/frontend/README.md](src/frontend/README.md) for full details.
 cd src/frontend && npm install                                  # Install
 cd src/frontend && npm run dev                                  # Dev server (proxies /api to localhost:5000)
 cd src/frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
-cd src/frontend && VITE_DEV_AUTH=bypass npm run dev:v2beta      # Dev server against v2 beta (dev-only auth bypass)
+cd src/frontend && VITE_DEV_AUTH=bypass npm run dev:beta        # Dev server against v2 beta (dev-only auth bypass)
 cd src/frontend && npm run build                                # Production build
 ```
 
@@ -151,7 +151,7 @@ cd src/frontend && npm run build                                # Production bui
 - Storage via a per-instance, in-cluster S3-compatible Garage store (replaced MinIO 2026-09) — JSON files for persistence, step outputs/files/logs under `runs/<p>/<run>/<step>/<attempt>/`, binaries and manifests under `versions/` (see `StorageLayout`). Step pods only ever get pre-signed URLs, signed for `Storage:InClusterEndpoint`
 - New C# types that cross JSON (API, persistence, harness) are registered in the source-gen JSON contexts (AOT)
 - An API change is a change to `src/spec/*.tsp` and the handler class behind the operation (one per operation, registered in `ApiHandlerConfiguration`). The contract is the API's whole documentation: an operation's `@summary`, doc comment and `@useAuth` (bearer unless `NoAuth`); instance configuration (beta's anonymous reads) is never described there
-- The `pl` CLI is TypeScript in `src/cli/` (Bun, compiled to one binary per platform by `build-cli`), on the generated Hey API client like the frontend; a new endpoint needs no client code, only the command.
+- The `pl` CLI is TypeScript in `src/cli/` (Bun, compiled to one binary per platform by `build-cli`; see [src/cli/README.md](src/cli/README.md)), on the generated Hey API client like the frontend; a new endpoint needs no client code, only the command.
 - **Logging** — structured `ILogger<T>` with named placeholders (never string interpolation); always log human-readable names alongside UUIDs; log `ResultProblem` failures via `ILogger.LogProblems(...)` (flattens to `ProblemCount`/`ProblemMessages`/`MaxSeverity`), never a `{Problems}` blob. Backend-agnostic: stdout only, JSON formatter selected by config (`Logging__Console__FormatterName=json` in helm), no log endpoint/token in the repo. See [docs/setup/self-hosting.md](docs/setup/self-hosting.md#logging).
 - Commit work and push directly to `main`. No feature branches or PRs unless the user asks; commit straight onto `main` and `git push`.
 - **Tests assert results, never read `.Value!`**: `await Assert.That(result).Succeeded()` / `.Failed()` / `.SucceededAndValue(v => v.IsEqualTo(x))` (Olve.Results.TUnit); to unwrap a result for setup, `TestRunDomain.Pick(result)` (throws with the problems on failure).

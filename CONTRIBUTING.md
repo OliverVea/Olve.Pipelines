@@ -55,6 +55,7 @@ dotnet run --project src/backend/Olve.Pipelines                        # Run loc
 cd src/spec && bun install && bun run build                    # The contract alone: artifacts/spec/openapi.json, artifacts/generated/backend/*.g.cs and the TypeScript client artifacts/clients/ts
 cd src/sdk && bun install && bun run check                         # SDK: prettier, type-check, compile-fail cases, runtime tests
 cd src/frontend && npm install && npm run build                    # Frontend (tsc + vite)
+cd src/cli && bun install && bun test                              # pl (src/cli/README.md)
 ```
 
 The server build runs `bun run compile` in `src/spec/` when the contract changed, and compiles the
@@ -63,8 +64,9 @@ files without bun (the deploy's `spec` step emits them for `compile-server` and 
 
 ### Check before you push
 
-`tools/check.sh` runs what the deploy's `test`, `build-sdk` and `build-frontend` steps run, per
-project (SDK, `.pipelines`, frontend, .NET server + CLI with their generated files):
+`tools/check.sh` runs what the deploy's `spec`, `test`, `build-sdk`, `build-frontend` and `build-cli`
+steps run, per project (SDK, `.pipelines`, the contract, frontend, `pl`, the .NET server), plus a rule
+that neither client builds an `/api/` URL by hand:
 
 ```bash
 tools/check.sh                 # fast tier: formatting, lint, type checks, the spec compiles, generated files current, pipeline valid
@@ -104,12 +106,14 @@ an operation has no handler, and a handler can only answer the statuses its oper
 
 The contract is the API's documentation: an operation's `@summary`, its doc comment and `@useAuth`
 (bearer everywhere unless `NoAuth`). The server serves the compiled OpenAPI document at
-`/docs/openapi.json`. The routes outside it (the step file download, the inbound hooks) are
-described in the setup pages of the features they belong to.
+`/docs/openapi.json`. Every endpoint but the web UI is an operation, the step file download and
+the inbound hooks included (`EndpointAuthTests` enforces it).
 
 ### Clients
 
-There is no C# client. The frontend and `pl` (`src/cli/`) both use the generated TypeScript client.
+The frontend (`src/frontend/`) and `pl` (`src/cli/`) call the server only through the generated
+TypeScript client, set up by `@olve/client` (`src/client/`, see its README); `tools/check.sh`
+rejects hand-built `/api/` URLs.
 
 ## Versioning
 

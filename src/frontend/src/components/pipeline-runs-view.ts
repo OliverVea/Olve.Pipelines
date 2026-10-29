@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import { runsList, type RunSummary } from '@olve/api';
 import {
   sharedStyles,
@@ -9,8 +9,8 @@ import {
   formatDuration,
   navClick,
   runPath,
-} from '../v2/ui.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+} from '../styles/ui.js';
+import { LiveController, forPipeline } from '../api/events.js';
 import './relative-time.js';
 import './pipeline-header.js';
 

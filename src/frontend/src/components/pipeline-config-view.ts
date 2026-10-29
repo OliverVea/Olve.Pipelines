@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import {
   configCheck,
   configGet,
@@ -14,17 +14,21 @@ import {
   type ConfigSnapshotSummary,
   type PendingVersionInfo,
 } from '@olve/api';
-import { sharedStyles, navClick, secretsPath } from '../v2/ui.js';
-import { loadVersion, toActivation, currentVersion } from '../v2/versions.js';
-import { configEntries, documentSchema, type ConfigEntry } from '../v2/config-schema.js';
-import { diffLines, foldDiff, type DiffHunk } from '../v2/diff.js';
-import type { JsonSchema } from '../v2/manifest.js';
+import { sharedStyles, navClick, secretsPath } from '../styles/ui.js';
+import { loadVersion, toActivation, currentVersion } from '../model/versions.js';
+import {
+  configEntries,
+  documentSchema,
+  type ConfigEntry,
+} from '../model/config-schema.js';
+import { diffLines, foldDiff, type DiffHunk } from '../model/diff.js';
+import type { JsonSchema } from '../model/manifest.js';
 import type { ConfigEditor } from './config-editor.js';
 import './config-editor.js';
 import './diff-view.js';
 import './relative-time.js';
 import './pipeline-header.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+import { LiveController, forPipeline } from '../api/events.js';
 
 type Target = { version: number; role: 'active' | 'pending'; entries: ConfigEntry[] };
 

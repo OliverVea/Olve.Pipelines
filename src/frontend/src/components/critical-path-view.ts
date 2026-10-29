@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import {
   runsCriticalPath,
   versionsList,
@@ -17,7 +17,7 @@ import {
   navClick,
   runPath,
   stepRunsPath,
-} from '../v2/ui.js';
+} from '../styles/ui.js';
 import './pipeline-header.js';
 
 const RANGES = [20, 50, 100];

@@ -10,8 +10,14 @@ import {
   formatWhen,
   allSteps,
   producersOf,
-} from '../v2/manifest.js';
-import { sharedStyles, toneOf, statusLabel, formatDuration, navClick } from '../v2/ui.js';
+} from '../model/manifest.js';
+import {
+  sharedStyles,
+  toneOf,
+  statusLabel,
+  formatDuration,
+  navClick,
+} from '../styles/ui.js';
 import { sheetHeight } from './step-sheet.js';
 import { formatRelative } from './relative-time.js';
 

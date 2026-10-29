@@ -9,10 +9,10 @@ import {
   type Pipeline,
   type PipelineSecret,
 } from '@olve/api';
-import { api, errorMessages } from '../api.js';
-import { sharedStyles, navClick, stepPath } from '../v2/ui.js';
+import { api, errorMessages } from '../api/client.js';
+import { sharedStyles, navClick, stepPath } from '../styles/ui.js';
 import './pipeline-header.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+import { LiveController, forPipeline } from '../api/events.js';
 
 /** A pipeline's secrets: who uses each, whether it is set, and setting, deleting or copying values. */
 @customElement('pipeline-secrets-view')

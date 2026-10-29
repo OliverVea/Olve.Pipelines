@@ -14,7 +14,8 @@ import {
   type Run,
   type StepFile,
 } from '@olve/api';
-import { api, downloadFile, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
+import { downloadFile } from '../api/files.js';
 import { navigate } from '../router.js';
 import {
   sharedStyles,
@@ -32,20 +33,20 @@ import {
   stepPath,
   stepLogsPath,
   isLiveStatus,
-} from '../v2/ui.js';
+} from '../styles/ui.js';
 import {
   loadEffective,
   loadVersion,
   type EffectivePipeline,
   type LoadedVersion,
-} from '../v2/versions.js';
+} from '../model/versions.js';
 import {
   type Manifest,
   stepsByName,
   stepInputSchema,
   outputSchemaOf,
   inputSchemaOf,
-} from '../v2/manifest.js';
+} from '../model/manifest.js';
 import type { StepState } from './stage-graph.js';
 import type { FileRefValue } from './typed-value.js';
 import type { InputForm } from './input-form.js';
@@ -58,7 +59,7 @@ import './log-pane.js';
 import './external-input-panel.js';
 import { renderAnswers } from './external-input-panel.js';
 import './relative-time.js';
-import { LiveController } from '../v2/events.js';
+import { LiveController } from '../api/events.js';
 
 type AttemptStatusFields = {
   type?: string | null;

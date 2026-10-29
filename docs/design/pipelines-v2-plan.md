@@ -173,7 +173,7 @@ markers. Keep shell, auth, docs, logs views.
   polymorphic refs as a union with an empty member → `tsc` error); `npm run build` runs `tsc` first.
   Actions/logs/downloads use a small `apiFetch` (the generated client maps a 400 to one
   `ResultProblem`, sends `JsonElement` bodies via `setContentFromScalar`, escapes `/` in `{*path}`).
-  `npm run dev:v2beta` + dev-only `VITE_DEV_AUTH=bypass` (optional `VITE_DEV_TOKEN`).
+  `npm run dev:beta` + dev-only `VITE_DEV_AUTH=bypass` (optional `VITE_DEV_TOKEN`).
 - Verified in headless Chromium against v2 beta (fixture `ad01bc3f…`), light/dark and phone width,
   anonymously: every read view incl. skipped/cancelled/not-run/multi-attempt runs; action requests
   checked for shape (trigger body = input, continue = `{input: changed}`) with a faked 400 for the

@@ -6,8 +6,8 @@ import {
   allSteps,
   producersOf,
   stepsByName,
-} from '../v2/manifest.js';
-import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../v2/ui.js';
+} from '../model/manifest.js';
+import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../styles/ui.js';
 import type { StepState } from './stage-graph.js';
 
 /** Height of the sheet in px, as its CSS sets it. */

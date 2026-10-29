@@ -9,9 +9,9 @@ import {
   type PipelineBinding,
   type PipelineBindingStatus,
 } from '@olve/api';
-import { api, errorMessages } from '../api.js';
-import { sharedStyles, navClick, shortSha, secretsPath } from '../v2/ui.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+import { api, errorMessages } from '../api/client.js';
+import { sharedStyles, navClick, shortSha, secretsPath } from '../styles/ui.js';
+import { LiveController, forPipeline } from '../api/events.js';
 import './relative-time.js';
 import './pipeline-header.js';
 

@@ -1,5 +1,5 @@
 import { versionsEffective, versionsGet } from '@olve/api';
-import { api } from '../api.js';
+import { api } from '../api/client.js';
 import { parseManifest, type Manifest } from './manifest.js';
 
 export type LoadedVersion = {

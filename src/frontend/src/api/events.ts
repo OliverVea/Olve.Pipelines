@@ -1,6 +1,6 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { changeEvents, isNotice, reloadsAll, type ChangeNotice } from '@olve/client';
-import { api } from '../api.js';
+import { api } from './client.js';
 
 export type { ChangeNotice };
 

@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import { sharedStyles } from '../v2/ui.js';
+import { sharedStyles } from '../styles/ui.js';
 
 /** Asks the user to type `delete <name>` before `onConfirm` runs. */
 @customElement('confirm-delete-dialog')

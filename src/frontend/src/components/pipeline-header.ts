@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { api } from '../api.js';
+import { api } from '../api/client.js';
 import {
   attemptsList,
   bindingsStatus,
@@ -34,14 +34,14 @@ import {
   criticalPathPath,
   formatSeconds,
   median,
-} from '../v2/ui.js';
+} from '../styles/ui.js';
 import {
   loadVersion,
   toActivation,
   currentVersion,
   type Activation,
-} from '../v2/versions.js';
-import { LiveController, forPipeline } from '../v2/events.js';
+} from '../model/versions.js';
+import { LiveController, forPipeline } from '../api/events.js';
 import './clamped-text.js';
 import './relative-time.js';
 

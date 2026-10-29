@@ -1,11 +1,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { versionsSwitch, type PipelineVersionSummary } from '@olve/api';
-import { api, errorMessages } from '../api.js';
-import { sharedStyles, shortSha } from '../v2/ui.js';
-import { loadVersion, type Activation } from '../v2/versions.js';
-import { canonicalJson } from '../v2/manifest.js';
-import { diffLines, foldDiff, type DiffHunk } from '../v2/diff.js';
+import { api, errorMessages } from '../api/client.js';
+import { sharedStyles, shortSha } from '../styles/ui.js';
+import { loadVersion, type Activation } from '../model/versions.js';
+import { canonicalJson } from '../model/manifest.js';
+import { diffLines, foldDiff, type DiffHunk } from '../model/diff.js';
 import './diff-view.js';
 import './relative-time.js';
 

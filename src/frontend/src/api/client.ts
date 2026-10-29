@@ -1,8 +1,5 @@
-import { runStepsDownload } from '@olve/api';
 import { ApiError, createApiClient } from '@olve/client';
-import { getAccessToken, login, devAuthBypass } from './auth.js';
-
-export { ApiError };
+import { getAccessToken, login, devAuthBypass } from '../auth.js';
 
 /**
  * The client of the contract's operations (`@olve/api`, generated from src/spec): pass it as
@@ -18,35 +15,6 @@ export const api = createApiClient({
     return token;
   },
 });
-
-/** One stored file of an attempt, handed to the browser as a download. */
-export async function downloadFile(
-  file: {
-    pipelineId: string;
-    number: number;
-    step: string;
-    attempt: number;
-    path: string;
-  },
-  fileName: string,
-): Promise<void> {
-  const { pipelineId, number, step, attempt, path } = file;
-  const { data } = await runStepsDownload({
-    client: api,
-    path: { pipelineId, number, step, path },
-    query: { attempt },
-    parseAs: 'blob',
-    throwOnError: true,
-  });
-  const objectUrl = URL.createObjectURL(data);
-  const a = document.createElement('a');
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
-}
 
 /** A thrown value as one message: an {@link ApiError}'s problems, an `Error`'s message, else its text. */
 export function extractErrorMessage(err: unknown): string {

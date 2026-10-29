@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { AttemptPhases } from '@olve/api';
-import { formatSeconds } from '../v2/ui.js';
+import { formatSeconds } from '../styles/ui.js';
 
 const PHASES: [keyof AttemptPhases & string, string][] = [
   ['queued', 'Queued'],

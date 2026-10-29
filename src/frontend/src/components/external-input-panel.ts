@@ -2,8 +2,8 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { runStepsAnswer, runStepsDecline, type Attempt } from '@olve/api';
-import { api, errorMessages } from '../api.js';
-import { sharedStyles } from '../v2/ui.js';
+import { api, errorMessages } from '../api/client.js';
+import { sharedStyles } from '../styles/ui.js';
 import {
   byPerson,
   inputSchemaOf,
@@ -11,8 +11,8 @@ import {
   type ExternalInput,
   type JsonSchema,
   type Manifest,
-} from '../v2/manifest.js';
-import { formFields } from '../v2/schema-form.js';
+} from '../model/manifest.js';
+import { formFields } from '../model/schema-form.js';
 import type { InputForm } from './input-form.js';
 import './input-form.js';
 import './relative-time.js';

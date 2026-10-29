@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { JsonSchema } from '../v2/manifest.js';
-import { sharedStyles } from '../v2/ui.js';
+import type { JsonSchema } from '../model/manifest.js';
+import { sharedStyles } from '../styles/ui.js';
 
 export type FileRefValue = {
   run: number;

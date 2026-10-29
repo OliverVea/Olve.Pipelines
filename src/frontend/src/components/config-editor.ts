@@ -12,8 +12,8 @@ import {
 import { isAlias, parseDocument, visit, type Document } from 'yaml';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import type { JsonSchema } from '../v2/manifest.js';
-import { propertiesAt, validate, valuesAt, type Path } from '../v2/config-schema.js';
+import type { JsonSchema } from '../model/manifest.js';
+import { propertiesAt, validate, valuesAt, type Path } from '../model/config-schema.js';
 
 /** Parses YAML like the service: one document, YAML 1.2 core schema, no anchors. */
 export function parseConfigYaml(text: string): { doc: Document; errors: Diagnostic[] } {

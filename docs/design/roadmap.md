@@ -69,7 +69,7 @@ record is in the plan's Track E.
    - Beta runs the new harness before prod now (the fixture), so that item is done.
 7. **The step destination link** (a deploy step links to what it deployed).
 8. **A real config UI** (2.1 or 2.2). Oliver lists the requirements first; then we iterate on a
-   local frontend (`npm run dev:v2beta`) against beta. Agreed starting points for `select`:
+   local frontend (`npm run dev:beta`) against beta. Agreed starting points for `select`:
    - The overview shows the *effective* pipeline: steps from a select carry a
      `target.prod.kind = ssh` chip, and an optional "show all variants" toggle draws the
      unselected cases greyed.

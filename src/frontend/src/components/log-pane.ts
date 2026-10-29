@@ -4,8 +4,8 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { AnsiUp } from 'ansi_up';
 import { runStepsLogs } from '@olve/api';
 import { logEvents } from '@olve/client';
-import { api, extractErrorMessage } from '../api.js';
-import { sharedStyles } from '../v2/ui.js';
+import { api, extractErrorMessage } from '../api/client.js';
+import { sharedStyles } from '../styles/ui.js';
 
 const ansi = new AnsiUp();
 ansi.use_classes = false;

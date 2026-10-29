@@ -1,10 +1,10 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
-import { api, errorMessages } from '../api.js';
+import { api, errorMessages } from '../api/client.js';
 import { runsStart } from '@olve/api';
 import { navigate } from '../router.js';
-import { sharedStyles, runPath } from '../v2/ui.js';
-import { inputSchemaOf, type Manifest } from '../v2/manifest.js';
+import { sharedStyles, runPath } from '../styles/ui.js';
+import { inputSchemaOf, type Manifest } from '../model/manifest.js';
 import type { InputForm } from './input-form.js';
 import './input-form.js';
 

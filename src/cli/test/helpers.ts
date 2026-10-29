@@ -20,6 +20,8 @@ type Reply =
       headers?: Record<string, string>;
       /** Server-sent events: each string is one chunk; the stream then stays open until the request aborts. */
       stream?: string[];
+      /** The server ends the stream after its chunks. */
+      ends?: boolean;
     }
   | Error;
 
@@ -35,7 +37,7 @@ function parseBody(text: string): unknown {
 export function fakeFetch(reply: (req: Recorded) => Reply) {
   const requests: Recorded[] = [];
   const fn = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const request = input instanceof Request ? input : new Request(input, init);
+    const request = new Request(input, init);
     const text = await request.text();
     const recorded: Recorded = {
       method: request.method,
@@ -60,7 +62,7 @@ export function fakeFetch(reply: (req: Recorded) => Reply) {
               /* already closed */
             }
           };
-          if (request.signal.aborted) close();
+          if (r.ends || request.signal.aborted) close();
           else request.signal.addEventListener('abort', close, { once: true });
         },
       });

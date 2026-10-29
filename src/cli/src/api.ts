@@ -1,4 +1,5 @@
-import { createClient, createConfig, type Client } from '@olve/api/client';
+import type { Client } from '@olve/api/client';
+import { ApiError, createApiClient, serverProblems } from '@olve/client';
 import { CliError, describe } from './errors';
 
 export type ApiSettings = {
@@ -11,18 +12,13 @@ export type ApiSettings = {
 
 /** The contract's client for one invocation: the bearer attached per request, requests logged with `--verbose`. */
 export function createApi(settings: ApiSettings): Client {
-  const client = createClient(
-    createConfig({
-      baseUrl: settings.baseUrl.replace(/\/+$/, ''),
-      headers: { Accept: 'application/json' },
-      fetch: settings.fetch,
-      throwOnError: false,
-    }),
-  );
-  client.interceptors.request.use(async (request) => {
-    const token = await settings.token();
-    if (token && !request.headers.has('Authorization'))
-      request.headers.set('Authorization', `Bearer ${token}`);
+  const client = createApiClient({
+    baseUrl: settings.baseUrl,
+    token: settings.token,
+    fetch: settings.fetch,
+    headers: { Accept: 'application/json' },
+  });
+  client.interceptors.request.use((request) => {
     settings.log(`${request.method} ${new URL(request.url).pathname}`);
     return request;
   });
@@ -49,6 +45,13 @@ export async function call<T>(promise: Promise<SdkResult<T>>): Promise<T> {
   throw apiError(result.response.status, result.response.statusText, result.error);
 }
 
+/** A failed event stream: the server's answer, else a lost connection (retryable). */
+export function streamError(error: unknown, what: string): CliError {
+  if (error instanceof ApiError)
+    return apiError(error.status, error.statusText, error.body);
+  return new CliError(`${what} failed: ${describe(error)}`, true);
+}
+
 /** The problems of a non-2xx answer, in the C# `pl`'s words. */
 export function apiError(status: number, statusText: string, body: unknown): CliError {
   if (status === 401)
@@ -64,24 +67,6 @@ export function apiError(status: number, statusText: string, body: unknown): Cli
     `Request failed: ${status} ${statusText}${detail}`.trimEnd(),
     retryable,
   );
-}
-
-/** `{ errors: [{ message, field? }] }` (an ApiProblem), or a bare problem array. */
-export function serverProblems(body: unknown): string[] {
-  const list = Array.isArray(body)
-    ? body
-    : body &&
-        typeof body === 'object' &&
-        Array.isArray((body as { errors?: unknown }).errors)
-      ? ((body as { errors: unknown[] }).errors as unknown[])
-      : [];
-  return list
-    .map((p) => {
-      const { message, field } = (p ?? {}) as { message?: unknown; field?: unknown };
-      if (typeof message !== 'string' || !message) return '';
-      return typeof field === 'string' && field ? `${field}: ${message}` : message;
-    })
-    .filter((m) => m.length > 0);
 }
 
 function snippet(body: string): string {

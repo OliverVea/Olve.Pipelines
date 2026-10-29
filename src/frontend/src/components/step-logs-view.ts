@@ -91,8 +91,8 @@ export class StepLogsView extends LitElement {
       () => this.reload(),
       (n) =>
         n.pipelineId === this.pipelineId &&
-        String(n.data.run) === this.run &&
-        (n.type === 'run' || (n.type === 'attempt' && n.data.step === this.step)),
+        (n.type === 'run' || (n.type === 'attempt' && n.step === this.step)) &&
+        String(n.run) === this.run,
     );
   }
 

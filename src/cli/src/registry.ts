@@ -14,8 +14,6 @@ export type CommandContext = {
   /** Warnings and progress on stderr, always. */
   stderr(line: string): void;
   api: Client;
-  /** The bearer for a raw request outside the contract (event streams, file downloads). */
-  token(): Promise<string | undefined>;
   apiUrl: string;
   profile: Profile;
   /** Where the profile file lives. */

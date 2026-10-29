@@ -41,7 +41,9 @@ const run = (
   ...overrides,
 });
 
-const events = { stream: ['event: hello\ndata: {"lastEventId":"1-0"}\n\n'] };
+const events = {
+  stream: ['event: hello\ndata: {"type":"hello","lastEventId":"1-0"}\n\n'],
+};
 
 describe('wait', () => {
   test('--timeout parses durations', () => {

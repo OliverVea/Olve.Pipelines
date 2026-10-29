@@ -24,7 +24,8 @@
 
     "paths": {
       "@olve/api": ["../../artifacts/clients/ts/index.ts"],
-      "@olve/api/*": ["../../artifacts/clients/ts/*"]
+      "@olve/api/*": ["../../artifacts/clients/ts/*"],
+      "@olve/client": ["../client/src/index.ts"]
     }
   },
   "include": ["src"],

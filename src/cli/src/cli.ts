@@ -173,7 +173,6 @@ export async function run(
       log,
       stderr: io.stderr,
       api,
-      token,
       apiUrl,
       profile,
       configPath: path,

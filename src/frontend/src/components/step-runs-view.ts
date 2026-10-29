@@ -147,7 +147,7 @@ export class StepRunsView extends LitElement {
         n.pipelineId === this.pipelineId &&
         (n.type === 'run' ||
           n.type === 'blocked' ||
-          (n.type === 'attempt' && n.data.step === this.step)),
+          (n.type === 'attempt' && n.step === this.step)),
     );
   }
 

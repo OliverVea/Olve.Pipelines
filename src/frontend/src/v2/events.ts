@@ -1,12 +1,8 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import { apiEvents } from '../api.js';
+import { changeEvents, isNotice, reloadsAll, type ChangeNotice } from '@olve/client';
+import { api } from '../api.js';
 
-/** A change notice from `/api/events`: the event name and its camelCase payload. */
-export interface ChangeNotice {
-  type: string;
-  pipelineId: string;
-  data: Record<string, unknown>;
-}
+export type { ChangeNotice };
 
 interface Listener {
   matches(notice: ChangeNotice): boolean;
@@ -17,7 +13,7 @@ interface Listener {
 const RETRY_MS = [1_000, 5_000, 15_000, 30_000];
 
 /**
- * One `/api/events` stream per tab, open while a view listens and the tab is visible. Every `hello`
+ * One change-event stream per tab, open while a view listens and the tab is visible. Every `hello`
  * (first connect or reconnect) and `resync` tells all listeners to reload: nothing is replayed, so
  * that is what covers events missed before or between connections.
  */
@@ -58,10 +54,10 @@ class ChangeStream {
 
   private async read(abort: AbortController) {
     try {
-      for await (const { event, data } of apiEvents('/api/events', abort.signal)) {
+      for await (const event of changeEvents(api, abort.signal)) {
         this.failures = 0;
-        if (event === 'hello' || event === 'resync') this.all();
-        else if (event !== 'ping') this.dispatch(event, data);
+        if (reloadsAll(event)) this.all();
+        else if (isNotice(event)) this.dispatch(event);
       }
     } catch {
       if (abort.signal.aborted) return;
@@ -80,18 +76,7 @@ class ChangeStream {
     for (const l of this.listeners) l.changed();
   }
 
-  private dispatch(type: string, raw: string) {
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return;
-    }
-    const notice: ChangeNotice = {
-      type,
-      pipelineId: String(data.pipelineId ?? ''),
-      data,
-    };
+  private dispatch(notice: ChangeNotice) {
     for (const l of this.listeners) if (l.matches(notice)) l.changed();
   }
 }
@@ -150,6 +135,6 @@ export class LiveController implements ReactiveController {
 
 /** Notices about one pipeline, optionally only of some types. */
 export const forPipeline =
-  (pipelineId: () => string, ...types: string[]) =>
+  (pipelineId: () => string, ...types: ChangeNotice['type'][]) =>
   (n: ChangeNotice) =>
     n.pipelineId === pipelineId() && (!types.length || types.includes(n.type));

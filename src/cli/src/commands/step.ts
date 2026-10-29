@@ -4,6 +4,7 @@ import {
   runsGet,
   runStepsAttempts,
   runStepsCancel,
+  runStepsDownload,
   runStepsFiles,
   runStepsLogs,
   runStepsOutput,
@@ -21,7 +22,7 @@ import {
   resolveStep,
   type ResolvedAddress,
 } from '../address';
-import { apiError, call } from '../api';
+import { call } from '../api';
 import { CliError, describe } from '../errors';
 import { duration, indented, time } from '../format';
 import { table } from '../output';
@@ -60,39 +61,28 @@ async function toggleBlock(ctx: CommandContext, block: boolean): Promise<void> {
   });
 }
 
-/** The file route is outside the contract (a binary body): a raw request with the bearer. */
+/** The answer with its body unread, so the file streams through. */
 async function downloadFile(
   ctx: CommandContext,
   addr: ResolvedAddress & { address: { step: string } },
   path: string,
 ): Promise<Response> {
-  const query =
-    addr.address.attempt !== undefined ? `?attempt=${addr.address.attempt}` : '';
-  const route = `/api/pipelines/${addr.id}/runs/${addr.address.run}/steps/${encodeURIComponent(addr.address.step)}/files/${path.split('/').map(encodeURIComponent).join('/')}${query}`;
-  const headers: Record<string, string> = {};
-  const token = await ctx.token();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  ctx.log(`GET ${route}`);
-  let response: Response;
-  try {
-    response = await ctx.fetch(`${ctx.api.getConfig().baseUrl}${route}`, {
-      headers,
-      signal: ctx.signal,
-    });
-  } catch (error) {
-    throw new CliError(`Request to ${route} failed: ${describe(error)}`, true);
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    let body: unknown = text;
-    try {
-      body = text ? JSON.parse(text) : '';
-    } catch {
-      body = text;
-    }
-    throw apiError(response.status, response.statusText, body);
-  }
-  return response;
+  const result = await runStepsDownload({
+    client: ctx.api,
+    path: {
+      pipelineId: addr.id,
+      number: addr.address.run,
+      step: addr.address.step,
+      path,
+    },
+    query:
+      addr.address.attempt === undefined ? undefined : { attempt: addr.address.attempt },
+    headers: { Accept: '*/*' },
+    parseAs: 'stream',
+    signal: ctx.signal,
+  });
+  await call(Promise.resolve(result));
+  return result.response!;
 }
 
 export const stepCommands: Command[] = [

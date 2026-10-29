@@ -1,6 +1,6 @@
 import { User, UserManager, WebStorageStateStore } from 'oidc-client-ts';
 import { instanceFrontendConfig, type FrontendConfig } from '@olve/api';
-import { createClient, createConfig } from '@olve/api/client';
+import { createApiClient } from '@olve/client';
 
 /**
  * Dev-only auth bypass (`VITE_DEV_AUTH=bypass`, ignored in production builds):
@@ -30,7 +30,11 @@ const devUser: User | null = devAuthBypass
   : null;
 
 // Anonymous: signing in needs these settings first.
-const anonymous = createClient(createConfig({ baseUrl: '', throwOnError: true }));
+const anonymous = createApiClient({
+  baseUrl: '',
+  throwOnError: true,
+  token: async () => null,
+});
 let frontendConfigPromise: Promise<FrontendConfig> | null = null;
 
 /** The instance's settings for the web UI, fetched once. */

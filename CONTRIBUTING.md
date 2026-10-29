@@ -32,6 +32,7 @@ src/
 ├── spec/                           The API contract (TypeSpec, one .tsp per area); bun run build → artifacts/ (gitignored): openapi.json, the server's generated C#, the TypeScript client, the API reference (docs/design/spec-first.md)
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
+├── client/                         @olve/client: the setup over the generated client both clients share (bearer, ApiError, typed SSE streams)
 ├── cli/                            `pl` operator CLI (Bun + TypeScript on the generated client, compiled per platform)
 ├── frontend/                       Dashboard UI (Lit + Vite + TypeScript)
 └── deploy/

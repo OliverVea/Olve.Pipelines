@@ -1,21 +1,17 @@
+import type { ChangeEvent } from '@olve/api';
 import { resolvePipeline } from '../address';
-import { readEvents } from '../events';
+import { readChanges } from '../events';
 import type { Command } from '../registry';
 
-function describeEvent(type: string, data: string, omitPipeline: boolean): string {
-  if (type === 'resync') return 'missed events: refetch what you are looking at';
-  try {
-    const parsed = JSON.parse(data) as Record<string, unknown>;
-    return Object.entries(parsed)
-      .filter(([name]) => name !== 'type' && !(omitPipeline && name === 'pipelineId'))
-      .map(
-        ([name, value]) =>
-          `${name}=${typeof value === 'string' ? value : JSON.stringify(value)}`,
-      )
-      .join(' ');
-  } catch {
-    return data;
-  }
+function describeEvent(event: ChangeEvent, omitPipeline: boolean): string {
+  if (event.type === 'resync') return 'missed events: refetch what you are looking at';
+  return Object.entries(event)
+    .filter(([name]) => name !== 'type' && !(omitPipeline && name === 'pipelineId'))
+    .map(
+      ([name, value]) =>
+        `${name}=${typeof value === 'string' ? value : JSON.stringify(value)}`,
+    )
+    .join(' ');
 }
 
 const clock = () => {
@@ -36,17 +32,15 @@ export const watchCommand: Command = {
     const text = ctx.args.operand(0);
     const pipelineId =
       text === undefined ? undefined : (await resolvePipeline(ctx.api, text)).id;
-    await readEvents(
+    await readChanges(
       ctx,
-      pipelineId === undefined
-        ? '/api/events'
-        : `/api/events?pipeline=${encodeURIComponent(pipelineId)}`,
+      pipelineId,
       (e) => {
-        if (e.event === 'ping' || e.event === 'hello') return;
+        if (e.type === 'ping' || e.type === 'hello') return;
         ctx.out.line(
           ctx.json
-            ? `{"event":${JSON.stringify(e.event)},"data":${e.data.length === 0 ? 'null' : e.data}}`
-            : `${clock()}  ${e.event.padEnd(8)}  ${describeEvent(e.event, e.data, pipelineId !== undefined)}`,
+            ? JSON.stringify({ event: e.type, data: e })
+            : `${clock()}  ${e.type.padEnd(8)}  ${describeEvent(e, pipelineId !== undefined)}`,
         );
       },
       ctx.signal,

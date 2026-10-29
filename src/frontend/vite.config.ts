@@ -7,10 +7,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     // `@olve/api` is the Hey API client generated from src/spec into the repo-root artifacts/
-    // (never committed; `cd src/spec && bun run build` rebuilds it). Mirrored by `paths` in tsconfig.json.
+    // (never committed; `cd src/spec && bun run build` rebuilds it); `@olve/client` the shared
+    // setup over it in src/client. Mirrored by `paths` in tsconfig.json.
     resolve: {
       alias: {
         '@olve/api': fileURLToPath(new URL('../../artifacts/clients/ts', import.meta.url)),
+        '@olve/client': fileURLToPath(new URL('../client/src/index.ts', import.meta.url)),
       },
     },
     build: {

@@ -34,6 +34,7 @@ if [ $changed = 1 ]; then
       .pipelines/*) want[pipelines]=1 ;;
       src/frontend/*) want[frontend]=1; want[spec]=1 ;;
       src/cli/*) want[cli]=1; want[spec]=1 ;;
+      src/client/*) want[frontend]=1; want[cli]=1; want[spec]=1 ;;
       src/spec/*) want[spec]=1; want[frontend]=1; want[cli]=1; want[dotnet]=1 ;;
       src/*|tools/*|Directory.*|global.json|*.slnx) want[dotnet]=1 ;;
     esac
@@ -67,6 +68,11 @@ manifest_schema_current() {
     import { canonicalJson } from "./src/util/canonical.ts";
     if (canonicalJson(manifestJsonSchema()) !== (await Bun.file("manifest.schema.json").text())) {
       console.error("src/sdk/manifest.schema.json is out of date: run `bun scripts/gen-manifest-schema.ts`"); process.exit(1); }')
+}
+
+# The frontend and pl reach the server through the generated client only.
+no_api_urls() {
+  ! grep -rnE "['\"\`]/api/" src/frontend/src src/cli/src src/client/src
 }
 
 pipeline_valid() {
@@ -104,8 +110,11 @@ if [ -n "${want[frontend]:-}" ]; then
   run "frontend: typecheck"            bash -c 'cd src/frontend && npm run -s typecheck'
   [ $full = 0 ] || run "frontend: build" bash -c 'cd src/frontend && npm run -s build'
 fi
+if [ -n "${want[frontend]:-}${want[cli]:-}" ]; then
+  run "clients: no hand-built /api/ URLs" no_api_urls
+fi
 if [ -n "${want[cli]:-}" ]; then
-  run "cli: prettier"                  bash -c 'cd src/cli && bun run format:check'
+  run "cli: prettier"                bash -c 'cd src/cli && bun run format:check'
   run "cli: typecheck"                 bash -c 'cd src/cli && bun run typecheck'
   [ $full = 0 ] || run "cli: tests"    bash -c 'cd src/cli && bun test'
 fi

@@ -106,7 +106,7 @@ describe('step', () => {
     expect(stdout.code).toBe(0);
     expect(stdout.stdout).toBe('bytes!');
     expect(requests.at(-1)!.path).toBe(
-      `/api/pipelines/${ID}/runs/15/steps/build/files/dist/a.txt?attempt=1`,
+      `/api/pipelines/${ID}/runs/15/steps/build/files/dist%2Fa.txt?attempt=1`,
     );
     const twice = await pl(['step', 'file', 'alpha#15/build/dist/a.txt', 'b.txt'], {
       fetch,

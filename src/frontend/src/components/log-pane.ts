@@ -3,7 +3,8 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { AnsiUp } from 'ansi_up';
 import { runStepsLogs } from '@olve/api';
-import { api, apiEvents, extractErrorMessage } from '../api.js';
+import { logEvents } from '@olve/client';
+import { api, extractErrorMessage } from '../api.js';
 import { sharedStyles } from '../v2/ui.js';
 
 const ansi = new AnsiUp();
@@ -112,15 +113,16 @@ export class LogPane extends LitElement {
     const key = keyOf(address);
     const { pipelineId, number, step, attempt } = address;
     try {
-      for await (const { event, data } of apiEvents(
-        `/api/pipelines/${pipelineId}/runs/${number}/steps/${encodeURIComponent(step)}/logs/stream?attempt=${attempt}`,
+      for await (const event of logEvents(
+        api,
         stream.signal,
+        { pipelineId, number, step },
+        attempt,
       )) {
         if (key !== this._key) return;
-        if (event === 'log') {
-          const chunk = JSON.parse(data) as { text: string; reset?: boolean };
-          await this._show(chunk.reset ? chunk.text : this._text + chunk.text);
-        } else if (event === 'end') {
+        if (event.type === 'log') {
+          await this._show(event.reset ? event.text : this._text + event.text);
+        } else if (event.type === 'end') {
           break;
         }
       }

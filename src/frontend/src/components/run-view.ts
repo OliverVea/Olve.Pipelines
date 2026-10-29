@@ -14,7 +14,7 @@ import {
   type Run,
   type StepFile,
 } from '@olve/api';
-import { api, downloadFile, encodePath, errorMessages } from '../api.js';
+import { api, downloadFile, errorMessages } from '../api.js';
 import { navigate } from '../router.js';
 import {
   sharedStyles,
@@ -212,8 +212,7 @@ export class RunView extends LitElement {
       },
       (n) =>
         n.pipelineId === this.pipelineId &&
-        (((n.type === 'run' || n.type === 'attempt') &&
-          String(n.data.run) === this.run) ||
+        (((n.type === 'run' || n.type === 'attempt') && String(n.run) === this.run) ||
           n.type === 'blocked' ||
           n.type === 'version'),
     );
@@ -822,8 +821,8 @@ export class RunView extends LitElement {
     const name = path.endsWith('/')
       ? `${path.slice(0, -1).split('/').pop()}.tar`
       : (path.split('/').pop() ?? path);
-    const url = `/api/pipelines/${this.pipelineId}/runs/${this.run}/steps/${encodeURIComponent(step)}/files/${encodePath(path)}?attempt=${attempt}`;
-    return this._act(() => downloadFile(url, name));
+    const file = { ...this._path, step, attempt, path };
+    return this._act(() => downloadFile(file, name));
   }
 
   private _onFileRef = (e: CustomEvent<{ ref: FileRefValue }>) => {
@@ -831,8 +830,9 @@ export class RunView extends LitElement {
     const name = ref.path.endsWith('/')
       ? `${ref.path.slice(0, -1).split('/').pop()}.tar`
       : (ref.path.split('/').pop() ?? ref.path);
-    const url = `/api/pipelines/${this.pipelineId}/runs/${ref.run}/steps/${encodeURIComponent(ref.step)}/files/${encodePath(ref.path)}?attempt=${ref.attempt}`;
-    this._act(() => downloadFile(url, name));
+    const { run: number, step, attempt, path } = ref;
+    const file = { pipelineId: this.pipelineId, number, step, attempt, path };
+    this._act(() => downloadFile(file, name));
   };
 }
 

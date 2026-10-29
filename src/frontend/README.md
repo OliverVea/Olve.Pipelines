@@ -85,7 +85,7 @@ Reads (`GET`) are anonymous on the API; actions, file listing/downloads need a t
 ```
 src/frontend/src/
 ├── main.ts                    # Component imports (side-effect registration)
-├── api.ts                     # The contract's client (`api`), ApiError, apiEvents/apiText/downloadFile
+├── api.ts                     # The contract's client (`api`), error messages, downloadFile
 ├── auth.ts                    # OIDC (oidc-client-ts) + dev-only bypass
 ├── router.ts                  # Client-side router
 ├── styles/theme.css           # Global tokens (light + dark) and reset
@@ -136,8 +136,9 @@ Every operation is called through the Hey API client `@olve/api`, generated from
 (`src/spec/`, `docs/design/spec-first.md`) into the repo-root `artifacts/clients/ts` (`cd src/spec &&
 bun run build`; the alias is in `vite.config.ts` and `tsconfig.json`): `pipelinesList({ client: api })`
 returns `{ data }`, and a non-2xx answer throws `ApiError` with every problem message. Dates arrive
-as ISO strings. The two routes outside the contract have their own helpers in `api.ts`: `apiEvents`
-reads an event stream with the bearer token, `downloadFile` fetches a step file.
+as ISO strings. The client is set up by `@olve/client` (`src/client/`, shared with `pl`), which also
+reads the event streams typed (`changeEvents`, `logEvents`); `downloadFile` hands a step file to
+the browser.
 
 Views refresh on `/api/events`, not on a timer: `LiveController` (`src/v2/events.ts`) reloads its
 view when a matching notice arrives (debounced), on every (re)connect or `resync`, and every 60 s as a

@@ -1,5 +1,5 @@
 import { CliError, ExitCode, describe } from './errors';
-import { readEvents } from './events';
+import { readChanges } from './events';
 import type { CommandContext } from './registry';
 
 export type WaitCheck =
@@ -146,11 +146,11 @@ async function watchEvents(
 ): Promise<void> {
   while (!signal.aborted) {
     try {
-      await readEvents(
+      await readChanges(
         ctx,
-        `/api/events?pipeline=${encodeURIComponent(pipelineId)}`,
+        pipelineId,
         (e) => {
-          if (e.event === 'resync' || wakeOn.has(e.event)) nudge();
+          if (e.type === 'resync' || wakeOn.has(e.type)) nudge();
         },
         signal,
       );

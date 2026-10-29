@@ -7,8 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",
-    "format": "prettier --write src test",
-    "format:check": "prettier --check src test",
+    "format": "prettier --write src test ../client/src",
+    "format:check": "prettier --check src test ../client/src",
     "build": "bun build src/main.ts --compile --minify --outfile ../../artifacts/cli/pl",
     "build:linux-x64": "bun build src/main.ts --compile --minify --target=bun-linux-x64 --outfile ../../artifacts/cli/pl-linux-x64",
     "build:windows-x64": "bun build src/main.ts --compile --minify --target=bun-windows-x64 --outfile ../../artifacts/cli/pl-win-x64.exe"

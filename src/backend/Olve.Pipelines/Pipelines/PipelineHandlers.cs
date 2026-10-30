@@ -2,16 +2,19 @@ using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Api = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines;
 
+[OperationHandler]
 public sealed class ListPipelinesHandler(PipelineSummaryService pipelines) : Api.IPipelinesListHandler
 {
     public Task<Api.PipelinesListResponse> HandleAsync(Api.PipelinesListRequest request, CancellationToken cancellationToken) =>
         Task.FromResult<Api.PipelinesListResponse>(new Api.PipelinesListResponse.Ok([.. pipelines.List().Select(PipelineViews.ToApi)]));
 }
 
+[OperationHandler]
 public sealed class GetPipelineHandler(PipelineSummaryService pipelines) : Api.IPipelinesGetHandler
 {
     public Task<Api.PipelinesGetResponse> HandleAsync(Api.PipelinesGetRequest request, CancellationToken cancellationToken)
@@ -24,6 +27,7 @@ public sealed class GetPipelineHandler(PipelineSummaryService pipelines) : Api.I
 }
 
 /// <summary>Deletes the pipeline with its runs, versions, binding and secrets (the cleanup services cascade).</summary>
+[OperationHandler]
 public sealed class DeletePipelineHandler(PipelineService pipelines) : Api.IPipelinesDeleteHandler
 {
     public Task<Api.PipelinesDeleteResponse> HandleAsync(Api.PipelinesDeleteRequest request, CancellationToken cancellationToken)
@@ -35,6 +39,7 @@ public sealed class DeletePipelineHandler(PipelineService pipelines) : Api.IPipe
     }
 }
 
+[OperationHandler]
 public sealed class GetPipelineHealthHandler(PipelineService pipelines, PipelineHealthService health) : Api.IPipelinesHealthHandler
 {
     public Task<Api.PipelinesHealthResponse> HandleAsync(Api.PipelinesHealthRequest request, CancellationToken cancellationToken)

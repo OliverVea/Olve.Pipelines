@@ -1,5 +1,6 @@
 using Amazon.S3;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Distribution;
@@ -87,6 +88,7 @@ public static class CliDistribution
 
 // IAmazonS3 is only registered when storage is configured (not in the ephemeral doc-generation / no-storage
 // profiles), so the download handlers resolve it optionally and answer 503 instead of a DI failure.
+[OperationHandler]
 public sealed class DownloadCliHandler(IServiceProvider services, IConfiguration config, IHttpContextAccessor http) : Contract.ICliDownloadsDownloadHandler
 {
     public async Task<Contract.CliDownloadsDownloadResponse> HandleAsync(Contract.CliDownloadsDownloadRequest request, CancellationToken cancellationToken)
@@ -118,6 +120,7 @@ public sealed class DownloadCliHandler(IServiceProvider services, IConfiguration
     }
 }
 
+[OperationHandler]
 public sealed class HeadCliHandler(IServiceProvider services, IConfiguration config) : Contract.ICliDownloadsHeadHandler
 {
     public async Task<Contract.CliDownloadsHeadResponse> HandleAsync(Contract.CliDownloadsHeadRequest request, CancellationToken cancellationToken)
@@ -140,6 +143,7 @@ public sealed class HeadCliHandler(IServiceProvider services, IConfiguration con
     }
 }
 
+[OperationHandler]
 public sealed class InstallShellHandler(IConfiguration config, IHttpContextAccessor http) : Contract.ICliInstallShellHandler
 {
     public Task<Contract.CliInstallShellResponse> HandleAsync(Contract.CliInstallShellRequest request, CancellationToken cancellationToken) =>
@@ -148,6 +152,7 @@ public sealed class InstallShellHandler(IConfiguration config, IHttpContextAcces
             : new Contract.CliInstallShellResponse.NotFound());
 }
 
+[OperationHandler]
 public sealed class InstallPowerShellHandler(IConfiguration config, IHttpContextAccessor http) : Contract.ICliInstallPowerShellHandler
 {
     public Task<Contract.CliInstallPowerShellResponse> HandleAsync(Contract.CliInstallPowerShellRequest request, CancellationToken cancellationToken) =>

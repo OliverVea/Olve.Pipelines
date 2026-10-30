@@ -4,10 +4,12 @@ using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Problems;
 using Olve.Pipelines.Streaming;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Runs;
 
+[OperationHandler]
 public sealed class ListStepAttemptsHandler(RunService runs, AttemptService attempts) : Contract.IRunStepsAttemptsHandler
 {
     public Task<Contract.RunStepsAttemptsResponse> HandleAsync(Contract.RunStepsAttemptsRequest request, CancellationToken cancellationToken)
@@ -20,6 +22,7 @@ public sealed class ListStepAttemptsHandler(RunService runs, AttemptService atte
 }
 
 /// <summary>A new attempt of one step (same pinned version, current pool input); continue re-opens the run downstream.</summary>
+[OperationHandler]
 public sealed class RerunStepHandler(RunService runs, RunContinuationService continuations) : Contract.IRunStepsRerunHandler
 {
     public Task<Contract.RunStepsRerunResponse> HandleAsync(Contract.RunStepsRerunRequest request, CancellationToken cancellationToken)
@@ -36,6 +39,7 @@ public sealed class RerunStepHandler(RunService runs, RunContinuationService con
 /// Cancels the step's scheduled/in-progress attempt (its K8s Job is deleted). Like any cancelled attempt, the stage's
 /// other steps keep running and the run ends Cancelled at the stage barrier; rerun the step with continue to re-open it.
 /// </summary>
+[OperationHandler]
 public sealed class CancelStepHandler(RunService runs, RunCancellationService cancellation) : Contract.IRunStepsCancelHandler
 {
     public Task<Contract.RunStepsCancelResponse> HandleAsync(Contract.RunStepsCancelRequest request, CancellationToken cancellationToken)
@@ -48,6 +52,7 @@ public sealed class CancelStepHandler(RunService runs, RunCancellationService ca
     }
 }
 
+[OperationHandler]
 public sealed class AnswerStepInputHandler(ExternalInputService inputs, IHttpContextAccessor http) : Contract.IRunStepsAnswerHandler
 {
     public Task<Contract.RunStepsAnswerResponse> HandleAsync(Contract.RunStepsAnswerRequest request, CancellationToken cancellationToken)
@@ -60,6 +65,7 @@ public sealed class AnswerStepInputHandler(ExternalInputService inputs, IHttpCon
     }
 }
 
+[OperationHandler]
 public sealed class DeclineStepInputHandler(ExternalInputService inputs, IHttpContextAccessor http) : Contract.IRunStepsDeclineHandler
 {
     public Task<Contract.RunStepsDeclineResponse> HandleAsync(Contract.RunStepsDeclineRequest request, CancellationToken cancellationToken)
@@ -73,6 +79,7 @@ public sealed class DeclineStepInputHandler(ExternalInputService inputs, IHttpCo
 }
 
 /// <summary>The stored files of an attempt (without <c>attempt</c> the latest successful one).</summary>
+[OperationHandler]
 public sealed class ListStepFilesHandler(RunQueryService query, AttemptFileService files) : Contract.IRunStepsFilesHandler
 {
     public async Task<Contract.RunStepsFilesResponse> HandleAsync(Contract.RunStepsFilesRequest request, CancellationToken cancellationToken)
@@ -89,6 +96,7 @@ public sealed class ListStepFilesHandler(RunQueryService query, AttemptFileServi
 }
 
 /// <summary>One stored file by its address <c>#run/step[@attempt]/path</c>; a directory ref <c>dir/</c> downloads as <c>dir.tar</c>.</summary>
+[OperationHandler]
 public sealed class DownloadStepFileHandler(RunQueryService query, AttemptFileService files, IHttpContextAccessor http) : Contract.IRunStepsDownloadHandler
 {
     public async Task<Contract.RunStepsDownloadResponse> HandleAsync(Contract.RunStepsDownloadRequest request, CancellationToken cancellationToken)
@@ -120,6 +128,7 @@ public sealed class DownloadStepFileHandler(RunQueryService query, AttemptFileSe
 }
 
 /// <summary>Without <c>attempt</c> the output of the latest successful attempt (what later stages consumed).</summary>
+[OperationHandler]
 public sealed class GetStepOutputHandler(RunQueryService query) : Contract.IRunStepsOutputHandler
 {
     public Task<Contract.RunStepsOutputResponse> HandleAsync(Contract.RunStepsOutputRequest request, CancellationToken cancellationToken)
@@ -141,6 +150,7 @@ public sealed class GetStepOutputHandler(RunQueryService query) : Contract.IRunS
 }
 
 /// <summary>Without <c>attempt</c> the latest attempt (whatever its status).</summary>
+[OperationHandler]
 public sealed class GetStepLogsHandler(RunService runs, AttemptService attempts, JobLogService logs) : Contract.IRunStepsLogsHandler
 {
     public async Task<Contract.RunStepsLogsResponse> HandleAsync(Contract.RunStepsLogsRequest request, CancellationToken cancellationToken)
@@ -171,6 +181,7 @@ public sealed class GetStepLogsHandler(RunService runs, AttemptService attempts,
 }
 
 /// <summary>Without <c>attempt</c> the latest attempt. Ends with <c>end</c> once the attempt is terminal.</summary>
+[OperationHandler]
 public sealed class StreamStepLogsHandler(RunService runs, AttemptService attempts, AttemptLogStreamer streamer) : Contract.IRunStepsLogStreamHandler
 {
     public Task<Contract.RunStepsLogStreamResponse> HandleAsync(Contract.RunStepsLogStreamRequest request, CancellationToken cancellationToken)

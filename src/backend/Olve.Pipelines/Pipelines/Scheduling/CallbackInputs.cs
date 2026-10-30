@@ -7,6 +7,7 @@ using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Scheduling;
@@ -77,6 +78,7 @@ public sealed class CallbackInputUrls(CallbackKeyStore keys, WebhookOptions webh
 }
 
 /// <summary><c>POST /api/hooks/inputs/{run}/{step}/{input}/{mac}</c>: another system answers (or declines) a callback input.</summary>
+[OperationHandler]
 public sealed class CallbackInputHandler(CallbackInputUrls urls, RunService runs, ExternalInputService inputs, IHttpContextAccessor http)
     : Contract.IWebhookTriggersAnswerCallbackHandler
 {

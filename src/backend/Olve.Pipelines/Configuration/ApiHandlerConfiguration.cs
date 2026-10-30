@@ -16,68 +16,10 @@ namespace Olve.Pipelines.Configuration;
 
 public static class ApiHandlerConfiguration
 {
-    /// <summary>One handler per contract operation (<c>src/spec/</c>); <c>UsePipelinesApi</c> refuses to start without all of them.</summary>
+    /// <summary>The handler of every contract operation (<c>src/spec/</c>), found by Olve.TypeSpec's generator; <c>UsePipelinesApi</c> refuses to start without all of them.</summary>
     public static void AddApiHandlers(this IServiceCollection services)
     {
-        services.AddSingleton<IInstanceHealthHandler, HealthHandler>();
-        services.AddSingleton<IInstanceReadyHandler, ReadinessHandler>();
-        services.AddSingleton<IInstanceFrontendConfigHandler, FrontendConfigHandler>();
-        services.AddTransient<IPipelinesListHandler, ListPipelinesHandler>();
-        services.AddTransient<IPipelinesGetHandler, GetPipelineHandler>();
-        services.AddTransient<IPipelinesDeleteHandler, DeletePipelineHandler>();
-        services.AddTransient<IPipelinesHealthHandler, GetPipelineHealthHandler>();
-        services.AddTransient<IVersionsListHandler, ListVersionsHandler>();
-        services.AddTransient<IVersionsGetHandler, GetVersionHandler>();
-        services.AddTransient<IVersionsEffectiveHandler, GetEffectivePipelineHandler>();
-        services.AddTransient<IVersionsSwitchHandler, SwitchVersionHandler>();
-        services.AddTransient<ISecretsListHandler, ListSecretsHandler>();
-        services.AddTransient<ISecretsSetHandler, SetSecretHandler>();
-        services.AddTransient<ISecretsDeleteHandler, DeleteSecretHandler>();
-        services.AddTransient<ISecretsCopyHandler, CopySecretsHandler>();
-        services.AddTransient<IConfigGetHandler, GetConfigHandler>();
-        services.AddTransient<IConfigSetHandler, SetConfigHandler>();
-        services.AddTransient<IConfigHistoryHandler, ListConfigSnapshotsHandler>();
-        services.AddTransient<IConfigRollbackHandler, RollbackConfigHandler>();
-        services.AddTransient<IConfigCheckHandler, CheckConfigHandler>();
-        services.AddTransient<IBindingsCreateHandler, CreatePipelineHandler>();
-        services.AddTransient<IBindingsGetHandler, GetBindingHandler>();
-        services.AddTransient<IBindingsStatusHandler, GetBindingStatusHandler>();
-        services.AddTransient<IBindingsUpdateHandler, UpdateBindingHandler>();
-        services.AddTransient<IBindingsSetBranchHandler, SetBindingBranchHandler>();
-        services.AddTransient<IBindingsSetPollingHandler, SetBindingPollingHandler>();
-        services.AddTransient<IBindingsReconcileHandler, ReconcileBindingHandler>();
-        services.AddTransient<IStepsBlockedHandler, ListBlockedStepsHandler>();
-        services.AddTransient<IStepsBlockHandler, BlockStepHandler>();
-        services.AddTransient<IStepsUnblockHandler, UnblockStepHandler>();
-        services.AddTransient<IStepsHistoryHandler, GetStepHistoryHandler>();
-        services.AddTransient<IRunsListHandler, ListRunsHandler>();
-        services.AddTransient<IRunsStartHandler, StartRunHandler>();
-        services.AddTransient<IRunsCriticalPathHandler, GetCriticalPathHandler>();
-        services.AddTransient<IRunsGetHandler, GetRunHandler>();
-        services.AddTransient<IRunsCancelHandler, CancelRunHandler>();
-        services.AddTransient<IRunsRerunHandler, RerunRunHandler>();
-        services.AddTransient<IRunsContinueHandler, ContinueRunHandler>();
-        services.AddTransient<IRunsAttemptsHandler, ListRunAttemptsHandler>();
-        services.AddTransient<IRunStepsAttemptsHandler, ListStepAttemptsHandler>();
-        services.AddTransient<IRunStepsRerunHandler, RerunStepHandler>();
-        services.AddTransient<IRunStepsCancelHandler, CancelStepHandler>();
-        services.AddTransient<IRunStepsAnswerHandler, AnswerStepInputHandler>();
-        services.AddTransient<IRunStepsDeclineHandler, DeclineStepInputHandler>();
-        services.AddTransient<IRunStepsFilesHandler, ListStepFilesHandler>();
-        services.AddTransient<IRunStepsOutputHandler, GetStepOutputHandler>();
-        services.AddTransient<IRunStepsLogsHandler, GetStepLogsHandler>();
-        services.AddTransient<IAttemptsListHandler, ListActiveAttemptsHandler>();
-        services.AddTransient<IRunStepsLogStreamHandler, StreamStepLogsHandler>();
-        services.AddTransient<IEventsStreamHandler, StreamEventsHandler>();
-        services.AddTransient<IManifestsValidateHandler, ValidateManifestHandler>();
-        services.AddTransient<IRunStepsDownloadHandler, DownloadStepFileHandler>();
-        services.AddTransient<IBindingWebhooksGithubHandler, BindingWebhookHandler>();
-        services.AddTransient<IWebhookTriggersReceiveHandler, WebhookTriggerHandler>();
-        services.AddTransient<IWebhookTriggersAnswerCallbackHandler, CallbackInputHandler>();
-        services.AddTransient<ICliDownloadsDownloadHandler, DownloadCliHandler>();
-        services.AddTransient<ICliDownloadsHeadHandler, HeadCliHandler>();
-        services.AddTransient<ICliInstallShellHandler, InstallShellHandler>();
-        services.AddTransient<ICliInstallPowerShellHandler, InstallPowerShellHandler>();
+        services.AddOperationHandlers();
         services.AddHttpContextAccessor(); // the audit actor of secret copies and config saves
     }
 

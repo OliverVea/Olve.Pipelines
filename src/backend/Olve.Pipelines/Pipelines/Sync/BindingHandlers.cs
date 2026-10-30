@@ -1,11 +1,13 @@
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>The only way to create a pipeline: bound to a repo. Rolls the pipeline back if binding fails, so a failed bind never leaves an orphan.</summary>
+[OperationHandler]
 public sealed class CreatePipelineHandler(PipelineService pipelines, PipelineConfigBindingService bindings) : Contract.IBindingsCreateHandler
 {
     private const string DefaultBranch = "main";
@@ -48,6 +50,7 @@ public sealed class CreatePipelineHandler(PipelineService pipelines, PipelineCon
     }
 }
 
+[OperationHandler]
 public sealed class GetBindingHandler(PipelineConfigBindingService bindings) : Contract.IBindingsGetHandler
 {
     public Task<Contract.BindingsGetResponse> HandleAsync(Contract.BindingsGetRequest request, CancellationToken cancellationToken) =>
@@ -56,6 +59,7 @@ public sealed class GetBindingHandler(PipelineConfigBindingService bindings) : C
             : BindingViews.ToApi(binding));
 }
 
+[OperationHandler]
 public sealed class GetBindingStatusHandler(
     PipelineConfigBindingService bindings, PipelineActivationService activations, PipelineVersionService versions, ConfigActivationService gate)
     : Contract.IBindingsStatusHandler
@@ -92,6 +96,7 @@ public sealed class GetBindingStatusHandler(
 }
 
 /// <summary>The credentials key moves GitHub reads onto the authenticated rate limit; null clears it.</summary>
+[OperationHandler]
 public sealed class UpdateBindingHandler(PipelineConfigBindingService bindings) : Contract.IBindingsUpdateHandler
 {
     public Task<Contract.BindingsUpdateResponse> HandleAsync(Contract.BindingsUpdateRequest request, CancellationToken cancellationToken)
@@ -108,6 +113,7 @@ public sealed class UpdateBindingHandler(PipelineConfigBindingService bindings) 
     }
 }
 
+[OperationHandler]
 public sealed class SetBindingBranchHandler(PipelineConfigBindingService bindings) : Contract.IBindingsSetBranchHandler
 {
     public Task<Contract.BindingsSetBranchResponse> HandleAsync(Contract.BindingsSetBranchRequest request, CancellationToken cancellationToken)
@@ -124,6 +130,7 @@ public sealed class SetBindingBranchHandler(PipelineConfigBindingService binding
     }
 }
 
+[OperationHandler]
 public sealed class SetBindingPollingHandler(PipelineConfigBindingService bindings) : Contract.IBindingsSetPollingHandler
 {
     public Task<Contract.BindingsSetPollingResponse> HandleAsync(Contract.BindingsSetPollingRequest request, CancellationToken cancellationToken) =>
@@ -133,6 +140,7 @@ public sealed class SetBindingPollingHandler(PipelineConfigBindingService bindin
 }
 
 /// <summary>Returns at once; the reconcile runs in the background. With wait, returns once it finished. Also retries a commit whose reconcile failed, which the poll loop never does.</summary>
+[OperationHandler]
 public sealed class ReconcileBindingHandler(DeployPollService deployPoll, PipelineConfigBindingService bindings) : Contract.IBindingsReconcileHandler
 {
     public async Task<Contract.BindingsReconcileResponse> HandleAsync(Contract.BindingsReconcileRequest request, CancellationToken cancellationToken)

@@ -2,10 +2,12 @@ using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines;
 
+[OperationHandler]
 public sealed class ListBlockedStepsHandler(PipelineService pipelines, StepBlockService blocks) : Contract.IStepsBlockedHandler
 {
     public Task<Contract.StepsBlockedResponse> HandleAsync(Contract.StepsBlockedRequest request, CancellationToken cancellationToken)
@@ -18,6 +20,7 @@ public sealed class ListBlockedStepsHandler(PipelineService pipelines, StepBlock
 }
 
 /// <summary>Blocking holds runs at the step (no attempt is created); unblocking resumes held runs.</summary>
+[OperationHandler]
 public sealed class BlockStepHandler(StepBlockService blocks) : Contract.IStepsBlockHandler
 {
     public Task<Contract.StepsBlockResponse> HandleAsync(Contract.StepsBlockRequest request, CancellationToken cancellationToken)
@@ -35,6 +38,7 @@ public sealed class BlockStepHandler(StepBlockService blocks) : Contract.IStepsB
     }
 }
 
+[OperationHandler]
 public sealed class UnblockStepHandler(StepBlockService blocks) : Contract.IStepsUnblockHandler
 {
     public Task<Contract.StepsUnblockResponse> HandleAsync(Contract.StepsUnblockRequest request, CancellationToken cancellationToken)
@@ -53,6 +57,7 @@ public sealed class UnblockStepHandler(StepBlockService blocks) : Contract.IStep
 }
 
 /// <summary>The step's attempts across runs, by identity (spec §6.3).</summary>
+[OperationHandler]
 public sealed class GetStepHistoryHandler(PipelineService pipelines, RunViewService views) : Contract.IStepsHistoryHandler
 {
     public Task<Contract.StepsHistoryResponse> HandleAsync(Contract.StepsHistoryRequest request, CancellationToken cancellationToken)

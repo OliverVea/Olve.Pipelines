@@ -1,9 +1,11 @@
 using Olve.Pipelines.Sources;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Triggers;
 
 /// <summary>A delivery for a manifest <c>webhook</c> trigger, authenticated by the trigger's own verification over any request header.</summary>
+[OperationHandler]
 public sealed class WebhookTriggerHandler(WebhookTriggerService webhooks, IHttpContextAccessor http) : Contract.IWebhookTriggersReceiveHandler
 {
     public async Task<Contract.WebhookTriggersReceiveResponse> HandleAsync(Contract.WebhookTriggersReceiveRequest request, CancellationToken cancellationToken)

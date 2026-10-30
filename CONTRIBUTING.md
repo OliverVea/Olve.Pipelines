@@ -58,9 +58,10 @@ cd src/frontend && npm install && npm run build                    # Frontend (t
 cd src/cli && bun install && bun test                              # pl (src/cli/README.md)
 ```
 
-The server build runs `bun run compile` in `src/spec/` when the contract changed, and compiles the
-generated `artifacts/generated/backend/*.g.cs`; `-p:SkipSpecGen=true` compiles already-generated
-files without bun (the deploy's `spec` step emits them for `compile-server` and `test`).
+The server build compiles the contract when it changed (Olve.TypeSpec's `TypeSpecContract` target:
+`tsp compile` in `src/spec/`) and compiles the generated `artifacts/generated/backend/*.g.cs`;
+`-p:SkipSpecGen=true` compiles already-generated files without bun (the deploy's `spec` step emits
+them for `compile-server` and `test`).
 
 ### Check before you push
 
@@ -101,7 +102,8 @@ handlers, models, JSON context) and the TypeScript client `@olve/api` (Hey API).
 steps, and the frontend type-checks against the client.
 
 An API change is a `.tsp` change plus the handler class behind the operation (one per operation,
-in the area's folder, registered in `ApiHandlerConfiguration`). The server refuses to start while
+in the area's folder; Olve.TypeSpec's source generator registers every handler class, and two
+handlers for one operation don't compile). The server refuses to start while
 an operation has no handler, and a handler can only answer the statuses its operation declares.
 
 The contract is the API's documentation: an operation's `@summary`, its doc comment and `@useAuth`

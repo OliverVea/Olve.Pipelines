@@ -8,41 +8,16 @@
     <InternalsVisibleTo Include="Olve.Pipelines.UnitTests" />
   </ItemGroup>
 
-  <!-- The API surface generated from the contract (src/spec/main.tsp → artifacts/generated/backend/*.g.cs,
-       docs/design/spec-first.md) and the OpenAPI document it serves at /docs/openapi.json. The compile
-       runs before the build when its inputs changed;
-       -p:SkipSpecGen=true compiles already-generated files without bun (the deploy's spec step emits them). -->
+  <!-- The API surface generated from the contract (src/spec/main.tsp, docs/design/spec-first.md) and the
+       OpenAPI document it serves at /docs/openapi.json; -p:SkipSpecGen=true compiles already-emitted
+       files without bun (the deploy's spec step emits them). -->
   <PropertyGroup>
     <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</RepoRoot>
-    <SpecDir>$(RepoRoot)src/spec/</SpecDir>
-    <SpecGeneratedDir>$(RepoRoot)artifacts/generated/backend/</SpecGeneratedDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <SpecInput Include="$(SpecDir)**/*.tsp;$(SpecDir)tspconfig.yaml;$(SpecDir)package.json;$(SpecDir)bun.lock" />
-    <SpecOutput Include="$(SpecGeneratedDir)PipelinesApi.g.cs;$(SpecGeneratedDir)PipelinesModels.g.cs;$(SpecGeneratedDir)PipelinesJsonContext.g.cs;$(RepoRoot)artifacts/spec/openapi.json" />
-    <!-- Static include for IDEs; re-added after generation below for a clean checkout. -->
-    <Compile Include="$(SpecGeneratedDir)*.g.cs" Link="Api/Generated/%(Filename)%(Extension)" />
+    <TypeSpecContract Include="$(RepoRoot)src/spec/main.tsp" GeneratedDir="$(RepoRoot)artifacts/generated/backend/" />
   </ItemGroup>
-
-  <Target Name="InstallSpecTooling" BeforeTargets="GenerateApi" Condition="'$(SkipSpecGen)' != 'true' And !Exists('$(SpecDir)node_modules')">
-    <Exec Command="bun install --frozen-lockfile" WorkingDirectory="$(SpecDir)" />
-  </Target>
-
-  <Target Name="GenerateApi" BeforeTargets="BeforeBuild" Condition="'$(SkipSpecGen)' != 'true'" Inputs="@(SpecInput)" Outputs="@(SpecOutput)">
-    <Exec Command="bun run compile" WorkingDirectory="$(SpecDir)" />
-    <!-- tsp leaves unchanged files untouched; touch them so the target stays incremental. -->
-    <Touch Files="@(SpecOutput)" />
-  </Target>
-
-  <Target Name="IncludeGeneratedApi" AfterTargets="GenerateApi" BeforeTargets="BeforeBuild">
-    <Error Condition="!Exists('$(SpecGeneratedDir)PipelinesApi.g.cs')"
-           Text="Generated API not found in $(SpecGeneratedDir): run `bun run compile` in src/spec/ (or build without -p:SkipSpecGen=true)." />
-    <ItemGroup>
-      <Compile Remove="$(SpecGeneratedDir)*.g.cs" />
-      <Compile Include="$(SpecGeneratedDir)*.g.cs" />
-    </ItemGroup>
-  </Target>
 
   <!-- Serve the setup guide (docs/setup/*.md) at /docs. Copied into wwwroot so a local
        `dotnet run` serves them too; the Dockerfile copies the same files for the container. -->

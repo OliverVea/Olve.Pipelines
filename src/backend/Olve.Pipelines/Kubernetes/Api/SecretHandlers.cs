@@ -1,10 +1,12 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Kubernetes.Api;
 
+[OperationHandler]
 public sealed class ListSecretsHandler(PipelineSecretService secrets) : Contract.ISecretsListHandler
 {
     public async Task<Contract.SecretsListResponse> HandleAsync(Contract.SecretsListRequest request, CancellationToken cancellationToken)
@@ -17,6 +19,7 @@ public sealed class ListSecretsHandler(PipelineSecretService secrets) : Contract
 }
 
 /// <summary>Setting or deleting a secret re-runs the activation gate: a pending version waiting for it activates.</summary>
+[OperationHandler]
 public sealed class SetSecretHandler(PipelineSecretService secrets, ConfigActivationService gate, IServiceProvider services) : Contract.ISecretsSetHandler
 {
     public async Task<Contract.SecretsSetResponse> HandleAsync(Contract.SecretsSetRequest request, CancellationToken cancellationToken)
@@ -41,6 +44,7 @@ public sealed class SetSecretHandler(PipelineSecretService secrets, ConfigActiva
 }
 
 /// <summary>A secret the current config references is only deleted with force; new runs then wait until it is set again.</summary>
+[OperationHandler]
 public sealed class DeleteSecretHandler(PipelineSecretService secrets, ConfigActivationService gate, IServiceProvider services) : Contract.ISecretsDeleteHandler
 {
     public async Task<Contract.SecretsDeleteResponse> HandleAsync(Contract.SecretsDeleteRequest request, CancellationToken cancellationToken)
@@ -70,6 +74,7 @@ public sealed class DeleteSecretHandler(PipelineSecretService secrets, ConfigAct
 }
 
 /// <summary>Server-side copy from another pipeline on this instance; values are never returned or logged.</summary>
+[OperationHandler]
 public sealed class CopySecretsHandler(PipelineSecretCopyService copies, IHttpContextAccessor http) : Contract.ISecretsCopyHandler
 {
     public async Task<Contract.SecretsCopyResponse> HandleAsync(Contract.SecretsCopyRequest request, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using System.Text;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Manifests;
@@ -8,6 +9,7 @@ namespace Olve.Pipelines.Pipelines.Manifests;
 /// <see cref="ManifestValidator"/>) on a posted manifest without persisting anything. Always 200 with the
 /// report — an invalid manifest is a result, not a request error.
 /// </summary>
+[OperationHandler]
 public sealed class ValidateManifestHandler : Contract.IManifestsValidateHandler
 {
     public Task<Contract.ManifestsValidateResponse> HandleAsync(Contract.ManifestsValidateRequest request, CancellationToken cancellationToken)

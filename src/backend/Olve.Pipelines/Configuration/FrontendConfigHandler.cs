@@ -1,8 +1,10 @@
 using Olve.Pipelines.Api;
+using Olve.TypeSpec;
 
 namespace Olve.Pipelines.Configuration;
 
 /// <summary>The OIDC authority, client id and scopes the web UI and <c>pl login</c> use.</summary>
+[OperationHandler]
 public sealed class FrontendConfigHandler(IConfiguration config) : IInstanceFrontendConfigHandler
 {
     /// <summary>Space-separated scopes to request; <c>groups</c> only when <c>Auth:Allow:Orgs</c> needs the claim.</summary>

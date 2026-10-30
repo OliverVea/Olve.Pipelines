@@ -3,10 +3,12 @@ using System.Text.Json;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Runs;
 
+[OperationHandler]
 public sealed class ListRunsHandler(PipelineService pipelines, RunViewService views) : Contract.IRunsListHandler
 {
     public Task<Contract.RunsListResponse> HandleAsync(Contract.RunsListRequest request, CancellationToken cancellationToken)
@@ -26,6 +28,7 @@ public sealed class ListRunsHandler(PipelineService pipelines, RunViewService vi
 }
 
 /// <summary>Invalid input is a 400 listing every problem — never a half-started run.</summary>
+[OperationHandler]
 public sealed class StartRunHandler(RunInputService inputs, RunViewService views) : Contract.IRunsStartHandler
 {
     public Task<Contract.RunsStartResponse> HandleAsync(Contract.RunsStartRequest request, CancellationToken cancellationToken)
@@ -38,6 +41,7 @@ public sealed class StartRunHandler(RunInputService inputs, RunViewService views
     }
 }
 
+[OperationHandler]
 public sealed class GetCriticalPathHandler(CriticalPathService paths) : Contract.IRunsCriticalPathHandler
 {
     public Task<Contract.RunsCriticalPathResponse> HandleAsync(Contract.RunsCriticalPathRequest request, CancellationToken cancellationToken)
@@ -50,6 +54,7 @@ public sealed class GetCriticalPathHandler(CriticalPathService paths) : Contract
     }
 }
 
+[OperationHandler]
 public sealed class GetRunHandler(RunViewService views) : Contract.IRunsGetHandler
 {
     public Task<Contract.RunsGetResponse> HandleAsync(Contract.RunsGetRequest request, CancellationToken cancellationToken)
@@ -62,6 +67,7 @@ public sealed class GetRunHandler(RunViewService views) : Contract.IRunsGetHandl
 }
 
 /// <summary>Cancels the run and its scheduled/in-progress attempts (their K8s Jobs are deleted).</summary>
+[OperationHandler]
 public sealed class CancelRunHandler(RunService runs, RunCancellationService cancellation, RunViewService views) : Contract.IRunsCancelHandler
 {
     public Task<Contract.RunsCancelResponse> HandleAsync(Contract.RunsCancelRequest request, CancellationToken cancellationToken)
@@ -75,6 +81,7 @@ public sealed class CancelRunHandler(RunService runs, RunCancellationService can
 }
 
 /// <summary>A new run with the same input on the active version, linked via rerunOf.</summary>
+[OperationHandler]
 public sealed class RerunRunHandler(RunService runs, RunInputService inputs, RunViewService views) : Contract.IRunsRerunHandler
 {
     public Task<Contract.RunsRerunResponse> HandleAsync(Contract.RunsRerunRequest request, CancellationToken cancellationToken)
@@ -88,6 +95,7 @@ public sealed class RerunRunHandler(RunService runs, RunInputService inputs, Run
 }
 
 /// <summary>Keeps completed stages, re-evaluates the rest; the input changes are merged over the stored input (only fields no completed step consumed may change).</summary>
+[OperationHandler]
 public sealed class ContinueRunHandler(RunService runs, RunInputService inputs, RunViewService views) : Contract.IRunsContinueHandler
 {
     public Task<Contract.RunsContinueResponse> HandleAsync(Contract.RunsContinueRequest request, CancellationToken cancellationToken)
@@ -102,6 +110,7 @@ public sealed class ContinueRunHandler(RunService runs, RunInputService inputs, 
     }
 }
 
+[OperationHandler]
 public sealed class ListRunAttemptsHandler(RunService runs, AttemptService attempts) : Contract.IRunsAttemptsHandler
 {
     public Task<Contract.RunsAttemptsResponse> HandleAsync(Contract.RunsAttemptsRequest request, CancellationToken cancellationToken)
@@ -114,6 +123,7 @@ public sealed class ListRunAttemptsHandler(RunService runs, AttemptService attem
 }
 
 /// <summary>What's running (active) or waiting for input (waiting), on this instance, oldest first, by address.</summary>
+[OperationHandler]
 public sealed class ListActiveAttemptsHandler(ActiveAttemptQuery query) : Contract.IAttemptsListHandler
 {
     public Task<Contract.AttemptsListResponse> HandleAsync(Contract.AttemptsListRequest request, CancellationToken cancellationToken)

@@ -3,10 +3,12 @@ using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Api = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Versions;
 
+[OperationHandler]
 public sealed class ListVersionsHandler(PipelineService pipelines, PipelineVersionService versions, PipelineActivationService activations) : Api.IVersionsListHandler
 {
     public Task<Api.VersionsListResponse> HandleAsync(Api.VersionsListRequest request, CancellationToken cancellationToken)
@@ -22,6 +24,7 @@ public sealed class ListVersionsHandler(PipelineService pipelines, PipelineVersi
     }
 }
 
+[OperationHandler]
 public sealed class GetVersionHandler(PipelineVersionService versions) : Api.IVersionsGetHandler
 {
     public Task<Api.VersionsGetResponse> HandleAsync(Api.VersionsGetRequest request, CancellationToken cancellationToken)
@@ -34,6 +37,7 @@ public sealed class GetVersionHandler(PipelineVersionService versions) : Api.IVe
 }
 
 /// <summary>The version with its selects resolved by a config snapshot (default the latest): what new runs execute.</summary>
+[OperationHandler]
 public sealed class GetEffectivePipelineHandler(PipelineVersionService versions, RunPlanCache plans, ConfigSnapshotService snapshots) : Api.IVersionsEffectiveHandler
 {
     public Task<Api.VersionsEffectiveResponse> HandleAsync(Api.VersionsEffectiveRequest request, CancellationToken cancellationToken)
@@ -69,6 +73,7 @@ public sealed class GetEffectivePipelineHandler(PipelineVersionService versions,
 }
 
 /// <summary>Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b). Refused with the reasons when the config or a secret doesn't satisfy the version.</summary>
+[OperationHandler]
 public sealed class SwitchVersionHandler(PipelineVersionService versions, ConfigActivationService gate, IPipelineSecretNames secretNames) : Api.IVersionsSwitchHandler
 {
     public async Task<Api.VersionsSwitchResponse> HandleAsync(Api.VersionsSwitchRequest request, CancellationToken cancellationToken)

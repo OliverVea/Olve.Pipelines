@@ -1,10 +1,12 @@
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Sources;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>The binding's GitHub push webhook, verified by HMAC over the raw body. On the public ingress, with /api/hooks.</summary>
+[OperationHandler]
 public sealed class BindingWebhookHandler(
     BindingWebhookReceiver receiver,
     PushTriggerService pushTriggers,

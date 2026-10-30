@@ -1,9 +1,11 @@
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Shared.Problems;
+using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Configs;
 
+[OperationHandler]
 public sealed class GetConfigHandler(ConfigService config) : Contract.IConfigGetHandler
 {
     public Task<Contract.ConfigGetResponse> HandleAsync(Contract.ConfigGetRequest request, CancellationToken cancellationToken) =>
@@ -13,6 +15,7 @@ public sealed class GetConfigHandler(ConfigService config) : Contract.IConfigGet
 }
 
 /// <summary>Writes need the same authorization as setting a secret.</summary>
+[OperationHandler]
 public sealed class SetConfigHandler(ConfigService config, IHttpContextAccessor http) : Contract.IConfigSetHandler
 {
     public async Task<Contract.ConfigSetResponse> HandleAsync(Contract.ConfigSetRequest request, CancellationToken cancellationToken)
@@ -33,6 +36,7 @@ public sealed class SetConfigHandler(ConfigService config, IHttpContextAccessor 
     }
 }
 
+[OperationHandler]
 public sealed class ListConfigSnapshotsHandler(ConfigService config) : Contract.IConfigHistoryHandler
 {
     public Task<Contract.ConfigHistoryResponse> HandleAsync(Contract.ConfigHistoryRequest request, CancellationToken cancellationToken) =>
@@ -41,6 +45,7 @@ public sealed class ListConfigSnapshotsHandler(ConfigService config) : Contract.
             : new Contract.ConfigHistoryResponse.Ok([.. history.Select(ConfigViews.ToApi)]));
 }
 
+[OperationHandler]
 public sealed class RollbackConfigHandler(ConfigService config, IHttpContextAccessor http) : Contract.IConfigRollbackHandler
 {
     public async Task<Contract.ConfigRollbackResponse> HandleAsync(Contract.ConfigRollbackRequest request, CancellationToken cancellationToken)
@@ -61,6 +66,7 @@ public sealed class RollbackConfigHandler(ConfigService config, IHttpContextAcce
     }
 }
 
+[OperationHandler]
 public sealed class CheckConfigHandler(ConfigService config) : Contract.IConfigCheckHandler
 {
     public async Task<Contract.ConfigCheckResponse> HandleAsync(Contract.ConfigCheckRequest request, CancellationToken cancellationToken)

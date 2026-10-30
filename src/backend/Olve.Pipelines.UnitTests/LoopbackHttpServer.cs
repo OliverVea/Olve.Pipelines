@@ -44,11 +44,11 @@ internal sealed class LoopbackHttpServer : IAsyncDisposable
                 using var client = await _listener.AcceptTcpClientAsync(_stop.Token);
                 var stream = client.GetStream();
                 var buffer = new byte[8192];
-                var read = await stream.ReadAsync(buffer, _stop.Token);
-                var head = Encoding.ASCII.GetString(buffer, 0, read);
-                Requests.Enqueue(head);
                 try
                 {
+                    var read = await stream.ReadAsync(buffer, _stop.Token);
+                    var head = Encoding.ASCII.GetString(buffer, 0, read);
+                    Requests.Enqueue(head);
                     await stream.WriteAsync(Encoding.ASCII.GetBytes(_respond(head)), _stop.Token);
                 }
                 catch (IOException)

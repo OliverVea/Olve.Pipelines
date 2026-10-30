@@ -15,17 +15,20 @@ const FIXTURE = 'v2 test fixture';
 
 type Run = { number: number; status: string };
 
+const bearer = (ctx: Ctx<'BETA_TOKEN'>) => ({
+  authorization: `Bearer ${ctx.secrets.BETA_TOKEN}`,
+});
+
 /**
  * Reconciles beta's test fixture and runs it at `sha`, as the deployer (BETA_TOKEN): its called-back and polled
  * steps only finish when beta's signal-test service answers them. Throws unless the run succeeds in time.
  */
 async function runFixture(ctx: Ctx<'BETA_TOKEN'>, base: string, sha: string) {
-  const auth = {
-    authorization: `Bearer ${ctx.secrets.BETA_TOKEN}`,
-    'content-type': 'application/json',
-  };
+  const read = { headers: bearer(ctx) };
+  const auth = { ...read.headers, 'content-type': 'application/json' };
   const pipelines = await ctx.http.getJson<{ id: string; name: string }[]>(
     `${base}/api/pipelines`,
+    read,
   );
   const fixture = pipelines.find((p) => p.name === FIXTURE);
   check(fixture !== undefined, `beta has no pipeline '${FIXTURE}'`);
@@ -54,7 +57,7 @@ async function runFixture(ctx: Ctx<'BETA_TOKEN'>, base: string, sha: string) {
   const { run } = (await trigger.json()) as { run: { number: number } | null };
   check(run !== null, `${FIXTURE} queued the run instead of starting it`);
   for (;;) {
-    const current = await ctx.http.getJson<Run>(`${api}/runs/${run.number}`);
+    const current = await ctx.http.getJson<Run>(`${api}/runs/${run.number}`, read);
     if (current.status === 'Succeeded') return run.number;
     check(current.status === 'Running', `${FIXTURE}#${run.number} ${current.status}`);
     check(
@@ -68,19 +71,26 @@ async function runFixture(ctx: Ctx<'BETA_TOKEN'>, base: string, sha: string) {
 export default implement(betaTest, async ({ release, source }, ctx) => {
   const BETA_URL = release.url ?? serviceUrl(release);
   const auth = ctx.config.auth;
+  const read = { headers: bearer(ctx) };
   await httpHealthCheck(ctx, `${BETA_URL}/api/ready`, { attempts: 12, delaySeconds: 5 });
 
-  const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`);
+  const pipelines = await ctx.http.getJson<unknown>(`${BETA_URL}/api/pipelines`, read);
   check(Array.isArray(pipelines), '/api/pipelines did not answer a list');
 
   await checkSpa(ctx, BETA_URL);
 
   const attempts = await ctx.http.getJson<unknown>(
     `${BETA_URL}/api/attempts?status=active`,
+    read,
   );
   check(Array.isArray(attempts), '/api/attempts did not answer a list');
 
   if (auth.mode !== 'none') {
+    const anonymousRead = await ctx.http.fetch(`${BETA_URL}/api/pipelines`);
+    check(
+      anonymousRead.status === 401,
+      `an anonymous read answered ${anonymousRead.status}, expected 401`,
+    );
     const anonymousTrigger = await ctx.http.fetch(
       `${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs`,
       { method: 'POST', body: '{}' },
@@ -93,6 +103,7 @@ export default implement(betaTest, async ({ release, source }, ctx) => {
 
   const missing = await ctx.http.fetch(
     `${BETA_URL}/api/pipelines/00000000-0000-0000-0000-000000000000/runs/1`,
+    read,
   );
   check(
     missing.status === 404,
@@ -109,6 +120,7 @@ export default implement(betaTest, async ({ release, source }, ctx) => {
   );
 
   const events = await ctx.http.fetch(`${BETA_URL}/api/events`, {
+    ...read,
     signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(10_000)]),
   });
   check(events.ok && events.body !== null, `/api/events answered ${events.status}`);

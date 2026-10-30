@@ -48,8 +48,7 @@ the token of a `pl` login, which `pl` accepts back as `PIPELINES_API_TOKEN`.
 
 ## 3. API call reference
 
-Reads (`GET`) are anonymous except secret listing and step-file listing/downloads. Mutations need
-`Authorization: Bearer $TOKEN`. Errors are `400` with a `ResultProblem[]` body. Most of these have a
+Every call needs `Authorization: Bearer $TOKEN`. Errors are `400` with a `ResultProblem[]` body. Most of these have a
 `pl` equivalent (`pl help`) — prefer it.
 
 ```bash

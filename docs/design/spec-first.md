@@ -250,5 +250,3 @@ is what a new service starts from.
 
 ## Follow-ups
 
-- Beta authenticates exactly as the contract says: drop `Auth:AnonymousReads` on beta and have
-  `beta-test` log in the way `pl` does, so one auth model covers both instances.

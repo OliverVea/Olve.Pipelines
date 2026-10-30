@@ -11,8 +11,6 @@ config:
   Webhooks__PublicBaseUrl: "https://pipelines-hooks-beta.ovea.pro"
   # Base of the run/log links in a failure handler's FailureContext.
   Links__BaseUrl: "https://pipelines-beta.ovea.pro"
-  # Beta only: reads without a session, for beta-test's smoke check and the dev server's auth bypass.
-  Auth__AnonymousReads: "true"
   # The API reference (Redoc) at /docs/api.
   Docs__ApiReference: "true"
   # The deployer's beta-test (its BETA_TOKEN secret on prod); sha256 of the token, not the token.

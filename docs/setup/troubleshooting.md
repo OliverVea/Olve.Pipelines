@@ -131,7 +131,7 @@ service) when its `FailureContext` model is from an older SDK than the service's
 ## A request returns 401
 
 Everything except the docs, `/download` and the install scripts needs a session: `pl login` (or the
-web UI's sign-in). On v2 beta, reads work without one, except listing and downloading step files.
+web UI's sign-in).
 
 ## See also
 

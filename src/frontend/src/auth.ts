@@ -5,8 +5,7 @@ import { createApiClient } from '@olve/client';
 /**
  * Dev-only auth bypass (`VITE_DEV_AUTH=bypass`, ignored in production builds):
  * no OIDC redirect, a placeholder user, and `VITE_DEV_TOKEN` (if set) as the
- * bearer token. Enough against v2 beta, whose reads are anonymous (its OIDC client has
- * no localhost redirect URI); mutations need `VITE_DEV_TOKEN`.
+ * bearer token. For a deployed instance, whose OIDC client has no localhost redirect URI.
  */
 export const devAuthBypass: boolean =
   import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH === 'bypass';

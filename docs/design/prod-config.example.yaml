@@ -25,7 +25,6 @@ target:
       audience: olve-pipelines-beta
       frontendAuthority: https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/
       frontendAudience: olve-pipelines-frontend-beta
-      anonymousReads: true          # beta-test reads without a session
   prod:
     kind: ssh
     host: oliver@bulwark-m2

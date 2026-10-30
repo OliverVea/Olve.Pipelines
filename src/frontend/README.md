@@ -58,11 +58,10 @@ by production builds since `import.meta.env.DEV` gates it). It skips the OIDC re
 placeholder user and sends `VITE_DEV_TOKEN` as the bearer when set:
 
 ```bash
-VITE_DEV_AUTH=bypass npm run dev:beta                       # beta's reads are anonymous
-VITE_DEV_AUTH=bypass VITE_DEV_TOKEN=<jwt> npm run dev:beta  # with a bearer token for actions and files
+VITE_DEV_AUTH=bypass VITE_DEV_TOKEN=<jwt> npm run dev:beta
 ```
 
-Against prod (`dev:prod`) every call needs the token, and anything you do changes real pipelines.
+Against prod (`dev:prod`) anything you do changes real pipelines.
 
 ## Project structure
 

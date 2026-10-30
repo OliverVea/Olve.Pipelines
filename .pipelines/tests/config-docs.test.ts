@@ -56,7 +56,7 @@ describe('config documents', () => {
     expect(beta.auth).toMatchObject({
       mode: 'authentik',
       audience: 'olve-pipelines-beta',
-      anonymousReads: true,
+      anonymousReads: false,
     });
     expect(beta.telemetry).toBeUndefined();
     const ghcr = { username: 'OliverVea', password: { secret: 'GHCR_TOKEN' } };

@@ -6,7 +6,7 @@ namespace Olve.Pipelines.Configuration;
 
 public static class AuthenticationConfiguration
 {
-    /// <summary>Policy of the API's reads: a signed-in user, unless <c>Auth:AnonymousReads</c> opens them (beta).</summary>
+    /// <summary>Policy of the API's reads: a signed-in user.</summary>
     public const string ReadPolicy = "read";
 
     /// <summary>Reads of pipeline state (pipelines, runs, logs, outputs, events) require <see cref="ReadPolicy"/>.</summary>
@@ -15,7 +15,6 @@ public static class AuthenticationConfiguration
     public static void ConfigureAuthentication(this WebApplicationBuilder builder)
     {
         var disableAuth = builder.Configuration.GetValue<bool>("Auth:Disable");
-        var anonymousReads = disableAuth || builder.Configuration.GetValue<bool>("Auth:AnonymousReads");
 
         if (disableAuth)
         {
@@ -93,13 +92,7 @@ public static class AuthenticationConfiguration
         builder.Services.AddAuthorizationBuilder()
             .SetDefaultPolicy(signedIn)
             .SetFallbackPolicy(signedIn)
-            .AddPolicy(ReadPolicy, p =>
-            {
-                if (anonymousReads)
-                    p.RequireAssertion(_ => true);
-                else
-                    p.Combine(signedIn);
-            });
+            .AddPolicy(ReadPolicy, p => p.Combine(signedIn));
     }
 
     // Logs the stable subject id, so an admin can put it in Auth:Allow:Subjects.

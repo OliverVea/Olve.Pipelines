@@ -67,7 +67,7 @@ handler-registration source generator), #98 (PublishAot smoke test), #99 (skill 
 - **Emitter work Olve.Pipelines needs** (ARM doesn't):
   - **Auth per operation**: `@useAuth` on an operation or interface → `RequireAuthorization(policy)`
     on the generated route, with the policy names given in `tspconfig.yaml`. Olve.Pipelines has a
-    read policy (anonymous when `Auth:AnonymousReads`) and a write policy.
+    read policy and a write policy.
   - **Binary responses**: `GET …/files/{path}` streams a file; the emitter must accept a
     `bytes`/stream response and a `{*path}` catch-all, or that one operation stays hand-written and
     is declared in the spec for the clients only.

@@ -13,8 +13,7 @@ namespace Olve.Pipelines.UnitTests.Http;
 
 /// <summary>
 /// The auth table of every endpoint the service maps. Adding an endpoint to either list is a deliberate
-/// change: anonymous endpoints are public, and read endpoints are public too wherever <c>Auth:AnonymousReads</c>
-/// is on (beta). Everything else needs a signed-in, allow-listed user.
+/// change: anonymous endpoints are public. Everything else needs a signed-in, allow-listed user.
 /// </summary>
 public class EndpointAuthTests
 {
@@ -112,7 +111,7 @@ public class EndpointAuthTests
         await Assert.That(table.Where(e => e.Anonymous).Select(e => e.Endpoint)).IsEquivalentTo(Anonymous);
     }
 
-    // Catches: .RequireRead() on secrets, step files or a mutation, which AnonymousReads would open to anyone.
+    // Catches: .RequireRead() on secrets, step files or a mutation.
     [Test]
     public async Task OnlyTheseEndpointsUseTheReadPolicy()
     {

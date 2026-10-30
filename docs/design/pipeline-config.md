@@ -214,7 +214,7 @@ Olve.Pipelines' own pipeline declares its deployment config instead of hard-codi
   `apps-beta`, `apps`).
 - `auth`, as in §4. **Prod moves from Authentik to Dex.**
   - `mode: none` is a supported variant (local, throwaway or trusted-network setups). It replaces
-    `Auth__Disable` (and makes `Auth:AnonymousReads` a field of the variants that have users).
+    `Auth__Disable`.
   - In `dex` mode the server needs an **authorization rule** (`allow.users` (GitHub logins, the
     `preferred_username` claim) / `allow.orgs` (orgs or `org:team`, the `groups` claim) /
     `allow.emails`; as built in step 5, §14).

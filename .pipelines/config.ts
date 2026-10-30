@@ -42,7 +42,6 @@ const Auth = z.discriminatedUnion('mode', [
     issuer: z.url(),
     clientId: z.string().default('olve-pipelines'),
     frontendClientId: z.string().optional(),
-    anonymousReads: z.boolean().default(false),
     allow: z
       .object({
         users: z
@@ -64,7 +63,6 @@ const Auth = z.discriminatedUnion('mode', [
     audience: z.string(),
     frontendAuthority: z.url(),
     frontendAudience: z.string(),
-    anonymousReads: z.boolean().default(false),
   }),
 ]);
 

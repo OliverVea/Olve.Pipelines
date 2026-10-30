@@ -8,13 +8,12 @@ namespace Olve.Pipelines.UnitTests.Http;
 
 public class ReadPolicyTests
 {
-    private static async Task<HttpStatusCode> AnonymousGet(bool anonymousReads)
+    private static async Task<HttpStatusCode> AnonymousGet()
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
         builder.Configuration["Auth:Audience"] = "olve-pipelines";
         builder.Configuration["Auth:SigningKey"] = new string('k', 64);
-        builder.Configuration["Auth:AnonymousReads"] = anonymousReads.ToString();
         builder.ConfigureAuthentication();
 
         await using var app = builder.Build();
@@ -26,10 +25,6 @@ public class ReadPolicyTests
     }
 
     [Test]
-    public async Task Reads_NeedASignedInUser_ByDefault() =>
-        await Assert.That(await AnonymousGet(anonymousReads: false)).IsEqualTo(HttpStatusCode.Unauthorized);
-
-    [Test]
-    public async Task Reads_AreOpen_WhenAnonymousReadsIsOn() =>
-        await Assert.That(await AnonymousGet(anonymousReads: true)).IsEqualTo(HttpStatusCode.OK);
+    public async Task Reads_NeedASignedInUser() =>
+        await Assert.That(await AnonymousGet()).IsEqualTo(HttpStatusCode.Unauthorized);
 }

@@ -25,7 +25,6 @@ target:
       audience: olve-pipelines-beta
       frontendAuthority: https://auth-beta.ovea.pro/application/o/olve-pipelines-frontend/
       frontendAudience: olve-pipelines-frontend-beta
-      anonymousReads: true
     telemetry:
       exporter: otlp
       endpoint: http://otel-beta.ovea.pro

@@ -9,8 +9,8 @@ image:
 
 # How users authenticate, mapped onto config.Auth__*. Empty = config.Auth__* as given.
 #   mode: none                     # Auth__Disable=true: every endpoint is anonymous
-#   mode: dex, issuer, clientId, frontendClientId?, anonymousReads?
-#   mode: authentik, authority, audience, frontendAuthority, frontendAudience, anonymousReads?
+#   mode: dex, issuer, clientId, frontendClientId?
+#   mode: authentik, authority, audience, frontendAuthority, frontendAudience
 # Required, here or as config.Auth__*: the chart refuses to render without auth.
 auth: {}
 

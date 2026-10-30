@@ -47,7 +47,6 @@ describe('config documents', () => {
         audience: 'olve-pipelines',
         frontendAuthority: 'https://auth.ovea.pro/application/o/olve-pipelines-frontend/',
         frontendAudience: 'olve-pipelines-frontend',
-        anonymousReads: false,
       },
       telemetry: { exporter: 'none' },
     });
@@ -56,7 +55,6 @@ describe('config documents', () => {
     expect(beta.auth).toMatchObject({
       mode: 'authentik',
       audience: 'olve-pipelines-beta',
-      anonymousReads: false,
     });
     expect(beta.telemetry).toBeUndefined();
     const ghcr = { username: 'OliverVea', password: { secret: 'GHCR_TOKEN' } };

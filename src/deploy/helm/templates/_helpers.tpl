@@ -54,9 +54,6 @@ namespace is the release's and storage is the bundled Garage.
 {{- else if $mode -}}
 {{- fail (printf "auth.mode must be none, dex or authentik, got %q" $mode) -}}
 {{- end -}}
-{{- if and (ne $mode "none") .anonymousReads -}}
-{{- $_ := set $c "Auth__AnonymousReads" "true" -}}
-{{- end -}}
 {{- end -}}
 {{- with .Values.telemetry -}}
 {{- $exporter := .exporter | default "" -}}

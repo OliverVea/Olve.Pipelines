@@ -171,7 +171,7 @@ public class ExternalInputTests
         var detail = TestRunDomain.Pick(s.D.Views.Get(s.Pipeline.Id, run.Number));
         var step = detail.Stages.SelectMany(x => x.Steps).Single(x => x.Name == "deploy-beta");
 
-        await Assert.That(step.Status).IsEqualTo("waiting");
+        await Assert.That(step.Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Waiting);
         await Assert.That(step.WaitingFor!).IsEquivalentTo(["callback", "person"]);
     }
 

@@ -5,6 +5,8 @@ import {
   type Run,
   type RunStep,
   type RunSummary,
+  type RunStatus,
+  type RunStepStatus,
 } from '@olve/api';
 import { formatAddress, parseAddress, resolvePipeline } from '../address';
 import { call } from '../api';
@@ -20,8 +22,10 @@ const clock = () => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
-const isTerminal = (status: string) =>
-  ['Succeeded', 'Failed', 'Cancelled', 'Superseded'].includes(status);
+const TERMINAL: readonly RunStatus[] = ['Succeeded', 'Failed', 'Cancelled', 'Superseded'];
+const PASSED: readonly RunStepStatus[] = ['succeeded', 'skipped', 'excluded'];
+const SETTLED: readonly RunStepStatus[] = [...PASSED, 'failed', 'cancelled', 'obsolete'];
+const isTerminal = (status: RunStatus) => TERMINAL.includes(status);
 
 /** A step only a person can move on (a callback or poll answers by itself). */
 const needsPerson = (step: RunStep) =>
@@ -86,14 +90,7 @@ function stepState(label: string, run: Run, step: string, until: string): WaitCh
   if (!view) throw new CliError(`Run #${run.number} has no step '${step}'.`);
   const name = `${formatAddress(label, run.number)}/${step}`;
   const line = `${name}  ${view.status}${view.reason ? ` (${view.reason})` : ''}`;
-  const settled = [
-    'succeeded',
-    'skipped',
-    'excluded',
-    'failed',
-    'cancelled',
-    'obsolete',
-  ].includes(view.status);
+  const settled = SETTLED.includes(view.status);
   const runEnded = () =>
     isTerminal(run.status) ? done(`${line} (run ${run.status})`, false) : undefined;
   if (needsPerson(view) && until !== 'started')
@@ -108,8 +105,7 @@ function stepState(label: string, run: Run, step: string, until: string): WaitCh
       : settled
         ? done(`${line} (never held)`, false)
         : (runEnded() ?? pending(`${name}: ${view.status}`));
-  if (settled)
-    return done(line, ['succeeded', 'skipped', 'excluded'].includes(view.status));
+  if (settled) return done(line, PASSED.includes(view.status));
   return runEnded() ?? pending(`${name}: ${view.status}`);
 }
 

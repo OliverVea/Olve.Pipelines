@@ -6,7 +6,7 @@ namespace Pipelines;
 
 /** Liveness. */
 model HealthResponse {
-  status: string;
+  status: "ok";
 
   /** The image this instance runs, when its deployer says (`Deployment:Image`). */
   image?: string;

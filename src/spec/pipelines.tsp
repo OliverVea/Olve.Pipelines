@@ -36,7 +36,7 @@ model RunStageCondition {
 /** A step and its latest attempt across runs (`status` null = never run). */
 model PipelineStepSummary {
   name: string;
-  status: string | null;
+  status: AttemptState | null;
   runNumber: int32 | null;
   at: utcDateTime | null;
 }

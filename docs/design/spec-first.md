@@ -199,9 +199,6 @@ the stream. `/download/` with no asset is a 400 (an empty catch-all fails bindin
 **Wart list** (grows as areas are specified; fixed in the area's push):
 
 - `{id}` on `GET`/`DELETE /api/pipelines/{id}` vs `{pipelineId}` everywhere else.
-- Status fields are strings (`Run.status`, `Attempt.status`, `TriggerRunResponse.outcome`); make
-  them enums.
-- ~~`POST /api/pipelines/with-repo`: name it for what it does.~~ `POST /api/pipelines` (Bindings area).
 - `TriggerRunRequest.fields` is a free `JsonElement`; the spec says `Record<unknown>` and the body
   is the input object itself where the client already has it.
 - `GET /api/attempts?status=active` is the only top-level cross-pipeline view; decide if it stays.

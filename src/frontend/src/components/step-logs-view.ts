@@ -1,7 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { api, errorMessages } from '../api/client.js';
-import { pipelinesGet, runsAttempts, runStepsCancel, type Attempt } from '@olve/api';
+import {
+  pipelinesGet,
+  runsAttempts,
+  runStepsCancel,
+  type AttemptState,
+  type Attempt,
+} from '@olve/api';
 import {
   sharedStyles,
   toneOf,
@@ -17,7 +23,7 @@ import { LiveController } from '../api/events.js';
 import './log-pane.js';
 
 type AttemptStatusFields = {
-  type?: string | null;
+  type?: AttemptState;
   startedAt?: string | null;
   finishedAt?: string | null;
   cancelledAt?: string | null;

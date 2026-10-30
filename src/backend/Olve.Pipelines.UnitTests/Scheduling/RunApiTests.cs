@@ -29,11 +29,11 @@ public class RunViewTests
         await Assert.That(detail.Continuable).IsTrue();
         await Assert.That(detail.Input.GetProperty("deployTo").GetString()).IsEqualTo("beta");
         var steps = detail.Stages.SelectMany(st => st.Steps).ToDictionary(x => x.Name);
-        await Assert.That(steps["checkout"].Status).IsEqualTo("succeeded");
-        await Assert.That(steps["build"].Status).IsEqualTo("failed");
+        await Assert.That(steps["checkout"].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Succeeded);
+        await Assert.That(steps["build"].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Failed);
         await Assert.That(steps["build"].Reason).IsEqualTo("compile error");
-        await Assert.That(steps["test"].Status).IsEqualTo("scheduled");
-        await Assert.That(steps["deploy-beta"].Status).IsEqualTo("pending");
+        await Assert.That(steps["test"].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Scheduled);
+        await Assert.That(steps["deploy-beta"].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Pending);
         // deploy-prod sits inside `when deployTo = prod`.
         var prodStage = detail.Stages.Single(st => st.Steps.Any(x => x.Name == "deploy-prod"));
         await Assert.That(prodStage.When.Select(c => c.Field)).Contains("deployTo");
@@ -53,7 +53,7 @@ public class RunViewTests
         var step = detail.Stages.SelectMany(st => st.Steps).Single(x => x.Name == "deploy-beta");
 
         await Assert.That(detail.Run.HeldAt).IsEqualTo("deploy-beta");
-        await Assert.That(step.Status).IsEqualTo("held");
+        await Assert.That(step.Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Held);
         await Assert.That(step.Blocked).IsTrue();
     }
 
@@ -357,7 +357,7 @@ public class JobLogNoteTests
 
         var log = ((Olve.Pipelines.Api.RunStepsLogsResponse.Ok)response).Body;
         await Assert.That(log.Attempt).IsEqualTo(attempt.Number);
-        await Assert.That(log.Status).IsEqualTo("in-progress");
+        await Assert.That(log.Status).IsEqualTo(Olve.Pipelines.Api.AttemptState.InProgress);
         await Assert.That(log.Complete).IsFalse();
         await Assert.That(log.Text).IsEqualTo("cloning\n");
     }
@@ -375,11 +375,11 @@ public class JobLogNoteTests
 
         foreach (var name in new[] { "deploy-prod", "publish-cli" })
         {
-            await Assert.That(steps[name].Status).IsEqualTo("excluded");
+            await Assert.That(steps[name].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Excluded);
             await Assert.That(steps[name].Reason).IsEqualTo("when deployTo ∉ [prod]");
             await Assert.That(steps[name].AttemptCount).IsEqualTo(0);
         }
-        await Assert.That(steps["deploy-beta"].Status).IsEqualTo("succeeded");
+        await Assert.That(steps["deploy-beta"].Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Succeeded);
     }
 
     [Test]

@@ -1,3 +1,5 @@
+using Contract = Olve.Pipelines.Api;
+
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>An unfinished attempt, addressed <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;@&lt;attempt&gt;</c>.</summary>
@@ -9,7 +11,7 @@ public record ActiveAttempt(
     int Run,
     string Step,
     int Attempt,
-    string Status,
+    Contract.AttemptState Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt);
 
@@ -24,6 +26,6 @@ public class ActiveAttemptQuery(AttemptService attempts, PipelineService pipelin
             .Select(a => new ActiveAttempt(
                 a.PipelineId,
                 pipelines.TryGet(a.PipelineId, out var p) ? p.Name : a.PipelineId.ToString(),
-                a.RunNumber, a.StepName, a.Number, a.Status.Discriminator(), a.CreatedAt, a.StartedAt()))
+                a.RunNumber, a.StepName, a.Number, a.Status.State(), a.CreatedAt, a.StartedAt()))
             .ToList();
 }

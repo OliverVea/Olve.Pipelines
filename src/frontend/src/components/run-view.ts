@@ -13,6 +13,7 @@ import {
   type Attempt,
   type Run,
   type StepFile,
+  type AttemptState,
 } from '@olve/api';
 import { api, errorMessages } from '../api/client.js';
 import { downloadFile } from '../api/files.js';
@@ -62,7 +63,7 @@ import './relative-time.js';
 import { LiveController } from '../api/events.js';
 
 type AttemptStatusFields = {
-  type?: string | null;
+  type?: AttemptState;
   startedAt?: string | null;
   finishedAt?: string | null;
   cancelledAt?: string | null;

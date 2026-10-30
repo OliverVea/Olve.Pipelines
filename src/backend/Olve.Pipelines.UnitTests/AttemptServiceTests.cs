@@ -192,6 +192,6 @@ public class AttemptServiceTests
         await Assert.That(active[0].PipelineName).IsEqualTo("p");
         await Assert.That(active[0].Run).IsEqualTo(run.Number);
         await Assert.That(active[0].Attempt).IsEqualTo(1);
-        await Assert.That(active[0].Status).IsEqualTo("scheduled");
+        await Assert.That(active[0].Status).IsEqualTo(Olve.Pipelines.Api.AttemptState.Scheduled);
     }
 }

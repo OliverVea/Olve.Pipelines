@@ -4,6 +4,8 @@ using Olve.Pipelines.Pipelines.Versions;
 using Olve.Utilities.Paginations;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
+using Contract = Olve.Pipelines.Api;
+
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
@@ -79,15 +81,15 @@ public class RunViewService(
             {
                 // Not part of the run: no attempt, whatever an older scheduler recorded for it.
                 if (stage.EvaluateWhen(input) is { } excluded)
-                    return new RunStepView(step.Name, StepVersion(version, step.Name), "excluded", excluded, 0, null, null, null, null, blocked.Contains(step.Name));
+                    return new RunStepView(step.Name, StepVersion(version, step.Name), Contract.RunStepStatus.Excluded, excluded, 0, null, null, null, null, blocked.Contains(step.Name));
 
                 var list = byStep.TryGetValue(step.Name, out var l) ? l : [];
                 var latest = list.LastOrDefault();
                 var isBlocked = blocked.Contains(step.Name);
-                var status = latest?.Status.Discriminator()
+                var status = latest?.Status.State().ToStepStatus()
                              ?? (run.Status is RunStatus.Running && (run.HeldAt == step.Name || (isBlocked && heldStage == stage.Index))
-                                 ? "held"
-                                 : run.Status is RunStatus.Running ? "pending" : "not-run");
+                                 ? Contract.RunStepStatus.Held
+                                 : run.Status is RunStatus.Running ? Contract.RunStepStatus.Pending : Contract.RunStepStatus.NotRun);
                 return new RunStepView(
                     step.Name,
                     StepVersion(version, step.Name),
@@ -135,7 +137,7 @@ public class RunViewService(
             }
 
             rows.Add(new StepHistoryItem(run.Number, run.Status, run.VersionNumber, run.VersionStamp, attempt.Id, attempt.Number,
-                attempt.Status.Discriminator(), Reason(attempt.Status), attempt.CreatedAt, attempt.StartedAt(), attempt.FinishedAt(),
+                attempt.Status.State(), Reason(attempt.Status), attempt.CreatedAt, attempt.StartedAt(), attempt.FinishedAt(),
                 stepVersion, StepVersionChanged: false, AttemptPhases.From(attempt)));
         }
 

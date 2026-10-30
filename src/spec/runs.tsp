@@ -75,14 +75,23 @@ model RunStage {
 }
 
 /**
- * One step of a run. `status` is the latest attempt's status, or without an attempt `held` (the step is
+ * A step's status in a run: the latest attempt's state, or without an attempt `held` (the step is
  * blocked and holds the run here), `pending` (not reached yet), `not-run` (the run finished without it)
  * or `excluded` (its `when` didn't match).
  */
+enum RunStepStatus {
+  ...AttemptState,
+  held,
+  pending,
+  `not-run`: "not-run",
+  excluded,
+}
+
+/** One step of a run. */
 model RunStep {
   name: string;
   stepVersion: int32 | null;
-  status: string;
+  status: RunStepStatus;
 
   /** The latest attempt's skip or failure reason. */
   reason: string | null;
@@ -174,6 +183,18 @@ model AttemptStatusObsolete {
 }
 
 /** An attempt's status, discriminated on `type`. */
+/** The `type` of an attempt's status. */
+enum AttemptState {
+  waiting,
+  scheduled,
+  `in-progress`: "in-progress",
+  succeeded,
+  failed,
+  skipped,
+  cancelled,
+  obsolete,
+}
+
 @discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
 union AttemptStatus {
   waiting: AttemptStatusWaiting,
@@ -237,7 +258,7 @@ model ActiveAttempt {
   run: int32;
   step: string;
   attempt: int32;
-  status: string;
+  status: AttemptState;
   createdAt: utcDateTime;
   startedAt: utcDateTime | null;
 }
@@ -271,7 +292,7 @@ model StepOutput {
   run: int32;
   step: string;
   attempt: int32;
-  status: string;
+  status: AttemptState;
 
   /** Null for a step without an output model. */
   output: unknown | null;
@@ -291,7 +312,7 @@ model StepLog {
   run: int32;
   step: string;
   attempt: int32;
-  status: string;
+  status: AttemptState;
 
   /** The attempt was finished when the log was read, so `text` is all of it; otherwise the live pod log so far. */
   complete: boolean;

@@ -24,12 +24,17 @@ model Ping {
   type: "ping";
 }
 
+enum RunChangeStatus {
+  ...RunStatus,
+  Deleted,
+}
+
 /** A run was created, changed (status, held, resumed) or deleted (`status: "Deleted"`). */
 model RunChanged {
   type: "run";
   @format("uuid") pipelineId: string;
   run: int32;
-  status: string;
+  status: RunChangeStatus;
 }
 
 /** An attempt was created or changed status. */
@@ -39,7 +44,7 @@ model AttemptChanged {
   run: int32;
   step: string;
   attempt: int32;
-  status: string;
+  status: AttemptState;
 }
 
 /** `added`, `active` (switched, or a switch finished), `draining` (a switch to `version` started), `deleted`, `none`. */
@@ -57,11 +62,17 @@ model BlockedStepsChanged {
   blockedSteps: string[];
 }
 
+enum BindingChangeState {
+  ...ReconcileResult,
+  reconciling,
+  removed,
+}
+
 /** The binding changed: `reconciling`, then `Success` or `Error`; `removed`. */
 model BindingChanged {
   type: "binding";
   @format("uuid") pipelineId: string;
-  state: string;
+  state: BindingChangeState;
 }
 
 /** `added`, `updated`, `removed`. */
@@ -134,10 +145,15 @@ model LogChunk {
   reset: boolean;
 }
 
-/** The attempt finished: its final status. */
+enum LogEndStatus {
+  ...AttemptState,
+  deleted,
+}
+
+/** The attempt finished: its final status, or `deleted` with its run. */
 model LogStreamEnd {
   type: "end";
-  status: string;
+  status: LogEndStatus;
 }
 
 /** Keep-alive while the attempt is quiet. */

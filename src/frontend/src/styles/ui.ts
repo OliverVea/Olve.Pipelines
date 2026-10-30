@@ -1,46 +1,50 @@
 import { css, html } from 'lit';
+import type { PipelineStatus, RunStatus, RunStepStatus } from '@olve/api';
 import { navigate } from '../router.js';
 
 /**
- * Status vocabulary of the v2 views. Step statuses are the attempt
- * discriminators plus the run view's derived `held` / `pending` / `not-run`;
- * run statuses are capitalised enums from the API and normalised here.
+ * Status vocabulary of the views: the contract's run, step and pipeline statuses, plus the
+ * views' own `blocked` and `draining`. A status the contract adds needs a tone here to compile.
  */
+export type Status = RunStatus | RunStepStatus | PipelineStatus | 'blocked' | 'draining';
+type MaybeStatus = Status | '' | null | undefined;
+
 export type Tone = 'ok' | 'fail' | 'run' | 'ask' | 'wait' | 'skip' | 'idle' | 'off';
 
-export function toneOf(status: string | null | undefined): Tone {
-  switch ((status ?? '').toLowerCase()) {
-    case 'succeeded':
-    case 'healthy':
-      return 'ok';
-    case 'failed':
-    case 'unhealthy':
-    case 'running (unhealthy)':
-      return 'fail';
-    case 'in-progress':
-    case 'running':
-    case 'running (healthy)':
-    case 'scheduled':
-      return 'run';
-    case 'waiting':
-      return 'ask';
-    case 'held':
-    case 'blocked':
-    case 'draining':
-      return 'wait';
-    case 'skipped':
-      return 'skip';
-    case 'cancelled':
-    case 'obsolete':
-    case 'superseded':
-      return 'off';
-    default:
-      return 'idle';
-  }
+const TONES: Record<Lowercase<Status>, Tone> = {
+  succeeded: 'ok',
+  healthy: 'ok',
+  failed: 'fail',
+  unhealthy: 'fail',
+  'running (unhealthy)': 'fail',
+  'in-progress': 'run',
+  running: 'run',
+  'running (healthy)': 'run',
+  scheduled: 'run',
+  waiting: 'ask',
+  held: 'wait',
+  blocked: 'wait',
+  draining: 'wait',
+  skipped: 'skip',
+  cancelled: 'off',
+  obsolete: 'off',
+  superseded: 'off',
+  pending: 'idle',
+  'not-run': 'idle',
+  excluded: 'idle',
+  idle: 'idle',
+};
+
+const normalise = (status: MaybeStatus) =>
+  (status ?? '').toLowerCase() as Lowercase<Status> | '';
+
+export function toneOf(status: MaybeStatus): Tone {
+  const s = normalise(status);
+  return s === '' ? 'idle' : TONES[s];
 }
 
-export function statusLabel(status: string | null | undefined): string {
-  const s = (status ?? '').toLowerCase();
+export function statusLabel(status: MaybeStatus): string {
+  const s = normalise(status);
   switch (s) {
     case 'in-progress':
       return 'running';
@@ -57,8 +61,8 @@ export function statusLabel(status: string | null | undefined): string {
   }
 }
 
-export function isActiveStatus(status: string | null | undefined): boolean {
-  const s = (status ?? '').toLowerCase();
+export function isActiveStatus(status: MaybeStatus): boolean {
+  const s = normalise(status);
   return (
     s === 'running' ||
     s === 'in-progress' ||
@@ -70,8 +74,8 @@ export function isActiveStatus(status: string | null | undefined): boolean {
 }
 
 /** Whether an attempt status has a log to follow live (a waiting attempt has no pod yet). */
-export function isLiveStatus(status: string | null | undefined): boolean {
-  return isActiveStatus(status) && (status ?? '').toLowerCase() !== 'waiting';
+export function isLiveStatus(status: MaybeStatus): boolean {
+  return isActiveStatus(status) && normalise(status) !== 'waiting';
 }
 
 export function formatDuration(

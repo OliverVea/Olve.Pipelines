@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing, svg, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import type { RunStepStatus } from '@olve/api';
 import {
   type Manifest,
   type ManifestStep,
@@ -22,7 +23,7 @@ import { sheetHeight } from './step-sheet.js';
 import { formatRelative } from './relative-time.js';
 
 export type StepState = {
-  status: string;
+  status: RunStepStatus;
   reason?: string | null;
   runNumber?: number | null;
   runHref?: string;

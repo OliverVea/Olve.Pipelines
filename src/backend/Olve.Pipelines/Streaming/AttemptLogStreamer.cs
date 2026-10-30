@@ -26,7 +26,7 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
         {
             if (!attempts.TryGet(attemptId, out var attempt))
             {
-                yield return End("deleted");
+                yield return End(Contract.LogEndStatus.Deleted);
                 yield break;
             }
 
@@ -51,7 +51,7 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
             if (terminal)
             {
                 await podChanges.WaitAsync(attempt.KubernetesJobName, changed, TimeSpan.Zero, CancellationToken.None);
-                yield return End(attempt.Status.Discriminator());
+                yield return End(attempt.Status.State().ToLogEnd());
                 yield break;
             }
 
@@ -88,5 +88,5 @@ public class AttemptLogStreamer(AttemptService attempts, IAttemptLiveLogs liveLo
 
     private static ServerSentEvent<Contract.LogEvent> Log(string text, bool reset) => new(new Contract.LogChunk { Text = text, Reset = reset });
 
-    private static ServerSentEvent<Contract.LogEvent> End(string status) => new(new Contract.LogStreamEnd { Status = status });
+    private static ServerSentEvent<Contract.LogEvent> End(Contract.LogEndStatus status) => new(new Contract.LogStreamEnd { Status = status });
 }

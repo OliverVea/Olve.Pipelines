@@ -14,7 +14,7 @@ model StepHistoryItem {
   versionStamp: string;
   @format("uuid") attemptId: string;
   attemptNumber: int32;
-  status: string;
+  status: AttemptState;
   reason: string | null;
   createdAt: utcDateTime;
   startedAt: utcDateTime | null;

@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Olve.Pipelines.Pipelines.Versions;
 
+using Contract = Olve.Pipelines.Api;
+
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>A run as listed (no input, no layout). Links to other runs are by number (the API addresses runs by number).</summary>
@@ -54,7 +56,7 @@ public record RunStageCondition(string Field, JsonElement[] Values);
 public record RunStepView(
     string Name,
     int? StepVersion,
-    string Status,
+    Contract.RunStepStatus Status,
     string? Reason,
     int AttemptCount,
     int? LatestAttempt,
@@ -79,7 +81,7 @@ public record StepHistoryItem(
     string VersionStamp,
     Id<Attempt> AttemptId,
     int AttemptNumber,
-    string Status,
+    Contract.AttemptState Status,
     string? Reason,
     DateTimeOffset CreatedAt,
     DateTimeOffset? StartedAt,

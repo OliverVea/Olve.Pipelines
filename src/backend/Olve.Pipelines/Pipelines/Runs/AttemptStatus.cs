@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.Pipelines.Runs;
 
@@ -37,6 +38,43 @@ public static class AttemptStatusExtensions
     /// handler that returned a skipped envelope. Scheduler skips never carry an input.
     /// </summary>
     public static bool IsSchedulerSkip(this Attempt attempt) => attempt.Status is AttemptStatus.Skipped && attempt.Input is null;
+
+    public static Contract.AttemptState State(this AttemptStatus status) => status switch
+    {
+        AttemptStatus.Waiting => Contract.AttemptState.Waiting,
+        AttemptStatus.Scheduled => Contract.AttemptState.Scheduled,
+        AttemptStatus.InProgress => Contract.AttemptState.InProgress,
+        AttemptStatus.Succeeded => Contract.AttemptState.Succeeded,
+        AttemptStatus.Failed => Contract.AttemptState.Failed,
+        AttemptStatus.Skipped => Contract.AttemptState.Skipped,
+        AttemptStatus.Cancelled => Contract.AttemptState.Cancelled,
+        AttemptStatus.Obsolete => Contract.AttemptState.Obsolete,
+        _ => throw new InvalidOperationException($"Unknown attempt status {status.GetType().Name}."),
+    };
+
+    public static Contract.RunStepStatus ToStepStatus(this Contract.AttemptState state) => state switch
+    {
+        Contract.AttemptState.Waiting => Contract.RunStepStatus.Waiting,
+        Contract.AttemptState.Scheduled => Contract.RunStepStatus.Scheduled,
+        Contract.AttemptState.InProgress => Contract.RunStepStatus.InProgress,
+        Contract.AttemptState.Succeeded => Contract.RunStepStatus.Succeeded,
+        Contract.AttemptState.Failed => Contract.RunStepStatus.Failed,
+        Contract.AttemptState.Skipped => Contract.RunStepStatus.Skipped,
+        Contract.AttemptState.Cancelled => Contract.RunStepStatus.Cancelled,
+        _ => Contract.RunStepStatus.Obsolete,
+    };
+
+    public static Contract.LogEndStatus ToLogEnd(this Contract.AttemptState state) => state switch
+    {
+        Contract.AttemptState.Waiting => Contract.LogEndStatus.Waiting,
+        Contract.AttemptState.Scheduled => Contract.LogEndStatus.Scheduled,
+        Contract.AttemptState.InProgress => Contract.LogEndStatus.InProgress,
+        Contract.AttemptState.Succeeded => Contract.LogEndStatus.Succeeded,
+        Contract.AttemptState.Failed => Contract.LogEndStatus.Failed,
+        Contract.AttemptState.Skipped => Contract.LogEndStatus.Skipped,
+        Contract.AttemptState.Cancelled => Contract.LogEndStatus.Cancelled,
+        _ => Contract.LogEndStatus.Obsolete,
+    };
 
     /// <summary>The wire discriminator (waiting / scheduled / in-progress / succeeded / failed / skipped / cancelled / obsolete).</summary>
     public static string Discriminator(this AttemptStatus status) => status switch

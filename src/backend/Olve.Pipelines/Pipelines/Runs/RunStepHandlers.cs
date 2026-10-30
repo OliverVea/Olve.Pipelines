@@ -142,7 +142,7 @@ public sealed class GetStepOutputHandler(RunQueryService query) : Contract.IRunS
             Run = request.Number,
             Step = request.Step,
             Attempt = resolved.Number,
-            Status = resolved.Status.Discriminator(),
+            Status = resolved.Status.State(),
             Output = resolved.Output is { } o ? JsonDocument.Parse(o.Json).RootElement.Clone() : null,
             OutputKey = resolved.Output?.Key,
         });
@@ -173,7 +173,7 @@ public sealed class GetStepLogsHandler(RunService runs, AttemptService attempts,
                 Run = request.Number,
                 Step = request.Step,
                 Attempt = target.Number,
-                Status = target.Status.Discriminator(),
+                Status = target.Status.State(),
                 Complete = complete,
                 Text = value,
             };

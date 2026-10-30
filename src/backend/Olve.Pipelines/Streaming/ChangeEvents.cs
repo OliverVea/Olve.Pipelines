@@ -17,7 +17,14 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
         {
             PipelineId = run.PipelineId.Value.Value,
             Run = run.Number,
-            Status = deleted ? "Deleted" : run.Status.ToString(),
+            Status = deleted ? Contract.RunChangeStatus.Deleted : run.Status switch
+            {
+                RunStatus.Running => Contract.RunChangeStatus.Running,
+                RunStatus.Succeeded => Contract.RunChangeStatus.Succeeded,
+                RunStatus.Failed => Contract.RunChangeStatus.Failed,
+                RunStatus.Cancelled => Contract.RunChangeStatus.Cancelled,
+                _ => Contract.RunChangeStatus.Superseded,
+            },
         });
 
     public static ChangeEvent Attempt(Attempt attempt)
@@ -27,7 +34,7 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
             Run = attempt.RunNumber,
             Step = attempt.StepName,
             Attempt = attempt.Number,
-            Status = attempt.Status.Discriminator(),
+            Status = attempt.Status.State(),
         });
 
     public static ChangeEvent VersionAdded(PipelineVersion version) => Version(version.PipelineId, version.Number, "added");
@@ -48,7 +55,14 @@ public sealed record ChangeEvent(Id<Pipeline> PipelineId, Contract.ChangeEvent P
         => new(binding.PipelineId, new Contract.BindingChanged
         {
             PipelineId = binding.PipelineId.Value.Value,
-            State = deleted ? "removed" : binding.Status.InProgress ? "reconciling" : binding.Status.Result.ToString(),
+            State = deleted ? Contract.BindingChangeState.Removed
+                : binding.Status.InProgress ? Contract.BindingChangeState.Reconciling
+                : binding.Status.Result switch
+                {
+                    ReconcileResult.Success => Contract.BindingChangeState.Success,
+                    ReconcileResult.Error => Contract.BindingChangeState.Error,
+                    _ => Contract.BindingChangeState.NeverRun,
+                },
         });
 
     public static ChangeEvent Config(ConfigSnapshot snapshot)

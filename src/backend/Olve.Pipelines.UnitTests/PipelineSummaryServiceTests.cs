@@ -91,9 +91,9 @@ public class PipelineSummaryServiceTests
 
         await Assert.That(stages.Select(s => string.Join(",", s.Steps.Select(x => x.Name))))
             .IsEquivalentTo(["hello", "count,echo", "last"]);
-        await Assert.That(stages[0].Steps[0].Status).IsEqualTo("succeeded");
+        await Assert.That(stages[0].Steps[0].Status).IsEqualTo(Olve.Pipelines.Api.AttemptState.Succeeded);
         await Assert.That(stages[0].Steps[0].RunNumber).IsEqualTo(run.Number);
-        await Assert.That(stages[1].Steps[0].Status).IsEqualTo("scheduled");
+        await Assert.That(stages[1].Steps[0].Status).IsEqualTo(Olve.Pipelines.Api.AttemptState.Scheduled);
         await Assert.That(stages[1].Steps[1].Status).IsNull();
         await Assert.That(stages[2].When.Single().Field).IsEqualTo("mode");
         await Assert.That(stages[0].When).IsEmpty();

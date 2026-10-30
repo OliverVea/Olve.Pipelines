@@ -23,8 +23,8 @@ public class ChangeBroadcasterTests
     private static ChangeBroadcaster New() => new(TimeProvider.System, NullLogger<ChangeBroadcaster>.Instance);
 
     private static ChangeEvent Change(Id<Pipeline> pipelineId, string type = "run") => new(pipelineId, type == "run"
-        ? new Contract.RunChanged { PipelineId = pipelineId.Value.Value, Run = 1, Status = "Running" }
-        : new Contract.AttemptChanged { PipelineId = pipelineId.Value.Value, Run = 1, Step = "build", Attempt = 1, Status = "scheduled" });
+        ? new Contract.RunChanged { PipelineId = pipelineId.Value.Value, Run = 1, Status = Contract.RunChangeStatus.Running }
+        : new Contract.AttemptChanged { PipelineId = pipelineId.Value.Value, Run = 1, Step = "build", Attempt = 1, Status = Contract.AttemptState.Scheduled });
 
     private static string Json(ServerSentEvent<Contract.ChangeEvent> item) => JsonSerializer.Serialize(item.Data, Contract.PipelinesJsonContext.Default.ChangeEvent);
 

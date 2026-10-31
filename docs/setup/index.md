@@ -13,7 +13,7 @@
 ## What this service does
 
 Olve.Pipelines is a small CD orchestration service for a homelab. You bind a pipeline to a Git
-repository. The pipeline is defined in TypeScript in that repo (`.pipelines/pipeline.ts`). On every
+repository. The pipeline is defined in TypeScript in that repo (`.pipelines/` by default). On every
 push the service builds the definition, then runs it. Each step runs as a Kubernetes Job.
 
 A pipeline is a list of **stages**. Stages run one after another; the steps inside a stage run in

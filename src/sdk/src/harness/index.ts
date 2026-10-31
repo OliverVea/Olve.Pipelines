@@ -5,7 +5,6 @@ export {
   allSteps,
   resolveStepFunction,
   type HarnessConfig,
-  type HandlerRegistry,
   type HarnessIO,
 } from './main.ts';
 export { EXIT } from './exit.ts';

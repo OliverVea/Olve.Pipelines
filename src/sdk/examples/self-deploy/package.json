@@ -1,0 +1,6 @@
+{
+  "name": "self-deploy-example",
+  "private": true,
+  "type": "module",
+  "main": "pipeline.ts"
+}

@@ -14,13 +14,15 @@ import {
   uploadFile,
 } from '../../src/harness/result.ts';
 import { parseStrict, strippedKeys } from '../../src/harness/validate.ts';
-import { z } from '../../src/index.ts';
+import { model, pipeline, step, z } from '../../src/index.ts';
 import { EXAMPLE, SHA, captureIO, tmp, withEnv } from './helpers.ts';
 
 let cfg: HarnessConfig;
 beforeAll(async () => {
   cfg = await devConfig(EXAMPLE, true);
 });
+const bare = () =>
+  pipeline({ name: 't', input: model('In', z.object({ x: z.string() })) });
 const servers: { stop(force?: boolean): void }[] = [];
 afterAll(() => servers.forEach((s) => s.stop(true)));
 
@@ -55,11 +57,13 @@ describe('describe', () => {
     expect(b.io.out).toBe(`${MANIFEST_BEGIN}\n${a.io.out}${MANIFEST_END}\n`);
   });
   test('an invalid pipeline exits 78 with all problems on stderr', async () => {
-    const bad = { ...cfg, handlers: {} };
+    const one = step({ name: 'one', description: '', image: 'alpine' });
+    const two = step({ name: 'two', description: '', image: 'alpine' });
+    const bad = { ...cfg, pipeline: bare().stage(one).stage(two) };
     const io = captureIO();
     expect(await runHarness(bad, ['describe'], io)).toBe(EXIT.configInvalid);
     expect(io.err.join('\n')).toMatch(
-      /step 'checkout' has no implementation[\s\S]*step 'build' has no implementation/,
+      /step 'one' has no implementation[\s\S]*step 'two' has no implementation/,
     );
   });
 });
@@ -144,19 +148,20 @@ describe('run', () => {
       status: 'failed',
       error: { kind: 'handler' },
     });
-
-    const broken = {
-      ...cfg,
-      handlers: { ...cfg.handlers, checkout: cfg.handlers.build! },
-    };
+  });
+  test('a step without an implementation exits 78 and says so', async () => {
+    const one = step({ name: 'one', description: '', image: 'alpine' });
+    const unimplemented = { ...cfg, pipeline: bare().stage(one) };
     const io = captureIO();
     const dir = tmp('cfg');
     writeFileSync(join(dir, 'input.json'), '{}');
     expect(
-      await withEnv({ OLVE_DIR: dir }, () => runHarness(broken, ['run', 'checkout'], io)),
+      await withEnv({ OLVE_DIR: dir }, () =>
+        runHarness(unimplemented, ['run', 'one'], io),
+      ),
     ).toBe(EXIT.configInvalid);
-    expect(io.err.join('\n')).toMatch(
-      /handler of step 'checkout' implements a different step/,
+    expect(io.err.join('\n')).toContain(
+      "step 'one' has no implementation (stage implement(step({...}), fn))",
     );
   });
   test('output validated strictly (unknown keys at any depth → 66)', async () => {

@@ -11,7 +11,7 @@ export const EXIT = {
   outputInvalid: 66,
   /** Uploading result.tar.gz to OLVE_RESULT_URL failed (after retries). The envelope was still printed. */
   uploadFailed: 74,
-  /** The pipeline is invalid: describe problems, missing/invalid handler module. */
+  /** The pipeline is invalid: describe problems, a step without an implementation. */
   configInvalid: 78,
   /** Cancelled by SIGINT / SIGTERM (128 + signal). */
   sigint: 130,

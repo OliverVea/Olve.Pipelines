@@ -1,5 +1,6 @@
 import { mkdirSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
+import { implement, step } from '../../src/index.ts';
 import type { HarnessIO } from '../../src/harness/main.ts';
 
 export const SDK = join(import.meta.dir, '../..');
@@ -12,6 +13,10 @@ export function tmp(prefix: string): string {
   mkdirSync(TMP, { recursive: true });
   return mkdtempSync(join(TMP, `${prefix}-`));
 }
+
+/** `step()` with a no-op implementation, for tests about anything but the handler. */
+export const stubStep = ((def: never) =>
+  implement(step(def), (() => undefined) as never)) as unknown as typeof step;
 
 /** Runs `fn` with env vars set (undefined = unset), restoring afterwards. */
 export async function withEnv<T>(

@@ -91,7 +91,7 @@ code:
 | 65 | `input.json` invalid for the step | the mapping / the upstream output |
 | 66 | The output failed strict validation (unknown or missing keys), or an own file ref changed | the handler's return value |
 | 74 | Uploading the result failed after retries | storage reachability from the runner namespace |
-| 78 | The pipeline is invalid / handler module missing | rebuild; should have failed at reconcile |
+| 78 | The pipeline is invalid / a step has no implementation | rebuild; should have failed at reconcile |
 | 130 / 143 | Cancelled, or the step hit its deadline | `timeoutSeconds` |
 
 "No shell" errors mean the handler used `ctx.sh` on a shell-less image — use `ctx.exec`. Reproduce

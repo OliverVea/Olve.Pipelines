@@ -1,4 +1,4 @@
-# Pipeline Reference (`pipeline.ts`)
+# Pipeline Reference
 
 [← Index](index.md) · [Subject Index](subjects.md)
 
@@ -10,9 +10,8 @@ a pipeline.
 ## Layout
 
 The binding path (`.pipelines/` by default) is an ordinary Bun package, and the file and folder
-names are yours. `main` in `package.json` names the entry point, which default-exports the pipeline
-(`pipeline.ts` when there is no `main`). A step that carries its implementation is imported and
-staged like any other value:
+names are yours. `main` in `package.json` is required and names the entry point, which default-exports the
+pipeline. A step carries its implementation, so it is imported and staged like any other value:
 
 ```ts
 // ci/steps/test.ts
@@ -38,10 +37,6 @@ export default pipeline({ name: "my-app", description: "…", input: DeployReque
 - **Importing the entry point has to be deterministic.** It and everything it imports are evaluated
   to produce the manifest ("describe"), so top-level code can't read the environment, the time or
   the network. Handlers can.
-- **`handlers/` also works.** A plain `step()` needs its implementation in a top-level
-  `handlers/*.ts` that default-exports `implement(step, fn)`. The `step` reference pairs them; the
-  file name is free. A step with no implementation, two handlers for one step, or a top-level file
-  there that isn't a handler is a describe error. Shared code goes in a subfolder.
 - **Scripts are embedded** into the compiled binary with
   `import s from "./x.sh" with { type: "file" }`. The repo is *not* in the step container: a step
   that needs the source gets it as a file reference (`Source.tree`).
@@ -116,6 +111,8 @@ export const deployBeta = step({
 });
 ```
 
+- **`step()` is the contract.** A pipeline stages `implement(step, fn)` (see [Handlers](#handlers));
+  a staged step without an implementation is a describe error.
 - The **name is the step's identity**: history, scheduling, gates and addresses are keyed on it.
   Renaming a step starts a new history.
 - The **description** is required but may be empty. It is display-only: changing it makes a new
@@ -293,8 +290,8 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
   `config`, so a change makes a new step version. They may hold config references
   (`path: TARGET.beta.healthPath`): the step receives each entry it references, and
   `resolveConfigRefs(value, ctx.config)` reads the values in the handler.
-- **Testing:** `testHandler(smokeTest({ … }), input)` from `@olivervea/pipelines/testing`, as for a
-  handler module.
+- **Testing:** `testHandler(smokeTest({ … }), input)` from `@olivervea/pipelines/testing`, as for
+  any step.
 
 ## Handlers
 
@@ -492,7 +489,10 @@ binary, and the service re-validates the result.
 ### Failure handlers
 
 ```ts
-export const notify = step({ name: "notify", description: "Posts the failure to a webhook.", image: "alpine:3.22", input: { failure: FailureContext }, secrets: [WEBHOOK_URL] });
+export const notify = implement(
+  step({ name: "notify", description: "Posts the failure to a webhook.", image: "alpine:3.22", input: { failure: FailureContext }, secrets: [WEBHOOK_URL] }),
+  async ({ failure }, ctx) => { await ctx.http.expectOk(ctx.secrets.WEBHOOK_URL, { method: "POST" }); },
+);
 // …
   .onFailure(notify, { steps: [deployBeta] })   // omit `steps` for any step
 ```
@@ -527,7 +527,8 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | A step uses a config entry the pipeline doesn't declare | TS, reconcile |
 | A step receives a config entry with a `secretRef` but doesn't declare that secret (a library step only the secrets of the parts it references, in its `select` case); a `secretRef` to an undeclared secret | describe, reconcile |
 | An input key starting with `$` (reserved) | describe |
-| Custom step without an implementation; a handler file without a step | describe |
+| A staged step without an implementation | describe |
+| No `main` in `package.json`, or a `main` whose file is missing | build |
 | Output nothing consumes | reconcile **warning** only (fine for gate steps like `test`) |
 
 ## What makes a new version

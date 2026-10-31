@@ -23,10 +23,10 @@ import {
   CommandStalledError,
 } from '../../src/ctx/sh.ts';
 import { sha256File } from '../../src/util/hash.ts';
-import checkoutImpl from '../../examples/self-deploy/handlers/checkout.ts';
-import buildImpl from '../../examples/self-deploy/handlers/build.ts';
-import deployBetaImpl from '../../examples/self-deploy/handlers/deploy-beta.ts';
-import testImpl from '../../examples/self-deploy/handlers/test.ts';
+import { checkout as checkoutImpl } from '../../examples/self-deploy/steps/checkout.ts';
+import { build as buildImpl } from '../../examples/self-deploy/steps/build.ts';
+import { deployBeta as deployBetaImpl } from '../../examples/self-deploy/steps/deploy-beta.ts';
+import { test as testImpl } from '../../examples/self-deploy/steps/test.ts';
 import { EXAMPLE, SHA, tmp, withEnv } from './helpers.ts';
 
 const Out = model('Out', z.object({ text: z.string() }));
@@ -435,7 +435,7 @@ describe('testHandler on the example handlers', () => {
       { source },
       {
         run: { number: 412, version: '2026.10.21.412' },
-        ctx: { files: { fetch: async () => join(EXAMPLE, 'handlers') } },
+        ctx: { files: { fetch: async () => join(EXAMPLE, 'steps') } },
       },
     );
     expect(b).toMatchObject({

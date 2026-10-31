@@ -1,106 +1,17 @@
 // Fixture: the shape of Olve.Pipelines' own self-deploy (build → test → beta → prod → publish CLI).
-// Handlers are offline fakes so the SDK tests can build and run every step locally.
-import {
-  pipeline,
-  step,
-  steps,
-  secret,
-  optional,
-  z,
-  Source,
-  FailureContext,
-  githubSignature,
-} from '@olivervea/pipelines';
+// Steps are offline fakes so the SDK tests can build and run every step locally.
+import { pipeline, githubSignature } from '@olivervea/pipelines';
 import * as M from './models';
+import { GITHUB_TOKEN, RELEASE_HOOK_SECRET } from './secrets';
+import { aoeTriage } from './steps/aoe-triage';
+import { build } from './steps/build';
+import { checkout } from './steps/checkout';
+import { deployBeta } from './steps/deploy-beta';
+import { deployProd } from './steps/deploy-prod';
+import { publishCli } from './steps/publish-cli';
+import { summary } from './steps/summary';
+import { test } from './steps/test';
 
-// ── secrets ───────────────────────────────────────────────────────────────────────────────────
-export const GITHUB_TOKEN = secret(
-  'GITHUB_TOKEN',
-  'GitHub read token (repo tarball, poll, CLI release).',
-);
-export const SSH_PRIVATE_KEY = secret(
-  'SSH_PRIVATE_KEY',
-  'SSH key for image import + helm on the host.',
-);
-export const RELEASE_HOOK_SECRET = secret(
-  'RELEASE_HOOK_SECRET',
-  'HMAC key of the GitHub release webhook.',
-);
-
-// ── steps (contracts) ─────────────────────────────────────────────────────────────────────────
-export const checkout = step({
-  name: 'checkout',
-  description: 'Fetches the repository at the pushed commit.',
-  image: 'alpine/git:latest',
-  input: { repo: z.string(), sha: z.string() }, // plain schemas → a mapper is required
-  output: Source,
-  secrets: [GITHUB_TOKEN],
-});
-
-export const build = step({
-  name: 'build',
-  description: 'Builds the image and the chart.',
-  image: 'gcr.io/kaniko-project/executor:debug',
-  input: { source: Source },
-  output: M.BuildArtifact,
-  timeoutSeconds: 1800,
-});
-
-export const test = step({
-  name: 'test',
-  description: 'Runs the unit tests.',
-  image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
-  input: { source: Source },
-  output: M.TestReport,
-});
-
-export const deployBeta = step({
-  name: 'deploy-beta',
-  description: 'Deploys to beta.',
-  image: 'alpine:latest',
-  input: { artifact: M.BuildArtifact },
-  output: M.BetaDeployment,
-  secrets: [SSH_PRIVATE_KEY],
-  timeoutSeconds: 900,
-});
-
-export const deployProd = step({
-  name: 'deploy-prod',
-  description: 'Deploys to prod.',
-  image: 'alpine:latest',
-  input: { artifact: M.BuildArtifact },
-  output: M.ProdDeployment,
-  secrets: [SSH_PRIVATE_KEY],
-});
-
-export const publishCli = step({
-  name: 'publish-cli',
-  description: 'Publishes the pl CLI.',
-  image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
-  input: { artifact: M.BuildArtifact, prod: M.ProdDeployment },
-  output: M.CliRelease,
-  secrets: [GITHUB_TOKEN],
-});
-
-export const summary = step({
-  name: 'summary',
-  description: 'Reports what was deployed.',
-  image: 'alpine:latest',
-  input: {
-    beta: M.BetaDeployment,
-    prod: optional(M.ProdDeployment),
-    cli: optional(M.CliRelease),
-  },
-});
-
-export const aoeTriage = step({
-  name: 'aoe-triage',
-  description: 'Opens an AI session to triage a failed deploy.',
-  image: 'alpine:latest',
-  input: { failure: FailureContext },
-});
-
-// ── pipeline ──────────────────────────────────────────────────────────────────────────────────
 export default pipeline({
   name: 'Olve.Pipelines',
   description: 'Build, deploy beta then prod, publish the pl CLI.',

@@ -28,8 +28,7 @@ export type InferEntry<E> =
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
 /**
- * A label for what a step is, shown in the UI. `custom` (the default) is a step whose handler is in
- * `handlers/`; a step that carries its implementation (`implement(step, …)` staged directly) names its
+ * A label for what a step is, shown in the UI. `custom` is the default; a reusable step names its
  * kind, e.g. `gitHubSource`. Packages prefix theirs (`acme/deploy`).
  */
 export type StepKind = string;
@@ -142,8 +141,8 @@ export function isStep(v: unknown): v is AnyStep {
 }
 
 /**
- * Define a step: a contract (name, image, inputs, output, secrets). Its handler is a `handlers/*.ts`
- * default-exporting `implement(step, …)`, or, for a reusable step, `implement(step, …)` staged directly.
+ * Define a step: a contract (name, image, inputs, output, secrets). `implement(step, fn)` gives it
+ * its handler; that is what a pipeline stages.
  */
 export function step<
   const N extends string,

@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import {
   bearer,
   hmacSha256,
-  implement,
   model,
   optional,
   pipeline,
@@ -21,9 +20,7 @@ import { describePipeline, DescribeError } from '../../src/describe/describe.ts'
 import { Manifest, manifestJsonSchema } from '../../src/describe/manifest-schema.ts';
 import { canonicalJson } from '../../src/util/canonical.ts';
 import { devConfig } from '../../src/dev/cli.ts';
-import { allSteps } from '../../src/harness/main.ts';
-import { pipelineData } from '../../src/builder/pipeline.ts';
-import { EXAMPLE, SDK } from './helpers.ts';
+import { EXAMPLE, SDK, stubStep } from './helpers.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 const Req = model(
@@ -40,21 +37,21 @@ const Art = model(
   z.object({ version: z.string(), nested: z.object({ a: z.string() }) }),
 );
 const Dep = model('Dep', z.object({ url: z.string() }));
-const make = step({
+const make = stubStep({
   name: 'make',
   description: '',
   image: 'alpine',
   input: { req: Req },
   output: Art,
 });
-const make2 = step({
+const make2 = stubStep({
   name: 'make2',
   description: '',
   image: 'alpine',
   input: { req: Req },
   output: Art,
 });
-const use = step({
+const use = stubStep({
   name: 'use',
   description: '',
   image: 'alpine',
@@ -62,18 +59,9 @@ const use = step({
   output: Dep,
 });
 
-/** Problems of `p`; by default every custom step has a handler. */
-function problems(p: unknown, names?: string[]): string[] {
-  const handlerNames =
-    names ??
-    allSteps(pipelineData(p))
-      .filter((s) => s.kind === 'custom')
-      .map((s) => s.name);
+function problems(p: unknown): string[] {
   try {
-    describePipeline(p, {
-      handlerNames,
-      harness,
-    });
+    describePipeline(p, { harness });
   } catch (e) {
     if (e instanceof DescribeError) return [...e.problems];
     throw e;
@@ -81,8 +69,8 @@ function problems(p: unknown, names?: string[]): string[] {
   return [];
 }
 const base = () => pipeline({ name: 't', input: Req });
-const expectProblem = (p: unknown, re: RegExp, names?: string[]) => {
-  const ps = problems(p, names);
+const expectProblem = (p: unknown, re: RegExp) => {
+  const ps = problems(p);
   expect(
     ps.some((x) => re.test(x)),
     `expected a problem matching ${re}, got:\n${ps.join('\n')}`,
@@ -92,7 +80,6 @@ const expectProblem = (p: unknown, re: RegExp, names?: string[]) => {
 describe('example manifest', async () => {
   const cfg = await devConfig(EXAMPLE, true);
   const m = describePipeline(cfg.pipeline, {
-    handlerNames: Object.keys(cfg.handlers),
     codeHash: cfg.codeHash,
     harness: cfg.harness,
   });
@@ -101,7 +88,6 @@ describe('example manifest', async () => {
     expect(Manifest.safeParse(m).success).toBe(true));
   test('is deterministic', () => {
     const again = describePipeline(cfg.pipeline, {
-      handlerNames: Object.keys(cfg.handlers),
       codeHash: cfg.codeHash,
       harness: cfg.harness,
     });
@@ -182,8 +168,8 @@ describe('describe-time checks', () => {
   test('valid pipeline has no problems', () =>
     expect(problems(base().stage(make).stage(use))).toEqual([]));
   test('step without a description', () => {
-    const s = step({ name: 's', image: 'alpine' } as never);
-    expectProblem(base().stage(s), /description must be a string/, ['s']);
+    const s = stubStep({ name: 's', image: 'alpine' } as never);
+    expectProblem(base().stage(s), /description must be a string/);
   });
   test('reusing an extended pipeline value is a problem; chaining is not', () => {
     const p = base().stage(make);
@@ -197,27 +183,20 @@ describe('describe-time checks', () => {
       ),
     ).toEqual([]);
   });
-  test('custom step without handler', () =>
-    expectProblem(base().stage(make), /step 'make' has no implementation/, []));
-  test('handler file without step / for a step that carries its implementation', () => {
+  test('a staged step without an implementation', () => {
+    const bare = step({ name: 'bare', description: '', image: 'alpine' });
+    const ps = problems(base().stage(bare));
+    expect(ps).toEqual([
+      "step 'bare' has no implementation (stage implement(step({...}), fn))",
+    ]);
     expectProblem(
-      base().stage(make),
-      /implements step 'ghost', which is not in the pipeline/,
-      ['make', 'ghost'],
-    );
-    const lib = implement(
-      step({ name: 's', description: '', kind: 'lib', image: 'alpine' }),
-      () => {},
-    );
-    expectProblem(
-      base().stage(lib),
-      /implements 's', a lib step that carries its own implementation/,
-      ['s'],
+      base().stage(make).onFailure(bare),
+      /step 'bare' has no implementation/,
     );
   });
   test('two schemas under one model name', () => {
     const Art2 = model('Art', z.object({ other: z.number() }));
-    const s = step({ name: 's', description: '', image: 'alpine', output: Art2 });
+    const s = stubStep({ name: 's', description: '', image: 'alpine', output: Art2 });
     expectProblem(
       base()
         .stage(make)
@@ -227,7 +206,7 @@ describe('describe-time checks', () => {
   });
   test('identical re-registration of a model name is fine', () => {
     const Same = model('Dep', z.object({ url: z.string() }));
-    const s = step({
+    const s = stubStep({
       name: 's',
       description: '',
       image: 'alpine',
@@ -260,7 +239,7 @@ describe('describe-time checks', () => {
       (base() as any).when({ env: 'prod' }, (p: any) => p.stage(make)).stage(use),
       /only maybe-available/,
     );
-    const opt = step({
+    const opt = stubStep({
       name: 'other',
       description: '',
       image: 'alpine',
@@ -273,7 +252,7 @@ describe('describe-time checks', () => {
     ).toEqual([]);
   });
   test('optional() still needs a producer', () => {
-    const opt = step({
+    const opt = stubStep({
       name: 'other',
       description: '',
       image: 'alpine',
@@ -285,7 +264,7 @@ describe('describe-time checks', () => {
     );
   });
   test('plain schema input needs a mapper', () => {
-    const s = step({
+    const s = stubStep({
       name: 's',
       description: '',
       image: 'alpine',
@@ -294,7 +273,7 @@ describe('describe-time checks', () => {
     expectProblem(base().stage(s as any), /plain schema, not a model/);
   });
   test('mapper: logic, unknown field, missing/extra keys, unavailable root', () => {
-    const s = step({
+    const s = stubStep({
       name: 's',
       description: '',
       image: 'alpine',
@@ -359,12 +338,12 @@ describe('describe-time checks', () => {
   });
   test('duplicate and reserved step names, name format', () => {
     expectProblem((base() as any).stage(make).stage(make), /duplicate step name 'make'/);
-    const input = step({ name: 'input', description: '', image: 'alpine' });
+    const input = stubStep({ name: 'input', description: '', image: 'alpine' });
     expectProblem(base().stage(input as any), /'input' is reserved/);
-    const failure = step({ name: 'failure', description: '', image: 'alpine' });
+    const failure = stubStep({ name: 'failure', description: '', image: 'alpine' });
     expectProblem(base().stage(failure as any), /'failure' is reserved/);
-    const bad = step({ name: 'Bad_Name', description: '', image: 'alpine' });
-    expectProblem(base().stage(bad as any), /must be lower-case kebab/, ['Bad_Name']);
+    const bad = stubStep({ name: 'Bad_Name', description: '', image: 'alpine' });
+    expectProblem(base().stage(bad as any), /must be lower-case kebab/);
   });
   test('triggers: one push, unique polls, header secrets', () => {
     const T = secret('TOKEN', 't');
@@ -419,20 +398,20 @@ describe('describe-time checks', () => {
     );
   });
   test('secrets: conflicting descriptions, name format', () => {
-    const a = step({
+    const a = stubStep({
       name: 's',
       description: '',
       image: 'alpine',
       secrets: [secret('X', 'one')],
     });
-    const b = step({
+    const b = stubStep({
       name: 't',
       description: '',
       image: 'alpine',
       secrets: [secret('X', 'two')],
     });
     expectProblem((base() as any).stage(a, b), /secret 'X' is declared twice/);
-    const c = step({
+    const c = stubStep({
       name: 's',
       description: '',
       image: 'alpine',
@@ -447,8 +426,8 @@ describe('describe-time checks', () => {
         .onFailure(use as any),
       /must all be FailureContext/,
     );
-    const fh = step({ name: 'fh', description: '', image: 'alpine' });
-    const ghost = step({ name: 'ghost', description: '', image: 'alpine' });
+    const fh = stubStep({ name: 'fh', description: '', image: 'alpine' });
+    const ghost = stubStep({ name: 'ghost', description: '', image: 'alpine' });
     expectProblem(
       base()
         .stage(make)
@@ -458,19 +437,25 @@ describe('describe-time checks', () => {
   });
   test('non-JSON-representable model', () => {
     const D = model('D', z.object({ at: z.date() }));
-    const s = step({ name: 's', description: '', image: 'alpine', output: D });
+    const s = stubStep({ name: 's', description: '', image: 'alpine', output: D });
     expectProblem(base().stage(s), /not representable as JSON Schema/);
   });
   test('all problems are reported together', () => {
+    const bare = step({
+      name: 'bare',
+      description: '',
+      image: 'alpine',
+      input: { art: Art },
+    });
     const s = step({
       name: 's',
       description: '',
       image: 'alpine',
       input: { tag: z.string() },
     });
-    expect(
-      problems((base() as any).stage(use).stage(s), []).length,
-    ).toBeGreaterThanOrEqual(4);
+    expect(problems((base() as any).stage(bare).stage(s)).length).toBeGreaterThanOrEqual(
+      4,
+    );
   });
 });
 
@@ -479,8 +464,7 @@ test('Source library model is a dir fileRef carrier', () => {
 });
 
 describe('retention', () => {
-  const manifestOf = (p: unknown) =>
-    describePipeline(p, { handlerNames: ['make'], harness });
+  const manifestOf = (p: unknown) => describePipeline(p, { harness });
   test('omitted unless set; set fields are recorded as given', () => {
     expect('retention' in manifestOf(base().stage(make))).toBe(false);
     expect(

@@ -46,7 +46,7 @@ export type TestResult<S extends AnyStep> = {
 );
 
 /**
- * Runs an implementation (a handler module's default export, or a step that carries its own) with `input`.
+ * Runs a step that carries its implementation with `input`.
  * Input is validated like `input.json`, the result like a real run: an invalid output gives
  * `{ status: "failed", error: { kind: "output" } }`, a throwing handler `kind: "handler"`.
  */
@@ -57,7 +57,7 @@ export async function testHandler<S extends AnyStep>(
 ): Promise<TestResult<S>> {
   if (!isImplementation(target))
     throw new TypeError(
-      "testHandler expects implement(…): a handler module's default export or a step that carries its implementation",
+      'testHandler expects implement(…): a step that carries its implementation',
     );
   const step: AnyStep = target.step;
   const fn = target.handler as unknown as StepFunction;

@@ -1,0 +1,22 @@
+{
+  "system": "k3s",
+  "name": "pods-deadline",
+  "source": "rancher/k3s:v1.31.4-k3s1 on tools/real-system/host.sh",
+  "capturedAt": "2026-10-31",
+  "systemVersion": "v1.31.4-k3s1",
+  "elided": "items.metadata.annotations, items.metadata.generateName, items.metadata.labels, items.metadata.managedFields, items.metadata.ownerReferences, items.metadata.uid, items.spec, items.status.conditions, items.status.containerStatuses.containerID, items.status.containerStatuses.image, items.status.containerStatuses.imageID, items.status.containerStatuses.lastState, items.status.containerStatuses.state.terminated.containerID, items.status.containerStatuses.volumeMounts, items.status.hostIP, items.status.hostIPs, items.status.initContainerStatuses.containerID, items.status.initContainerStatuses.image, items.status.initContainerStatuses.imageID, items.status.initContainerStatuses.lastState, items.status.initContainerStatuses.state.terminated.containerID, items.status.initContainerStatuses.volumeMounts, items.status.podIP, items.status.podIPs, metadata",
+  "request": {
+    "method": "GET",
+    "url": "/api/v1/namespaces/olve-runners/pods?labelSelector=batch.kubernetes.io/job-name=recorder-deadline",
+    "headers": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "kind": "PodList",
+      "apiVersion": "v1",
+      "items": []
+    }
+  }
+}

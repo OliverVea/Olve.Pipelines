@@ -1,0 +1,54 @@
+{
+  "system": "k3s",
+  "name": "job-complete",
+  "source": "rancher/k3s:v1.31.4-k3s1 on tools/real-system/host.sh",
+  "capturedAt": "2026-10-31",
+  "systemVersion": "v1.31.4-k3s1",
+  "elided": "metadata.annotations, metadata.labels, metadata.managedFields, metadata.uid, spec",
+  "request": {
+    "method": "GET",
+    "url": "/apis/batch/v1/namespaces/olve-runners/jobs/recorder-complete",
+    "headers": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+      "kind": "Job",
+      "apiVersion": "batch/v1",
+      "metadata": {
+        "name": "recorder-complete",
+        "namespace": "olve-runners",
+        "resourceVersion": "473",
+        "generation": 1,
+        "creationTimestamp": "2026-10-31T04:26:43Z"
+      },
+      "status": {
+        "conditions": [
+          {
+            "type": "SuccessCriteriaMet",
+            "status": "True",
+            "lastProbeTime": "2026-10-31T04:26:46Z",
+            "lastTransitionTime": "2026-10-31T04:26:46Z",
+            "reason": "CompletionsReached",
+            "message": "Reached expected number of succeeded pods"
+          },
+          {
+            "type": "Complete",
+            "status": "True",
+            "lastProbeTime": "2026-10-31T04:26:46Z",
+            "lastTransitionTime": "2026-10-31T04:26:46Z",
+            "reason": "CompletionsReached",
+            "message": "Reached expected number of succeeded pods"
+          }
+        ],
+        "startTime": "2026-10-31T04:26:43Z",
+        "completionTime": "2026-10-31T04:26:46Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {},
+        "ready": 0
+      }
+    }
+  }
+}

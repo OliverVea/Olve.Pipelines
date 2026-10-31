@@ -1,17 +1,22 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Pipelines.UnitTests.Scheduling;
 using Olve.Results.TUnit;
+using Contract = Olve.Pipelines.Api;
 using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
 
 namespace Olve.Pipelines.UnitTests.Runs;
 
 public class StepReliabilityTests
 {
-    private static ReliabilityReport Report(SchedulerScenario s, int? runs = null)
-        => TestRunDomain.Pick(new StepReliabilityService(s.D.RunService, s.D.AttemptService, s.D.Plans, s.D.VersionService).Get(s.Pipeline.Id, runs));
+    private static StepReliabilityService Service(SchedulerScenario s) => new(s.D.RunService, s.D.AttemptService, s.D.Plans, s.D.VersionService);
+
+    private static GetStepReliabilityHandler Handler(SchedulerScenario s) => new(s.D.PipelineService, Service(s));
+
+    private static ReliabilityReport Report(SchedulerScenario s, int? runs = null) => TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, runs));
 
     private static StepReliability Step(ReliabilityReport report, string step) => report.Steps.Single(x => x.Step == step);
 
@@ -305,14 +310,36 @@ public class StepReliabilityTests
     [Test]
     [Arguments(0)]
     [Arguments(501)]
-    public async Task ARangeOutsideTheLimits_IsRefused(int runs)
+    public async Task ARangeOutsideTheLimits_IsABadRequest(int runs)
     {
         var s = new SchedulerScenario();
 
-        var result = new StepReliabilityService(s.D.RunService, s.D.AttemptService, s.D.Plans, s.D.VersionService).Get(s.Pipeline.Id, runs);
+        var response = await Handler(s).HandleAsync(new Contract.StepsReliabilityRequest(s.Pipeline.Id.Value.Value, runs), default);
 
-        await Assert.That(result).Failed();
-        await Assert.That(result.TryPickProblems(out var problems) ? problems.Single().FormattedMessage : "")
-            .IsEqualTo($"runs must be between 1 and 500, not {runs}.");
+        var problem = ((Contract.StepsReliabilityResponse.BadRequest)response).Body;
+        await Assert.That(problem.Status).IsEqualTo(400);
+        await Assert.That(problem.Errors.Single().Message).IsEqualTo($"runs must be between 1 and 500, not {runs}.");
+    }
+
+    [Test]
+    public async Task AnUnknownPipeline_IsNotFound()
+    {
+        var response = await Handler(new SchedulerScenario()).HandleAsync(new Contract.StepsReliabilityRequest(Guid.NewGuid(), null), default);
+
+        await Assert.That(response).IsTypeOf<Contract.StepsReliabilityResponse.NotFound>();
+    }
+
+    [Test]
+    public async Task TheApi_AnswersTheReport()
+    {
+        var s = new SchedulerScenario();
+        var failed = Failing(s, kind: AttemptFailureKind.PodFailed);
+
+        var response = await Handler(s).HandleAsync(new Contract.StepsReliabilityRequest(s.Pipeline.Id.Value.Value, 5), default);
+
+        var report = ((Contract.StepsReliabilityResponse.Ok)response).Body;
+        await Assert.That(report.Window.RequestedRuns).IsEqualTo(5);
+        await Assert.That(report.Runs.RunNumbers).IsEquivalentTo([failed.Number]);
+        await Assert.That(report.Steps.Single(x => x.Step == "test").InfrastructureFailures).IsEqualTo(1);
     }
 }

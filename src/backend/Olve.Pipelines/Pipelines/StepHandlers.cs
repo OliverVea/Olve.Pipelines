@@ -70,6 +70,21 @@ public sealed class GetStepHistoryHandler(PipelineService pipelines, RunViewServ
     }
 }
 
+/// <summary>Read-only, and only ever asked for: no gate or scheduling decision consults it.</summary>
+[OperationHandler]
+public sealed class GetStepReliabilityHandler(PipelineService pipelines, StepReliabilityService reliability) : Contract.IStepsReliabilityHandler
+{
+    public Task<Contract.StepsReliabilityResponse> HandleAsync(Contract.StepsReliabilityRequest request, CancellationToken cancellationToken)
+    {
+        var id = PipelineViews.PipelineId(request.PipelineId);
+        if (!pipelines.TryGet(id, out _))
+            return Task.FromResult<Contract.StepsReliabilityResponse>(new Contract.StepsReliabilityResponse.NotFound(PipelineViews.NotFound(id)));
+        return Task.FromResult<Contract.StepsReliabilityResponse>(reliability.Get(id, request.Runs).TryPickProblems(out var problems, out var report)
+            ? new Contract.StepsReliabilityResponse.BadRequest(ApiProblems.Of([.. problems]))
+            : new Contract.StepsReliabilityResponse.Ok(StepViews.ToApi(report)));
+    }
+}
+
 public static class StepViews
 {
     public static Result<IReadOnlyList<string>> ChangeBlock(StepBlockService blocks, Id<Pipeline> pipelineId, string step, bool block)
@@ -99,6 +114,47 @@ public static class StepViews
         StepVersion = h.StepVersion,
         StepVersionChanged = h.StepVersionChanged,
         Phases = h.Phases is null ? null : ToApi(h.Phases),
+    };
+
+    public static Contract.ReliabilityReport ToApi(ReliabilityReport r) => new()
+    {
+        Window = new Contract.ReliabilityWindow
+        {
+            FromRun = r.Window.FromRun,
+            ToRun = r.Window.ToRun,
+            Runs = r.Window.Runs,
+            RequestedRuns = r.Window.RequestedRuns,
+            From = r.Window.From,
+            To = r.Window.To,
+            LimitedByRetention = r.Window.LimitedByRetention,
+        },
+        Runs = new Contract.ReliabilityRuns
+        {
+            Settled = r.Runs.Settled,
+            FailedForNoReason = r.Runs.FailedForNoReason,
+            Rate = r.Runs.Rate,
+            Absorbed = r.Runs.Absorbed,
+            RunNumbers = r.Runs.RunNumbers,
+        },
+        Steps = [.. r.Steps.Select(s => new Contract.StepReliability
+        {
+            Step = s.Step,
+            Attempts = s.Attempts,
+            Failures = s.Failures,
+            OwnFailures = s.OwnFailures,
+            InfrastructureFailures = s.InfrastructureFailures,
+            Timeouts = s.Timeouts,
+            FailureRate = s.FailureRate,
+            RecentFailureRate = s.RecentFailureRate,
+            UsualFailureRate = s.UsualFailureRate,
+            AboveUsual = s.AboveUsual,
+            FlakyFailures = s.FlakyFailures,
+            ReproducedFailures = s.ReproducedFailures,
+            UnverifiedFailures = s.UnverifiedFailures,
+            FlakyRate = s.FlakyRate,
+            FlakyRuns = s.FlakyRuns,
+        })],
+        Notes = r.Notes,
     };
 
     public static Contract.AttemptPhases ToApi(AttemptPhases p) => new()

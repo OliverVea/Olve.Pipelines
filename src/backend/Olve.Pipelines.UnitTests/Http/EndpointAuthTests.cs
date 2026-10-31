@@ -45,6 +45,7 @@ public class EndpointAuthTests
         "GET /api/pipelines/{pipelineId}/config/check",
         "GET /api/pipelines/{pipelineId}/config/history",
         "GET /api/pipelines/{pipelineId}/health",
+        "GET /api/pipelines/{pipelineId}/reliability",
         "GET /api/pipelines/{pipelineId}/runs",
         "GET /api/pipelines/{pipelineId}/runs/critical-path",
         "GET /api/pipelines/{pipelineId}/runs/{number}",

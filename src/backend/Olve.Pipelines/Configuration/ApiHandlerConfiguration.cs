@@ -64,6 +64,7 @@ public static class ApiHandlerConfiguration
         api.StepsBlock.WithTags("Steps").WithSummary("Block a step");
         api.StepsUnblock.WithTags("Steps").WithSummary("Unblock a step");
         api.StepsHistory.RequireRead().WithTags("Steps").WithSummary("Get a step's history");
+        api.StepsReliability.RequireRead().WithTags("Steps").WithSummary("Get the reliability of a pipeline's steps");
         api.RunsList.RequireRead().WithTags("Runs").WithSummary("List runs");
         api.RunsStart.WithTags("Runs").WithSummary("Start a run");
         api.RunsCriticalPath.RequireRead().WithTags("Runs").WithSummary("Get the critical path of a range of runs");

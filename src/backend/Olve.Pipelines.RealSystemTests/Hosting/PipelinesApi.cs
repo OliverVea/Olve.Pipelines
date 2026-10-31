@@ -6,8 +6,8 @@ using Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.RealSystemTests.Hosting;
 
-/// <summary>An answer that isn't asserted to be a success: its status and the problem's <c>detail</c>.</summary>
-public sealed record ApiReply(HttpStatusCode Status, string? Detail);
+/// <summary>An answer that isn't asserted to be a success: its status, the problem's <c>detail</c> and its first error's <c>field</c>.</summary>
+public sealed record ApiReply(HttpStatusCode Status, string? Detail, string? Field = null);
 
 /// <summary>The API as a test uses it. <see cref="Http"/> reaches whatever has no method here yet.</summary>
 public sealed class PipelinesApi(HttpClient http)
@@ -89,7 +89,8 @@ public sealed class PipelinesApi(HttpClient http)
         var body = await response.Content.ReadAsStringAsync();
         try
         {
-            return new ApiReply(response.StatusCode, JsonNode.Parse(body)?["detail"]?.GetValue<string>());
+            var problem = JsonNode.Parse(body);
+            return new ApiReply(response.StatusCode, problem?["detail"]?.GetValue<string>(), problem?["errors"]?[0]?["field"]?.GetValue<string>());
         }
         catch (JsonException)
         {

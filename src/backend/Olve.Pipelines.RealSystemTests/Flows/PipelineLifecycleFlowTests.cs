@@ -37,26 +37,28 @@ public class PipelineLifecycleFlowTests
         await Assert.That(await server.Bucket.ListAsync($"runs/{hex}/")).IsNotEmpty();
         await Assert.That(await server.Bucket.ListAsync($"versions/{hex}/")).IsNotEmpty();
 
+        var jobs = await cluster.JobsOfAsync(pipeline.Id);
+
         await Assert.That((await server.Api.DeletePipelineAsync(pipeline.Id)).Status).IsEqualTo(HttpStatusCode.OK);
 
         var gone = await server.Api.GetPipelineReplyAsync(pipeline.Id);
         await Assert.That(gone.Status).IsEqualTo(HttpStatusCode.NotFound);
         await Assert.That(gone.Detail).IsEqualTo($"Pipeline '{pipeline.Id}' not found.");
 
-        var leftovers = await Wait.TryUntilAsync(() => LeftoversAsync(server, pipeline.Id), l => l.Count == 0, CleanupBudget);
+        var leftovers = await Wait.TryUntilAsync(() => StoredLeftoversAsync(server, pipeline.Id, jobs), l => l.Count == 0, CleanupBudget);
         await Assert.That(leftovers).IsEmpty();
+        await Assert.That(await cluster.JobsOfAsync(pipeline.Id)).IsEmpty();
     }
 
-    private static async Task<IReadOnlyList<string>> LeftoversAsync(TestServer server, Guid pipelineId)
+    private static async Task<IReadOnlyList<string>> StoredLeftoversAsync(TestServer server, Guid pipelineId, IReadOnlyList<string> jobs)
     {
         var hex = pipelineId.ToString("N");
         var cluster = server.Cluster;
-        var left = new List<string>();
-        left.AddRange((await cluster.JobsOfAsync(pipelineId)).Select(j => $"job {j}"));
-        if (await cluster.Client.GetSecretAsync(cluster.Namespace, TestCluster.PipelineSecretName(pipelineId)) is not null)
-            left.Add("the pipeline Secret");
-        var secrets = await cluster.Client.ListSecretsAsync(cluster.Namespace);
-        left.AddRange(secrets.Where(s => s.Name.Contains(hex[..12], StringComparison.Ordinal)).Select(s => $"secret {s.Name}"));
+        var urlSecrets = jobs.Select(j => j.StartsWith("olve-build-", StringComparison.Ordinal) ? $"{j}-urls" : j.Replace("olve-", "olve-urls-", StringComparison.Ordinal));
+        var names = urlSecrets.Append(TestCluster.PipelineSecretName(pipelineId)).ToHashSet();
+
+        var left = (await cluster.Client.ListSecretsAsync(cluster.Namespace))
+            .Where(s => names.Contains(s.Name)).Select(s => $"secret {s.Name}").ToList();
         foreach (var prefix in new[] { $"runs/{hex}/", $"versions/{hex}/", $"config/{hex}/", $"triggers/{hex}/" })
             left.AddRange((await server.Bucket.ListAsync(prefix)).Select(o => $"object {o.Key}"));
         return left;
@@ -74,7 +76,7 @@ public class PipelineLifecycleFlowTests
 
         await Assert.That(finished.Status).IsEqualTo(RunStatus.Failed);
         var step = finished.Stages[1].Steps.Single(s => s.Name == "consume");
-        await Assert.That(step.Reason).IsEqualTo("the handler threw (exit 1): the fixture was asked to fail");
+        await Assert.That(step.Reason).IsEqualTo("the handler threw (exit 1): step 'consume' failed: the fixture was asked to fail");
     }
 
     [Test]
@@ -100,8 +102,7 @@ public class PipelineLifecycleFlowTests
 
         var reply = await server.Api.StartRunReplyAsync(pipeline.Id, new JsonObject { ["outcome"] = "sideways" });
 
-        await Assert.That(reply.Status).IsEqualTo(HttpStatusCode.BadRequest);
-        await Assert.That(reply.Detail).Contains("outcome");
+        await Assert.That(reply).IsEqualTo(new ApiReply(HttpStatusCode.BadRequest, "must be one of [\"succeed\",\"fail\"]", "input.outcome"));
     }
 
     [Test]

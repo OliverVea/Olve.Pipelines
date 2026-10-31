@@ -242,7 +242,7 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 - Run the new tiers once each, against the deployment or configuration they target.
 - Keep special cases such as load tests off-cadence.
-- Keep flake data from real pipeline runs, because local runs can't see rates near 1 in 300, and report the suite's combined rate against the 5% budget.
+- Keep flake data from real pipeline runs, because local runs can't see rates near 1 in 300, and report the suite's combined rate against the 5% budget. The roadmap's step flakiness tracking would supply this per step. Naming the individual flaky test still needs per-test results from the `test` step.
 
 ### 9. TypeScript tests
 

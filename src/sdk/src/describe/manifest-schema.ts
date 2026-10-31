@@ -94,9 +94,7 @@ export const StepDescriptor = z
     kind: z
       .string()
       .min(1)
-      .describe(
-        "'custom' = the handler is a handlers/*.ts file; any other kind is a step that carries its implementation (an SDK or package step). A label: the service accepts any kind.",
-      ),
+      .describe("A label for the step's kind: 'custom' unless the step names one."),
     image: z.string().min(1).describe('Container image the step runs in.'),
     inputTypes: z
       .record(z.string(), InputType)
@@ -114,16 +112,13 @@ export const StepDescriptor = z
       .describe(
         'Declared secrets (sorted). Mount exactly these, as env vars of the same name.',
       ),
-    handlerHash: hash.describe(
-      'Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for a step that carries its implementation kind + config + harness + the hash of the code of its kind.',
-    ),
     timeoutSeconds: z.number().int().positive().optional(),
     retries: z.number().int().nonnegative().optional(),
     config: z
       .record(z.string(), Json)
       .optional()
       .describe(
-        'The step\'s settings (display only; already covered by handlerHash). A config reference is recorded as {"$config": "<entry>.<field>…"}; the entry is in configEntries.',
+        'The step\'s settings (display only). A config reference is recorded as {"$config": "<entry>.<field>…"}; the entry is in configEntries.',
       ),
     configEntries: z
       .array(configName)
@@ -276,7 +271,10 @@ export const Manifest = z
         sdk: z.string().describe('@olivervea/pipelines package version.'),
         sdkHash: hash.describe('Hash of the SDK runtime sources + zod version.'),
       })
-      .describe('Harness identity. Already folded into every handlerHash.'),
+      .describe('Harness identity. Already folded into codeHash.'),
+    codeHash: hash.describe(
+      'Hash of the whole build: the pipeline and its code bundled, plus the harness. Any code change makes a new pipeline version.',
+    ),
     models: z
       .record(modelName, ModelSchemas)
       .describe('Every model referenced by the pipeline (input, step inputs/outputs).'),

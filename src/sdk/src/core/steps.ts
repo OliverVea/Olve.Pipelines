@@ -1,6 +1,5 @@
 import type { z } from 'zod';
-import { ORIGIN, STEP, type StepBrand } from './brands.ts';
-import { callerFile } from './origin.ts';
+import { STEP, type StepBrand } from './brands.ts';
 import type { AnyModel, Infer, Optional } from './models.ts';
 import type { External } from './external.ts';
 import type { AnyConfigEntry } from './config.ts';
@@ -113,7 +112,7 @@ export interface StepDef<
   settings?: Readonly<Record<string, unknown>>;
 }
 
-function makeStep(def: Record<string, unknown>, origin: string | undefined): AnyStep {
+function makeStep(def: Record<string, unknown>): AnyStep {
   const config = new Map<string, AnyConfigEntry>();
   for (const e of (def.config as readonly AnyConfigEntry[] | undefined) ?? [])
     if (!config.has(e.name)) config.set(e.name, e);
@@ -132,7 +131,6 @@ function makeStep(def: Record<string, unknown>, origin: string | undefined): Any
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
     ...(def.clusterAccess === true ? { clusterAccess: true } : {}),
     ...(def.settings !== undefined ? { settings: def.settings } : {}),
-    [ORIGIN]: origin === undefined ? [] : [origin],
   };
   return Object.freeze(s) as unknown as AnyStep;
 }
@@ -154,5 +152,5 @@ export function step<
   const Sec extends readonly Secret[] = [],
   const Cfg extends readonly AnyConfigEntry[] = [],
 >(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]['name'], Cfg[number]> {
-  return makeStep(def as never, callerFile()) as never;
+  return makeStep(def as never) as never;
 }

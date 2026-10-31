@@ -9,27 +9,42 @@ a pipeline.
 
 ## Layout
 
-The binding path (`.pipelines/` by default) is a Bun package:
+The binding path (`.pipelines/` by default) is an ordinary Bun package, and the file and folder
+names are yours. `main` in `package.json` names the entry point, which default-exports the pipeline
+(`pipeline.ts` when there is no `main`). A step that carries its implementation is imported and
+staged like any other value:
 
-```
-models.ts                 data models                           (contract file)
-pipeline.ts               steps + `export default pipeline(…)`  (contract file)
-handlers/*.ts             one per custom step: `export default implement(step, fn)`
-handlers/lib/…            shared helpers (not handlers)
-scripts/*.sh              embedded: import s from "../scripts/x.sh" with { type: "file" }
-package.json, bun.lock, tsconfig.json
+```ts
+// ci/steps/test.ts
+import { implement, Source, step } from "@olivervea/pipelines";
+
+export const test = implement(
+  step({ name: "test", description: "Runs the tests.", image: "mcr.microsoft.com/dotnet/sdk:10.0-noble", input: { source: Source } }),
+  async ({ source }, ctx) => {
+    const tree = await ctx.files.fetch(source.tree);
+    await ctx.sh("dotnet test", { cwd: tree });
+  },
+);
+
+// ci/main.ts
+import { pipeline, steps } from "@olivervea/pipelines";
+import { test } from "./steps/test";
+
+export default pipeline({ name: "my-app", description: "…", input: DeployRequest })
+  .stage([source, from => ({ repo: from.input.repo, sha: from.input.sha })])
+  .stage(test);
 ```
 
-- **Contract files** hold contracts only, never handler code. The service evaluates them alone to
-  produce the manifest ("describe"), so they must be deterministic: no env, time or network.
-- **A handler names its step**: each top-level `handlers/*.ts` default-exports `implement(step, fn)`,
-  and that `step` reference is what pairs them; the file name is free (`handlers/deploy-prod.ts` by
-  habit). A custom step no handler implements, two handlers for one step, or a top-level file that
-  isn't a handler is a describe error; a step that carries its implementation (a library step)
-  needs none. Shared code goes in a subfolder.
-- **Scripts are embedded** into the compiled binary. The repo is *not* in the step container — a
-  step that needs the source gets it as a file reference (`Source.tree`).
-- Dependencies point one way: `models ← steps ← handlers`, `models ← pipeline`.
+- **Importing the entry point has to be deterministic.** It and everything it imports are evaluated
+  to produce the manifest ("describe"), so top-level code can't read the environment, the time or
+  the network. Handlers can.
+- **`handlers/` also works.** A plain `step()` needs its implementation in a top-level
+  `handlers/*.ts` that default-exports `implement(step, fn)`. The `step` reference pairs them; the
+  file name is free. A step with no implementation, two handlers for one step, or a top-level file
+  there that isn't a handler is a describe error. Shared code goes in a subfolder.
+- **Scripts are embedded** into the compiled binary with
+  `import s from "./x.sh" with { type: "file" }`. The repo is *not* in the step container: a step
+  that needs the source gets it as a file reference (`Source.tree`).
 
 ## Models
 
@@ -273,17 +288,11 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 ```
 
 - **Stage the result directly.** It carries its handler, so there is no `handlers/` file for it.
-  A step defined with `step()` alone has its handler in `handlers/`, as before.
-- **`kind`** is required for a step that carries its implementation (`custom` means a handler
-  file). To the service it is a label.
+- **`kind`** is a label, `custom` unless the step names one. To the service it is only a label.
 - **`settings`** are what the step was set up with. They are recorded in the manifest's step
   `config`, so a change makes a new step version. They may hold config references
   (`path: TARGET.beta.healthPath`): the step receives each entry it references, and
   `resolveConfigRefs(value, ctx.config)` reads the values in the handler.
-- **Identity:** the build hashes the module that defines the step (where `step()` is called) and
-  the one that calls `implement`, so a change to the step's code makes a new step version. Define
-  and implement it outside `pipeline.ts` and `models.ts`; a step that carries its implementation and
-  is defined in a contract file is a build error.
 - **Testing:** `testHandler(smokeTest({ … }), input)` from `@olivervea/pipelines/testing`, as for a
   handler module.
 
@@ -524,13 +533,14 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 
 ## What makes a new version
 
-The service hashes the manifest. Any change adds a version; steps and models also get their own
-versions (`deploy-beta.3`, `BuildArtifact.2`), bumped only when *that* entity changes:
+The service hashes the manifest, which carries one `codeHash` for the whole build (its code, embedded
+scripts and dependencies, plus the Bun and SDK versions), so any change adds a version. Steps and
+models also get their own versions (`deploy-beta.3`, `BuildArtifact.2`), bumped only when what they
+declare changes. A code change alone bumps neither; `git diff` between two versions' commits shows it.
 
 - a model: its JSON Schema;
-- a step: image, input/output model versions, secrets, the schemas of its config entries, mappings, and its **handler hash** — the
-  handler bundled on its own, tree-shaken, including embedded scripts and the code it imports;
-- a lockfile, Bun or SDK change bumps every handler;
+- a step: image, input/output model versions, secrets, the schemas of its config entries, mappings
+  and settings;
 - stage placement and `when` wrapping are pipeline changes, not step changes.
 
 Only commits that touch the binding path or one of its local package dependencies (`file:` /

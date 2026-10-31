@@ -15,7 +15,6 @@ import { validateInput } from '../../src/harness/validate.ts';
 import { testHandler } from '../../src/testing/index.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
-const H = 'sha256:' + 'b'.repeat(64);
 const Req = model('Req', z.object({ sha: z.string() }));
 const Art = model('Art', z.object({ version: z.string() }));
 const Verdict = model(
@@ -56,7 +55,6 @@ const review = implement(reviewStep, ({ verdict }) => {
 const describeIt = (p: unknown, handlers = ['build', 'pick', 'review']) =>
   describePipeline(p, {
     handlerNames: handlers,
-    handlerHashes: Object.fromEntries(handlers.map((n) => [n, H])),
     harness,
   });
 

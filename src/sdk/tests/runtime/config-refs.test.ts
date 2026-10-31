@@ -65,9 +65,6 @@ const source = {
 const describeOf = (p: unknown, handlers: string[] = []) =>
   describePipeline(p, {
     handlerNames: handlers,
-    handlerHashes: Object.fromEntries(
-      handlers.map((h) => [h, 'sha256:' + 'b'.repeat(64)]),
-    ),
     harness,
   });
 const problems = (p: unknown): string[] => {

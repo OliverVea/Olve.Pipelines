@@ -1,12 +1,10 @@
 import {
   IMPLEMENTATION,
-  ORIGIN,
   SKIPPED,
   type ImplementationBrand,
   type SkippedBrand,
 } from './brands.ts';
 import type { Ctx } from '../ctx/types.ts';
-import { callerFile, originsOf } from './origin.ts';
 import type { AnyStep, ConfigOf, OutputValue, SecretsOf, StepInput } from './steps.ts';
 import type { Awaitable } from './types.ts';
 
@@ -67,15 +65,9 @@ export function implement<S extends AnyStep, R extends HandlerResult<S>>(
     throw new TypeError(
       `step '${(step as AnyStep).name}' already carries its implementation`,
     );
-  const origins = [
-    ...new Set(
-      [...originsOf(step), callerFile()].filter((f): f is string => f !== undefined),
-    ),
-  ];
   return Object.freeze({
     ...step,
     [IMPLEMENTATION]: true,
-    [ORIGIN]: origins,
     step,
     handler: handler as unknown as Handler<S>,
   }) as unknown as Implementation<S>;

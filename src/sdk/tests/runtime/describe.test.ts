@@ -26,7 +26,6 @@ import { pipelineData } from '../../src/builder/pipeline.ts';
 import { EXAMPLE, SDK } from './helpers.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
-const H = 'sha256:' + 'b'.repeat(64);
 const Req = model(
   'Req',
   z.object({
@@ -73,7 +72,6 @@ function problems(p: unknown, names?: string[]): string[] {
   try {
     describePipeline(p, {
       handlerNames,
-      handlerHashes: Object.fromEntries(handlerNames.map((n) => [n, H])),
       harness,
     });
   } catch (e) {
@@ -95,7 +93,7 @@ describe('example manifest', async () => {
   const cfg = await devConfig(EXAMPLE, true);
   const m = describePipeline(cfg.pipeline, {
     handlerNames: Object.keys(cfg.handlers),
-    handlerHashes: cfg.handlerHashes,
+    codeHash: cfg.codeHash,
     harness: cfg.harness,
   });
 
@@ -104,7 +102,7 @@ describe('example manifest', async () => {
   test('is deterministic', () => {
     const again = describePipeline(cfg.pipeline, {
       handlerNames: Object.keys(cfg.handlers),
-      handlerHashes: cfg.handlerHashes,
+      codeHash: cfg.codeHash,
       harness: cfg.harness,
     });
     expect(canonicalJson(again)).toBe(canonicalJson(m));
@@ -200,8 +198,8 @@ describe('describe-time checks', () => {
     ).toEqual([]);
   });
   test('custom step without handler', () =>
-    expectProblem(base().stage(make), /step 'make' has no handler/, []));
-  test('handler file without step / for a step that carries its implementation; a carried step needs a kind', () => {
+    expectProblem(base().stage(make), /step 'make' has no implementation/, []));
+  test('handler file without step / for a step that carries its implementation', () => {
     expectProblem(
       base().stage(make),
       /implements step 'ghost', which is not in the pipeline/,
@@ -215,15 +213,6 @@ describe('describe-time checks', () => {
       base().stage(lib),
       /implements 's', a lib step that carries its own implementation/,
       ['s'],
-    );
-    const custom = implement(
-      step({ name: 's', description: '', image: 'alpine' }),
-      () => {},
-    );
-    expectProblem(
-      base().stage(custom),
-      /carries its implementation, so it needs a kind/,
-      [],
     );
   });
   test('two schemas under one model name', () => {
@@ -491,7 +480,7 @@ test('Source library model is a dir fileRef carrier', () => {
 
 describe('retention', () => {
   const manifestOf = (p: unknown) =>
-    describePipeline(p, { handlerNames: ['make'], handlerHashes: { make: H }, harness });
+    describePipeline(p, { handlerNames: ['make'], harness });
   test('omitted unless set; set fields are recorded as given', () => {
     expect('retention' in manifestOf(base().stage(make))).toBe(false);
     expect(

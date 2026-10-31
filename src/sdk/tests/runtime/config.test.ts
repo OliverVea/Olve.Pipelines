@@ -26,7 +26,6 @@ import { testHandler } from '../../src/testing/index.ts';
 import { captureIO, tmp, withEnv } from './helpers.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
-const H = 'sha256:' + 'b'.repeat(64);
 
 const DEX_SECRET = secret('DEX_CLIENT_SECRET', 'Dex client secret.');
 const AUTH = config(
@@ -74,7 +73,6 @@ const describeOf = (p: unknown) => {
   const names = allSteps(pipelineData(p)).map((s) => s.name);
   return describePipeline(p, {
     handlerNames: names,
-    handlerHashes: Object.fromEntries(names.map((n) => [n, H])),
     harness,
   });
 };
@@ -172,7 +170,6 @@ describe('delivery', () => {
       deploy: async () => ({ default: impl }),
       plain: async () => ({ default: implement(plain, () => undefined) }),
     },
-    handlerHashes: { deploy: H, plain: H },
     harness,
   };
   const run = async (name: string, input: unknown) => {

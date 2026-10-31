@@ -30,7 +30,7 @@ Two tracks run in parallel until they meet at the harness contract (B5/B6).
 |---|---|---|---|
 | A1 | `sdk/` package `@olve/pipelines`: models, `fileRef`, `secret`, `optional`, `step`, `implement`, `pipeline()` builder (tuple mappers, `when`, `onPush`/`onPoll` with secrets, `onFailure`), `Ref<T>` | `d269107:spikes/sdk-types/src/sdk.ts` | compile-fail checker (51+ cases) passes on TS 7 + 5.9 |
 | A2 | Harness runtime: `describe` (canonical manifest, tagged mappings, mapper source analysis, all describe-time checks), `run` (envelope + exit codes), `map-trigger`; strict output validation; model-name uniqueness | `d269107:spikes/compile/sdk/*` | modes + negative tests pass; manifest deterministic |
-| A3 | Build tooling (`olve-build`): handler registry generation, per-handler hashes (contract files external), compile flags, PT_INTERP check, `step.tar.gz` | `d269107:spikes/compile/build.ts` | hash-demo behaviour reproduced in tests |
+| A3 | Build tooling (`olve-build`): handler registry generation, the code hash, compile flags, PT_INTERP check, `step.tar.gz` | `d269107:spikes/compile/build.ts` | hash-demo behaviour reproduced in tests |
 | A4 | `ctx`: `sh` (shell detection, embedded scripts copied out), `readText/readJson`, `files.fetch` + `output.file/dir` (fileRef with run/step/attempt/path/sha256), `http`, `retry`, `secrets`, `log`, `signal`, `run` | new | unit tests with `testHandler` |
 | A5 | `testHandler(step, input, { ctx })` for `bun test` | new | used by A4/A6 tests |
 | A6 | Library steps needed by v2's own deploy only: script, GitHub source fetch (tarball), image build (kaniko + layer cache), Helm deploy over SSH, HTTP health check — general function first, specialization only where used | ports of `.pipelines/scripts/*` | v2's own `pipeline.ts` (E1) uses them |
@@ -550,14 +550,9 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   `LiteralName`, `Simplify`. `tests/runtime/library-public.test.ts` fails when a library module
   imports a non-public name from outside `src/library` (`src/util` excepted: tar/hash helpers, not
   step mechanics).
-- **Identity**: library steps used to hash `kind + config + harness`, correct only because `sdkHash`
-  covers the code. Now `step()` and `implement()` record their caller's module from the stack; the
-  build bundles those modules per kind (contract files excluded, SDK external, like handlers) into
-  `kindHashes`, which describe folds into `handlerHash` (`code`). JavaScriptCore elides tail-call
-  frames, so `return implement(…)` records a module further up (often `pipeline.ts`, dropped as a
-  contract file); recording `step()` too, which is never in tail position in a factory, keeps the
-  defining module. Over-inclusion only adds hashing. A carried step with no non-contract module is a
-  build error; one without a kind is a describe error. No manifest or service change.
+- **Identity**: the manifest carries one `codeHash` for the whole build; steps carry no hash of
+  their own. Per-step code hashes needed the stack to find a step's module and left silent gaps, and
+  only the UI read them. Which step's code changed is a `git diff` between two versions' commits.
 - **Audit** (all five v2 pipelines): `steps.script` had no user, deleted with `inputEnvName`; unused
   `imageBuild` options `cacheRepo`, `dockerfile`, `snapshotMode`, `useNewRun`, `compressedCaching`
   deleted (kaniko keeps `--snapshot-mode=redo --use-new-run --compressed-caching=false`); `shq`,
@@ -707,7 +702,7 @@ Parked by the user ("like v4").
 - `gitHubSource` option `hashes: { cli: ["src/Olve.Pipelines.Cli", …] }` adds content hashes of path
   sets to `Source.hashes`; whole-input keys never hit for source-based steps because `sha`/`tree`
   change every commit.
-- A succeeded attempt with the same step name, step version (includes the handler hash) and key is
+- A succeeded attempt with the same step name, `codeHash` and key is
   reused: a succeeded attempt with `cachedFrom`, output by reference, no Job. Retention keeps runs
   whose files are still referenced; `/download` pinning follows the refs.
 - Motivating case: `publish-cli` (~3.5 min of a ~8 min run) on commits that don't touch the CLI.

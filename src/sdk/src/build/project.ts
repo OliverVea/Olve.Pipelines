@@ -3,15 +3,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { isImplementation } from '../core/handlers.ts';
 import { sha256Hex } from '../util/hash.ts';
-import type { HarnessInfo } from '../util/handler-hash.ts';
+import type { HarnessInfo } from '../util/code-hash.ts';
 
 export const SDK_ROOT = resolve(import.meta.dir, '../..');
 
 export interface Project {
   dir: string;
   pipelineFile: string;
-  /** Contract files (excluded from handler bundles): pipeline.ts, models.ts. */
-  contractFiles: string[];
   /** step name → absolute handler file, sorted by step name. The step is the one the file's `implement(step, …)` names. */
   handlers: [string, string][];
 }
@@ -24,14 +22,7 @@ export async function loadProject(dirArg: string): Promise<Project> {
   const dir = resolve(dirArg);
   if (!existsSync(dir) || !statSync(dir).isDirectory())
     throw new ProjectError(`${dirArg} is not a directory`);
-  const pipelineFile = join(dir, 'pipeline.ts');
-  if (!existsSync(pipelineFile))
-    throw new ProjectError(
-      `${join(dirArg, 'pipeline.ts')} not found (it must default-export pipeline({...}))`,
-    );
-  const contractFiles = ['pipeline.ts', 'models.ts']
-    .map((f) => join(dir, f))
-    .filter((f) => existsSync(f));
+  const pipelineFile = entryOf(dirArg, dir);
   const hdir = join(dir, 'handlers');
   const files = existsSync(hdir)
     ? readdirSync(hdir)
@@ -47,12 +38,25 @@ export async function loadProject(dirArg: string): Promise<Project> {
   return {
     dir,
     pipelineFile,
-    contractFiles,
     handlers: await resolveHandlers(hdir, files),
   };
 }
 
-/** The default export of pipeline.ts. */
+/** The package's `main`, or `pipeline.ts` in a package that doesn't name one. */
+function entryOf(dirArg: string, dir: string): string {
+  const pkg = join(dir, 'package.json');
+  const main = existsSync(pkg)
+    ? (JSON.parse(readFileSync(pkg, 'utf8')) as { main?: string }).main
+    : undefined;
+  const entry = join(dir, main ?? 'pipeline.ts');
+  if (!existsSync(entry))
+    throw new ProjectError(
+      `${join(dirArg, main ?? 'pipeline.ts')} not found (it must default-export pipeline({...}))`,
+    );
+  return entry;
+}
+
+/** The default export of the entry point. */
 export async function loadPipeline(project: Project): Promise<unknown> {
   const mod = (await import(project.pipelineFile)) as { default?: unknown };
   if (!mod.default)

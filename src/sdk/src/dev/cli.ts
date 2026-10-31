@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { runHarness, type HarnessConfig } from '../harness/main.ts';
 import { EXIT } from '../harness/exit.ts';
-import { handlerHashes, kindHashes } from '../build/hashes.ts';
+import { codeHash } from '../build/hashes.ts';
 import {
   harnessInfo,
   loadPipeline,
@@ -34,7 +34,6 @@ export async function devConfig(
   const project = await loadProject(dir);
   const pipeline = await loadPipeline(project);
   const harness = harnessInfo();
-  const hashes = withHashes ? await handlerHashes(project, harness) : {};
   return {
     pipeline,
     handlers: Object.fromEntries(
@@ -43,10 +42,7 @@ export async function devConfig(
         () => import(file) as Promise<{ default: unknown }>,
       ]),
     ),
-    handlerHashes: Object.fromEntries(
-      Object.entries(hashes).map(([k, v]) => [k, v.handlerHash]),
-    ),
-    ...(withHashes ? { kindHashes: await kindHashes(project, pipeline) } : {}),
+    ...(withHashes ? { codeHash: await codeHash(project, harness) } : {}),
     harness,
   };
 }

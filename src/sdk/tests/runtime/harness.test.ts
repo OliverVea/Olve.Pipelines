@@ -59,7 +59,7 @@ describe('describe', () => {
     const io = captureIO();
     expect(await runHarness(bad, ['describe'], io)).toBe(EXIT.configInvalid);
     expect(io.err.join('\n')).toMatch(
-      /step 'checkout' has no handler[\s\S]*step 'build' has no handler/,
+      /step 'checkout' has no implementation[\s\S]*step 'build' has no implementation/,
     );
   });
 });

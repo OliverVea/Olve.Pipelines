@@ -43,8 +43,7 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 Dependency direction: `models ← steps ← handlers`, `models ← pipeline`. Handlers never depend on the
 pipeline; their types come from the step definition alone.
 
-- **Contract files** (`models.ts`, `pipeline.ts`) contain contracts only — no handler code. Describe
-  evaluates them alone, and they are external to every handler bundle (§6.1).
+- **Importing the entry point is deterministic**: describe evaluates it and everything it imports.
 - **Handlers by convention**: `handlers/<step-name>.ts` default-exports `implement(step, fn)`. The
   build generates a registry of literal imports (computed dynamic imports would load from disk at
   runtime). A custom step without a handler file is a describe error; library steps need none.
@@ -374,7 +373,7 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
     { "steps": [ "…build, test…" ] },
     { "steps": [ { "name": "deploy-beta", "image": "alpine:latest",
                    "input": { "artifact": { "ref": "build" } }, "output": "BetaDeployment",
-                   "secrets": ["SSH_PRIVATE_KEY"], "handlerHash": "sha256:…" } ] },
+                   "secrets": ["SSH_PRIVATE_KEY"] } ] },
     { "when": { "deployTo": ["prod"] }, "stages": [ "…" ] }
   ],
   "failureHandlers": [ "…" ]
@@ -529,15 +528,13 @@ across runs (promote; later the environments view); run by version stamp.
 - **Entity versions**: steps and models each have `<id>.<version>`, incremented only when *that*
   entity's content changes, by content comparison:
   - model → its JSON Schema
-  - step → image, input/output model versions, declared secrets, mappings, handler hash
-  - **handler hash** = hash of that handler's own bundle output, built separately with the contract
-    files external (tree-shaken, so imported shared code and embedded scripts count at function
-    granularity). Not Bun's metafile input list — its import graph is incomplete.
+  - step → image, input/output model versions, declared secrets, mappings, settings
+  - **code hash** = one hash of the whole build on the manifest root: a code change makes a new
+    pipeline version and bumps no entity. Not Bun's metafile input list: its import graph is incomplete.
   - stage placement / `when` wrapping are *pipeline* changes, not step changes
 - A model change ripples to every step consuming it.
 - Hash the **manifest**, not the source; describe must be deterministic (no env/time/network) or
-  versions flap. Lockfile changes legitimately bump every handler — the GUI labels it "dependency
-  change". The manifest carries `harness: { bun, sdkHash }`; a Bun or SDK bump likewise
+  versions flap. Dependency changes reach the code hash. The manifest carries `harness: { bun, sdkHash }`; a Bun or SDK bump likewise
   legitimately bumps all handlers.
 - Versions are **immutable** and retained while any retained run references them.
 
@@ -662,7 +659,7 @@ All four passed; findings are folded into this spec. Details, numbers and gotcha
 [pipelines-v2-spikes.md](pipelines-v2-spikes.md) (spike code removed 2026-10-22; in git at `d269107:spikes/`).
 
 1. **Harness in any image** — PASS (glibc binary + bundled loader; §5.1).
-2. **One binary, many modes** — PASS (deterministic manifest; per-handler bundle hashes, not the
+2. **One binary, many modes** — PASS (deterministic manifest; a bundle hash, not the
    metafile; §6.1).
 3. **Describe sandbox** — PASS (~1.3 s; manifest via stdout sentinels; §5.1, §8).
 4. **Type-level builder** — PASS (every TS check in §3.7; tuple mappers, describe source analysis).

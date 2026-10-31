@@ -47,6 +47,11 @@
           "const": "2.0",
           "type": "string"
         },
+        "codeHash": {
+          "description": "Hash of the whole build: the pipeline and its code bundled, plus the harness. Any code change makes a new pipeline version.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
         "config": {
           "description": "Config entries used by steps, sorted by name (omitted when none). Fields of kind secretRef ({secret: NAME}) name a secret.",
           "items": {
@@ -121,7 +126,7 @@
         },
         "harness": {
           "additionalProperties": false,
-          "description": "Harness identity. Already folded into every handlerHash.",
+          "description": "Harness identity. Already folded into codeHash.",
           "properties": {
             "bun": {
               "description": "Bun runtime version compiled into the binary.",
@@ -227,6 +232,7 @@
         "name",
         "input",
         "harness",
+        "codeHash",
         "models",
         "secrets",
         "triggers",
@@ -404,7 +410,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/Json"
           },
-          "description": "The step's settings (display only; already covered by handlerHash). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries.",
+          "description": "The step's settings (display only). A config reference is recorded as {\"$config\": \"<entry>.<field>…\"}; the entry is in configEntries.",
           "propertyNames": {
             "type": "string"
           },
@@ -520,11 +526,6 @@
           },
           "type": "object"
         },
-        "handlerHash": {
-          "description": "Implementation identity: handler bundle (contract files excluded) + harness (bun + sdkHash); for a step that carries its implementation kind + config + harness + the hash of the code of its kind.",
-          "pattern": "^sha256:[0-9a-f]{64}$",
-          "type": "string"
-        },
         "image": {
           "description": "Container image the step runs in.",
           "minLength": 1,
@@ -551,7 +552,7 @@
           "type": "object"
         },
         "kind": {
-          "description": "'custom' = the handler is a handlers/*.ts file; any other kind is a step that carries its implementation (an SDK or package step). A label: the service accepts any kind.",
+          "description": "A label for the step's kind: 'custom' unless the step names one.",
           "minLength": 1,
           "type": "string"
         },
@@ -601,8 +602,7 @@
         "inputTypes",
         "input",
         "output",
-        "secrets",
-        "handlerHash"
+        "secrets"
       ],
       "type": "object"
     },

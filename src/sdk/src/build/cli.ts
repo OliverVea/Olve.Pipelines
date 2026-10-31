@@ -3,7 +3,7 @@
 import { parseArgs } from 'node:util';
 import { canonicalJson } from '../util/canonical.ts';
 import { build, BuildError, type Target } from './build.ts';
-import { handlerHashes } from './hashes.ts';
+import { codeHash } from './hashes.ts';
 import { harnessInfo, loadProject, ProjectError } from './project.ts';
 
 const USAGE =
@@ -33,8 +33,11 @@ async function main(): Promise<number> {
   const dir = positionals[0]!;
   try {
     if (values['hash-only']) {
-      const h = await handlerHashes(await loadProject(dir), harnessInfo());
-      await Bun.write(Bun.stdout, canonicalJson({ harness: harnessInfo(), handlers: h }));
+      const code = await codeHash(await loadProject(dir), harnessInfo());
+      await Bun.write(
+        Bun.stdout,
+        canonicalJson({ harness: harnessInfo(), codeHash: code }),
+      );
       return 0;
     }
     if (!values.out) return (console.error(`--out is required\n${USAGE}`), 64);

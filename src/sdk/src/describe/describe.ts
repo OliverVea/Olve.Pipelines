@@ -1,5 +1,4 @@
-// `describe`: evaluates the contracts (models + pipeline, never handlers) into the manifest and runs
-// every describe-time check. All problems are collected and reported together.
+// `describe`: evaluates the pipeline into the manifest and runs every describe-time check. All problems are collected and reported together.
 import { z } from 'zod';
 import { CONFIG_NAME, isConfigEntry, SECRET_REF_KIND } from '../core/config.ts';
 import { CONFIG_CASE_KEY, CONFIG_REF_KEY } from '../core/config-refs.ts';
@@ -18,7 +17,7 @@ import {
 } from '../builder/pipeline.ts';
 import { FailureContext } from '../library/models.ts';
 import { canonicalize, canonicalJson } from '../util/canonical.ts';
-import { libraryHandlerHash, type HarnessInfo } from '../util/handler-hash.ts';
+import type { HarnessInfo } from '../util/code-hash.ts';
 import { analyzeMapperSource } from './mapper-source.ts';
 import { MapperError, recordMapper, type Mapping } from './record.ts';
 import {
@@ -43,10 +42,8 @@ export class DescribeError extends Error {
 export interface DescribeOptions {
   /** Step names that have a handler (a `handlers/*.ts` default-exporting `implement(step, …)`). */
   handlerNames: Iterable<string>;
-  /** Step name → handler hash (from the build; includes the harness identity). */
-  handlerHashes: Readonly<Record<string, string>>;
-  /** Kind → hash of the code that implements the steps of that kind which carry their implementation (from the build). */
-  kindHashes?: Readonly<Record<string, string>>;
+  /** Hash of the build (from the build; includes the harness identity). */
+  codeHash?: string;
   harness: HarnessInfo;
 }
 
@@ -439,15 +436,10 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
             `${at}: config '${name}' references secret '${ref}' (secretRef), so the step must declare it in secrets`,
           );
     }
-    let handlerHash: string;
     if (settingsProblem !== undefined)
       problems.push(`${at}: invalid ${s.kind} settings (${settingsProblem})`);
     if (typeof s.kind !== 'string' || s.kind === '')
       problems.push(`${at}: kind must be a non-empty string`);
-    if (carried && s.kind === 'custom')
-      problems.push(
-        `${at} carries its implementation, so it needs a kind (step({ kind: "…", … })); a step with kind custom has its handler in handlers/`,
-      );
     for (const { ref, case: kase } of refs) {
       const [entry, ...path] = ref.split('.') as [string, ...string[]];
       if (kase !== undefined && !cases.some((c) => c.cond === kase))
@@ -463,20 +455,10 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
           `${at}: config reference '${ref}': config '${entry}' has no field '${path.join('.')}'`,
         );
     }
-    if (carried) {
-      const code = opts.kindHashes?.[s.kind];
-      if (opts.kindHashes && !code)
-        problems.push(`${at}: no hash was computed for the code of kind '${s.kind}'`);
-      handlerHash = libraryHandlerHash(s.kind, settings, opts.harness, code);
-    } else {
-      if (!handlerNames.has(s.name))
-        problems.push(
-          `${at} has no handler (add a handlers/*.ts default-exporting implement(${camel(s.name)}, …))`,
-        );
-      handlerHash = opts.handlerHashes[s.name] ?? '';
-      if (handlerNames.has(s.name) && !handlerHash)
-        problems.push(`${at}: no handler hash was computed`);
-    }
+    if (!carried && !handlerNames.has(s.name))
+      problems.push(
+        `${at} has no implementation (implement(${camel(s.name)}, …) and stage that, or add a handlers/*.ts default-exporting it)`,
+      );
     if (typeof s.description !== 'string')
       problems.push(`${at}: description must be a string (it may be empty)`);
     if (
@@ -496,7 +478,6 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
       input,
       output: s.output ? useModel(s.output, `${at} output`) : null,
       secrets: secretNames,
-      handlerHash: handlerHash || 'sha256:' + '0'.repeat(64),
       ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
       ...(s.retries !== undefined ? { retries: s.retries } : {}),
       ...(settings !== undefined
@@ -818,6 +799,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     input: inputModel.name,
     ...(Object.keys(retention).length ? { retention } : {}),
     harness: opts.harness,
+    codeHash: opts.codeHash ?? 'sha256:' + '0'.repeat(64),
     models: Object.fromEntries([...models].map(([k, v]) => [k, v.schemas])),
     secrets: [...secrets]
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))

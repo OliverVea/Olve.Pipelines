@@ -47,7 +47,7 @@ bunx olve-build . --out .olve/out
 ```
 
 - The package ships TypeScript sources (Bun runs them directly; `harness.sdkHash` hashes them), so the
-  same version gives the same `sdkHash` and handler hashes from npm or from `file:../src/sdk`.
+  same version gives the same `sdkHash` and `codeHash` from npm or from `file:../src/sdk`.
 - Inside this repo, `.pipelines/` and `.pipelines-test/` use `"@olivervea/pipelines": "file:../src/sdk"`.
 
 ### Releases
@@ -59,17 +59,9 @@ skips when the version exists, or when the pipeline secret `NPM_TOKEN` is unset.
 
 ## Authoring
 
-A pipeline directory (the binding path, `.pipelines/` by default) looks like this:
+A pipeline directory (the binding path, `.pipelines/` by default) is an ordinary Bun package. `main` in `package.json` names the entry point, which default-exports the pipeline (`pipeline.ts` when there is no `main`); every other name is yours. A step that carries its implementation, `implement(step({ … }), fn)`, is imported and staged like any value. A plain `step()` needs a top-level `handlers/*.ts` default-exporting `implement(step, fn)`, paired by the step, not the file name; shared code goes in a subfolder.
 
-```
-models.ts                 data models                         (contract file)
-pipeline.ts               steps + `export default pipeline(…)` (contract file)
-handlers/*.ts             one per custom step: `export default implement(step, fn)` (pairs by the step, not the file name)
-handlers/lib/…            shared helpers (not handlers)
-scripts/*.sh              embedded with `import s from "../scripts/x.sh" with { type: "file" }`
-```
-
-Contract files hold contracts only. Describe evaluates them without loading handlers, and they are kept out of every handler's hash.
+Describe evaluates the entry point and everything it imports, so top-level code must be deterministic: no env, time or network. Scripts are embedded with `import s from "./x.sh" with { type: "file" }`.
 
 ### Models, secrets, steps
 
@@ -195,9 +187,8 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 }
 ```
 
-- **`kind`**: a label, required for a step that carries its implementation (`custom` is a step with a handler file). Prefix a package's kinds (`acme/smokeTest`).
+- **`kind`**: a label, `custom` unless the step names one. Prefix a package's kinds (`acme/smokeTest`).
 - **`settings`**: what the step was set up with, recorded as the step's manifest `config` (so part of its version). JSON values and config references; the step receives every entry its settings reference.
-- **Identity**: `implement` and `step` record the module that called them (from the stack; a tail call can name a module further up, which only adds to what is hashed). The build bundles those modules, minus `pipeline.ts` and `models.ts`, like a handler, and the kind's hash (`kindHashes` in the generated `handlers.ts`) goes into each such step's `handlerHash`. A step that carries its implementation and has no other module (defined and implemented in a contract file) is a build error.
 - `implement` refuses a step that already carries an implementation; a `handlers/*.ts` file for such a step is a describe error.
 
 ### Handlers
@@ -388,10 +379,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
-- **`handlerHash`** is the step's implementation identity. A step version can be computed from image + `inputTypes`/model versions + `output` model version + `secrets` + `configEntries` (and those entries' schemas) + `input` mappings + `handlerHash`. Stage placement, `when` and the step's `description` are not part of it.
-  - Custom steps: `sha256(canonical {bundle, harness})`. `bundle` hashes the handler bundled on its own, with `pipeline.ts`, `models.ts` and `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts, so it changes only when that handler's code (or code it uses) changes.
-  - Steps that carry their implementation: `sha256(canonical {library: kind, config, harness, code})`, `code` being the hash of the modules that define and implement steps of that kind (see [Reusable steps](#reusable-steps)).
-  - Because `harness` is part of both hashes, a Bun or SDK bump changes every handler.
+- **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point and any `handlers/*.ts` bundled together, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
 - **`triggers`**:
   - `{kind: "push", name: "push"}`;
@@ -420,14 +408,14 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 
 ```
 olve-build <pipelineDir> --out <dir> [--target bun-linux-x64|bun-linux-x64-musl] [--upload-url <presigned PUT>] [--sentinels]
-olve-build <pipelineDir> --hash-only          # print handler hashes (diagnostics)
+olve-build <pipelineDir> --hash-only          # print the code hash (diagnostics)
 ```
 
-1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash it (see `handlerHash`); hash the modules of each kind of step that carries its implementation.
-2. Generate `<pipelineDir>/.olve/gen/handlers.ts` (a registry of literal `import()` paths, plus hashes and harness info) and `entry.ts`. Add `.olve/` to `.gitignore`.
+1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash the build (see `codeHash`).
+2. Generate `<pipelineDir>/.olve/gen/handlers.ts` (a registry of literal `import()` paths, plus the code hash and harness info) and `entry.ts`. Add `.olve/` to `.gitignore`.
 3. Run `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig --bytecode --format=esm` → `<out>/step`. The output is never minified, because mapper source analysis needs real source.
 4. Check that `PT_INTERP` is `/lib64/ld-linux-x86-64.so.2`. On alpine, Bun silently produces a musl binary; the check fails it.
-5. Run `<out>/step describe` → `<out>/manifest.json`. A describe problem is a build failure with exit 78. **A custom step without a handler file is an error.**
+5. Run `<out>/step describe` → `<out>/manifest.json`. A describe problem is a build failure with exit 78. **A step with no implementation is an error.**
 6. Write `<out>/step.tar.zst` (a deterministic tar, `step` at the root, mode 0755, zstd level 3: it unpacks in the step pod far faster than gzip; harness-base also still unpacks the gzip archives of older SDKs; from 2.0.0-beta.7 the SDK needs an instance whose harness-base unpacks zstd, i.e. one deployed on or after 2026-10-25) and `<out>/build.json` (diagnostics).
 7. With `--upload-url`, PUT `step.tar.zst`, using the same retry rules as the result upload. With `--sentinels`, print the manifest between the manifest sentinels.
 

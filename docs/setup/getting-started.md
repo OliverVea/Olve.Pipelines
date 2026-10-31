@@ -11,7 +11,7 @@ A pipeline imports the SDK, published to npm as
 [`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines):
 
 ```json
-"dependencies": { "@olivervea/pipelines": "2.0.0-beta.20" }
+"dependencies": { "@olivervea/pipelines": "2.0.0-beta.21" }
 ```
 
 Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
@@ -51,8 +51,8 @@ first.
   package.json          dependencies: @olivervea/pipelines; devDependencies: typescript, @types/bun
   bun.lock              committed: the build Job runs `bun install --frozen-lockfile`
   tsconfig.json
-  models.ts             data models          (contract file)
-  pipeline.ts           steps + pipeline     (contract file)
+  models.ts             data models
+  pipeline.ts           steps + pipeline     (or the `main` of package.json)
   handlers/*.ts         one per custom step: implement(step, fn)  (library steps carry their own)
   scripts/*.sh          embedded into the compiled binary
 ```
@@ -65,7 +65,7 @@ first.
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.20" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.21" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```

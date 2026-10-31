@@ -11,7 +11,7 @@ import type { WebhookEvent } from '../core/webhooks.ts';
 import { pipelineData, type PipelineData, type StageNode } from '../builder/pipeline.ts';
 import { createCtx, formatLog } from '../ctx/index.ts';
 import { DescribeError, describePipeline, manifestText } from '../describe/describe.ts';
-import type { HarnessInfo } from '../util/handler-hash.ts';
+import type { HarnessInfo } from '../util/code-hash.ts';
 import { callbackUrlsFromEnv, ENV, paths, runInfoFromEnv } from './env.ts';
 import { EXIT } from './exit.ts';
 import {
@@ -37,12 +37,11 @@ export type HandlerRegistry = Readonly<
 >;
 
 export interface HarnessConfig {
-  /** Default export of pipeline.ts. */
+  /** Default export of the entry point. */
   pipeline: unknown;
   handlers: HandlerRegistry;
-  handlerHashes: Readonly<Record<string, string>>;
-  /** Kind → hash of the code of the steps of that kind that carry their implementation. */
-  kindHashes?: Readonly<Record<string, string>>;
+  /** Hash of the build (from the build; includes the harness identity). */
+  codeHash?: string;
   harness: HarnessInfo;
 }
 
@@ -191,8 +190,7 @@ async function describeMode(
     const text = manifestText(
       describePipeline(cfg.pipeline, {
         handlerNames: Object.keys(cfg.handlers),
-        handlerHashes: cfg.handlerHashes,
-        kindHashes: cfg.kindHashes,
+        codeHash: cfg.codeHash,
         harness: cfg.harness,
       }),
     );

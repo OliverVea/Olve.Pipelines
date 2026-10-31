@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { build } from '../../src/build/build.ts';
 import { readInterpreter, GLIBC_INTERP } from '../../src/build/elf.ts';
-import { handlerHashes, kindHashes } from '../../src/build/hashes.ts';
+import { codeHash } from '../../src/build/hashes.ts';
 import { model, pipeline, z } from '../../src/index.ts';
 import { harnessInfo, loadProject } from '../../src/build/project.ts';
 import { devMain } from '../../src/dev/cli.ts';
@@ -34,40 +34,32 @@ const edit = (file: string, from: string | RegExp, to: string) => {
   writeFileSync(file, after);
 };
 
-describe('handler hashes (contract files and SDK external, function-level granularity)', () => {
-  let baseline: Record<string, string>;
-  const hashesOf = async (dir: string) =>
-    Object.fromEntries(
-      Object.entries(await handlerHashes(await loadProject(dir), harnessInfo())).map(
-        ([k, v]) => [k, v.handlerHash],
-      ),
-    );
+describe('code hash (the whole build, with the SDK external)', () => {
+  let baseline: string;
+  const hashOf = async (dir: string) => codeHash(await loadProject(dir), harnessInfo());
   const changed = async (fn: (dir: string) => void) => {
     const dir = copyExample(join(tmp('hash'), 'p'));
     fn(dir);
-    const h = await hashesOf(dir);
-    return Object.keys(h)
-      .filter((k) => h[k] !== baseline[k])
-      .sort();
+    return (await hashOf(dir)) !== baseline;
   };
   beforeAll(async () => {
-    baseline = await hashesOf(copyExample(join(tmp('hash'), 'p')));
+    baseline = await hashOf(copyExample(join(tmp('hash'), 'p')));
   });
 
-  test('no edits, different directory → identical', async () =>
-    expect(await changed(() => {})).toEqual([]));
-  test('edit a handler → only that handler', async () =>
+  test('no edits, different directory → the same hash', async () =>
+    expect(await changed(() => {})).toBe(false));
+  test('edit a handler → a new hash', async () =>
     expect(
       await changed((d) =>
         edit(join(d, 'handlers/build.ts'), "'image.tar'", "'image2.tar'"),
       ),
-    ).toEqual(['build']));
-  test('edit a shared helper → only handlers that use that function', async () => {
+    ).toBe(true));
+  test('edit a shared helper in use → a new hash', async () => {
     expect(
       await changed((d) =>
         edit(join(d, 'handlers/lib/release.ts'), 'slice(0, 7)', 'slice(0, 8)'),
       ),
-    ).toEqual(['build']);
+    ).toBe(true);
     expect(
       await changed((d) =>
         edit(
@@ -76,9 +68,9 @@ describe('handler hashes (contract files and SDK external, function-level granul
           'olve-pl-${env}',
         ),
       ),
-    ).toEqual(['deploy-beta', 'deploy-prod']);
+    ).toBe(true);
   });
-  test('unused export / comment-only edit → nothing', async () => {
+  test('unused export / comment-only edit → the same hash', async () => {
     expect(
       await changed((d) =>
         writeFileSync(
@@ -87,7 +79,7 @@ describe('handler hashes (contract files and SDK external, function-level granul
             'export const unused = 1;\n',
         ),
       ),
-    ).toEqual([]);
+    ).toBe(false);
     expect(
       await changed((d) =>
         writeFileSync(
@@ -95,9 +87,9 @@ describe('handler hashes (contract files and SDK external, function-level granul
           readFileSync(join(d, 'handlers/build.ts'), 'utf8') + '// just a comment\n',
         ),
       ),
-    ).toEqual([]);
+    ).toBe(false);
   });
-  test('edit an embedded script → the handlers embedding it', async () =>
+  test('edit an embedded script → a new hash', async () =>
     expect(
       await changed((d) =>
         writeFileSync(
@@ -105,8 +97,8 @@ describe('handler hashes (contract files and SDK external, function-level granul
           readFileSync(join(d, 'scripts/deploy.sh'), 'utf8') + '# changed\n',
         ),
       ),
-    ).toEqual(['deploy-beta', 'deploy-prod']));
-  test('edit contract files (pipeline.ts, models.ts) → no handler hash changes', async () => {
+    ).toBe(true));
+  test('edit the pipeline or a model → a new hash', async () => {
     expect(
       await changed((d) =>
         edit(
@@ -115,7 +107,7 @@ describe('handler hashes (contract files and SDK external, function-level granul
           "image: 'alpine:3.20',\n  input: { artifact: M.BuildArtifact },\n  output: M.BetaDeployment",
         ),
       ),
-    ).toEqual([]);
+    ).toBe(true);
     expect(
       await changed((d) =>
         edit(
@@ -124,37 +116,58 @@ describe('handler hashes (contract files and SDK external, function-level granul
           'failed: z.number().int(), skipped: z.number().optional() }',
         ),
       ),
-    ).toEqual([]);
+    ).toBe(true);
   });
 });
 
-describe('kind hashes (steps that carry their implementation)', () => {
-  const TAG = `import { implement, model, step, z } from "@olivervea/pipelines";
-export const Tag = model("Tag", z.object({ tag: z.string() }));
-export const tagStep = (prefix: string) =>
-  implement(step({ name: "tag", description: "", kind: "tag", image: "alpine", output: Tag, settings: { prefix } }), (_i, ctx) => ({ tag: \`\${prefix}-\${ctx.run.number}\` }));
-`;
-  const kindsOf = async (body: string, prefix = 'app') => {
-    const dir = copyExample(join(tmp('kinds'), 'p'));
-    mkdirSync(join(dir, 'steps'));
-    writeFileSync(join(dir, 'steps/tag.ts'), body);
-    const { tagStep } = (await import(join(dir, 'steps/tag.ts'))) as {
-      tagStep: (p: string) => never;
-    };
-    const p = pipeline({
-      name: 'k',
-      input: model('KIn', z.object({ x: z.string() })),
-    }).stage(tagStep(prefix));
-    return kindHashes(await loadProject(dir), p);
+describe('a pipeline laid out like any TypeScript package', () => {
+  const plain = () => {
+    const dir = copyExample(join(tmp('plain'), 'p'));
+    for (const f of ['pipeline.ts', 'models.ts', 'handlers', 'scripts'])
+      rmSync(join(dir, f), { recursive: true, force: true });
+    mkdirSync(join(dir, 'ci/steps'), { recursive: true });
+    writeFileSync(
+      join(dir, 'ci/steps/hello.ts'),
+      `import { implement, step } from '@olivervea/pipelines';
+export const hello = implement(step({ name: 'hello', description: '', image: 'alpine' }), (_, ctx) => {
+  ctx.log('hello');
+});
+`,
+    );
+    writeFileSync(
+      join(dir, 'ci/main.ts'),
+      `import { model, pipeline, z } from '@olivervea/pipelines';
+import { hello } from './steps/hello.ts';
+export default pipeline({ name: 'plain', input: model('In', z.object({ x: z.string() })) }).stage(hello);
+`,
+    );
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ main: 'ci/main.ts' }));
+    return dir;
   };
-  test('one hash per kind, from the module that implements it; the settings stay out of it', async () => {
-    const a = await kindsOf(TAG);
-    expect(Object.keys(a)).toEqual(['tag']);
-    expect(await kindsOf(TAG, 'other')).toEqual(a);
-    expect(await kindsOf(TAG + '// a comment\n')).toEqual(a);
-    expect(
-      (await kindsOf(TAG.replace('ctx.run.number', 'ctx.run.attempt'))).tag,
-    ).not.toBe(a.tag);
+
+  test('the package main is the entry; a step needs no handlers/ file', async () => {
+    const dir = plain();
+    const r = await build(dir, { out: join(dir, '..', 'out'), log: () => {} });
+    const m = JSON.parse(r.manifest) as {
+      codeHash: string;
+      stages: { steps: Record<string, unknown>[] }[];
+    };
+    expect(m.codeHash).toBe(r.codeHash);
+    expect(m.codeHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(m.stages[0]!.steps[0]!.name).toBe('hello');
+    expect(m.stages[0]!.steps[0]!.kind).toBe('custom');
+    expect(m.stages[0]!.steps[0]).not.toHaveProperty('handlerHash');
+  }, 60000);
+  test("a change in a step's file changes the code hash", async () => {
+    const dir = plain();
+    const before = await codeHash(await loadProject(dir), harnessInfo());
+    edit(join(dir, 'ci/steps/hello.ts'), "ctx.log('hello')", "ctx.log('hi')");
+    expect(await codeHash(await loadProject(dir), harnessInfo())).not.toBe(before);
+  });
+  test('a main that does not exist is a build error', async () => {
+    const dir = plain();
+    rmSync(join(dir, 'ci/main.ts'));
+    await expect(loadProject(dir)).rejects.toThrow('ci/main.ts not found');
   });
 });
 
@@ -266,7 +279,7 @@ describe('compiled binary', () => {
       (e) => e,
     );
     expect(err?.exitCode).toBe(EXIT.configInvalid);
-    expect(String(err?.message)).toMatch(/step 'summary' has no handler/);
+    expect(String(err?.message)).toMatch(/step 'summary' has no implementation/);
   }, 60000);
 
   test('handlers pair by the step they implement, not by file name', async () => {

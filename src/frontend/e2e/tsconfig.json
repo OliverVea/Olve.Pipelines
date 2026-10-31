@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@olve/api": ["../../../artifacts/clients/ts/index.ts"],
+      "@olve/api/client": ["../../../artifacts/clients/ts/client/index.ts"]
+    }
+  },
+  "include": ["."],
+  "exclude": ["node_modules"]
+}

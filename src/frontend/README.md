@@ -33,6 +33,8 @@ npm run format       # Format src/ with Prettier
 npm run format:check # Check formatting
 ```
 
+Browser tests of the main flows are in `e2e/`, a separate package: see [Browser tests](../../CONTRIBUTING.md#browser-tests).
+
 `npm run dev` and `npm run build` first index `docs/setup` for the docs search
 (`scripts/build-docs-index.mjs`).
 `VITE_API_TARGET` picks any other instance; the `prod-api` and `beta` modes set it in `.env.prod-api`
@@ -68,6 +70,7 @@ Against prod (`dev:prod`) anything you do changes real pipelines.
 ```
 src/frontend/
 ├── index.html, api-reference.html  # The two Vite entries
+├── e2e/                            # Browser tests of the main flows (own package)
 ├── scripts/build-docs-index.mjs    # docs/setup → public/docs-index.json (docs search)
 └── src/
     ├── main.ts                     # Component imports (side-effect registration)

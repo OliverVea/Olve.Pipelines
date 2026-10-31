@@ -85,6 +85,24 @@ on what it owns, and never cleans up: retention with short thresholds and the sw
 test is marked `[ExclusiveServer]`. Each contract in `Contracts/` runs the same assertions on the real
 system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSystem/FakeContractTests.cs`).
 
+### Chaos tests
+
+`Olve.Pipelines.RealSystemTests/Chaos` injects scripted faults at known risky moments of a run, each with a
+checked invariant. The tests are `[Explicit]`: the default real-system run leaves them out, no pipeline runs
+them, and they sit outside the flake budget. Each is `[ExclusiveServer]`, so the host is reset afterwards.
+
+```bash
+tools/real-system/host.sh up 1
+tools/real-system/host.sh chaos 1                              # every crash moment once, from a random seed
+CHAOS_ROUNDS=3 tools/real-system/host.sh chaos 1               # three times
+CHAOS_SEEDS=17,18 tools/real-system/host.sh chaos 1            # replay these seeds
+CHAOS_SEEDS=17 CHAOS_GRACEFUL=1 tools/real-system/host.sh chaos 1   # the same moment with a graceful stop
+```
+
+The seed decides the moment, the delay after it and the downtime, and a failure prints its seed. A test
+reaches the fault only through `TestServer.ArmServerCrashAsync`, which is `host.sh crash`: it anchors on a
+server log line, so a changed log message shows up as `crash: the server logged nothing matching …`.
+
 ### Check before you push
 
 `tools/check.sh` runs what the deploy's `spec`, `test`, `build-sdk`, `build-frontend` and `build-cli`

@@ -2,6 +2,7 @@
   "name": "olve-pipelines-test-fixture",
   "private": true,
   "type": "module",
+  "main": "pipeline.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "describe": "olve-dev describe .",

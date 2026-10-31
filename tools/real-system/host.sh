@@ -8,6 +8,10 @@
 #   tools/real-system/host.sh down [slot]    remove the host and all its data
 #   tools/real-system/host.sh kubectl [slot] -- <args>   kubectl inside the throwaway cluster
 #   tools/real-system/host.sh sweep          remove what tests left that is over two hours old, on every target
+#   tools/real-system/host.sh crash [slot] --after <regex> [--delay-ms n] [--down-ms n] [--graceful]
+#       the fault seam of the chaos tier: print "armed", wait for a new server log line matching <regex>, wait delay-ms,
+#       SIGKILL the server (SIGTERM with --graceful), keep it down for down-ms, start it and wait until ready
+#   tools/real-system/host.sh chaos [slot]   run the chaos tier on this host; see CONTRIBUTING.md
 #
 # Slot 0 is the default host, http://localhost:5000. Slot n listens on 5000+10n and has its own compose
 # project, network and data, so a pool of three is `up 0`, `up 1`, `up 2`, then
@@ -70,6 +74,7 @@ write_descriptor() {
       storage: { endpoint: `http://127.0.0.1:${e.S3_PORT}`, bucket: "olve-pipelines", accessKey: e.GARAGE_ACCESS_KEY, secretKey: e.GARAGE_SECRET_KEY },
       gitHubUrl: `http://127.0.0.1:${e.GITHUB_PORT}`,
       resetCommand: `${process.argv[2]} reset ${process.argv[3]}`,
+      crashCommand: `${process.argv[2]} crash ${process.argv[3]}`,
     }, null, 2));' "$DESCRIPTOR" "$REPO_ROOT/tools/real-system/host.sh" "$slot"
   chmod 600 "$DESCRIPTOR"
 }
@@ -102,13 +107,46 @@ case "$command" in
     cd "$REPO_ROOT"
     dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- --treenode-filter '/*/*/SweepCommand/*' --output Detailed --no-progress
     ;;
+  crash)
+    shift 2
+    after="" delay_ms=0 down_ms=0 signal=KILL
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --after) after="$2"; shift 2 ;;
+        --delay-ms) delay_ms="$2"; shift 2 ;;
+        --down-ms) down_ms="$2"; shift 2 ;;
+        --graceful) signal=TERM; shift ;;
+        *) echo "crash: unknown option '$1'" >&2; exit 64 ;;
+      esac
+    done
+    [ -n "$after" ] || { echo "crash: --after <regex> is required" >&2; exit 64; }
+    # docker rather than compose: compose's start-up time would land inside the kill window.
+    container="$(compose ps -q server)"
+    [ -n "$container" ] || { echo "crash: the server of slot $slot is not running" >&2; exit 1; }
+    since="$(date -u +%FT%T.%NZ)"
+    echo armed
+    if ! grep -E -m1 -q -- "$after" < <(timeout 240 docker logs -f --since "$since" "$container" 2>&1); then
+      echo "crash: the server logged nothing matching '$after' within 240s" >&2
+      exit 1
+    fi
+    sleep "$(awk "BEGIN { print $delay_ms / 1000 }")"
+    if [ "$signal" = TERM ]; then docker stop "$container" >/dev/null; else docker kill -s KILL "$container" >/dev/null; fi
+    sleep "$(awk "BEGIN { print $down_ms / 1000 }")"
+    docker start "$container" >/dev/null
+    wait_ready
+    ;;
+  chaos)
+    cd "$REPO_ROOT"
+    TEST_TARGETS="http://localhost:$API_PORT" dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- \
+      --treenode-filter '/*/Olve.Pipelines.RealSystemTests.Chaos/*/*' --output Detailed --no-progress
+    ;;
   kubectl)
     shift 2
     [ "${1:-}" = "--" ] && shift
     in_cluster "$@"
     ;;
   *)
-    sed -n '2,17p' host.sh | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,21p' host.sh | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

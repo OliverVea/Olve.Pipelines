@@ -91,6 +91,16 @@ public sealed class TestServer : IAsyncDisposable
         Wait.UntilAsync(() => Api.GetRunAsync(pipeline.Id, number), r => r.Status != RunStatus.Running, Wait.Run,
             $"run #{number} of {pipeline.Name} to finish");
 
+    /// <summary>
+    /// The chaos tier's fault seam, <c>host.sh crash</c>. Answers once armed, so start what it waits for after
+    /// this; the task it answers with completes when the server is ready again. Needs <see cref="ExclusiveServerAttribute"/>.
+    /// </summary>
+    public Task<Task> ArmServerCrashAsync(string afterLogLine, TimeSpan delay, TimeSpan downtime, bool graceful = false)
+    {
+        string[] options = ["--after", afterLogLine, "--delay-ms", $"{delay.TotalMilliseconds:0}", "--down-ms", $"{downtime.TotalMilliseconds:0}"];
+        return Current.ArmHostCommandAsync(Target.CrashCommand, graceful ? [.. options, "--graceful"] : options);
+    }
+
     public ValueTask DisposeAsync() => _lease.DisposeAsync();
 
     /// <summary>One target with its clients. Nothing reaches a target before it passed the guard.</summary>
@@ -137,19 +147,44 @@ public sealed class TestServer : IAsyncDisposable
 
         public async Task ResetAsync()
         {
-            if (string.IsNullOrWhiteSpace(Target.ResetCommand))
-                throw new InvalidOperationException("its descriptor has no reset command");
+            using var process = StartHostCommand(Target.ResetCommand, []);
+            await FinishAsync(process, process.StandardOutput.ReadToEndAsync());
+        }
 
-            using var process = Process.Start(new ProcessStartInfo("/bin/sh", ["-c", Target.ResetCommand])
+        /// <summary>Starts a command that prints one line when armed; answers with the rest of its life.</summary>
+        public async Task<Task> ArmHostCommandAsync(string? command, string[] arguments)
+        {
+            var process = StartHostCommand(command, arguments);
+            if (await process.StandardOutput.ReadLineAsync() is null)
+                await FinishAsync(process, Task.CompletedTask);
+            return FinishAndDisposeAsync(process);
+        }
+
+        private static async Task FinishAndDisposeAsync(Process process)
+        {
+            using (process)
+                await FinishAsync(process, process.StandardOutput.ReadToEndAsync());
+        }
+
+        private static Process StartHostCommand(string? command, string[] arguments)
+        {
+            if (string.IsNullOrWhiteSpace(command))
+                throw new InvalidOperationException("the host's descriptor lacks this command: start the host again with host.sh up");
+
+            return Process.Start(new ProcessStartInfo("/bin/sh", ["-c", $"{command} \"$@\"", "sh", .. arguments])
             {
                 RedirectStandardError = true,
                 RedirectStandardOutput = true,
-            }) ?? throw new InvalidOperationException("the reset command did not start");
+            }) ?? throw new InvalidOperationException($"'{command}' did not start");
+        }
+
+        private static async Task FinishAsync(Process process, Task output)
+        {
             var error = process.StandardError.ReadToEndAsync();
-            await process.StandardOutput.ReadToEndAsync();
+            await output;
             await process.WaitForExitAsync();
             if (process.ExitCode != 0)
-                throw new InvalidOperationException($"'{Target.ResetCommand}' exited {process.ExitCode}: {await error}");
+                throw new InvalidOperationException($"'{process.StartInfo.ArgumentList[1]}' exited {process.ExitCode}: {await error}");
         }
     }
 }

@@ -14,7 +14,8 @@ public sealed record TestTarget(
     KubernetesTarget Kubernetes,
     StorageTarget Storage,
     string GitHubUrl,
-    string? ResetCommand)
+    string? ResetCommand,
+    string? CrashCommand)
 {
     public override string ToString() => ApiUrl;
 }

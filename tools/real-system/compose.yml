@@ -1,0 +1,154 @@
+# One throwaway host for the real-system tests: the server, its Garage, a single-node k3s and a GitHub
+# stand-in. Started by host.sh, which sets every variable below; see its header. Mirrors the chart's
+# minimal profile. The server image is the published build output on the ASP.NET runtime, not the AOT
+# image. Only 127.0.0.1 ports are published, and the k3s API is never published on 6443.
+
+services:
+  server:
+    image: mcr.microsoft.com/dotnet/aspnet:10.0
+    working_dir: /app
+    entrypoint: ["dotnet", "Olve.Pipelines.dll"]
+    ports:
+      - "127.0.0.1:${API_PORT}:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Host: "0.0.0.0"
+      Port: "5000"
+      Auth__Disable: "true"
+      OpenTelemetry__Endpoint: ""
+      Telemetry__ServiceName: olve-pipelines-real-system
+      Links__BaseUrl: "http://localhost:${API_PORT}"
+      Storage__Endpoint: "http://172.29.${SUBNET}.200:3900"
+      Storage__InClusterEndpoint: "http://172.29.${SUBNET}.200:3900"
+      Storage__Bucket: olve-pipelines
+      Storage__AccessKey: ${GARAGE_ACCESS_KEY}
+      Storage__SecretKey: ${GARAGE_SECRET_KEY}
+      Kubernetes__AuthMode: InCluster
+      Kubernetes__Namespace: olve-runners
+      KUBERNETES_SERVICE_HOST: k3s
+      KUBERNETES_SERVICE_PORT: "6443"
+      GitHub__ApiUrl: "http://172.29.${SUBNET}.203:8080"
+      GitHub__CodeloadUrl: "http://172.29.${SUBNET}.203:8080/codeload"
+      Jobs__MaxConcurrent: "4"
+      Reconcile__PollIntervalSeconds: "86400"
+      # Short thresholds: test data ages out while the host stays up. Binaries keep a grace longer than
+      # the gap between a build's upload and its version activating.
+      Retention__DryRun: "false"
+      Retention__KeepLatestRuns: "3"
+      Retention__MinRunAgeDays: "0.01"
+      Retention__BuildGraceDays: "0.002"
+      Retention__OrphanGraceDays: "0.0005"
+      Retention__ResultArchiveGraceHours: "0.02"
+      Retention__ClusterGraceMinutes: "1"
+      Retention__FinishedJobMaxAgeDays: "0.01"
+      Retention__IntervalHours: "0.005"
+      Retention__StartupDelayMinutes: "0.1"
+    volumes:
+      - ${SERVER_DIR}:/app:ro
+      # Replaces the published appsettings.json, whose defaults point at the homelab.
+      - ../../src/deploy/compose/appsettings.json:/app/appsettings.json:ro
+      - k3s-sa:/var/run/secrets/kubernetes.io/serviceaccount:ro
+    depends_on:
+      garage:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    ports:
+      - "127.0.0.1:${S3_PORT}:3900"
+    environment:
+      GARAGE_CONFIG_FILE: /etc/garage/garage.toml
+      GARAGE_DEFAULT_BUCKET: olve-pipelines
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_ACCESS_KEY}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_SECRET_KEY}
+      GARAGE_RPC_SECRET: "0000000000000000000000000000000000000000000000000000000000000001"
+    volumes:
+      - ../../src/deploy/compose/garage.toml:/etc/garage/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks:
+      default:
+        ipv4_address: 172.29.${SUBNET}.200
+
+  k3s:
+    image: rancher/k3s:v1.31.4-k3s1
+    privileged: true
+    cpus: 4
+    mem_limit: 6g
+    command:
+      - server
+      - --disable=traefik
+      - --disable=metrics-server
+      - --disable=servicelb
+      - --disable=local-storage
+      - --tls-san=k3s
+      - --tls-san=127.0.0.1
+      - --write-kubeconfig-mode=644
+    ports:
+      - "127.0.0.1:${KUBE_PORT}:6443"
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+    tmpfs:
+      - /run
+      - /var/run
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 65535
+        hard: 65535
+    volumes:
+      - k3s-output:/output
+      - k3s-data:/var/lib/rancher/k3s
+
+  # One-shot: namespace, ServiceAccount, RBAC, the test-cluster marker and the token files.
+  bootstrap:
+    image: rancher/k3s:v1.31.4-k3s1
+    entrypoint: ["/bin/sh", "/real-system/bootstrap.sh"]
+    environment:
+      CLUSTER_ID: ${CLUSTER_ID}
+    volumes:
+      - .:/real-system:ro
+      - ../../src/deploy/compose/k3s-rbac.yaml:/rbac/k3s-rbac.yaml:ro
+      - k3s-output:/k3s-output:ro
+      - k3s-sa:/sa
+    depends_on:
+      - k3s
+
+  github:
+    image: oven/bun:1.4.3-slim
+    command: ["bun", "/real-system/github-stand-in.ts"]
+    working_dir: /tmp
+    environment:
+      FIXTURE_DIR: /real-system/fixture
+      SDK_DIR: /sdk
+    ports:
+      - "127.0.0.1:${GITHUB_PORT}:8080"
+    volumes:
+      - .:/real-system:ro
+      - ../../src/sdk:/sdk:ro
+    networks:
+      default:
+        ipv4_address: 172.29.${SUBNET}.203
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.${SUBNET}.0/24
+          # Dynamic addresses stay below .128, clear of the fixed ones.
+          ip_range: 172.29.${SUBNET}.0/25
+
+volumes:
+  garage-meta:
+  garage-data:
+  k3s-output:
+  k3s-data:
+  k3s-sa:

@@ -1,0 +1,9 @@
+{
+  "name": "real-system-fixture",
+  "private": true,
+  "type": "module",
+  "main": "pipeline.ts",
+  "dependencies": {
+    "@olivervea/pipelines": "file:../src/sdk"
+  }
+}

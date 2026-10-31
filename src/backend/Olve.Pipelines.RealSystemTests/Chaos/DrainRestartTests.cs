@@ -51,7 +51,7 @@ public class DrainRestartTests
     private static async Task WaitUntilRunIsSavedInProgressAsync(TestServer server, TestPipeline pipeline, int number)
     {
         var key = $"runs/{pipeline.Id:N}/{number}/run.json";
-        await Wait.UntilAsync(() => server.Bucket.ReadAsync(key), text => text?.Contains("inprogress", StringComparison.OrdinalIgnoreCase) == true,
+        await Wait.UntilAsync(() => server.Bucket.ReadAsync(key), text => text?.Contains("\"in-progress\"", StringComparison.Ordinal) == true,
             Wait.Cluster, $"{key} to say the attempt is in progress");
     }
 

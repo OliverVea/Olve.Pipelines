@@ -161,6 +161,7 @@ export const stepPath = (id: string, step: string) =>
 export const stepRunsPath = (id: string, step: string) =>
   `${pipelinePath(id)}/step/${encodeURIComponent(step)}/runs`;
 export const criticalPathPath = (id: string) => `${pipelinePath(id)}/critical-path`;
+export const reliabilityPath = (id: string) => `${pipelinePath(id)}/reliability`;
 
 /** Shared styles for the v2 views (buttons, pills, status dots, panels). */
 export const sharedStyles = css`

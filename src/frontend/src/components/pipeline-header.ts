@@ -6,6 +6,7 @@ import {
   bindingsStatus,
   pipelinesGet,
   runsCriticalPath,
+  stepsReliability,
   pipelinesHealth,
   secretsList,
   type PipelineBindingStatus,
@@ -13,6 +14,7 @@ import {
   type PipelineSecret,
   type ActiveAttempt,
   type CriticalPathReport,
+  type ReliabilityRuns,
 } from '@olve/api';
 import {
   sharedStyles,
@@ -32,6 +34,7 @@ import {
   bindingPath,
   shortSha,
   criticalPathPath,
+  reliabilityPath,
   formatSeconds,
   median,
 } from '../styles/ui.js';
@@ -102,6 +105,7 @@ export class PipelineHeader extends LitElement {
   @state() declare private _health: PipelineHealth | null;
   @state() declare private _activation: Activation;
   @state() declare private _critical: CriticalPathReport | null;
+  @state() declare private _reliability: ReliabilityRuns | null;
   @state() declare private _waiting: ActiveAttempt[];
 
   constructor() {
@@ -116,6 +120,7 @@ export class PipelineHeader extends LitElement {
     this._health = null;
     this._activation = { kind: 'none' };
     this._critical = null;
+    this._reliability = null;
     this._waiting = [];
     new LiveController(
       this,
@@ -131,36 +136,43 @@ export class PipelineHeader extends LitElement {
   async reload() {
     const path = { pipelineId: this.pipelineId };
     const overview = this.tab === 'overview';
-    const [pipeline, binding, health, secrets, critical, waiting] = await Promise.all([
-      pipelinesGet({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      bindingsStatus({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      pipelinesHealth({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      overview
-        ? secretsList({ client: api, path })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null, // needs auth
-      overview
-        ? runsCriticalPath({ client: api, path })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null,
-      overview
-        ? attemptsList({ client: api, query: { status: 'waiting' } })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null,
-    ]);
+    const [pipeline, binding, health, secrets, critical, reliability, waiting] =
+      await Promise.all([
+        pipelinesGet({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        bindingsStatus({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        pipelinesHealth({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        overview
+          ? secretsList({ client: api, path })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null, // needs auth
+        overview
+          ? runsCriticalPath({ client: api, path })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null,
+        overview
+          ? stepsReliability({ client: api, path })
+              .then((r) => r.data?.runs)
+              .catch(() => null)
+          : null,
+        overview
+          ? attemptsList({ client: api, query: { status: 'waiting' } })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null,
+      ]);
     this._waiting = (waiting ?? []).filter(
       (a) => String(a.pipelineId) === this.pipelineId,
     );
     this._critical = critical ?? null;
+    this._reliability = reliability ?? null;
     if (pipeline?.name) this._name = pipeline.name;
     this._binding = binding ?? null;
     this._secrets = secrets ?? [];
@@ -175,18 +187,22 @@ export class PipelineHeader extends LitElement {
   render() {
     return html`<div class="line">
         <h2>${this._name}</h2>
-        ${this._health
-          ? html`<span class="st t-${toneOf(this._health.status)}"
-              ><span class="dot"></span>${statusLabel(this._health.status)}</span
-            >`
-          : nothing}
+        ${
+          this._health
+            ? html`<span class="st t-${toneOf(this._health.status)}"
+                ><span class="dot"></span>${statusLabel(this._health.status)}</span
+              >`
+            : nothing
+        }
         <span class="spacer"></span>
         <slot name="actions"></slot>
         <i class="br"></i>
       </div>
-      ${this._description
-        ? html`<clamped-text class="desc" .text=${this._description}></clamped-text>`
-        : nothing}
+      ${
+        this._description
+          ? html`<clamped-text class="desc" .text=${this._description}></clamped-text>`
+          : nothing
+      }
       ${pipelineTabs(this.pipelineId, this.tab, !!this._binding)}
       ${this.tab === 'overview' ? this._renderStatus() : nothing}`;
   }
@@ -207,126 +223,163 @@ export class PipelineHeader extends LitElement {
     return html`<div class="status">
         <div class="cell">
           <span class="label">Version</span>
-          ${a.kind === 'active'
-            ? html`<a
-                class="value"
-                href=${versionsPath(this.pipelineId)}
-                @click=${navClick}
-                >v${a.version}</a
-              >`
-            : a.kind === 'draining'
-              ? html`<span class="value warn">v${a.from} → v${a.to}</span>`
-              : html`<span class="value muted">none</span>`}
+          ${
+            a.kind === 'active'
+              ? html`<a
+                  class="value"
+                  href=${versionsPath(this.pipelineId)}
+                  @click=${navClick}
+                  >v${a.version}</a
+                >`
+              : a.kind === 'draining'
+                ? html`<span class="value warn">v${a.from} → v${a.to}</span>`
+                : html`<span class="value muted">none</span>`
+          }
           <span class="sub">${a.kind === 'draining' ? 'switching' : 'active'}</span>
         </div>
         <div class="cell">
           <span class="label">Last run</span>
-          ${last
-            ? html`<a
-                  class="value st t-${toneOf(last.status ?? '')}"
-                  href=${runPath(this.pipelineId, last.number)}
+          ${
+            last
+              ? html`<a
+                    class="value st t-${toneOf(last.status ?? '')}"
+                    href=${runPath(this.pipelineId, last.number)}
+                    @click=${navClick}
+                    ><span class="dot"></span>#${last.number}</a
+                  >
+                  <span class="sub"
+                    >${statusLabel(last.status ?? '')} ·
+                    <relative-time
+                      .value=${last.finishedAt ?? last.createdAt}
+                    ></relative-time
+                  ></span>`
+              : html`<span class="value muted">none yet</span>`
+          }
+        </div>
+        ${
+          this._critical?.runs?.length
+            ? html`<div class="cell">
+                <span class="label">Critical path</span>
+                <a
+                  class="value"
+                  href=${criticalPathPath(this.pipelineId)}
                   @click=${navClick}
-                  ><span class="dot"></span>#${last.number}</a
+                  >${formatSeconds(
+                    median(this._critical.runs.map((r) => r.seconds ?? 0)),
+                  )}</a
+                >
+                <span class="sub">median of ${this._critical.runs.length} runs</span>
+              </div>`
+            : nothing
+        }
+        ${
+          this._reliability?.settled
+            ? html`<div class="cell">
+                <span class="label">Failed for no reason</span>
+                <a
+                  class="value"
+                  href=${reliabilityPath(this.pipelineId)}
+                  @click=${navClick}
+                  >${(this._reliability.rate * 100).toFixed(1)}%</a
                 >
                 <span class="sub"
-                  >${statusLabel(last.status ?? '')} ·
-                  <relative-time
-                    .value=${last.finishedAt ?? last.createdAt}
-                  ></relative-time
-                ></span>`
-            : html`<span class="value muted">none yet</span>`}
-        </div>
-        ${this._critical?.runs?.length
-          ? html`<div class="cell">
-              <span class="label">Critical path</span>
-              <a
-                class="value"
-                href=${criticalPathPath(this.pipelineId)}
-                @click=${navClick}
-                >${formatSeconds(
-                  median(this._critical.runs.map((r) => r.seconds ?? 0)),
-                )}</a
-              >
-              <span class="sub">median of ${this._critical.runs.length} runs</span>
-            </div>`
-          : nothing}
-        ${running || held
-          ? html`<div class="cell">
-              <span class="label">Active</span>
-              <a class="value" href=${runsPath(this.pipelineId)} @click=${navClick}
-                >${running} running</a
-              >
-              <span class="sub ${held ? 'warn' : ''}">${held} held</span>
-            </div>`
-          : nothing}
-        ${b
-          ? html`<div class="cell grow">
-              <span class="label">Source</span>
-              <a
-                class="value mono"
-                href=${bindingPath(this.pipelineId)}
-                @click=${navClick}
-                >${b.repo}@${b.branch}</a
-              >
-              <span class="sub ${failed ? 'bad' : ''}"
-                >${b.reconcileInProgress
-                  ? html`reconciling ${shortSha(b.reconcileSha)}…`
-                  : failed
-                    ? html`reconcile failed at ${shortSha(b.reconcileSha)}`
-                    : b.result === 'Success'
-                      ? html`synced
-                          <span class="mono">${shortSha(b.lastReconciledSha)}</span> ·
-                          <relative-time .value=${b.lastSyncTime}></relative-time>`
-                      : 'waiting for first sync'}</span
-              >
-            </div>`
-          : nothing}
+                  >${this._reliability.failedForNoReason} of ${this._reliability.settled}
+                  runs</span
+                >
+              </div>`
+            : nothing
+        }
+        ${
+          running || held
+            ? html`<div class="cell">
+                <span class="label">Active</span>
+                <a class="value" href=${runsPath(this.pipelineId)} @click=${navClick}
+                  >${running} running</a
+                >
+                <span class="sub ${held ? 'warn' : ''}">${held} held</span>
+              </div>`
+            : nothing
+        }
+        ${
+          b
+            ? html`<div class="cell grow">
+                <span class="label">Source</span>
+                <a
+                  class="value mono"
+                  href=${bindingPath(this.pipelineId)}
+                  @click=${navClick}
+                  >${b.repo}@${b.branch}</a
+                >
+                <span class="sub ${failed ? 'bad' : ''}"
+                  >${
+                    b.reconcileInProgress
+                      ? html`reconciling ${shortSha(b.reconcileSha)}…`
+                      : failed
+                        ? html`reconcile failed at ${shortSha(b.reconcileSha)}`
+                        : b.result === 'Success'
+                          ? html`synced
+                              <span class="mono">${shortSha(b.lastReconciledSha)}</span> ·
+                              <relative-time .value=${b.lastSyncTime}></relative-time>`
+                          : 'waiting for first sync'
+                  }</span
+                >
+              </div>`
+            : nothing
+        }
       </div>
-      ${unset.length ||
-      h?.pending?.version != null ||
-      (failed && b?.problems?.length) ||
-      this._waiting.length
-        ? html`<div class="alerts">
-            ${this._waiting.map(
-              (w) =>
-                html`<a
-                  class="alert ask"
-                  href="${runPath(this.pipelineId, w.run)}?step=${encodeURIComponent(
-                    w.step ?? '',
-                  )}"
-                  @click=${navClick}
-                  >Run #${w.run}: ${w.step} is waiting for input</a
-                >`,
-            )}
-            ${unset.length
-              ? html`<a
-                  class="alert bad"
-                  href=${secretsPath(this.pipelineId)}
-                  @click=${navClick}
-                  >Unset secrets: ${unset.join(', ')}</a
-                >`
-              : nothing}
-            ${h?.pending?.version != null
-              ? html`<a
-                  class="alert warn"
-                  href=${configPath(this.pipelineId)}
-                  @click=${navClick}
-                  >${h.pending.held ? 'Held' : 'Pending'} v${h.pending.version}:
-                  ${(h.pending.reasons ?? []).join('; ')}</a
-                >`
-              : nothing}
-            ${failed
-              ? (b?.problems ?? []).map(
-                  (x) =>
-                    html`<a
+      ${
+        unset.length ||
+        h?.pending?.version != null ||
+        (failed && b?.problems?.length) ||
+        this._waiting.length
+          ? html`<div class="alerts">
+              ${this._waiting.map(
+                (w) =>
+                  html`<a
+                    class="alert ask"
+                    href="${runPath(this.pipelineId, w.run)}?step=${encodeURIComponent(
+                      w.step ?? '',
+                    )}"
+                    @click=${navClick}
+                    >Run #${w.run}: ${w.step} is waiting for input</a
+                  >`,
+              )}
+              ${
+                unset.length
+                  ? html`<a
                       class="alert bad"
-                      href=${bindingPath(this.pipelineId)}
+                      href=${secretsPath(this.pipelineId)}
                       @click=${navClick}
-                      >${x}</a
-                    >`,
-                )
-              : nothing}
-          </div>`
-        : nothing}`;
+                      >Unset secrets: ${unset.join(', ')}</a
+                    >`
+                  : nothing
+              }
+              ${
+                h?.pending?.version != null
+                  ? html`<a
+                      class="alert warn"
+                      href=${configPath(this.pipelineId)}
+                      @click=${navClick}
+                      >${h.pending.held ? 'Held' : 'Pending'} v${h.pending.version}:
+                      ${(h.pending.reasons ?? []).join('; ')}</a
+                    >`
+                  : nothing
+              }
+              ${
+                failed
+                  ? (b?.problems ?? []).map(
+                      (x) =>
+                        html`<a
+                          class="alert bad"
+                          href=${bindingPath(this.pipelineId)}
+                          @click=${navClick}
+                          >${x}</a
+                        >`,
+                    )
+                  : nothing
+              }
+            </div>`
+          : nothing
+      }`;
   }
 }

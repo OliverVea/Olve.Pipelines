@@ -5,6 +5,7 @@ import './components/docs-view.js';
 import './components/run-view.js';
 import './components/step-runs-view.js';
 import './components/critical-path-view.js';
+import './components/reliability-view.js';
 import './components/step-logs-view.js';
 import './components/pipeline-runs-view.js';
 import './components/pipeline-versions-view.js';

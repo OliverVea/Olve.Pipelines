@@ -30,6 +30,11 @@ const routes: Route[] = [
     view: 'critical-path-view',
   },
   {
+    pattern: /^\/pipeline\/([^/]+)\/reliability$/,
+    params: ['pipelineId'],
+    view: 'reliability-view',
+  },
+  {
     pattern: /^\/pipeline\/([^/]+)\/runs$/,
     params: ['pipelineId'],
     view: 'pipeline-runs-view',

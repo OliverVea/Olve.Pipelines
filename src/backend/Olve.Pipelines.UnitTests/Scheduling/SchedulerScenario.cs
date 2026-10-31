@@ -83,11 +83,11 @@ internal sealed class SchedulerScenario
         return D.Get(attempt.Id);
     }
 
-    public Attempt Fail(Run run, string step, string reason = "boom")
+    public Attempt Fail(Run run, string step, string reason = "boom", AttemptFailureKind? kind = null)
     {
         var attempt = Latest(run, step) ?? throw new InvalidOperationException($"no attempt of '{step}'");
         TestRunDomain.Pick(D.AttemptService.MarkInProgress(attempt.Id));
-        if (D.AttemptService.MarkFailed(attempt.Id, reason).TryPickProblems(out var problems))
+        if (D.AttemptService.MarkFailed(attempt.Id, reason, kind).TryPickProblems(out var problems))
             throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToString())));
         return D.Get(attempt.Id);
     }

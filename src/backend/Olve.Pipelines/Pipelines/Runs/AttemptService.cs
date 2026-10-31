@@ -52,7 +52,7 @@ public class AttemptService(
 
     /// <summary>Records an attempt the scheduler failed without running (e.g. its input exceeds the cap).</summary>
     public Result<Attempt> RecordFailed(Id<Run> runId, string stepName, string reason, string? inputHash = null)
-        => Create(runId, stepName, inputHash, now => new Failed(now, now, reason));
+        => Create(runId, stepName, inputHash, now => new Failed(now, now, reason, AttemptFailureKind.NotRun));
 
     /// <summary>
     /// Records an attempt the scheduler decided to skip without running (<c>when</c> false, upstream
@@ -170,10 +170,10 @@ public class AttemptService(
     }
 
     /// <summary>Scheduled/InProgress → Failed.</summary>
-    public Result MarkFailed(Id<Attempt> id, string? reason)
+    public Result MarkFailed(Id<Attempt> id, string? reason, AttemptFailureKind? kind = null)
     {
         var now = timeProvider.GetUtcNow();
-        return Update(id, a => a.Status.IsActive() ? a with { Status = new Failed(StartedAtOr(a, now), now, reason) } : a);
+        return Update(id, a => a.Status.IsActive() ? a with { Status = new Failed(StartedAtOr(a, now), now, reason, kind) } : a);
     }
 
     /// <summary>Scheduled/InProgress → Skipped (e.g. the handler returned a skipped envelope).</summary>
@@ -221,7 +221,7 @@ public class AttemptService(
         if (attempt.Status is not Waiting)
             return new ConflictProblem("Step '{0}' is not waiting for input (it is {1}).", attempt.StepName, attempt.Status.Discriminator());
         var now = timeProvider.GetUtcNow();
-        return Update(id, a => a.Status is Waiting w ? a with { Status = new Failed(w.Since, now, reason) } : a);
+        return Update(id, a => a.Status is Waiting w ? a with { Status = new Failed(w.Since, now, reason, AttemptFailureKind.Declined) } : a);
     }
 
     /// <summary>Records one more failed K8s submission on a still-Scheduled attempt; returns the new count.</summary>

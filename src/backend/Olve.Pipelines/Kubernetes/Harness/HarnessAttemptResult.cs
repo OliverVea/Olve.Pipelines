@@ -1,3 +1,5 @@
+using Olve.Pipelines.Pipelines.Runs;
+
 namespace Olve.Pipelines.Kubernetes.Harness;
 
 /// <summary>The verdict of one harness attempt, ready to map onto <c>AttemptService.MarkSucceeded/MarkSkipped/MarkFailed</c>.</summary>
@@ -9,7 +11,7 @@ public abstract record HarnessAttemptResult
 
     public sealed record Skipped(string Reason) : HarnessAttemptResult;
 
-    public sealed record Failed(HarnessFailureKind Kind, string Message) : HarnessAttemptResult;
+    public sealed record Failed(AttemptFailureKind Kind, string Message) : HarnessAttemptResult;
 }
 
 /// <summary>
@@ -31,7 +33,7 @@ public static class HarnessOutcome
         var failure = HarnessExitCodes.Classify(pod);
 
         // Exit 74: the envelope may say succeeded, but the files never reached storage.
-        if (failure is { Kind: HarnessFailureKind.ResultUpload })
+        if (failure is { Kind: AttemptFailureKind.ResultUpload })
             return new HarnessAttemptResult.Failed(failure.Kind, WithDetail(failure.Message, LogFailureMessage(logEnvelopeJson)));
 
         HarnessEnvelope? envelope = null;
@@ -51,7 +53,7 @@ public static class HarnessOutcome
                 HarnessEnvelope.Succeeded s => new HarnessAttemptResult.Succeeded(s.OutputOrNull, fileKeys),
                 HarnessEnvelope.Skipped s => new HarnessAttemptResult.Skipped(s.Reason),
                 HarnessEnvelope.Failed f => new HarnessAttemptResult.Failed(EnvelopeKind(f.Kind), f.Message),
-                _ => new HarnessAttemptResult.Failed(HarnessFailureKind.ResultInvalid,
+                _ => new HarnessAttemptResult.Failed(AttemptFailureKind.ResultInvalid,
                     archiveProblem ?? "the step exited 0 but uploaded no result.tar.gz"),
             };
         }
@@ -60,11 +62,11 @@ public static class HarnessOutcome
         return new HarnessAttemptResult.Failed(failure.Kind, WithDetail(failure.Message, detail));
     }
 
-    private static HarnessFailureKind EnvelopeKind(string kind) => kind switch
+    private static AttemptFailureKind EnvelopeKind(string kind) => kind switch
     {
-        "input" => HarnessFailureKind.Input,
-        "output" => HarnessFailureKind.Output,
-        _ => HarnessFailureKind.Handler,
+        "input" => AttemptFailureKind.Input,
+        "output" => AttemptFailureKind.Output,
+        _ => AttemptFailureKind.Handler,
     };
 
     private static string? LogFailureMessage(string? logEnvelopeJson)

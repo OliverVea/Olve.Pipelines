@@ -1,37 +1,8 @@
+using Olve.Pipelines.Pipelines.Runs;
+
 namespace Olve.Pipelines.Kubernetes.Harness;
 
-/// <summary>Why a harness attempt failed.</summary>
-public enum HarnessFailureKind
-{
-    /// <summary>Exit 1: the handler threw.</summary>
-    Handler,
-    /// <summary>Exit 65 (step): <c>input.json</c> missing or invalid for the step.</summary>
-    Input,
-    /// <summary>Exit 66 (step): the return value failed strict validation, or an own file ref is missing.</summary>
-    Output,
-    /// <summary>Exit 64 (step): unknown mode or step — a binary/manifest mismatch.</summary>
-    Usage,
-    /// <summary>Exit 74: <c>result.tar.gz</c> upload failed; the step's files are lost.</summary>
-    ResultUpload,
-    /// <summary>Exit 78: the pipeline is invalid (describe problems, missing handler module).</summary>
-    PipelineInvalid,
-    /// <summary>Exit 130/143: the handler was interrupted (SIGINT/SIGTERM).</summary>
-    Cancelled,
-    /// <summary>A container was OOM-killed.</summary>
-    OutOfMemory,
-    /// <summary>The Job's <c>activeDeadlineSeconds</c> passed (step timeout).</summary>
-    DeadlineExceeded,
-    /// <summary>olve-init failed (64 config, 65 download, 66 bad archive, 70 filesystem).</summary>
-    InitFailed,
-    /// <summary>The pod could not start a container (image pull, missing secret/key, …).</summary>
-    PodFailed,
-    /// <summary>The collected result was missing, malformed or over a size cap.</summary>
-    ResultInvalid,
-    /// <summary>Anything else (unexpected exit code, Job failed without a container verdict).</summary>
-    Unknown,
-}
-
-public sealed record HarnessFailure(HarnessFailureKind Kind, string Message);
+public sealed record HarnessFailure(AttemptFailureKind Kind, string Message);
 
 /// <summary>One container's last observed state.</summary>
 /// <param name="ExitCode">Set once terminated.</param>
@@ -113,40 +84,40 @@ public static class HarnessExitCodes
     public static HarnessFailure? Classify(HarnessPodState state)
     {
         if (state.JobFailedReason == "DeadlineExceeded")
-            return new(HarnessFailureKind.DeadlineExceeded, $"step timed out: {state.JobFailedMessage ?? "Job was active longer than its deadline"}");
+            return new(AttemptFailureKind.DeadlineExceeded, $"step timed out: {state.JobFailedMessage ?? "Job was active longer than its deadline"}");
 
         if (state.Init is { Terminated: true, ExitCode: not 0 } init)
-            return new(init.Reason == "OOMKilled" ? HarnessFailureKind.OutOfMemory : HarnessFailureKind.InitFailed,
+            return new(init.Reason == "OOMKilled" ? AttemptFailureKind.OutOfMemory : AttemptFailureKind.InitFailed,
                 $"olve-init failed: {InitMeaning(init)}");
 
         foreach (var container in new[] { state.Init, state.Main })
         {
             if (container is { Terminated: false, Reason: { } reason } && FatalWaitingReasons.Contains(reason))
-                return new(HarnessFailureKind.PodFailed, $"container '{container.Name}' cannot start: {reason}{Suffix(container.Message)}");
+                return new(AttemptFailureKind.PodFailed, $"container '{container.Name}' cannot start: {reason}{Suffix(container.Message)}");
         }
 
         if (state.Main is { Terminated: true } main)
         {
             if (main.Reason == "OOMKilled" || main.ExitCode == 137)
-                return new(HarnessFailureKind.OutOfMemory, $"step container was killed (exit {main.ExitCode}, {main.Reason ?? "SIGKILL"}) — out of memory?");
+                return new(AttemptFailureKind.OutOfMemory, $"step container was killed (exit {main.ExitCode}, {main.Reason ?? "SIGKILL"}) — out of memory?");
             return main.ExitCode switch
             {
                 0 => null,
-                1 => new(HarnessFailureKind.Handler, "the handler threw (exit 1)"),
-                64 => new(HarnessFailureKind.Usage, "unknown harness mode or step (exit 64) — binary and manifest disagree"),
-                65 => new(HarnessFailureKind.Input, "input.json missing or invalid for the step (exit 65)"),
-                66 => new(HarnessFailureKind.Output, "the step's output failed validation (exit 66)"),
-                74 => new(HarnessFailureKind.ResultUpload, "the result upload failed after retries (exit 74); output files are lost"),
-                78 => new(HarnessFailureKind.PipelineInvalid, "the pipeline is invalid (exit 78)"),
-                130 or 143 => new(HarnessFailureKind.Cancelled, $"the handler was interrupted (exit {main.ExitCode})"),
-                _ => new(HarnessFailureKind.Unknown, $"step container exited {main.ExitCode}{Suffix(main.Reason)}"),
+                1 => new(AttemptFailureKind.Handler, "the handler threw (exit 1)"),
+                64 => new(AttemptFailureKind.Usage, "unknown harness mode or step (exit 64) — binary and manifest disagree"),
+                65 => new(AttemptFailureKind.Input, "input.json missing or invalid for the step (exit 65)"),
+                66 => new(AttemptFailureKind.Output, "the step's output failed validation (exit 66)"),
+                74 => new(AttemptFailureKind.ResultUpload, "the result upload failed after retries (exit 74); output files are lost"),
+                78 => new(AttemptFailureKind.PipelineInvalid, "the pipeline is invalid (exit 78)"),
+                130 or 143 => new(AttemptFailureKind.Cancelled, $"the handler was interrupted (exit {main.ExitCode})"),
+                _ => new(AttemptFailureKind.Unknown, $"step container exited {main.ExitCode}{Suffix(main.Reason)}"),
             };
         }
 
         if (state.JobFailedReason is not null)
-            return new(HarnessFailureKind.Unknown, $"Job failed ({state.JobFailedReason}){Suffix(state.JobFailedMessage)}");
+            return new(AttemptFailureKind.PodFailed, $"Job failed ({state.JobFailedReason}){Suffix(state.JobFailedMessage)}");
 
-        return new(HarnessFailureKind.Unknown, "step container did not terminate");
+        return new(AttemptFailureKind.PodFailed, "step container did not terminate");
     }
 
     private static string InitMeaning(HarnessContainerState init) => init.ExitCode switch

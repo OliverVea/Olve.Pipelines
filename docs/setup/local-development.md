@@ -22,8 +22,8 @@ pl dev describe [--json]       # manifest summary + describe-time checks; exit 7
 pl dev validate [--json]       # describe, then the service's reconcile checks; exit 78 if invalid
 ```
 
-`pl dev describe` evaluates `models.ts` and `pipeline.ts` (never handlers) exactly like the build
-Job and prints the input model, secrets, triggers, stages, `when` blocks and failure handlers.
+`pl dev describe` evaluates the entry point and what it imports (never running handlers) exactly
+like the build Job and prints the input model, secrets, triggers, stages, `when` blocks and failure handlers.
 `--json` prints the canonical manifest. For this repo's fixture:
 
 ```text
@@ -147,7 +147,7 @@ result:
 
 ```ts
 import { testHandler } from "@olivervea/pipelines/testing";
-import deployBeta from "../handlers/deploy-beta";
+import { deployBeta } from "../steps";
 
 const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, ctx: { http: fakeHttp } });
 expect(r).toMatchObject({ status: "succeeded" });

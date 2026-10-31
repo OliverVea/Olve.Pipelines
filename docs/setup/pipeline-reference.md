@@ -287,7 +287,7 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 .stage(smokeTest({ name: "beta-smoke", description: "…", path: "/health" }))
 ```
 
-- **Stage the result directly.** It carries its handler, so there is no `handlers/` file for it.
+- **Stage the result directly.** It carries its handler.
 - **`kind`** is a label, `custom` unless the step names one. To the service it is only a label.
 - **`settings`** are what the step was set up with. They are recorded in the manifest's step
   `config`, so a change makes a new step version. They may hold config references
@@ -299,14 +299,13 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 ## Handlers
 
 ```ts
-// handlers/test.ts
-import { implement } from "@olivervea/pipelines";
-import { test } from "../pipeline";
-
-export default implement(test, async ({ source }, ctx) => {
-  const tree = await ctx.files.fetch(source.tree);          // directory refs are extracted
-  await ctx.sh("dotnet test", { cwd: tree });
-});
+export const test = implement(
+  step({ name: "test", description: "Runs the tests.", image: "mcr.microsoft.com/dotnet/sdk:10.0-noble", input: { source: Source } }),
+  async ({ source }, ctx) => {
+    const tree = await ctx.files.fetch(source.tree);        // directory refs are extracted
+    await ctx.sh("dotnet test", { cwd: tree });
+  },
+);
 ```
 
 A handler returns a valid output (validated strictly against the output model) or calls
@@ -528,7 +527,7 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | A step uses a config entry the pipeline doesn't declare | TS, reconcile |
 | A step receives a config entry with a `secretRef` but doesn't declare that secret (a library step only the secrets of the parts it references, in its `select` case); a `secretRef` to an undeclared secret | describe, reconcile |
 | An input key starting with `$` (reserved) | describe |
-| Custom step without a handler file; handler file without a step | describe |
+| Custom step without an implementation; a handler file without a step | describe |
 | Output nothing consumes | reconcile **warning** only (fine for gate steps like `test`) |
 
 ## What makes a new version

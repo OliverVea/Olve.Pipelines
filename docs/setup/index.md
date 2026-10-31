@@ -28,7 +28,7 @@ source ──> build ∥ test ──> when(deployTo = beta): deploy-beta
 |---|---|
 | **Model** | A named zod schema (`BuildArtifact`). Nominal: two models with the same shape are not interchangeable. |
 | **Step** | A contract: name, image, inputs, output model, secrets. No behaviour. |
-| **Handler** | The implementation of one step: a `handlers/*.ts` default-exporting `implement(step, fn)`. |
+| **Handler** | The implementation of one step: `implement(step, fn)`. The result is staged like any step. |
 | **Library step** | An SDK step with a built-in handler and typed config (`steps.gitHubSource`, `steps.imageBuild`, …). |
 | **Pipeline** | Input model, triggers, stages, `when` blocks, failure handlers. |
 | **Version** | An immutable snapshot of the pipeline, added whenever the definition changes. One version is active at a time. |
@@ -37,8 +37,8 @@ source ──> build ∥ test ──> when(deployTo = beta): deploy-beta
 
 ## How you configure it: GitOps only
 
-1. Add `.pipelines/` to **your** repository: `models.ts`, `pipeline.ts`, `handlers/`, a
-   `package.json` + `bun.lock`.
+1. Add `.pipelines/` to **your** repository: an ordinary TypeScript package, with `main` in its
+   `package.json` naming the entry point.
 2. Bind a pipeline to the repo with `pl binding create`. That is the only way to create a pipeline.
 3. Set the secret values the pipeline declares with `pl secret set`.
 4. Push. The service compiles the pipeline in a sandboxed build Job, validates it, adds a version,
@@ -89,11 +89,11 @@ export const Request = model("Request", z.object({
 
 ```ts
 // .pipelines/pipeline.ts
-import { pipeline, step, steps, Source } from "@olivervea/pipelines";
+import { pipeline, steps } from "@olivervea/pipelines";
 import * as M from "./models";
+import { test } from "./steps";
 
-export const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
-export const test = step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } });
+const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
 
 export default pipeline({ name: "my-app", input: M.Request })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
@@ -102,14 +102,16 @@ export default pipeline({ name: "my-app", input: M.Request })
 ```
 
 ```ts
-// .pipelines/handlers/test.ts
-import { implement } from "@olivervea/pipelines";
-import { test } from "../pipeline";
-import testSh from "../scripts/test.sh" with { type: "file" };
+// .pipelines/steps.ts
+import { implement, Source, step } from "@olivervea/pipelines";
+import testSh from "./scripts/test.sh" with { type: "file" };
 
-export default implement(test, async ({ source }, ctx) => {
-  await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
-});
+export const test = implement(
+  step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } }),
+  async ({ source }, ctx) => {
+    await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
+  },
+);
 ```
 
 Then:

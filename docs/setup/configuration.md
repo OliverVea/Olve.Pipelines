@@ -33,18 +33,13 @@ export const AUTH = config("auth", "How users authenticate to the deployed insta
 export const TARGET = config("target", "Where the release is deployed.",
   z.object({ host: z.string(), namespace: z.string().default("olve-pipelines") }));
 
-export const deploy = step({
+export const deploy = implement(step({
   name: "deploy",
   description: "Deploys the release.",
   image: "alpine/helm:3",
   config: [AUTH, TARGET],          // like secrets: only declared entries are delivered
   secrets: [DEX_CLIENT_SECRET],    // a secretRef's secret must also be declared by the step
-});
-```
-
-```ts
-// handlers/deploy.ts
-export default implement(deploy, async (_, ctx) => {
+}), async (_, ctx) => {
   const { host, namespace } = ctx.config.target;      // typed: exactly the step's entries
   if (ctx.config.auth.mode === "dex") ctx.log("dex", { issuer: ctx.config.auth.issuer });
   // ctx.secrets.DEX_CLIENT_SECRET holds the value the secretRef names

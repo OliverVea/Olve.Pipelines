@@ -52,10 +52,13 @@ first.
   bun.lock              committed: the build Job runs `bun install --frozen-lockfile`
   tsconfig.json
   models.ts             data models
-  pipeline.ts           steps + pipeline     (or the `main` of package.json)
-  handlers/*.ts         one per custom step: implement(step, fn)  (library steps carry their own)
+  pipeline.ts           the entry point, named by `main` in package.json
+  steps.ts              custom steps: implement(step({ … }), fn)  (library steps carry their own)
   scripts/*.sh          embedded into the compiled binary
 ```
+
+Only `package.json` and `tsconfig.json` have fixed names; the rest is an ordinary package, so split
+or rename files as you like.
 
 `package.json`:
 
@@ -64,6 +67,7 @@ first.
   "name": "my-app-pipeline",
   "private": true,
   "type": "module",
+  "main": "pipeline.ts",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
   "dependencies": { "@olivervea/pipelines": "2.0.0-beta.21" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
@@ -88,11 +92,11 @@ export const Request = model("Request", z.object({
 `pipeline.ts`:
 
 ```ts
-import { pipeline, step, steps, Source } from "@olivervea/pipelines";
+import { pipeline, steps } from "@olivervea/pipelines";
 import * as M from "./models";
+import { test } from "./steps";
 
-export const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
-export const test = step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } });
+const source = steps.gitHubSource({ name: "source", description: "Fetches the pushed commit." });
 
 export default pipeline({ name: "my-app", input: M.Request })
   .onPush(e => ({ repo: e.repository.full_name, sha: e.after }))
@@ -100,16 +104,18 @@ export default pipeline({ name: "my-app", input: M.Request })
   .stage(test);
 ```
 
-`handlers/test.ts` runs the repository's tests in the fetched source tree:
+`steps.ts` holds the custom step, which runs the repository's tests in the fetched source tree:
 
 ```ts
-import { implement } from "@olivervea/pipelines";
-import { test } from "../pipeline";
-import testSh from "../scripts/test.sh" with { type: "file" };
+import { implement, Source, step } from "@olivervea/pipelines";
+import testSh from "./scripts/test.sh" with { type: "file" };
 
-export default implement(test, async ({ source }, ctx) => {
-  await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
-});
+export const test = implement(
+  step({ name: "test", description: "Runs the tests.", image: "alpine:3.22", input: { source: Source } }),
+  async ({ source }, ctx) => {
+    await ctx.sh({ script: testSh }, { cwd: await ctx.files.fetch(source.tree) });
+  },
+);
 ```
 
 Then:
@@ -262,8 +268,9 @@ source → build ∥ test → deploy-beta → beta-test → deploy-prod → prod
 dotnet SDK image, the in-cluster Service as `API_BASE_URL`), authenticated with a token it fetches
 from a beta-only Authentik machine client (client credentials; the client secret is a pipeline
 secret declared on `beta-test` only); `prod-test` is a read-only smoke test
-(`handlers/lib/smoke.ts`), since the suite writes data. Change the repo, release, namespaces, chart
-values, the test command and the smoke checks.
+(`lib/smoke.ts`), since the suite writes data. Hosts, namespaces, the image repository and the token
+client are [config](configuration.md) (`config.ts`), so change those in the config document, and the
+repo, chart path, test command and smoke checks in the code.
 A repo without a beta environment gets one all the same (homelab-dashboard: the release in
 `apps-beta` with its ingress turned off by `set`), and a repo without a test suite gets checks that
 prove the deployment serves this commit (homelab-dashboard compares the served files with the
@@ -277,7 +284,8 @@ the node (QuestionBank's `build-figures` and `deploy-figures-*`). Then:
    rate limit is shared by every binding; `pl binding set-credentials` changes it later). The first
    reconcile builds it and only records the branch head.
 3. Set the secrets the steps declare, piping bytes, never through `$(…)`:
-   `pl secret set <pipeline> SSH_PRIVATE_KEY < key`.
+   `pl secret set <pipeline> SSH_PRIVATE_KEY < key`. Set the config with
+   `pl config set <pipeline> -f app.yml`; until both are satisfied the version stays pending.
 4. Push the next commit. That push starts the first run; `pl wait push <pipeline> <sha>` waits for
    it.
 

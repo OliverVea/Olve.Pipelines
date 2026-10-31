@@ -2,7 +2,7 @@
 # The throwaway host the real-system tests run against. The tests never create or start it.
 #
 #   tools/real-system/host.sh up [slot]      build the server, start the host, write its descriptor
-#   tools/real-system/host.sh ui [slot]      build the web UI into the host, for the browser tests
+#   tools/real-system/host.sh ui             build the web UI into the server build every slot serves, after up
 #   tools/real-system/host.sh reset [slot]   wipe the host's state; images stay cached
 #   tools/real-system/host.sh status [slot]  show the host's containers
 #   tools/real-system/host.sh logs [slot]    follow the server log

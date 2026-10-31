@@ -92,7 +92,7 @@ host, serving the production bundle. It is its own package, so neither `npm run 
 
 ```bash
 tools/real-system/host.sh up                                   # a throwaway host, as above
-tools/real-system/host.sh ui                                   # build the web UI into it; again after a frontend change
+tools/real-system/host.sh ui                                   # after up: build the web UI into it; again after a frontend change
 cd src/frontend/e2e && npm install && npx playwright install chromium
 npm test                                                       # TEST_TARGETS picks the hosts, as above
 ```

@@ -44,6 +44,7 @@ src/
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 tools/real-system/                  The throwaway host the real-system tests run against
+tools/recordings/                   Real exchanges with GitHub, Dex and k3s (see Recorded fixtures)
 tools/version.cs                    CalVer versioning script
 ```
 
@@ -84,6 +85,40 @@ pipelines (`server.NewPipelineAsync()`) and names anything else with `TestServer
 on what it owns, and never cleans up: retention with short thresholds and the sweeper do that. A disruptive
 test is marked `[ExclusiveServer]`. Each contract in `Contracts/` runs the same assertions on the real
 system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSystem/FakeContractTests.cs`).
+
+### Recorded fixtures
+
+`tools/recordings/<system>/*.json` holds real exchanges with GitHub, Dex and k3s, one file each: the capture
+date, source and system version, the request, the response, and the body fields removed at capture (`elided`).
+`Olve.Pipelines.UnitTests/Recordings` replays them through the code that reads those systems, and
+`GitHubStandInTests` checks the stand-in against them. Anything written by hand that stands for one of these
+systems is listed in `tools/recordings/hand-written.json`, and never carries capture metadata.
+
+A run of the unit tests reports how current the recordings are in one line, and this never fails a build:
+
+| System | Goes out of date |
+|---|---|
+| GitHub | 60 days after capture (`expired`) |
+| Dex | as soon as `docker-compose.yml` or `src/deploy/helm/values.yaml` pins another version (`stale`) |
+| k3s | as soon as `docker-compose.yml` or `tools/real-system/compose.yml` pins another version (`stale`) |
+
+`dotnet test` hides what a test process prints, so the line goes to `artifacts/recorded-fixtures.txt`: the
+`test` step and `tools/check.sh --full` show it. The homelab's k3s version isn't pinned in the repo, so what
+this tracks is the image the throwaway hosts run.
+
+To re-record, run one of these from the repo root:
+
+```bash
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- github      # anonymous reads of a public repo; no token is ever read
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- dex         # a throwaway container on the pinned image
+tools/real-system/host.sh up 3                                          # k3s needs a host, then:
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- k3s 3
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- status      # the one-line report
+```
+
+Each command replaces that system's files and prints the diff, leaving nothing staged. It scrubs secrets,
+keeps only listed headers, and writes nothing if a scan of the result still finds one. A person approves every
+re-record: commit the diff to approve, restore the directory to reject.
 
 ### Check before you push
 

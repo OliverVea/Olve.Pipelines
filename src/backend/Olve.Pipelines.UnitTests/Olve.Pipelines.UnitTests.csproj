@@ -25,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../Olve.Pipelines.Recorder/Recordings/*.cs" LinkBase="Recordings/Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Olve.Pipelines/Olve.Pipelines.csproj" />
   </ItemGroup>
 

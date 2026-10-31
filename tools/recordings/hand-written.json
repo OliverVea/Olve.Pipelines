@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/BindingWebhookReceiverTests.cs",
+    "standsFor": "GitHub push webhook body",
+    "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Sources/WebhookVerificationTests.cs",
+    "standsFor": "GitHub webhook signature headers",
+    "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/BindingHookRegistrationTests.cs",
+    "standsFor": "GitHub hook create, update and delete",
+    "notRecordedBecause": "these are writes to GitHub and need a token"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/ConfigCursorTests.cs",
+    "standsFor": "GitHub commits and contents APIs",
+    "notRecordedBecause": "it scripts cursor edge cases; RecordedGitHubTests covers the real exchange"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Harness/HarnessOutcomeTests.cs",
+    "standsFor": "Kubernetes Job and pod states",
+    "notRecordedBecause": "it covers more exit codes than are recorded; RecordedKubernetesTests covers a real Complete and DeadlineExceeded Job"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/HarnessFakes.cs",
+    "standsFor": "Kubernetes API, as FakeKubernetes",
+    "notRecordedBecause": "a fake, checked against the real API by the contract suites"
+  },
+  {
+    "path": "src/backend/Olve.Pipelines.UnitTests/Http/AuthAllowListTests.cs",
+    "standsFor": "Dex tokens and groups claims",
+    "notRecordedBecause": "a recorded token would be a credential, so these are signed by a test key"
+  },
+  {
+    "path": "tools/real-system/github-stand-in.ts",
+    "standsFor": "GitHub commits, contents and codeload APIs",
+    "notRecordedBecause": "it has to serve per-test repos; GitHubStandInTests checks its replies against the recordings"
+  }
+]

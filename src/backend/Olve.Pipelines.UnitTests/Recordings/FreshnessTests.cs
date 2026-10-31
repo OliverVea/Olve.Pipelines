@@ -3,8 +3,16 @@ using Olve.Pipelines.Recorder.Recordings;
 
 namespace Olve.Pipelines.UnitTests.Recordings;
 
-public class FreshnessTests
+public sealed class FreshnessTests : IDisposable
 {
+    private readonly List<string> _checkouts = [];
+
+    public void Dispose()
+    {
+        foreach (var checkout in _checkouts)
+            Directory.Delete(checkout, recursive: true);
+    }
+
     private const string ReRecord = "re-record: dotnet run --project src/backend/Olve.Pipelines.Recorder -- <system>";
 
     private static readonly DateOnly Today = new(2026, 10, 31);
@@ -80,9 +88,10 @@ public class FreshnessTests
             $"1 unreadable (dex/broken.json); {ReRecord}");
     }
 
-    private static string NewCheckout(params (string Path, string Content)[] files)
+    private string NewCheckout(params (string Path, string Content)[] files)
     {
         var root = Path.Combine(Path.GetTempPath(), $"olve-recordings-{Guid.NewGuid():N}");
+        _checkouts.Add(root);
         foreach (var (path, content) in files.Append(("Olve.Pipelines.slnx", "")))
         {
             var file = Path.Combine(root, path);
@@ -132,7 +141,15 @@ public class FreshnessTests
 
         var line = Freshness.Report(root, new FixedClock(Today));
 
-        await Assert.That(line).StartsWith("recorded fixtures: not checked, DirectoryNotFoundException: ");
+        await Assert.That(line).IsEqualTo($"recorded fixtures: not checked, DirectoryNotFoundException: Could not find a part of the path '{Path.Combine(root, "tools/recordings")}'.");
+    }
+
+    [Test]
+    public async Task PinsThatDisagree_StopACapture()
+    {
+        var root = NewCheckout(("docker-compose.yml", "dexidp/dex:v1\n"), ("src/deploy/helm/values.yaml", "dexidp/dex:v2\n"));
+
+        await Assert.That(() => SystemPins.Single(root, SystemPins.Dex)).Throws<InvalidOperationException>().WithMessage("expected one dex pin, found: v1, v2");
     }
 
     [Test]

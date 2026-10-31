@@ -38,5 +38,15 @@
     "path": "tools/real-system/github-stand-in.ts",
     "standsFor": "GitHub commits, contents and codeload APIs",
     "notRecordedBecause": "it has to serve per-test repos; GitHubStandInTests checks its replies against the recordings"
+  },
+  {
+    "path": "src/sdk/tests/runtime/library.test.ts",
+    "standsFor": "GitHub and codeload tarball downloads, for the gitHubSource step",
+    "notRecordedBecause": "a tarball of a repo is too large to approve as a diff, and a private one needs a token"
+  },
+  {
+    "path": "src/sdk/tests/runtime/harness.test.ts",
+    "standsFor": "GitHub webhook events reaching a trigger mapper",
+    "notRecordedBecause": "a delivery needs a hook on a repo, which is a write to GitHub"
   }
 ]

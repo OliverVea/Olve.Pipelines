@@ -31,6 +31,15 @@ public static partial class SystemPins
             .Distinct()
             .ToList();
 
+    /// <summary>The one version to record: a capture can't be true of pins that disagree.</summary>
+    public static string Single(string repoRoot, string system)
+    {
+        var versions = Read(repoRoot).Where(p => p.System == system).Select(p => p.Version).Distinct().ToList();
+        return versions.Count == 1
+            ? versions[0]
+            : throw new InvalidOperationException($"expected one {system} pin, found: {string.Join(", ", versions)}");
+    }
+
     private static string Text(string repoRoot, string file)
     {
         var path = Path.Combine(repoRoot, file);

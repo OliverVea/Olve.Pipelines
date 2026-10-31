@@ -26,7 +26,7 @@ internal static class K3sCapture
 
     public static IReadOnlyList<Recording> Capture(string repoRoot, int slot, DateOnly today)
     {
-        var version = SystemPins.Read(repoRoot).Where(p => p.System == SystemPins.K3s).Select(p => p.Version).Distinct().Single();
+        var version = SystemPins.Single(repoRoot, SystemPins.K3s);
         string Kubectl(string? input, params string[] arguments) =>
             Captures.Run(Path.Combine(repoRoot, "tools/real-system/host.sh"), ["kubectl", slot.ToString(), "--", .. arguments], repoRoot, input);
 

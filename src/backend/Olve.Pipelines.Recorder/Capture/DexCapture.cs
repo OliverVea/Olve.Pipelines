@@ -9,7 +9,7 @@ internal static partial class DexCapture
 {
     public static async Task<IReadOnlyList<Recording>> CaptureAsync(string repoRoot, DateOnly today)
     {
-        var version = SystemPins.Read(repoRoot).Where(p => p.System == SystemPins.Dex).Select(p => p.Version).Distinct().Single();
+        var version = SystemPins.Single(repoRoot, SystemPins.Dex);
         var image = $"dexidp/dex:{version}";
 
         var reported = ReportedVersion().Match(Captures.Run("docker", ["run", "--rm", image, "dex", "version"])).Value;

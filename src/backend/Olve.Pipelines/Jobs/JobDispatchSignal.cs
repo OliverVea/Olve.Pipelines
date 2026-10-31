@@ -7,6 +7,9 @@ public sealed class JobDispatchSignal
 
     public void Nudge() => Volatile.Read(ref _next).TrySetResult();
 
+    /// <summary>A nudge has come that no wait has consumed yet.</summary>
+    internal bool IsNudged => Volatile.Read(ref _next).Task.IsCompleted;
+
     /// <summary>Returns at the next nudge (or at once if one came since the last wait) or after <paramref name="timeout"/>.</summary>
     public async Task WaitAsync(TimeSpan timeout, CancellationToken ct)
     {

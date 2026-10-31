@@ -1,6 +1,10 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Console;
+using Microsoft.Extensions.Options;
 using Olve.Pipelines.Configuration;
 using Olve.Results;
 
@@ -14,15 +18,20 @@ namespace Olve.Pipelines.UnitTests;
 /// structured args (incl. the flattened <see cref="ResultProblemLogExtensions.LogProblems"/> fields)
 /// surface as queryable fields rather than a plain-text blob.
 ///
-/// These capture the real console output (the only way to verify the actual formatter), so they
-/// redirect the process-global <c>Console.Out</c>: <c>[NotInParallel]</c> serializes them, output is
-/// restored in <c>finally</c>, and lines are matched by category to ignore any stray output.
-/// TUnit0055 (warns that overriding Console can disrupt TUnit logging) is suppressed deliberately.
+/// The formatter is chosen by name the way the console provider chooses it, and writes to a buffer
+/// instead of the process-global console.
 /// </summary>
-[NotInParallel("console-capture")]
 public class LoggingJsonFormatTests
 {
-#pragma warning disable TUnit0055 // Overwriting the Console writer — intentional and restored in finally.
+    private sealed class FormatterLogger(string category, ConsoleFormatter formatter, TextWriter writer) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> format)
+            => formatter.Write(new LogEntry<TState>(logLevel, category, eventId, state, exception, format), null, writer);
+    }
+
     private static string CaptureConsole(string category, Action<ILogger> log)
     {
         var config = new ConfigurationBuilder()
@@ -34,30 +43,22 @@ public class LoggingJsonFormatTests
             })
             .Build();
 
-        var original = Console.Out;
-        var buffer = new StringWriter();
-        // The console provider captures Console.Out at construction, so redirect before building it.
-        Console.SetOut(buffer);
-        try
-        {
-            using (var factory = LoggerFactory.Create(b =>
+        using var provider = new ServiceCollection()
+            .AddLogging(b =>
             {
                 b.AddConfiguration(config.GetSection("Logging"));
                 b.AddSimpleConsole();                      // reproduce the slim-builder default that hid the bug
                 b.AddConfiguredConsoleFormatter(config);   // the actual fix under test
-            }))
-            {
-                log(factory.CreateLogger(category));
-            } // dispose joins the async console processor thread, flushing all queued lines
-        }
-        finally
-        {
-            Console.SetOut(original);
-        }
+            })
+            .BuildServiceProvider();
 
+        var name = provider.GetRequiredService<IOptionsMonitor<ConsoleLoggerOptions>>().CurrentValue.FormatterName;
+        var formatter = provider.GetRequiredService<IEnumerable<ConsoleFormatter>>().Single(f => f.Name == name);
+
+        var buffer = new StringWriter();
+        log(new FormatterLogger(category, formatter, buffer));
         return buffer.ToString();
     }
-#pragma warning restore TUnit0055
 
     private static JsonElement FindLine(string output, string category)
     {

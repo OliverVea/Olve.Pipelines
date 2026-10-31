@@ -24,9 +24,9 @@ public class JobDispatchSignalTests
         signal.Nudge();
         await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
 
+        await Assert.That(signal.IsNudged).IsFalse();
+
         var next = signal.WaitAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
-        await Task.Delay(100);
-        await Assert.That(next.IsCompleted).IsFalse();
         signal.Nudge();
         await Assert.That(await Task.WhenAny(next, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(next);
     }

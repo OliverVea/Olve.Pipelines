@@ -86,16 +86,10 @@ public class KubernetesJobExecutorTests
         return new Harness(executor, k8s, storage, scenario, run, registry, lifetime, factory, control);
     }
 
-    private static async Task RunWatcher(Harness h, Id<Attempt> id)
+    private static Task RunWatcher(Harness h, Id<Attempt> id)
     {
         h.Executor.EnsureRunning(id);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (h.Registry.IsRunning(id))
-        {
-            if (DateTimeOffset.UtcNow > deadline)
-                throw new TimeoutException($"Watcher for '{id}' did not complete in time.");
-            await Task.Delay(10);
-        }
+        return h.Registry.WhenStopped(id).WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     [Test]

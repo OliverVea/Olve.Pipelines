@@ -34,7 +34,7 @@ public class JobRunner(
         }
     }
 
-    private void DispatchTick()
+    internal void DispatchTick()
     {
         var attempts = GetActiveAttempts();
         var busyKeys = CollectInProgressKeys(attempts);

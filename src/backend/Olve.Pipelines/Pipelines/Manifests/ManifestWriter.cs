@@ -41,6 +41,7 @@ public static class ManifestWriter
         w.WriteString("sdk", m.Harness.Sdk);
         w.WriteString("sdkHash", m.Harness.SdkHash);
         w.WriteEndObject();
+        if (m.CodeHash is not null) w.WriteString("codeHash", m.CodeHash);
         w.WriteStartObject("models");
         foreach (var (name, schemas) in m.Models)
         {
@@ -221,7 +222,7 @@ public static class ManifestWriter
         if (s.Output is null) w.WriteNull("output");
         else w.WriteString("output", s.Output);
         WriteStrings(w, "secrets", s.Secrets);
-        w.WriteString("handlerHash", s.HandlerHash);
+        if (s.HandlerHash is not null) w.WriteString("handlerHash", s.HandlerHash);
         if (s.TimeoutSeconds is { } timeout) w.WriteNumber("timeoutSeconds", timeout);
         if (s.Retries is { } retries) w.WriteNumber("retries", retries);
         if (s.Config is not null)

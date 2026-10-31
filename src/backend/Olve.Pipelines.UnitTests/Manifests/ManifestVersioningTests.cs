@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using Olve.Pipelines.Pipelines.Manifests;
 using static Olve.Pipelines.UnitTests.Manifests.ManifestFixture;
@@ -10,6 +11,25 @@ public class ManifestVersioningTests
         ["checkout", "build", "test", "deploy-beta", "deploy-prod", "publish-cli", "summary", "aoe-triage"];
 
     private static Dictionary<string, int> StepVersions(ManifestVersions v) => v.Current.Steps.ToDictionary(kv => kv.Key, kv => kv.Value.Version);
+
+    private static Manifest BuiltWithCodeHash(char digit) => Mutate(r =>
+    {
+        RemoveHandlerHashes(r);
+        r["codeHash"] = "sha256:" + new string(digit, 64);
+    });
+
+    private static void RemoveHandlerHashes(JsonNode? node)
+    {
+        if (node is JsonObject o)
+        {
+            o.Remove("handlerHash");
+            foreach (var (_, child) in o) RemoveHandlerHashes(child);
+        }
+        else if (node is JsonArray a)
+        {
+            foreach (var child in a) RemoveHandlerHashes(child);
+        }
+    }
 
     private static Dictionary<string, int> ModelVersions(ManifestVersions v) => v.Current.Models.ToDictionary(kv => kv.Key, kv => kv.Value.Version);
 
@@ -65,6 +85,38 @@ public class ManifestVersioningTests
         await Assert.That(StepVersions(v2)["deploy-prod"]).IsEqualTo(1);
         await Assert.That(v2.ChangedModels).IsEmpty();
         await Assert.That(v2.ManifestHash).IsNotEqualTo(v1.ManifestHash);
+    }
+
+    [Test]
+    public async Task CodeChange_MakesANewVersionAndBumpsNoStep()
+    {
+        var v1 = ManifestVersioning.Compute(null, BuiltWithCodeHash('1'));
+
+        var v2 = ManifestVersioning.Compute(v1.History, BuiltWithCodeHash('2'));
+
+        await Assert.That(v2.ManifestHash).IsNotEqualTo(v1.ManifestHash);
+        await Assert.That(v2.ChangedSteps).IsEmpty();
+        await Assert.That(v2.ChangedModels).IsEmpty();
+    }
+
+    [Test]
+    public async Task CodeHash_RoundTripsThroughTheCanonicalManifest()
+    {
+        var manifest = BuiltWithCodeHash('1');
+
+        var parsed = ManifestParser.TryParse(Encoding.UTF8.GetBytes(ManifestWriter.ToCanonicalJson(manifest)), out var again, out _);
+
+        await Assert.That(parsed).IsTrue();
+        await Assert.That(again!.CodeHash).IsEqualTo(manifest.CodeHash);
+        await Assert.That(ManifestVersioning.ManifestHash(again)).IsEqualTo(ManifestVersioning.ManifestHash(manifest));
+    }
+
+    [Test]
+    public async Task CodeHash_ReplacesHandlerHashes()
+    {
+        var report = ManifestValidator.Validate(BuiltWithCodeHash('1'));
+
+        await Assert.That(report.Errors).IsEmpty();
     }
 
     [Test]

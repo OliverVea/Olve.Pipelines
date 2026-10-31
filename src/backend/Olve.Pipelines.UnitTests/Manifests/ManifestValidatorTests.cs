@@ -104,6 +104,8 @@ public class ManifestValidatorTests
         ["empty step kind"] = (C.StepKindEmpty, r => Step(r, "build")["kind"] = ""),
         ["empty image"] = (C.StepImageEmpty, r => Step(r, "build")["image"] = " "),
         ["bad handler hash"] = (C.StepHashInvalid, r => Step(r, "build")["handlerHash"] = "sha256:abc"),
+        ["no handler hash and no code hash"] = (C.StepHashInvalid, r => Step(r, "build").Remove("handlerHash")),
+        ["bad code hash"] = (C.CodeHashInvalid, r => r["codeHash"] = "sha256:abc"),
         ["bad harness hash"] = (C.HarnessHashInvalid, r => r["harness"]!["sdkHash"] = "md5:x"),
         ["zero timeout"] = (C.StepTimeoutInvalid, r => Step(r, "build")["timeoutSeconds"] = 0),
         ["negative retries"] = (C.StepRetriesInvalid, r => Step(r, "build")["retries"] = -1),

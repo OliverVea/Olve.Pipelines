@@ -27,6 +27,9 @@ public sealed record Manifest(
 
     /// <summary>Retention overrides the pipeline declares (null when the manifest has no <c>retention</c>).</summary>
     public ManifestRetention? Retention { get; init; }
+
+    /// <summary>Hash of the whole build; steps then carry no <see cref="StepDescriptor.HandlerHash"/>.</summary>
+    public string? CodeHash { get; init; }
 }
 
 /// <summary>Per-pipeline retention: each set field replaces the instance's <c>Retention:*</c> value of the same meaning.</summary>
@@ -37,7 +40,7 @@ public sealed record ManifestRetention(long? KeepLatestRuns, long? MinRunAgeDays
 /// <param name="Required">False when the entry may be absent (optional, or it has a default).</param>
 public sealed record ManifestConfigEntry(string Name, string Description, bool Required, JsonElement Schema);
 
-/// <summary>Harness identity (already folded into every handler hash).</summary>
+/// <summary>Harness identity (already folded into the code and handler hashes).</summary>
 public sealed record ManifestHarness(string Bun, string Sdk, string SdkHash);
 
 /// <summary>JSON Schema views of a model. <see cref="Input"/> is present only when it differs from <see cref="Output"/>.</summary>
@@ -108,7 +111,7 @@ public sealed record StepDescriptor(
     IReadOnlyDictionary<string, Mapping> Input,
     string? Output,
     IReadOnlyList<string> Secrets,
-    string HandlerHash,
+    string? HandlerHash,
     long? TimeoutSeconds,
     long? Retries,
     IReadOnlyDictionary<string, JsonElement>? Config)

@@ -61,6 +61,7 @@ public static class ManifestIssueCodes
     public const string StepKindEmpty = "step-kind-empty";
     public const string StepImageEmpty = "step-image-empty";
     public const string StepHashInvalid = "step-handler-hash-invalid";
+    public const string CodeHashInvalid = "code-hash-invalid";
     public const string StepTimeoutInvalid = "step-timeout-invalid";
     public const string StepRetriesInvalid = "step-retries-invalid";
     public const string StageEmpty = "stage-empty";

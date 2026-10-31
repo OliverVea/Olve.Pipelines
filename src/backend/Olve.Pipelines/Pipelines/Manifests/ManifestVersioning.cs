@@ -115,7 +115,7 @@ public static class ManifestVersioning
             w.WriteStartArray("secrets");
             foreach (var secret in s.Secrets.Distinct().Order(StringComparer.Ordinal)) w.WriteStringValue(secret);
             w.WriteEndArray();
-            w.WriteString("handlerHash", s.HandlerHash);
+            if (s.HandlerHash is not null) w.WriteString("handlerHash", s.HandlerHash);
             if (s.TimeoutSeconds is { } t) w.WriteNumber("timeoutSeconds", t);
             if (s.Retries is { } r) w.WriteNumber("retries", r);
             if (s.Config is not null)

@@ -105,7 +105,7 @@ public static class ManifestParser
     private static Manifest? ParseManifest(Ctx ctx, JsonElement e)
     {
         const string p = "$";
-        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config", "retention"]))
+        if (!ctx.Object(e, p, ["apiVersion", "name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"], ["description", "config", "retention", "codeHash"]))
             return null;
 
         var apiVersion = ctx.String(e, "apiVersion", p);
@@ -125,11 +125,12 @@ public static class ManifestParser
             : [];
         var hasRetention = e.TryGetProperty("retention", out var retentionElement);
         var retention = hasRetention ? ParseRetention(ctx, retentionElement, "retention") : null;
+        var codeHash = ctx.OptionalString(e, "codeHash", p);
 
         if (apiVersion is null || name is null || input is null || harness is null || models is null || secrets is null
             || triggers is null || stages is null || failureHandlers is null || config is null || (hasRetention && retention is null))
             return null;
-        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config, Retention = retention };
+        return new Manifest(apiVersion, name, description, input, harness, models, secrets, triggers, stages, failureHandlers) { Config = config, Retention = retention, CodeHash = codeHash };
     }
 
     private static ManifestRetention? ParseRetention(Ctx ctx, JsonElement e, string path)
@@ -335,7 +336,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets", "handlerHash"], ["description", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets"], ["description", "handlerHash", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -354,7 +355,7 @@ public static class ManifestParser
             outputOk = false;
         }
         var secrets = ctx.StringArray(e, "secrets", path);
-        var handlerHash = ctx.String(e, "handlerHash", path);
+        var handlerHash = ctx.OptionalString(e, "handlerHash", path);
         long? timeout = e.TryGetProperty("timeoutSeconds", out _) ? ctx.Integer(e, "timeoutSeconds", path) : null;
         var timeoutOk = !e.TryGetProperty("timeoutSeconds", out _) || timeout is not null;
         long? retries = e.TryGetProperty("retries", out _) ? ctx.Integer(e, "retries", path) : null;
@@ -380,7 +381,7 @@ public static class ManifestParser
             : new Dictionary<string, ExternalInput>();
 
         if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
-            || handlerHash is null || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || externalInputs is null)
+            || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || externalInputs is null)
             return null;
         return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
         {

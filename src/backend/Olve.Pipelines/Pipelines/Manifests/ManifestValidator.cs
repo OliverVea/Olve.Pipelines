@@ -100,6 +100,8 @@ public static partial class ManifestValidator
             if (string.IsNullOrWhiteSpace(m.Name)) Error(ManifestIssueCodes.PipelineNameEmpty, "name", "the pipeline name must not be empty");
             if (!HashRegex().IsMatch(m.Harness.SdkHash))
                 Error(ManifestIssueCodes.HarnessHashInvalid, "harness.sdkHash", $"'{m.Harness.SdkHash}' is not a sha256:<64 hex> hash");
+            if (m.CodeHash is not null && !HashRegex().IsMatch(m.CodeHash))
+                Error(ManifestIssueCodes.CodeHashInvalid, "codeHash", $"'{m.CodeHash}' is not a sha256:<64 hex> hash");
             if (m.Retention is { } r)
             {
                 if (r.KeepLatestRuns is < 0) Error(ManifestIssueCodes.RetentionInvalid, "retention.keepLatestRuns", "retention.keepLatestRuns must be a non-negative integer");
@@ -344,8 +346,8 @@ public static partial class ManifestValidator
             var n = s.Name;
             if (string.IsNullOrWhiteSpace(s.Kind)) Error(ManifestIssueCodes.StepKindEmpty, $"{path}.kind", $"step '{n}': kind must not be empty", n);
             if (string.IsNullOrWhiteSpace(s.Image)) Error(ManifestIssueCodes.StepImageEmpty, $"{path}.image", $"step '{n}': image must not be empty", n);
-            if (!HashRegex().IsMatch(s.HandlerHash))
-                Error(ManifestIssueCodes.StepHashInvalid, $"{path}.handlerHash", $"step '{n}': handlerHash '{s.HandlerHash}' is not a sha256:<64 hex> hash", n);
+            if (s.HandlerHash is null ? m.CodeHash is null : !HashRegex().IsMatch(s.HandlerHash))
+                Error(ManifestIssueCodes.StepHashInvalid, $"{path}.handlerHash", s.HandlerHash is null ? $"step '{n}': no handlerHash, and the manifest has no codeHash" : $"step '{n}': handlerHash '{s.HandlerHash}' is not a sha256:<64 hex> hash", n);
             if (s.TimeoutSeconds is <= 0) Error(ManifestIssueCodes.StepTimeoutInvalid, $"{path}.timeoutSeconds", $"step '{n}': timeoutSeconds must be a positive integer", n);
             if (s.Retries is < 0) Error(ManifestIssueCodes.StepRetriesInvalid, $"{path}.retries", $"step '{n}': retries must be a non-negative integer", n);
 

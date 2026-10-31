@@ -148,15 +148,13 @@ export class ReliabilityView extends LitElement {
         </span>
       </div>
       ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
-      ${
-        r === null
-          ? this._error
-            ? nothing
-            : html`<p class="muted">Loading…</p>`
-          : !r.steps.length
-            ? html`<p class="muted">No attempts have finished in this range.</p>`
-            : html`${this._summary(r)} ${this._steps(r)} ${this._notes(r)}`
-      }
+      ${r === null
+        ? this._error
+          ? nothing
+          : html`<p class="muted">Loading…</p>`
+        : !r.steps.length
+          ? html`<p class="muted">No attempts have finished in this range.</p>`
+          : html`${this._summary(r)} ${this._steps(r)} ${this._notes(r)}`}
     `;
   }
 
@@ -164,9 +162,9 @@ export class ReliabilityView extends LitElement {
     if (!w.runs) return nothing;
     return html`<span class="muted"
       >runs #${w.fromRun}–#${w.toRun}, <relative-time .value=${w.from}></relative-time> to
-      <relative-time .value=${w.to}></relative-time>${
-        w.limitedByRetention ? ', older runs were removed by retention' : ''
-      }</span
+      <relative-time .value=${w.to}></relative-time>${w.limitedByRetention
+        ? ', older runs were removed by retention'
+        : ''}</span
     >`;
   }
 
@@ -179,15 +177,13 @@ export class ReliabilityView extends LitElement {
         <span class="value">${runs.settled ? percent(runs.rate) : '—'}</span>
         <span class="sub">${runs.failedForNoReason} of ${runs.settled} settled runs</span>
       </div>
-      ${
-        runs.absorbed
-          ? html`<div class="cell">
-              <span class="label">Absorbed</span>
-              <span class="value">${runs.absorbed}</span>
-              <span class="sub">more runs covered by automatic retries</span>
-            </div>`
-          : nothing
-      }
+      ${runs.absorbed
+        ? html`<div class="cell">
+            <span class="label">Absorbed</span>
+            <span class="value">${runs.absorbed}</span>
+            <span class="sub">more runs covered by automatic retries</span>
+          </div>`
+        : nothing}
       <div class="cell">
         <span class="label">Flaky steps</span>
         <span class="value">${flaky.length}</span>
@@ -198,25 +194,23 @@ export class ReliabilityView extends LitElement {
         <span class="value">${above.length}</span>
         <span class="sub">failing more than they usually do</span>
       </div>
-      ${
-        runs.runNumbers.length
-          ? html`<div class="cell grow">
-              <span class="label">Latest such runs</span>
-              <span class="value"
-                >${runs.runNumbers
-                  .slice(0, 5)
-                  .map(
-                    (n, i) =>
-                      html`${i ? ', ' : ''}<a
-                          href=${runPath(this.pipelineId, n)}
-                          @click=${navClick}
-                          >#${n}</a
-                        >`,
-                  )}</span
-              >
-            </div>`
-          : nothing
-      }
+      ${runs.runNumbers.length
+        ? html`<div class="cell grow">
+            <span class="label">Latest such runs</span>
+            <span class="value"
+              >${runs.runNumbers
+                .slice(0, 5)
+                .map(
+                  (n, i) =>
+                    html`${i ? ', ' : ''}<a
+                        href=${runPath(this.pipelineId, n)}
+                        @click=${navClick}
+                        >#${n}</a
+                      >`,
+                )}</span
+            >
+          </div>`
+        : nothing}
     </div>`;
   }
 
@@ -251,11 +245,9 @@ export class ReliabilityView extends LitElement {
                   <td>
                     <a href=${stepRunsPath(this.pipelineId, s.step)} @click=${navClick}
                       >${s.step}</a
-                    >${
-                      s.aboveUsual
-                        ? html`<span class="above">above usual</span>`
-                        : nothing
-                    }
+                    >${s.aboveUsual
+                      ? html`<span class="above">above usual</span>`
+                      : nothing}
                   </td>
                   <td class="num">${s.attempts}</td>
                   <td class="num">${percent(s.failureRate)}</td>

@@ -5,8 +5,8 @@ using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Pipelines.UnitTests.Scheduling;
 using Olve.Results.TUnit;
-using Contract = Olve.Pipelines.Api;
 using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
+using Contract = Olve.Pipelines.Api;
 
 namespace Olve.Pipelines.UnitTests.Runs;
 

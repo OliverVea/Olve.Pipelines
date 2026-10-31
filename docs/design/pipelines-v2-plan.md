@@ -662,11 +662,10 @@ reliability page and an overview cell. What it reports is defined in
 [runs-and-operations.md](../setup/runs-and-operations.md#step-reliability).
 
 - **A query, plus one recorded fact.** Everything is derived from attempts on request, except why an
-  attempt failed: the harness knew the failure kind and the executor dropped it, so `AttemptStatus.Failed`
-  now stores `AttemptFailureKind` (the former `HarnessFailureKind`, plus lost Job, failed launch, not
-  run and declined). The own / infrastructure / timeout split is a mapping in the query
-  (`AttemptFailures.Category`), so it can be retuned without touching stored state.
-- **Older attempts** have no kind; `AttemptFailures.KindOf` reads it from the fixed start of their
+  attempt failed: `AttemptStatus.Failed` stores an `AttemptFailureKind`, the harness's exit-code kinds
+  plus lost Job, failed launch, not run and declined. The own / infrastructure / timeout split is a
+  mapping in the query (`AttemptFailures.Category`), so it can be retuned without touching stored state.
+- **Attempts without a kind:** `AttemptFailures.KindOf` reads it from the fixed start of their
   reason, and a test holds that table to the harness's messages. No match counts as the step's own.
 - **Same input is not `InputHash`.** That hash is taken before external answers are added, and a file
   ref names the run and attempt that made the file, so it differs between runs for the same file.
@@ -684,7 +683,9 @@ reliability page and an overview cell. What it reports is defined in
   points, 20 attempts of history), picked to stay quiet on a steady test step. They are not configurable.
 - **Never fails a build:** nothing in scheduling reads the report, no pipeline step asserts on it, and
   the overview fetches it best-effort.
-- **Known gaps:** the failure kind isn't shown on an attempt, only counted; secrets and what a step
+- **Known gaps:** matching across runs needs upstream files to be byte-identical by `sha256`, so
+  non-deterministic artifacts (tarballs with mtimes) leave later steps unmatched between runs, while
+  retries and step reruns within a run always match; the failure kind isn't shown on an attempt, only counted; secrets and what a step
   reaches outside its input aren't compared; `timeoutSeconds` passing counts as infrastructure even
   when the step itself hung.
 

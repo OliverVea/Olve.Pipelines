@@ -20,7 +20,7 @@ public abstract record AttemptStatus
     public record Scheduled(int SubmissionAttempts = 0) : AttemptStatus;
     public record InProgress(DateTimeOffset StartedAt) : AttemptStatus;
     public record Succeeded(DateTimeOffset StartedAt, DateTimeOffset FinishedAt) : AttemptStatus;
-    /// <param name="Kind">Null on attempts recorded before kinds were; <see cref="AttemptFailures.KindOf"/> reads their reason.</param>
+    /// <param name="Kind">Null when not recorded; <see cref="AttemptFailures.KindOf"/> then reads it from <paramref name="Reason"/>.</param>
     public record Failed(DateTimeOffset StartedAt, DateTimeOffset FinishedAt, string? Reason = null, AttemptFailureKind? Kind = null) : AttemptStatus;
     /// <param name="StartedAt">Null when the scheduler skipped it without running (<c>when</c>, upstream skip).</param>
     public record Skipped(string Reason, DateTimeOffset? StartedAt, DateTimeOffset FinishedAt) : AttemptStatus;

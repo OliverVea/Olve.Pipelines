@@ -85,6 +85,16 @@ The plan doc's candidates: manifest preview, event-stream filtering, OpenObserve
 Olve.MinimalApi. External inputs' open ideas (`at`, another run) are in
 [external-inputs.md](external-inputs.md).
 
+- **Step flakiness tracking.** Every pipeline gets a flakiness view of its steps, for any step and
+  not only tests.
+  - A step counts as flaky when attempts with the same code and input end differently, such as a
+    failure that a retry or rerun turns into a success. Infrastructure failures (pod, image pull,
+    timeout) stay distinguishable from the step's own failures.
+  - The service reports a flake rate per step, and a combined rate per pipeline: the chance a run
+    fails for no real reason. Both are visible in the UI and `pl`.
+  - Attempts already record most of this, so it starts as a query over attempt history. Retention
+    limits how far back it can see.
+
 ## 2.3 / 2.4
 
 - **Per-pipeline ServiceAccounts.**

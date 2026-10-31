@@ -2,6 +2,7 @@
 # The throwaway host the real-system tests run against. The tests never create or start it.
 #
 #   tools/real-system/host.sh up [slot]      build the server, start the host, write its descriptor
+#   tools/real-system/host.sh ui [slot]      build the web UI into the host, for the browser tests
 #   tools/real-system/host.sh reset [slot]   wipe the host's state; images stay cached
 #   tools/real-system/host.sh status [slot]  show the host's containers
 #   tools/real-system/host.sh logs [slot]    follow the server log
@@ -82,6 +83,10 @@ case "$command" in
     write_descriptor
     echo "host ready: http://localhost:$API_PORT (descriptor: $DESCRIPTOR)"
     ;;
+  ui)
+    (cd "$REPO_ROOT/src/frontend" && npm install --no-audit --no-fund --silent && npm run -s build)
+    cp -r "$REPO_ROOT/src/frontend/dist/." "$SERVER_DIR/wwwroot/"
+    ;;
   reset)
     compose rm -fsv server garage bootstrap >/dev/null
     in_cluster -n olve-runners delete jobs,pods --all --wait=false >/dev/null
@@ -108,7 +113,7 @@ case "$command" in
     in_cluster "$@"
     ;;
   *)
-    sed -n '2,17p' host.sh | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,18p' host.sh | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

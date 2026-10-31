@@ -15,6 +15,9 @@ services:
       Host: "0.0.0.0"
       Port: "5000"
       Auth__Disable: "true"
+      # Only what the web UI needs to start. The browser tests seed its session; nothing signs in here.
+      Auth__FrontendAuthority: "http://localhost:${API_PORT}/no-sign-in"
+      Auth__FrontendAudience: olve-pipelines
       OpenTelemetry__Endpoint: ""
       Telemetry__ServiceName: olve-pipelines-real-system
       Links__BaseUrl: "http://localhost:${API_PORT}"

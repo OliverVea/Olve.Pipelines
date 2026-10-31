@@ -274,9 +274,9 @@ repo, chart path, test command and smoke checks in the code.
 A repo without a beta environment gets one all the same (homelab-dashboard: the release in
 `apps-beta` with its ingress turned off by `set`), and a repo without a test suite gets checks that
 prove the deployment serves this commit (homelab-dashboard compares the served files with the
-source tree). An image over a few hundred MB can't travel as `imageBuild`'s tarball (the step
-pod's scratch space is 1Gi): push it to `registry.ovea.pro` from a custom kaniko step and pull it on
-the node (QuestionBank's `build-figures` and `deploy-figures-*`). Then:
+source tree). The image goes through a registry (`imageBuild` with `push: true`) and the deploy pins
+it by digest, so its size is no limit; `imageBuild`'s tarball form only suits images of up to a few
+hundred MB (the step pod's scratch space is 1Gi). Then:
 
 1. Check the pipeline locally (`pl dev describe`, `pl dev validate`).
 2. Push `.pipelines/`, then `pl binding create <owner/repo> --branch <deploy branch>

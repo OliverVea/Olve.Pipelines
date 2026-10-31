@@ -21,7 +21,7 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 |---|---|
 | **Model** | A named, nominal zod schema (`BuildArtifact`). Emitted as JSON Schema. |
 | **Step** | A contract: name, image, inputs (models or plain schemas), output model, secrets. No behavior. |
-| **Handler** | The implementation of one step: `(input, ctx) => output`, in `handlers/<step-name>.ts`. |
+| **Handler** | The implementation of one step: `(input, ctx) => output`, attached with `implement(step, fn)`. |
 | **Library step** | An SDK-provided step + handler pair with typed config (`script`, `gitCheckout`, `imageBuild`). |
 | **Pipeline** | Input model, triggers, and an ordered list of **stages**; each stage runs its steps in parallel. |
 | **Run** | One execution of a pinned pipeline version: an input plus the outputs of each step (the **pool**). |
@@ -34,20 +34,23 @@ arbitrary-payload webhook mapping. See [Deferred](#11-deferred).
 
 ```
 .pipelines/              # binding path (overridable — several pipelines per repo = several bindings)
-  models.ts              # level 1: data models
-  pipeline.ts            # level 2: steps (contracts) + pipeline (input, triggers, stages)
-  handlers/<step-name>.ts  # level 3: one implementation per custom step (default export)
+  package.json           # `main` names the entry point
+  models.ts              # data models
+  pipeline.ts            # the entry point: input, triggers, stages
+  steps.ts               # custom steps, each with its implementation
   scripts/               # shell scripts, embedded into the binary at build
 ```
 
-Dependency direction: `models ← steps ← handlers`, `models ← pipeline`. Handlers never depend on the
-pipeline; their types come from the step definition alone.
+A pipeline is an ordinary package, so only `package.json` has a fixed name. Dependency direction:
+`models ← steps ← pipeline`. Steps never depend on the pipeline; their types come from the step
+definition alone.
 
 - **Importing the entry point is deterministic**: describe evaluates it and everything it imports.
-- **Handlers by convention**: `handlers/<step-name>.ts` default-exports `implement(step, fn)`. The
-  build generates a registry of literal imports (computed dynamic imports would load from disk at
-  runtime). A custom step without a handler file is a describe error; library steps need none.
-- **Scripts are embedded**: `import script from "../scripts/x.sh" with { type: "file" }`. The repo
+- **Steps carry their handlers**: `implement(step({ … }), fn)` is imported and staged like any value.
+  A plain `step()` instead pairs with a top-level `handlers/*.ts` default-exporting `implement(step,
+  fn)`; the build generates a registry of literal imports for those (computed dynamic imports would
+  load from disk at runtime). A custom step with no implementation is a describe error.
+- **Scripts are embedded**: `import script from "./scripts/x.sh" with { type: "file" }`. The repo
   is not in the step container; the harness copies embedded scripts out before running them.
 
 ### 3.2 Models
@@ -156,15 +159,14 @@ steps.imageBuild({ name: "image", dockerfile: "Dockerfile", context: ".", tag: "
 ### 3.5 Handlers
 
 ```ts
-// handlers/deploy-beta.ts
-import { implement } from "@olivervea/pipelines";
-import { deployBeta } from "../pipeline";
-import deployScript from "../scripts/deploy-beta.sh" with { type: "file" };
+// steps.ts
+import { implement, step } from "@olivervea/pipelines";
+import deployScript from "./scripts/deploy-beta.sh" with { type: "file" };
 
 const RELEASE = "olve-pipelines";
 const URL = "https://pipelines-beta.ovea.pro";
 
-export default implement(deployBeta, async ({ artifact }, ctx) => {
+export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), async ({ artifact }, ctx) => {
   await ctx.sh(deployScript, {
     env: { RELEASE, VERSION: artifact.version,
            IMAGE_TAR: await ctx.files.fetch(artifact.image),

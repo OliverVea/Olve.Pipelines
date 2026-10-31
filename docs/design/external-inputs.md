@@ -40,8 +40,7 @@ export const review = step({
     }),
   },
 });
-// handlers/review.ts
-export default implement(review, async ({ verdict }) => {
+export const reviewStep = implement(review, async ({ verdict }) => {
   if (!verdict.accepted) throw new Error(`rejected: ${verdict.comment ?? "no reason given"}`);
 });
 ```

@@ -7,6 +7,21 @@ namespace Olve.Pipelines.RealSystemTests.Hosting;
 /// <summary>A pipeline a test owns: bound, polling off, its fixture reconciled.</summary>
 public sealed record TestPipeline(Guid Id, string Name, string Repo);
 
+/// <summary>A fault <c>host.sh fault</c> can inject.</summary>
+public sealed record HostFault(params string[] Arguments)
+{
+    public static readonly HostFault None = new("none");
+    public static readonly HostFault KillServer = new("kill-server");
+    public static readonly HostFault StopServer = new("stop-server");
+    public static readonly HostFault StopGarage = new("stop-garage");
+    public static readonly HostFault PauseKubernetes = new("pause-kubernetes");
+
+    public static HostFault DeletePods(string step, bool force) =>
+        force ? new HostFault("delete-pods", step, "--force") : new HostFault("delete-pods", step);
+
+    public override string ToString() => string.Join(' ', Arguments);
+}
+
 /// <summary>
 /// The host a test runs against, for the length of the test: <c>await using var server = await TestServer.LeaseAsync();</c>.
 /// Which host, and how many exist, stays in here. Tests never clean up: they name everything with
@@ -92,13 +107,15 @@ public sealed class TestServer : IAsyncDisposable
             $"run #{number} of {pipeline.Name} to finish");
 
     /// <summary>
-    /// The chaos tier's fault seam, <c>host.sh crash</c>. Answers once armed, so start what it waits for after
-    /// this; the task it answers with completes when the server is ready again. Needs <see cref="ExclusiveServerAttribute"/>.
+    /// The chaos tier's fault seam, <c>host.sh fault</c>. Answers once armed, so start what it waits for after
+    /// this; the task it answers with completes when the fault is over. With no log line it fires at once.
+    /// Needs <see cref="ExclusiveServerAttribute"/>.
     /// </summary>
-    public Task<Task> ArmServerCrashAsync(string afterLogLine, TimeSpan delay, TimeSpan downtime, bool graceful = false)
+    public Task<Task> ArmFaultAsync(HostFault fault, string? afterLogLine, TimeSpan delay, TimeSpan downtime)
     {
-        string[] options = ["--after", afterLogLine, "--delay-ms", $"{delay.TotalMilliseconds:0}", "--down-ms", $"{downtime.TotalMilliseconds:0}"];
-        return Current.ArmHostCommandAsync(Target.CrashCommand, graceful ? [.. options, "--graceful"] : options);
+        string[] options = ["--delay-ms", $"{delay.TotalMilliseconds:0}", "--down-ms", $"{downtime.TotalMilliseconds:0}"];
+        return Current.ArmHostCommandAsync(Target.FaultCommand,
+            [.. afterLogLine is null ? [] : new[] { "--after", afterLogLine }, .. options, .. fault.Arguments]);
     }
 
     public ValueTask DisposeAsync() => _lease.DisposeAsync();

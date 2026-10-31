@@ -93,15 +93,20 @@ them, and they sit outside the flake budget. Each is `[ExclusiveServer]`, so the
 
 ```bash
 tools/real-system/host.sh up 1
-tools/real-system/host.sh chaos 1                              # every crash moment once, from a random seed
-CHAOS_ROUNDS=3 tools/real-system/host.sh chaos 1               # three times
-CHAOS_SEEDS=17,18 tools/real-system/host.sh chaos 1            # replay these seeds
-CHAOS_SEEDS=17 CHAOS_GRACEFUL=1 tools/real-system/host.sh chaos 1   # the same moment with a graceful stop
+tools/real-system/host.sh chaos 1                              # every family, every moment once, from a random seed
+tools/real-system/host.sh chaos 1 ServerCrashTests             # one family
+CHAOS_ROUNDS=3 tools/real-system/host.sh chaos 1 OutageTests   # three times over
+CHAOS_SEEDS=17,18 tools/real-system/host.sh chaos 1 ServerCrashTests        # replay seeds
+CHAOS_SEEDS=17 CHAOS_CONTROL=1 tools/real-system/host.sh chaos 1 ServerCrashTests   # the harmless twin of the fault, same moment
 ```
 
-The seed decides the moment, the delay after it and the downtime, and a failure prints its seed. A test
-reaches the fault only through `TestServer.ArmServerCrashAsync`, which is `host.sh crash`: it anchors on a
-server log line, so a changed log message shows up as `crash: the server logged nothing matching …`.
+The families are `ServerCrashTests` (SIGKILL through a run's life), `OutageTests` (Garage down, the Kubernetes
+API frozen), `PodDeletionTests` and `DrainRestartTests` (a restart during a `--cancel-running` switch).
+
+A seed fixes the fault: moment, delay, downtime. It doesn't fix the server's timers, so a replay reproduces
+at a rate: run it a few times, and compare with `CHAOS_CONTROL=1` before calling a failure a bug. A failure
+prints its seed. A test reaches a fault only through `TestServer.ArmFaultAsync`, which is `host.sh fault`. It
+anchors on a server log line, so a changed log message shows up as `fault: the server logged nothing matching …`.
 
 ### Check before you push
 

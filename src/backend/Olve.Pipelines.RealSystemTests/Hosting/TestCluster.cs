@@ -23,13 +23,13 @@ public sealed class TestCluster(KubernetesTarget target)
         return jobs.Where(j => j.Labels.GetValueOrDefault("olve-pipeline") == label).Select(j => j.Name).ToList();
     }
 
-    /// <summary>The pipeline's step Jobs, the name of each with whether it finished.</summary>
-    public async Task<IReadOnlyList<(string Name, bool Finished)>> StepJobsOfAsync(Guid pipelineId)
+    /// <summary>The pipeline's step Jobs.</summary>
+    public async Task<IReadOnlyList<(string Name, int Run, bool Finished)>> StepJobsOfAsync(Guid pipelineId)
     {
         var label = pipelineId.ToString("N");
         var jobs = await Client.ListJobsAsync(Namespace);
         return jobs.Where(j => j.Labels.GetValueOrDefault("olve-pipeline") == label && j.Labels.GetValueOrDefault("olve-role") == "step")
-            .Select(j => (j.Name, j.Finished)).ToList();
+            .Select(j => (j.Name, int.Parse(j.Labels["olve-run"]), j.Finished)).ToList();
     }
 
     public static string PipelineSecretName(Guid pipelineId) => $"olve-pipeline-{pipelineId:N}";

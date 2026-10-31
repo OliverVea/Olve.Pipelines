@@ -15,7 +15,7 @@ public sealed record TestTarget(
     StorageTarget Storage,
     string GitHubUrl,
     string? ResetCommand,
-    string? CrashCommand)
+    string? FaultCommand)
 {
     public override string ToString() => ApiUrl;
 }

@@ -52,6 +52,14 @@ public sealed class PipelinesApi(HttpClient http)
         return start.Run ?? throw new InvalidOperationException($"The run did not start: {start.Outcome}");
     }
 
+    /// <summary>The start's outcome, for a start that may queue rather than run.</summary>
+    public async Task<RunStart> RequestRunAsync(Guid pipelineId, JsonObject input) =>
+        await ReadAsync<RunStart>(await http.PostAsync($"api/pipelines/{pipelineId}/runs", JsonBody(input)));
+
+    public async Task<PipelineActivation> SwitchAsync(Guid pipelineId, int version, bool cancelRunning) =>
+        await ReadAsync<PipelineActivation>(await http.PostAsJsonAsync(
+            $"api/pipelines/{pipelineId}/switch", new SwitchVersion { Version = version, CancelRunning = cancelRunning }, Json));
+
     public async Task<ApiReply> StartRunReplyAsync(Guid pipelineId, JsonObject input) =>
         await ReplyAsync(await http.PostAsync($"api/pipelines/{pipelineId}/runs", JsonBody(input)));
 

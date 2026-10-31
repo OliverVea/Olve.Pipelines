@@ -9,6 +9,10 @@ dotnet stryker                          # full run, about 18 minutes
 dotnet stryker -f stryker-control.json  # coverage-off control, about 7 minutes
 ```
 
+The redundancy, flakiness and control figures come from the scripts in `tools/test-audit/`, whose [README](../../tools/test-audit/README.md) gives the commands.
+
+These findings are a snapshot: line numbers and scores drift as `main` moves.
+
 ## Verdict
 
 - **Duplicates are not the main problem.** Of 16 groups of different test methods with identical kill sets, one is a clear merge and one is optional. The other 14 state distinct rules or guards.
@@ -18,8 +22,8 @@ dotnet stryker -f stryker-control.json  # coverage-off control, about 7 minutes
 
 ## Standards applied
 
-The rules are in `~/.claude/CLAUDE.md`. Decisions specific to this audit:
-
+- Lean towards user-facing flow tests, while keeping builds fast.
+- Tests run in parallel by default, and a serial test must justify itself.
 - A test stays if it catches something unique, states a distinct user-facing rule, or guards something mutants can't measure (races, ordering, security, a contract with another system).
 - A narrow test overlapped by a broader one stays if it names a distinct rule.
 - Error message text is behaviour and is asserted.
@@ -59,6 +63,8 @@ Score by area, lowest first among areas with at least 100 measured mutants:
 
 `GitHub` scores 8.7% on 46 mutants and `Health` 0% on 11. Most of that code talks to real systems, so unit mutation scores understate how it is really exercised.
 
+`Configuration` is low largely by design. A sample of its survivors is API metadata (`WithTags`, `WithSummary`) and DI registrations, which flow tests exercise indirectly. The exception to check is `RequireRead()` on those same lines, since that is authorization and not metadata.
+
 Files with the most undetected mutants worth attention: `ManifestValidator.cs` (232, 54.1%), `ManifestParser.cs` (185, 71.1%), `JsonSchemaValidator.cs` (108, 58.3%), `RunPersistenceService.cs` (89, 52.9%), `HarnessJobBuilder.cs` (72, 54.4%), `RetentionService.cs` (65, 19.8%).
 
 763 survivors are string mutations. Under the decision to assert messages most are real gaps, though some strings are paths or other non-message values. The other 1,061 survivors are logic changes and need case-by-case judgement.
@@ -84,6 +90,14 @@ Each survived or was uncovered, and a search found no test for the behaviour.
 | `ManifestValidator.cs:387` | External inputs are rejected in failure handlers | Medium |
 | `ManifestValidator.cs:107-109` | Retention bounds: the 0 boundary, and negative `minRunAgeDays` and `buildGraceDays` | Low |
 | `RunStartService.cs:153` | Exact de-dup window boundary | Low |
+
+The coverage-off control also confirmed these files have large undetected areas, because their not-covered mutants still survived when every test ran:
+
+| File | Score | Undetected | What's missing |
+|---|---:|---:|---|
+| `PipelineReconcileService.cs` | 24.3% | 56 | The build-job half (lines 152-246). `ReconcileApplyTests` covers applying a manifest, but the core GitOps path from build Job to manifest never runs. |
+| `BindingHandlers.cs` | 0% | 63 | The binding API handlers |
+| `AttemptFileService.cs` | 33.3% | 36 | Serving a step's files |
 
 Assessed as harmless or probably equivalent: `StageScheduler.cs:300` (guards a log line), `StageScheduler.cs:201` (looks equivalent, not proven), `StageScheduler.cs:298` (rewrites the same value). Not yet assessed: `StageScheduler.cs:49`, `ManifestValidator.cs:301`.
 
@@ -169,7 +183,7 @@ Proposals only, in priority order.
 
 ### 1. Close the dangerous gaps
 
-Add tests for the High and Medium rows under Confirmed gaps, as in-process flow tests where possible.
+Add tests for the High and Medium rows under Confirmed gaps, as in-process flow tests where possible. Add in-process flows for the reconcile build path, the binding API and step file serving. Check that `RequireRead()` is enforced on every read endpoint that needs it.
 
 ### 2. Tighten assertions and timing
 
@@ -229,6 +243,41 @@ Add a small set of browser-level tests of the main user flows, running against a
 - Run the new tiers once each, against the deployment or configuration they target.
 - Keep special cases such as load tests off-cadence.
 - Keep flake data from real pipeline runs, because local runs can't see rates near 1 in 300, and report the suite's combined rate against the 5% budget.
+
+### 9. TypeScript tests
+
+Run the same audit on `src/sdk` and `src/cli` before judging their 27 test files.
+
+### Metrics against the plan
+
+| Metric | Result | Addressed? | How |
+|---|---|---|---|
+| Backend mutation score | 55.06% | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
+| High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1 |
+| Medium and low gaps | 5 confirmed | Partly | Step 1 covers Medium. The 3 Low rows wait. |
+| Reconcile build path, binding API, file serving | 24.3%, 0%, 33.3% | Yes | Step 1 |
+| String survivors | 763 | Yes | Step 2, table-driven message test |
+| Other survivors | 1,061 | Partly | Only sampled so far. Triage remains. |
+| Not-covered mutants | 1,441 | Partly | Steps 1, 5 and 7. Wiring is left to indirect coverage. |
+| `Configuration` score | 31.7% | By design | Mostly metadata and wiring. Only `RequireRead()` gets a check. |
+| Unmeasured mutants | 1,876 (17.5%) | Investigation only | Step 4 looks for a workaround, with no fix known yet |
+| Cross-method duplicate groups | 16 (1 merge, 1 optional) | Yes | Step 3 |
+| No unique kill | 463 tests | No action, by design | Most keep their place as rules or guards |
+| Zero-kill tests | 42 | Yes | Steps 2 and 3. 12 causes remain undetermined. |
+| Weak rejection assertions | Pattern found, not counted | Yes | Step 2 |
+| `.IsTrue()` convention breaks | 22 in 10 files | Yes | Step 2 |
+| Flaky runs | 0 of 156 | Yes | Step 8 tracks real pipeline data |
+| Rare flakes near 1 in 300 | Can't be seen locally | Yes | Step 8 |
+| Test order dependence | Not tested | No | The binary has no randomization option. Serial and parallel runs both passed, which is only indirect evidence. |
+| Serial test classes | 1 | Yes | Step 2 |
+| Real-time waits | 4 fixed, 4 polling | Yes | Step 2 |
+| Parallel speed-up | About 2.3x | Yes | Step 2 removes waits and the 3s floor |
+| Suite run time | 4.9s | Protected | Budget of about 30s |
+| Real-system tests | None tracked | Yes | Step 5 |
+| Fakes unchecked against reality | About 20 | Partly | Step 5 covers Kubernetes and S3 first. Other fakes wait. |
+| Frontend tests | 0 | Yes | Step 7 |
+| TypeScript tests | 27 files, unmeasured | Audit only | Step 9 |
+| Interface bugs in fix history | Prominent in a skim | Yes | Steps 5 and 6, though nothing measures it yet |
 
 ### Suggested targets
 

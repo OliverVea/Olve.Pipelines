@@ -164,7 +164,7 @@ case "$command" in
     in_cluster "$@"
     ;;
   *)
-    sed -n '2,27p' host.sh | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,28p' host.sh | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

@@ -17,7 +17,7 @@ namespace Olve.Pipelines.Pipelines.Retention;
 /// <see cref="RetentionOptions.DryRun"/>) delete in a crash-safe order — expired runs through
 /// <see cref="RunService.Delete"/> under the scheduling lock (cascading attempts; persistence drops their
 /// <c>run.json</c> only after an index without them is written), a persistence flush, then their other objects,
-/// leftover objects, Secrets and Jobs. Every sweep logs per-category counts; a dry run also logs each item it
+/// leftover objects, Secrets and Jobs. A run resumed since the plan stays, and with it its objects and binary. Every sweep logs per-category counts; a dry run also logs each item it
 /// would delete. Best-effort: a failed listing skips that part, a failed sweep is retried next interval.
 /// Skipped entirely in Ephemeral storage mode.
 /// </summary>
@@ -115,29 +115,42 @@ public class RetentionService(
 
     private async Task ApplyAsync(IServiceProvider sp, RetentionPlan plan, IRetentionObjectStore? objectStore, string ns, CancellationToken ct)
     {
+        var objects = plan.Objects;
         if (plan.ExpiredRuns.Count > 0)
         {
             var runs = sp.GetRequiredService<RunService>();
+            var spared = new List<Run>();
             sp.GetRequiredService<RunSchedulingLock>().Run(() =>
             {
                 foreach (var run in plan.ExpiredRuns)
                 {
-                    if (runs.TryGet(run.Id, out var current) && current.Status.IsTerminal()
-                        && runs.Delete(run.Id).TryPickProblems(out var problems))
+                    if (!runs.TryGet(run.Id, out var current))
+                        continue;
+
+                    if (!current.Status.IsTerminal())
+                    {
+                        logger.LogInformation("Retention kept run #{RunNumber} ('{RunId}'): it was resumed after the sweep planned", run.Number, run.Id);
+                        spared.Add(current);
+                    }
+                    else if (runs.Delete(run.Id).TryPickProblems(out var problems))
+                    {
                         logger.LogProblems(LogLevel.Warning, problems, "Retention could not delete run #{RunNumber} ('{RunId}')", run.Number, run.Id);
+                        spared.Add(current);
+                    }
                 }
             });
+            objects = RetentionPlanner.ObjectsAfterSparing(plan, spared, sp.GetRequiredService<EntityStore<PipelineVersion>>().List());
 
             // The runs index must stop listing them before their objects go.
             if (sp.GetServices<IHostedService>().OfType<RunPersistenceService>().FirstOrDefault() is { } persistence)
                 await persistence.FlushAsync(ct);
         }
 
-        if (objectStore is not null && plan.Objects.Count > 0)
+        if (objectStore is not null && objects.Count > 0)
         {
-            var failed = await objectStore.DeleteAsync(plan.Objects.Select(o => o.Object.Key).ToList(), ct);
+            var failed = await objectStore.DeleteAsync(objects.Select(o => o.Object.Key).ToList(), ct);
             if (failed > 0)
-                logger.LogWarning("Retention: {FailedCount} of {ObjectCount} objects could not be deleted", failed, plan.Objects.Count);
+                logger.LogWarning("Retention: {FailedCount} of {ObjectCount} objects could not be deleted", failed, objects.Count);
         }
 
         if (plan.Secrets.Count == 0 && plan.Jobs.Count == 0)

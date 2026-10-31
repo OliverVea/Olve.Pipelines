@@ -107,6 +107,29 @@ public static class RetentionPlanner
     }
 
     /// <summary>
+    /// <paramref name="plan"/>'s objects without what <paramref name="spared"/> still needs: the plan treats every
+    /// expired run as gone, so it lists their objects and the binaries only they used.
+    /// </summary>
+    public static IReadOnlyList<ObjectDeletion> ObjectsAfterSparing(
+        RetentionPlan plan, IReadOnlyList<Run> spared, IReadOnlyList<PipelineVersion> versions)
+    {
+        if (spared.Count == 0)
+            return plan.Objects;
+
+        var runGroups = spared.Select(r => $"runs/{Hex(r.PipelineId)}/{r.Number}").ToHashSet(StringComparer.Ordinal);
+        var versionIds = spared.Select(r => r.VersionId).ToHashSet();
+        var binaries = versions.Where(v => versionIds.Contains(v.Id)).Select(v => v.BinaryKey).ToHashSet(StringComparer.Ordinal);
+        return plan.Objects
+            .Where(o => o.Category switch
+            {
+                RetentionCategory.ExpiredRun => !runGroups.Contains(o.Group),
+                RetentionCategory.Build => !binaries.Contains(o.Object.Key),
+                _ => true,
+            })
+            .ToList();
+    }
+
+    /// <summary>
     /// Per pipeline, newest first: the first <paramref name="keepLatest"/> are kept; of the rest, a finished run
     /// whose last activity (finish, else creation) is older than <paramref name="minAge"/> expires, unless pinned.
     /// </summary>

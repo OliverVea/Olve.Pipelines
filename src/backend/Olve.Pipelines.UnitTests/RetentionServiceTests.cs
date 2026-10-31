@@ -119,7 +119,7 @@ public class RetentionServiceTests
     }
 
     [Test]
-    public async Task Sweep_KeepsARunResumedAfterItWasPlanned()
+    public async Task Sweep_KeepsARunResumedAfterItWasPlanned_WithItsObjects()
     {
         var (service, s) = Build(dryRun: false, beforeApply: (d, old) => TestRunDomain.Pick(d.RunService.Reopen(old.Id)));
 
@@ -127,6 +127,7 @@ public class RetentionServiceTests
 
         await Assert.That(plan.ExpiredRuns.Single().Id).IsEqualTo(s.Old.Id);
         await Assert.That(StatusOf(s.D, s.Old)).IsEqualTo(RunStatus.Running);
+        await Assert.That(s.Objects.Deleted).IsEmpty();
     }
 
     [Test]

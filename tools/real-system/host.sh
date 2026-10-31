@@ -7,6 +7,7 @@
 #   tools/real-system/host.sh logs [slot]    follow the server log
 #   tools/real-system/host.sh down [slot]    remove the host and all its data
 #   tools/real-system/host.sh kubectl [slot] -- <args>   kubectl inside the throwaway cluster
+#   tools/real-system/host.sh sweep          remove what tests left that is over two hours old, on every target
 #
 # Slot 0 is the default host, http://localhost:5000. Slot n listens on 5000+10n and has its own compose
 # project, network and data, so a pool of three is `up 0`, `up 1`, `up 2`, then
@@ -85,10 +86,10 @@ case "$command" in
     compose rm -fsv server garage bootstrap >/dev/null
     in_cluster -n olve-runners delete jobs,pods --all --wait=false >/dev/null
     in_cluster -n olve-runners get secrets -o name \
-      | grep -v -E '^secret/(olve-pipelines-token|olve-real-system-marker)$' \
+      | { grep -v -E '^secret/(olve-pipelines-token|olve-real-system-marker)$' || true; } \
       | while read -r secret; do in_cluster -n olve-runners delete "$secret" >/dev/null; done
-    docker volume rm "${PROJECT}_garage-meta" "${PROJECT}_garage-data" >/dev/null
-    compose up -d --wait server garage
+    docker volume rm -f "${PROJECT}_garage-meta" "${PROJECT}_garage-data" >/dev/null
+    compose up -d --wait --quiet-pull server garage 2>/dev/null
     wait_ready
     ;;
   status) compose ps ;;
@@ -97,13 +98,17 @@ case "$command" in
     compose down -v
     rm -f "$DESCRIPTOR" "$CLUSTER_ID_FILE"
     ;;
+  sweep)
+    cd "$REPO_ROOT"
+    dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- --treenode-filter '/*/*/SweepCommand/*' --output Detailed --no-progress
+    ;;
   kubectl)
     shift 2
     [ "${1:-}" = "--" ] && shift
     in_cluster "$@"
     ;;
   *)
-    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,17p' host.sh | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

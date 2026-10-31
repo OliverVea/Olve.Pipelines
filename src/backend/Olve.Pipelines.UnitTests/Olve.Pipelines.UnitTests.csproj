@@ -18,6 +18,12 @@
     <None Include="Manifests/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The contract suites run here against the fakes and in the real-system tests against the real systems. -->
+  <ItemGroup>
+    <Compile Include="../Olve.Pipelines.RealSystemTests/Contracts/*.cs" LinkBase="RealSystem/Contracts" />
+    <Compile Include="../Olve.Pipelines.RealSystemTests/Hosting/ServerPool.cs;../Olve.Pipelines.RealSystemTests/Hosting/TargetGuard.cs;../Olve.Pipelines.RealSystemTests/Hosting/TestTargets.cs;../Olve.Pipelines.RealSystemTests/Hosting/Wait.cs" LinkBase="RealSystem/Hosting" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Olve.Pipelines/Olve.Pipelines.csproj" />
   </ItemGroup>

@@ -28,7 +28,8 @@ src/
 │   │   │   ├── Triggers/           push / poll / manual triggers, map-trigger, input validation
 │   │   │   └── Versions/           PipelineVersion, activation (Active / Draining), version endpoints
 │   │   └── Shared/                 AttachmentStore, startup runner, persistence, S3 presigning
-│   └── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
+│   ├── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
+│   └── Olve.Pipelines.RealSystemTests/  Tests against a real server, Kubernetes and Garage (TUnit)
 ├── spec/                           The API contract (TypeSpec, one .tsp per area); bun run build → artifacts/ (gitignored): openapi.json, the server's generated C#, the TypeScript client, the API reference (docs/design/spec-first.md)
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
@@ -42,6 +43,7 @@ src/
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
+tools/real-system/                  The throwaway host the real-system tests run against
 tools/version.cs                    CalVer versioning script
 ```
 
@@ -62,6 +64,26 @@ The server build compiles the contract when it changed (Olve.TypeSpec's `TypeSpe
 `tsp compile` in `src/spec/`) and compiles the generated `artifacts/generated/backend/*.g.cs`;
 `-p:SkipSpecGen=true` compiles already-generated files without bun (the deploy's `spec` step emits
 them for `compile-server` and `test`).
+
+### Real-system tests
+
+`src/backend/Olve.Pipelines.RealSystemTests` runs against a real server, Kubernetes and Garage. It isn't
+part of `dotnet build` or `dotnet test` at the root. The tests don't start a host, so start one first:
+
+```bash
+tools/real-system/host.sh up                                   # a throwaway host on http://localhost:5000
+dotnet run --project src/backend/Olve.Pipelines.RealSystemTests  # add -- --output Detailed for the host-size lines
+tools/real-system/host.sh down                                 # remove it and its data
+```
+
+The header of `tools/real-system/host.sh` covers a pool of hosts (`TEST_TARGETS`, `TEST_TARGETS_FILE`), the
+reset and the sweeper. The tests refuse a target whose cluster doesn't carry the host's marker Secret.
+
+A test takes a host with `await using var server = await TestServer.LeaseAsync();`. It creates its own
+pipelines (`server.NewPipelineAsync()`) and names anything else with `TestServer.NewName()`, asserts only
+on what it owns, and never cleans up: retention with short thresholds and the sweeper do that. A disruptive
+test is marked `[ExclusiveServer]`. Each contract in `Contracts/` runs the same assertions on the real
+system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSystem/FakeContractTests.cs`).
 
 ### Check before you push
 

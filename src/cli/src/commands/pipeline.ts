@@ -3,6 +3,7 @@ import {
   pipelinesGet,
   pipelinesHealth,
   pipelinesList,
+  stepsReliability,
   versionsEffective,
   versionsGet,
   versionsList,
@@ -10,6 +11,8 @@ import {
   type PendingVersionInfo,
   type PipelineActivation,
   type PipelineHealth,
+  type ReliabilityReport,
+  type StepReliability,
 } from '@olve/api';
 import { resolvePipeline } from '../address';
 import { parseManifest } from '../dev/manifest';
@@ -54,6 +57,29 @@ const lastRun = (h: PipelineHealth) =>
   h.lastRun
     ? `#${h.lastRun.number} ${h.lastRun.status} ${time(h.lastRun.createdAt)}`
     : '-';
+
+const percent = (rate: number) => `${(rate * 100).toFixed(1)}%`;
+
+function describeWindow({ window: w }: ReliabilityReport): string {
+  if (w.runs === 0) return 'Covers no runs yet.';
+  const limit = w.limitedByRetention ? '; older runs were removed by retention' : '';
+  return `Covers runs #${w.fromRun}..#${w.toRun} (${w.runs} of the latest ${w.requestedRuns}, ${time(w.from)} to ${time(w.to)})${limit}.`;
+}
+
+function describeNoReason({ runs: r }: ReliabilityReport): string {
+  if (r.settled === 0) return 'No settled runs yet.';
+  const which = r.runNumbers.length
+    ? `: ${r.runNumbers.map((n) => `#${n}`).join(', ')}`
+    : '';
+  const absorbed = r.absorbed ? `; retries absorbed ${r.absorbed} more` : '';
+  return `Failed for no real reason: ${r.failedForNoReason} of ${r.settled} settled runs (${percent(r.rate)})${which}${absorbed}.`;
+}
+
+const usual = (s: StepReliability) => {
+  if (s.recentFailureRate == null || s.usualFailureRate == null) return '-';
+  const rates = `${percent(s.recentFailureRate)} vs ${percent(s.usualFailureRate)}`;
+  return s.aboveUsual ? `above usual (${rates})` : rates;
+};
 
 export function parseVersion(text: string, what = '--version'): number {
   const n = Number(text.replace(/^v/, ''));
@@ -172,6 +198,81 @@ Details: \`pl pipeline health <pipeline>\`.`,
         ctx.out.line(
           `held runs:   ${h.heldRuns.length ? h.heldRuns.map((r) => `#${r.number} at ${r.heldAt}`).join(', ') : '-'}`,
         );
+      });
+    },
+  },
+  {
+    noun: 'pipeline',
+    verb: 'reliability',
+    operands: 1,
+    options: ['runs'],
+    summary:
+      "How reliable a pipeline's steps were: failure rates, flakiness, failures for no real reason",
+    detail: `pl pipeline reliability <pipeline> [--runs <n>]
+
+  Over the latest runs (default 100, at most 500; retention limits how far back they reach).
+  A high failure rate alone is no defect: a test step fails on real problems.
+
+  FAILED, RATE  Attempts that failed, split into OWN (the step reported it), INFRA (pod, image
+                pull, launch, storage) and TIMEOUT
+  LATEST/USUAL  The failure rate of the latest 10 attempts vs the attempts before them; marked
+                "above usual" when a step clearly fails more than it usually does
+  FLAKY         Own failures where the same code, config and input also succeeded
+  REPRODUCED    Own failures where they failed again and never succeeded
+  UNVERIFIED    Own failures that never ran again, so they can't be told apart
+
+  A run failed for no real reason when a flaky, infrastructure or timeout failure stopped it,
+  whether or not a rerun then rescued it. A flaky failure nobody reran isn't seen, so the
+  rate is a lower bound. Reporting only: nothing fails or holds on these numbers.`,
+    async run(ctx) {
+      const runs = ctx.args.option('runs');
+      if (runs !== undefined && !/^\d+$/.test(runs))
+        throw new CliError('--runs must be a number.');
+      const { id } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
+      const report = await call(
+        stepsReliability({
+          client: ctx.api,
+          path: { pipelineId: id },
+          query: { runs: runs === undefined ? undefined : Number(runs) },
+        }),
+      );
+      ctx.out.emit(report, () => {
+        ctx.out.line(describeWindow(report));
+        ctx.out.line(describeNoReason(report));
+        if (report.steps.length) {
+          ctx.out.line();
+          ctx.out.lines(
+            table(
+              [
+                'STEP',
+                'ATTEMPTS',
+                'FAILED',
+                'RATE',
+                'OWN',
+                'INFRA',
+                'TIMEOUT',
+                'FLAKY',
+                'REPRODUCED',
+                'UNVERIFIED',
+                'LATEST/USUAL',
+              ],
+              report.steps.map((s) => [
+                s.step,
+                String(s.attempts),
+                String(s.failures),
+                percent(s.failureRate),
+                String(s.ownFailures),
+                String(s.infrastructureFailures),
+                String(s.timeouts),
+                String(s.flakyFailures),
+                String(s.reproducedFailures),
+                String(s.unverifiedFailures),
+                usual(s),
+              ]),
+            ),
+          );
+        }
+        for (const note of report.notes) ctx.out.line(note);
       });
     },
   },

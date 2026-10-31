@@ -167,3 +167,100 @@ describe('pipeline manifest', () => {
     );
   });
 });
+
+describe('pipeline reliability', () => {
+  const step = (overrides: Record<string, unknown> = {}) => ({
+    step: 'test',
+    attempts: 40,
+    failures: 6,
+    ownFailures: 4,
+    infrastructureFailures: 1,
+    timeouts: 1,
+    failureRate: 0.15,
+    recentFailureRate: 0.4,
+    usualFailureRate: 0.1,
+    aboveUsual: true,
+    flakyFailures: 2,
+    reproducedFailures: 1,
+    unverifiedFailures: 1,
+    flakyRate: 0.05,
+    flakyRuns: [70, 64],
+    ...overrides,
+  });
+  const report = (overrides: Record<string, unknown> = {}) => ({
+    window: {
+      fromRun: 12,
+      toRun: 71,
+      runs: 60,
+      requestedRuns: 100,
+      from: '2026-10-01T10:00:00Z',
+      to: '2026-10-28T10:00:00Z',
+      limitedByRetention: true,
+    },
+    runs: {
+      settled: 50,
+      failedForNoReason: 2,
+      rate: 0.04,
+      absorbed: 1,
+      runNumbers: [70, 64],
+    },
+    steps: [step()],
+    notes: [],
+    ...overrides,
+  });
+  const fake = (body: unknown) =>
+    fakeFetch((req) =>
+      req.path.includes('/reliability') ? { body } : { body: [alpha()] },
+    );
+
+  test('states the window, the no-reason rate and each step', async () => {
+    const { fetch, requests } = fake(report());
+    const result = await pl(['pipeline', 'reliability', 'alpha', '--runs', '100'], {
+      fetch,
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Covers runs #12..#71 (60 of the latest 100');
+    expect(result.stdout).toContain('older runs were removed by retention');
+    expect(result.stdout).toContain(
+      'Failed for no real reason: 2 of 50 settled runs (4.0%): #70, #64; retries absorbed 1 more.',
+    );
+    expect(result.stdout).toContain('above usual (40.0% vs 10.0%)');
+    expect(result.stdout).toMatch(/test\s+40\s+6\s+15\.0%\s+4\s+1\s+1\s+2\s+1\s+1/);
+    expect(requests.at(-1)!.path).toEndWith(`/api/pipelines/${ID}/reliability?runs=100`);
+  });
+
+  test('an empty pipeline says so, with what the report could not work out', async () => {
+    const empty = report({
+      window: {
+        fromRun: 0,
+        toRun: 0,
+        runs: 0,
+        requestedRuns: 100,
+        from: null,
+        to: null,
+        limitedByRetention: false,
+      },
+      runs: { settled: 0, failedForNoReason: 0, rate: 0, absorbed: 0, runNumbers: [] },
+      steps: [],
+      notes: ["The plan of version 3 can't be read"],
+    });
+    const { fetch } = fake(empty);
+    const result = await pl(['pipeline', 'reliability', 'alpha'], { fetch });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Covers no runs yet.');
+    expect(result.stdout).toContain('No settled runs yet.');
+    expect(result.stdout).toContain("The plan of version 3 can't be read");
+  });
+
+  test('--json emits the report; --runs must be a number', async () => {
+    const { fetch } = fake(report());
+    const json = await pl(['pipeline', 'reliability', 'alpha', '--json'], { fetch });
+    expect(JSON.parse(json.stdout).steps[0].flakyRuns).toEqual([70, 64]);
+
+    const bad = await pl(['pipeline', 'reliability', 'alpha', '--runs', 'many'], {
+      fetch,
+    });
+    expect(bad.code).not.toBe(0);
+    expect(bad.stderr).toContain('--runs must be a number.');
+  });
+});

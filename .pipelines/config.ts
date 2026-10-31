@@ -29,6 +29,8 @@ export const DEPLOYER_TOKEN = secret(
   'Bearer token of the Docker Compose deployer, for compose targets.',
 );
 
+export const REGISTRY_SECRETS = [GHCR_TOKEN, REGISTRY_PASSWORD];
+
 const Auth = z.discriminatedUnion('mode', [
   z.object({
     mode: z

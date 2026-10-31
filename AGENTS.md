@@ -13,7 +13,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 - SDK (`src/sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.
 - In the v2 pipeline (`.pipelines/pipeline.ts`), the container is built with **kaniko**
   (`steps.imageBuild`, layer cache in `registry.ovea.pro`) while the unit tests run in parallel
-  (`handlers/test.ts`). The image tag is the run's version stamp (`yyyy.MM.dd.<run>`, e.g.
+  (`steps/test.ts`). The image tag is the run's version stamp (`yyyy.MM.dd.<run>`, e.g.
   `2026.10.22.6`; `-attempt<n>` on reruns) — not a semver, so never stamp a .NET
   `AssemblyVersion`/`FileVersion` from it; use `InformationalVersion`.
 

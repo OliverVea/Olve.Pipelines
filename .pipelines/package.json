@@ -2,6 +2,7 @@
   "name": "olve-pipelines-pipeline",
   "private": true,
   "type": "module",
+  "main": "pipeline.ts",
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test",

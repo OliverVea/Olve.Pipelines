@@ -82,7 +82,7 @@ SDK's compile-fail fixtures are ignored), `dotnet format` for C#. Agent sessions
 for your own pushes, `git config core.hooksPath .githooks` installs the same gate as a git
 `pre-push` hook.
 
-Every deploy checks the fresh v2 beta in the `beta-test` step (`.pipelines/handlers/beta-test.ts`):
+Every deploy checks the fresh v2 beta in the `beta-test` step (`.pipelines/steps/beta-test.ts`):
 readiness, the API's reads and error shape, that an anonymous mutation is refused, the event stream,
 the frontend bundle and the install script.
 

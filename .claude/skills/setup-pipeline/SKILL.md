@@ -15,7 +15,7 @@ compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a vers
 `docs/setup/binding-and-reconcile.md`.
 
 Only needed after a hard reset (v2 prod Garage state deleted). To change *what* the pipeline does,
-edit `.pipelines/pipeline.ts` (+ `handlers/`) and push to `main` — there are no shape-mutation commands.
+edit `.pipelines/` and push to `main` — there are no shape-mutation commands.
 
 **Never have two deployers active.** Exactly one "Olve.Pipelines v2" may run this pipeline, on
 v2 prod. Don't create it on v2 beta.

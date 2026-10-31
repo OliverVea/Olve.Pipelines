@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Ctx } from '@olivervea/pipelines';
 import { testFileRef, testHandler } from '@olivervea/pipelines/testing';
-import publishSdk from '../handlers/publish-sdk';
+import { publishSdk } from '../steps/publish-sdk';
 
 const pkg = {
   name: '@olivervea/pipelines',

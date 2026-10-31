@@ -54,7 +54,7 @@ Turning on auth, ingress and the rest: [Running an Instance](docs/setup/self-hos
 
 ## Adding CD to your repo
 
-1. Add `.pipelines/` (`models.ts`, `pipeline.ts`, `handlers/`, `package.json`, `bun.lock`), written
+1. Add `.pipelines/` (an ordinary TypeScript package: `package.json` with `main` naming the entry point, `bun.lock`), written
    against the SDK `@olivervea/pipelines` ([src/sdk/](src/sdk/README.md)). See
    [Getting Started](docs/setup/getting-started.md) and the
    [Pipeline Reference](docs/setup/pipeline-reference.md).

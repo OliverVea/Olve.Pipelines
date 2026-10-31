@@ -7,12 +7,15 @@ public class OutageTests
 {
     private const int MinOutageMs = 2000;
 
+    /// <summary>Under the 1 s flush, so the outage starts before the moment's change is saved.</summary>
+    private const int BeforeTheFlushMs = 300;
+
     /// <summary>Step pods need Garage too, so a step may fail; the run must still end, say why, and stay saved.</summary>
     [Test, Explicit, ExclusiveServer(Fresh = true)]
     [MethodDataSource(typeof(Chaos), nameof(Chaos.Seeds))]
     public async Task Run_SurvivesAGarageOutage(int seed)
     {
-        var fault = SeededFault.FromSeed(seed, MinOutageMs);
+        var fault = SeededFault.FromSeed(seed, MinOutageMs, BeforeTheFlushMs);
         var action = Chaos.Control ? HostFault.None : HostFault.StopGarage;
         var description = $"{action}, {fault}";
         Console.WriteLine($"chaos {description}");

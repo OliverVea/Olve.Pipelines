@@ -34,11 +34,12 @@ public sealed record SeededFault(int Seed, FaultMoment Moment, TimeSpan Delay, T
 
     /// <summary>Consecutive seeds walk the moments in order, so a round of them covers every moment.</summary>
     /// <param name="minDowntimeMs">Zero: the fault mostly restarts at once. Above: every fault lasts at least this long.</param>
-    public static SeededFault FromSeed(int seed, int minDowntimeMs = 0)
+    /// <param name="maxDelayMs">Caps the delay, for a fault that must land before the next flush.</param>
+    public static SeededFault FromSeed(int seed, int minDowntimeMs = 0, int maxDelayMs = int.MaxValue)
     {
         var random = new Random(seed);
         var moment = Moments[(int)((uint)seed % Moments.Count)];
-        var delay = TimeSpan.FromMilliseconds(random.Next(moment.MaxDelayMs));
+        var delay = TimeSpan.FromMilliseconds(random.Next(Math.Min(moment.MaxDelayMs, maxDelayMs)));
         var downtimeMs = minDowntimeMs > 0
             ? random.Next(minDowntimeMs, MaxDowntimeMs)
             : random.Next(3) == 0 ? random.Next(MaxDowntimeMs) : 0;

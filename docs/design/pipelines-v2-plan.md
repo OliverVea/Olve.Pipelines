@@ -702,9 +702,13 @@ Parked by the user ("like v4").
 - `gitHubSource` option `hashes: { cli: ["src/Olve.Pipelines.Cli", …] }` adds content hashes of path
   sets to `Source.hashes`; whole-input keys never hit for source-based steps because `sha`/`tree`
   change every commit.
-- A succeeded attempt with the same step name, `codeHash` and key is
-  reused: a succeeded attempt with `cachedFrom`, output by reference, no Job. Retention keeps runs
-  whose files are still referenced; `/download` pinning follows the refs.
+- A succeeded attempt with the same step name, the same code and the same key is reused: a succeeded
+  attempt with `cachedFrom`, output by reference, no Job. Retention keeps runs whose files are still
+  referenced; `/download` pinning follows the refs.
+- **Decide when building this: what "the same code" means.** Step versions don't cover code. Matching
+  on `codeHash` can't reuse a stale result, but any change to the pipeline's code clears the cache for
+  every step. Letting a step name what it depends on keeps more hits, but a wrong list reuses stale
+  results with no error.
 - Motivating case: `publish-cli` (~3.5 min of a ~8 min run) on commits that don't touch the CLI.
   Groundwork exists: attempts store `InputHash`.
 

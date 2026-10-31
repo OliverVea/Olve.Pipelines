@@ -5,7 +5,8 @@ import type { CommandContext } from './registry';
 export type WaitCheck =
   | { kind: 'pending'; progress: string }
   | { kind: 'done'; output: string; success: boolean }
-  | { kind: 'needsInput'; output: string };
+  | { kind: 'needsInput'; output: string }
+  | { kind: 'held'; output: string };
 
 export const pending = (progress: string): WaitCheck => ({ kind: 'pending', progress });
 export const done = (output: string, success: boolean): WaitCheck => ({
@@ -14,6 +15,7 @@ export const done = (output: string, success: boolean): WaitCheck => ({
   success,
 });
 export const needsInput = (output: string): WaitCheck => ({ kind: 'needsInput', output });
+export const held = (output: string): WaitCheck => ({ kind: 'held', output });
 
 /** Tunables, exported so tests can shorten the pauses. */
 export const waitSettings = {
@@ -47,8 +49,8 @@ const clock = () => {
  * Runs `check` until it is done: again on each of the pipeline's `wakeOn` events (and `resync`),
  * every {@link waitSettings.fallbackMs} regardless, and after a backoff when it failed with a
  * retryable problem. Progress goes to stderr when it changes; the outcome's line to stdout, with
- * the exit code on the context (1 for a failed outcome, 3 when a person must answer, 124 on
- * `--timeout`). Ctrl+C ends it with a cancelled error.
+ * the exit code on the context (1 for a failed outcome, 3 when a person must answer, 4 when the
+ * run is held, 124 on `--timeout`). Ctrl+C ends it with a cancelled error.
  */
 export async function waitFor(
   ctx: CommandContext,
@@ -102,6 +104,10 @@ export async function waitFor(
         case 'needsInput':
           ctx.out.line(state.output);
           ctx.exitCode = ExitCode.NeedsInput;
+          return;
+        case 'held':
+          ctx.out.line(state.output);
+          ctx.exitCode = ExitCode.Held;
           return;
         case 'pending':
           if (state.progress !== lastProgress) {

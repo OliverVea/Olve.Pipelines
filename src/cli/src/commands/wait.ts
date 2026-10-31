@@ -13,7 +13,7 @@ import { call } from '../api';
 import { CliError } from '../errors';
 import { short } from '../format';
 import type { Command, CommandContext } from '../registry';
-import { done, needsInput, pending, waitFor, type WaitCheck } from '../wait';
+import { done, held, needsInput, pending, waitFor, type WaitCheck } from '../wait';
 import { describePending } from './pipeline';
 
 const clock = () => {
@@ -25,6 +25,8 @@ const clock = () => {
 const TERMINAL: readonly RunStatus[] = ['Succeeded', 'Failed', 'Cancelled', 'Superseded'];
 const PASSED: readonly RunStepStatus[] = ['succeeded', 'skipped', 'excluded'];
 const SETTLED: readonly RunStepStatus[] = [...PASSED, 'failed', 'cancelled', 'obsolete'];
+/** A rerun's attempt runs on in a run that has already ended. */
+const ACTIVE: readonly RunStepStatus[] = ['scheduled', 'in-progress'];
 const isTerminal = (status: RunStatus) => TERMINAL.includes(status);
 
 /** A step only a person can move on (a callback or poll answers by itself). */
@@ -60,14 +62,14 @@ const runFinishedSummary = (label: string, run: RunSummary): WaitCheck =>
       )
     : pending(`${formatAddress(label, run.number)}: ${run.status}`);
 
-/** Like the summary's, but a run that waits for a person is reported as such. */
+/** Like the summary's, but a run that waits for a person or is held is reported as such. */
 export function runFinished(label: string, run: Run): WaitCheck {
-  const waiting = isTerminal(run.status)
-    ? undefined
-    : run.stages.flatMap((s) => s.steps).find(needsPerson);
-  return waiting
-    ? needsInput(`${formatAddress(label, run.number)}/${waiting.name}  waiting for input`)
-    : runFinishedSummary(label, run);
+  const address = formatAddress(label, run.number);
+  if (isTerminal(run.status)) return runFinishedSummary(label, run);
+  const waiting = run.stages.flatMap((s) => s.steps).find(needsPerson);
+  if (waiting) return needsInput(`${address}/${waiting.name}  waiting for input`);
+  if (run.heldAt) return held(`${address}  held at ${run.heldAt}`);
+  return runFinishedSummary(label, run);
 }
 
 function runState(label: string, run: Run, until: string): WaitCheck {
@@ -85,14 +87,26 @@ function runState(label: string, run: Run, until: string): WaitCheck {
   }
 }
 
-function stepState(label: string, run: Run, step: string, until: string): WaitCheck {
+function stepState(
+  label: string,
+  run: Run,
+  step: string,
+  attempt: number | undefined,
+  until: string,
+): WaitCheck {
   const view = run.stages.flatMap((s) => s.steps).find((s) => s.name === step);
   if (!view) throw new CliError(`Run #${run.number} has no step '${step}'.`);
   const name = `${formatAddress(label, run.number)}/${step}`;
+  if (attempt !== undefined && attempt !== view.latestAttempt)
+    throw new CliError(
+      `pl wait follows the latest attempt: ${name} is at @${view.latestAttempt ?? 0}, not @${attempt}.`,
+    );
   const line = `${name}  ${view.status}${view.reason ? ` (${view.reason})` : ''}`;
   const settled = SETTLED.includes(view.status);
   const runEnded = () =>
-    isTerminal(run.status) ? done(`${line} (run ${run.status})`, false) : undefined;
+    isTerminal(run.status) && !ACTIVE.includes(view.status)
+      ? done(`${line} (run ${run.status})`, false)
+      : undefined;
   if (needsPerson(view) && until !== 'started')
     return needsInput(`${name}  waiting for input`);
   if (until === 'started')
@@ -106,6 +120,8 @@ function stepState(label: string, run: Run, step: string, until: string): WaitCh
         ? done(`${line} (never held)`, false)
         : (runEnded() ?? pending(`${name}: ${view.status}`));
   if (settled) return done(line, PASSED.includes(view.status));
+  if (run.heldAt && !isTerminal(run.status) && !ACTIVE.includes(view.status))
+    return held(`${name}  held at ${run.heldAt}`);
   return runEnded() ?? pending(`${name}: ${view.status}`);
 }
 
@@ -120,16 +136,19 @@ export const waitCommands: Command[] = [
     flags: ['no-follow'],
     summary:
       'Wait for a run or step to finish (or --until started/held); exit 0 on success',
-    detail: `pl wait run <pipeline>#<run>[/<step>] [--until finished|started|held] [--timeout 45m] [--no-follow]
+    detail: `pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held] [--timeout 45m] [--no-follow]
 
   Blocks until the run (or the step) reaches the state, then prints it. Re-checks on the
   pipeline's live events, and every minute in case the stream stalls. A superseded run is
-  followed to the run that superseded it (printed on stderr); the result is that run's.
+  followed to the run that superseded it (printed on stderr); the result is that run's. A step
+  wait follows its latest attempt, also when that is a rerun in a run that has already ended;
+  @<attempt> must name that attempt.
 
   --until finished  (default) run: Succeeded → exit 0; Failed or Cancelled → 1.
                     step: succeeded, skipped or excluded → 0; failed or cancelled, or the run
                     ended without running it → 1. A step waiting for a person → 3 (answer it
-                    with pl input answer, or decline it).
+                    with pl input answer, or decline it). A run held at a blocked step → 4
+                    (a person has to unblock it; wait again afterwards).
   --until started   the step has an attempt (or the run exists).
   --until held      the run is held at a blocked step; exits 1 if it finishes first.
   --timeout <dur>   give up after 90s / 30m / 2h: exit 124.
@@ -147,7 +166,7 @@ export const waitCommands: Command[] = [
       await waitFor(ctx, id, new Set(['run', 'attempt']), async () => {
         const run = await getRunFollowing(ctx, id, address.pipeline, cursor, follow);
         return address.step !== undefined
-          ? stepState(address.pipeline, run, address.step, until)
+          ? stepState(address.pipeline, run, address.step, address.attempt, until)
           : until === 'finished'
             ? runFinished(address.pipeline, run)
             : runState(address.pipeline, run, until);
@@ -166,8 +185,8 @@ export const waitCommands: Command[] = [
 
   Blocks until a run whose input sha is <sha> (a prefix is enough) exists, and prints its
   address (e.g. olve-pipelines#412): addr=$(pl wait push olve-pipelines 6881313).
-  --until finished keeps waiting until that run finishes or waits for input (exit as
-  \`pl wait run\`). When a
+  --until finished keeps waiting until that run finishes, waits for input or is held (exit
+  as \`pl wait run\`). When a
   newer push supersedes it, the wait follows the newer run, which contains the commit;
   --no-follow stops there instead (exit 1).
   Exits 1 when the binding's reconcile of that commit failed (no run will start).`,

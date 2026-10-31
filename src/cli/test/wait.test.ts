@@ -41,6 +41,19 @@ const run = (
   ...overrides,
 });
 
+const stepView = (name: string) => ({
+  name,
+  stepVersion: 1,
+  status: 'pending',
+  reason: null,
+  attemptCount: 0,
+  latestAttempt: null as number | null,
+  succeededAttempt: null,
+  startedAt: null,
+  finishedAt: null,
+  blocked: false,
+});
+
 const events = {
   stream: ['event: hello\ndata: {"type":"hello","lastEventId":"1-0"}\n\n'],
 };
@@ -121,6 +134,89 @@ describe('wait', () => {
     const step = await pl(['wait', 'run', 'alpha#7/build'], { fetch });
     expect(step.code).toBe(0);
     expect(step.stdout).toBe('alpha#7/build  succeeded\n');
+  });
+
+  test('a step wait follows a rerun in an ended run; @<attempt> must be the latest', async () => {
+    const stages = (status: string, latestAttempt: number) => [
+      {
+        index: 0,
+        when: [],
+        steps: [
+          { ...stepView('build'), status, latestAttempt, attemptCount: latestAttempt },
+        ],
+      },
+    ];
+    let polls = 0;
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      polls += 1;
+      return {
+        body: run(7, 'Failed', {
+          stages: stages(polls < 3 ? 'in-progress' : 'succeeded', 2),
+        }),
+      };
+    });
+    const rerun = await pl(['wait', 'run', 'alpha#7/build@2'], { fetch });
+    expect(rerun.code).toBe(0);
+    expect(rerun.stdout).toBe('alpha#7/build  succeeded\n');
+    expect(polls).toBe(3);
+    const stale = await pl(['wait', 'run', 'alpha#7/build@1'], { fetch });
+    expect(stale.code).not.toBe(0);
+    expect(stale.stderr).toContain('is at @2, not @1');
+
+    const { fetch: failed } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      return { body: run(7, 'Failed', { stages: stages('pending', 0) }) };
+    });
+    const never = await pl(['wait', 'run', 'alpha#7/build'], { fetch: failed });
+    expect(never.code).toBe(1);
+    expect(never.stdout).toBe('alpha#7/build  pending (run Failed)\n');
+  });
+
+  test('a held run ends the wait with exit 4, unless a step is still running', async () => {
+    const stages = [
+      {
+        index: 0,
+        when: [],
+        steps: [
+          { ...stepView('deploy'), status: 'held', blocked: true },
+          { ...stepView('verify'), status: 'pending', blocked: true },
+          { ...stepView('side'), status: 'in-progress' },
+        ],
+      },
+    ];
+    let polls = 0;
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      polls += 1;
+      const side =
+        polls < 2
+          ? stages
+          : [{ ...stages[0], steps: [{ ...stepView('side'), status: 'succeeded' }] }];
+      return { body: run(7, 'Running', { heldAt: 'deploy', stages: side }) };
+    });
+    const parallel = await pl(['wait', 'run', 'alpha#7/side'], { fetch });
+    expect(parallel.code).toBe(0);
+    expect(parallel.stdout).toBe('alpha#7/side  succeeded\n');
+
+    const { fetch: heldFetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      return { body: run(7, 'Running', { heldAt: 'deploy', stages }) };
+    });
+    const whole = await pl(['wait', 'run', 'alpha#7'], { fetch: heldFetch });
+    expect(whole.code).toBe(4);
+    expect(whole.stdout).toBe('alpha#7  held at deploy\n');
+    const later = await pl(['wait', 'run', 'alpha#7/verify'], { fetch: heldFetch });
+    expect(later.code).toBe(4);
+    expect(later.stdout).toBe('alpha#7/verify  held at deploy\n');
+    const asked = await pl(['wait', 'run', 'alpha#7', '--until', 'held'], {
+      fetch: heldFetch,
+    });
+    expect(asked.code).toBe(0);
   });
 
   test('wait push finds the run by its input sha, prints its address, and reports a failed reconcile', async () => {

@@ -90,7 +90,10 @@ Bun.serve({
     }
 
     m = /^\/repos\/([^/]+\/[^/]+)\/commits\/(.+)$/.exec(path);
-    if (m) return Response.json({ sha: head(repo(m[1]!)).sha });
+    if (m) {
+      const commit = head(repo(m[1]!));
+      return Response.json({ sha: commit.sha, commit: { committer: { date: commit.date } } });
+    }
 
     m = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(path);
     if (m) {

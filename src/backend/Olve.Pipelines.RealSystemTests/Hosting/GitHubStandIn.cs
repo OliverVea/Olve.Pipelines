@@ -15,4 +15,6 @@ public sealed class GitHubStandIn(HttpClient http)
         var reply = await response.Content.ReadFromJsonAsync<JsonObject>();
         return reply!["sha"]!.GetValue<string>();
     }
+
+    public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request) => http.SendAsync(request);
 }

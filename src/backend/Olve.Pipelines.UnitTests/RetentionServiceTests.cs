@@ -11,7 +11,7 @@ namespace Olve.Pipelines.UnitTests;
 
 public class RetentionServiceTests
 {
-    private sealed class FakeObjects : IRetentionObjectStore
+    internal sealed class FakeObjects : IRetentionObjectStore
     {
         public List<StoredObject> Objects { get; } = [];
         public List<string> Deleted { get; } = [];

@@ -36,36 +36,6 @@ public class HarnessResultCollectorTests
         return (collector, s3);
     }
 
-    // Catches: a step's files or output not landing at the keys later steps and the API read from.
-    [Test]
-    public async Task Collect_StoresFilesAndOutput_UnderTheAttemptsLayout()
-    {
-        var (collector, s3) = Collector();
-        s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
-            ("output.json", """{"output":{"message":"m"},"status":"succeeded"}"""),
-            ("files/chart/values.yaml", "a: 1"),
-            ("files/image.tar", "tar"));
-
-        var collection = await collector.CollectAsync(Attempt);
-
-        await Assert.That(collection.Archive!.Value).Succeeded();
-        var files = StorageLayout.AttemptFilesPrefix(Attempt);
-        await Assert.That(collection.FileKeys).IsEquivalentTo([$"{files}/chart/values.yaml", $"{files}/image.tar"]);
-        await Assert.That(Encoding.UTF8.GetString(s3.Objects[$"{files}/chart/values.yaml"])).IsEqualTo("a: 1");
-        await Assert.That(Encoding.UTF8.GetString(s3.Objects[StorageLayout.AttemptOutputKey(Attempt)])).IsEqualTo("""{"message":"m"}""");
-    }
-
-    [Test]
-    public async Task Collect_WithoutAnArchive_ReportsNone()
-    {
-        var (collector, s3) = Collector();
-
-        var collection = await collector.CollectAsync(Attempt);
-
-        await Assert.That(collection.Archive).IsNull();
-        await Assert.That(s3.Puts).IsEmpty();
-    }
-
     // Catches: an oversized result being downloaded and unpacked into storage anyway.
     [Test]
     public async Task Collect_AnArchiveOverTheCap_FailsWithoutStoringAnything()

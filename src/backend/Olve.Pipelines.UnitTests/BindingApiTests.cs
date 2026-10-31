@@ -276,5 +276,9 @@ public class BindingApiTests
         await Assert.That(await api.Reconcile(id, wait: false)).IsTypeOf<Contract.BindingsReconcileResponse.Ok>();
 
         await Assert.That(await api.Reconciler.Called.Task.WaitAsync(TimeSpan.FromSeconds(30))).IsEqualTo("cfg-1");
+
+        // Queues behind the background sync, and finds the commit applied.
+        await Assert.That(await api.Reconcile(id)).IsTypeOf<Contract.BindingsReconcileResponse.Ok>();
+        await Assert.That(api.Reconciler.Calls).IsEquivalentTo(["cfg-1"]);
     }
 }

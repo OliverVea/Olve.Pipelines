@@ -61,7 +61,8 @@ public class ReconcileBuildTests
 
     private static async Task AssertRejected(Ctx c, Result<ReconcileReport> report, string expected)
     {
-        await Assert.That(report.TryPickProblems(out var problems)).IsTrue();
+        await Assert.That(report).Failed();
+        report.TryPickProblems(out var problems);
         await Assert.That(problems!.Single().FormattedMessage).IsEqualTo(expected);
         await Assert.That(c.D.VersionService.ListByPipeline(c.Binding.PipelineId)).IsEmpty();
     }
@@ -73,8 +74,7 @@ public class ReconcileBuildTests
 
         var report = await c.Reconcile();
 
-        await Assert.That(report).Succeeded();
-        var version = report.Value!.Version;
+        var version = TestRunDomain.Pick(report).Version;
         await Assert.That(version.Number).IsEqualTo(1);
         await Assert.That(version.BinaryKey).IsEqualTo(c.BinaryKey);
         c.D.ActivationService.TryGet(c.Binding.PipelineId, out var activation);
@@ -141,7 +141,8 @@ public class ReconcileBuildTests
         var report = await c.Reconcile();
 
         await AssertRejected(c, report, $"The previous build Job '{c.JobName}' of this commit is still being deleted; retry shortly.");
-        await Assert.That(report.TryPickProblems(out var problems) && problems.Single() is UnavailableProblem).IsTrue();
+        report.TryPickProblems(out var problems);
+        await Assert.That(problems!.Single()).IsTypeOf<UnavailableProblem>();
         await Assert.That(c.K8s.CreateJobCalls).IsEqualTo(0);
     }
 

@@ -76,7 +76,7 @@ function pipelineDir() {
   const root = mkdtempSync(join(tmpdir(), 'pl-dev-'));
   const dir = join(root, '.pipelines');
   mkdirSync(dir);
-  writeFileSync(join(dir, 'pipeline.ts'), '// fixture\n');
+  writeFileSync(join(dir, 'package.json'), '{}\n');
   const sdk = join(root, 'sdk');
   mkdirSync(join(sdk, 'src/dev'), { recursive: true });
   writeFileSync(
@@ -297,12 +297,12 @@ describe('pl dev', () => {
     expect(failed.stderr).toContain('step src: image is empty');
   });
 
-  test('a missing pipeline.ts or SDK says what to do', async () => {
+  test('a missing package.json or SDK says what to do', async () => {
     const p = pipelineDir();
     const h = fakeHarness(demoText);
     expect(
       (await pl(['dev', 'describe', '--dir', p.root], { run: h.run, env: p.env })).stderr,
-    ).toContain('No pipeline.ts');
+    ).toContain('No package.json');
     const noSdk = await pl(['dev', 'describe', '--dir', p.dir], {
       run: h.run,
       env: { OLVE_BUN: process.execPath },

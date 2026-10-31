@@ -18,7 +18,7 @@ public class DrainRestartTests
 
     [Test, Explicit, ExclusiveServer(Fresh = true)]
     [MethodDataSource(typeof(Chaos), nameof(Chaos.Seeds))]
-    public async Task Switch_Completes_WhenTheServerRestartsDuringTheDrain(int seed)
+    public async Task Switch_Holds_WhenTheServerRestartsRightAfterIt(int seed)
     {
         var random = new Random(seed);
         var delay = TimeSpan.FromMilliseconds(random.Next(SeededFault.FlushWindowMs));

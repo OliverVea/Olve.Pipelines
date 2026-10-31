@@ -101,7 +101,7 @@ CHAOS_SEEDS=17 CHAOS_CONTROL=1 tools/real-system/host.sh chaos 1 ServerCrashTest
 ```
 
 The families are `ServerCrashTests` (SIGKILL through a run's life), `OutageTests` (Garage down, the Kubernetes
-API frozen), `PodDeletionTests` and `DrainRestartTests` (a restart during a `--cancel-running` switch).
+API frozen), `PodDeletionTests` and `DrainRestartTests` (a restart right after a `--cancel-running` switch cancelled a run).
 
 A seed fixes the fault: moment, delay, downtime. It doesn't fix the server's timers, so a replay reproduces
 at a rate: run it a few times, and compare with `CHAOS_CONTROL=1` before calling a failure a bug. A failure

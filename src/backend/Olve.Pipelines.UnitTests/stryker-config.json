@@ -1,0 +1,15 @@
+{
+  "stryker-config": {
+    "project": "Olve.Pipelines.csproj",
+    "test-runner": "mtp",
+    "coverage-analysis": "perTest",
+    "disable-bail": true,
+    "reporters": ["progress", "json", "html"],
+    "mutate": [
+      "**/*.cs",
+      "!**/*.g.cs"
+    ],
+    "ignore-methods": ["*Log*", "LogProblems"],
+    "thresholds": { "high": 80, "low": 60, "break": 0 }
+  }
+}

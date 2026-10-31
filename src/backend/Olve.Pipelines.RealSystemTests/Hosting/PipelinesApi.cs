@@ -58,6 +58,16 @@ public sealed class PipelinesApi(HttpClient http)
     public async Task<Run> GetRunAsync(Guid pipelineId, int number) =>
         await ReadAsync<Run>(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}"));
 
+    /// <summary>The run, or null when the server doesn't know it.</summary>
+    public async Task<Run?> FindRunAsync(Guid pipelineId, int number)
+    {
+        using var response = await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}");
+        return response.StatusCode == HttpStatusCode.NotFound ? null : await ReadAsync<Run>(response);
+    }
+
+    public async Task<IReadOnlyList<Attempt>> ListAttemptsAsync(Guid pipelineId, int number) =>
+        await ReadAsync<IReadOnlyList<Attempt>>(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/attempts"));
+
     public async Task<string> GetStepOutputAsync(Guid pipelineId, int number, string step) =>
         await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output"));
 

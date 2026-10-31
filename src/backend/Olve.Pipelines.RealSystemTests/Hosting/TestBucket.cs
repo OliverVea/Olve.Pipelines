@@ -38,5 +38,20 @@ public sealed class TestBucket
             UseChunkEncoding = false,
         });
 
+    /// <summary>The object's text, or null when there is no such object.</summary>
+    public async Task<string?> ReadAsync(string key)
+    {
+        try
+        {
+            using var response = await Client.GetObjectAsync(Name, key);
+            using var reader = new StreamReader(response.ResponseStream);
+            return await reader.ReadToEndAsync();
+        }
+        catch (AmazonS3Exception e) when (e.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
     public Task<IReadOnlyList<StoredObject>> ListAsync(string prefix) => Objects.ListAsync(prefix, CancellationToken.None);
 }

@@ -51,6 +51,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Failure handlers (`onFailure`, `FailureContext`) | [pipeline-reference.md#failure-handlers](pipeline-reference.md#failure-handlers) |
 | File references (`fileRef`) | [pipeline-reference.md#models](pipeline-reference.md#models) |
 | Files, outputs, logs of a step | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
+| Flaky steps, failure rates (`pl pipeline reliability`) | [runs-and-operations.md#step-reliability](runs-and-operations.md#step-reliability) |
 | Blocking a step (block / unblock, held runs) | [blocking-steps.md](blocking-steps.md) |
 | Git-only (no shape-mutation API) | [binding-and-reconcile.md#git-only](binding-and-reconcile.md#git-only) |
 | Handlers | [pipeline-reference.md#handlers](pipeline-reference.md#handlers) |
@@ -72,6 +73,7 @@ relative path under `/docs/`, so `GET /docs/<target>` returns that page's raw Ma
 | Push trigger (`onPush`, event fields) | [pipeline-reference.md#triggers](pipeline-reference.md#triggers) |
 | Reconcile `Error` | [troubleshooting.md#the-reconcile-shows-error](troubleshooting.md#the-reconcile-shows-error) |
 | Rerun a run / a step | [runs-and-operations.md#operating-runs](runs-and-operations.md#operating-runs) |
+| Reliability of steps, failures for no real reason | [runs-and-operations.md#step-reliability](runs-and-operations.md#step-reliability) |
 | Retention | [runs-and-operations.md#retention](runs-and-operations.md#retention) |
 | Rollback (`pl pipeline switch`) | [binding-and-reconcile.md#switch-and-rollback](binding-and-reconcile.md#switch-and-rollback) |
 | Run plan (UI preview of `when`) | [pipeline-reference.md#when-blocks](pipeline-reference.md#when-blocks) |

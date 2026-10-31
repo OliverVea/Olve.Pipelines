@@ -655,6 +655,39 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   `olve-pipelines-oidc` Secrets, the `olve-pipelines-client-secret` key in `authentik-oidc-secrets`,
   and the OpenBao Kubernetes role for the old ServiceAccount.
 
+### Step reliability (2026-10-31)
+
+`StepReliabilityService`, `GET /api/pipelines/{id}/reliability`, `pl pipeline reliability`, the
+reliability page and an overview cell. What it reports is defined in
+[runs-and-operations.md](../setup/runs-and-operations.md#step-reliability).
+
+- **A query, plus one recorded fact.** Everything is derived from attempts on request, except why an
+  attempt failed: the harness knew the failure kind and the executor dropped it, so `AttemptStatus.Failed`
+  now stores `AttemptFailureKind` (the former `HarnessFailureKind`, plus lost Job, failed launch, not
+  run and declined). The own / infrastructure / timeout split is a mapping in the query
+  (`AttemptFailures.Category`), so it can be retuned without touching stored state.
+- **Older attempts** have no kind; `AttemptFailures.KindOf` reads it from the fixed start of their
+  reason, and a test holds that table to the harness's messages. No match counts as the step's own.
+- **Same input is not `InputHash`.** That hash is taken before external answers are added, and a file
+  ref names the run and attempt that made the file, so it differs between runs for the same file.
+  The query compares the stored input with file refs reduced to path and content hash. It does so only
+  for steps with an own failure in the window: without one there is nothing to verify.
+- **Same code** is the manifest's `codeHash`, the step's entity version and the run's config snapshot.
+  `codeHash` covers the whole pipeline program, so changing one handler makes every step's executions
+  incomparable with earlier ones. That under-reports flakiness and never invents it.
+- **The combined rate is observed, not multiplied.** `1 − Π(1 − rᵢ)` over step rates assumes every step
+  runs in every run and ignores `retries`; counting the runs a no-reason failure stopped needs neither.
+  A failure counts as stopping the run when it is past the step's first `retries` failures in that run.
+  After a resume the retry count restarts, which this doesn't follow, so a run rerun several times can
+  count as stopped when its retries in fact covered it.
+- **Thresholds** for "above usual" are constants in the service (latest 10 attempts, 3 failures, 25
+  points, 20 attempts of history), picked to stay quiet on a steady test step. They are not configurable.
+- **Never fails a build:** nothing in scheduling reads the report, no pipeline step asserts on it, and
+  the overview fetches it best-effort.
+- **Known gaps:** the failure kind isn't shown on an attempt, only counted; secrets and what a step
+  reaches outside its input aren't compared; `timeoutSeconds` passing counts as infrastructure even
+  when the step itself hung.
+
 ### v2.2 — candidates
 
 - **Spec-first API (TypeSpec)**: decided and planned 2026-10-27, see [spec-first.md](spec-first.md).

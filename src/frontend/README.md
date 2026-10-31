@@ -98,6 +98,7 @@ src/frontend/
         ├── pipeline-secrets-view.ts # Secrets: who uses each, set / delete / copy
         ├── pipeline-binding-view.ts # Git binding: definition location, reconcile status, credentials
         ├── critical-path-view.ts   # Where a range of runs spent its time
+        ├── reliability-view.ts     # How reliable a pipeline's steps were
         ├── run-view.ts             # One run: graph by status, attempts with typed I/O, files, logs, actions
         ├── step-logs-view.ts       # One step's log in a run, full height
         ├── step-runs-view.ts       # One step's attempts across runs, with a status filter
@@ -139,6 +140,8 @@ src/frontend/
 - **Step log** (`/pipeline/:id/run/:n/step/:name/logs`) and **step runs**
   (`/pipeline/:id/step/:name/runs`): one attempt's log full height; a step's attempts across runs.
 - **Critical path** (`/pipeline/:id/critical-path`): each step's share of a range of runs' time.
+- **Reliability** (`/pipeline/:id/reliability`): each step's failure rate and flakiness over the
+  latest runs, and the share of runs that failed for no real reason.
 - **Docs** (`/docs/:page`): `docs/setup`, rendered with search. `/docs/api` is the API reference
   when the instance sets `Docs:ApiReference`.
 

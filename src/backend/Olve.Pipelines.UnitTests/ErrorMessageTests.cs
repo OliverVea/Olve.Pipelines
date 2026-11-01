@@ -1,11 +1,20 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Sources;
+using Olve.Pipelines.UnitTests.Configs;
 using Olve.Pipelines.UnitTests.Harness;
+using Olve.Pipelines.UnitTests.Manifests;
+using Olve.Pipelines.UnitTests.Scheduling;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -18,6 +27,51 @@ public class ErrorMessageTests
     private static Case Invalid(string message, Func<ResultProblemCollection?> problems) => new(typeof(ValidationProblem), message, problems);
 
     private static Case Plain(string message, Func<ResultProblemCollection?> problems) => new(typeof(ResultProblem), message, problems);
+
+    private static Case NotFound(string message, Func<ResultProblemCollection?> problems) => new(typeof(NotFoundProblem), message, problems);
+
+    private static Case Conflict(string message, Func<ResultProblemCollection?> problems) => new(typeof(ConflictProblem), message, problems);
+
+    private static readonly Id<Run> NoRun = Id.New<Run>();
+    private static readonly Id<Attempt> NoAttempt = Id.New<Attempt>();
+    private static readonly Id<Pipeline> NoPipeline = Id.New<Pipeline>();
+    private static readonly Id<PipelineVersion> NoVersion = Id.New<PipelineVersion>();
+
+    private static ResultProblemCollection? Wired(Func<TestRunDomain, ResultProblemCollection?> act) => act(new TestRunDomain().WireEvents());
+
+    /// <summary>Run #1 of the self-deploy fixture, at its first step.</summary>
+    private static ResultProblemCollection? Started(Func<SchedulerScenario, Run, ResultProblemCollection?> act)
+    {
+        var s = new SchedulerScenario();
+        return act(s, s.Start(SchedulerScenario.Input()));
+    }
+
+    /// <summary>Run #1 cancelled, so nothing is active, on a version it can continue on.</summary>
+    private static ResultProblemCollection? Cancelled(Func<SchedulerScenario, Run, ResultProblemCollection?> act) => Started((s, run) =>
+    {
+        TestRunDomain.Pick(s.D.Cancellations.Cancel(run.Id));
+        return act(s, run);
+    });
+
+    private static ResultProblemCollection? Malformed(Func<SchedulerScenario, Run, ResultProblemCollection?> act)
+    {
+        var s = new SchedulerScenario();
+        return act(s, s.D.CreateRun(s.Version, input: "[]"));
+    }
+
+    private static RunInputService Inputs(SchedulerScenario s) => new(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations);
+
+    private static ConfigService Config(TestRunDomain d) => new(d.PipelineService, d.VersionService, d.ActivationService, d.ConfigSnapshots, d.Gate, new FakeSecretNames(),
+        d.Services, NullLogger<ConfigService>.Instance);
+
+    private static ResultProblemCollection? Branching(Func<TestRunDomain, PipelineVersion, ResultProblemCollection?> act)
+    {
+        var d = new TestRunDomain();
+        return act(d, d.AddVersion(d.CreatePipeline().Id, SelectTests.Node().ToJsonString()));
+    }
+
+    private static ResultProblemCollection? Webhook(long? contentLength, int bodyBytes) =>
+        WebhookDelivery.ReadAsync(new MemoryStream(new byte[bodyBytes]), new HeaderDictionary { ContentLength = contentLength }, CancellationToken.None).GetAwaiter().GetResult().Problems;
 
     private static ResultProblemCollection? Schema(string schema, string value, string root = "input")
     {
@@ -142,6 +196,63 @@ public class ErrorMessageTests
         ["an answer too large"] = Invalid($"value: The input of step 'build' would exceed {AttemptService.MaxInputJsonBytes} bytes.", () => Domain(d =>
             d.AttemptService.Answer(TestRunDomain.Pick(d.AttemptService.Schedule(d.CreateRun().Id, "build", awaitsInput: true)).Id, "x",
                 Answer with { Value = "\"" + new string('x', AttemptService.MaxInputJsonBytes) + "\"" }, ["x"]).Problems)),
+
+        // an id that doesn't resolve
+        ["rerun step of no run"] = NotFound($"Run '{NoRun}' not found.", () => Wired(d => d.Continuations.RerunStep(NoRun, "build", false).Problems)),
+        ["continue no run"] = NotFound($"Run '{NoRun}' not found.", () => Wired(d => d.Continuations.ContinueRun(NoRun, "{}").Problems)),
+        ["cancel no run"] = NotFound($"Run '{NoRun}' not found.", () => Wired(d => d.Cancellations.Cancel(NoRun).Problems)),
+        ["cancel a step of no run"] = NotFound($"Run '{NoRun}' not found.", () => Wired(d => d.Cancellations.CancelStep(NoRun, "build").Problems)),
+        ["rerun no run"] = NotFound($"Run '{NoRun}' not found.", () => Wired(d => d.Starts.RerunRun(NoRun).Problems)),
+        ["reopen no run"] = NotFound($"Run '{NoRun}' not found.", () => Domain(d => d.RunService.Reopen(NoRun).Problems)),
+        ["hold no run"] = NotFound($"Run '{NoRun}' not found.", () => Domain(d => d.RunService.SetHeldAt(NoRun, "build").Problems)),
+        ["complete no run"] = NotFound($"Run '{NoRun}' not found.", () => Domain(d => d.RunService.Cancel(NoRun).Problems)),
+        ["update no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Update(NoAttempt, a => a).Problems)),
+        ["answer no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Answer(NoAttempt, "x", Answer, ["x"]).Problems)),
+        ["decline no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Decline(NoAttempt, "no").Problems)),
+        ["cancel no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Domain(d => d.AttemptService.Cancel(NoAttempt).Problems)),
+        ["launch no attempt"] = NotFound($"Attempt '{NoAttempt}' not found.", () => Wired(d => d.Launches.Get(NoAttempt).Problems)),
+        ["start in no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => d.Starts.Start(NoPipeline, "{}", new RunTrigger(RunTriggerKind.Manual)).Problems)),
+        ["block in no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => d.GateService.Block(NoPipeline, "build").Problems)),
+        ["config of no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).Get(NoPipeline, null).Problems)),
+        ["config history of no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).History(NoPipeline).Problems)),
+        ["config save to no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).SaveAsync(NoPipeline, "a: 1\n", "oliver", default).GetAwaiter().GetResult().Problems)),
+        ["config check of no pipeline"] = NotFound($"Pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).CheckAsync(NoPipeline, null, default).GetAwaiter().GetResult().Problems)),
+        ["config rollback to no snapshot"] = NotFound($"Config snapshot #7 of pipeline '{NoPipeline}' not found.", () => Wired(d => Config(d).RollbackAsync(NoPipeline, 7, "oliver", default).GetAwaiter().GetResult().Problems)),
+        ["plan of no version"] = NotFound($"Pipeline version '{NoVersion}' not found.", () => Domain(d => d.Plans.Get(NoVersion).Problems)),
+
+        // runs
+        ["reopen with malformed input"] = Plain("Run input must be well-formed JSON.", () => Domain(d => d.RunService.Reopen(d.CreateRun().Id, "{").Problems)),
+        ["reopen a superseded run"] = Conflict("Run #1 was superseded by a newer run and cannot be continued.", () => Domain(d =>
+        {
+            var older = d.CreateRun();
+            TestRunDomain.Pick(d.RunService.Supersede(older.Id, Id.New<Run>()));
+            return d.RunService.Reopen(older.Id).Problems;
+        })),
+        ["start with an array for input"] = Plain("Run input must be a JSON object.", () => Started((s, _) => s.D.Starts.Start(s.Pipeline.Id, "[]", new RunTrigger(RunTriggerKind.Manual)).Problems)),
+        ["continue while a step runs"] = Conflict("Run #1 still has active attempts; continue it once they finish.", () => Started((s, run) => s.D.Continuations.ContinueRun(run.Id, "{}").Problems)),
+        ["continue with an array for input"] = Plain("Run input must be a JSON object.", () => Cancelled((s, run) => s.D.Continuations.ContinueRun(run.Id, "[]").Problems)),
+        ["continue a run with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => s.D.Continuations.ContinueRun(run.Id, "{}").Problems)),
+        ["rerun a step of a run with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => s.D.Continuations.RerunStep(run.Id, "checkout", false).Problems)),
+        ["rerun a step whose input is missing"] = Conflict("Step 'deploy-beta' cannot run in run #1: input 'artifact' needs build, which has no successful attempt.", () => Cancelled((s, run) => s.D.Continuations.RerunStep(run.Id, "deploy-beta", false).Problems)),
+        ["launch a step the version lacks"] = Plain("Version 1 has no step 'gone'.", () => Started((s, run) => s.D.Launches.Get(TestRunDomain.Pick(s.D.AttemptService.Schedule(run.Id, "gone")).Id).Problems)),
+        ["block without a step name"] = Plain("Step name is required.", () => Wired(d => d.GateService.Block(NoPipeline, " ").Problems)),
+
+        // manual input
+        ["manual input of a version without its model"] = Plain("The input model 'Gone' is missing from the manifest.", () => Started((s, _) =>
+            Inputs(s).PrepareManual(ManifestFixture.Parse() with { Input = "Gone" }, null).Problems)),
+        ["mapped input of a version without its model"] = Plain("The input model 'Gone' is missing from the manifest.", () => Started((s, _) =>
+            Inputs(s).PrepareMapped(ManifestFixture.Parse() with { Input = "Gone" }, null).Problems)),
+        ["changes that aren't an object"] = Invalid("input: The input changes must be a JSON object.", () => Started((s, run) => Inputs(s).Continue(run, JsonNode.Parse("[]")).Problems)),
+        ["continue through the API with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => Inputs(s).Continue(run, null).Problems)),
+
+        // config branches
+        ["run of a branching version without a snapshot"] = Plain("Run #1 has no config snapshot, but its version branches on config.", () => Branching((d, version) => d.Plans.ForRun(d.CreateRun(version)).Problems)),
+        ["branching version with no config yet"] = Conflict("Version 1 branches on config, and the pipeline has no config yet to pick its branches.", () => Branching((d, version) => d.Plans.ForCurrentConfig(version.Id, d.ConfigSnapshots).Problems)),
+        ["branching version with no such snapshot"] = Conflict("Version 1 branches on config, and the pipeline has no config #4 to pick its branches.", () => Branching((d, version) => d.Plans.ForSnapshot(version.Id, 4, d.ConfigSnapshots).Problems)),
+
+        // webhooks
+        ["webhook declared too large"] = Plain($"Webhook body exceeds {WebhookDelivery.MaxBodyBytes} bytes.", () => Webhook(WebhookDelivery.MaxBodyBytes + 1L, 0)),
+        ["webhook sent too large"] = Plain($"Webhook body exceeds {WebhookDelivery.MaxBodyBytes} bytes.", () => Webhook(null, WebhookDelivery.MaxBodyBytes + 1)),
     };
 
     public static IEnumerable<string> CaseNames() => Cases.Keys;
@@ -153,5 +264,35 @@ public class ErrorMessageTests
         var c = Cases[name];
 
         await c.Problems().IsSingle(c.Problem, c.Message);
+    }
+
+    // These name a pipeline the row creates, so the text can't be a constant.
+    [Test]
+    public async Task APipelineWithoutAVersion_SaysSo()
+    {
+        var d = new TestRunDomain().WireEvents();
+        var pipeline = d.CreatePipeline();
+        var inputs = new RunInputService(d.ActivationService, d.VersionService, d.Plans, d.Starts, d.Continuations);
+
+        await Config(d).CheckAsync(pipeline.Id, null, default).GetAwaiter().GetResult().Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' has no version yet.");
+        await Config(d).CheckAsync(pipeline.Id, 3, default).GetAwaiter().GetResult().Problems.IsSingle<NotFoundProblem>($"Version 3 of pipeline '{pipeline.Id}' not found.");
+        await Config(d).Get(pipeline.Id, 7).Problems.IsSingle<NotFoundProblem>($"Config snapshot #7 of pipeline '{pipeline.Id}' not found.");
+        await inputs.StartManual(pipeline.Id, null).Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' has no active version yet (reconcile its binding first).");
+    }
+
+    // A chained refusal leads with what was refused, and the cause follows.
+    [Test]
+    public async Task ARefusedManifestOrRerun_LeadsWithItsContext()
+    {
+        var d = new TestRunDomain();
+        var broken = d.Plans.Get(d.AddVersion(d.CreatePipeline().Id).Id).Problems!;
+        var s = new SchedulerScenario();
+        var original = s.Start(SchedulerScenario.Input());
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, s.AddVersion(SchedulerScenario.Mutated(root => root["models"]![ManifestFixture.Parse().Input]!["output"]!["required"]!.AsArray().Add("sha2"))).Id));
+
+        var rerun = Inputs(s).RerunRun(original).Problems!;
+
+        await Assert.That(broken.First().FormattedMessage).IsEqualTo("Manifest of version 1 does not parse.");
+        await Assert.That(rerun.First().FormattedMessage).IsEqualTo("Run #1's input is not valid for version 2.");
     }
 }

@@ -117,6 +117,46 @@ public class ExternalInputTests
     }
 
     [Test]
+    public async Task Refusals_NameWhatWasMissing()
+    {
+        var (s, run) = AtTheGate();
+        var value = Json("""{"approved":true}""");
+
+        await s.D.Inputs.Answer(s.Pipeline.Id, 99, "deploy-beta", null, value, "oliver").Problems.IsSingle<NotFoundProblem>("Run #99 not found.");
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "gone", null, value, "oliver").Problems.IsSingle<NotFoundProblem>("Run #1 has no step 'gone'.");
+    }
+
+    [Test]
+    public async Task SeveralInputs_MustBeNamed()
+    {
+        var manifest = JsonNode.Parse(Manifest())!.AsObject();
+        var inputs = ManifestFixture.Step(manifest, "deploy-beta")["externalInputs"]!.AsObject();
+        inputs["audit"] = inputs["decision"]!.DeepClone();
+        var s = new SchedulerScenario(manifest.ToJsonString());
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "build");
+        s.Succeed(run, "test");
+
+        var answer = s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver");
+
+        await answer.Problems.IsSingle<ValidationProblem>("name: Step 'deploy-beta' has several external inputs (decision, audit); name one.");
+    }
+
+    [Test]
+    [Arguments(null, "declined by oliver")]
+    [Arguments("  ", "declined by oliver")]
+    [Arguments(" not today ", "declined by oliver: not today")]
+    public async Task ADecline_RecordsWhoAndWhy(string? comment, string reason)
+    {
+        var (s, run) = AtTheGate();
+
+        var declined = TestRunDomain.Pick(s.D.Inputs.Decline(s.Pipeline.Id, run.Number, "deploy-beta", comment, "oliver"));
+
+        await Assert.That(((Failed)declined.Status).Reason).IsEqualTo(reason);
+    }
+
+    [Test]
     public async Task Decline_FailsTheStepWithoutRunningIt_AndTheRun()
     {
         var (s, run) = AtTheGate();

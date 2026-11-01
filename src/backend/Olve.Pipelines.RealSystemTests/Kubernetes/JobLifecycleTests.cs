@@ -1,5 +1,6 @@
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.RealSystemTests.Kubernetes;
 
@@ -31,7 +32,7 @@ public class JobLifecycleTests
 
         await Assert.That(state.Init!.ExitCode).IsEqualTo(7);
         var failure = HarnessExitCodes.Classify(state);
-        await Assert.That(failure!.Kind).IsEqualTo(HarnessFailureKind.InitFailed);
+        await Assert.That(failure!.Kind).IsEqualTo(AttemptFailureKind.InitFailed);
         await Assert.That(failure.Message).StartsWith("olve-init failed: ");
     }
 
@@ -45,7 +46,7 @@ public class JobLifecycleTests
 
         await Assert.That(state.JobFailedReason).IsEqualTo("DeadlineExceeded");
         var failure = HarnessExitCodes.Classify(state);
-        await Assert.That(failure!.Kind).IsEqualTo(HarnessFailureKind.DeadlineExceeded);
+        await Assert.That(failure!.Kind).IsEqualTo(AttemptFailureKind.DeadlineExceeded);
         await Assert.That(failure.Message).IsEqualTo("step timed out: Job was active longer than specified deadline");
     }
 
@@ -59,7 +60,7 @@ public class JobLifecycleTests
 
         await Assert.That(state.Main!.Reason is "ErrImagePull" or "ImagePullBackOff").IsTrue();
         var failure = HarnessExitCodes.Classify(state);
-        await Assert.That(failure!.Kind).IsEqualTo(HarnessFailureKind.PodFailed);
+        await Assert.That(failure!.Kind).IsEqualTo(AttemptFailureKind.PodFailed);
         await Assert.That(failure.Message).StartsWith($"container 'step' cannot start: {state.Main.Reason}");
     }
 

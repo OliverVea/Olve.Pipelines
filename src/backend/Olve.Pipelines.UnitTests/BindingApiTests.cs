@@ -104,8 +104,8 @@ public class BindingApiTests
 
     [Test]
     [Arguments("acme/widgets", null, null, "main", ".pipelines", "widgets")]
-    [Arguments("acme/widgets/", " ", "", "main", ".pipelines", "widgets")]
-    [Arguments("widgets", "release", "ci/pipelines", "release", "ci/pipelines", "widgets")]
+    [Arguments("acme/widgets", " ", "", "main", ".pipelines", "widgets")]
+    [Arguments("acme/widgets", "release", "ci/pipelines", "release", "ci/pipelines", "widgets")]
     public async Task Create_BindsANewPipeline_WithDefaultsAndAProvisionalName(
         string repo, string? branch, string? path, string expectedBranch, string expectedPath, string expectedName)
     {

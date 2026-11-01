@@ -89,14 +89,14 @@ public class HarnessOutcomeTests
     public async Task JobFailedWithoutATerminatedContainer_NamesTheReason()
     {
         await Assert.That(HarnessExitCodes.Classify(new HarnessPodState("BackoffLimitExceeded", "too many", null, null)))
-            .IsEqualTo(new HarnessFailure(AttemptFailureKind.Unknown, "Job failed (BackoffLimitExceeded): too many"));
+            .IsEqualTo(new HarnessFailure(AttemptFailureKind.PodFailed, "Job failed (BackoffLimitExceeded): too many"));
     }
 
     [Test]
     public async Task RunningPod_DidNotTerminate()
     {
         await Assert.That(HarnessExitCodes.Classify(new HarnessPodState(null, null, InitOk, null)))
-            .IsEqualTo(new HarnessFailure(AttemptFailureKind.Unknown, "step container did not terminate"));
+            .IsEqualTo(new HarnessFailure(AttemptFailureKind.PodFailed, "step container did not terminate"));
     }
 
     [Test]

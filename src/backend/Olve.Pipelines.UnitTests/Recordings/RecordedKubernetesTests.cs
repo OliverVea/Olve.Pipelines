@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.UnitTests.Recordings;
 
@@ -36,7 +37,7 @@ public class RecordedKubernetesTests
         await Assert.That(state.Main).IsNull();
         await Assert.That(HarnessExitCodes.IsFinished(state)).IsTrue();
         var failure = HarnessExitCodes.Classify(state)!;
-        await Assert.That(failure.Kind).IsEqualTo(HarnessFailureKind.DeadlineExceeded);
+        await Assert.That(failure.Kind).IsEqualTo(AttemptFailureKind.DeadlineExceeded);
         await Assert.That(failure.Message).IsEqualTo("step timed out: Job was active longer than specified deadline");
     }
 }

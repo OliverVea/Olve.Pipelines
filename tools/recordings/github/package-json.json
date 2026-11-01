@@ -1,0 +1,26 @@
+{
+  "system": "github",
+  "name": "package-json",
+  "source": "https://api.github.com (anonymous)",
+  "capturedAt": "2026-10-31",
+  "systemVersion": "2022-11-28",
+  "elided": "",
+  "request": {
+    "method": "GET",
+    "url": "/repos/OliverVea/Olve.Pipelines/contents/.pipelines/package.json?ref=3e6555d9cd1bb9fce6eadafb7ac627d36c24088d",
+    "headers": {
+      "accept": "application/vnd.github.raw+json",
+      "user-agent": "olve-pipelines"
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/vnd.github.raw+json; charset=utf-8",
+      "etag": "\"a8b826712a0bb7c5f0da1f8e765b28e680290f12\"",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-github-media-type": "github.v3; param=raw; format=json"
+    },
+    "body": "{\n  \"name\": \"olve-pipelines-pipeline\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"main\": \"pipeline.ts\",\n  \"scripts\": {\n    \"typecheck\": \"tsc --noEmit -p .\",\n    \"test\": \"bun test\",\n    \"describe\": \"olve-dev describe .\",\n    \"build\": \"olve-build . --out .olve/out\"\n  },\n  \"dependencies\": {\n    \"@olivervea/pipelines\": \"file:../src/sdk\"\n  },\n  \"devDependencies\": {\n    \"@types/bun\": \"1.4.3\",\n    \"typescript\": \"7.0.2\"\n  }\n}\n"
+  }
+}

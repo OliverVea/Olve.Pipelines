@@ -1,0 +1,182 @@
+[
+ {
+  "file": "Jobs/JobExecutorBase.cs",
+  "line": 35,
+  "col": 17,
+  "member": "JobExecutorBase.EnsureRunning",
+  "src": "throw new InvalidOperationException(",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Failures/FailureHandlerService.cs",
+  "line": 66,
+  "col": 13,
+  "member": "FailureHandlerService.Dispatch",
+  "src": "return;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Manifests/JsonSchemaValidator.cs",
+  "line": 192,
+  "col": 17,
+  "member": "JsonSchemaValidator.MatchesDiscriminators",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Manifests/ManifestValidator.cs",
+  "line": 171,
+  "col": 45,
+  "member": "Checker.CheckTriggers",
+  "src": "if (t is not PollTrigger p) continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Manifests/ManifestValidator.cs",
+  "line": 327,
+  "col": 21,
+  "member": "Checker.CheckWhen",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Retention/RetentionPlanner.cs",
+  "line": 277,
+  "col": 17,
+  "member": "RetentionPlanner.Secrets",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Scheduling/ExternalInputPollService.cs",
+  "line": 39,
+  "col": 17,
+  "member": "ExternalInputPollService.Sources",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Scheduling/ExternalInputPollService.cs",
+  "line": 44,
+  "col": 21,
+  "member": "ExternalInputPollService.Sources",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Scheduling/ExternalInputPollService.cs",
+  "line": 71,
+  "col": 17,
+  "member": "ExternalInputPollService.PollOneAsync",
+  "src": "return;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Scheduling/ExternalInputPollService.cs",
+  "line": 78,
+  "col": 13,
+  "member": "ExternalInputPollService.PollOneAsync",
+  "src": "return;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Scheduling/StageScheduler.cs",
+  "line": 276,
+  "col": 17,
+  "member": "StageScheduler.ApplyStageOutcome",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Sync/BindingHookPersistenceService.cs",
+  "line": 74,
+  "col": 13,
+  "member": "BindingHookPersistenceService.StartingAsync",
+  "src": "throw;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Sync/BindingHookPersistenceService.cs",
+  "line": 94,
+  "col": 13,
+  "member": "BindingHookPersistenceService.StartingAsync",
+  "src": "throw;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Sync/ConfigSource/ConfigCursor.cs",
+  "line": 53,
+  "col": 25,
+  "member": "LocalPathDependencies.Resolve",
+  "src": "continue;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Sync/DeployPollService.cs",
+  "line": 221,
+  "col": 13,
+  "member": "DeployPollService.ReconcileConfigAsync",
+  "src": "throw;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Pipelines/Triggers/PollTriggerService.cs",
+  "line": 79,
+  "col": 13,
+  "member": "PollTriggerService.PollOneAsync",
+  "src": "return;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Shared/Persistence/ConfigurationPersistenceService.cs",
+  "line": 62,
+  "col": 13,
+  "member": "ConfigurationPersistenceService.StartingAsync",
+  "src": "throw;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Shared/Persistence/ConfigurationPersistenceService.cs",
+  "line": 86,
+  "col": 13,
+  "member": "ConfigurationPersistenceService.StartingAsync",
+  "src": "throw;",
+  "code": "CS0165",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Streaming/SseStreams.cs",
+  "line": 25,
+  "col": 21,
+  "member": "SseStreams.WithHeartbeat",
+  "src": "yield break;",
+  "code": "CS8070",
+  "mutators": "Statement"
+ },
+ {
+  "file": "Shared/Persistence/RunPersistenceService.cs",
+  "line": 264,
+  "col": 17,
+  "member": "RunPersistenceService.FlushAsync",
+  "src": "logger.LogDebug(",
+  "code": "CS1503",
+  "mutators": "Linq"
+ }
+]

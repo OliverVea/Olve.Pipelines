@@ -1,0 +1,18 @@
+{
+  "stryker-config": {
+    "project": "Olve.Pipelines.csproj",
+    "test-runner": "mtp",
+    "coverage-analysis": "off",
+    "disable-bail": true,
+    "reporters": ["json"],
+    "mutate": [
+      "**/Pipelines/Sync/PipelineReconcileService.cs",
+      "**/Pipelines/Sync/BindingHandlers.cs",
+      "**/Kubernetes/KubernetesClient.Harness.cs",
+      "**/Pipelines/Runs/AttemptFileService.cs",
+      "**/Pipelines/Manifests/ConfigRefs.cs",
+      "**/Pipelines/Retention/RetentionService.cs"
+    ],
+    "ignore-methods": ["*Log*", "LogProblems"]
+  }
+}

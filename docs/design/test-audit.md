@@ -497,6 +497,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 - Fix the 12 load-sensitive tests in Olve.AgentRuntimeManager: replace real-time waits with its clock seam and explicit signals. Not started. No retries.
 - Find the cause of the `build-sdk` exit 137 in `Olve.Pipelines v2#167`.
+- Find the cause of the `dotnet format` build host exit 137 in `Olve.Pipelines v2#180`. The kernel logged no OOM kill. The `test` step reports any failure of that command as "C# formatting is off".
 - Try the `pl wait` rerun following and the held exit code 4 against a real rerun and a real held run. Only unit tests cover them.
 
 **This plan**

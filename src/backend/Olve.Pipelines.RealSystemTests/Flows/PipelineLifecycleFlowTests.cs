@@ -64,6 +64,26 @@ public class PipelineLifecycleFlowTests
         return left;
     }
 
+    // Parallel first sets race to create the Secret, and later ones to update it.
+    [Test]
+    public async Task ParallelSets_OfDifferentSecrets_KeepEveryValue()
+    {
+        await using var server = await TestServer.LeaseAsync();
+        var pipeline = await server.NewPipelineAsync("secrets");
+        var cluster = server.Cluster;
+
+        foreach (var round in new[] { "first", "second" })
+        {
+            var names = Enumerable.Range(0, 8).Select(i => $"{round.ToUpperInvariant()}_{i}").ToList();
+
+            await Task.WhenAll(names.Select(n => server.Api.SetSecretAsync(pipeline.Id, n, n)));
+
+            var stored = await cluster.Client.GetSecretAsync(cluster.Namespace, TestCluster.PipelineSecretName(pipeline.Id));
+            foreach (var name in names)
+                await Assert.That(stored!.GetValueOrDefault(name)).IsEqualTo(name);
+        }
+    }
+
     [Test]
     public async Task FailingStep_FailsTheRun_WithTheHandlersMessage()
     {

@@ -12,7 +12,8 @@ public record K8sJobManifest(
 public record K8sMetadata(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("labels")] Dictionary<string, string>? Labels = null,
-    [property: JsonPropertyName("creationTimestamp"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? CreationTimestamp = null);
+    [property: JsonPropertyName("creationTimestamp"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? CreationTimestamp = null,
+    [property: JsonPropertyName("resourceVersion"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ResourceVersion = null);
 
 public record K8sJobSpecBody(
     [property: JsonPropertyName("template")] K8sPodTemplateSpec Template,
@@ -155,6 +156,11 @@ public record K8sSecret(
     [property: JsonPropertyName("type")] string Type = "Opaque",
     [property: JsonPropertyName("data")] Dictionary<string, string>? Data = null);
 
+/// <summary>A DELETE body that applies only while the object is still at this version.</summary>
+public record K8sDeleteOptions([property: JsonPropertyName("preconditions")] K8sPreconditions Preconditions);
+
+public record K8sPreconditions([property: JsonPropertyName("resourceVersion")] string ResourceVersion);
+
 /// <summary>One line of a watch stream (<c>ADDED</c>, <c>MODIFIED</c>, <c>DELETED</c>, <c>ERROR</c>); only the object's metadata is read.</summary>
 public record K8sWatchEvent(
     [property: JsonPropertyName("type")] string Type,
@@ -167,4 +173,5 @@ public record K8sWatchObject([property: JsonPropertyName("metadata")] K8sMetadat
 [JsonSerializable(typeof(K8sPodList))]
 [JsonSerializable(typeof(K8sWatchEvent))]
 [JsonSerializable(typeof(K8sSecret))]
+[JsonSerializable(typeof(K8sDeleteOptions))]
 internal partial class KubernetesJsonContext : JsonSerializerContext;

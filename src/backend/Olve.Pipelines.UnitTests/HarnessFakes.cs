@@ -99,7 +99,10 @@ internal sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClie
 
     public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<SecretRevision?> GetSecretRevisionAsync(string ns, string secretName, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> TryUpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, string resourceVersion, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> TryDeleteSecretAsync(string ns, string secretName, string resourceVersion, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default) => Task.FromResult<Dictionary<string, string>?>(null);
     public Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
 }

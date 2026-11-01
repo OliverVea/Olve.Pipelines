@@ -12,8 +12,6 @@ public class FakeSecretsContract : KubernetesSecretsContract
 {
     protected override IReadOnlyDictionary<string, string> KnownDisagreements { get; } = new Dictionary<string, string>
     {
-        [nameof(Create_OfAnExistingSecret_KeepsItsValues)] = "FakeSecrets overwrites; the real create answers 409 and keeps the old values.",
-        [nameof(Update_OfAMissingSecret_Throws)] = "FakeSecrets creates the Secret; the real update fails with 404.",
         [nameof(Get_OfASecretWithNoValues_IsNull)] = "FakeSecrets returns an empty dictionary; the API omits `data`, so the real client returns null.",
     };
 

@@ -101,17 +101,14 @@ public class PipelineSecretService(
             return new UnavailableProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;
 
-        var secretName = PipelineSecrets.Name(pipelineId);
-        var existing = await client.GetSecretAsync(ns, secretName, ct);
-        if (existing is null)
+        var edit = await client.EditSecretAsync(ns, PipelineSecrets.Name(pipelineId), current =>
         {
-            await client.CreateSecretAsync(ns, secretName, new Dictionary<string, string> { [name] = value }, ct);
-        }
-        else
-        {
-            existing[name] = value;
-            await client.UpdateSecretAsync(ns, secretName, existing, ct);
-        }
+            var next = current is null ? [] : new Dictionary<string, string>(current);
+            next[name] = value;
+            return next;
+        }, ct);
+        if (edit.TryPickProblems(out var problems, out _))
+            return problems;
 
         secretEvents.OnChanged.Invoke(pipelineId);
         return Result.Success();
@@ -125,17 +122,19 @@ public class PipelineSecretService(
             return new UnavailableProblem("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
         var (client, ns) = k8s;
 
-        var secretName = PipelineSecrets.Name(pipelineId);
-        var existing = await client.GetSecretAsync(ns, secretName, ct);
-        if (existing is not null && existing.Remove(name))
+        var edit = await client.EditSecretAsync(ns, PipelineSecrets.Name(pipelineId), current =>
         {
-            if (existing.Count == 0)
-                await client.DeleteSecretAsync(ns, secretName, ct);
-            else
-                await client.UpdateSecretAsync(ns, secretName, existing, ct);
-            secretEvents.OnChanged.Invoke(pipelineId);
-        }
+            if (current is null || !current.ContainsKey(name))
+                return (Dictionary<string, string>?)null;
+            var next = new Dictionary<string, string>(current);
+            next.Remove(name);
+            return next;
+        }, ct);
+        if (edit.TryPickProblems(out var problems, out var changed))
+            return problems;
 
+        if (changed)
+            secretEvents.OnChanged.Invoke(pipelineId);
         return Result.Success();
     }
 

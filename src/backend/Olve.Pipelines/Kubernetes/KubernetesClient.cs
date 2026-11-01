@@ -152,7 +152,7 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
-    public async Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
+    public async Task<bool> CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
     {
         var secret = new K8sSecret(
             "v1",
@@ -167,16 +167,15 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
             ct);
 
         if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
-        {
-            _logger?.LogInformation("K8s Secret '{SecretName}' already exists — reusing (likely reattach after restart)", secretName);
-            return;
-        }
+            return false;
 
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
             throw new HttpRequestException($"Failed to create K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
         }
+
+        return true;
     }
 
     public async Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default)
@@ -192,9 +191,23 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         var secret = await response.Content.ReadFromJsonAsync(
             KubernetesJsonContext.Default.K8sSecret, ct);
 
-        return secret?.Data?.ToDictionary(
-            kvp => kvp.Key,
-            kvp => Encoding.UTF8.GetString(Convert.FromBase64String(kvp.Value)));
+        return secret?.Data is { } data ? DecodeSecretData(data) : null;
+    }
+
+    public async Task<SecretRevision?> GetSecretRevisionAsync(string ns, string secretName, CancellationToken ct = default)
+    {
+        var response = await _httpClient.GetAsync(
+            $"api/v1/namespaces/{ns}/secrets/{secretName}", ct);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        response.EnsureSuccessStatusCode();
+
+        var secret = await response.Content.ReadFromJsonAsync(
+            KubernetesJsonContext.Default.K8sSecret, ct);
+
+        return new SecretRevision(DecodeSecretData(secret?.Data ?? []), secret?.Metadata.ResourceVersion ?? "");
     }
 
     public async Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
@@ -220,6 +233,55 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         }
     }
 
+    public async Task<bool> TryUpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, string resourceVersion, CancellationToken ct = default)
+    {
+        var secret = new K8sSecret(
+            "v1",
+            "Secret",
+            new K8sMetadata(secretName, ResourceVersion: resourceVersion),
+            Data: EncodeSecretData(data));
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"api/v1/namespaces/{ns}/secrets/{secretName}")
+        {
+            Content = JsonContent.Create(secret, KubernetesJsonContext.Default.K8sSecret),
+        };
+
+        using var response = await _httpClient.SendAsync(request, ct);
+
+        if (response.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.NotFound)
+            return false;
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to update K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> TryDeleteSecretAsync(string ns, string secretName, string resourceVersion, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"api/v1/namespaces/{ns}/secrets/{secretName}")
+        {
+            Content = JsonContent.Create(
+                new K8sDeleteOptions(new K8sPreconditions(resourceVersion)), KubernetesJsonContext.Default.K8sDeleteOptions),
+        };
+
+        using var response = await _httpClient.SendAsync(request, ct);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            return false;
+
+        if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException($"Failed to delete K8s Secret '{secretName}': {response.StatusCode} {body}", null, response.StatusCode);
+        }
+
+        return true;
+    }
+
     public async Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default)
     {
         var response = await _httpClient.DeleteAsync(
@@ -241,6 +303,11 @@ public partial class KubernetesClient : IKubernetesClient, IDisposable
         => data.ToDictionary(
             kvp => kvp.Key,
             kvp => Convert.ToBase64String(Encoding.UTF8.GetBytes(kvp.Value)));
+
+    private static Dictionary<string, string> DecodeSecretData(Dictionary<string, string> data)
+        => data.ToDictionary(
+            kvp => kvp.Key,
+            kvp => Encoding.UTF8.GetString(Convert.FromBase64String(kvp.Value)));
 
     public void Dispose()
     {

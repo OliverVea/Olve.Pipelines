@@ -126,9 +126,9 @@ public class RunContinuationTests
         var rerunActive = s.D.Continuations.RerunStep(run.Id, "build", continueAfter: false);
         var unknown = s.D.Continuations.RerunStep(run.Id, "nope", continueAfter: false);
 
-        await Assert.That(rerunSucceeded).Failed();
-        await Assert.That(rerunActive).Failed();
-        await Assert.That(unknown).Failed();
+        await rerunSucceeded.Problems.IsSingle<ConflictProblem>("Step 'checkout' can be rerun only once run #1 has finished or the step's latest attempt failed.");
+        await rerunActive.Problems.IsSingle<ConflictProblem>("Step 'build' already has an active attempt in run #1.");
+        await unknown.Problems.IsSingle<NotFoundProblem>("Run #1 has no step 'nope'.");
     }
 
     [Test]
@@ -141,7 +141,7 @@ public class RunContinuationTests
 
         var result = s.D.Continuations.RerunStep(run.Id, "deploy-prod", continueAfter: true);
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ConflictProblem>("Step 'deploy-prod' is not part of run #1 (when deployTo ∉ [prod]).");
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
     }
 
@@ -181,7 +181,7 @@ public class RunContinuationTests
 
         var result = s.D.Continuations.ContinueRun(run.Id, Input(deployTo: "prod", sha: OtherSha));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ConflictProblem>("input.sha: Field 'sha' cannot change: completed step(s) checkout consumed it.");
         await Assert.That(result.TryPickProblems(out var problems)).IsTrue();
         await Assert.That(string.Join(" ", problems!.Select(p => p.ToString()))).Contains("checkout");
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
@@ -200,7 +200,7 @@ public class RunContinuationTests
 
         var result = s.D.Continuations.ContinueRun(run.Id, Input(deployTo: "beta"));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ConflictProblem>("input.deployTo: Field 'deployTo' cannot change: completed step(s) deploy-prod, publish-cli consumed it.");
     }
 
     [Test]
@@ -221,7 +221,7 @@ public class RunContinuationTests
         var run = s.Start(Input(sha: Sha), RunTriggerKind.Push);
         s.Start(Input(sha: OtherSha), RunTriggerKind.Push);
 
-        await Assert.That(s.D.Continuations.ContinueRun(run.Id, Input(sha: Sha))).Failed();
-        await Assert.That(s.D.Continuations.RerunStep(run.Id, "checkout", continueAfter: true)).Failed();
+        await s.D.Continuations.ContinueRun(run.Id, Input(sha: Sha)).Problems.IsSingle<ConflictProblem>("Run #1 was superseded by a newer run and cannot be continued.");
+        await s.D.Continuations.RerunStep(run.Id, "checkout", continueAfter: true).Problems.IsSingle<ConflictProblem>("Run #1 was superseded by a newer run and cannot be continued.");
     }
 }

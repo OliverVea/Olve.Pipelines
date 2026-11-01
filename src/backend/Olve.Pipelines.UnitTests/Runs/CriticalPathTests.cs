@@ -185,7 +185,7 @@ public class CriticalPathTests
         var s = new SchedulerScenario();
         Complete(s, build: 1, test: 1);
 
-        await Assert.That(Service(s).Get(s.Pipeline.Id, 5, 2, includeUnsuccessful: false)).Failed();
-        await Assert.That(Service(s).Get(s.Pipeline.Id, 1, 1000, includeUnsuccessful: false)).Failed();
+        await Service(s).Get(s.Pipeline.Id, 5, 2, includeUnsuccessful: false).Problems.IsSingle<ValidationProblem>("from: from (5) is after to (2).");
+        await Service(s).Get(s.Pipeline.Id, 1, 1000, includeUnsuccessful: false).Problems.IsSingle<ValidationProblem>("from: At most 500 runs at a time; narrow the range.");
     }
 }

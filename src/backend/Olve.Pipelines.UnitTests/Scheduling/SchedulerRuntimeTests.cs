@@ -173,7 +173,7 @@ public class SchedulerRuntimeTests
 
         // A scheduler-skipped attempt has nothing to launch.
         var skipped = s.D.AttemptService.RecordSkipped(run.Id, "summary", "input 'beta' needs deploy-beta (skipped: test)").Value!;
-        await Assert.That(s.D.Launches.Get(skipped.Id)).Failed();
+        await s.D.Launches.Get(skipped.Id).Problems.IsSingle<ResultProblem>("Attempt 1 of step 'summary' in run #1 has no input (it was not scheduled to run).");
     }
 
     private sealed class NullApplicationLifetime : IHostApplicationLifetime

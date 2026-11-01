@@ -135,8 +135,7 @@ public class ConfigGateTests
 
         var saved = await w.Save("auth: {mode: none}\n");
 
-        await Assert.That(saved).Failed();
-        await Assert.That(Problems(saved)).Contains("config.target: is required");
+        await saved.Problems.AreExactly("The document is not valid for the active version 1", "config.target: is required");
         await Assert.That(w.D.ConfigSnapshots.ListByPipeline(w.P.Id).Count).IsEqualTo(1);
     }
 
@@ -149,7 +148,7 @@ public class ConfigGateTests
 
         var switched = w.D.Gate.Switch(pending, cancelRunning: false, w.SetSecrets);
 
-        await Assert.That(switched).Failed();
+        await switched.Problems.IsSingle<ConflictProblem>("Version 2 can't be activated: config config.auth: is required; config config.target: is required.");
         await Assert.That(Problems(switched)).Contains("config.auth: is required");
         await Assert.That(w.ActiveNumber).IsEqualTo(1);
     }
@@ -237,7 +236,7 @@ public class ConfigGateTests
 
         await Assert.That(w.D.Gate.Held(w.P.Id)).IsNotNull();
         var start = w.D.Starts.Start(w.P.Id, Input, new RunTrigger(RunTriggerKind.Manual));
-        await Assert.That(start).Failed();
+        await start.Problems.IsSingle<ConflictProblem>("Version 1 is held until its config is satisfied: secret DEX_CLIENT_SECRET not set.");
         await Assert.That(Problems(start)).Contains($"secret {Secret} not set");
 
         w.Secrets.Set.Add(Secret);

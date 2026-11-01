@@ -34,8 +34,9 @@ public class AttemptServiceTests
     {
         var d = new TestRunDomain();
 
-        await Assert.That(d.AttemptService.Schedule(Id.New<Run>(), "build")).Failed();
-        await Assert.That(d.AttemptService.Schedule(d.CreateRun().Id, " ")).Failed();
+        var unknown = Id.New<Run>();
+        await d.AttemptService.Schedule(unknown, "build").Problems.IsSingle<NotFoundProblem>($"Run '{unknown}' not found.");
+        await d.AttemptService.Schedule(d.CreateRun().Id, " ").Problems.IsSingle<ResultProblem>("Step name is required.");
     }
 
     [Test]
@@ -49,7 +50,7 @@ public class AttemptServiceTests
         await Assert.That(skipped.Status).IsTypeOf<Skipped>();
         await Assert.That(((Skipped)skipped.Status).Reason).IsEqualTo("when: deployTo ∉ [prod]");
         await Assert.That(((Skipped)skipped.Status).StartedAt).IsNull();
-        await Assert.That(d.AttemptService.RecordSkipped(run.Id, "x", "")).Failed();
+        await d.AttemptService.RecordSkipped(run.Id, "x", "").Problems.IsSingle<ResultProblem>("A skip reason is required.");
     }
 
     [Test]
@@ -87,8 +88,8 @@ public class AttemptServiceTests
         var attempt = d.Schedule();
         var huge = "\"" + new string('x', AttemptService.MaxOutputJsonBytes) + "\"";
 
-        await Assert.That(d.AttemptService.MarkSucceeded(attempt.Id, huge)).Failed();
-        await Assert.That(d.AttemptService.MarkSucceeded(attempt.Id, "{ nope")).Failed();
+        await d.AttemptService.MarkSucceeded(attempt.Id, huge).Problems.IsSingle<ResultProblem>($"Output of attempt '{attempt.Id}' exceeds 65536 bytes.");
+        await d.AttemptService.MarkSucceeded(attempt.Id, "{ nope").Problems.IsSingle<ResultProblem>($"Output of attempt '{attempt.Id}' is not well-formed JSON.");
         await Assert.That(d.Get(attempt.Id).Status).IsTypeOf<Scheduled>();
     }
 
@@ -105,7 +106,7 @@ public class AttemptServiceTests
         await Assert.That(d.AttemptService.MarkSkipped(attempt.Id, "late")).Succeeded();
 
         await Assert.That(d.Get(attempt.Id).Status).IsTypeOf<Cancelled>();
-        await Assert.That(d.AttemptService.Cancel(attempt.Id)).Failed();
+        await d.AttemptService.Cancel(attempt.Id).Problems.IsSingle<ConflictProblem>($"Attempt '{attempt.Id}' cannot be cancelled because it is cancelled.");
     }
 
     [Test]
@@ -130,7 +131,7 @@ public class AttemptServiceTests
         await Assert.That(TestRunDomain.Pick(d.AttemptService.RecordSubmissionFailure(attempt.Id))).IsEqualTo(1);
         await Assert.That(TestRunDomain.Pick(d.AttemptService.RecordSubmissionFailure(attempt.Id))).IsEqualTo(2);
         await Assert.That(d.AttemptService.MarkInProgress(attempt.Id)).Succeeded();
-        await Assert.That(d.AttemptService.RecordSubmissionFailure(attempt.Id)).Failed();
+        await d.AttemptService.RecordSubmissionFailure(attempt.Id).Problems.IsSingle<ConflictProblem>($"Attempt '{attempt.Id}' is no longer scheduled.");
     }
 
     [Test]

@@ -94,9 +94,9 @@ public class PipelineConfigBindingTests
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, "main")).Failed();
+        await svc.Bindings.SetBranch(pipeline.Id, "main").Problems.IsSingle<NotFoundProblem>($"Pipeline '{pipeline.Id}' has no config binding.");
         await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
-        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, " ")).Failed();
+        await svc.Bindings.SetBranch(pipeline.Id, " ").Problems.IsSingle<ValidationProblem>("branch: Binding requires a branch.");
     }
 
     [Test]

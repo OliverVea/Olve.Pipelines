@@ -20,6 +20,13 @@ internal static class ProblemAssertions
         await Assert.That(problem.ToDisplayString()).IsEqualTo(message);
     }
 
+    /// <summary>Asserts the text of each of several problems, in order.</summary>
+    public static async Task AreExactly(this ResultProblemCollection? problems, params string[] messages)
+    {
+        await Assert.That(problems).IsNotNull().Because("the result succeeded");
+        await Assert.That(string.Join('\n', problems!.Select(p => p.ToDisplayString()))).IsEqualTo(string.Join('\n', messages));
+    }
+
 #pragma warning disable TUnitAssertions0015 // as in Olve.Results.TUnit, which has no DeletionResult overload
     public static PropertyAssertionResult<DeletionResult> Succeeded(this IAssertionSource<DeletionResult> source) =>
         source.HasProperty(x => x.Succeeded).IsEqualTo(true);

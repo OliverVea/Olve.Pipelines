@@ -102,7 +102,10 @@ public class ReconcileApplyTests
 
         var report = service.Apply(p.Id, Sha, node.ToJsonString());
 
-        await Assert.That(report).Failed();
+        await report.Problems.AreExactly(
+            "[model-unknown] input: pipeline input references model 'NoSuchModel', which is not in models",
+            "[ref-no-output] stages[0].steps[0].input.request: step 'hello' input 'request': step 'input' produces no output",
+            "[ref-no-output] stages[1].steps[1].input.request: step 'echo' input 'request': step 'input' produces no output");
         await Assert.That(d.VersionService.ListByPipeline(p.Id)).IsEmpty();
     }
 
@@ -111,6 +114,8 @@ public class ReconcileApplyTests
     {
         var (_, p, service) = Build();
 
-        await Assert.That(service.Apply(p.Id, Sha, "{\"apiVersion\":\"2.0\"}")).Failed();
+        await service.Apply(p.Id, Sha, "{\"apiVersion\":\"2.0\"}").Problems.AreExactly(
+            ((string[])["name", "input", "harness", "models", "secrets", "triggers", "stages", "failureHandlers"])
+                .Select(p => $"manifest [manifest-missing-property] {p}: missing required property '{p}'").ToArray());
     }
 }

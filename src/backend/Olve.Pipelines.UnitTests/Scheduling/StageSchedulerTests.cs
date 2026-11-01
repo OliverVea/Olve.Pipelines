@@ -323,6 +323,6 @@ public class StageSchedulerTests
 
         var result = d.Starts.Start(pipeline.Id, Input(), new RunTrigger(RunTriggerKind.Manual));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' has no active version.");
     }
 }

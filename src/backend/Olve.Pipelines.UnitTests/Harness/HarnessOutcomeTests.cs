@@ -14,19 +14,25 @@ public class HarnessOutcomeTests
     private static Result<HarnessResultContents> Archive(HarnessEnvelope envelope) => new HarnessResultContents(envelope, "{}", []);
 
     [Test]
-    [Arguments(1, HarnessFailureKind.Handler)]
-    [Arguments(64, HarnessFailureKind.Usage)]
-    [Arguments(65, HarnessFailureKind.Input)]
-    [Arguments(66, HarnessFailureKind.Output)]
-    [Arguments(74, HarnessFailureKind.ResultUpload)]
-    [Arguments(78, HarnessFailureKind.PipelineInvalid)]
-    [Arguments(130, HarnessFailureKind.Cancelled)]
-    [Arguments(143, HarnessFailureKind.Cancelled)]
-    [Arguments(137, HarnessFailureKind.OutOfMemory)]
-    [Arguments(2, HarnessFailureKind.Unknown)]
-    public async Task StepExitCodes_Map(int exitCode, HarnessFailureKind kind)
+    [Arguments(1, HarnessFailureKind.Handler, "the handler threw (exit 1)")]
+    [Arguments(64, HarnessFailureKind.Usage, "unknown harness mode or step (exit 64) — binary and manifest disagree")]
+    [Arguments(65, HarnessFailureKind.Input, "input.json missing or invalid for the step (exit 65)")]
+    [Arguments(66, HarnessFailureKind.Output, "the step's output failed validation (exit 66)")]
+    [Arguments(74, HarnessFailureKind.ResultUpload, "the result upload failed after retries (exit 74); output files are lost")]
+    [Arguments(78, HarnessFailureKind.PipelineInvalid, "the pipeline is invalid (exit 78)")]
+    [Arguments(130, HarnessFailureKind.Cancelled, "the handler was interrupted (exit 130)")]
+    [Arguments(143, HarnessFailureKind.Cancelled, "the handler was interrupted (exit 143)")]
+    [Arguments(137, HarnessFailureKind.OutOfMemory, "step container was killed (exit 137, SIGKILL) — out of memory?")]
+    [Arguments(2, HarnessFailureKind.Unknown, "step container exited 2")]
+    public async Task StepExitCodes_Map(int exitCode, HarnessFailureKind kind, string message)
     {
-        await Assert.That(HarnessExitCodes.Classify(Step(exitCode))!.Kind).IsEqualTo(kind);
+        await Assert.That(HarnessExitCodes.Classify(Step(exitCode))).IsEqualTo(new HarnessFailure(kind, message));
+    }
+
+    [Test]
+    public async Task UnknownExitCode_NamesTheReason()
+    {
+        await Assert.That(HarnessExitCodes.Classify(Step(2, "Error"))!.Message).IsEqualTo("step container exited 2: Error");
     }
 
     [Test]
@@ -38,29 +44,32 @@ public class HarnessOutcomeTests
     [Test]
     public async Task OomKilledReason_Wins()
     {
-        await Assert.That(HarnessExitCodes.Classify(Step(1, "OOMKilled"))!.Kind).IsEqualTo(HarnessFailureKind.OutOfMemory);
+        await Assert.That(HarnessExitCodes.Classify(Step(1, "OOMKilled")))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.OutOfMemory, "step container was killed (exit 1, OOMKilled) — out of memory?"));
     }
 
     [Test]
     public async Task DeadlineExceeded_FromJobCondition()
     {
-        await Assert.That(HarnessExitCodes.Classify(Step(143, jobReason: "DeadlineExceeded"))!.Kind).IsEqualTo(HarnessFailureKind.DeadlineExceeded);
+        await Assert.That(HarnessExitCodes.Classify(Step(143, jobReason: "DeadlineExceeded")))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.DeadlineExceeded, "step timed out: details"));
         var pending = new HarnessPodState("DeadlineExceeded", null, null, null);
-        await Assert.That(HarnessExitCodes.Classify(pending)!.Kind).IsEqualTo(HarnessFailureKind.DeadlineExceeded);
+        await Assert.That(HarnessExitCodes.Classify(pending))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.DeadlineExceeded, "step timed out: Job was active longer than its deadline"));
     }
 
     [Test]
-    [Arguments(64)]
-    [Arguments(65)]
-    [Arguments(66)]
-    [Arguments(70)]
-    public async Task InitExitCodes_AreInitFailures_NotStepMeanings(int exitCode)
+    [Arguments(64, "bad configuration (exit 64)")]
+    [Arguments(65, "downloading the step binary or input failed (exit 65) — expired or wrong pre-signed URL?")]
+    [Arguments(66, "the step archive is not a valid tar.gz with 'step' at its root (exit 66)")]
+    [Arguments(70, "filesystem error (exit 70)")]
+    [Arguments(9, "exit 9: Error")]
+    public async Task InitExitCodes_AreInitFailures_NotStepMeanings(int exitCode, string meaning)
     {
         var state = new HarnessPodState(null, null, new HarnessContainerState("olve-init", exitCode, "Error", null), null);
 
-        var failure = HarnessExitCodes.Classify(state)!;
-        await Assert.That(failure.Kind).IsEqualTo(HarnessFailureKind.InitFailed);
-        await Assert.That(failure.Message).StartsWith("olve-init failed");
+        await Assert.That(HarnessExitCodes.Classify(state))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.InitFailed, $"olve-init failed: {meaning}"));
     }
 
     [Test]
@@ -71,9 +80,22 @@ public class HarnessOutcomeTests
     {
         var state = new HarnessPodState(null, null, InitOk, new HarnessContainerState("step", null, reason, "secret key SSH_KEY not found"));
 
-        var failure = HarnessExitCodes.Classify(state)!;
-        await Assert.That(failure.Kind).IsEqualTo(HarnessFailureKind.PodFailed);
-        await Assert.That(failure.Message).Contains("SSH_KEY");
+        await Assert.That(HarnessExitCodes.Classify(state))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.PodFailed, $"container 'step' cannot start: {reason}: secret key SSH_KEY not found"));
+    }
+
+    [Test]
+    public async Task JobFailedWithoutATerminatedContainer_NamesTheReason()
+    {
+        await Assert.That(HarnessExitCodes.Classify(new HarnessPodState("BackoffLimitExceeded", "too many", null, null)))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.Unknown, "Job failed (BackoffLimitExceeded): too many"));
+    }
+
+    [Test]
+    public async Task RunningPod_DidNotTerminate()
+    {
+        await Assert.That(HarnessExitCodes.Classify(new HarnessPodState(null, null, InitOk, null)))
+            .IsEqualTo(new HarnessFailure(HarnessFailureKind.Unknown, "step container did not terminate"));
     }
 
     [Test]
@@ -117,7 +139,7 @@ public class HarnessOutcomeTests
 
         var failed = (HarnessAttemptResult.Failed)result;
         await Assert.That(failed.Kind).IsEqualTo(HarnessFailureKind.Handler);
-        await Assert.That(failed.Message).EndsWith(": kaboom");
+        await Assert.That(failed.Message).IsEqualTo("the handler threw (exit 1): kaboom");
     }
 
     [Test]
@@ -135,7 +157,7 @@ public class HarnessOutcomeTests
 
         var failed = (HarnessAttemptResult.Failed)result;
         await Assert.That(failed.Kind).IsEqualTo(HarnessFailureKind.Input);
-        await Assert.That(failed.Message).Contains("missing key sha");
+        await Assert.That(failed.Message).IsEqualTo("input.json missing or invalid for the step (exit 65): missing key sha");
     }
 
     [Test]
@@ -143,7 +165,7 @@ public class HarnessOutcomeTests
     {
         var result = HarnessOutcome.Resolve(Step(0), null, [], """{"output":null,"status":"succeeded"}""");
 
-        await Assert.That(((HarnessAttemptResult.Failed)result).Kind).IsEqualTo(HarnessFailureKind.ResultInvalid);
+        await Assert.That(result).IsEqualTo(new HarnessAttemptResult.Failed(HarnessFailureKind.ResultInvalid, "the step exited 0 but uploaded no result.tar.gz"));
     }
 
     [Test]
@@ -154,6 +176,6 @@ public class HarnessOutcomeTests
 
         var failed = (HarnessAttemptResult.Failed)result;
         await Assert.That(failed.Kind).IsEqualTo(HarnessFailureKind.ResultInvalid);
-        await Assert.That(failed.Message).Contains("no output.json");
+        await Assert.That(failed.Message).IsEqualTo("Invalid result archive: no output.json");
     }
 }

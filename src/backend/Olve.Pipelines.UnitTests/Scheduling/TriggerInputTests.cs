@@ -32,16 +32,14 @@ public class JsonSchemaValidatorTests
 
     [Test]
     [Arguments("""{"mode":"normal"}""", "input.sha: is required")]
-    [Arguments("""{"sha":"XYZ"}""", "input.sha: must match")]
-    [Arguments("""{"sha":"abcdef1","mode":"fast"}""", "input.mode: must be one of")]
+    [Arguments("""{"sha":"XYZ"}""", "input.sha: must match ^[0-9a-f]{7,40}$")]
+    [Arguments("""{"sha":"abcdef1","mode":"fast"}""", """input.mode: must be one of ["normal","skip-last","fail"]""")]
     [Arguments("""{"sha":12345678}""", "input.sha: expected string, got number")]
     public async Task FixtureInput_RejectsBadValues(string input, string expected)
     {
         var result = JsonSchemaValidator.Validate(FixtureInputView(), JsonNode.Parse(input));
 
-        await Assert.That(result).Failed();
-        result.TryPickProblems(out var problems);
-        await Assert.That(string.Join("\n", problems!.Select(p => p.ToDisplayString()))).Contains(expected);
+        await result.Problems.IsSingle<ValidationProblem>(expected);
     }
 
     [Test]
@@ -50,7 +48,7 @@ public class JsonSchemaValidatorTests
         var output = TestFixtureManifest.Parse().Models["TestInput"].Output;
         var result = JsonSchemaValidator.Validate(output, JsonNode.Parse("""{"sha":"abcdef1","mode":"normal","extra":1}"""));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ValidationProblem>("input.extra: is not allowed (unknown property)");
     }
 
     [Test]
@@ -65,11 +63,11 @@ public class JsonSchemaValidatorTests
             """;
 
         await Assert.That(Validate(schema, """{"n":3,"tags":["ab"],"note":null}""")).Succeeded();
-        await Assert.That(Validate(schema, """{"n":3.5}""")).Failed();
-        await Assert.That(Validate(schema, """{"n":0}""")).Failed();
-        await Assert.That(Validate(schema, """{"n":11}""")).Failed();
-        await Assert.That(Validate(schema, """{"n":1,"tags":["a"]}""")).Failed();
-        await Assert.That(Validate(schema, """{"n":1,"note":5}""")).Failed();
+        await Validate(schema, """{"n":3.5}""").Problems.IsSingle<ValidationProblem>("input.n: expected integer, got number");
+        await Validate(schema, """{"n":0}""").Problems.IsSingle<ValidationProblem>("input.n: must be > 0");
+        await Validate(schema, """{"n":11}""").Problems.IsSingle<ValidationProblem>("input.n: must be ≤ 10");
+        await Validate(schema, """{"n":1,"tags":["a"]}""").Problems.IsSingle<ValidationProblem>("input.tags[0]: must be at least 2 characters");
+        await Validate(schema, """{"n":1,"note":5}""").Problems.IsSingle<ValidationProblem>("input.note: matches none of the allowed shapes (input.note: expected string, got number; input.note: expected null, got number)");
     }
 
     [Test]
@@ -77,7 +75,7 @@ public class JsonSchemaValidatorTests
     {
         var result = Validate("""{"type":"object","$ref":"#/$defs/x"}""", "{}");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ValidationProblem>("input: the input schema uses '$ref', which this service does not support");
         result.TryPickProblems(out var problems);
         await Assert.That(problems!.Single().FormattedMessage).Contains("'$ref'");
     }
@@ -96,8 +94,8 @@ public class JsonSchemaValidatorTests
         await Assert.That(PollTriggerService.ExtractValue(doc, "sha").Value).IsEqualTo("abc");
         await Assert.That(PollTriggerService.ExtractValue(doc, "commit.n").Value).IsEqualTo("3");
         await Assert.That(PollTriggerService.ExtractValue(doc, "commit.list.0.id").Value).IsEqualTo("x");
-        await Assert.That(PollTriggerService.ExtractValue(doc, "commit")).Failed();
-        await Assert.That(PollTriggerService.ExtractValue(doc, "missing")).Failed();
+        await PollTriggerService.ExtractValue(doc, "commit").Problems.IsSingle<ResultProblem>("valuePath 'commit' is not a scalar (Object).");
+        await PollTriggerService.ExtractValue(doc, "missing").Problems.IsSingle<ResultProblem>("valuePath 'missing' not found (at 'missing').");
     }
 }
 
@@ -144,7 +142,7 @@ public class ManualTriggerTests
 
         var outcome = inputs.StartManual(s.Pipeline.Id, JsonNode.Parse("""{"mode":"normal"}"""));
 
-        await Assert.That(outcome).Failed();
+        await outcome.Problems.IsSingle<ValidationProblem>("input.sha: is required");
         await Assert.That(s.D.RunService.ListByPipeline(s.Pipeline.Id)).IsEmpty();
     }
 

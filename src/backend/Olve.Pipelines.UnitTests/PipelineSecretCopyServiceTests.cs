@@ -135,7 +135,7 @@ public class PipelineSecretCopyServiceTests
 
         var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id), "oliver");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ConflictProblem>("Target pipeline already has secret 'GITHUB_TOKEN' (pass overwrite to replace it).");
         await Assert.That(f.K8s.Writes).IsEmpty();
         await Assert.That(TargetSecret(f)!["GITHUB_TOKEN"]).IsEqualTo("old");
     }
@@ -160,7 +160,7 @@ public class PipelineSecretCopyServiceTests
 
         var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id, ["NOPE"]), "oliver");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Source pipeline has no secret 'NOPE'.");
         await Assert.That(f.K8s.Writes).IsEmpty();
     }
 
@@ -169,10 +169,11 @@ public class PipelineSecretCopyServiceTests
     {
         var f = Build();
 
-        var result = await f.Service.CopyAsync(f.Target.Id,
-            new CopySecretsRequest(Id.New<Pipeline>(), ["GITHUB_TOKEN"]), "oliver");
+        var source = Id.New<Pipeline>();
 
-        await Assert.That(result).Failed();
+        var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(source, ["GITHUB_TOKEN"]), "oliver");
+
+        await result.Problems.IsSingle<NotFoundProblem>($"Source pipeline '{source}' not found.");
     }
 
     [Test]
@@ -182,7 +183,7 @@ public class PipelineSecretCopyServiceTests
 
         var result = await f.Service.CopyAsync(f.Source.Id, new CopySecretsRequest(f.Target.Id), "oliver");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Source pipeline 'target' has no secrets.");
     }
 
     [Test]
@@ -192,7 +193,7 @@ public class PipelineSecretCopyServiceTests
 
         var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id, TargetName: "X"), "oliver");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ValidationProblem>("targetName: targetName needs exactly one secret name to copy.");
     }
 
     [Test]
@@ -203,7 +204,7 @@ public class PipelineSecretCopyServiceTests
         var onto = await f.Service.CopyAsync(f.Source.Id, new CopySecretsRequest(f.Source.Id, ["GITHUB_TOKEN"], Overwrite: true), "oliver");
         var renamed = await f.Service.CopyAsync(f.Source.Id, new CopySecretsRequest(f.Source.Id, ["GITHUB_TOKEN"], "GH2"), "oliver");
 
-        await Assert.That(onto).Failed();
+        await onto.Problems.IsSingle<ResultProblem>("Copying secret 'GITHUB_TOKEN' onto itself does nothing; pass a different target name.");
         await Assert.That(renamed).Succeeded();
         await Assert.That(f.K8s.Secrets[PipelineSecrets.Name(f.Source.Id)]["GH2"]).IsEqualTo("gh-value-1");
     }

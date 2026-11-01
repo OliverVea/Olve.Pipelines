@@ -61,7 +61,7 @@ public class BlockAndSwitchTests
 
         await Assert.That(s.Latest(run, "deploy-beta")!.Status).IsTypeOf<Scheduled>();
         s.Fail(run, "deploy-beta");
-        await Assert.That(s.D.Continuations.RerunStep(run.Id, "deploy-beta", continueAfter: true)).Failed();
+        await s.D.Continuations.RerunStep(run.Id, "deploy-beta", continueAfter: true).Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' is blocked; unblock it first.");
         await Assert.That(s.D.GateService.ListBlocked(s.Pipeline.Id)).IsEquivalentTo(["deploy-beta"]);
     }
 

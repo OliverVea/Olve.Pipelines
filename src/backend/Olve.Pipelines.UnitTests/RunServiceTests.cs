@@ -62,7 +62,7 @@ public class RunServiceTests
 
         var result = d.RunService.Create(pipeline.Id, foreign.Id, "{}", new RunTrigger(RunTriggerKind.Manual));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>($"Version '{foreign.Id}' does not belong to pipeline '{pipeline.Id}'.");
     }
 
     [Test]
@@ -75,7 +75,7 @@ public class RunServiceTests
 
         var result = d.RunService.Create(version.PipelineId, version.Id, input, new RunTrigger(RunTriggerKind.Manual));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Run input must be well-formed JSON.");
     }
 
     [Test]
@@ -86,11 +86,12 @@ public class RunServiceTests
         var original = d.CreateRun(version);
 
         var rerun = d.CreateRun(version, rerunOf: original.Id);
-        var bad = d.RunService.Create(version.PipelineId, version.Id, "{}", new RunTrigger(RunTriggerKind.Manual), Id.New<Run>());
+        var missing = Id.New<Run>();
+        var bad = d.RunService.Create(version.PipelineId, version.Id, "{}", new RunTrigger(RunTriggerKind.Manual), missing);
 
         await Assert.That(rerun.RerunOf).IsEqualTo(original.Id);
         await Assert.That(rerun.Number).IsEqualTo(2);
-        await Assert.That(bad).Failed();
+        await bad.Problems.IsSingle<NotFoundProblem>($"Run '{missing}' to re-run was not found in pipeline '{version.PipelineId}'.");
     }
 
     // Run numbers are addresses (#412, version stamps, storage keys): never reused, even after the
@@ -173,8 +174,8 @@ public class RunServiceTests
         await Assert.That(completed).Succeeded();
         await Assert.That(TestRunDomain.Pick(completed).Status).IsEqualTo(RunStatus.Failed);
         await Assert.That(TestRunDomain.Pick(completed).FinishedAt).IsNotNull();
-        await Assert.That(again).Failed();
-        await Assert.That(d.RunService.Complete(run.Id, RunStatus.Running)).Failed();
+        await again.Problems.IsSingle<ConflictProblem>("Run #1 is already Failed.");
+        await d.RunService.Complete(run.Id, RunStatus.Running).Problems.IsSingle<ResultProblem>("'Running' is not a completion status.");
     }
 
     [Test]
@@ -191,6 +192,6 @@ public class RunServiceTests
         var after = TestRunDomain.Pick(result);
         await Assert.That(after.Status).IsEqualTo(RunStatus.Superseded);
         await Assert.That(after.SupersededBy).IsEqualTo(newer.Id);
-        await Assert.That(d.RunService.Supersede(newer.Id, newer.Id)).Failed();
+        await d.RunService.Supersede(newer.Id, newer.Id).Problems.IsSingle<ResultProblem>("A run cannot supersede itself.");
     }
 }

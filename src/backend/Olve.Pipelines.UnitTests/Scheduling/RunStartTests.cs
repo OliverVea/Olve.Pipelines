@@ -160,6 +160,6 @@ public class RunStartTests
 
         var result = s.D.Starts.Start(s.Pipeline.Id, "[1,2]", new RunTrigger(RunTriggerKind.Manual));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Run input must be a JSON object.");
     }
 }

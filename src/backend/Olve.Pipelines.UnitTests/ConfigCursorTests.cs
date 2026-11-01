@@ -121,7 +121,7 @@ public class ConfigCursorTests
 
         var result = await new TestSource(gh).FetchConfigAsync(Binding());
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("GitHub returned 500 fetching config cursor for 'acme/widgets' (sdk).");
     }
 
     private static PipelineConfigBinding Binding() => new(

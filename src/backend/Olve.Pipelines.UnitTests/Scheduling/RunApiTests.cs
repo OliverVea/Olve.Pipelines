@@ -114,7 +114,7 @@ public class RunCancellationTests
         await Assert.That(s.Latest(run, "build")!.Status).IsTypeOf<AttemptStatus.Cancelled>();
         await Assert.That(s.Latest(run, "test")!.Status).IsTypeOf<AttemptStatus.Cancelled>();
         await Assert.That(s.Active(run)).IsEmpty();
-        await Assert.That(cancellation.Cancel(run.Id)).Failed();
+        await cancellation.Cancel(run.Id).Problems.IsSingle<ConflictProblem>("Run #1 is already Cancelled.");
     }
 
     private static RunCancellationService Cancellation(SchedulerScenario s) => new(s.D.RunService, s.D.AttemptService, s.D.SchedulingLock,
@@ -162,8 +162,8 @@ public class RunCancellationTests
         var run = s.Start(Input());
         s.Succeed(run, "checkout");
 
-        await Assert.That(Cancellation(s).CancelStep(run.Id, "checkout")).Failed();
-        await Assert.That(Cancellation(s).CancelStep(run.Id, "nope")).Failed();
+        await Cancellation(s).CancelStep(run.Id, "checkout").Problems.IsSingle<ConflictProblem>("Step 'checkout' has no scheduled or in-progress attempt in run #1 (latest is succeeded).");
+        await Cancellation(s).CancelStep(run.Id, "nope").Problems.IsSingle<NotFoundProblem>("Run #1 has no attempt of step 'nope'.");
     }
 }
 
@@ -196,7 +196,7 @@ public class RunInputOperationTests
         s.SucceedThroughDeployBeta(run);
         s.Succeed(run, "summary");
 
-        await Assert.That(Inputs(s).Continue(s.Get(run), JsonNode.Parse("""{"deployTo":"staging"}"""))).Failed();
+        await Inputs(s).Continue(s.Get(run), JsonNode.Parse("""{"deployTo":"staging"}""")).Problems.IsSingle<ValidationProblem>("input.deployTo: must be one of [\"beta\",\"prod\"]");
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
     }
 
@@ -285,15 +285,15 @@ public class AttemptFilePathTests
         => await Assert.That(TestRunDomain.Pick(AttemptFileService.ToObjectPath(path))).IsEqualTo(expected);
 
     [Test]
-    [Arguments("")]
-    [Arguments("/etc/passwd")]
-    [Arguments("../x")]
-    [Arguments("a/../b")]
-    [Arguments("a//b")]
-    [Arguments("./a")]
-    [Arguments("a\\b")]
-    public async Task RejectsUnsafePaths(string path)
-        => await Assert.That(AttemptFileService.ToObjectPath(path)).Failed();
+    [Arguments("", "path: A file path is required.")]
+    [Arguments("/etc/passwd", "path: File path '/etc/passwd' must be relative, without '\\' or NUL.")]
+    [Arguments("../x", "path: File path '../x' has an empty, '.' or '..' segment.")]
+    [Arguments("a/../b", "path: File path 'a/../b' has an empty, '.' or '..' segment.")]
+    [Arguments("a//b", "path: File path 'a//b' has an empty, '.' or '..' segment.")]
+    [Arguments("./a", "path: File path './a' has an empty, '.' or '..' segment.")]
+    [Arguments("a\\b", "path: File path 'a\\b' must be relative, without '\\' or NUL.")]
+    public async Task RejectsUnsafePaths(string path, string message)
+        => await AttemptFileService.ToObjectPath(path).Problems.IsSingle<ValidationProblem>(message);
 }
 
 public class ManifestValidateTests
@@ -422,7 +422,7 @@ public class JobLogNoteTests
 
         var rerun = s.D.Continuations.RerunStep(run.Id, "deploy-prod", continueAfter: false);
 
-        await Assert.That(rerun).Failed();
+        await rerun.Problems.IsSingle<ConflictProblem>("Step 'deploy-prod' is not part of run #1 (when deployTo ∉ [prod]).");
         await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
     }
 }

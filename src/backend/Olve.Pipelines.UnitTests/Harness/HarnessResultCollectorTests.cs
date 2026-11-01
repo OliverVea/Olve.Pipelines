@@ -1,3 +1,4 @@
+using Olve.Results;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
@@ -76,7 +77,8 @@ public class HarnessResultCollectorTests
 
         var collection = await collector.CollectAsync(Attempt);
 
-        await Assert.That(collection.Archive!.Value).Failed();
+        var size = s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)].Length;
+        await collection.Archive!.Value.Problems.IsSingle<ResultProblem>($"Invalid result archive: result.tar.gz is {size} bytes; the limit is 16");
         await Assert.That(s3.Puts).IsEmpty();
     }
 

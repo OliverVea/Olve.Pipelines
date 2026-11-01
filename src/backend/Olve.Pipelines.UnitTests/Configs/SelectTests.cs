@@ -117,7 +117,7 @@ public class SelectTests
         await Assert.That(ssh.Selected["target"]).IsEqualTo("ssh");
         await Assert.That(inCluster.TryGetStep("count", out _, out var other)).IsTrue();
         await Assert.That(other!.Kind).IsEqualTo(StepKinds.HelmDeployInCluster);
-        await Assert.That(RunPlan.ForConfig(manifest, Config("""{"kind":"docker"}"""))).Failed();
+        await RunPlan.ForConfig(manifest, Config("""{"kind":"docker"}""")).Problems.IsSingle<ResultProblem>("select 'target': the config's kind (docker) is not one of its cases (ssh, inCluster)");
         await Assert.That(RunPlan.From(manifest).TryGetStep("count", out _, out _)).IsFalse();
     }
 

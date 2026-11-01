@@ -73,28 +73,96 @@ public class ManifestValidatorTests
         await Assert.That(report.Warnings.Select(w => w.Step)).Contains("build-two");
     }
 
-    // Catches: a self-referencing model overflowing the stack, which can't be caught: one push would
-    // crash-loop the service, because reconcile runs again at startup. Regressed, this ends the test process.
-    [Test]
-    public async Task RecursiveModels_AreCheckedToADepth_InsteadOfForever()
+    // deploy-beta maps build.node, with these schemas under #/$defs/n0 on each side.
+    private static Manifest NodeMapped(JsonObject source, JsonObject target) => Mutate(r =>
     {
-        static JsonObject Node(string self) => new()
+        r["models"]!["Node"] = new JsonObject { ["output"] = new JsonObject { ["$ref"] = "#/$defs/n0", ["$defs"] = target } };
+        var artifact = r["models"]!["BuildArtifact"]!["output"]!.AsObject();
+        artifact["$defs"] = source;
+        artifact["properties"]!["node"] = new JsonObject { ["$ref"] = "#/$defs/n0" };
+        var deploy = Step(r, "deploy-beta");
+        deploy["inputTypes"]!["artifact"] = ModelType("Node");
+        deploy["input"]!["artifact"] = Ref("build.node");
+    });
+
+    private static JsonObject Fields(string next, int count, params string[] required)
+    {
+        var properties = new JsonObject();
+        for (var i = 0; i < count; i++) properties[$"f{i}"] = new JsonObject { ["$ref"] = next };
+        return new JsonObject
         {
             ["type"] = "object",
-            ["properties"] = new JsonObject { ["next"] = new JsonObject { ["$ref"] = self } },
+            ["properties"] = properties,
+            ["required"] = new JsonArray(required.Select(r => JsonValue.Create(r)).ToArray<JsonNode?>()),
         };
-        var manifest = Mutate(r =>
-        {
-            r["models"]!["Node"] = new JsonObject { ["output"] = Node("#") };
-            var artifact = r["models"]!["BuildArtifact"]!["output"]!.AsObject();
-            artifact["$defs"] = new JsonObject { ["node"] = Node("#/$defs/node") };
-            artifact["properties"]!["node"] = new JsonObject { ["$ref"] = "#/$defs/node" };
-            var deploy = Step(r, "deploy-beta");
-            deploy["inputTypes"]!["artifact"] = ModelType("Node");
-            deploy["input"]!["artifact"] = Ref("build.node");
-        });
+    }
 
-        await Assert.That(ManifestValidator.Validate(manifest).Errors).IsEmpty();
+    private static JsonObject Chain(int levels, int fields, JsonObject leaf)
+    {
+        var defs = new JsonObject { [$"n{levels}"] = leaf };
+        for (var i = 0; i < levels; i++) defs[$"n{i}"] = Fields($"#/$defs/n{i + 1}", fields);
+        return defs;
+    }
+
+    // Catches: paths multiplying per field, up to fields^16 checks and errors while reconcile holds the
+    // binding's lock. The error count is bounded by the schema, not its paths, so a regression fails without a clock.
+    [Test]
+    public async Task ARecursiveSchema_IsCheckedOnce()
+    {
+        var source = new JsonObject { ["n0"] = Fields("#/$defs/n0", 2) };
+        var target = new JsonObject { ["n0"] = Fields("#/$defs/n0", 2, "id") };
+
+        var errors = ManifestValidator.Validate(NodeMapped(source, target)).Errors;
+
+        await Assert.That(errors.Select(e => e.Message)).IsEquivalentTo(new[]
+        {
+            "step 'deploy-beta' input 'artifact': 'build.node' has no field 'id', which the input requires",
+            "step 'deploy-beta' input 'artifact': 'build.node.f0' has no field 'id', which the input requires",
+        });
+    }
+
+    [Test]
+    public async Task ASchemaSharedByManyPaths_IsCheckedOnce()
+    {
+        var source = Chain(10, 2, new JsonObject { ["type"] = "string" });
+        var target = Chain(10, 2, new JsonObject { ["type"] = "number" });
+
+        var errors = ManifestValidator.Validate(NodeMapped(source, target)).Errors;
+
+        await Assert.That(errors.Select(e => e.Code)).IsEquivalentTo(new[] { C.InputTypeMismatch });
+    }
+
+    // Catches: an unbounded walk down a long chain of $defs, which no schema repeats, so only the depth
+    // limit stops it. A stack overflow can't be caught, and reconcile runs again at startup.
+    [Test]
+    public async Task ShapesAreCheckedToADepth()
+    {
+        var source = Chain(20, 1, new JsonObject { ["type"] = "string" });
+        var target = Chain(20, 1, new JsonObject { ["type"] = "number" });
+
+        await Assert.That(ManifestValidator.Validate(NodeMapped(source, target)).Errors).IsEmpty();
+    }
+
+    // Catches: a repeated field skipped as if both sides were shared, which would hide its error.
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task InlineTargetFields_EachReportTheirOwnError(bool sharedSource)
+    {
+        static JsonObject Pair(JsonObject field) => new()
+        {
+            ["n0"] = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject { ["a"] = field.DeepClone(), ["b"] = field.DeepClone() },
+            },
+        };
+        var source = Pair(sharedSource ? new JsonObject { ["$ref"] = "#/$defs/leaf" } : new JsonObject { ["type"] = "string" });
+        source["leaf"] = new JsonObject { ["type"] = "string" };
+
+        var errors = ManifestValidator.Validate(NodeMapped(source, Pair(new JsonObject { ["type"] = "number" }))).Errors;
+
+        await Assert.That(errors.Count).IsEqualTo(2);
     }
 
     [Test]

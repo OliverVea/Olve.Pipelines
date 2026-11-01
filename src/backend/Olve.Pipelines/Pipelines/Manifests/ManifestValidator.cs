@@ -513,7 +513,7 @@ public static partial class ManifestValidator
                             Error(ManifestIssueCodes.RefPathUnknown, path, $"{at}: '{r.Ref}': model {a.Model} has no field '{string.Join('.', r.Path)}'", step);
                             return;
                         }
-                        if (target is { } t && leaf is { } l) CheckShape(at, path, step, r.Ref, source.Output, l, targetRoot, t, 0);
+                        if (target is { } t && leaf is { } l) CheckShape(at, path, step, r.Ref, source.Output, l, targetRoot, t, 0, []);
                         return;
                     }
                 case ConstMapping c:
@@ -561,8 +561,12 @@ public static partial class ManifestValidator
 
         /// <summary>A referenced field's schema against the target schema: overlapping types, required fields present.</summary>
         private void CheckShape(string at, string path, string step, string reference, JsonElement sourceRoot, JsonElement source,
-            JsonElement targetRoot, JsonElement target, int depth)
+            JsonElement targetRoot, JsonElement target, int depth, HashSet<(string Source, string Target)> checkedRefs)
         {
+            // Paths multiply only where both sides are shared: each such pair is checked once.
+            if (IsRef(source) && IsRef(target) && !checkedRefs.Add((source.GetRawText(), target.GetRawText())))
+                return;
+
             var want = JsonSchemaShapes.TypesOf(targetRoot, target);
             var got = JsonSchemaShapes.TypesOf(sourceRoot, source);
             if (!JsonSchemaShapes.Overlaps(want, got))
@@ -584,8 +588,10 @@ public static partial class ManifestValidator
             }
             foreach (var (field, fieldSchema) in targetShape.Properties)
                 if (sourceShape.Properties.TryGetValue(field, out var sourceField))
-                    CheckShape(at, path, step, reference + "." + field, sourceRoot, sourceField, targetRoot, fieldSchema, depth + 1);
+                    CheckShape(at, path, step, reference + "." + field, sourceRoot, sourceField, targetRoot, fieldSchema, depth + 1, checkedRefs);
         }
+
+        private static bool IsRef(JsonElement schema) => schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("$ref", out _);
 
         // ── failure handlers ──
         // ── config ──

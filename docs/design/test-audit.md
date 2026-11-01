@@ -337,6 +337,28 @@ These are good tests overall: flow-shaped, exact about messages and argv, with a
 
 **StrykerJS and bun:** no official bun runner exists, and the community one needs core ^9 and has a report of bun incompatibility. The `command` runner works but reruns the suite for every mutant. That is an estimated 5 minutes for `src/cli` and 3 to 5 hours for all of `src/sdk`, so mutate the SDK one directory at a time. These are estimates; no run has happened.
 
+## Findings from the new test tiers
+
+These came from running against real systems, on branches that aren't on `main`. All are behaviours the unit suite couldn't show.
+
+| Bug | Found by | How often | Status |
+|---|---|---|---|
+| Deleting a pipeline leaves its Jobs until the 7-day TTL | Real-system flow test | Every run | Fix in progress |
+| Two concurrent first secret sets lose a value | Real-system test | 6 of 6 | Fix in progress |
+| The UI shows nothing when adding a repo is refused | Browser test | 8 of 8 | Fix in progress |
+| `POST /api/pipelines` accepts a repo that isn't `owner/name` | Browser test work | Seen directly | Fix in progress |
+| An acknowledged run or `--cancel-running` switch is lost on SIGKILL, because run state flushes on a 1s timer | Chaos | Lost run 14 of 14 on two chosen seeds, lost switch 3 of 3 on one, 0 under graceful stop | Open |
+| The result archive is deleted before the terminal status is durable, at `KubernetesJobExecutor.cs:158`, so a succeeded step can come back failed after SIGKILL | Chaos | 5 of 24 sweep seeds across the server-kill failures | Open |
+| A restart right after a `--cancel-running` switch leaves the cancelled attempt's Job running, including on the SIGTERM a self-deploy sends | Chaos | 3 of 12 sweep seeds | Open |
+
+Per-seed rates are replays of seeds chosen because they failed, so only the sweep figures are unbiased. The mechanism for the third chaos bug comes from reading the code. The Garage outage, Kubernetes outage and pod deletion families found no bug, but `docker pause` freezes all of k3s rather than only its API, and the Garage "will retry" path was never observed.
+
+Unconfirmed: `FailureTarget` appears 31s before `Failed` on a deadline Job and the code reads only `Failed`, so a poll in that window could classify a timeout by exit code.
+
+**Fakes that disagree with the real system:** 9 cases, each a skipped test with its reason. `FakeSecrets` create overwrites where the real one answers 409 and keeps the old data. `FakeSecrets` update of a missing Secret creates it where the real one throws. `FakeKubernetes.CreateJobAsync` always returns true where the real client returns false on 409, which is how the executor reattaches. `FakeS3` reports `LastModified` as the epoch. Hand-written `HarnessOutcomeTests` pairs DeadlineExceeded with a pod that exited 143, while the real pod list was empty.
+
+No fixture in the repo was a true recording before this work. 13 are now recorded for GitHub, Dex and k3s, and they close G103 and G120. 10 hand-written fixtures are listed in `tools/recordings/hand-written.json`.
+
 ## Change plan
 
 Proposals only, in priority order.
@@ -445,9 +467,9 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Real-time waits | 4 fixed, 4 polling | Yes | Step 2 |
 | Parallel speed-up | About 2.3x | Yes | Step 2 removes waits and the 3s floor |
 | Suite run time | 4.9s | Protected | Budget of about 30s |
-| Real-system tests | None tracked | Yes | Step 5 |
-| Fakes unchecked against reality | About 20 | Partly | Step 5 covers Kubernetes and S3 first. Other fakes wait. |
-| Frontend tests | 0 | Yes | Step 7 |
+| Real-system tests | 61 on `track-f` (60 pass, 1 red for the delete bug), plus 5 off-cadence chaos test methods on `track-e`. Not in a pipeline. | Yes | Step 5 |
+| Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 9 known disagreements. Other fakes wait. |
+| Frontend tests | 5 browser flows on `track-g` (4 pass, 1 red for the refused-repo bug). Not in a pipeline. | Yes | Step 7 |
 | TypeScript tests | 27 files, 304 tests, audited by reading | Yes | Step 9. Mutation run still to do. |
 | TypeScript tests in no pipeline step | 13 | Yes | Step 9 |
 | Interface bugs in fix history | Prominent in a skim | Yes | Steps 5 and 6, though nothing measures it yet |

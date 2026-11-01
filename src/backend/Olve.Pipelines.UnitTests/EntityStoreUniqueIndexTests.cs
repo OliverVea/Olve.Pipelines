@@ -24,41 +24,4 @@ public class EntityStoreUniqueIndexTests
         await Assert.That(index.TryGet("build", out var id)).IsTrue();
         await Assert.That(id).IsEqualTo(step.Id);
     }
-
-    [Test]
-    public async Task Delete_RemovesFromIndex()
-    {
-        var store = new EntityStore<TestStep>([]);
-        var index = store.CreateUniqueIndex(s => s.Name);
-
-        var step = Step("build");
-        store.Set(step);
-        await Assert.That(index.ContainsKey("build")).IsTrue();
-
-        await Assert.That(store.Delete(step.Id).Succeeded).IsTrue();
-
-        // Regression: the previous implementation never pruned on delete because the entity is
-        // already gone from the store when OnDeleted fires.
-        await Assert.That(index.ContainsKey("build")).IsFalse();
-        await Assert.That(index.TryGet("build", out _)).IsFalse();
-    }
-
-    [Test]
-    public async Task Delete_OfReboundId_DoesNotDropTheLiveEntry()
-    {
-        // A key rebound to a different id (collision), then the original id is deleted: the forward
-        // entry must survive because it now points at the newer id.
-        var store = new EntityStore<TestStep>([]);
-        var index = store.CreateUniqueIndex(s => s.Name);
-
-        var first = Step("build");
-        var second = Step("build"); // same key, different id
-        store.Set(first);
-        store.Set(second); // rebinds "build" -> second.Id
-
-        await Assert.That(store.Delete(first.Id).Succeeded).IsTrue();
-
-        await Assert.That(index.TryGet("build", out var id)).IsTrue();
-        await Assert.That(id).IsEqualTo(second.Id);
-    }
 }

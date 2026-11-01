@@ -408,6 +408,53 @@ public class RunPersistenceServiceTests
         await Assert.That(pending).IsEqualTo(queued);
     }
 
+    // Catches: step and model versions renumbered after a restart, marking every change wrongly.
+    [Test]
+    public async Task Restart_RestoresEntityVersionHistory()
+    {
+        var store = new FakeObjectStore();
+        var a = await StartNode(store);
+        var pipeline = a.Domain.CreatePipeline();
+        var history = ManifestVersioning.Compute(null, Manifests.TestFixtureManifest.Parse()).History;
+        a.Domain.EntityVersions.Set(pipeline.Id, history);
+        await a.Service.StoppingAsync(CancellationToken.None);
+        a.Service.Dispose();
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(b.Domain.EntityVersions.TryGet(pipeline.Id, out var restored)).IsTrue();
+        await Assert.That(JsonSerializer.Serialize(restored!, Json.Options)).IsEqualTo(JsonSerializer.Serialize(history, Json.Options));
+    }
+
+    // Catches: ready as soon as another gate is, serving empty run state from /api/ready onwards.
+    [Test]
+    public async Task Readiness_WaitsForThisServiceToo()
+    {
+        var store = new FakeObjectStore { ReadException = new InvalidOperationException("the bucket is unreachable") };
+        var node = CreateNode(store);
+        node.Readiness.Register("config");
+        node.Readiness.MarkReady("config");
+
+        await Assert.That(async () => await node.Service.StartingAsync(CancellationToken.None)).Throws<InvalidOperationException>();
+
+        await Assert.That(node.Readiness.IsReady).IsFalse();
+    }
+
+    [Test]
+    public async Task Readiness_NeedsEveryGate()
+    {
+        var readiness = new PersistenceReadiness();
+        readiness.Register("a");
+        readiness.Register("b");
+
+        readiness.MarkReady("a");
+        await Assert.That(readiness.IsReady).IsFalse();
+
+        readiness.MarkReady("b");
+        await Assert.That(readiness.IsReady).IsTrue();
+    }
+
     [Test]
     public async Task Restart_RestoresConfigSnapshotsAsWritten_AndThePendingVersion()
     {

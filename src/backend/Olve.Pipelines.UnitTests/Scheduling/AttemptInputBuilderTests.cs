@@ -99,6 +99,18 @@ public class AttemptInputBuilderTests
         await Assert.That(refs[1].ObjectPath).IsEqualTo("i.tar");
     }
 
+    // Catches: a step given a list of files with no URL for them.
+    [Test]
+    public async Task FileRefs_InsideArrays_AreFound_WithTheirIndex()
+    {
+        var first = SchedulerScenario.FileRef(3, "build", 2, "a.tar");
+        var second = SchedulerScenario.FileRef(3, "build", 2, "b.tar");
+
+        var refs = AttemptFileRefs.Extract("{\"list\":[" + first + "," + second + "]}");
+
+        await Assert.That(refs.Select(r => r.JsonPath)).IsEquivalentTo(["$.list[0]", "$.list[1]"]);
+    }
+
     [Test]
     public async Task When_EvaluatesAllConditions_EmptyMatchesAlways()
     {

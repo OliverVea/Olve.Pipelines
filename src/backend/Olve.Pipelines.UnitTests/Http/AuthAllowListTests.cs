@@ -2,9 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Olve.Pipelines.Configuration;
@@ -87,6 +90,26 @@ public class AuthAllowListTests
 
     private static Task<HttpStatusCode> Get(string path, string? user, params string[] allowedUsers) =>
         Send(path, user is null ? null : Token(user), allowedUsers);
+
+    // Catches: any certificate accepted on the OIDC backchannel in production, or tokens fetched over plain HTTP.
+    [Test]
+    [Arguments("Production", null, true, false)]
+    [Arguments("Production", "false", false, false)]
+    [Arguments("Development", null, false, true)]
+    public async Task OidcChecks_StayOn_OutsideDevelopment(string environment, string? requireHttps, bool expectHttps, bool expectLaxCertificates)
+    {
+        var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions { EnvironmentName = environment });
+        builder.Configuration["Auth:Authority"] = Issuer;
+        builder.Configuration["Auth:Audience"] = Audience;
+        builder.Configuration["Auth:RequireHttpsMetadata"] = requireHttps;
+        builder.Services.AddLogging();
+
+        builder.ConfigureAuthentication();
+
+        var options = builder.Services.BuildServiceProvider().GetRequiredService<IOptionsMonitor<JwtBearerOptions>>().Get(JwtBearerDefaults.AuthenticationScheme);
+        await Assert.That(options.RequireHttpsMetadata).IsEqualTo(expectHttps);
+        await Assert.That(options.BackchannelHttpHandler is not null).IsEqualTo(expectLaxCertificates);
+    }
 
     private static async Task<HttpStatusCode> Send(string path, string? bearer, params string[] allowedUsers)
     {

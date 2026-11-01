@@ -85,6 +85,8 @@ public class ManifestIssueTests
         ["external input with an empty title"] = Row(C.ExternalInputTitleEmpty, "stages[2].steps[0].externalInputs.decision.title", "step 'deploy-beta' external input 'decision': title must not be empty", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", title: " ")),
         ["external input listing a source twice"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': each source kind may be listed once", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: ["person", "person"])),
         ["callback input with a key that isn't URL-safe"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.a.b", "step 'deploy-beta' external input 'a.b': a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "a.b", sources: ["callback"])),
+        ["external input listing a source twice beside another"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': each source kind may be listed once", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: ["person", "person", "callback"])),
+        ["callback input with an unsafe key beside another source"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.a.b", "step 'deploy-beta' external input 'a.b': a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "a.b", sources: ["person", "callback"])),
         ["poll input polling too often"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': poll intervalSeconds must be at least 10", r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("https://x.example/{run.id}", 5)),
         ["poll input with a non-http url"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': poll url must be an absolute http(s) URL", r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("ftp://x.example", 30)),
 
@@ -117,6 +119,30 @@ public class ManifestIssueTests
             { ["repo"] = Ref("input.repo"), ["sha"] = Ref("input.sha"), ["extra"] = Const(1) };
         }
         ),
+        ["nested mapping with a bad ref"] = Row(C.RefPathUnknown, "stages[0].steps[0].input.commit.repo", "step 'checkout' input 'commit'.repo: 'input.nope': model DeployRequest has no field 'nope'", r =>
+        {
+            Step(r, "checkout")["inputTypes"]!["commit"] = CommitSchema();
+            Step(r, "checkout")["input"]!["commit"] = new JsonObject { ["repo"] = Ref("input.nope"), ["sha"] = Ref("input.sha") };
+        }
+        ),
+        ["nested mapping with a mistyped constant"] = Row(C.InputTypeMismatch, "stages[0].steps[0].input.commit.repo", "step 'checkout' input 'commit'.repo: constant is number but the input expects string", r =>
+        {
+            Step(r, "checkout")["inputTypes"]!["commit"] = CommitSchema();
+            Step(r, "checkout")["input"]!["commit"] = new JsonObject { ["repo"] = Const(1), ["sha"] = Ref("input.sha") };
+        }
+        ),
+        ["ref whose nested field has the wrong type"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a' is string but the input expects number", r => MapField(r, """{"type":"object","properties":{"a":{"type":"string"}}}""", "", """{"type":"object","properties":{"a":{"type":"number"}}}""")),
+        ["ref whose nested object lacks a field"] = Row(C.MappingFieldMissing, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a' has no field 'id', which the input requires", r => MapField(r, """{"type":"object","properties":{"a":{"type":"object","properties":{}}}}""", "", """{"type":"object","properties":{"a":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}}}""")),
+        ["ref to a field of one oneOf branch keeps its type"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a' is string but the input expects number", r => MapField(r, Union("oneOf"), ".a", """{"type":"number"}""")),
+        ["ref to a field of one anyOf branch keeps its type"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a' is string but the input expects number", r => MapField(r, Union("anyOf"), ".a", """{"type":"number"}""")),
+        ["ref to a field of one allOf member keeps its type"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a' is string but the input expects number", r => MapField(r, Union("allOf"), ".a", """{"type":"number"}""")),
+        ["ref to a field no branch has"] = Row(C.RefPathUnknown, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.c': model BuildArtifact has no field 'x.c'", r => MapField(r, Union("oneOf"), ".c", """{"type":"string"}""")),
+        ["ref into a record keeps its value type"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.any' is string but the input expects number", r => MapField(r, """{"type":"object","additionalProperties":{"type":"string"}}""", ".any", """{"type":"number"}""")),
+        ["ref into a closed object"] = Row(C.RefPathUnknown, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a': model BuildArtifact has no field 'x.a'", r => MapField(r, """{"type":"object","properties":{},"additionalProperties":false}""", ".a", """{"type":"string"}""")),
+        ["ref into a string"] = Row(C.RefPathUnknown, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x.a': model BuildArtifact has no field 'x.a'", r => MapField(r, """{"type":"string"}""", ".a", """{"type":"string"}""")),
+        ["integer into a string"] = Row(C.InputTypeMismatch, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': 'build.x' is number but the input expects string", r => MapField(r, """{"type":"integer"}""", "", """{"type":"string"}""")),
+        ["mapped object missing a nullable anyOf object's field"] = Row(C.MappingFieldMissing, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': required field 'a' is not mapped", r => MapObject(r, NullableObject("anyOf"))),
+        ["mapped object missing a nullable oneOf object's field"] = Row(C.MappingFieldMissing, "stages[2].steps[0].input.x", "step 'deploy-beta' input 'x': required field 'a' is not mapped", r => MapObject(r, NullableObject("oneOf"))),
 
         // when
         ["when unknown field"] = Row(C.WhenFieldUnknown, "stages[3].when.nope", "'nope' is not a field of the pipeline input DeployRequest", r => r["stages"]![3]!["when"] = new JsonObject { ["nope"] = new JsonArray("x") }),
@@ -130,6 +156,13 @@ public class ManifestIssueTests
         ["reserved step name failure"] = Row(C.StepNameReserved, "failureHandlers[0].step.name", "'failure' is reserved and cannot be a step name", r => Step(r, "aoe-triage")["name"] = "failure"),
         ["step name not kebab"] = Row(C.StepNameInvalid, "stages[4].steps[0].name", "step name 'Summary_Step' must be lower-case kebab, 1-63 chars (^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$)", r => Step(r, "summary")["name"] = "Summary_Step"),
         ["step name too long"] = Row(C.StepNameInvalid, "stages[4].steps[0].name", "step name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' must be lower-case kebab, 1-63 chars (^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$)", r => Step(r, "summary")["name"] = new string('a', 64)),
+        ["step name twice in one select case"] = Row(C.StepNameDuplicate, "stages[1].cases.ssh[0].steps[1].name", "duplicate step name 'count' (also at stages[1].cases.ssh[0].steps[0])", () => Selected(r =>
+        {
+            var steps = r["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]!.AsArray();
+            steps.Add(steps[0]!.DeepClone());
+        })),
+        ["step name across two selects"] = Row(C.StepNameDuplicate, "stages[2].cases.ssh[0].steps[0].name", "duplicate step name 'count' (also at stages[1].cases.ssh[0].steps[0])", () => Selected(r => r["stages"]!.AsArray().Insert(2, r["stages"]![1]!.DeepClone()))),
+        ["step name in different cases of two selects"] = Row(C.StepNameDuplicate, "stages[2].cases.inCluster[0].steps[0].name", "duplicate step name 'count' (also at stages[1].cases.ssh[0].steps[0])", () => Selected(r => r["stages"]!.AsArray().Insert(2, r["stages"]![1]!.DeepClone()))),
         ["handler named like a stage step"] = Row(C.StepNameDuplicate, "failureHandlers[0].step.name", "duplicate step name 'build' (also at stages[1].steps[0])", r => Step(r, "aoe-triage")["name"] = "build"),
         ["model name invalid"] = Row(C.ModelNameInvalid, "models.bad-name", "model name 'bad-name' must match ^[A-Za-z][A-Za-z0-9_]*$", r => r["models"]!["bad-name"] = new JsonObject { ["output"] = new JsonObject() }),
         ["pipeline name empty"] = Row(C.PipelineNameEmpty, "name", "the pipeline name must not be empty", r => r["name"] = " "),
@@ -239,8 +272,31 @@ public class ManifestIssueTests
         ["config ref to an entry not received"] = Row(C.ConfigRefNotReceived, "stages[0].steps[0].config.x", "step 'hello': config reference 'publish.repository': the step does not receive config entry 'publish'", () => Configured(r => r["stages"]![0]!["steps"]![0]!["config"] = ConfigRef("publish.repository"))),
         ["config ref to an unknown field"] = Row(C.ConfigRefFieldUnknown, "stages[0].steps[0].config.x", "step 'hello': config reference 'target.port': config 'target' has no field 'port'", () => Configured(r => r["stages"]![0]!["steps"]![0]!["config"] = ConfigRef("target.port"))),
         ["config ref narrowed to another case"] = Row(C.ConfigRefOutsideCase, "stages[1].cases.ssh[0].steps[0].config.target", "step 'count': config reference 'target' is narrowed to the select case 'target.kind=inCluster' and can only be used inside it", () => Selected(r => r["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]![0]!["config"]!["target"]!["$case"] = "target.kind=inCluster")),
+        ["config ref nested in an object"] = Row(C.ConfigRefFieldUnknown, "stages[0].steps[0].config.a.b", "step 'hello': config reference 'target.port': config 'target' has no field 'port'", () => Configured(r => r["stages"]![0]!["steps"]![0]!["config"] = new JsonObject { ["a"] = new JsonObject { ["b"] = new JsonObject { ["$config"] = "target.port" } } })),
+        ["config ref nested in an array"] = Row(C.ConfigRefFieldUnknown, "stages[0].steps[0].config.a[1]", "step 'hello': config reference 'target.port': config 'target' has no field 'port'", () => Configured(r => r["stages"]![0]!["steps"]![0]!["config"] = new JsonObject { ["a"] = new JsonArray("plain", new JsonObject { ["$config"] = "target.port" }) })),
+        ["config ref narrowed outside any select"] = Row(C.ConfigRefOutsideCase, "stages[0].steps[0].config.x", "step 'hello': config reference 'target.host' is narrowed to the select case 'target.kind=ssh' and can only be used inside it", () => Selected(r => r["stages"]![0]!["steps"]![0]!["config"] = new JsonObject { ["x"] = new JsonObject { ["$config"] = "target.host", ["$case"] = "target.kind=ssh" } })),
+        ["config ref narrowed in a failure handler"] = Row(C.ConfigRefOutsideCase, "failureHandlers[0].step.config.x", "step 'log-failure': config reference 'target.host' is narrowed to the select case 'target.kind=ssh' and can only be used inside it", () => Selected(r =>
+        {
+            var handler = r["failureHandlers"]![0]!["step"]!;
+            handler["configEntries"] = new JsonArray("target");
+            handler["config"] = new JsonObject { ["x"] = new JsonObject { ["$config"] = "target.host", ["$case"] = "target.kind=ssh" } };
+        })),
+        ["config ref to the secret part of an entry"] = Row(C.ConfigSecretRefNotInStep, "stages[0].steps[0].configEntries[0]", "step 'hello' receives config entry 'auth', which references secret 'DEX_CLIENT_SECRET'; the step must also declare that secret", () => HelloRefersTo("auth.clientSecret")),
+        ["config ref to another entry leaves this one whole"] = Row(C.ConfigSecretRefNotInStep, "stages[0].steps[0].configEntries[0]", "step 'hello' receives config entry 'auth', which references secret 'DEX_CLIENT_SECRET'; the step must also declare that secret", () => HelloRefersTo("target.host")),
+        ["config ref not narrowed needs every branch's secret"] = Row(C.ConfigSecretRefNotInStep, "stages[1].cases.ssh[0].steps[0].configEntries[0]", "step 'count' receives config entry 'target', which references secret 'KUBE_KEY'; the step must also declare that secret", () => Selected(r =>
+        {
+            SelectTests.SecretPerCase(r);
+            r["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]![0]!["config"]!["target"]!.AsObject().Remove("$case");
+        })),
 
         // select
+        ["step in only one select case"] = Row(C.RefMaybeAvailable, "stages[3].stages[0].steps[0].input.count", "step 'last' input 'count': LineCount from 'count' is only maybe-available (produced inside a when block); declare it optional(LineCount)", () => Selected(r => r["stages"]![1]!["cases"]!["inCluster"]![0]!["steps"]![0]!["name"] = "count-in-cluster")),
+        ["step under a when in one select case"] = Row(C.RefMaybeAvailable, "stages[3].stages[0].steps[0].input.count", "step 'last' input 'count': LineCount from 'count' is only maybe-available (produced inside a when block); declare it optional(LineCount)", () => Selected(r =>
+        {
+            var cases = r["stages"]![1]!["cases"]!.AsObject();
+            var stages = cases["ssh"]!.DeepClone();
+            cases["ssh"] = new JsonArray(new JsonObject { ["when"] = new JsonObject { ["mode"] = new JsonArray("normal") }, ["stages"] = stages });
+        })),
         ["select of an unknown entry"] = Row(C.SelectInvalid, "stages[1].select", "select 'nope': 'nope' is not in the pipeline's config", () => Selected(r => r["stages"]![1]!["select"] = "nope")),
         ["select on a field that isn't a union"] = Row(C.SelectInvalid, "stages[1].select", "select 'auth.mode': it must reference a union whose branches each fix 'kind' to a string", () => Selected(r => r["stages"]![1]!["select"] = "auth.mode")),
         ["select without a case for a value"] = Row(C.SelectCaseMissing, "stages[1].cases", "select 'target': no case for kind 'inCluster'", () => Selected(r => r["stages"]![1]!["cases"]!.AsObject().Remove("inCluster"))),
@@ -268,6 +324,19 @@ public class ManifestIssueTests
         ["name"] = name,
         ["verify"] = new JsonObject { ["scheme"] = "hmac-sha256", ["secret"] = secret, ["header"] = header, ["prefix"] = "sha256=" },
     };
+
+    private static string Union(string combinator) =>
+        "{\"" + combinator + "\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}},{\"type\":\"object\",\"properties\":{\"b\":{\"type\":\"number\"}}}]}";
+
+    private static string NullableObject(string combinator) =>
+        "{\"" + combinator + "\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]},{\"type\":\"null\"}]}";
+
+    private static string HelloRefersTo(string reference)
+    {
+        var node = JsonNode.Parse(ConfigManifests.Text(helloDeclaresSecret: false))!.AsObject();
+        node["stages"]![0]!["steps"]![0]!["config"] = ConfigRef(reference);
+        return node.ToJsonString();
+    }
 
     private static JsonObject ConfigRef(string reference) => new() { ["x"] = new JsonObject { ["$config"] = reference } };
 

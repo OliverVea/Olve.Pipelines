@@ -1,5 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
@@ -189,6 +192,49 @@ public class HarnessJobBuilderTests
         await Assert.That(notGranted.AutomountServiceAccountToken).IsFalse();
         await Assert.That(notAsked.ServiceAccountName).IsNull();
         await Assert.That(notAsked.AutomountServiceAccountToken).IsFalse();
+    }
+
+    [Test]
+    [Arguments("100m", "256Mi", "1Gi")]
+    [Arguments("100m", null, null)]
+    [Arguments(null, "256Mi", null)]
+    [Arguments(null, null, "1Gi")]
+    public async Task StepJob_CarriesTheConfiguredResources(string? cpu, string? memory, string? limit)
+    {
+        var options = Options with { StepCpuRequest = cpu, StepMemoryRequest = memory, StepMemoryLimit = limit };
+
+        var resources = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(), options)).Job.Spec.Template.Spec.Containers[0].Resources!;
+
+        await Assert.That(resources.Requests?.GetValueOrDefault("cpu")).IsEqualTo(cpu);
+        await Assert.That(resources.Requests?.GetValueOrDefault("memory")).IsEqualTo(memory);
+        await Assert.That(resources.Limits?.GetValueOrDefault("memory")).IsEqualTo(limit);
+    }
+
+    // Catches: TTL 0 deleting a map-trigger Job before its log is read, failing every automatic trigger,
+    // and caps small enough to refuse normal artifacts.
+    [Test]
+    public async Task Defaults_KeepMapTriggerJobsADay_AndAcceptLargeArtifacts()
+    {
+        var options = new HarnessOptions();
+        var job = TestRunDomain.Pick(HarnessJobBuilder.BuildMapTrigger(new MapTriggerJobRequest("olve-map-abc", PipelineId, "push", "http://g/step", "http://g/event"), options)).Job;
+
+        await Assert.That(job.Spec.TtlSecondsAfterFinished).IsEqualTo(86_400);
+        await Assert.That(options.ResultLimits.MaxArchiveBytes).IsEqualTo(2L << 30);
+        await Assert.That(options.ResultLimits.MaxTotalBytes).IsEqualTo(4L << 30);
+    }
+
+    [Test]
+    [Arguments("gvisor", "gvisor")]
+    [Arguments("  ", null)]
+    [Arguments(null, null)]
+    public async Task RuntimeClassName_ComesFromKubernetesConfiguration(string? configured, string? expected)
+    {
+        var builder = WebApplication.CreateEmptyBuilder(new WebApplicationOptions());
+        builder.Configuration.AddInMemoryCollection([new("Kubernetes:RuntimeClassName", configured)]);
+
+        builder.ConfigureKubernetes();
+
+        await Assert.That(builder.Services.BuildServiceProvider().GetRequiredService<HarnessOptions>().RuntimeClassName).IsEqualTo(expected);
     }
 
     internal static string Serialize(K8sJobManifest manifest)

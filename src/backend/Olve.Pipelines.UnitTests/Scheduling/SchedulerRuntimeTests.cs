@@ -114,6 +114,21 @@ public class SchedulerRuntimeTests
         await Assert.That(restored.Attempts.List()).IsEmpty();
     }
 
+    // Catches: a request queued on an Active pipeline stranded, or started again on every sweep.
+    [Test]
+    public async Task Sweep_StartsAQueuedRunLeftOnAnActivePipeline_Once()
+    {
+        var s = new SchedulerScenario();
+        s.D.PendingStarts.Set(s.Pipeline.Id, new PendingRunStart(Input(), new RunTrigger(RunTriggerKind.Manual), DateTimeOffset.UnixEpoch));
+        var sweep = Sweep(s.D);
+
+        sweep.Sweep();
+        sweep.Sweep();
+
+        await Assert.That(s.D.RunService.ListByPipeline(s.Pipeline.Id)).Count().IsEqualTo(1);
+        await Assert.That(s.D.PendingStarts.TryGet(s.Pipeline.Id, out _)).IsFalse();
+    }
+
     [Test]
     public async Task Startup_CompletesALeftoverDrain_AndStartsQueuedRun()
     {

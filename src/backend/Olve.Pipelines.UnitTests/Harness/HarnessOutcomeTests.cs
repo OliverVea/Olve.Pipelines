@@ -115,6 +115,20 @@ public class HarnessOutcomeTests
         await Assert.That(state.Init!.ExitCode).IsEqualTo(0);
     }
 
+    // Real Kubernetes always sends conditions on a finished Job, so only a Failed one that is True is a verdict.
+    [Test]
+    [Arguments("Complete", "True", null)]
+    [Arguments("SuccessCriteriaMet", "True", null)]
+    [Arguments("Failed", "False", null)]
+    [Arguments("Failed", "True", "BackoffLimitExceeded")]
+    public async Task PodStateFrom_OnlyAFailedConditionThatHoldsIsAVerdict(string type, string status, string? reason)
+    {
+        var job = new K8sJobResponse(new K8sMetadata("j"), new K8sJobStatusBody(
+            [new K8sJobCondition("FailureTarget", "False", "m", "x"), new K8sJobCondition(type, status, "m", "BackoffLimitExceeded")], null, 1, null));
+
+        await Assert.That(HarnessPodState.From(job, null).JobFailedReason).IsEqualTo(reason);
+    }
+
     [Test]
     public async Task Resolve_SucceededEnvelope()
     {

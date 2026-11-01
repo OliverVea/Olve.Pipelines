@@ -186,4 +186,19 @@ public class PipelineSecretServiceTests
 
         await Assert.That(f.K8s.Secrets.ContainsKey(name)).IsFalse();
     }
+
+    // Catches: a deleted pipeline's secret values left in the cluster for good; retention only sweeps URL Secrets.
+    [Test]
+    public async Task DeletingAPipeline_DeletesItsSecret()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        f.K8s.Secrets[name] = new() { ["REGISTRY"] = "x" };
+        var services = new ServiceCollection().AddSingleton(f.Service).BuildServiceProvider();
+        await Assert.That(new PipelineSecretEventRegistration(f.S.D.PipelineEvents, services).Run()).Succeeded();
+
+        await Assert.That(f.S.D.PipelineService.Delete(f.S.Pipeline.Id).Failed).IsFalse();
+
+        await Assert.That(f.K8s.Secrets.ContainsKey(name)).IsFalse();
+    }
 }

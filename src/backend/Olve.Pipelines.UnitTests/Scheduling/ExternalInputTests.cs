@@ -70,6 +70,33 @@ public class ExternalInputTests
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
     }
 
+    // Catches: starting on the first answer without the second approval, or dropping the first answer.
+    [Test]
+    public async Task TwoInputs_WaitForBoth_AndKeepEachAnswer_WhichCantBeChanged()
+    {
+        var manifest = JsonNode.Parse(Manifest())!.AsObject();
+        var inputs = ManifestFixture.Step(manifest, "deploy-beta")["externalInputs"]!.AsObject();
+        inputs["audit"] = inputs["decision"]!.DeepClone();
+        var s = new SchedulerScenario(manifest.ToJsonString());
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        s.Succeed(run, "build");
+        s.Succeed(run, "test");
+
+        var first = TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "decision", Json("""{"approved":true}"""), "oliver"));
+
+        await Assert.That(first.Status).IsTypeOf<Waiting>();
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "decision", Json("""{"approved":false}"""), "oliver").Problems.IsSingle<ConflictProblem>("Input 'decision' of step 'deploy-beta' is already answered.");
+
+        var second = TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "audit", Json("""{"approved":false,"comment":"no"}"""), "auditor"));
+
+        await Assert.That(second.Status).IsTypeOf<Scheduled>();
+        var input = JsonNode.Parse(second.Input!)!;
+        await Assert.That(input["decision"]!["approved"]!.GetValue<bool>()).IsTrue();
+        await Assert.That(input["audit"]!["comment"]!.GetValue<string>()).IsEqualTo("no");
+        await Assert.That(second.Answers!.Keys).IsEquivalentTo(["decision", "audit"]);
+    }
+
     [Test]
     public async Task InvalidValue_IsRejected_AndTheStepKeepsWaiting()
     {

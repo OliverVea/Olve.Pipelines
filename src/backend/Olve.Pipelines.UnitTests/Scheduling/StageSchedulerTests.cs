@@ -325,4 +325,18 @@ public class StageSchedulerTests
 
         await result.Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' has no active version.");
     }
+
+    // Catches: a when field with several values matching nothing, which excludes the step and lets the run Succeed without it.
+    [Test]
+    [Arguments("beta")]
+    [Arguments("prod")]
+    public async Task AWhenFieldWithSeveralValues_MatchesAnyOfThem(string deployTo)
+    {
+        var s = new SchedulerScenario(SchedulerScenario.Mutated(r => r["stages"]![3]!["when"]!["deployTo"] = new System.Text.Json.Nodes.JsonArray("beta", "prod")));
+        var run = s.Start(SchedulerScenario.Input(deployTo: deployTo));
+
+        s.SucceedThroughDeployBeta(run);
+
+        await Assert.That(s.Latest(run, "deploy-prod")).IsNotNull();
+    }
 }

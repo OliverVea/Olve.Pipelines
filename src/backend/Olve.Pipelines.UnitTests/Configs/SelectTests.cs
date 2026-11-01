@@ -52,6 +52,34 @@ public class SelectTests
         return node;
     }
 
+    private const string SecretUnion = """
+        {"oneOf":[
+          {"type":"object","properties":{"kind":{"type":"string","const":"ssh"},"key":{"type":"object","properties":{"secret":{"type":"string","const":"SSH_KEY"}},"required":["secret"],"x-olve-kind":"secretRef"}},"required":["kind","key"]},
+          {"type":"object","properties":{"kind":{"type":"string","const":"inCluster"},"key":{"type":"object","properties":{"secret":{"type":"string","const":"KUBE_KEY"}},"required":["secret"],"x-olve-kind":"secretRef"}},"required":["kind","key"]}
+        ]}
+        """;
+
+    /// <summary>Makes the union's field <c>key</c> a different secret per branch, each case's step narrowed to its own branch and declaring only that secret.</summary>
+    internal static void SecretPerCase(JsonObject node, bool nested = false)
+    {
+        var union = JsonNode.Parse(SecretUnion)!;
+        node["config"]![1]!["schema"] = nested
+            ? new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["prod"] = union }, ["required"] = new JsonArray("prod") }
+            : union;
+        var at = nested ? "target.prod" : "target";
+        foreach (var name in (string[])["SSH_KEY", "KUBE_KEY"])
+            node["secrets"]!.AsArray().Add(new JsonObject { ["name"] = name, ["description"] = "" });
+        node["stages"]![0]!["steps"]![0]!["configEntries"] = new JsonArray("auth");
+        var select = node["stages"]![1]!;
+        select["select"] = at;
+        foreach (var (value, secret) in ((string, string)[])[("ssh", "SSH_KEY"), ("inCluster", "KUBE_KEY")])
+        {
+            var step = select["cases"]![value]![0]!["steps"]![0]!;
+            step["secrets"] = new JsonArray(secret);
+            step["config"] = new JsonObject { ["target"] = new JsonObject { ["$config"] = $"{at}.key", ["$case"] = $"{at}.kind={value}" } };
+        }
+    }
+
     private static Manifest Manifest(Action<JsonObject>? change = null) => Parse(Node(change).ToJsonString());
 
     private static JsonElement Config(string target) => JsonDocument.Parse("{\"target\":" + target + ",\"auth\":{\"mode\":\"none\"}}").RootElement.Clone();

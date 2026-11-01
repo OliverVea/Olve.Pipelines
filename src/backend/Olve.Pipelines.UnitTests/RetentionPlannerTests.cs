@@ -175,6 +175,9 @@ public class RetentionPlannerTests
             Obj($"runs/{Hex(Q)}/7/run.json", 30),
             Obj($"runs/{Hex(Q)}/7/x/1/log", 30),
             Obj($"runs/{Hex(Q)}/8/x/1/log", 3), // too recent
+            Obj($"runs/{Hex(Q)}/9/x/1/log", 30), // the run's newest object decides: still being written
+            Obj($"runs/{Hex(Q)}/9/y/1/log", 3),
+            Obj($"versions/{Hex(Q)}/7/x/manifest.json", 30), // only runs/ holds run objects: this would stop startup
         };
 
         var plan = RetentionPlanner.Plan(Inputs(objects: objects), Options);
@@ -277,12 +280,12 @@ public class RetentionPlannerTests
         var objects = new[]
         {
             Obj($"triggers/{Hex(P)}/{Guid.NewGuid():N}/event.json", 8),
-            Obj($"triggers/{Hex(P)}/{Guid.NewGuid():N}/event.json", 1),
+            Obj($"triggers/{Hex(P)}/{Guid.NewGuid():N}/event.json", 1), // its mapper Job may not have read it yet
         };
 
         var plan = RetentionPlanner.Plan(Inputs(objects: objects), Options);
 
-        await Assert.That(plan.Objects.Count(o => o.Category == RetentionCategory.TriggerEvent)).IsEqualTo(1);
+        await Assert.That(plan.Objects.Where(o => o.Category == RetentionCategory.TriggerEvent).Select(o => o.Object.Key)).IsEquivalentTo(new[] { objects[0].Key });
     }
 
     [Test]
@@ -365,6 +368,8 @@ public class RetentionPlannerTests
             Job($"olve-{Guid.NewGuid():N}", "step", Id.New<Pipeline>(), false, 500), // another instance's pipeline: never
             Job("olve-fh-x", "on-failure", P, finished: true, 200, ttl: null),       // finished, no TTL, > 7 d: delete
             Job("olve-map-y", "map-trigger", P, finished: true, 200),                // has a TTL: K8s collects it
+            Job("olve-build-z", "build", P, finished: false, 5),                     // a build still running past the grace: keep
+            Job($"olve-{Guid.NewGuid():N}", "step", P, finished: true, 5),           // finished step, not yet stale: keep
         };
 
         var plan = RetentionPlanner.Plan(Inputs([run], [active], jobs: jobs), Options);

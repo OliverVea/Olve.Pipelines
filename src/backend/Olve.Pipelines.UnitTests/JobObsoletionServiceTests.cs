@@ -1,3 +1,4 @@
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
@@ -65,6 +66,33 @@ public class JobObsoletionServiceTests
 
         await Assert.That(d.Get(a1.Id).Status).IsTypeOf<InProgress>();
         await Assert.That(d.Get(a2.Id).Status).IsTypeOf<Scheduled>();
+    }
+
+    // Catches: a stale snapshot obsoleting an attempt that went InProgress meanwhile, whose Job then runs on
+    // unowned. No events are wired, so the service is called directly and the race is played from its own update.
+    [Test]
+    public async Task AContenderThatStartedAfterTheSnapshot_IsNotObsoleted()
+    {
+        var d = new TestRunDomain();
+        var run = d.CreateRun();
+        var first = d.Schedule("build", run);
+        var second = d.Schedule("build", run);
+        var third = d.Schedule("build", run);
+        var raced = false;
+        d.Attempts.OnUpdated.Subscribe(e =>
+        {
+            if (raced || e.After.Status is not Obsolete) return;
+            raced = true;
+            var other = e.After.Id == first.Id ? second.Id : first.Id;
+            _ = TestRunDomain.Pick(d.AttemptService.MarkInProgress(other));
+        });
+        var service = new JobObsoletionService(d.AttemptService, Microsoft.Extensions.Logging.Abstractions.NullLogger<JobObsoletionService>.Instance);
+
+        service.HandleAttemptAdded(third.Id);
+
+        await Assert.That(new[] { first.Id, second.Id }.Select(id => d.Get(id).Status.GetType()))
+            .IsEquivalentTo([typeof(Obsolete), typeof(InProgress)]);
+        await Assert.That(d.Get(third.Id).Status).IsTypeOf<Scheduled>();
     }
 
     [Test]

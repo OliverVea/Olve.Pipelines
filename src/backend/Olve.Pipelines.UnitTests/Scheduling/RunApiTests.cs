@@ -117,6 +117,35 @@ public class RunCancellationTests
         await cancellation.Cancel(run.Id).Problems.IsSingle<ConflictProblem>("Run #1 is already Cancelled.");
     }
 
+    // Catches: "already Running" for a run with nothing active, which leaves the operator unable to stop a held run.
+    [Test]
+    public async Task Cancel_StopsARunHeldAtABlockedStep()
+    {
+        var s = new SchedulerScenario();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
+        var run = s.Start(SchedulerScenario.Input(deployTo: "prod"));
+        s.SucceedThroughDeployBeta(run);
+
+        var cancelled = TestRunDomain.Pick(Cancellation(s).Cancel(run.Id));
+
+        await Assert.That(cancelled.Status).IsEqualTo(RunStatus.Cancelled);
+    }
+
+    [Test]
+    public async Task Cancel_OfAFinishedRun_StillCancelsItsLeftoverAttempts()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(SchedulerScenario.Input());
+        s.MarkInProgress(run, "checkout");
+        TestRunDomain.Pick(s.D.RunService.Complete(run.Id, RunStatus.Failed));
+
+        var result = Cancellation(s).Cancel(run.Id);
+
+        await Assert.That(result).Succeeded();
+        await Assert.That(s.Latest(run, "checkout")!.Status).IsTypeOf<AttemptStatus.Cancelled>();
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
+    }
+
     private static RunCancellationService Cancellation(SchedulerScenario s) => new(s.D.RunService, s.D.AttemptService, s.D.SchedulingLock,
         Microsoft.Extensions.Logging.Abstractions.NullLogger<RunCancellationService>.Instance);
 

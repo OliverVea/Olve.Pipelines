@@ -195,8 +195,11 @@ public class ConfigurationPersistenceServiceTests
         await Assert.That(loaded!.Name).IsEqualTo("v1-pipeline");
     }
 
+    // Catches: a binding's shas lost on restart, which re-fires the push trigger and reconciles again.
     [Test]
-    public async Task SnapshotWithPreRenameBindingShas_LoadsThemAsPushAndReconciledSha()
+    [Arguments("LastDeployedSha", "LastSyncedSha")]
+    [Arguments("LastPushSha", "LastReconciledSha")]
+    public async Task SnapshotBindingShas_LoadUnderEitherName(string pushName, string reconciledName)
     {
         var pipelineId = Id.New<Pipeline>();
         var bindingId = Id.New<PipelineConfigBinding>();
@@ -205,7 +208,7 @@ public class ConfigurationPersistenceServiceTests
             {"Pipelines": [{"Id": "{{pipelineId.Value.Value}}", "Name": "p"}],
              "Bindings": [{"Id": "{{bindingId.Value.Value}}", "PipelineId": "{{pipelineId.Value.Value}}", "Repo": "o/r",
                "Branch": "main", "Path": ".pipelines", "CredentialsSecret": null,
-               "LastDeployedSha": "{{push}}", "LastSyncedSha": "{{reconciled}}",
+               "{{pushName}}": "{{push}}", "{{reconciledName}}": "{{reconciled}}",
                "Status": {"Result": 1, "LastSyncTime": null, "Problems": [], "DeclaredSecrets": [{"Name": "X", "Description": null}]},
                "CreatedAt": "2026-10-01T00:00:00+00:00", "DeployTrigger": 0}]}
             """;

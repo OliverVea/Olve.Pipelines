@@ -166,6 +166,22 @@ public class JobRunnerTests
         await WaitForFinishedAsync(h, job2, job3);
     }
 
+    // Catches: a gated step's Job launched before anyone answers, past the busy-key gate, which checks Scheduled only.
+    [Test]
+    public async Task AWaitingAttempt_GetsNoJob_AndHoldsNothingBack()
+    {
+        var h = CreateRunner();
+        var waiting = CreateJob(h);
+        await Assert.That(h.Domain.AttemptService.Update(waiting, a => a with { Status = new Waiting(DateTimeOffset.UnixEpoch) })).Succeeded();
+        var scheduled = CreateJob(h);
+
+        h.Runner.DispatchTick();
+
+        await WaitForPendingAsync(h.PendingStore, scheduled);
+        await Assert.That(h.Registry.IsRunning(waiting)).IsFalse();
+        await Assert.That(h.Domain.Get(waiting).Status).IsTypeOf<Waiting>();
+    }
+
     [Test]
     public async Task MultipleJobs_AllComplete()
     {

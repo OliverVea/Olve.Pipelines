@@ -6,6 +6,7 @@ using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Storage;
 using Olve.Pipelines.UnitTests.Scheduling;
+using Olve.Results;
 using Olve.Results.TUnit;
 
 namespace Olve.Pipelines.UnitTests.Triggers;
@@ -15,7 +16,7 @@ public class TriggerMappingServiceTests
 {
     private sealed record Harness(TriggerMappingService Service, FakeKubernetes K8s, FakeStorage Storage, SchedulerScenario S);
 
-    private static Harness Build(string envelope)
+    private static Harness Build(string envelope, TimeProvider? time = null)
     {
         var s = new SchedulerScenario();
         var k8s = new FakeKubernetes();
@@ -24,7 +25,7 @@ public class TriggerMappingServiceTests
         var presigner = new S3UrlPresigner(
             new PresignOptions(new Uri("http://garage.test:3900"), "bucket", "us-east-1", TimeSpan.FromHours(1)),
             new StubS3CredentialsProvider(), TimeProvider.System);
-        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
+        var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), time ?? TimeProvider.System, new PodChangeSignals(time ?? TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
         var inputs = new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations);
         var service = new TriggerMappingService(inputs, s.D.Starts, new HarnessJobFactory(presigner, new HarnessOptions()), control, storage,
             new HarnessOptions(), TimeProvider.System, NullLogger<TriggerMappingService>.Instance)
@@ -47,6 +48,27 @@ public class TriggerMappingServiceTests
         await Assert.That(h.K8s.LastJob!.Spec.Template.Spec.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "map-trigger", "poll" });
         await Assert.That(h.Storage.Objects.Keys.Where(k => k.StartsWith("triggers/"))).IsEmpty();
         await Assert.That(h.K8s.DeletedSecrets).Count().IsEqualTo(1);
+    }
+
+    // Catches: a mapper abandoned at its deadline, before the startup grace it was promised.
+    [Test]
+    public async Task AStuckMapper_IsWaitedForUntilItsDeadlinePlusTheGrace_ThenDeleted()
+    {
+        var time = new MonotonicTimeProvider();
+        var h = Build("{}", time);
+        var polls = 0;
+        h.K8s.States.Add(HarnessPodStates.Running);
+        h.K8s.OnPoll = () =>
+        {
+            polls++;
+            time.Advance(TimeSpan.FromSeconds(100)); // the deadline is 300 s and the grace 120 s
+        };
+
+        var result = await Map(h);
+
+        await Assert.That(polls).IsEqualTo(5);
+        await Assert.That(h.K8s.DeletedJobs).Count().IsEqualTo(1);
+        await result.Problems.IsSingle<ResultProblem>($"The map-trigger Job '{h.K8s.DeletedJobs[0]}' for trigger 'poll' did not finish (TimedOut).");
     }
 
     [Test]

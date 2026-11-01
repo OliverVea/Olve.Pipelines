@@ -170,6 +170,38 @@ public class FailureHandlerTests
         await Assert.That(w.Launcher.Launched).IsEmpty();
     }
 
+    // Catches: handlers fired again by a later update of a run that already failed: only the transition dispatches.
+    [Test]
+    public async Task AnUpdateOfAFailedRun_DispatchesNoSecondTime()
+    {
+        var w = Wire();
+        var run = FailEcho(w);
+        await Assert.That(w.Launcher.Launched).Count().IsEqualTo(1);
+
+        w.S.D.Runs.Set(run with { HeldAt = "count" });
+
+        await Assert.That(w.Launcher.Launched).Count().IsEqualTo(1);
+    }
+
+    // Catches: on-failure handlers fired for a run that recovered on a retry.
+    [Test]
+    public async Task ARunThatRecoversOnARetry_DispatchesNothing()
+    {
+        var manifest = JsonNode.Parse(TestFixtureManifest.Text)!.AsObject();
+        var echo = manifest["stages"]![1]!["steps"]!.AsArray().First(step => step!["name"]!.GetValue<string>() == "echo")!;
+        echo["retries"] = 1;
+        var w = Wire(manifest.ToJsonString());
+        var run = w.S.Start(Input("skip-last"));
+        w.S.Succeed(run, "hello", Greeting(run.Number));
+        w.S.Succeed(run, "count", """{"lines":4}""");
+
+        w.S.Fail(run, "echo", "flaked");
+        w.S.Succeed(run, "echo");
+
+        await Assert.That(w.S.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
+        await Assert.That(w.Launcher.Launched).IsEmpty();
+    }
+
     [Test]
     public async Task ScopedHandler_RunsOnlyForStepsInItsScope_AndListsOnlyThose()
     {

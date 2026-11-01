@@ -76,6 +76,23 @@ internal static class ManifestFixture
         return null;
     }
 
+    /// <summary>Gives build's output a field <c>x</c> of <paramref name="source"/> and maps <c>build.x{path}</c> into a deploy-beta input of <paramref name="target"/>.</summary>
+    public static void MapField(JsonObject root, string source, string path, string target)
+    {
+        root["models"]!["BuildArtifact"]!["output"]!["properties"]!["x"] = JsonNode.Parse(source);
+        MapInto(root, target, Ref("build.x" + path));
+    }
+
+    /// <summary>Maps an object with the given fields into a deploy-beta input of <paramref name="target"/>.</summary>
+    public static void MapObject(JsonObject root, string target, JsonObject? fields = null) => MapInto(root, target, fields ?? new JsonObject());
+
+    private static void MapInto(JsonObject root, string target, JsonNode mapping)
+    {
+        var deploy = Step(root, "deploy-beta");
+        deploy["inputTypes"]!["x"] = new JsonObject { ["schema"] = new JsonObject { ["output"] = JsonNode.Parse(target) } };
+        deploy["input"]!["x"] = mapping;
+    }
+
     public static JsonNode Ref(string r) => new JsonObject { ["ref"] = r };
 
     public static JsonNode Const(JsonNode? v) => new JsonObject { ["const"] = v };

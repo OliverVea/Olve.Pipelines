@@ -2,10 +2,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.UnitTests.Scheduling;
 using Olve.Results;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
@@ -108,6 +110,21 @@ public class DeployPollServiceTests
         await Assert.That(c.Pushes.Sources()).IsEmpty();
         await Assert.That(await c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None)).Succeeded();
         await Assert.That(c.Reconciler.Calls).IsEquivalentTo(new[] { "cfg-1" });
+    }
+
+    // Catches: without a webhook, pushes that would never trigger because no source polls for them.
+    [Test]
+    [Arguments(true, 1)]
+    [Arguments(false, 0)]
+    public async Task APollingBinding_GetsAPushSource_OnlyWhenThePipelineHasOnPush(bool onPush, int sources)
+    {
+        await using var c = Build();
+        var manifest = SchedulerScenario.Mutated(r => { if (!onPush) r["triggers"]!.AsArray().RemoveAt(0); });
+        var version = Pick(c.Provider.GetRequiredService<PipelineVersionService>().Add(
+            c.Binding.PipelineId, manifest, "sha256:x", null, new Dictionary<string, int>(), new Dictionary<string, int>()));
+        Pick(c.Provider.GetRequiredService<SwitchService>().Switch(c.Binding.PipelineId, version.Id));
+
+        await Assert.That(c.Pushes.Sources().Select(source => source.Key)).IsEquivalentTo(Enumerable.Repeat($"push:{c.Binding.Id}", sources));
     }
 
     [Test]

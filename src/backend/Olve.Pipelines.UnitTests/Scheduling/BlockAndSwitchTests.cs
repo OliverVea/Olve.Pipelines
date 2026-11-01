@@ -157,6 +157,36 @@ public class BlockAndSwitchTests
         await Assert.That(s.Get(old).Status).IsEqualTo(RunStatus.Cancelled);
     }
 
+    // Catches: a held old run carrying on after the switch, or a run on the target version cancelled with the others.
+    // With nothing in flight off the target the held run is the only one the switch has to find.
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task Switch_CancelRunning_CancelsIdleRunsOffTheTarget_AndLeavesRunsOnIt(bool anotherInFlight)
+    {
+        var s = new SchedulerScenario();
+        var onTarget = s.Start(Input());
+        s.MarkInProgress(onTarget, "checkout");
+        var v2 = s.AddVersion();
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, v2.Id));
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "deploy-prod")).Succeeded();
+        var held = s.Start(Input(deployTo: "prod", sha: OtherSha));
+        s.SucceedThroughDeployBeta(held);
+        var inFlight = anotherInFlight ? s.Start(Input(sha: new string('c', 40))) : null;
+        if (inFlight is not null) s.MarkInProgress(inFlight, "checkout");
+
+        TestRunDomain.Pick(s.D.Switches.Switch(s.Pipeline.Id, s.Version.Id, cancelRunning: true));
+
+        await Assert.That(s.Get(held).Status).IsEqualTo(RunStatus.Cancelled);
+        if (inFlight is not null)
+        {
+            await Assert.That(s.Get(inFlight).Status).IsEqualTo(RunStatus.Cancelled);
+            await Assert.That(s.Latest(inFlight, "checkout")!.Status).IsTypeOf<Cancelled>();
+        }
+        await Assert.That(s.Get(onTarget).Status).IsEqualTo(RunStatus.Running);
+        await Assert.That(s.Latest(onTarget, "checkout")!.Status).IsTypeOf<InProgress>();
+    }
+
     [Test]
     public async Task Draining_StopsTheSchedulerStartingWork()
     {

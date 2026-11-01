@@ -1,11 +1,20 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Failures;
+using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Sync;
+using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
+using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Sources;
 using Olve.Pipelines.Streaming;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results.TUnit;
@@ -43,6 +52,50 @@ public class ProductionWiringTests
         await using var provider = Build();
 
         await Assert.That(provider.GetRequiredService(serviceType)).IsNotNull();
+    }
+
+    // Catches: a lost registration, which fails silently: persistence, retention, latest-wins, failure handlers
+    // or poll triggers just stop, with no exception. Beta-test sees some of these, not persistence across a restart.
+    [Test]
+    public async Task EveryBackgroundServiceAndEventRegistration_IsRegistered()
+    {
+        var host = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
+        host.Services.AddSingleton(new StorageOptions("bucket", Mode: StorageMode.Ephemeral));
+        host.Services.AddPipelineServices();
+        await using var provider = host.Services.BuildServiceProvider();
+
+        await Assert.That(provider.GetServices<IHostedService>().Select(s => s.GetType()).Distinct()).IsEquivalentTo(new[]
+        {
+            typeof(BindingHookRegistrationService), typeof(BindingHookPersistenceService), typeof(DeployPollService), typeof(PushTriggerService),
+            typeof(PollScheduler), typeof(WebhookTriggerService), typeof(JobRunner), typeof(StartupRunner),
+            typeof(ConfigurationPersistenceService), typeof(RunPersistenceService), typeof(RetentionService),
+        });
+        await Assert.That(provider.GetServices<IRunOnStartup>().Select(s => s.GetType())).IsEquivalentTo(new[]
+        {
+            typeof(PipelineSecretEventRegistration), typeof(PipelineConfigBindingEventRegistration), typeof(BindingWebhookEventRegistration),
+            typeof(ConfigEventRegistration), typeof(FailureHandlerEventRegistration), typeof(JobEventRegistration),
+            typeof(RunSchedulingEventRegistration), typeof(RunSchedulingStartup), typeof(ChangeEventRegistration),
+            typeof(PipelineEventRegistration), typeof(PipelineVersionEventRegistration), typeof(RunEventRegistration),
+        });
+    }
+
+    // Catches: the rules these registrations' order carries. The registry drains watchers before persistence
+    // flushes, and the sweep's writes must reach the other event registrations.
+    [Test]
+    public async Task OrderDependentRegistrations_StayInOrder()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddPipelineServices();
+        var startups = services.Where(s => s.ServiceType == typeof(IRunOnStartup)).Select(s => s.ImplementationType).ToList();
+        var hostedRegistration = services.ToList().FindIndex(s => s.ServiceType == typeof(IHostedLifecycleService));
+        var persistence = services.ToList().FindIndex(s => s.ImplementationType == typeof(RunPersistenceService));
+
+        foreach (var earlier in (Type[])[typeof(RunEventRegistration), typeof(ConfigEventRegistration), typeof(FailureHandlerEventRegistration), typeof(JobEventRegistration)])
+            await Assert.That(startups.IndexOf(typeof(RunSchedulingEventRegistration))).IsGreaterThan(startups.IndexOf(earlier));
+        await Assert.That(hostedRegistration).IsLessThan(persistence);
     }
 
     [Test]

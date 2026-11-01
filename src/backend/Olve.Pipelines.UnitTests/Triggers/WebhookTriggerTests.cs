@@ -23,11 +23,12 @@ public class WebhookTriggerTests
     private sealed class Secrets(string? value) : IPipelineSecretReader
     {
         public int Reads { get; private set; }
+        public string? Value { get; set; } = value;
 
         public Task<Result<string>> TryGetSecretAsync(Id<Pipeline> pipelineId, string key, CancellationToken ct = default)
         {
             Reads++;
-            return Task.FromResult(value is null ? Result.Failure<string>(new ResultProblem("not set")) : Result.Success(value));
+            return Task.FromResult(Value is null ? Result.Failure<string>(new ResultProblem("not set")) : Result.Success(Value));
         }
     }
 
@@ -48,7 +49,7 @@ public class WebhookTriggerTests
     private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(string? secretValue = Secret) =>
         Receiver(new Secrets(secretValue));
 
-    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(Secrets secrets, IConfigLock? configLock = null)
+    private static (WebhookTriggerService Service, SchedulerScenario S) Receiver(Secrets secrets, IConfigLock? configLock = null, TimeProvider? time = null)
     {
         var s = new SchedulerScenario(WithTrigger(Hmac));
         var services = new ServiceCollection();
@@ -56,6 +57,8 @@ public class WebhookTriggerTests
         services.AddSingleton<IPipelineSecretReader>(secrets);
         if (configLock is not null)
             services.AddSingleton(configLock);
+        if (time is not null)
+            services.AddSingleton(time);
         return (new WebhookTriggerService(services.BuildServiceProvider(), NullLogger<WebhookTriggerService>.Instance), s);
     }
 
@@ -74,10 +77,12 @@ public class WebhookTriggerTests
         }
     }
 
-    private static WebhookDelivery Signed(string deliveryId)
+    private static WebhookDelivery Signed(string deliveryId) => SignedWith(Secret, deliveryId);
+
+    private static WebhookDelivery SignedWith(string secret, string deliveryId)
     {
         const string body = """{"release":{}}""";
-        return Delivery(body, ("X-Hub-Signature-256", GitHubWebhookSignature.Compute(Secret, Encoding.UTF8.GetBytes(body))), ("X-GitHub-Delivery", deliveryId));
+        return Delivery(body, ("X-Hub-Signature-256", GitHubWebhookSignature.Compute(secret, Encoding.UTF8.GetBytes(body))), ("X-GitHub-Delivery", deliveryId));
     }
 
     private static WebhookDelivery Delivery(string body, params (string Name, string Value)[] headers) =>
@@ -100,6 +105,7 @@ public class WebhookTriggerTests
         await Assert.That(hooks[1].Verify).IsEqualTo(new BearerTriggerVerify("HOOK"));
         var written = JsonNode.Parse(ManifestWriter.ToCanonicalJson(TestRunDomain.Pick(manifest)))!["triggers"]!.AsArray();
         await Assert.That(JsonNode.DeepEquals(written.First(t => t!["name"]!.GetValue<string>() == "release"), Hmac)).IsTrue();
+        await Assert.That(JsonNode.DeepEquals(written.First(t => t!["name"]!.GetValue<string>() == "deploy"), bearer)).IsTrue();
     }
 
     [Test]
@@ -158,6 +164,28 @@ public class WebhookTriggerTests
         await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", signed, CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
 
         await Assert.That(secrets.Reads).IsEqualTo(1);
+    }
+
+    // A secret stays cached for 60 s, and a delivery that fails against it rereads it after 10 s.
+    // Catches: a rotated-out secret verifying indefinitely, or a new one refused until the cache expires.
+    [Test]
+    [Arguments(59, "old", WebhookTriggerReceipt.Accepted, 1)]   // cached: the old secret still works
+    [Arguments(60, "old", WebhookTriggerReceipt.Unauthorized, 2)] // expired: reread, and it was rotated out
+    [Arguments(9, "new", WebhookTriggerReceipt.Unauthorized, 1)]  // too soon to reread
+    [Arguments(10, "new", WebhookTriggerReceipt.Accepted, 2)]     // reread finds the rotated secret
+    public async Task ARotatedSecret_IsPickedUp(int afterSeconds, string signedWith, WebhookTriggerReceipt expected, int reads)
+    {
+        var time = new MonotonicTimeProvider(step: TimeSpan.Zero);
+        var secrets = new Secrets("old");
+        var (service, s) = Receiver(secrets, time: time);
+        await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", SignedWith("old", "d1"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        secrets.Value = "new";
+        time.Advance(TimeSpan.FromSeconds(afterSeconds));
+
+        var receipt = await service.ReceiveAsync(s.Pipeline.Id, "release", SignedWith(signedWith, "d2"), CancellationToken.None);
+
+        await Assert.That(receipt).IsEqualTo(expected);
+        await Assert.That(secrets.Reads).IsEqualTo(reads);
     }
 
     // Catches: unauthenticated requests reading the K8s Secret on every hit while the secret is unset.
@@ -219,5 +247,28 @@ public class WebhookTriggerTests
         await Assert.That(await service.ReceiveAsync(s.Pipeline.Id, "release", Signed("late"), CancellationToken.None)).IsEqualTo(WebhookTriggerReceipt.Accepted);
         await service.WhenMappedAsync();
         await Assert.That(gate.Calls).IsEqualTo(WebhookTriggerService.MaxInFlight + 1);
+    }
+
+    // Catches: a slot leaked by each turned-away or redelivered delivery, until every webhook answers Busy until restart.
+    [Test]
+    public async Task IgnoredDeliveries_KeepNoSlot()
+    {
+        var release = new TaskCompletionSource();
+        var (service, s) = Receiver(new Secrets(Secret), new StaleConfig(release.Task));
+        Task<WebhookTriggerReceipt> Receive(string id) => service.ReceiveAsync(s.Pipeline.Id, "release", Signed(id), CancellationToken.None);
+
+        await Assert.That(await Receive("first")).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        for (var i = 0; i < WebhookTriggerService.MaxInFlight; i++)
+            await Assert.That(await Receive("first")).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        for (var i = 1; i < WebhookTriggerService.MaxInFlight; i++)
+            await Assert.That(await Receive($"fill-{i}")).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        for (var i = 0; i < WebhookTriggerService.MaxInFlight; i++)
+            await Assert.That(await Receive($"late-{i}")).IsEqualTo(WebhookTriggerReceipt.Busy);
+        release.SetResult();
+        await service.WhenMappedAsync();
+
+        for (var i = 0; i < WebhookTriggerService.MaxInFlight; i++)
+            await Assert.That(await Receive($"after-{i}")).IsEqualTo(WebhookTriggerReceipt.Accepted);
+        await service.WhenMappedAsync();
     }
 }

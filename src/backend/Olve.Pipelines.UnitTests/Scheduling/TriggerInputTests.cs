@@ -51,18 +51,40 @@ public class JsonSchemaValidatorTests
         await result.Problems.IsSingle<ValidationProblem>("input.extra: is not allowed (unknown property)");
     }
 
+    // Catches: a union member's default dropped from the run input, so when clauses and steps see it missing,
+    // and a changed default the warning can't name.
+    [Test]
+    [Arguments("oneOf")]
+    [Arguments("anyOf")]
+    public async Task ADefaultInsideAUnion_ReachesTheResult_AndTheAppliedList(string combinator)
+    {
+        var schema = JsonDocument.Parse("""
+            {"type":"object","properties":{"target":{"UNION":[
+              {"type":"object","properties":{"kind":{"const":"a"},"port":{"type":"integer","default":80}},"required":["kind"]},
+              {"type":"object","properties":{"kind":{"const":"b"}},"required":["kind"]}]}}}
+            """.Replace("UNION", combinator)).RootElement;
+        var applied = new List<AppliedDefault>();
+
+        var result = JsonSchemaValidator.Validate(schema, JsonNode.Parse("""{"target":{"kind":"a"}}"""), "input", applied);
+
+        await Assert.That(result).SucceededAndValue(v => v.Satisfies(o => o!.ToJsonString(), json => json.IsEqualTo("""{"target":{"kind":"a","port":80}}""")));
+        await Assert.That(applied.Select(d => (d.Path, d.Value!.ToJsonString()))).IsEquivalentTo([("input.target.port", "80")]);
+    }
+
     [Test]
     public async Task Integers_Bounds_Arrays_AndNullableAnyOf()
     {
         const string schema = """
             {"type":"object","properties":{
               "n":{"type":"integer","exclusiveMinimum":0,"maximum":10},
+              "m":{"type":"integer","minimum":1},
               "tags":{"type":"array","items":{"type":"string","minLength":2}},
               "note":{"anyOf":[{"type":"string"},{"type":"null"}]}},
              "required":["n"],"additionalProperties":false}
             """;
 
-        await Assert.That(Validate(schema, """{"n":3,"tags":["ab"],"note":null}""")).Succeeded();
+        await Assert.That(Validate(schema, """{"n":3,"m":1,"tags":["ab"],"note":null}""")).Succeeded();
+        await Validate(schema, """{"n":3,"m":0}""").Problems.IsSingle<ValidationProblem>("input.m: must be ≥ 1");
         await Validate(schema, """{"n":3.5}""").Problems.IsSingle<ValidationProblem>("input.n: expected integer, got number");
         await Validate(schema, """{"n":0}""").Problems.IsSingle<ValidationProblem>("input.n: must be > 0");
         await Validate(schema, """{"n":11}""").Problems.IsSingle<ValidationProblem>("input.n: must be ≤ 10");
@@ -156,6 +178,8 @@ public class ManualTriggerTests
         await Assert.That(pod.Containers.Single().Image).IsEqualTo(HarnessJobBuilderTests.Options.HarnessBaseImage);
         await Assert.That(pod.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "map-trigger", "push" });
         await Assert.That(spec.Value.UrlSecretData.Keys).IsEquivalentTo(new[] { HarnessJobBuilder.StepUrlKey, HarnessJobBuilder.InputUrlKey });
+        await Assert.That(pod.AutomountServiceAccountToken!.Value).IsFalse();
+        await Assert.That(pod.EnableServiceLinks!.Value).IsFalse();
     }
 
     [Test]

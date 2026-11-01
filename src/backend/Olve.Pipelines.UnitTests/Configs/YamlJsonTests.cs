@@ -12,6 +12,7 @@ public class YamlJsonTests
         var result = YamlJson.Parse("""
             # comment
             a: true
+            a2: false
             b: no
             c: 42
             d: 1.5
@@ -24,7 +25,7 @@ public class YamlJsonTests
 
         await Assert.That(result).SucceededAndValue(v => v.Satisfies(
             o => o!.ToJsonString(),
-            json => json.IsEqualTo("""{"a":true,"b":"no","c":42,"d":1.5,"e":null,"f":"true","g":["x",2],"h":{"nested":"value"}}""")));
+            json => json.IsEqualTo("""{"a":true,"a2":false,"b":"no","c":42,"d":1.5,"e":null,"f":"true","g":["x",2],"h":{"nested":"value"}}""")));
     }
 
     [Test]
@@ -37,6 +38,15 @@ public class YamlJsonTests
     public async Task ParserErrors_CarryTheLine()
     {
         await Assert.That(ConfigManifests.Problems(YamlJson.Parse("a: 1\nb: [1, 2\n"))).StartsWith("yaml: line 3: ");
+    }
+
+    // Catches: recursion to the bottom of a 256 KB document of brackets. A stack overflow kills the process.
+    [Test]
+    public async Task ADocumentNestedTooDeep_IsRefused()
+    {
+        var yaml = new string('[', YamlJson.MaxBytes / 2) + new string(']', YamlJson.MaxBytes / 2);
+
+        await Assert.That(ConfigManifests.Problems(YamlJson.Parse(yaml))).IsEqualTo("yaml: line 1: the document is nested too deeply");
     }
 
     [Test]

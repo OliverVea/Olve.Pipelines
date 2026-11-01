@@ -51,7 +51,7 @@ public class KubernetesJobExecutorTests
         public AttemptService Attempts => Scenario.D.AttemptService;
     }
 
-    private static Harness Build(string input = """{"sha":"abcdef1","mode":"normal"}""")
+    private static Harness Build(string input = """{"sha":"abcdef1","mode":"normal"}""", TimeProvider? time = null)
     {
         var k8s = new FakeKubernetes();
         var storage = new FakeStorage();
@@ -66,7 +66,7 @@ public class KubernetesJobExecutorTests
             new StubS3CredentialsProvider(), TimeProvider.System);
         var factory = new HarnessJobFactory(presigner, new HarnessOptions());
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"),
-            TimeProvider.System, new PodChangeSignals(TimeProvider.System), NullLogger<HarnessJobControl>.Instance)
+            time ?? TimeProvider.System, new PodChangeSignals(time ?? TimeProvider.System), NullLogger<HarnessJobControl>.Instance)
         { FatalWaitingGrace = TimeSpan.Zero };
 
         KubernetesJobExecutor? executor = null;
@@ -410,6 +410,32 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.Hello.Status).IsTypeOf<InProgress>();
     }
 
+    // Catches: a poll error on a running attempt counted as a submission failure, which fails a healthy
+    // attempt while its Job runs on. The watcher stops instead, and the next one picks the Job up.
+    [Test]
+    public async Task APollErrorOnARunningAttempt_LeavesItRunning_ForTheNextWatcher()
+    {
+        var h = Build();
+        h.K8s.OnPoll = () =>
+        {
+            h.K8s.OnPoll = null;
+            throw new HttpRequestException("the API server is restarting");
+        };
+        h.Storage.Collection = new(new HarnessResultContents(new HarnessEnvelope.Succeeded("""{"message":"m"}"""), "{}", []), []);
+        var attempt = h.Hello;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<InProgress>();
+        await Assert.That(h.K8s.DeletedJobs).IsEmpty();
+        await Assert.That(h.Storage.Objects.Values.Any(text => text.Contains("failed to submit"))).IsFalse();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(1);
+    }
+
     [Test]
     public async Task SubmissionKeepsFailing_MarksFailedAfterMaxAttempts()
     {
@@ -499,6 +525,26 @@ public class KubernetesJobExecutorTests
         // Untracked: no attempt, and the run stays Failed.
         await Assert.That(h.Attempts.List().Count).IsEqualTo(attemptsBefore);
         await Assert.That(h.Scenario.Get(h.Run).Status).IsEqualTo(RunStatus.Failed);
+    }
+
+    // Catches: a handler abandoned at its deadline, before the startup grace it was promised.
+    [Test]
+    public async Task AStuckFailureHandler_IsWaitedForUntilItsDeadlinePlusTheGrace()
+    {
+        var time = new MonotonicTimeProvider();
+        var h = Build("""{"sha":"abcdef1","mode":"fail"}""", time);
+        var dispatch = FailAndPlan(h);
+        var polls = 0;
+        h.K8s.States.Add(Running);
+        h.K8s.OnPoll = () =>
+        {
+            polls++;
+            time.Advance(TimeSpan.FromSeconds(100)); // 120 s timeout, then 120 s startup grace, twice over
+        };
+
+        await Launcher(h).RunAsync(dispatch, CancellationToken.None);
+
+        await Assert.That(polls).IsEqualTo(4);
     }
 
     [Test]

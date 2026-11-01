@@ -31,9 +31,18 @@ public class ConfigGateTests
         public int? ActiveNumber => D.ActivationService.TryGet(P.Id, out var a) && a is PipelineActivation.Active active ? active.VersionNumber : null;
     }
 
-    private static World Build()
+    private static string WithDescription(string description)
     {
-        var d = new TestRunDomain().WireEvents(scheduler: true);
+        var node = System.Text.Json.Nodes.JsonNode.Parse(TestFixtureManifest.Text)!.AsObject();
+        node["description"] = description;
+        return node.ToJsonString();
+    }
+
+    private static World Build(HarnessOptions? harness = null)
+    {
+        var d = new TestRunDomain();
+        if (harness is not null) d.Harness = harness;
+        d.WireEvents(scheduler: true);
         var p = d.CreatePipeline("provisional");
         var secrets = new FakeSecretNames();
         var reconcile = new PipelineReconcileService(
@@ -150,6 +159,83 @@ public class ConfigGateTests
 
         await switched.Problems.IsSingle<ConflictProblem>("Version 2 can't be activated: config config.auth: is required; config config.target: is required.");
         await Assert.That(w.ActiveNumber).IsEqualTo(1);
+    }
+
+    // Catches: a stale marker left behind by a version that activated, which later reads as held.
+    [Test]
+    public async Task ANewVersionThatActivates_ClearsThePendingOne()
+    {
+        var w = Build();
+        w.Apply(TestFixtureManifest.Text);
+        w.Apply(Text());
+
+        var report = w.Apply(WithDescription("newer"));
+
+        await Assert.That(report.Pending).IsNull();
+        await Assert.That(w.ActiveNumber).IsEqualTo(3);
+        await Assert.That(w.D.Gate.TryGetPending(w.P.Id, out _)).IsFalse();
+    }
+
+    [Test]
+    public async Task ExplicitSwitch_ToASatisfiedVersion_ActivatesIt_AndClearsThePendingOne()
+    {
+        var w = Build();
+        var first = w.Apply(TestFixtureManifest.Text).Version;
+        w.Apply(WithDescription("newer"));
+        w.Apply(Text());
+
+        var switched = w.D.Gate.Switch(first, cancelRunning: false, w.SetSecrets);
+
+        await Assert.That(switched).Succeeded();
+        await Assert.That(w.ActiveNumber).IsEqualTo(1);
+        await Assert.That(w.D.Gate.TryGetPending(w.P.Id, out _)).IsFalse();
+    }
+
+    // Catches: an equal list of reasons keeping the older marker, so Recheck would activate the older version.
+    [Test]
+    public async Task ANewerPendingVersion_ReplacesTheOlderOne_EvenForTheSameReasons()
+    {
+        var w = Build();
+        w.Apply(TestFixtureManifest.Text);
+        w.Apply(Text());
+
+        w.Apply(Text(namespaceDefault: "other"));
+
+        await Assert.That(w.D.Gate.TryGetPending(w.P.Id, out var marker)).IsTrue();
+        await Assert.That(marker!.VersionNumber).IsEqualTo(3);
+    }
+
+    // Catches: the gate ignoring the instance's account, which activates a step that can't work,
+    // or holds every such version on an instance that has one.
+    [Test]
+    [Arguments(false, null, true)]
+    [Arguments(false, "olve-deployer", false)]
+    [Arguments(true, null, true)]
+    [Arguments(true, "olve-deployer", false)]
+    public async Task ClusterAccess_IsAskedOfTheInstance_WithOrWithoutASelect(bool select, string? account, bool held)
+    {
+        var w = Build(new HarnessOptions { StepServiceAccount = account });
+        var manifest = (select ? SelectTests.Node() : System.Text.Json.Nodes.JsonNode.Parse(Text())!.AsObject());
+        manifest["stages"]![0]!["steps"]![0]!["clusterAccess"] = true;
+        var target = select ? "target: {kind: inCluster}" : "target: {host: h}";
+        await Assert.That(await w.Save($"{target}\nauth: {{mode: none}}\n")).Succeeded();
+
+        var report = w.Apply(manifest.ToJsonString());
+
+        await Assert.That(report.Pending is not null).IsEqualTo(held);
+        if (held) await Assert.That(report.Pending!.Reasons).Contains("step hello needs cluster access, but the instance grants no step ServiceAccount (Kubernetes:StepServiceAccount)");
+    }
+
+    // Catches: numbering from anything but the highest, which would overwrite a write-once snapshot and break rollback.
+    [Test]
+    public async Task EverySave_GetsTheNextSnapshotNumber()
+    {
+        var w = Build();
+        foreach (var host in (string[])["a", "b", "c"])
+            await Assert.That(await w.Save($"target: {{host: {host}}}\nauth: {{mode: none}}\n")).Succeeded();
+
+        await Assert.That(w.D.ConfigSnapshots.TryGetLatest(w.P.Id, out var latest)).IsTrue();
+        await Assert.That(latest!.Number).IsEqualTo(3);
     }
 
     [Test]

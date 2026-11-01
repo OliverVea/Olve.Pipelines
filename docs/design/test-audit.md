@@ -367,7 +367,7 @@ Proposals only, in priority order.
 
 ### 1. Close the dangerous gaps
 
-Status: the High and Medium rows under Confirmed gaps and the three in-process flows are covered. Every High row from the survivor triage is still open.
+Status: covered: the High and Medium rows under Confirmed gaps, the three in-process flows, and the High and Medium rows from the survivor triage, each proven by a hand-applied regression. G17 and G103 needed no new test: `Sweep_DeletesLeakedSecretsAndJobs` and the recorded GitHub tests already cover them. Two rows read differently from the code. In G39, a sweep can't meet an unfinished drain, because a switch completes at once, so only the queued start is tested. In G59, a Running run can't dispatch, because `Dispatch` refuses it, so the rule tested is that a failed run dispatches once.
 
 Add tests for the High and Medium rows under Confirmed gaps, as in-process flow tests where possible. Add in-process flows for the reconcile build path, the binding API and step file serving. Take the 8 High rows from the survivor triage next, starting with token validation, the allow-list and per-change persistence, then the Medium rows.
 
@@ -449,7 +449,7 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 | Metric | Result | Addressed? | How |
 |---|---|---|---|
-| Backend mutation score | 55.06% at audit, not re-measured since | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
+| Backend mutation score | 55.06% at audit, 67.91% on `070c49b` | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
 | High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1, covered |
 | Medium and low gaps | 5 confirmed | Partly | Step 1, Medium covered. The Low rows wait. |
 | Gaps from the survivor triage | 116 rows: 8 High, 50 Medium, 58 Low | Partly | Step 1 covers High, then Medium. Low rows wait, and many fall to step 2. |
@@ -499,13 +499,14 @@ Open work from the pipeline package migration and the `pl wait` changes.
 - Find the cause of the `build-sdk` exit 137 in `Olve.Pipelines v2#167`.
 - Find the cause of the `dotnet format` build host exit 137 in `Olve.Pipelines v2#180`. The kernel logged no OOM kill. The `test` step reports any failure of that command as "C# formatting is off".
 - Try the `pl wait` rerun following and the held exit code 4 against a real rerun and a real held run. Only unit tests cover them.
+- Stop the SDK tests leaving build output: `src/sdk/tests/.tmp` reaches 3.9 GB.
+- Find what the 25.5 GB `dotnet` process killed at 01:58 on 2026-11-01 was. Memory ran out with the `olve-real-system-1` stack 20 seconds old, so that stack is not ruled out.
 
 **This plan**
 
-- **Step 1:** the 50 Medium rows from the survivor triage.
 - **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
-- **Step 4:** every score above is the audit's. A full run on `a4bf555` scores 64.97%: 4,867 killed, 23 timed out, 1,520 survived, 1,116 uncovered.
+- **Step 4:** every score above is the audit's. A full run on `070c49b` scores 67.91%: 5,088 killed, 22 timed out, 1,366 survived, 1,049 uncovered, 1,985 unmeasured.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
 - **Step 9:** not started.
 
@@ -523,4 +524,5 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **For Oliver**
 
+- Decide what happens to the leftover `olve-real-system-1` stack and the 2,700 Completed pods in `olve-runners*`.
 - Pull the local checkouts of the migrated repos. They are behind origin. `Olve.Homelab`, `Olve.SlimeRepublics`, `Olve.Trains` and `QuestionBank` also have uncommitted work that was left untouched.

@@ -225,6 +225,8 @@ public class ExternalInputTests
         await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' has no external input a person may answer.");
         await s.D.Inputs.Decline(s.Pipeline.Id, run.Number, "deploy-beta", "no", "oliver").Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' has no external input a person may answer.");
 
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "decision", Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ConflictProblem>("External input 'decision' of step 'deploy-beta' is not answered by a person (from: callback).");
+
         var answered = TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "decision", Json("""{"approved":true}"""), new Answerer("callback", "callback from 10.0.0.1")));
         await Assert.That(answered.Status).IsTypeOf<Scheduled>();
         await Assert.That(answered.Answers!["decision"].Source).IsEqualTo("callback");

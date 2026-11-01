@@ -15,6 +15,7 @@ using Olve.Pipelines.UnitTests.Configs;
 using Olve.Pipelines.UnitTests.Harness;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Pipelines.UnitTests.Scheduling;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -234,6 +235,27 @@ public class ErrorMessageTests
         ["continue a run with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => s.D.Continuations.ContinueRun(run.Id, "{}").Problems)),
         ["rerun a step of a run with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => s.D.Continuations.RerunStep(run.Id, "checkout", false).Problems)),
         ["rerun a step whose input is missing"] = Conflict("Step 'deploy-beta' cannot run in run #1: input 'artifact' needs build, which has no successful attempt.", () => Cancelled((s, run) => s.D.Continuations.RerunStep(run.Id, "deploy-beta", false).Problems)),
+        ["rerun a step whose input is too large"] = Conflict($"Step 'deploy-beta' cannot run in run #1: input.json exceeds {AttemptService.MaxInputJsonBytes} bytes.", () =>
+        {
+            var s = new SchedulerScenario(SchedulerScenario.Mutated(root =>
+                ManifestFixture.Step(root, "deploy-beta")["input"]!["pad"] = ManifestFixture.Const(new string('x', AttemptService.MaxInputJsonBytes + 1))));
+            var run = s.Start(SchedulerScenario.Input());
+            s.Succeed(run, "checkout");
+            s.Succeed(run, "build");
+            s.Succeed(run, "test");
+            return s.D.Continuations.RerunStep(run.Id, "deploy-beta", false).Problems;
+        }),
+        ["run on a config the version can't use"] = Conflict("Config (none saved) does not satisfy version 1: config.auth: is required; config.target: is required.", () =>
+        {
+            var s = new SchedulerScenario(ConfigManifests.Text());
+            return s.D.Starts.Start(s.Pipeline.Id, SchedulerScenario.Input(), new RunTrigger(RunTriggerKind.Manual)).Problems;
+        }),
+        ["start on a version held for two reasons"] = Conflict("Version 1 is held until its config is satisfied: secret A not set; secret B not set.", () =>
+        {
+            var s = new SchedulerScenario();
+            s.D.PendingVersions.Set(s.Pipeline.Id, new PendingVersion(s.Version.Id, 1, DateTimeOffset.UnixEpoch, ["secret A not set", "secret B not set"], []));
+            return s.D.Starts.Start(s.Pipeline.Id, SchedulerScenario.Input(), new RunTrigger(RunTriggerKind.Manual)).Problems;
+        }),
         ["launch a step the version lacks"] = Plain("Version 1 has no step 'gone'.", () => Started((s, run) => s.D.Launches.Get(TestRunDomain.Pick(s.D.AttemptService.Schedule(run.Id, "gone")).Id).Problems)),
         ["block without a step name"] = Plain("Step name is required.", () => Wired(d => d.GateService.Block(NoPipeline, " ").Problems)),
 
@@ -242,6 +264,11 @@ public class ErrorMessageTests
             Inputs(s).PrepareManual(ManifestFixture.Parse() with { Input = "Gone" }, null).Problems)),
         ["mapped input of a version without its model"] = Plain("The input model 'Gone' is missing from the manifest.", () => Started((s, _) =>
             Inputs(s).PrepareMapped(ManifestFixture.Parse() with { Input = "Gone" }, null).Problems)),
+        ["mapped input that isn't an object"] = Invalid("input: Run input must be a JSON object.", () => Started((s, _) =>
+        {
+            var manifest = ConfigManifests.Parse(SchedulerScenario.Mutated(root => root["models"]![ManifestFixture.Parse().Input]!["output"] = new JsonObject { ["type"] = "array" }));
+            return Inputs(s).PrepareMapped(manifest, JsonNode.Parse("[]")).Problems;
+        })),
         ["changes that aren't an object"] = Invalid("input: The input changes must be a JSON object.", () => Started((s, run) => Inputs(s).Continue(run, JsonNode.Parse("[]")).Problems)),
         ["continue through the API with malformed input"] = Plain("Run #1 has malformed input.", () => Malformed((s, run) => Inputs(s).Continue(run, null).Problems)),
 
@@ -278,6 +305,16 @@ public class ErrorMessageTests
         await Config(d).CheckAsync(pipeline.Id, 3, default).GetAwaiter().GetResult().Problems.IsSingle<NotFoundProblem>($"Version 3 of pipeline '{pipeline.Id}' not found.");
         await Config(d).Get(pipeline.Id, 7).Problems.IsSingle<NotFoundProblem>($"Config snapshot #7 of pipeline '{pipeline.Id}' not found.");
         await inputs.StartManual(pipeline.Id, null).Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' has no active version yet (reconcile its binding first).");
+    }
+
+    [Test]
+    public async Task AFinishedAttempt_CantStart()
+    {
+        var d = new TestRunDomain();
+        var attempt = d.Schedule();
+        await Assert.That(d.AttemptService.Cancel(attempt.Id)).Succeeded();
+
+        await d.AttemptService.MarkInProgress(attempt.Id).Problems.IsSingle<ConflictProblem>($"Attempt '{attempt.Id}' is not in progress.");
     }
 
     // A chained refusal leads with what was refused, and the cause follows.

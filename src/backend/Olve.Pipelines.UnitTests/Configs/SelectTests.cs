@@ -140,6 +140,19 @@ public class SelectTests
         await Assert.That(RunPlan.From(manifest).TryGetStep("count", out _, out _)).IsFalse();
     }
 
+    [Test]
+    public async Task EverySelectWithoutACase_IsNamed()
+    {
+        var manifest = Manifest(n =>
+        {
+            var again = n["stages"]![1]!.DeepClone();
+            n["stages"]!.AsArray().Insert(2, again);
+        });
+        const string unknown = "select 'target': the config's kind (docker) is not one of its cases (ssh, inCluster)";
+
+        await RunPlan.ForConfig(manifest, Config("""{"kind":"docker"}""")).Problems.IsSingle<ResultProblem>($"{unknown}; {unknown}");
+    }
+
     // Catches: a stored manifest with empty cases, or a run on the base plan. Either way the selected step
     // doesn't exist and the run Succeeds. Parse(written) rewrites to the same text even with the cases empty,
     // so this reads what a run reads: the canonical text as stored on the version.

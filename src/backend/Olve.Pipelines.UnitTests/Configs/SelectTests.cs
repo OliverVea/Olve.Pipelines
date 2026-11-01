@@ -121,6 +121,33 @@ public class SelectTests
         await Assert.That(RunPlan.From(manifest).TryGetStep("count", out _, out _)).IsFalse();
     }
 
+    // Catches: a stored manifest with empty cases, or a run on the base plan. Either way the selected step
+    // doesn't exist and the run Succeeds. Parse(written) rewrites to the same text even with the cases empty,
+    // so this reads what a run reads: the canonical text as stored on the version.
+    [Test]
+    [Arguments("""{"kind":"ssh","host":"h"}""", StepKinds.HelmDeployOverSsh, false)]
+    [Arguments("""{"kind":"inCluster"}""", StepKinds.HelmDeployInCluster, false)]
+    [Arguments("""{"kind":"ssh","host":"h"}""", StepKinds.HelmDeployOverSsh, true)]
+    public async Task ARunOfTheStoredManifest_HasTheSelectedCasesSteps(string target, string kind, bool underWhen)
+    {
+        var manifest = Manifest(n =>
+        {
+            if (!underWhen) return;
+            var stages = n["stages"]!.AsArray();
+            var select = stages[1]!;
+            stages.RemoveAt(1);
+            stages.Insert(1, new JsonObject { ["when"] = new JsonObject { ["deployTo"] = new JsonArray("prod") }, ["stages"] = new JsonArray(select) });
+        });
+        var d = new TestRunDomain();
+        var version = d.AddVersion(d.CreatePipeline().Id, manifest: ManifestWriter.ToCanonicalJson(manifest));
+        var run = d.CreateRun(version) with { ConfigSnapshot = 1, Config = Config(target).GetRawText() };
+
+        var plan = TestRunDomain.Pick(d.Plans.ForRun(run));
+
+        await Assert.That(plan.TryGetStep("count", out _, out var step)).IsTrue();
+        await Assert.That(step!.Kind).IsEqualTo(kind);
+    }
+
     [Test]
     public async Task Gate_AsksForClusterAccess_OnlyWhenTheSelectedBranchNeedsIt()
     {

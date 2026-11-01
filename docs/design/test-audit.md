@@ -269,12 +269,12 @@ A greedy selection keeps all 3,988 kills with about 416 tests. **That is not a r
 | `ManifestParserTests.RefMapping_SplitsRootAndPath` | No mutator applies to `Split('.')[0]` or `[1..]` |
 | `CliDistributionTests.InstallScripts_*` | No mutant on the lines it reaches |
 | `CliDistributionTests.OnlyAllowListedAssetsResolve`, 2 rows | Static set, and mutators can only shrink it, while these rows check it isn't wider. A security guard. |
-- **9 tests covered but killing nothing on the `070c49b` run:** none is weak. Their mutants are killed first by other tests, or survive in code they don't assert on. `Verify_RejectsMissingOrMalformedHeader` is a security boundary and all 5 of its mutants are killed. `BindingResponses_NeverCarryTheWebhookSecret` stays as a security guard.
+- **9 tests covered but killing nothing on the `070c49b` run:** none is weak. Other tests kill their mutants, and the mutants left alive change nothing these tests assert. `Verify_RejectsMissingOrMalformedHeader` is a security boundary and all 5 of its mutants are killed. `BindingResponses_NeverCarryTheWebhookSecret` stays as a security guard.
 
 ### Weak assertion patterns
 
 - **Bare `.Failed()`:** one is left, `EntityStoreTests.Mutate_Missing_Fails_NoFire`, on a store Step 3 moves upstream. Two more sites follow `.Failed()` with the exact message.
-- **Result checks:** no test reads `.Value!` or asserts `.Failed` or `.Succeeded` as a boolean.
+- **Result checks:** no test reads a result's `.Value` or asserts `.Failed` or `.Succeeded` as a boolean.
 - **Code-only rejections:** `RunApiTests.MalformedJson_IsReportedAsAnIssue_NotAnError` asserts the code, because the message carries the parser's text. `ManifestIssueTests` pins the exact path and message for every other code.
 
 ## Reliability and parallelism
@@ -375,16 +375,16 @@ Add tests for the High and Medium rows under Confirmed gaps, as in-process flow 
 
 ### 2. Tighten assertions and timing
 
-Status: done. `ManifestIssueTests` and `ErrorMessageTests` hold the exact text of user-facing refusals, and rewording a message means updating its row. On the 12 service files that gained rows, a scoped run scores 84.44% against 71.21%, and live string mutants fall from 82 to 31.
+Status: done. `ManifestIssueTests` and `ErrorMessageTests` hold the exact text of user-facing refusals, and rewording a message means updating its row. On the 12 service files that gained rows, a scoped run scores 86.96% against 71.21%, and live string mutants fall from 82 to 21.
 
 Not in the tables:
 
-- **Reachable, no row yet:** `ExternalInputService.cs:119`, `RunStartService.cs:138`, and the refusals in `RunStepHandlers`, `VersionHandlers`, `CallbackInputs`, `ApiErrorMiddleware`, `PollTriggerService`, `FailureHandlerPlanner`, `JobLogService` and `PipelineSecretService`.
-- **Only a race or a corrupt store reaches them:** "changed concurrently", `AttemptLaunchService.cs:50,52`, `RunContinuationService.cs:79`.
+- **Reachable, no row yet:** the refusals in `RunStepHandlers`, `VersionHandlers`, `CallbackInputs`, `ApiErrorMiddleware`, `PollTriggerService`, `FailureHandlerPlanner`, `JobLogService` and `PipelineSecretService`.
+- **Only a race or a corrupt store reaches them:** "changed concurrently", `AttemptLaunchService.cs:50,52`, `AttemptService.cs:213`, `ExternalInputService.cs:48`, `RunContinuationService.cs:79`.
 - **Not messages:** `ApiHandlerConfiguration` summaries and tags (120), `HarnessJobBuilder` names and `ManifestVersioning` field names.
 - **Client glue:** `GitHubClient` and `KubernetesClient*` text, which no fake reaches.
 
-Stryker reports the `AttemptFailures` prefix table as surviving because it can't reach mutants in a static initializer. `HarnessFailureMessages_ReadBackAsTheirKind` covers it, and a hand-applied change to the table fails that test.
+Stryker reports 13 of the 16 rows of the `AttemptFailures` prefix table as surviving, in a static initializer. `HarnessFailureMessages_ReadBackAsTheirKind` covers the table: a hand-applied change to it fails that test.
 
 ### 3. Tidy the suite
 
@@ -472,7 +472,7 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Zero-kill tests | 42 at audit, 9 covered on `070c49b` | Yes | The 9 are judged and stay. Step 3 covers the rest. The 12 with no recorded coverage are resolved and all stay. |
 | Weak rejection assertions | 1 bare `.Failed()` | Yes | Step 2 done. The last one moves with `EntityStore*Tests` in Step 3. |
 | `.IsTrue()` convention breaks | 0 | Yes | Step 2, done |
-| Flaky runs | 0 of 156 at audit. With 16 busy loops: 2 of 93 runs failed, and 0 of 78 once the loopback server's shutdown race was fixed. | Yes | Step 8 tracks real pipeline data |
+| Flaky runs | 0 of 156 at audit. With 16 busy loops, 2 of 93 runs failed. One failure was a shutdown race in `LoopbackHttpServer`, which any exception during shutdown now ends cleanly. The other's cause wasn't captured. | Yes | Step 8 tracks real pipeline data |
 | Rare flakes near 1 in 300 | Can't be seen locally | Yes | Step 8 |
 | Test order dependence | Not tested | Partly | `order-isolation.sh` is ready and has not run. A true reversal needs a test code change. |
 | Serial test classes | 0 | Yes | Step 2, done |

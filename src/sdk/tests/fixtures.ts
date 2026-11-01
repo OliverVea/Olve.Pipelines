@@ -1,7 +1,15 @@
 // Shared models/steps for the compile tests (re-uses the example pipeline).
 import { implement, pipeline, step, Source, secret, z } from '@olivervea/pipelines';
 import * as M from '../examples/self-deploy/models';
-export * from '../examples/self-deploy/pipeline';
+export * from '../examples/self-deploy/secrets';
+export * from '../examples/self-deploy/steps/aoe-triage';
+export * from '../examples/self-deploy/steps/build';
+export * from '../examples/self-deploy/steps/checkout';
+export * from '../examples/self-deploy/steps/deploy-beta';
+export * from '../examples/self-deploy/steps/deploy-prod';
+export * from '../examples/self-deploy/steps/publish-cli';
+export * from '../examples/self-deploy/steps/summary';
+export * from '../examples/self-deploy/steps/test';
 export { M };
 
 export const base = () => pipeline({ name: 't', input: M.DeployRequest });

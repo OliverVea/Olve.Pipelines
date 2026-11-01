@@ -1,14 +1,12 @@
-// olve-build: handler-hash behaviour, determinism, the compiled binary end to end.
+// olve-build: code-hash behaviour, determinism, the compiled binary end to end.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeAll, describe, expect, test } from 'bun:test';
 import {
-  copyFileSync,
   cpSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -51,22 +49,16 @@ describe('code hash (the whole build, with the SDK external)', () => {
   test('edit a handler → a new hash', async () =>
     expect(
       await changed((d) =>
-        edit(join(d, 'handlers/build.ts'), "'image.tar'", "'image2.tar'"),
+        edit(join(d, 'steps/build.ts'), "'image.tar'", "'image2.tar'"),
       ),
     ).toBe(true));
   test('edit a shared helper in use → a new hash', async () => {
     expect(
-      await changed((d) =>
-        edit(join(d, 'handlers/lib/release.ts'), 'slice(0, 7)', 'slice(0, 8)'),
-      ),
+      await changed((d) => edit(join(d, 'release.ts'), 'slice(0, 7)', 'slice(0, 8)')),
     ).toBe(true);
     expect(
       await changed((d) =>
-        edit(
-          join(d, 'handlers/lib/release.ts'),
-          'olve-pipelines-${env}',
-          'olve-pl-${env}',
-        ),
+        edit(join(d, 'release.ts'), 'olve-pipelines-${env}', 'olve-pl-${env}'),
       ),
     ).toBe(true);
   });
@@ -74,17 +66,16 @@ describe('code hash (the whole build, with the SDK external)', () => {
     expect(
       await changed((d) =>
         writeFileSync(
-          join(d, 'handlers/lib/release.ts'),
-          readFileSync(join(d, 'handlers/lib/release.ts'), 'utf8') +
-            'export const unused = 1;\n',
+          join(d, 'release.ts'),
+          readFileSync(join(d, 'release.ts'), 'utf8') + 'export const unused = 1;\n',
         ),
       ),
     ).toBe(false);
     expect(
       await changed((d) =>
         writeFileSync(
-          join(d, 'handlers/build.ts'),
-          readFileSync(join(d, 'handlers/build.ts'), 'utf8') + '// just a comment\n',
+          join(d, 'steps/build.ts'),
+          readFileSync(join(d, 'steps/build.ts'), 'utf8') + '// just a comment\n',
         ),
       ),
     ).toBe(false);
@@ -98,14 +89,15 @@ describe('code hash (the whole build, with the SDK external)', () => {
         ),
       ),
     ).toBe(true));
-  test('edit the pipeline or a model → a new hash', async () => {
+  test('edit the pipeline, a step contract or a model → a new hash', async () => {
     expect(
       await changed((d) =>
-        edit(
-          join(d, 'pipeline.ts'),
-          "image: 'alpine:latest',\n  input: { artifact: M.BuildArtifact },\n  output: M.BetaDeployment",
-          "image: 'alpine:3.20',\n  input: { artifact: M.BuildArtifact },\n  output: M.BetaDeployment",
-        ),
+        edit(join(d, 'pipeline.ts'), "'Build, deploy beta", "'Build, then deploy beta"),
+      ),
+    ).toBe(true);
+    expect(
+      await changed((d) =>
+        edit(join(d, 'steps/deploy-beta.ts'), "'alpine:latest'", "'alpine:3.20'"),
       ),
     ).toBe(true);
     expect(
@@ -123,7 +115,14 @@ describe('code hash (the whole build, with the SDK external)', () => {
 describe('a pipeline laid out like any TypeScript package', () => {
   const plain = () => {
     const dir = copyExample(join(tmp('plain'), 'p'));
-    for (const f of ['pipeline.ts', 'models.ts', 'handlers', 'scripts'])
+    for (const f of [
+      'pipeline.ts',
+      'models.ts',
+      'release.ts',
+      'secrets.ts',
+      'steps',
+      'scripts',
+    ])
       rmSync(join(dir, f), { recursive: true, force: true });
     mkdirSync(join(dir, 'ci/steps'), { recursive: true });
     writeFileSync(
@@ -145,7 +144,7 @@ export default pipeline({ name: 'plain', input: model('In', z.object({ x: z.stri
     return dir;
   };
 
-  test('the package main is the entry; a step needs no handlers/ file', async () => {
+  test('the package main is the entry', async () => {
     const dir = plain();
     const r = await build(dir, { out: join(dir, '..', 'out'), log: () => {} });
     const m = JSON.parse(r.manifest) as {
@@ -169,6 +168,20 @@ export default pipeline({ name: 'plain', input: model('In', z.object({ x: z.stri
     rmSync(join(dir, 'ci/main.ts'));
     await expect(loadProject(dir)).rejects.toThrow('ci/main.ts not found');
   });
+  test('a package.json without main is a build error', async () => {
+    const dir = plain();
+    writeFileSync(join(dir, 'package.json'), '{}');
+    await expect(loadProject(dir)).rejects.toThrow(
+      /package\.json must name the entry point in `main`/,
+    );
+  });
+  test('a directory without a package.json is a build error', async () => {
+    const dir = plain();
+    rmSync(join(dir, 'package.json'));
+    await expect(loadProject(dir)).rejects.toThrow(
+      /package\.json must name the entry point in `main`/,
+    );
+  });
 });
 
 describe('compiled binary', () => {
@@ -190,11 +203,10 @@ describe('compiled binary', () => {
     expect(tar).toHaveLength(1);
     expect(tar[0]).toMatch(/^-rwxr-xr-x 0\/0 .* 1970-01-01 00:00 step$/);
   });
-  test('the generated registry uses literal imports', () => {
-    const reg = readFileSync(join(dirA, '.olve/gen/handlers.ts'), 'utf8');
-    expect(reg).toContain(
-      '"deploy-beta": () => import("../../handlers/deploy-beta.ts"),',
-    );
+  test('the generated entry imports the pipeline and carries the code hash', () => {
+    const entry = readFileSync(join(dirA, '.olve/gen/entry.ts'), 'utf8');
+    expect(entry).toContain('import pipeline from "../../pipeline.ts";');
+    expect(entry).toContain(JSON.stringify(a.codeHash));
   });
   test('deterministic: another directory gives the same manifest, binary and archive', async () => {
     const dirB = copyExample(join(tmp('build-b'), 'pipeline'));
@@ -271,9 +283,14 @@ describe('compiled binary', () => {
     expect(err?.exitCode).toBe(EXIT.configInvalid);
     expect(String(err?.message)).toMatch(/step 'checkout': mapper uses a ternary/);
   }, 60000);
-  test('missing handler file = build error (78)', async () => {
+  test('a staged step without an implementation = build error (78)', async () => {
     const dir = copyExample(join(tmp('nohandler'), 'pipeline'));
-    rmSync(join(dir, 'handlers/summary.ts'));
+    writeFileSync(
+      join(dir, 'steps/summary.ts'),
+      `import { step } from "@olivervea/pipelines";
+export const summary = step({ name: "summary", description: "", image: "alpine" });
+`,
+    );
     const err = await build(dir, { out: join(dir, '..', 'out'), log: () => {} }).then(
       () => undefined,
       (e) => e,
@@ -281,26 +298,6 @@ describe('compiled binary', () => {
     expect(err?.exitCode).toBe(EXIT.configInvalid);
     expect(String(err?.message)).toMatch(/step 'summary' has no implementation/);
   }, 60000);
-
-  test('handlers pair by the step they implement, not by file name', async () => {
-    const dir = copyExample(join(tmp('rename'), 'pipeline'));
-    renameSync(join(dir, 'handlers/summary.ts'), join(dir, 'handlers/report.ts'));
-    const project = await loadProject(dir);
-    expect(project.handlers.find(([step]) => step === 'summary')?.[1]).toBe(
-      join(dir, 'handlers/report.ts'),
-    );
-  });
-
-  test('a top-level handler file must implement a step, and only one file per step', async () => {
-    const dir = copyExample(join(tmp('badhandlers'), 'pipeline'));
-    writeFileSync(join(dir, 'handlers/helpers.ts'), 'export const x = 1;\n');
-    await expect(loadProject(dir)).rejects.toThrow(
-      /handlers\/helpers.ts must default-export implement/,
-    );
-    rmSync(join(dir, 'handlers/helpers.ts'));
-    copyFileSync(join(dir, 'handlers/summary.ts'), join(dir, 'handlers/summary-copy.ts'));
-    await expect(loadProject(dir)).rejects.toThrow(/both implement step 'summary'/);
-  });
 });
 
 describe('as an installed dependency (package exports, no tsconfig paths)', () => {
@@ -367,20 +364,17 @@ describe('as an installed dependency (package exports, no tsconfig paths)', () =
 describe('cancellation through the real loader', () => {
   test('SIGTERM to `ld-linux --library-path … step run` aborts ctx.signal, kills children, exits 143', async () => {
     const dir = join(tmp('sigterm'), 'pipeline');
-    mkdirSync(join(dir, 'handlers'), { recursive: true });
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ main: 'pipeline.ts' }));
     writeFileSync(
       join(dir, 'pipeline.ts'),
-      `import { model, pipeline, step, z } from "@olivervea/pipelines";
-export const Req = model("Req", z.object({ x: z.string() }));
-export const slow = step({ name: "slow", description: "", image: "alpine" });
+      `import { implement, model, pipeline, step, z } from "@olivervea/pipelines";
+const Req = model("Req", z.object({ x: z.string() }));
+const slow = implement(
+  step({ name: "slow", description: "", image: "alpine" }),
+  async (_i, ctx) => { await ctx.sh("sleep 30"); },
+);
 export default pipeline({ name: "slow", input: Req }).stage(slow);
-`,
-    );
-    writeFileSync(
-      join(dir, 'handlers/slow.ts'),
-      `import { implement } from "@olivervea/pipelines";
-import { slow } from "../pipeline";
-export default implement(slow, async (_i, ctx) => { await ctx.sh("sleep 30"); });
 `,
     );
     const b = await build(dir, { out: join(dir, '..', 'out'), log: () => {} });

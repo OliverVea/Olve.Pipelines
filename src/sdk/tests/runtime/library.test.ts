@@ -1563,7 +1563,7 @@ describe('library steps in the manifest', () => {
         }),
       );
     const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
-    const m = describePipeline(p, { handlerNames: [], harness });
+    const m = describePipeline(p, { harness });
     expect(Manifest.safeParse(m).success).toBe(true);
     const all = m.stages.flatMap((s) => ('steps' in s ? s.steps : []));
     expect(all.map((s) => [s.kind, s.image, s.secrets, s.config, s.input])).toEqual([

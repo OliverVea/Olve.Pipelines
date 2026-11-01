@@ -47,9 +47,7 @@ definition alone.
 
 - **Importing the entry point is deterministic**: describe evaluates it and everything it imports.
 - **Steps carry their handlers**: `implement(step({ … }), fn)` is imported and staged like any value.
-  A plain `step()` instead pairs with a top-level `handlers/*.ts` default-exporting `implement(step,
-  fn)`; the build generates a registry of literal imports for those (computed dynamic imports would
-  load from disk at runtime). A custom step with no implementation is a describe error.
+  `step()` alone is a contract; staging one without an implementation is a describe error.
 - **Scripts are embedded**: `import script from "./scripts/x.sh" with { type: "file" }`. The repo
   is not in the step container; the harness copies embedded scripts out before running them.
 
@@ -190,7 +188,7 @@ Return type is `Infer<Output> | Skipped`: a handler produces a valid output or e
 ### 3.6 Pipeline
 
 ```ts
-// checkout, test (§3.4), build, deployBeta, deployProd (§3.3) are defined above in pipeline.ts;
+// checkout, test (§3.4), build, deployBeta, deployProd (§3.3) are defined above, each with its implementation;
 // publishCli (a step consuming BuildArtifact) and aoeTriage (a failure handler) are defined elsewhere.
 export const GITHUB_TOKEN = secret("GITHUB_TOKEN", "Read-only token for polling the commits API.");
 
@@ -286,7 +284,7 @@ the compile-fail checker runs in SDK CI against both TS lines.
 | Step uses an undeclared secret; poll `$SECRET:` header not in the poll's `secrets` | ✓ | | ✓ |
 | Duplicate step name | ✓ | ✓ | ✓ |
 | Two schemas under one model name | — | ✓ | — |
-| Custom step without a handler file | — | ✓ (registry generation) | — |
+| Staged step without an implementation | — | ✓ | — |
 | Output nothing consumes | — | | warning (fine for gate steps like `test`) |
 
 ### 3.8 Wait steps (v2.1)
@@ -351,7 +349,7 @@ dispatches by kind instead of assuming "attempt = one K8s Job":
 
 ## 4. Manifest
 
-`describe` mode evaluates `models.ts` + `pipeline.ts` (never handlers) and emits:
+`describe` mode evaluates the entry point and what it imports (never running handlers) and emits:
 
 ```json
 {

@@ -1,11 +1,9 @@
 // The build's code hash: everything the pipeline runs, bundled once with the SDK external (the
 // harness identity stands for it).
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { BunPlugin } from 'bun';
 import { sha256Hex } from '../util/hash.ts';
 import { composeCodeHash, type HarnessInfo } from '../util/code-hash.ts';
-import { relPosix, type Project } from './project.ts';
+import type { Project } from './project.ts';
 
 const sdkExternal: BunPlugin = {
   name: 'olve-code-hash-external',
@@ -17,7 +15,8 @@ const sdkExternal: BunPlugin = {
   },
 };
 
-async function bundleHash(project: Project, entry: string): Promise<string> {
+async function bundleHash(project: Project): Promise<string> {
+  const entry = project.pipelineFile;
   const r = await Bun.build({
     entrypoints: [entry],
     target: 'bun',
@@ -53,18 +52,5 @@ async function bundleHash(project: Project, entry: string): Promise<string> {
 }
 
 export async function codeHash(project: Project, harness: HarnessInfo): Promise<string> {
-  const gen = join(project.dir, '.olve', 'gen');
-  mkdirSync(gen, { recursive: true });
-  const entry = join(gen, 'code.ts');
-  const files = [project.pipelineFile, ...project.handlers.map(([, file]) => file)];
-  writeFileSync(
-    entry,
-    files
-      .map(
-        (f, i) =>
-          `export { default as m${i} } from ${JSON.stringify(relPosix(gen, f))};\n`,
-      )
-      .join(''),
-  );
-  return composeCodeHash(await bundleHash(project, entry), harness);
+  return composeCodeHash(await bundleHash(project), harness);
 }

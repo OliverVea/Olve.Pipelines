@@ -42,9 +42,9 @@ const devConsole = (ctx: CommandContext): DevConsole => ({
 
 function resolveDir(ctx: CommandContext): string {
   const dir = resolve(ctx.args.optionOr('dir', DEFAULT_DIR));
-  if (!existsSync(join(dir, 'pipeline.ts')))
+  if (!existsSync(join(dir, 'package.json')))
     throw new CliError(
-      `No pipeline.ts in '${dir}'. Run \`pl dev\` from the repo root, or pass --dir <pipeline directory>.`,
+      `No package.json in '${dir}'. Run \`pl dev\` from the repo root, or pass --dir <pipeline directory>.`,
     );
   return dir;
 }

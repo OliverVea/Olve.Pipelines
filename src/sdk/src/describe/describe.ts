@@ -40,8 +40,6 @@ export class DescribeError extends Error {
 }
 
 export interface DescribeOptions {
-  /** Step names that have a handler (a `handlers/*.ts` default-exporting `implement(step, …)`). */
-  handlerNames: Iterable<string>;
   /** Hash of the build (from the build; includes the harness identity). */
   codeHash?: string;
   harness: HarnessInfo;
@@ -126,7 +124,6 @@ function literalValues(field: JsonSchema | undefined): unknown[] | undefined {
 export function describePipeline(pipeline: unknown, opts: DescribeOptions): ManifestT {
   const data = pipelineData(pipeline);
   const problems: string[] = [...data.problems];
-  const handlerNames = new Set(opts.handlerNames);
 
   // ── models ──
   const models = new Map<string, { schemas: ModelSchemasT; key: string }>();
@@ -229,20 +226,10 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     const prev = placements.get(s.name) ?? [];
     if (prev.some((p) => !exclusive(p.cases, cases)))
       problems.push(`duplicate step name '${s.name}'`);
-    else if (prev.length) {
-      if (
-        prev.some(
-          (p) => p.step !== s && !isImplementation(p.step) && !isImplementation(s),
-        )
-      )
-        problems.push(
-          `step '${s.name}': two different steps with handler files share the name across select cases; handlers pair by name, so use one step or different names`,
-        );
-      if (prev.some((p) => (p.step.output?.name ?? null) !== (s.output?.name ?? null)))
-        problems.push(
-          `step '${s.name}': its select cases must give it the same output model`,
-        );
-    }
+    else if (prev.some((p) => (p.step.output?.name ?? null) !== (s.output?.name ?? null)))
+      problems.push(
+        `step '${s.name}': its select cases must give it the same output model`,
+      );
     placements.set(s.name, [...prev, { step: s, cases }]);
     if (!steps.has(s.name)) steps.set(s.name, s);
   };
@@ -455,10 +442,8 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
           `${at}: config reference '${ref}': config '${entry}' has no field '${path.join('.')}'`,
         );
     }
-    if (!carried && !handlerNames.has(s.name))
-      problems.push(
-        `${at} has no implementation (implement(${camel(s.name)}, …) and stage that, or add a handlers/*.ts default-exporting it)`,
-      );
+    if (!carried)
+      problems.push(`${at} has no implementation (stage implement(step({...}), fn))`);
     if (typeof s.description !== 'string')
       problems.push(`${at}: description must be a string (it may be empty)`);
     if (
@@ -718,17 +703,6 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
     })
     .filter((x) => x !== undefined);
 
-  // ── handlers without a step ──
-  for (const h of handlerNames) {
-    const s = steps.get(h);
-    if (!s)
-      problems.push(`a handler implements step '${h}', which is not in the pipeline`);
-    else if (isImplementation(s))
-      problems.push(
-        `a handler implements '${h}', a ${s.kind} step that carries its own implementation`,
-      );
-  }
-
   // ── triggers ──
   const triggerNames = new Set<string>();
   const triggers: TriggerT[] = data.triggers.map((t) => {
@@ -929,8 +903,4 @@ interface CaseOf {
   select: number;
   value: string;
   cond: string;
-}
-
-function camel(name: string): string {
-  return name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }

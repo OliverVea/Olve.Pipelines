@@ -78,7 +78,7 @@ export const bindingCommands: Command[] = [
     detail: `pl binding create <repo> [options]
 
   Creates a pipeline already bound to a git repo. The reconcile loop then builds the
-  pipeline in the repo's binding path (.pipelines/pipeline.ts by default) into a version
+  pipeline in the repo's binding path (.pipelines by default) into a version
   and activates it. <repo> is the GitHub "owner/name" slug.
 
   --branch <name>              Branch to track (default: main)

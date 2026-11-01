@@ -19,11 +19,10 @@ import {
   secretRefsOf,
 } from '../../src/describe/describe.ts';
 import { Manifest } from '../../src/describe/manifest-schema.ts';
-import { allSteps, runHarness, type HarnessConfig } from '../../src/harness/main.ts';
-import { pipelineData } from '../../src/builder/pipeline.ts';
+import { runHarness, type HarnessConfig } from '../../src/harness/main.ts';
 import { EXIT } from '../../src/harness/exit.ts';
 import { testHandler } from '../../src/testing/index.ts';
-import { captureIO, tmp, withEnv } from './helpers.ts';
+import { captureIO, stubStep, tmp, withEnv } from './helpers.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 
@@ -53,29 +52,26 @@ const TELEMETRY = config(
 
 const Req = model('Req', z.object({ sha: z.string() }));
 const Out = model('Out', z.object({ text: z.string() }));
-const deploy = step({
-  name: 'deploy',
-  description: '',
-  image: 'alpine',
-  input: { req: Req },
-  output: Out,
-  config: [TARGET, AUTH, TELEMETRY],
-  secrets: [DEX_SECRET],
-});
-const plain = step({
+const deploy = implement(
+  step({
+    name: 'deploy',
+    description: '',
+    image: 'alpine',
+    input: { req: Req },
+    output: Out,
+    config: [TARGET, AUTH, TELEMETRY],
+    secrets: [DEX_SECRET],
+  }),
+  async (_, ctx) => ({ text: JSON.stringify(ctx.config) }),
+);
+const plain = stubStep({
   name: 'plain',
   description: '',
   image: 'alpine',
   input: { req: Req },
 });
 
-const describeOf = (p: unknown) => {
-  const names = allSteps(pipelineData(p)).map((s) => s.name);
-  return describePipeline(p, {
-    handlerNames: names,
-    harness,
-  });
-};
+const describeOf = (p: unknown) => describePipeline(p, { harness });
 const problems = (p: unknown): string[] => {
   try {
     describeOf(p);
@@ -117,7 +113,7 @@ describe('describe', () => {
   });
 
   test('a step receiving a secretRef must declare the secret', () => {
-    const bad = step({
+    const bad = stubStep({
       name: 'bad',
       description: '',
       image: 'alpine',
@@ -132,14 +128,14 @@ describe('describe', () => {
   test('config names, one schema per name, reserved input keys', () => {
     const badName = config('Bad-name', '', z.string());
     const other = config('target', 'Where to deploy.', z.object({ host: z.number() }));
-    const s1 = step({
+    const s1 = stubStep({
       name: 'bad',
       description: '',
       image: 'alpine',
       input: { req: Req, $x: Req } as any,
       config: [badName],
     });
-    const s2 = step({
+    const s2 = stubStep({
       name: 'other',
       description: '',
       image: 'alpine',
@@ -161,15 +157,8 @@ describe('describe', () => {
 });
 
 describe('delivery', () => {
-  const impl = implement(deploy, async (_, ctx) => ({
-    text: JSON.stringify(ctx.config),
-  }));
   const cfg: HarnessConfig = {
     pipeline: pipeline({ name: 't', input: Req }).stage(deploy).stage(plain),
-    handlers: {
-      deploy: async () => ({ default: impl }),
-      plain: async () => ({ default: implement(plain, () => undefined) }),
-    },
     harness,
   };
   const run = async (name: string, input: unknown) => {
@@ -220,7 +209,7 @@ describe('delivery', () => {
 
   test('testHandler takes config', async () => {
     const r = await testHandler(
-      impl,
+      deploy,
       { req: { sha: 'x' } },
       {
         config: {

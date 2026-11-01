@@ -59,7 +59,7 @@ skips when the version exists, or when the pipeline secret `NPM_TOKEN` is unset.
 
 ## Authoring
 
-A pipeline directory (the binding path, `.pipelines/` by default) is an ordinary Bun package. `main` in `package.json` names the entry point, which default-exports the pipeline (`pipeline.ts` when there is no `main`); every other name is yours. A step that carries its implementation, `implement(step({ … }), fn)`, is imported and staged like any value. A plain `step()` needs a top-level `handlers/*.ts` default-exporting `implement(step, fn)`, paired by the step, not the file name; shared code goes in a subfolder.
+A pipeline directory (the binding path, `.pipelines/` by default) is an ordinary Bun package. `main` in `package.json` is required and names the entry point, which default-exports the pipeline; every other name is yours. A step carries its implementation, `implement(step({ … }), fn)`, and is imported and staged like any value.
 
 Describe evaluates the entry point and everything it imports, so top-level code must be deterministic: no env, time or network. Scripts are embedded with `import s from "./x.sh" with { type: "file" }`.
 
@@ -89,6 +89,7 @@ export const deployBeta = step({
 
 Rules:
 
+- `step()` is the contract. A pipeline stages `implement(step, fn)`; a staged step without an implementation is a describe error.
 - Models are **nominal**: two models with the same shape are not interchangeable.
 - There is **one schema per model name**. Two different schemas registered under the same name is a describe error.
 - **Outputs are validated strictly**: unknown keys are rejected at any depth, not stripped.
@@ -168,13 +169,13 @@ Library steps carry their own implementation and image; they take typed settings
 | `sshSession(ctx, { host, key })` | Installs openssh-client when the image has no ssh (apk or apt-get), writes the key to `<tmpDir>/ssh/id` (trailing newline, mode 600; host key not verified) and returns `{ run(remote), text(remote), copy(local, remote), shell(remote) }`; `shell` is the quoted ssh command for pipes (`ctx.sh(`printf '%s' "$V" \| ${s.shell("kubectl apply -f -")}`)`). `helmDeployOverSsh` uses it. |
 
 ```ts
-import { httpHealthCheck, implement } from "@olivervea/pipelines";
-export default implement(smoke, async (_, ctx) => { await httpHealthCheck(ctx, "http://app.ns.svc.cluster.local/api/health", { attempts: 10 }); });
+import { httpHealthCheck, implement, step } from "@olivervea/pipelines";
+export const smoke = implement(step({ name: "smoke", description: "", image: "alpine:3.22" }), async (_, ctx) => { await httpHealthCheck(ctx, "http://app.ns.svc.cluster.local/api/health", { attempts: 10 }); });
 ```
 
 ### Reusable steps
 
-A step several pipelines use is a function returning `implement(step(…), handler)`, staged directly: it carries its handler, so it has no `handlers/` file. The library steps are written this way, so a module in a repo or a package of its own works the same.
+A step several pipelines use is a function returning `implement(step(…), handler)`, staged directly. The library steps are written this way, so a module in a repo or a package of its own works the same.
 
 ```ts
 import { implement, resolveConfigRefs, serviceUrl, step, HelmRelease, type Configurable, type LiteralName } from "@olivervea/pipelines";
@@ -189,17 +190,15 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 
 - **`kind`**: a label, `custom` unless the step names one. Prefix a package's kinds (`acme/smokeTest`).
 - **`settings`**: what the step was set up with, recorded as the step's manifest `config` (so part of its version). JSON values and config references; the step receives every entry its settings reference.
-- `implement` refuses a step that already carries an implementation; a `handlers/*.ts` file for such a step is a describe error.
+- `implement` refuses a step that already carries an implementation.
 
 ### Handlers
 
 ```ts
-// handlers/deploy-beta.ts
-import { implement } from "@olivervea/pipelines";
-import { deployBeta } from "../pipeline";
-import deployScript from "../scripts/deploy.sh" with { type: "file" };
+import { implement, step } from "@olivervea/pipelines";
+import deployScript from "./scripts/deploy.sh" with { type: "file" };
 
-export default implement(deployBeta, async ({ artifact }, ctx) => {
+export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), async ({ artifact }, ctx) => {
   await ctx.sh(deployScript, { env: { IMAGE_TAR: await ctx.files.fetch(artifact.image), CHART_DIR: await ctx.files.fetch(artifact.chart) } });
   await ctx.retry({ attempts: 5, delaySeconds: 5 }, () => ctx.http.expectOk("https://pipelines-beta.ovea.pro/api/health"));
   return { release: "olve-pipelines", version: artifact.version, url: "https://pipelines-beta.ovea.pro" };   // or ctx.skip("reason")
@@ -251,13 +250,13 @@ export default pipeline({ name: "Olve.Pipelines", description: "…", input: M.D
 
 ```ts
 import { testHandler, testFileRef } from "@olivervea/pipelines/testing";
-import deployBeta from "../handlers/deploy-beta";
+import { deployBeta } from "../steps/deploy-beta";
 
 const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_KEY: "k" }, config: { target: { host: "h" } }, ctx: { http: fakeHttp }, run: { number: 412 } });
 expect(r).toMatchObject({ status: "succeeded", output: { release: "olve-pipelines" } });   // r.filesDir, r.logs, r.exitCode
 ```
 
-`testHandler` uses the same validation path as a real run. Invalid input gives `status: "failed"` with `kind: "input"`; an invalid return value gives `kind: "output"`. Any part of `ctx` can be replaced; whatever you don't replace is the real implementation. `testHandler` takes any implementation: a handler module's default export, a library step or a reusable step.
+`testHandler` uses the same validation path as a real run. Invalid input gives `status: "failed"` with `kind: "input"`; an invalid return value gives `kind: "output"`. Any part of `ctx` can be replaced; whatever you don't replace is the real implementation. `testHandler` takes any implementation: a custom step, a library step or a reusable step.
 
 ## Harness contract (service ⇄ step binary)
 
@@ -337,7 +336,7 @@ For `map-trigger`, `output` is the pipeline input after it has been parsed by th
 | 65 | `input.json` missing, not JSON, or invalid for the step (or event), including its `$config` | failed / `input` |
 | 66 | the return value failed strict validation, or an own file ref is missing or changed | failed / `output` |
 | 74 | the `result.tar.gz` upload failed after retries. Used only when the step itself succeeded; otherwise the step's own code wins. | yes (printed) |
-| 78 | the pipeline is invalid (describe problems, or a missing or wrong handler module) | none |
+| 78 | the pipeline is invalid (describe problems, or a step without an implementation) | none |
 | 130 / 143 | the handler failed after SIGINT / SIGTERM (cancellation, `activeDeadlineSeconds`) | failed / `handler` |
 
 ### Result upload (`OLVE_RESULT_URL`)
@@ -368,7 +367,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 - **`apiVersion`** is `"2.0"`.
 - **`harness`** is `{ bun, sdk, sdkHash }`.
 - **`models[name]`** is `{ output, input? }`.
-- **Step `kind`** is `custom` (a handler file) or the kind of a step that carries its implementation (`imageBuild`, `composeDeploy`, a package's `acme/…`). To the service it is a label: any non-empty kind is accepted, so a new library or package step needs no service change.
+- **Step `kind`** is `custom` by default, or what a reusable step names (`imageBuild`, `composeDeploy`, a package's `acme/…`). To the service it is a label: any non-empty kind is accepted, so a new library or package step needs no service change.
   - `output` is the `z.output` view, with `additionalProperties: false` on every object. It validates outputs, the pool and trigger results.
   - `input` is the `z.input` view (defaults optional). Use it for trigger forms and manual input. It is emitted only when it differs from `output` beyond `additionalProperties`.
 - **Step `input`** maps each input key to a mapping:
@@ -379,7 +378,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
 - **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
-- **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point and any `handlers/*.ts` bundled together, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
+- **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point bundled with everything it imports, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
 - **`triggers`**:
   - `{kind: "push", name: "push"}`;
@@ -395,7 +394,7 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 
 - step name format and reserved names (`input`, `failure`), and duplicate step names;
 - one schema per model name, and JSON-representable models;
-- missing handler file, a handler file without a step (or for a step that carries its implementation), and a step that carries its implementation without a kind;
+- a staged step without an implementation, and an empty step kind;
 - availability, ambiguity, maybe-available as required, `optional` without a producer, plain schema without a mapper;
 - mapper source analysis and recording, unknown fields in refs, mapper keys that are missing or extra;
 - `when` on an unknown or non-literal field, or with an invalid value;
@@ -411,8 +410,8 @@ olve-build <pipelineDir> --out <dir> [--target bun-linux-x64|bun-linux-x64-musl]
 olve-build <pipelineDir> --hash-only          # print the code hash (diagnostics)
 ```
 
-1. Pair each `handlers/*.ts` with the step its `implement(step, …)` names, and hash the build (see `codeHash`).
-2. Generate `<pipelineDir>/.olve/gen/handlers.ts` (a registry of literal `import()` paths, plus the code hash and harness info) and `entry.ts`. Add `.olve/` to `.gitignore`.
+1. Read the entry point from `main` in `package.json` (a missing `main`, or a `main` whose file is missing, is an error) and hash the build (see `codeHash`).
+2. Generate `<pipelineDir>/.olve/gen/entry.ts`, which imports the pipeline and calls `runHarness` with it, the code hash and the harness info. Add `.olve/` to `.gitignore`.
 3. Run `bun build --compile --target=bun-linux-x64 --no-compile-autoload-dotenv --no-compile-autoload-bunfig --bytecode --format=esm` → `<out>/step`. The output is never minified, because mapper source analysis needs real source.
 4. Check that `PT_INTERP` is `/lib64/ld-linux-x86-64.so.2`. On alpine, Bun silently produces a musl binary; the check fails it.
 5. Run `<out>/step describe` → `<out>/manifest.json`. A describe problem is a build failure with exit 78. **A step with no implementation is an error.**

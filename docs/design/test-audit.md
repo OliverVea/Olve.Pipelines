@@ -501,7 +501,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 1:** 1 of the 8 High rows from the survivor triage. A hand-applied regression leaves the unit suite green for G12. The 50 Medium rows are also open.
+- **Step 1:** the 50 Medium rows from the survivor triage.
 - **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
 - **Step 4:** no Stryker run since the audit, so every score above is the audit's.
@@ -511,6 +511,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **Pipelines and SDK**
 
+- `CheckShape` limits recursion by depth only, so validating a recursive model visits about fields^16 paths: 42 ms with one recursive field, 831 ms with two, 79 s with three. Reconcile holds the binding's lock meanwhile.
 - `packResult` writes a tar and then gzips it, which doubles scratch use for large outputs. This contributed to `claude-code` exceeding its 1 GiB limit.
 - crafty's `deploy` and `verify` stay blocked and `crafty#2` was cancelled, so its migrated pipeline has not deployed. Unblocking is a prod action for Oliver to decide.
 

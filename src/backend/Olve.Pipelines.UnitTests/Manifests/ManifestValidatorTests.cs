@@ -73,6 +73,30 @@ public class ManifestValidatorTests
         await Assert.That(report.Warnings.Select(w => w.Step)).Contains("build-two");
     }
 
+    // Catches: a self-referencing model overflowing the stack, which can't be caught: one push would
+    // crash-loop the service, because reconcile runs again at startup. Regressed, this ends the test process.
+    [Test]
+    public async Task RecursiveModels_AreCheckedToADepth_InsteadOfForever()
+    {
+        static JsonObject Node(string self) => new()
+        {
+            ["type"] = "object",
+            ["properties"] = new JsonObject { ["next"] = new JsonObject { ["$ref"] = self } },
+        };
+        var manifest = Mutate(r =>
+        {
+            r["models"]!["Node"] = new JsonObject { ["output"] = Node("#") };
+            var artifact = r["models"]!["BuildArtifact"]!["output"]!.AsObject();
+            artifact["$defs"] = new JsonObject { ["node"] = Node("#/$defs/node") };
+            artifact["properties"]!["node"] = new JsonObject { ["$ref"] = "#/$defs/node" };
+            var deploy = Step(r, "deploy-beta");
+            deploy["inputTypes"]!["artifact"] = ModelType("Node");
+            deploy["input"]!["artifact"] = Ref("build.node");
+        });
+
+        await Assert.That(ManifestValidator.Validate(manifest).Errors).IsEmpty();
+    }
+
     [Test]
     public async Task SameFailureHandler_AttachedTwice_IsAccepted()
     {

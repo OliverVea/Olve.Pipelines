@@ -252,14 +252,14 @@ A greedy selection keeps all 3,988 kills with about 416 tests. **That is not a r
 
 48 groups cover 121 test cases. 32 groups are rows of one parameterized test, such as `EachCheck_RejectsItsMutation`, and are not duplicates. Of the 16 cross-method groups, covering 43 cases:
 
-- **Merge:** `JobRunnerTests.Job_FinishSuccess_TransitionsToSucceeded` and `SecondStepJob_FinishSuccess_TransitionsToSucceeded`, which differ only by step name.
-- **Optional merge:** `PipelineSummaryServiceTests.UnboundPipeline_HasNullRepo` and `PipelineWithoutVersion_HasNoStages`.
+- **Merge:** `JobRunnerTests.Job_FinishSuccess_TransitionsToSucceeded`, one test with a row per step name.
+- **Keep:** `PipelineSummaryServiceTests.UnboundPipeline_HasNullRepo` and `PipelineWithoutVersion_HasNoStages` share a fixture and state two rules.
 - **Keep:** the remaining 14 state distinct rules or guards, such as the webhook signature tests, `Create_Concurrently_YieldsDistinctNumbers`, and `Conflict_Is409` with `Unavailable_Is503`.
 
 ### Zero kills (42)
 
-- **12 `EntityStore*Tests`:** `EntityStore` lives in the Olve.Utilities package. Move them upstream unless they pin behaviour this repo depends on.
-- **3 `FakeConfigSourceTests`:** they test a test fake. Fold them into the fake contract tests.
+- **12 `EntityStore*Tests`:** `EntityStore` lives in the Olve.Utilities package, and its rules live in that package's suite.
+- **3 `FakeConfigSourceTests`:** the config source rules live in `ConfigSourceContract`, for `FakeConfigSource` and for `GitHubConfigSource` over the recorded replies.
 - **12 on production code with no recorded coverage:** keep all 12. None reaches a mutant that could detect it, and coverage capture is not at fault.
 
 | Test | Why it has no kills |
@@ -273,7 +273,7 @@ A greedy selection keeps all 3,988 kills with about 416 tests. **That is not a r
 
 ### Weak assertion patterns
 
-- **Bare `.Failed()`:** one is left, `EntityStoreTests.Mutate_Missing_Fails_NoFire`, on a store Step 3 moves upstream. Two more sites follow `.Failed()` with the exact message.
+- **Bare `.Failed()`:** none is left. Two sites follow `.Failed()` with the exact message.
 - **Result checks:** no test reads a result's `.Value` or asserts `.Failed` or `.Succeeded` as a boolean.
 - **Code-only rejections:** `RunApiTests.MalformedJson_IsReportedAsAnIssue_NotAnError` asserts the code, because the message carries the parser's text. `ManifestIssueTests` pins the exact path and message for every other code.
 
@@ -388,9 +388,7 @@ Stryker reports 13 of the 16 rows of the `AttemptFailures` prefix table as survi
 
 ### 3. Tidy the suite
 
-1. Merge the `JobRunnerTests` pair, and optionally the `PipelineSummaryServiceTests` pair.
-2. Move the `EntityStore*Tests` upstream if nothing here relies on them.
-3. Fold `FakeConfigSourceTests` into the contract tests.
+Status: done. The `JobRunnerTests` pair is one parameterized test. The `PipelineSummaryServiceTests` pair stays, because the two tests state two rules. Olve.Utilities' own suite holds every `EntityStore` rule, equal or stronger; `Mutate_Missing_Fails_NoFire` there asserts the problem type, not its text. `ConfigSourceContract` states the config source rules once, for `FakeConfigSource` and for `GitHubConfigSource` over the recorded replies. Five hand-applied faults in the fake each fail a contract rule, and a scoped run on `GitHubConfigSource.cs` and `ConfigCursor.cs` loses no kill.
 
 Don't remove tests just for lacking a unique kill.
 
@@ -467,10 +465,10 @@ Add a small set of browser-level tests of the main user flows, running against a
 | `Configuration` score | 31.7% | By design | Mostly metadata and wiring. `RequireRead()` is checked and is not a gap. |
 | Unmeasured mutants | 1,876 labelled, about 845 (7.9%) real | Partly | Step 4 has the workaround. Its runs are still to do. |
 | Mutants hidden by `*Log*` | About 60 | Yes | Step 4 narrows the pattern |
-| Cross-method duplicate groups | 16 (1 merge, 1 optional) | Yes | Step 3 |
+| Cross-method duplicate groups | 16 (1 merged, 15 kept) | Yes | Step 3, done |
 | No unique kill | 463 tests | No action, by design | Most keep their place as rules or guards |
-| Zero-kill tests | 42 at audit, 9 covered on `070c49b` | Yes | The 9 are judged and stay. Step 3 covers the rest. The 12 with no recorded coverage are resolved and all stay. |
-| Weak rejection assertions | 1 bare `.Failed()` | Yes | Step 2 done. The last one moves with `EntityStore*Tests` in Step 3. |
+| Zero-kill tests | 42 at audit, 9 covered on `070c49b` | Yes | The 9 are judged and stay. Step 3 resolved the rest. The 12 with no recorded coverage are resolved and all stay. |
+| Weak rejection assertions | 0 bare `.Failed()` | Yes | Steps 2 and 3, done |
 | `.IsTrue()` convention breaks | 0 | Yes | Step 2, done |
 | Flaky runs | 0 of 156 at audit. With 16 busy loops, 2 of 93 runs failed. One failure was a shutdown race in `LoopbackHttpServer`, which any exception during shutdown now ends cleanly. The other's cause wasn't captured. | Yes | Step 8 tracks real pipeline data |
 | Rare flakes near 1 in 300 | Can't be seen locally | Yes | Step 8 |
@@ -511,7 +509,6 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 3:** the `FakeConfigSourceTests` fold is not checked.
 - **Step 4:** every score above is the audit's. A full run on `070c49b` scores 67.91%: 5,088 killed, 22 timed out, 1,366 survived, 1,049 uncovered, 1,985 unmeasured.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
 - **Step 9:** not started.

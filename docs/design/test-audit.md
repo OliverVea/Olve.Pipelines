@@ -318,6 +318,7 @@ Real time in tests:
 - **TypeScript:** `src/sdk`, `src/cli`, `.pipelines/tests` and `src/deploy` hold 27 test files and 304 tests. They were audited by reading and not mutation tested. See [TypeScript tests](#typescript-tests).
 - **Bug types mutation testing can't see:** a skim of the 70 most recent of 114 fix commits, by subject only, suggests external-interface and ordering bugs are prominent. A good mutation score does not protect against those.
 - **Pipeline:** it already follows the no-repeat rule. `test` appears once, and `betaTest` sits in alternative `select` cases.
+- **Olve.AgentRuntimeManager:** its suite is load-sensitive, unlike this one. In `Olve.AgentRuntimeManager#28`, 12 timing tests failed at a load average of about 50 and passed on rerun under similar load. They are not fixed. `Call_ThatStopsWithTheServer_StaysInterrupted` no longer depends on a timer (`8e762f5`).
 
 ## TypeScript tests
 
@@ -432,6 +433,7 @@ Add a small set of browser-level tests of the main user flows, running against a
 - Run the new tiers once each, against the deployment or configuration they target.
 - Keep special cases such as load tests off-cadence.
 - Keep flake data from real pipeline runs, because local runs can't see rates near 1 in 300, and report the suite's combined rate against the 5% budget. The roadmap's step reliability tracking would supply this per step. Naming the individual flaky test still needs per-test results from the `test` step.
+- First unexplained case for that data: `build-sdk` in `Olve.Pipelines v2#167` was killed with exit 137 and `ContainerStatusUnknown`, cause not established. `#168` passed.
 
 ### 9. TypeScript tests
 

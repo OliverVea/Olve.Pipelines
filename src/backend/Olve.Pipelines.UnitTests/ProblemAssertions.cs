@@ -9,12 +9,14 @@ namespace Olve.Pipelines.UnitTests;
 internal static class ProblemAssertions
 {
     /// <summary>Asserts the one problem's exact type (it decides the HTTP status) and the text a user reads.</summary>
-    public static async Task IsSingle<TProblem>(this ResultProblemCollection? problems, string message)
-        where TProblem : ResultProblem
+    public static Task IsSingle<TProblem>(this ResultProblemCollection? problems, string message)
+        where TProblem : ResultProblem => problems.IsSingle(typeof(TProblem), message);
+
+    public static async Task IsSingle(this ResultProblemCollection? problems, Type type, string message)
     {
         await Assert.That(problems).IsNotNull().Because("the result succeeded");
         var problem = await Assert.That(problems!).HasSingleItem();
-        await Assert.That(problem!.GetType()).IsEqualTo(typeof(TProblem));
+        await Assert.That(problem!.GetType()).IsEqualTo(type);
         await Assert.That(problem.ToDisplayString()).IsEqualTo(message);
     }
 

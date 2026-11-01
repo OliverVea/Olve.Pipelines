@@ -17,7 +17,7 @@ public class HarnessJobBuilderTests
 
     internal static readonly HarnessOptions Options = new() { RuntimeClassName = "gvisor" };
 
-    private static HarnessJobRequest Request(
+    internal static HarnessJobRequest Request(
         IReadOnlyList<string>? secrets = null,
         IReadOnlyDictionary<string, string>? fileUrls = null,
         long? timeout = 600,
@@ -163,23 +163,6 @@ public class HarnessJobBuilderTests
 
         await Assert.That(noTimeout.Job.Spec.ActiveDeadlineSeconds).IsEqualTo(3600 + 120);
         await Assert.That(huge.Job.Spec.ActiveDeadlineSeconds).IsEqualTo(6 * 3600 + 120);
-    }
-
-    [Test]
-    [Arguments("lower")]
-    [Arguments("OLVE_RESULT_URL")]
-    [Arguments("TMPDIR")]
-    public async Task StepJob_RejectsInvalidOrReservedSecretNames(string secret)
-    {
-        await Assert.That(HarnessJobBuilder.Build(Request(secrets: [secret]), Options)).Failed();
-    }
-
-    [Test]
-    public async Task StepJob_RejectsOversizedFileUrlMap()
-    {
-        var urls = Enumerable.Range(0, 400).ToDictionary(i => $"1/build/1/f{i}", _ => "http://garage/" + new string('x', 400));
-
-        await Assert.That(HarnessJobBuilder.Build(Request(fileUrls: urls), Options)).Failed();
     }
 
     [Test]

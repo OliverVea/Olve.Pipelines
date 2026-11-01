@@ -149,7 +149,6 @@ public class ConfigGateTests
         var switched = w.D.Gate.Switch(pending, cancelRunning: false, w.SetSecrets);
 
         await switched.Problems.IsSingle<ConflictProblem>("Version 2 can't be activated: config config.auth: is required; config config.target: is required.");
-        await Assert.That(Problems(switched)).Contains("config.auth: is required");
         await Assert.That(w.ActiveNumber).IsEqualTo(1);
     }
 

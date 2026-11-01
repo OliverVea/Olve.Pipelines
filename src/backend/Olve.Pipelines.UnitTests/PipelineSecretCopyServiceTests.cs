@@ -187,6 +187,16 @@ public class PipelineSecretCopyServiceTests
     }
 
     [Test]
+    public async Task TargetName_Blank_Fails()
+    {
+        var f = Build();
+
+        var result = await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id, ["GITHUB_TOKEN"], TargetName: " "), "oliver");
+
+        await result.Problems.IsSingle<ValidationProblem>("targetName: targetName must not be empty.");
+    }
+
+    [Test]
     public async Task TargetName_WithSeveralNames_Fails()
     {
         var f = Build();

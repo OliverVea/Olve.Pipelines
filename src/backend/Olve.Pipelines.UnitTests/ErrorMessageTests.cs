@@ -2,9 +2,11 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Manifests;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.UnitTests.Harness;
-using Olve.Results;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -34,6 +36,14 @@ public class ErrorMessageTests
         BuildJobBuilder.Build(BuildJobBuilderTests.Request(repo, sha, path), HarnessJobBuilderTests.Options).Problems;
 
     private static ResultProblemCollection? StepJob(HarnessJobRequest request) => HarnessJobBuilder.Build(request, HarnessJobBuilderTests.Options).Problems;
+
+    private static ResultProblemCollection? MapTriggerJob(string trigger) => HarnessJobBuilder.BuildMapTrigger(
+        new MapTriggerJobRequest("olve-map-abc", HarnessJobBuilderTests.PipelineId, trigger, "http://g/step?s", "http://g/event?s"),
+        HarnessJobBuilderTests.Options).Problems;
+
+    private static ResultProblemCollection? Domain(Func<TestRunDomain, ResultProblemCollection?> act) => act(new TestRunDomain());
+
+    private static readonly ExternalAnswer Answer = new("true", "oliver", DateTimeOffset.UnixEpoch);
 
     private static readonly string BadJob = "Not_A_Job";
 
@@ -121,6 +131,22 @@ public class ErrorMessageTests
         ["step job: reserved tmpdir"] = Plain("Step 'deploy-beta' declares an invalid secret name 'TMPDIR'.", () => StepJob(HarnessJobBuilderTests.Request(secrets: ["TMPDIR"]))),
         ["step job: no url secret"] = Plain("Job 'olve-aaaaaaaabbbbccccddddeeeeeeeeeeee' has neither an attempt nor a URL Secret name.", () => StepJob(HarnessJobBuilderTests.Request() with { AttemptId = null })),
         ["step job: file urls too large"] = Plain("Step 'deploy-beta' has 400 input file refs; the URL map exceeds 102400 bytes.", () => StepJob(HarnessJobBuilderTests.Request(fileUrls: Enumerable.Range(0, 400).ToDictionary(i => $"1/build/1/f{i}", _ => "http://garage/" + new string('x', 400))))),
+
+        ["map-trigger job: name"] = Plain($"Invalid K8s Job name '{BadJob}'.", () => HarnessJobBuilder.BuildMapTrigger(
+            new MapTriggerJobRequest(BadJob, HarnessJobBuilderTests.PipelineId, "push", "http://g/step?s", "http://g/event?s"), HarnessJobBuilderTests.Options).Problems),
+        ["map-trigger job: blank trigger"] = Plain("Invalid trigger name ' '.", () => MapTriggerJob(" ")),
+        ["map-trigger job: trigger with a space"] = Plain("Invalid trigger name 'a b'.", () => MapTriggerJob("a b")),
+
+        // domain input
+        ["pipeline without a name"] = Plain("Pipeline name is required.", () => Domain(d => d.PipelineService.SetDefinition(Id.New<Pipeline>(), " ", null).Problems)),
+        ["step input too large"] = Plain($"Input of step 'build' exceeds {AttemptService.MaxInputJsonBytes} bytes.", () => Domain(d =>
+            d.AttemptService.Schedule(d.CreateRun().Id, "build", input: "\"" + new string('x', AttemptService.MaxInputJsonBytes) + "\"").Problems)),
+        ["step input malformed"] = Plain("Input of step 'build' is not well-formed JSON.", () => Domain(d => d.AttemptService.Schedule(d.CreateRun().Id, "build", input: "{ nope").Problems)),
+        ["answering a step that isn't waiting"] = new(typeof(ConflictProblem), "Step 'build' is not waiting for input (it is scheduled).", () => Domain(d => d.AttemptService.Answer(d.Schedule().Id, "x", Answer, ["x"]).Problems)),
+        ["declining a step that isn't waiting"] = new(typeof(ConflictProblem), "Step 'build' is not waiting for input (it is scheduled).", () => Domain(d => d.AttemptService.Decline(d.Schedule().Id, "no").Problems)),
+        ["an answer too large"] = Invalid($"value: The input of step 'build' would exceed {AttemptService.MaxInputJsonBytes} bytes.", () => Domain(d =>
+            d.AttemptService.Answer(TestRunDomain.Pick(d.AttemptService.Schedule(d.CreateRun().Id, "build", awaitsInput: true)).Id, "x",
+                Answer with { Value = "\"" + new string('x', AttemptService.MaxInputJsonBytes) + "\"" }, ["x"]).Problems)),
 
         // file refs
         ["file ref: negative run"] = Plain("File ref '-1/build/1/a' has an invalid run or attempt number.", () => HarnessFileRefs.Validate(new HarnessFileRef(-1, "build", 1, "a", Sha64)).Problems),

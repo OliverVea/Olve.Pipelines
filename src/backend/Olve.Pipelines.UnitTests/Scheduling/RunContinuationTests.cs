@@ -182,8 +182,6 @@ public class RunContinuationTests
         var result = s.D.Continuations.ContinueRun(run.Id, Input(deployTo: "prod", sha: OtherSha));
 
         await result.Problems.IsSingle<ConflictProblem>("input.sha: Field 'sha' cannot change: completed step(s) checkout consumed it.");
-        await Assert.That(result.TryPickProblems(out var problems)).IsTrue();
-        await Assert.That(string.Join(" ", problems!.Select(p => p.ToString()))).Contains("checkout");
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
         await Assert.That(s.Get(run).Input).IsEqualTo(Input(deployTo: "beta"));
     }

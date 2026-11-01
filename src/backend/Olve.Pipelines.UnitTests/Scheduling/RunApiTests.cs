@@ -189,6 +189,15 @@ public class RunInputOperationTests
     }
 
     [Test]
+    public async Task Continue_WithChangesThatAreNotAnObject_IsRefused()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+
+        await Inputs(s).Continue(s.Get(run), JsonNode.Parse("[]")).Problems.IsSingle<ValidationProblem>("input: The input changes must be a JSON object.");
+    }
+
+    [Test]
     public async Task Continue_WithAnInvalidValue_IsRejectedByTheInputModel()
     {
         var s = new SchedulerScenario();

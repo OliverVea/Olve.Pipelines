@@ -76,8 +76,6 @@ public class JsonSchemaValidatorTests
         var result = Validate("""{"type":"object","$ref":"#/$defs/x"}""", "{}");
 
         await result.Problems.IsSingle<ValidationProblem>("input: the input schema uses '$ref', which this service does not support");
-        result.TryPickProblems(out var problems);
-        await Assert.That(problems!.Single().FormattedMessage).Contains("'$ref'");
     }
 
     [Test]

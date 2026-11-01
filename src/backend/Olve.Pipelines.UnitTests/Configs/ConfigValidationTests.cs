@@ -44,7 +44,8 @@ public class ConfigValidationTests
     {
         var check = ConfigValidation.Check(Parse(Text()), 9, Yaml("target: {host: h}\nauth: {mode: authentik}\n"), NoSecrets);
 
-        await Assert.That(check.Problems.Single()).Contains("matches none of the allowed shapes");
+        await Assert.That(check.Problems.Single()).IsEqualTo(
+            """config.auth: matches none of the allowed shapes (config.auth.mode: must be "none"; config.auth.clientId: is required; config.auth.clientSecret: is required; config.auth.mode: must be "dex")""");
     }
 
     [Test]

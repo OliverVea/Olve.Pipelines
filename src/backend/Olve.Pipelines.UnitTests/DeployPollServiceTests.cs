@@ -147,7 +147,7 @@ public class DeployPollServiceTests
         await c.Run();
 
         await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Error);
-        await Assert.That(c.Current.Status.Problems.Single()).Contains("broken");
+        await Assert.That(c.Current.Status.Problems.Single()).IsEqualTo("[E1] stages[0]: broken");
         await Assert.That(c.Current.LastPushSha).IsNull(); // runs held while the config commit is unapplied
         await Assert.That(c.Reconciler.Calls.Count).IsEqualTo(1);
 

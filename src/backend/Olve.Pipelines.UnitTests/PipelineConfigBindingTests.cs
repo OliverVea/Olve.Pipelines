@@ -90,6 +90,18 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
+    public async Task UnknownBinding_IsNotFound()
+    {
+        var svc = CreateFixture();
+        var id = Id.New<PipelineConfigBinding>();
+        var message = $"Binding '{id}' not found.";
+
+        await svc.Bindings.TryGet(id).Problems.IsSingle<NotFoundProblem>(message);
+        await svc.Bindings.SetLastPushSha(id, "abc").Problems.IsSingle<NotFoundProblem>(message);
+        await svc.Bindings.SetLastReconciledSha(id, "abc").Problems.IsSingle<NotFoundProblem>(message);
+    }
+
+    [Test]
     public async Task SetBranch_BlankOrUnbound_Fails()
     {
         var svc = CreateFixture();

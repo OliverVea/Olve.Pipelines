@@ -217,6 +217,10 @@ export class AppShell extends LitElement {
         return html`<critical-path-view
           .pipelineId=${this._route.params.pipelineId}
         ></critical-path-view>`;
+      case 'reliability-view':
+        return html`<reliability-view
+          .pipelineId=${this._route.params.pipelineId}
+        ></reliability-view>`;
       case 'step-runs-view':
         return html`<step-runs-view
           .pipelineId=${this._route.params.pipelineId}

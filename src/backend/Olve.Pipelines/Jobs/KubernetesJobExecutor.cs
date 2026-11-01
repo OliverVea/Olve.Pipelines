@@ -63,7 +63,7 @@ public class KubernetesJobExecutor(
                 {
                     // Never re-run an attempt that already started: its Job is gone (deleted by hand, or
                     // collected by TTL during a long outage), so its outcome is unknown.
-                    Fail(attempt, $"K8s Job '{attempt.KubernetesJobName}' no longer exists; the attempt's outcome is unknown");
+                    Fail(attempt, $"K8s Job '{attempt.KubernetesJobName}' no longer exists; the attempt's outcome is unknown", AttemptFailureKind.JobLost);
                     await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt.Id));
                     return;
                 }
@@ -93,7 +93,7 @@ public class KubernetesJobExecutor(
 
         if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
         {
-            Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.FormattedMessage)));
+            Fail(attempt, "cannot launch: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.LaunchFailed);
             return false;
         }
 
@@ -109,7 +109,7 @@ public class KubernetesJobExecutor(
 
         if (specResult.TryPickProblems(out var specProblems, out var spec))
         {
-            Fail(attempt, "cannot build the step Job: " + string.Join("; ", specProblems.Select(p => p.FormattedMessage)));
+            Fail(attempt, "cannot build the step Job: " + string.Join("; ", specProblems.Select(p => p.FormattedMessage)), AttemptFailureKind.LaunchFailed);
             return false;
         }
 
@@ -157,7 +157,7 @@ public class KubernetesJobExecutor(
 
             case HarnessWait.Missing:
                 if (!IsAbandoned(attempt.Id))
-                    Fail(attempt, $"K8s Job '{jobName}' disappeared while the attempt was running");
+                    Fail(attempt, $"K8s Job '{jobName}' disappeared while the attempt was running", AttemptFailureKind.JobLost);
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 
@@ -199,13 +199,13 @@ public class KubernetesJobExecutor(
         {
             case HarnessAttemptResult.Succeeded s:
                 if (attempts.MarkSucceeded(attempt.Id, s.OutputJson).TryPickProblems(out var problems))
-                    Fail(attempt, "output rejected: " + string.Join("; ", problems.Select(p => p.FormattedMessage)));
+                    Fail(attempt, "output rejected: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.Output);
                 break;
             case HarnessAttemptResult.Skipped s:
                 LogIfFailed(attempts.MarkSkipped(attempt.Id, s.Reason), attempt.Id);
                 break;
             case HarnessAttemptResult.Failed f:
-                Fail(attempt, f.Message);
+                Fail(attempt, f.Message, f.Kind);
                 break;
         }
 
@@ -251,7 +251,7 @@ public class KubernetesJobExecutor(
             var reason = $"K8s submission failed after {submission} attempts: {ex.Message}";
             await AppendControllerLogAsync(logKey, $"controller: {reason} — giving up", ct);
             await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt.Id));
-            Fail(attempt, reason);
+            Fail(attempt, reason, AttemptFailureKind.LaunchFailed);
             logger.LogError(ex, "Giving up on attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}') after {Submissions} failed submissions",
                 attempt.Id, attempt.StepName, attempt.PipelineId, submission);
             return;
@@ -299,9 +299,9 @@ public class KubernetesJobExecutor(
         }
     }
 
-    private void Fail(Attempt attempt, string reason)
+    private void Fail(Attempt attempt, string reason, AttemptFailureKind kind)
     {
-        LogIfFailed(attempts.MarkFailed(attempt.Id, reason), attempt.Id);
+        LogIfFailed(attempts.MarkFailed(attempt.Id, reason, kind), attempt.Id);
         logger.LogWarning("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') failed: {Reason}",
             attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, reason);
     }

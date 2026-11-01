@@ -49,6 +49,7 @@ pl pipeline list [--summaries]                         # health, last run, activ
 pl pipeline get <pipeline>
 pl pipeline delete <pipeline>                          # also deletes its binding, runs, K8s Jobs and secrets
 pl pipeline health <pipeline>
+pl pipeline reliability <pipeline> [--runs <n>]        # failure rates, flakiness, failures for no real reason
 pl pipeline versions <pipeline>                        # > marks the version runs start on
 pl pipeline manifest <pipeline> [--version <n>] [--json]
 pl pipeline switch <pipeline> <version> [--cancel-running]   # rollback = an older version

@@ -6,6 +6,7 @@ import {
   bindingsStatus,
   pipelinesGet,
   runsCriticalPath,
+  stepsReliability,
   pipelinesHealth,
   secretsList,
   type PipelineBindingStatus,
@@ -13,6 +14,7 @@ import {
   type PipelineSecret,
   type ActiveAttempt,
   type CriticalPathReport,
+  type ReliabilityRuns,
 } from '@olve/api';
 import {
   sharedStyles,
@@ -32,6 +34,7 @@ import {
   bindingPath,
   shortSha,
   criticalPathPath,
+  reliabilityPath,
   formatSeconds,
   median,
 } from '../styles/ui.js';
@@ -102,6 +105,7 @@ export class PipelineHeader extends LitElement {
   @state() declare private _health: PipelineHealth | null;
   @state() declare private _activation: Activation;
   @state() declare private _critical: CriticalPathReport | null;
+  @state() declare private _reliability: ReliabilityRuns | null;
   @state() declare private _waiting: ActiveAttempt[];
 
   constructor() {
@@ -116,6 +120,7 @@ export class PipelineHeader extends LitElement {
     this._health = null;
     this._activation = { kind: 'none' };
     this._critical = null;
+    this._reliability = null;
     this._waiting = [];
     new LiveController(
       this,
@@ -131,36 +136,43 @@ export class PipelineHeader extends LitElement {
   async reload() {
     const path = { pipelineId: this.pipelineId };
     const overview = this.tab === 'overview';
-    const [pipeline, binding, health, secrets, critical, waiting] = await Promise.all([
-      pipelinesGet({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      bindingsStatus({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      pipelinesHealth({ client: api, path })
-        .then((r) => r.data)
-        .catch(() => null),
-      overview
-        ? secretsList({ client: api, path })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null, // needs auth
-      overview
-        ? runsCriticalPath({ client: api, path })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null,
-      overview
-        ? attemptsList({ client: api, query: { status: 'waiting' } })
-            .then((r) => r.data)
-            .catch(() => null)
-        : null,
-    ]);
+    const [pipeline, binding, health, secrets, critical, reliability, waiting] =
+      await Promise.all([
+        pipelinesGet({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        bindingsStatus({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        pipelinesHealth({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
+        overview
+          ? secretsList({ client: api, path })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null, // needs auth
+        overview
+          ? runsCriticalPath({ client: api, path })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null,
+        overview
+          ? stepsReliability({ client: api, path })
+              .then((r) => r.data?.runs)
+              .catch(() => null)
+          : null,
+        overview
+          ? attemptsList({ client: api, query: { status: 'waiting' } })
+              .then((r) => r.data)
+              .catch(() => null)
+          : null,
+      ]);
     this._waiting = (waiting ?? []).filter(
       (a) => String(a.pipelineId) === this.pipelineId,
     );
     this._critical = critical ?? null;
+    this._reliability = reliability ?? null;
     if (pipeline?.name) this._name = pipeline.name;
     this._binding = binding ?? null;
     this._secrets = secrets ?? [];
@@ -248,6 +260,18 @@ export class PipelineHeader extends LitElement {
                 )}</a
               >
               <span class="sub">median of ${this._critical.runs.length} runs</span>
+            </div>`
+          : nothing}
+        ${this._reliability?.settled
+          ? html`<div class="cell">
+              <span class="label">Failed for no reason</span>
+              <a class="value" href=${reliabilityPath(this.pipelineId)} @click=${navClick}
+                >${(this._reliability.rate * 100).toFixed(1)}%</a
+              >
+              <span class="sub"
+                >${this._reliability.failedForNoReason} of ${this._reliability.settled}
+                runs</span
+              >
             </div>`
           : nothing}
         ${running || held

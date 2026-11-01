@@ -78,6 +78,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 | Output, files, logs | `pl step output\|files\|file\|logs <address>` (`logs --follow`) | Run view → step |
 | A step's history | `pl step history <pipeline>/<step>` | `/pipeline/<id>/step/<name>/runs` |
 | Health | `pl pipeline health <pipeline>`, `pl pipeline list` | Pipeline list |
+| Reliability of the steps | `pl pipeline reliability <pipeline>` | `/pipeline/<id>/reliability` |
 
 - **Trigger.** The body is the pipeline input. `--field` values are typed by the active version's
   input model (`sha=0123` stays a string); the model's defaults fill the rest. Invalid input is
@@ -164,6 +165,59 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
 In the UI, the overview's status card shows the median critical path of the latest 20 runs and
 links to `/pipeline/<id>/critical-path`: the same report for the last 20, 50 or 100 runs, or since a
 version.
+
+## Step reliability
+
+`pl pipeline reliability <pipeline> [--runs <n>]` reports how reliable a pipeline's steps were, from
+their attempts, for any step and not only tests:
+
+```
+Covers runs #12..#111 (100 of the latest 100, 2026-08-02 10:04:11 to 2026-10-30 18:22:40).
+Failed for no real reason: 3 of 82 settled runs (3.7%): #110, #98, #91; retries absorbed 2 more.
+
+STEP          ATTEMPTS  FAILED  RATE   OWN  INFRA  TIMEOUT  FLAKY  REPRODUCED  UNVERIFIED  LATEST/USUAL
+beta-test     96        9       9.4%   8    1      0        3      2           3           above usual (40.0% vs 5.8%)
+build-server  90        2       2.2%   0    2      0        0      0           0           0.0% vs 2.5%
+```
+
+It only reports: nothing fails, holds or retries on these numbers, and no pipeline can gate on them.
+
+- **The window.** The latest 100 runs (`--runs`, at most 500), whatever their status. The first line
+  says which runs and dates that is. Retention limits how far back it reaches: with fewer runs than
+  asked for and older ones gone, the report says retention removed them.
+- **Failure rate.** Failed attempts over attempts that succeeded or failed. An attempt a person
+  declined, one the scheduler failed without running, and skipped, cancelled and obsolete attempts
+  aren't outcomes of the step and don't count. A high rate alone is no defect: a test or validation
+  step should fail on real problems, so the rate is shown without a verdict.
+- **Above usual** compares a step with itself: at least 3 of its latest 10 attempts failed, and their
+  rate is at least 25 points above the rate of the attempts before them. A step needs 20 attempts for
+  this, and one that always fails often stays usual.
+- **Own, infra, timeout.** *Own* means the step ran and reported a failure, an invalid output or an
+  unexpected exit code. *Infra* means the platform around it failed: the pod, image pull, the
+  download into the pod, the result upload, an out-of-memory kill, a lost Job or a launch that didn't
+  work. *Timeout* is `timeoutSeconds` passing.
+- **Flaky, reproduced, unverified** split a step's own failures by what happened when the same
+  execution ran again. Two attempts are the same execution with the same code, step definition,
+  config snapshot and input. *Flaky*: it also succeeded, in a retry, a step rerun or another run.
+  *Reproduced*: it failed again and never succeeded. *Unverified*: it never ran again, which is why
+  most failures of a pipeline nobody reruns land here. A file in the input is compared by content, so
+  the same file from another run matches; answers to external inputs are part of the input, so a
+  changed answer is a different execution.
+- **Failed for no real reason** is the chance a run fails for no real reason, as observed: of the
+  runs that succeeded or failed, the share a flaky, infra or timeout failure stopped, whether or not a
+  rerun then rescued them. A failure a step's `retries` covered didn't stop the run, and shows as
+  *absorbed*. Cancelled, superseded and running runs don't count.
+
+The numbers have limits:
+
+- A flaky failure nobody reran isn't seen, so the rate is a lower bound.
+- Same input doesn't mean same world. A deploy that failed until someone fixed the cluster, or an
+  image tag that moved under the same step definition, reads as flaky.
+- Timeouts count as infrastructure, though a step can hang by itself. Check the logs when `TIMEOUT` grows.
+
+In the UI, the overview's status card shows the share of runs that failed for no real reason and
+links to `/pipeline/<id>/reliability`: the same report for the last 50, 100 or 500 runs. `--json`
+gives the whole report (`GET …/reliability`).
 
 ## Live events
 

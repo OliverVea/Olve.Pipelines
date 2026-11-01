@@ -85,17 +85,12 @@ The plan doc's candidates: manifest preview, event-stream filtering, OpenObserve
 Olve.MinimalApi. External inputs' open ideas (`at`, another run) are in
 [external-inputs.md](external-inputs.md).
 
-- **Step reliability tracking.** Every pipeline gets a reliability view of its steps, for any step
-  and not only tests.
-  - The first version reports each step's failure rate and highlights steps that fail more than
-    usual, needing nothing beyond attempt outcomes.
-  - Flakiness is the sharper measure on top: attempts with the same code and input end differently,
-    such as a failure that a retry or rerun turns into a success. Infrastructure failures (pod,
-    image pull, timeout) stay distinguishable from the step's own failures.
-  - The service also reports a combined rate per pipeline: the chance a run fails for no real
-    reason. All of it is visible in the UI and `pl`.
-  - Attempts already record most of this, so it starts as a query over attempt history. Retention
-    limits how far back it can see.
+- ~~**Step reliability tracking.**~~ Done 2026-10-31: `pl pipeline reliability` and
+  `/pipeline/<id>/reliability`, a query over attempt history for any step. Failure rates with a
+  highlight for steps above their own usual rate; flakiness from the same code, config and input
+  ending differently; infrastructure failures and timeouts apart from the step's own; the observed
+  share of runs that failed for no real reason. Definitions and limits:
+  [runs-and-operations.md](../setup/runs-and-operations.md#step-reliability).
 
 ## 2.3 / 2.4
 

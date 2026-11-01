@@ -24,6 +24,86 @@ model StepHistoryItem {
   phases?: AttemptPhases | null;
 }
 
+/** The runs the report covers: the latest `requestedRuns`, or fewer when no more exist. `from` and `to` are when the first and last covered runs started. */
+model ReliabilityWindow {
+  fromRun: int32;
+  toRun: int32;
+  runs: int32;
+  requestedRuns: int32;
+  from: utcDateTime | null;
+  to: utcDateTime | null;
+
+  /** Fewer runs than requested, because older ones were deleted. */
+  limitedByRetention: boolean;
+}
+
+/** Of the settled (succeeded or failed) runs, those stopped by a flaky or infrastructure failure, a rerun having rescued them or not. A flaky failure nobody reran stays unseen, so this is a lower bound. */
+model ReliabilityRuns {
+  settled: int32;
+  failedForNoReason: int32;
+
+  /** `failedForNoReason` over `settled`: the chance a run fails for no real reason. */
+  rate: float64;
+
+  /** Other settled runs where such a failure happened and automatic retries covered it. */
+  absorbed: int32;
+
+  /** The runs counted in `failedForNoReason`, newest first. */
+  runNumbers: int32[];
+}
+
+/** One step's attempts that reached an outcome, succeeded or failed; a declined attempt or one the scheduler failed without running is neither. */
+model StepReliability {
+  step: string;
+  attempts: int32;
+
+  /** `ownFailures` + `infrastructureFailures` + `timeouts`. */
+  failures: int32;
+
+  /** The step ran and reported a failure, which may be a real problem it found. */
+  ownFailures: int32;
+
+  /** The platform around the step failed: pod, image pull, launch, storage. */
+  infrastructureFailures: int32;
+
+  timeouts: int32;
+  failureRate: float64;
+
+  /** Over the latest 10 attempts; null with fewer than 20 attempts. */
+  recentFailureRate: float64 | null;
+
+  /** Over the attempts before those; null with fewer than 20 attempts. */
+  usualFailureRate: float64 | null;
+
+  /** At least 3 of the latest 10 attempts failed, and their rate is at least 25 points above the step's usual rate. */
+  aboveUsual: boolean;
+
+  /** Own failures where the same code, config and input also succeeded. */
+  flakyFailures: int32;
+
+  /** Own failures where the same code, config and input failed again and never succeeded. */
+  reproducedFailures: int32;
+
+  /** Own failures whose code, config and input never ran again. */
+  unverifiedFailures: int32;
+
+  /** `flakyFailures` over `attempts`. */
+  flakyRate: float64;
+
+  /** The runs with a flaky failure, newest first. */
+  flakyRuns: int32[];
+}
+
+/** How reliable a pipeline's steps were over its latest runs. Steps above their usual failure rate come first, then the flakiest. */
+model ReliabilityReport {
+  window: ReliabilityWindow;
+  runs: ReliabilityRuns;
+  steps: StepReliability[];
+
+  /** What the report couldn't work out. */
+  notes: string[];
+}
+
 @tag("Steps")
 @route("/api/pipelines/{pipelineId}")
 interface Steps {
@@ -46,4 +126,14 @@ interface Steps {
     @path step: string,
     @query limit?: int32,
   ): StepHistoryItem[] | NotFound;
+
+  /**
+   * `runs` is how many of the latest runs to cover (default 100, at most 500); retention limits how far back they
+   * reach, and `window` says what is covered. A high failure rate is not a defect: a test step fails on real problems.
+   */
+  @summary("Get the reliability of a pipeline's steps")
+  @get @route("reliability") reliability(
+    @path @format("uuid") pipelineId: string,
+    @query runs?: int32,
+  ): ReliabilityReport | NotFound | BadRequest;
 }

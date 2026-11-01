@@ -89,18 +89,18 @@ Files with the most undetected mutants worth attention: `ManifestValidator.cs` (
 
 ## Confirmed gaps
 
-Each survived or was uncovered, and a search found no test for the behaviour. The current code is correct in every row. Risk is the outcome if the behaviour regressed, not how likely that edit is.
+Each survived or was uncovered, and a search found no test for the behaviour. The code was correct in every row but `RetentionService.cs:125`, whose guard hid the bug listed under Findings from the new test tiers. Risk is the outcome if the behaviour regressed, not how likely that edit is.
 
-| Location | Untested behaviour | Risk |
-|---|---|---|
-| `StageScheduler.cs:92` | A drain must stop the scheduler starting work | High |
-| `RetentionService.cs:125` | Retention re-checks a run is finished before deleting it | High |
-| `StageScheduler.cs:171` | Superseding a run cancels its Scheduled and Waiting attempts | High |
-| `RetentionService.cs:143` | Job and Secret sweeps still run when only one list is empty | Medium |
-| `RunStartService.cs:68` | `RerunRun` replaces the input when one is given | Medium |
-| `ManifestValidator.cs:387` | External inputs are rejected in failure handlers | Medium |
-| `ManifestValidator.cs:107-109` | Retention bounds: the 0 boundary, and negative `minRunAgeDays` and `buildGraceDays` | Low |
-| `RunStartService.cs:153` | Exact de-dup window boundary | Low |
+| Location | Untested behaviour | Risk | Status |
+|---|---|---|---|
+| `StageScheduler.cs:92` | A drain must stop the scheduler starting work | High | Covered |
+| `RetentionService.cs:125` | Retention re-checks a run is finished before deleting it | High | Covered |
+| `StageScheduler.cs:171` | Superseding a run cancels its Scheduled and Waiting attempts | High | Covered |
+| `RetentionService.cs:143` | Job and Secret sweeps still run when only one list is empty | Medium | Covered |
+| `RunStartService.cs:68` | `RerunRun` replaces the input when one is given | Medium | Covered |
+| `ManifestValidator.cs:387` | External inputs are rejected in failure handlers | Medium | Covered |
+| `ManifestValidator.cs:107-109` | Retention bounds: the 0 boundary, and negative `minRunAgeDays` and `buildGraceDays` | Low | Open |
+| `RunStartService.cs:153` | Exact de-dup window boundary | Low | Open |
 
 The coverage-off control also confirmed these files have large undetected areas, because their not-covered mutants still survived when every test ran:
 
@@ -340,23 +340,24 @@ These are good tests overall: flow-shaped, exact about messages and argv, with a
 
 ## Findings from the new test tiers
 
-These came from running against real systems, on branches that aren't on `main`. All are behaviours the unit suite couldn't show.
+The tier tests live on branches that aren't on `main`. All but the last row are behaviours the unit suite couldn't show. Fixed on `track-fixes` means a commit addresses the bug; the real-system, browser and chaos tests have not been re-run against those commits.
 
 | Bug | Found by | How often | Status |
 |---|---|---|---|
-| Deleting a pipeline leaves its Jobs until the 7-day TTL | Real-system flow test | Every run | Fix in progress |
-| Two concurrent first secret sets lose a value | Real-system test | 6 of 6 | Fix in progress |
-| The UI shows nothing when adding a repo is refused | Browser test | 8 of 8 | Fix in progress |
-| `POST /api/pipelines` accepts a repo that isn't `owner/name` | Browser test work | Seen directly | Fix in progress |
-| An acknowledged run or `--cancel-running` switch is lost on SIGKILL, because run state flushes on a 1s timer | Chaos | Lost run 14 of 14 on two chosen seeds, lost switch 3 of 3 on one, 0 under graceful stop | Open |
-| The result archive is deleted before the terminal status is durable, at `KubernetesJobExecutor.cs:158`, so a succeeded step can come back failed after SIGKILL | Chaos | 5 of 24 sweep seeds across the server-kill failures | Open |
-| A restart right after a `--cancel-running` switch leaves the cancelled attempt's Job running, including on the SIGTERM a self-deploy sends | Chaos | 3 of 12 sweep seeds | Open |
+| Deleting a pipeline leaves its Jobs until the 7-day TTL | Real-system flow test | Every run | Fixed on `track-fixes` |
+| Two concurrent first secret sets lose a value | Real-system test | 6 of 6 | Fixed on `track-fixes` |
+| The UI shows nothing when adding a repo is refused | Browser test | 8 of 8 | Fixed on `track-fixes` |
+| `POST /api/pipelines` accepts a repo that isn't `owner/name` | Browser test work | Seen directly | Fixed on `track-fixes` |
+| An acknowledged run or `--cancel-running` switch is lost on SIGKILL, because run state flushes on a 1s timer | Chaos | Lost run 14 of 14 on two chosen seeds, lost switch 3 of 3 on one, 0 under graceful stop | Fixed on `track-fixes` |
+| The result archive is deleted before the terminal status is durable, at `KubernetesJobExecutor.cs:158`, so a succeeded step can come back failed after SIGKILL | Chaos | 5 of 24 sweep seeds across the server-kill failures | Fixed on `track-fixes` |
+| A restart right after a `--cancel-running` switch leaves the cancelled attempt's Job running, including on the SIGTERM a self-deploy sends | Chaos | 3 of 12 sweep seeds | Fixed on `track-fixes` |
+| A run resumed during a retention sweep kept its record but lost its output files, and could lose the only binary of its version | Track A's guard test | Seen directly | Fixed on `main` |
 
 Per-seed rates are replays of seeds chosen because they failed, so only the sweep figures are unbiased. The mechanism for the third chaos bug comes from reading the code. The Garage outage, Kubernetes outage and pod deletion families found no bug, but `docker pause` freezes all of k3s rather than only its API, and the Garage "will retry" path was never observed.
 
 Unconfirmed: `FailureTarget` appears 31s before `Failed` on a deadline Job and the code reads only `Failed`, so a poll in that window could classify a timeout by exit code.
 
-**Fakes that disagree with the real system:** 9 cases, each a skipped test with its reason. `FakeSecrets` create overwrites where the real one answers 409 and keeps the old data. `FakeSecrets` update of a missing Secret creates it where the real one throws. `FakeKubernetes.CreateJobAsync` always returns true where the real client returns false on 409, which is how the executor reattaches. `FakeS3` reports `LastModified` as the epoch. Hand-written `HarnessOutcomeTests` pairs DeadlineExceeded with a pod that exited 143, while the real pod list was empty.
+**Fakes that disagree with the real system:** 9 cases, each a skipped test with its reason. `track-fixes` removes the two `FakeSecrets` ones. `FakeSecrets` create overwrites where the real one answers 409 and keeps the old data. `FakeSecrets` update of a missing Secret creates it where the real one throws. `FakeKubernetes.CreateJobAsync` always returns true where the real client returns false on 409, which is how the executor reattaches. `FakeS3` reports `LastModified` as the epoch. Hand-written `HarnessOutcomeTests` pairs DeadlineExceeded with a pod that exited 143, while the real pod list was empty.
 
 No fixture in the repo was a true recording before this work. 13 are now recorded for GitHub, Dex and k3s, and they close G103 and G120. 10 hand-written fixtures are listed in `tools/recordings/hand-written.json`.
 
@@ -365,6 +366,8 @@ No fixture in the repo was a true recording before this work. 13 are now recorde
 Proposals only, in priority order.
 
 ### 1. Close the dangerous gaps
+
+Status: the High and Medium rows under Confirmed gaps and the three in-process flows are covered on `main`. Every High row from the survivor triage is still open.
 
 Add tests for the High and Medium rows under Confirmed gaps, as in-process flow tests where possible. Add in-process flows for the reconcile build path, the binding API and step file serving. Take the 8 High rows from the survivor triage next, starting with token validation, the allow-list and per-change persistence, then the Medium rows.
 
@@ -446,11 +449,11 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 | Metric | Result | Addressed? | How |
 |---|---|---|---|
-| Backend mutation score | 55.06% | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
-| High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1 |
-| Medium and low gaps | 5 confirmed | Partly | Step 1 covers Medium. The 3 Low rows wait. |
+| Backend mutation score | 55.06% at audit, not re-measured since | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
+| High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1, covered on `main` |
+| Medium and low gaps | 5 confirmed | Partly | Step 1, Medium covered on `main`. The Low rows wait. |
 | Gaps from the survivor triage | 116 rows: 8 High, 50 Medium, 58 Low | Partly | Step 1 covers High, then Medium. Low rows wait, and many fall to step 2. |
-| Reconcile build path, binding API, file serving | 24.3%, 0%, 33.3% | Yes | Step 1 |
+| Reconcile build path, binding API, file serving | 24.3%, 0%, 33.3% at audit, not re-measured | Yes | Step 1, covered on `main` |
 | String survivors | 763 | Yes | Step 2, table-driven message test |
 | Other survivors | 1,061 | Yes | All triaged: 581 gap, 14 already listed, 124 equivalent, 340 harmless, 2 artefacts |
 | Not-covered mutants | 1,441 | Partly | Steps 1, 5 and 7. Wiring is left to indirect coverage. |
@@ -498,9 +501,28 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- Track A is merged (`4bfd147`), but its gaps still read as open under Confirmed gaps, the change plan and the metrics table.
-- `track-fixes` has commits for the bugs under Findings from the new test tiers, and the table has not been checked against them. They are not on `main`.
-- `track-b`, `track-c`, `track-e`, `track-f`, `track-g`, `track-i` and `track-fixes` are unmerged, and their status has not been reviewed here.
+Unit results are from each branch's suite at `track-b` `d0b9af2` and `track-fixes` `8c18d2a`. Real-system, browser and chaos tests were not run.
+
+| Branch | Holds | State | Before it lands |
+|---|---|---|---|
+| `track-a` | Step 1 flows and gaps, retention fix | On local `main` (`4bfd147`), 925 of 925 pass | Push `main` |
+| `track-b` | Step 2 assertions and messages, step 3 tidying, includes `track-c` | 1,033 of 1,034 pass | Fix the failure below |
+| `track-c` | Step 2 job runner waits | Inside `track-b` | Nothing of its own |
+| `track-e`, `track-f`, `track-g` | Steps 5, 6, 7 | Inside `track-fixes` | Nothing of their own |
+| `track-fixes` | The bugs above, includes `track-e`, `track-f`, `track-g` | 997 of 997 pass, `CLAUDE.md` edit uncommitted | Commit that edit, resolve the conflict with `track-b` in `PipelineConfigBindingTests.cs` |
+| `track-i` | Step reliability, the data source for step 8 | Not run here, merges cleanly into `main` | Review |
+
+- `track-b` failure: `EachRefusal_HasItsExactMessage(failed with a string error)` expects `{kind, message}` and the service answers `{{kind, message}}`. It fails on every run. The test looks right: `HarnessEnvelope.cs:82` escapes braces in a string that is never formatted, so the doubled braces reach the user.
+- Land order: `track-b`, then `track-fixes`, then `track-i`, then this document.
+
+Open against the plan:
+
+- **Step 1:** all 8 High rows from the survivor triage. Applying each regression by hand on `track-fixes` left the suite green for G28 (expiry, issuer, audience), G30, G34, G115, G117, G12 and G45, and `track-b` adds nothing for those it reached. For G25, a dropped activation or run update save passes, and a dropped block save fails one test. A dropped sequence save failed one test on `track-fixes` and none on `track-b`, which is unexplained. The 50 Medium rows are also open.
+- **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain on `track-b`, not yet judged. `[NotInParallel]` is gone there.
+- **Step 3:** the `FakeConfigSourceTests` fold is not checked.
+- **Step 4:** no Stryker run since the audit, so every score above is the audit's.
+- **Step 8:** no new tier runs in a pipeline. `track-f` adds only the fixtures line to the `test` step.
+- **Step 9:** not started.
 
 **Pipelines and SDK**
 

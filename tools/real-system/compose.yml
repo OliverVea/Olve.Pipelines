@@ -6,6 +6,7 @@
 services:
   server:
     image: mcr.microsoft.com/dotnet/aspnet:10.0
+    mem_limit: 4g
     working_dir: /app
     entrypoint: ["dotnet", "Olve.Pipelines.dll"]
     ports:
@@ -127,6 +128,7 @@ services:
 
   github:
     image: oven/bun:1.4.3-slim
+    mem_limit: 2g
     command: ["bun", "/real-system/github-stand-in.ts"]
     working_dir: /tmp
     environment:

@@ -504,8 +504,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 - **Step 1:** the 50 Medium rows from the survivor triage.
 - **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
-- **Step 4:** no Stryker run since the audit, so every score above is the audit's.
-- **Step 5:** the real-system, browser and chaos tiers have not run against the fixes.
+- **Step 4:** every score above is the audit's. A full run on `a4bf555` scores 64.97%: 4,867 killed, 23 timed out, 1,520 survived, 1,116 uncovered.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
 - **Step 9:** not started.
 

@@ -42,7 +42,7 @@ async function tarball(name: string, sha: string): Promise<Response> {
     cpSync(FIXTURE_DIR, root, { recursive: true });
     cpSync(SDK_DIR, join(root, "src/sdk"), {
       recursive: true,
-      filter: (source) => !source.includes("/node_modules"),
+      filter: (source) => !source.includes("/node_modules") && !source.includes("/.tmp"),
     });
     const pipeline = join(root, ".pipelines/pipeline.ts");
     writeFileSync(pipeline, (await Bun.file(pipeline).text()).replaceAll("__PIPELINE_NAME__", pipelineName(name)));

@@ -108,6 +108,25 @@ at a rate: run it a few times, and compare with `CHAOS_CONTROL=1` before calling
 prints its seed. A test reaches a fault only through `TestServer.ArmFaultAsync`, which is `host.sh fault`. It
 anchors on a server log line, so a changed log message shows up as `fault: the server logged nothing matching …`.
 
+### Browser tests
+
+`src/frontend/e2e` runs the main UI flows in Chromium ([Playwright](https://playwright.dev)) against the same
+host, serving the production bundle. It is its own package, so neither `npm run build` nor the deploy installs it:
+
+```bash
+tools/real-system/host.sh up                                   # a throwaway host, as above
+tools/real-system/host.sh ui                                   # after up: build the web UI into it; again after a frontend change
+cd src/frontend/e2e && npm install && npx playwright install chromium
+npm test                                                       # TEST_TARGETS picks the hosts, as above
+```
+
+The tests follow the rules above: each binds its own `e2e-` pipelines through the generated client, asserts only
+on what it owns and never cleans up, and the run starts by applying the same guard to every target. Don't run
+them on a host the real-system tests are using: those can reset it. The host has no sign-in, because its API has
+auth off, so the tests seed the session the app would have stored after one; sign-in itself isn't covered. A test
+fails on any uncaught error in the page. On a failure, `artifacts/real-system/browser/results` holds a trace for
+`npx playwright show-trace`.
+
 ### Check before you push
 
 `tools/check.sh` runs what the deploy's `spec`, `test`, `build-sdk`, `build-frontend` and `build-cli`

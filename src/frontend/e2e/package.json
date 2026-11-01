@@ -1,0 +1,17 @@
+{
+  "name": "olve-pipelines-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.5.0",
+    "typescript": "~5.9.3"
+  }
+}

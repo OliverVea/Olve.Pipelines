@@ -1,3 +1,4 @@
+using Olve.Results.TUnit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Pipelines.Triggers;
@@ -120,7 +121,7 @@ public class PollTriggerStateTests
         var p = d.CreatePipeline().Id;
         Service(d).Observe(p, "poll", Url, "aaa");
 
-        await Assert.That(d.PipelineService.Delete(p).Succeeded).IsTrue();
+        await Assert.That(d.PipelineService.Delete(p)).Succeeded();
 
         await Assert.That(d.PollTriggers.TryGet(p, out _)).IsFalse();
     }

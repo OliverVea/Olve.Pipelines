@@ -83,7 +83,7 @@ public class PipelineVersionServiceTests
         d.AddVersion(p.Id);
         var v2 = d.AddVersion(p.Id);
 
-        await Assert.That(d.VersionService.Delete(v2.Id).Succeeded).IsTrue();
+        await Assert.That(d.VersionService.Delete(v2.Id)).Succeeded();
 
         await Assert.That(d.AddVersion(p.Id).Number).IsEqualTo(3);
     }

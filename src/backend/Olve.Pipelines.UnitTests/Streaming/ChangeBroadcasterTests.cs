@@ -1,3 +1,4 @@
+using Olve.Results.TUnit;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -226,7 +227,7 @@ public class ChangeBroadcasterTests
         provider.GetRequiredService<AttachmentStore<Pipeline, PollTriggerStates>>().Set(pipeline.Id,
             new PollTriggerStates(new Dictionary<string, PollTriggerState> { ["poll"] = new("https://x", "v1", DateTimeOffset.UtcNow) }));
         provider.GetRequiredService<PipelineSecretEvents>().OnChanged.Invoke(pipeline.Id);
-        await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id).Succeeded).IsTrue();
+        await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id)).Succeeded();
 
         var items = Drain(subscription).Select(i => $"{i.Data.EventType} {Json(i)}").ToList();
         await Assert.That(items).Contains(i => i.StartsWith("config ") && i.Contains("\"snapshot\":1"));

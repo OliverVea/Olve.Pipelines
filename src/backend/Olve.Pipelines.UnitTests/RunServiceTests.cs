@@ -103,7 +103,7 @@ public class RunServiceTests
         d.CreateRun(version);
         var newest = d.CreateRun(version);
 
-        await Assert.That(d.RunService.Delete(newest.Id).Succeeded).IsTrue();
+        await Assert.That(d.RunService.Delete(newest.Id)).Succeeded();
         var next = d.CreateRun(version);
 
         await Assert.That(next.Number).IsEqualTo(3);

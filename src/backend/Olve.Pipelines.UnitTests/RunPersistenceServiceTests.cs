@@ -209,7 +209,7 @@ public class RunPersistenceServiceTests
         var run2 = d.CreateRun(v1, rerunOf: run1.Id);
         var run3 = d.CreateRun(v1);
         TestRunDomain.Pick(d.RunService.Supersede(run2.Id, run3.Id));
-        await Assert.That(d.RunService.Delete(run3.Id).Succeeded).IsTrue(); // newest deleted: its number must stay burnt
+        await Assert.That(d.RunService.Delete(run3.Id)).Succeeded(); // newest deleted: its number must stay burnt
 
         await a.Service.StoppingAsync(CancellationToken.None);
         a.Service.Dispose();
@@ -411,7 +411,7 @@ public class RunPersistenceServiceTests
         var key = StorageLayout.RunStateKey(run.PipelineId, run.Number);
         await Assert.That(store.Objects.ContainsKey(key)).IsTrue();
 
-        await Assert.That(d.RunService.Delete(run.Id).Succeeded).IsTrue();
+        await Assert.That(d.RunService.Delete(run.Id)).Succeeded();
         await node.Service.FlushAsync(CancellationToken.None);
 
         await Assert.That(store.Read(RunPersistenceService.RunsIndexKey, Json.RunIndexSnapshot).Runs).IsEmpty();

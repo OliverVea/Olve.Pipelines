@@ -53,7 +53,7 @@ public class RunCascadeCleanupTests
         d.Schedule("build", run);
         var survivor = d.Schedule("build"); // another pipeline
 
-        await Assert.That(d.PipelineService.Delete(pipeline.Id).Succeeded).IsTrue();
+        await Assert.That(d.PipelineService.Delete(pipeline.Id)).Succeeded();
 
         await Assert.That(d.Versions.List()).Count().IsEqualTo(1); // the survivor's
         await Assert.That(d.Runs.List()).Count().IsEqualTo(1);
@@ -77,7 +77,7 @@ public class RunCascadeCleanupTests
             if (e.After.Status is AttemptStatus.Cancelled) cancelledSeen.Add(e.Id);
         });
 
-        await Assert.That(d.RunService.Delete(run.Id).Succeeded).IsTrue();
+        await Assert.That(d.RunService.Delete(run.Id)).Succeeded();
 
         await Assert.That(cancelledSeen).IsEquivalentTo(new[] { active.Id });
         await Assert.That(d.Attempts.List()).IsEmpty();

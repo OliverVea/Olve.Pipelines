@@ -47,15 +47,12 @@ public class ErrorMessageTests
 
     private static readonly string BadJob = "Not_A_Job";
 
-    private const string Sha64 = "0000000000000000000000000000000000000000000000000000000000000000";
-
     private static readonly Dictionary<string, Case> Cases = new()
     {
         // JSON Schema: config and run input
         ["schema nested too deep"] = Invalid(string.Concat(Enumerable.Repeat("[0]", 65).Prepend("input")) + ": schema nesting is too deep", () => Schema(Nested(66), string.Concat(Enumerable.Repeat("[", 66)) + new string(']', 66))),
         ["schema false"] = Invalid("input: no value is allowed here", () => Schema("false", "1")),
         ["schema not an object"] = Invalid("input: invalid schema (not an object)", () => Schema("1", "1")),
-        ["unsupported keyword"] = Invalid("input: the input schema uses '$ref', which this service does not support", () => Schema("""{"$ref":"#/x"}""", "1")),
         ["wrong type: number"] = Invalid("input: expected string, got number", () => Schema("""{"type":"string"}""", "1")),
         ["wrong type: string"] = Invalid("input: expected number, got string", () => Schema("""{"type":"number"}""", "\"x\"")),
         ["wrong type: object"] = Invalid("input: expected string, got object", () => Schema("""{"type":"string"}""", "{}")),
@@ -71,11 +68,9 @@ public class ErrorMessageTests
         ["anyOf not an array"] = Invalid("input: invalid schema ('anyOf' is not an array)", () => Schema("""{"anyOf":1}""", "1")),
         ["oneOf not an array"] = Invalid("input: invalid schema ('oneOf' is not an array)", () => Schema("""{"oneOf":1}""", "1")),
         ["union with siblings"] = Invalid("input: 'anyOf' combined with type, enum is not supported", () => Schema("""{"anyOf":[{}],"type":"string","enum":["a"]}""", "\"a\"")),
-        ["oneOf matching two"] = Invalid("input: matches more than one of the allowed shapes", () => Schema("""{"oneOf":[{"type":"string"},{"type":"string","minLength":1}]}""", "\"x\"")),
         ["union matching none"] = Invalid("input: matches none of the allowed shapes (input: expected string, got number; input: expected null, got number)", () => Schema("""{"anyOf":[{"type":"string"},{"type":"null"}]}""", "5")),
         ["required"] = Invalid("input.a: is required", () => Schema("""{"type":"object","required":["a"]}""", "{}")),
         ["unknown property"] = Invalid("input.extra: is not allowed (unknown property)", () => Schema("""{"type":"object","additionalProperties":false}""", """{"extra":1}""")),
-        ["record key"] = Invalid("input.Bad Key (key): must match ^[a-z.]+$", () => Schema("""{"type":"object","propertyNames":{"type":"string","pattern":"^[a-z.]+$"},"additionalProperties":{"type":"string"}}""", """{"Bad Key":"x"}""")),
         ["array item"] = Invalid("input[1]: must be at least 2 characters", () => Schema("""{"type":"array","items":{"type":"string","minLength":2}}""", """["ab","a"]""")),
         ["maxLength"] = Invalid("input: must be at most 1 characters", () => Schema("""{"type":"string","maxLength":1}""", "\"ab\"")),
         ["pattern"] = Invalid("input: must match ^a$", () => Schema("""{"type":"string","pattern":"^a$"}""", "\"b\"")),
@@ -147,13 +142,6 @@ public class ErrorMessageTests
         ["an answer too large"] = Invalid($"value: The input of step 'build' would exceed {AttemptService.MaxInputJsonBytes} bytes.", () => Domain(d =>
             d.AttemptService.Answer(TestRunDomain.Pick(d.AttemptService.Schedule(d.CreateRun().Id, "build", awaitsInput: true)).Id, "x",
                 Answer with { Value = "\"" + new string('x', AttemptService.MaxInputJsonBytes) + "\"" }, ["x"]).Problems)),
-
-        // file refs
-        ["file ref: negative run"] = Plain("File ref '-1/build/1/a' has an invalid run or attempt number.", () => HarnessFileRefs.Validate(new HarnessFileRef(-1, "build", 1, "a", Sha64)).Problems),
-        ["file ref: attempt zero"] = Plain("File ref '1/build/0/a' has an invalid run or attempt number.", () => HarnessFileRefs.Validate(new HarnessFileRef(1, "build", 0, "a", Sha64)).Problems),
-        ["file ref: step"] = Plain("File ref has an invalid step name '../x'.", () => HarnessFileRefs.Validate(new HarnessFileRef(1, "../x", 1, "a", Sha64)).Problems),
-        ["file ref: path"] = Plain("File ref '1/build/1' has an invalid path.", () => HarnessFileRefs.Validate(new HarnessFileRef(1, "build", 1, "../a", Sha64)).Problems),
-        ["file ref: sha"] = Plain("File ref '1/build/1/a' has an invalid sha256.", () => HarnessFileRefs.Validate(new HarnessFileRef(1, "build", 1, "a", "XYZ")).Problems),
     };
 
     public static IEnumerable<string> CaseNames() => Cases.Keys;

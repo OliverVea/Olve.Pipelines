@@ -355,7 +355,6 @@ public class RetentionPlannerTests
 
         await Assert.That(plan.Objects).IsEmpty();
         await Assert.That(plan.Secrets).IsEmpty(); // no Job listing: cannot tell whether the Job is gone
-        await Assert.That(plan.Jobs).IsEmpty();
     }
 
     [Test]

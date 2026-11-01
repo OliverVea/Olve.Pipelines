@@ -8,6 +8,8 @@ namespace Olve.Pipelines.UnitTests.Http;
 /// <summary>The error model end to end over HTTP: status, <see cref="ApiProblem"/> body and logging.</summary>
 public class ApiErrorTests
 {
+    private static string? ErrorText(JsonElement json) => json.GetProperty("errors")[0].GetProperty("message").GetString();
+
     private static async Task<(HttpResponseMessage Response, string Body, JsonElement Json)> Send(ApiErrorHost host, HttpMethod method, string path, string? json = null)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -100,6 +102,8 @@ public class ApiErrorTests
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.ServiceUnavailable);
         await Assert.That(response.Headers.RetryAfter).IsNotNull();
         await Assert.That(Code(json)).IsEqualTo("unavailable");
+        await Assert.That(json.GetProperty("title").GetString()).IsEqualTo("Service unavailable");
+        await Assert.That(ErrorText(json)).IsEqualTo("A dependency (storage, Kubernetes or GitHub) is unavailable; retry shortly.");
         await Assert.That(body).DoesNotContain(ApiErrorHost.Secret);
     }
 
@@ -112,6 +116,7 @@ public class ApiErrorTests
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.InternalServerError);
         await Assert.That(Code(json)).IsEqualTo("internal");
+        await Assert.That(ErrorText(json)).IsEqualTo("An unexpected error occurred.");
         await Assert.That(body).DoesNotContain(ApiErrorHost.Secret);
         await Assert.That(body).DoesNotContain(nameof(InvalidOperationException));
         await Assert.That(body).DoesNotContain("   at ");
@@ -168,6 +173,8 @@ public class ApiErrorTests
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
         await Assert.That(Code(json)).IsEqualTo("not-found");
+        await Assert.That(json.GetProperty("title").GetString()).IsEqualTo("Not found");
+        await Assert.That(ErrorText(json)).IsEqualTo("Nothing to delete at '/api/t/gone'.");
     }
 
     // Catches: framework-produced empty errors (e.g. 405) under /api not getting the shape.
@@ -180,6 +187,7 @@ public class ApiErrorTests
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.MethodNotAllowed);
         await Assert.That(json.GetProperty("status").GetInt32()).IsEqualTo(405);
         await Assert.That(Code(json)).IsEqualTo("invalid");
+        await Assert.That(ErrorText(json)).IsEqualTo("Method Not Allowed.");
     }
 
     // Catches: the mapping filter breaking successful results.

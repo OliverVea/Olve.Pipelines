@@ -5,12 +5,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Configs;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.Shared;
 using Olve.Pipelines.Shared.Persistence;
+using Olve.Results;
 using Olve.Results.TUnit;
+using Olve.Utilities.Ids;
 using static Olve.Pipelines.Pipelines.Versions.PipelineActivation;
 
 namespace Olve.Pipelines.UnitTests;
@@ -484,6 +488,136 @@ public class RunPersistenceServiceTests
     }
 
     // ---- incremental writes ----
+
+    private sealed record SavedChange(Action Apply, Func<TestRunDomain, bool> Survived);
+
+    private static void Must(Result result)
+    {
+        if (result.TryPickProblems(out var problems))
+            throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToString())));
+    }
+
+    private static void Must(DeletionResult result)
+    {
+        if (result.TryPickProblems(out var problems))
+            throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.ToString())));
+    }
+
+    private static IEnumerable<KeyValuePair<string, Func<TestRunDomain, SavedChange>>> SetAndRemoved<T>(
+        string name, Func<TestRunDomain, AttachmentStore<Pipeline, T>> attachments, T value)
+        where T : class
+    {
+        yield return new($"{name} set", d =>
+        {
+            var pipeline = d.CreatePipeline();
+            return new(() => attachments(d).Set(pipeline.Id, value), e => attachments(e).TryGet(pipeline.Id, out _));
+        });
+        yield return new($"{name} removed", d =>
+        {
+            var pipeline = d.CreatePipeline();
+            attachments(d).Set(pipeline.Id, value);
+            return new(() => attachments(d).Remove(pipeline.Id), e => !attachments(e).TryGet(pipeline.Id, out _));
+        });
+    }
+
+    private static readonly Dictionary<string, Func<TestRunDomain, SavedChange>> SavedChanges = new(
+    [
+        .. SetAndRemoved("activation", d => d.Activations, (PipelineActivation)new Active(Id.New<PipelineVersion>(), 1, DateTimeOffset.UnixEpoch)),
+        .. SetAndRemoved("sequences", d => d.Sequences, new PipelineSequences(5, 6)),
+        .. SetAndRemoved("blocked steps", d => d.BlockedSteps, new PipelineBlockedSteps(["deploy"])),
+        .. SetAndRemoved("queued run start", d => d.PendingStarts, new PendingRunStart("{}", new RunTrigger(RunTriggerKind.Manual), DateTimeOffset.UnixEpoch)),
+        .. SetAndRemoved("entity versions", d => d.EntityVersions, EntityVersionMap.Empty),
+        .. SetAndRemoved("poll trigger values", d => d.PollTriggers, new PollTriggerStates(new Dictionary<string, PollTriggerState>())),
+        .. SetAndRemoved("pending version", d => d.PendingVersions, new PendingVersion(Id.New<PipelineVersion>(), 1, DateTimeOffset.UnixEpoch, [], [])),
+        new("version added", d =>
+        {
+            var pipeline = d.CreatePipeline();
+            PipelineVersion? added = null;
+            return new(() => added = d.AddVersion(pipeline.Id), e => e.Versions.TryGet(added!.Id, out _));
+        }),
+        new("version updated", d =>
+        {
+            var version = d.AddVersion(d.CreatePipeline().Id);
+            return new(() => Must(d.Versions.Mutate(version.Id, v => v with { CommitSha = "changed" })),
+                e => e.Versions.TryGet(version.Id, out var after) && after.CommitSha == "changed");
+        }),
+        new("version deleted", d =>
+        {
+            var version = d.AddVersion(d.CreatePipeline().Id);
+            return new(() => Must(d.VersionService.Delete(version.Id)), e => !e.Versions.TryGet(version.Id, out _));
+        }),
+        new("config snapshot added", d =>
+        {
+            var pipeline = d.CreatePipeline();
+            ConfigSnapshot? added = null;
+            return new(() => added = TestRunDomain.Pick(d.ConfigSnapshots.Add(pipeline.Id, "a: 1\n", "dev")), e => e.ConfigSnapshotStore.TryGet(added!.Id, out _));
+        }),
+        new("config snapshot deleted", d =>
+        {
+            var pipeline = d.CreatePipeline();
+            var snapshot = TestRunDomain.Pick(d.ConfigSnapshots.Add(pipeline.Id, "a: 1\n", "dev"));
+            return new(() => d.ConfigSnapshots.DeleteAll(pipeline.Id), e => !e.ConfigSnapshotStore.TryGet(snapshot.Id, out _));
+        }),
+        new("run added", d =>
+        {
+            var version = d.AddVersion(d.CreatePipeline().Id);
+            Run? added = null;
+            return new(() => added = d.CreateRun(version), e => e.Runs.TryGet(added!.Id, out _));
+        }),
+        new("run cancelled with no attempt change", d =>
+        {
+            var run = d.CreateRun();
+            return new(() => TestRunDomain.Pick(d.RunService.Cancel(run.Id)),
+                e => e.Runs.TryGet(run.Id, out var after) && after.Status is RunStatus.Cancelled);
+        }),
+        new("run deleted", d =>
+        {
+            var run = d.CreateRun();
+            return new(() => Must(d.RunService.Delete(run.Id)), e => !e.Runs.TryGet(run.Id, out _));
+        }),
+        new("attempt added", d =>
+        {
+            var run = d.CreateRun();
+            Attempt? added = null;
+            return new(() => added = d.Schedule("build", run), e => e.Attempts.TryGet(added!.Id, out _));
+        }),
+        new("attempt updated", d =>
+        {
+            var attempt = d.Schedule();
+            return new(() => TestRunDomain.Pick(d.AttemptService.MarkInProgress(attempt.Id)),
+                e => e.Attempts.TryGet(attempt.Id, out var after) && after.Status is AttemptStatus.InProgress);
+        }),
+        new("attempt deleted", d =>
+        {
+            var attempt = d.Schedule();
+            return new(() => Must(d.Attempts.Delete(attempt.Id)), e => !e.Attempts.TryGet(attempt.Id, out _));
+        }),
+    ]);
+
+    public static IEnumerable<string> SavedChangeNames() => SavedChanges.Keys;
+
+    // Catches: a dropped subscription, which loses that change across a restart. pipeline-state.json holds
+    // everything, so a dropped subscription still saves whenever something else dirties it: the change has
+    // to be the only one since a quiet flush, and there is no flush timer (only StartedAsync starts it).
+    [Test]
+    [MethodDataSource(nameof(SavedChangeNames))]
+    public async Task EachChange_IsSavedOnItsOwn(string name)
+    {
+        var store = new FakeObjectStore();
+        var a = CreateNode(store);
+        await a.Service.StartingAsync(CancellationToken.None);
+        var change = SavedChanges[name](a.Domain);
+        await Assert.That(await a.Service.FlushAsync(CancellationToken.None)).IsTrue();
+
+        change.Apply();
+
+        await Assert.That(await a.Service.SavedAsync()).Succeeded();
+        a.Service.Dispose();
+
+        var b = CreateNode(store);
+        await b.Service.StartingAsync(CancellationToken.None);
+        await Assert.That(change.Survived(b.Domain)).IsTrue();
+    }
 
     [Test]
     public async Task Flush_RewritesOnlyChangedRuns_AndIndexOnlyOnMembershipChange()

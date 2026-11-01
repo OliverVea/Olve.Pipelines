@@ -245,6 +245,32 @@ public class RetentionPlannerTests
         await Assert.That(plan.Objects.Any(o => o.Object.Key.EndsWith("manifest.json"))).IsFalse();
     }
 
+    // Catches: an idle pipeline or a rollback target losing its binary, which fails every new run until a rebuild.
+    [Test]
+    [Arguments("active")]
+    [Arguments("draining from")]
+    [Arguments("draining to")]
+    public async Task Binary_WithNoRetainedRun_IsKeptForItsActivation(string role)
+    {
+        PipelineVersion Version(int n, string build) => new(Id.New<PipelineVersion>(), P, n, "{}", "h", "sha", $"versions/{Hex(P)}/builds/{build}/step.tar.gz",
+            new Dictionary<string, int>(), new Dictionary<string, int>(), Now);
+        var version = Version(2, "aaa");
+        var unused = Version(1, "bbb");
+        var absent = Id.New<PipelineVersion>();
+        PipelineActivation activation = role switch
+        {
+            "active" => new PipelineActivation.Active(version.Id, 2, Now),
+            "draining from" => new PipelineActivation.Draining(version.Id, 2, absent, 3, false, Now),
+            _ => new PipelineActivation.Draining(absent, 3, version.Id, 2, false, Now),
+        };
+
+        var plan = RetentionPlanner.Plan(
+            Inputs(versions: [version, unused], activations: new Dictionary<Id<Pipeline>, PipelineActivation> { [P] = activation },
+                objects: [Obj(version.BinaryKey, 30), Obj(unused.BinaryKey, 30)]), Options);
+
+        await Assert.That(plan.Objects.Where(o => o.Category == RetentionCategory.Build).Select(o => o.Object.Key)).IsEquivalentTo(new[] { unused.BinaryKey });
+    }
+
     [Test]
     public async Task StaleTriggerEvents_Go()
     {

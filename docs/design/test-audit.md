@@ -501,7 +501,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 1:** 2 of the 8 High rows from the survivor triage. A hand-applied regression leaves the unit suite green for G117 and G12. The 50 Medium rows are also open.
+- **Step 1:** 1 of the 8 High rows from the survivor triage. A hand-applied regression leaves the unit suite green for G12. The 50 Medium rows are also open.
 - **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
 - **Step 4:** no Stryker run since the audit, so every score above is the audit's.

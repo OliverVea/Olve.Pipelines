@@ -259,6 +259,38 @@ public class DeployPollServiceTests
         await Assert.That(c.Current.LastReconciledSha).IsEqualTo("cfg-1");
     }
 
+    // Catches: a sync that keeps the binding's lock, after which polling, reconcile-now and every automatic
+    // run start wait forever and that pipeline's deploys stop silently. The fakes complete synchronously, so
+    // only a held lock can leave these tasks pending: no timeout, and a regression fails instead of hanging.
+    [Test]
+    [Arguments("applied")]
+    [Arguments("failed")]
+    [Arguments("cancelled")]
+    public async Task ASync_ReleasesTheBinding_HoweverItEnds(string ending)
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        c.Reconciler.Outcome = ending switch
+        {
+            "failed" => _ => Result.Failure<ReconcileReport>(new ResultProblem("broken")),
+            "cancelled" => _ => throw new OperationCanceledException(),
+            _ => null,
+        };
+        var first = c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None);
+        await Assert.That(first.IsCompleted).IsTrue();
+        await Assert.That(first.IsCanceled).IsEqualTo(ending == "cancelled");
+        c.Reconciler.Outcome = null;
+
+        var again = c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None);
+        await Assert.That(again.IsCompleted).IsTrue();
+        await Assert.That(await again).Succeeded();
+
+        var ran = false;
+        var gate = c.Poll.RunIfConfigCurrentAsync(c.Binding.PipelineId, () => { ran = true; return Task.CompletedTask; }, CancellationToken.None);
+        await Assert.That(gate.IsCompleted).IsTrue();
+        await Assert.That(ran).IsTrue();
+    }
+
     [Test]
     public async Task ConfigGate_FailedReconcile_DoesNotRunTheAction()
     {

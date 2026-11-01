@@ -251,6 +251,37 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
     }
 
+    // Catches: a Job that keeps running, and a log that recreates objects, after its pipeline was deleted.
+    [Test]
+    public async Task DeletedWhileInProgress_DeletesTheJob_AndWritesNoLog()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        var polls = 0;
+        h.K8s.States.Add(Running);
+        h.K8s.OnPoll = () => { if (++polls == 2) h.Attempts.Delete(attempt.Id).DiscardResult(); };
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
+        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+        await Assert.That(h.Storage.Objects.Keys).DoesNotContain(StorageLayout.AttemptLogKey(attempt));
+    }
+
+    // Catches: a Job created after the deletion's listing of the pipeline's Jobs, which nothing would delete.
+    [Test]
+    public async Task DeletedBeforeTheJobIsCreated_CreatesNoJob()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.Storage.OnPut = _ => h.Attempts.Delete(attempt.Id).DiscardResult();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
+    }
+
     [Test]
     public async Task Reattach_ExistingJob_DoesNotSubmitAgain()
     {

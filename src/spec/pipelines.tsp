@@ -130,7 +130,7 @@ interface Pipelines {
   @summary("Get a pipeline")
   @get @route("{pipelineId}") get(@path @format("uuid") pipelineId: string): Pipeline | NotFound;
 
-  /** Deletes the pipeline with its runs, versions, binding and secrets. */
+  /** Deletes the pipeline with its runs, versions, binding, secrets and Kubernetes Jobs, stopping any still running. */
   @summary("Delete a pipeline")
   @delete @route("{pipelineId}") delete(@path @format("uuid") pipelineId: string): OkResponse | NotFound;
 

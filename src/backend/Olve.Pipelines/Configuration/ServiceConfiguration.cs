@@ -108,6 +108,7 @@ public static class ServiceConfiguration
         services.AddTransient<ActiveAttemptQuery>();
         services.AddTransient<AttemptFileService>();
         services.AddTransient<RunCleanupService>();
+        services.AddTransient<PipelineJobCleanupService>();
         services.AddSingleton<IRunOnStartup, RunEventRegistration>();
 
         // v2 scheduler: stage barriers, when/skip propagation, supersede, de-dup, reruns/continue,

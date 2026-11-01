@@ -68,7 +68,7 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `CriticalPathService`, `AttemptFileService`, `RunCleanupService` |
 | `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
 | `Distribution` | `CliDistribution` (handlers of `/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
-| `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
+| `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `PipelineJobCleanupService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
 | `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
 | `Streaming` | `ChangeBroadcaster` (SSE fan-out, `/api/events`), `ChangeEventRegistration` (domain hubs → notices), `AttemptLogStreamer` |
 | `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IPersistenceReadiness` |
@@ -126,7 +126,7 @@ cd src/frontend && npm run build                                # Production bui
 - **Domain CRUD services** (e.g. `PipelineService`) — typed create/read/update/delete over the store, no event awareness (transient; `RunService`, `AttemptService` and `PipelineVersionService` are singletons because they own lookup indexes and the lock that keeps numbers unique)
 - **Domain rule services** (e.g. `JobObsoletionService`) — implement business rules, event-driven (transient)
 - **Domain query services** (e.g. `JobQueueService`, `RunViewService`) — stateless queries over the store (transient)
-- **Cleanup services** (e.g. `RunCleanupService`, `PipelineVersionCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
+- **Cleanup services** (e.g. `RunCleanupService`, `PipelineVersionCleanupService`, `PipelineJobCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
 
 **Key principles:**
 - **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).

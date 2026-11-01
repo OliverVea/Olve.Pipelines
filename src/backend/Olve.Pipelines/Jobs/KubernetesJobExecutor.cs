@@ -140,7 +140,9 @@ public class KubernetesJobExecutor(
                     logger.LogInformation("Attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete; deleting K8s Job '{JobName}'",
                         attempt.Number, attempt.StepName, attempt.RunNumber, attempt.PipelineId, jobName);
                     var logs = await control.GetLogsAsync(jobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
-                    await PutLogAsync(logKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
+                    // A deleted attempt's run is gone: a log now would recreate its objects.
+                    if (attempts.TryGet(attempt.Id, out _))
+                        await PutLogAsync(logKey, logs.Combined(HarnessJobBuilder.StepContainerName) + "controller: attempt cancelled or obsolete; K8s Job deleted\n", ct);
                     await control.DeleteJobAsync(jobName);
                     await control.DeleteSecretAsync(urlSecret);
                     await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
@@ -201,7 +203,8 @@ public class KubernetesJobExecutor(
     }
 
     // Obsolete: latest-wins replaced the attempt while its Job was being submitted (MarkInProgress then failed).
-    private bool IsAbandoned(Id<Attempt> id) => attempts.TryGet(id, out var current) && current.Status is Cancelled or Obsolete;
+    // Gone: its pipeline or run was deleted.
+    private bool IsAbandoned(Id<Attempt> id) => !attempts.TryGet(id, out var current) || current.Status is Cancelled or Obsolete;
 
     // Wraps the submission phase (input upload, URL Secret, submit/reattach). A failure while the attempt
     // is still Scheduled is a K8s/storage-unavailable stall: count it, surface it in the attempt's log, and

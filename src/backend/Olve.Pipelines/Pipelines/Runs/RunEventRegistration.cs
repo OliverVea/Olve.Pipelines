@@ -1,3 +1,4 @@
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Runs;
@@ -21,6 +22,8 @@ public class RunEventRegistration(
         attemptStore.OnDeleted.Subscribe(attemptEvents.OnDeleted.Invoke);
 
         pipelineEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<RunCleanupService>().HandlePipelineDeleted(e.Id));
+        // After the run cascade: deleting the Job of a live attempt would fail that attempt instead.
+        pipelineEvents.OnDeleted.Subscribe(e => _ = sp.GetRequiredService<PipelineJobCleanupService>().HandlePipelineDeletedAsync(e.Entity));
         runEvents.OnDeleted.Subscribe(e => sp.GetRequiredService<RunCleanupService>().HandleRunDeleted(e.Entity));
 
         return Result.Success();

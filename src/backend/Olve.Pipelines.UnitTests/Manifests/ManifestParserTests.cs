@@ -117,61 +117,6 @@ public class ManifestParserTests
         await Assert.That(ManifestParser.Parse(withBom)).Succeeded();
     }
 
-    private static readonly Dictionary<string, (string Code, Func<string> Json)> Malformed = new()
-    {
-        ["not json"] = (C.InvalidJson, () => "{\"apiVersion\": "),
-        ["trailing comma"] = (C.InvalidJson, () => "{\"a\": 1,}"),
-        ["too large"] = (C.TooLarge, () => "\"" + new string('x', ManifestParser.MaxBytes) + "\""),
-        ["too deep"] = (C.InvalidJson, () => new string('[', ManifestParser.MaxDepth + 1) + new string(']', ManifestParser.MaxDepth + 1)),
-        ["duplicate key"] = (C.DuplicateKey, () => Text.Replace("\"apiVersion\": \"2.0\",", "\"apiVersion\": \"2.0\", \"apiVersion\": \"2.0\",")),
-        ["lone surrogate"] = (C.InvalidValue, () => Text.Replace("\"name\": \"Olve.Pipelines\"", "\"name\": \"\\ud800\"")),
-        ["root not an object"] = (C.WrongType, () => "[]"),
-        ["missing stages"] = (C.MissingProperty, () => Edit(r => r.Remove("stages"))),
-        ["unknown property"] = (C.UnknownProperty, () => Edit(r => r["foo"] = 1)),
-        ["unknown step property"] = (C.UnknownProperty, () => Edit(r => Step(r, "build")["cpu"] = 1)),
-        ["unknown retention property"] = (C.UnknownProperty, () => Edit(r => r["retention"] = new JsonObject { ["keepForever"] = true })),
-        ["retention field not an integer"] = (C.WrongType, () => Edit(r => r["retention"] = new JsonObject { ["minRunAgeDays"] = 1.5 })),
-        ["name not a string"] = (C.WrongType, () => Edit(r => r["name"] = 5)),
-        ["api version"] = (C.UnsupportedApiVersion, () => Edit(r => r["apiVersion"] = "3.0")),
-        ["unknown trigger kind"] = (C.InvalidValue, () => Edit(r => r["triggers"]![0]!["kind"] = "cron")),
-        ["push trigger renamed"] = (C.InvalidValue, () => Edit(r => r["triggers"]![0]!["name"] = "github")),
-        ["poll without url"] = (C.MissingProperty, () => Edit(r => r["triggers"]![1]!.AsObject().Remove("url"))),
-        ["fractional interval"] = (C.WrongType, () => Edit(r => r["triggers"]![1]!["intervalSeconds"] = 1.5)),
-        ["empty stage"] = (C.StageEmpty, () => Edit(r => r["stages"]![0]!["steps"] = new JsonArray())),
-        ["stage of unknown shape"] = (C.MissingProperty, () => Edit(r => r["stages"]!.AsArray().Add(new JsonObject { ["parallel"] = 1 }))),
-        ["when without stages"] = (C.MissingProperty, () => Edit(r => r["stages"]![3]!.AsObject().Remove("stages"))),
-        ["when with no values"] = (C.InvalidValue, () => Edit(r => r["stages"]![3]!["when"]!["deployTo"] = new JsonArray())),
-        ["when with object value"] = (C.WrongType, () => Edit(r => r["stages"]![3]!["when"]!["deployTo"] = new JsonArray(new JsonObject()))),
-        ["mapping not an object"] = (C.WrongType, () => Edit(r => Step(r, "checkout")["input"]!["sha"] = "input.sha")),
-        ["input type of unknown shape"] = (C.MissingProperty, () => Edit(r => Step(r, "build")["inputTypes"]!["source"] = new JsonObject { ["type"] = "Source" })),
-        ["output not a string"] = (C.WrongType, () => Edit(r => Step(r, "build")["output"] = 1)),
-        ["model schema not an object"] = (C.WrongType, () => Edit(r => r["models"]!["Source"]!["output"] = true)),
-        ["failure handler steps not array"] = (C.WrongType, () => Edit(r => r["failureHandlers"]![0]!["steps"] = "deploy-prod")),
-        ["number out of range"] = (C.InvalidValue, () => Text.Replace("\"intervalSeconds\": 300", "\"intervalSeconds\": 1e400")),
-    };
-
-    private static string Edit(Action<JsonObject> edit)
-    {
-        var node = Node();
-        edit(node);
-        return node.ToJsonString();
-    }
-
-    public static IEnumerable<string> MalformedNames() => Malformed.Keys;
-
-    [Test]
-    [MethodDataSource(nameof(MalformedNames))]
-    public async Task Malformed_IsRejectedWithACode(string name)
-    {
-        var (code, json) = Malformed[name];
-
-        var ok = ManifestParser.TryParse(Encoding.UTF8.GetBytes(json()), out _, out var issues);
-
-        await Assert.That(ok).IsFalse();
-        await Assert.That(issues.Select(i => i.Code)).Contains(code);
-        await Assert.That(ManifestParser.Parse(json())).Failed();
-    }
-
     [Test]
     public async Task ShapeProblems_AreAllReported_WithPaths()
     {

@@ -31,6 +31,31 @@ internal static class ManifestFixture
         return ParseNode(node);
     }
 
+    public static string Edit(Action<JsonObject> edit)
+    {
+        var node = Node();
+        edit(node);
+        return node.ToJsonString();
+    }
+
+    public static JsonNode CommitSchema() => new JsonObject
+    {
+        ["schema"] = new JsonObject
+        {
+            ["output"] = new JsonObject
+            {
+                ["type"] = "object",
+                ["additionalProperties"] = false,
+                ["properties"] = new JsonObject
+                {
+                    ["repo"] = new JsonObject { ["type"] = "string" },
+                    ["sha"] = new JsonObject { ["type"] = "string" },
+                },
+                ["required"] = new JsonArray("repo", "sha"),
+            },
+        },
+    };
+
     /// <summary>Finds a step object by name (stages, nested when blocks, failure handlers).</summary>
     public static JsonObject Step(JsonObject root, string name) =>
         FindStep(root["stages"]!.AsArray(), name)

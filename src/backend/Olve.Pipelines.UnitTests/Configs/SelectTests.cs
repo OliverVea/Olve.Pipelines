@@ -30,7 +30,7 @@ public class SelectTests
     }
 
     /// <summary>The config fixture with <c>target</c> a union and stage 1's <c>count</c> replaced by a select with one variant per kind.</summary>
-    private static JsonObject Node(Action<JsonObject>? change = null)
+    internal static JsonObject Node(Action<JsonObject>? change = null)
     {
         var node = JsonNode.Parse(Text())!.AsObject();
         node["config"]![1]!["schema"] = JsonNode.Parse(UnionTarget);

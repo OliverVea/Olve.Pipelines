@@ -14,6 +14,9 @@ namespace Olve.Pipelines.UnitTests.Http;
 public class AuthAllowListTests
 {
     private const string Issuer = "https://issuer.test";
+    private const string FrontendIssuer = "https://frontend-issuer.test";
+    private const string Audience = "olve-pipelines";
+    private const string FrontendAudience = "olve-frontend";
     private static readonly string SigningKey = new('k', 64);
 
     private static ClaimsPrincipal User(params (string Type, string Value)[] claims) =>
@@ -64,6 +67,13 @@ public class AuthAllowListTests
         await Assert.That(Allow(orgs: ["ovea:admins"]).Allows(User(("groups", "ovea:guests")))).IsFalse();
     }
 
+    // Catches: an empty list read as "no restriction" for its own kind (All on an empty list is true).
+    [Test]
+    [Arguments("groups", "ovea")]
+    [Arguments("email", "me@example.com")]
+    public async Task AClaimWithoutAListOfItsKind_AdmitsNobody(string claim, string value) =>
+        await Assert.That(Allow(users: ["olivervea"]).Allows(User((claim, value), ("email_verified", "true")))).IsFalse();
+
     [Test]
     public async Task Emails_NeedAVerifiedEmail()
     {
@@ -82,10 +92,11 @@ public class AuthAllowListTests
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
-        builder.Configuration["Auth:Audience"] = "olve-pipelines";
+        builder.Configuration["Auth:Audience"] = Audience;
+        builder.Configuration["Auth:FrontendAudience"] = FrontendAudience;
         builder.Configuration["Auth:SigningKey"] = SigningKey;
         builder.Configuration["Auth:Authority"] = Issuer;
-        builder.Configuration["Auth:FrontendAuthority"] = Issuer;
+        builder.Configuration["Auth:FrontendAuthority"] = FrontendIssuer;
         builder.Configuration["Auth:Tokens:deployer"] = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(MachineToken)));
         for (var i = 0; i < allowedUsers.Length; i++)
             builder.Configuration[$"Auth:Allow:Users:{i}"] = allowedUsers[i];
@@ -104,14 +115,32 @@ public class AuthAllowListTests
         return response.StatusCode;
     }
 
-    private static string Token(string user) => new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+    // The hour is well past JwtBearer's five minutes of clock skew. NotBefore stays before Expires, so an
+    // expired token is refused for its lifetime alone.
+    private static string Token(string user, string issuer = Issuer, string audience = Audience, bool expired = false)
     {
-        Issuer = Issuer,
-        Audience = "olve-pipelines",
-        Claims = new Dictionary<string, object> { ["preferred_username"] = user },
-        Expires = DateTime.UtcNow.AddMinutes(5),
-        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)), SecurityAlgorithms.HmacSha256),
-    });
+        var expires = DateTime.UtcNow.AddHours(expired ? -1 : 1);
+        return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = issuer,
+            Audience = audience,
+            Claims = new Dictionary<string, object> { ["preferred_username"] = user },
+            IssuedAt = expires.AddHours(-1),
+            NotBefore = expires.AddHours(-1),
+            Expires = expires,
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)), SecurityAlgorithms.HmacSha256),
+        });
+    }
+
+    [Test]
+    [Arguments(Issuer, Audience, false, HttpStatusCode.OK)]
+    [Arguments(FrontendIssuer, Audience, false, HttpStatusCode.OK)]
+    [Arguments(Issuer, FrontendAudience, false, HttpStatusCode.OK)]
+    [Arguments(Issuer, Audience, true, HttpStatusCode.Unauthorized)]
+    [Arguments("https://elsewhere.test", Audience, false, HttpStatusCode.Unauthorized)]
+    [Arguments(Issuer, "another-client", false, HttpStatusCode.Unauthorized)]
+    public async Task TokenOfAnAllowedUser_NeedsAKnownIssuerAndAudience_AndToBeUnexpired(string issuer, string audience, bool expired, HttpStatusCode expected) =>
+        await Assert.That(await Send("/api/write", Token("OliverVea", issuer, audience, expired), "OliverVea")).IsEqualTo(expected);
 
     [Test]
     [Arguments("/api/read")]

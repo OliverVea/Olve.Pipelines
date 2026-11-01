@@ -501,7 +501,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 1:** all 8 High rows from the survivor triage. A hand-applied regression leaves the unit suite green for G28 (expiry, issuer, audience), G30, G34, G115, G117, G12 and G45. For G25, a dropped activation or run update save passes, a dropped block save fails one test, and a dropped sequence save gave different results in two runs, unexplained. The 50 Medium rows are also open.
+- **Step 1:** 6 of the 8 High rows from the survivor triage. A hand-applied regression leaves the unit suite green for G34, G115, G117, G12 and G45. For G25, a dropped activation or run update save passes, a dropped block save fails one test, and a dropped sequence save gave different results in two runs, unexplained. The 50 Medium rows are also open.
 - **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
 - **Step 4:** no Stryker run since the audit, so every score above is the audit's.

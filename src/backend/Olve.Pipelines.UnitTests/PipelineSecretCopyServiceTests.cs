@@ -14,32 +14,96 @@ public class PipelineSecretCopyServiceTests
 
     internal sealed class FakeSecrets : IKubernetesClient
     {
+        private readonly Dictionary<string, int> _versions = [];
+        private int _version;
+
         public Dictionary<string, Dictionary<string, string>> Secrets { get; } = [];
         public List<string> Writes { get; } = [];
 
-        public Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
+        /// <summary>Runs after each read of a revision: another writer, between a read and the write it leads to.</summary>
+        public Action? AfterRead { get; set; }
+
+        public Task<bool> CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
         {
-            Writes.Add($"create {secretName}");
-            Secrets[secretName] = new(data);
-            return Task.CompletedTask;
+            lock (Secrets)
+            {
+                if (Secrets.ContainsKey(secretName))
+                    return Task.FromResult(false);
+                Put("create", secretName, data);
+                return Task.FromResult(true);
+            }
         }
 
-        public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default) =>
-            Task.FromResult(Secrets.TryGetValue(secretName, out var d) ? new Dictionary<string, string>(d) : null);
+        public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default)
+        {
+            lock (Secrets)
+                return Task.FromResult(Secrets.TryGetValue(secretName, out var d) ? new Dictionary<string, string>(d) : null);
+        }
+
+        public Task<SecretRevision?> GetSecretRevisionAsync(string ns, string secretName, CancellationToken ct = default)
+        {
+            SecretRevision? revision;
+            lock (Secrets)
+                revision = Secrets.TryGetValue(secretName, out var d)
+                    ? new SecretRevision(new Dictionary<string, string>(d), Version(secretName))
+                    : null;
+            AfterRead?.Invoke();
+            return Task.FromResult(revision);
+        }
 
         public Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default)
         {
-            Writes.Add($"update {secretName}");
-            Secrets[secretName] = new(data);
+            lock (Secrets)
+            {
+                if (!Secrets.ContainsKey(secretName))
+                    throw new HttpRequestException($"Failed to update K8s Secret '{secretName}': NotFound", null, System.Net.HttpStatusCode.NotFound);
+                Put("update", secretName, data);
+            }
             return Task.CompletedTask;
+        }
+
+        public Task<bool> TryUpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, string resourceVersion, CancellationToken ct = default)
+        {
+            lock (Secrets)
+            {
+                if (!Secrets.ContainsKey(secretName) || Version(secretName) != resourceVersion)
+                    return Task.FromResult(false);
+                Put("update", secretName, data);
+                return Task.FromResult(true);
+            }
         }
 
         public Task DeleteSecretAsync(string ns, string secretName, CancellationToken ct = default)
         {
-            Writes.Add($"delete {secretName}");
-            Secrets.Remove(secretName);
+            lock (Secrets)
+            {
+                Writes.Add($"delete {secretName}");
+                Secrets.Remove(secretName);
+            }
             return Task.CompletedTask;
         }
+
+        public Task<bool> TryDeleteSecretAsync(string ns, string secretName, string resourceVersion, CancellationToken ct = default)
+        {
+            lock (Secrets)
+            {
+                if (Secrets.ContainsKey(secretName) && Version(secretName) != resourceVersion)
+                    return Task.FromResult(false);
+                Writes.Add($"delete {secretName}");
+                Secrets.Remove(secretName);
+                return Task.FromResult(true);
+            }
+        }
+
+        private void Put(string verb, string secretName, Dictionary<string, string> data)
+        {
+            Writes.Add($"{verb} {secretName}");
+            Secrets[secretName] = new(data);
+            _versions[secretName] = ++_version;
+        }
+
+        private string Version(string secretName) => _versions.GetValueOrDefault(secretName).ToString();
+
         public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<string?> GetPodLogsAsync(string ns, string jobName, string? container = null, CancellationToken ct = default) => throw new NotSupportedException();

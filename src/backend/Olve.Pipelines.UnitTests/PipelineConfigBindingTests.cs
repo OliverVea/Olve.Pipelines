@@ -144,7 +144,6 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
-    [Arguments("  ", "main", ".pipelines", "repo: Binding requires a repository ('owner/name').")]
     [Arguments("o/r", " ", ".pipelines", "branch: Binding requires a branch.")]
     [Arguments("o/r", "main", " ", "path: Binding requires a config path (e.g. '.pipelines').")]
     public async Task Create_WithABlankField_Fails(string repo, string branch, string path, string message)
@@ -153,6 +152,37 @@ public class PipelineConfigBindingTests
         var pipeline = Pick(svc.Pipelines.Create("p"));
 
         await svc.Bindings.Create(pipeline.Id, repo, branch, path, null).Problems.IsSingle<ValidationProblem>(message);
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments("  ")]
+    [Arguments("not a repo")]
+    [Arguments("owner")]
+    [Arguments("owner/")]
+    [Arguments("/name")]
+    [Arguments("owner/name/extra")]
+    [Arguments(" owner/name")]
+    [Arguments("https://github.com/owner/name")]
+    public async Task Create_WithoutAnOwnerAndName_IsRefused(string repo)
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+
+        await svc.Bindings.Create(pipeline.Id, repo, "main", ".pipelines", null).Problems
+            .IsSingle<ValidationProblem>("repo: Binding requires a repository ('owner/name').");
+    }
+
+    [Test]
+    [Arguments("OliverVea/Olve.Pipelines")]
+    [Arguments("e2e/flow-0a1b2c")]
+    [Arguments("a-b/c_d.e")]
+    public async Task Create_WithAnOwnerAndName_Binds(string repo)
+    {
+        var svc = CreateFixture();
+        var pipeline = Pick(svc.Pipelines.Create("p"));
+
+        await Assert.That(svc.Bindings.Create(pipeline.Id, repo, "main", ".pipelines", null)).Succeeded();
     }
 
     [Test]

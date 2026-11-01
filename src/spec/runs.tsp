@@ -410,7 +410,7 @@ interface Runs {
   @post start(
     @path @format("uuid") pipelineId: string,
     @body input: Record<unknown>,
-  ): RunStart | NotFound | BadRequest | Conflict;
+  ): RunStart | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /**
    * `from` and `to` are run numbers (default: the latest 20 runs, at most 500); without `from`, `sinceVersion`
@@ -434,14 +434,14 @@ interface Runs {
   @post @route("{number}/cancel") cancel(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
-  ): Run | NotFound | BadRequest | Conflict;
+  ): Run | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /** Starts a new run with the same input on the active version (`rerunOfNumber` points back). */
   @summary("Rerun a run")
   @post @route("{number}/rerun") rerun(
     @path @format("uuid") pipelineId: string,
     @path number: int32,
-  ): RunStart | NotFound | BadRequest | Conflict;
+  ): RunStart | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /** Continues the run: completed stages are kept, the rest re-evaluates with the changed input. Fields consumed by completed steps can't change; the run's version must be active. */
   @summary("Continue a run")
@@ -449,7 +449,7 @@ interface Runs {
     @path @format("uuid") pipelineId: string,
     @path number: int32,
     @body body: ContinueRun,
-  ): Run | NotFound | BadRequest | Conflict;
+  ): Run | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   @summary("List a run's attempts")
   @get @route("{number}/attempts") attempts(
@@ -475,7 +475,7 @@ interface RunSteps {
     @path number: int32,
     @path step: string,
     @body body: RerunStep,
-  ): Attempt | NotFound | BadRequest | Conflict;
+  ): Attempt | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /** Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles. */
   @summary("Cancel a step")
@@ -483,7 +483,7 @@ interface RunSteps {
     @path @format("uuid") pipelineId: string,
     @path number: int32,
     @path step: string,
-  ): Attempt | NotFound | BadRequest | Conflict;
+  ): Attempt | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
   /** Gives the value of an external input of a step that waits for it. The value is validated against the input's model; once every external input is answered the step is scheduled. */
   @summary("Answer a step's external input")

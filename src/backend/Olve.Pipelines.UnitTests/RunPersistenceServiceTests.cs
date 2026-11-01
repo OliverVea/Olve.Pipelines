@@ -75,6 +75,116 @@ public class RunPersistenceServiceTests
 
     private static RunPersistenceJsonContext Json => RunPersistenceJsonContext.Default;
 
+    // ---- durability ----
+
+    [Test]
+    public async Task Saved_WritesWhatChanged_WithoutWaitingForTheTimer()
+    {
+        var store = new FakeObjectStore();
+        var node = await StartNode(store);
+        var d = node.Domain;
+        var run = d.CreateRun(d.AddVersion(d.CreatePipeline().Id));
+
+        await Assert.That(await node.Service.SavedAsync()).Succeeded();
+
+        await Assert.That(store.Objects.Keys).Contains(StorageLayout.RunStateKey(run.PipelineId, run.Number));
+    }
+
+    // A false success here is a lost run after an acknowledged start.
+    [Test]
+    [Arguments("run")]
+    [Arguments(RunPersistenceService.StateKey)]
+    [Arguments(RunPersistenceService.RunsIndexKey)]
+    public async Task Saved_FailsWhenAnyWriteFails_AndSucceedsOnceStorageIsBack(string failing)
+    {
+        const string unsaved = "The change was made but could not be saved; it may be lost if the server restarts.";
+        var store = new FakeObjectStore();
+        var node = await StartNode(store);
+        var d = node.Domain;
+        var version = d.AddVersion(d.CreatePipeline().Id);
+        await Assert.That(await node.Service.SavedAsync()).Succeeded();
+        store.FailWrite = key => failing == "run" ? key.EndsWith("/run.json", StringComparison.Ordinal) : key == failing;
+        d.CreateRun(version);
+
+        var failed = await node.Service.SavedAsync();
+
+        await Assert.That(failed.TryPickProblems(out var problems) ? problems.Single().FormattedMessage : "").IsEqualTo(unsaved);
+        store.FailWrite = _ => false;
+        await Assert.That(await node.Service.SavedAsync()).Succeeded();
+    }
+
+    [Test]
+    public async Task Saved_WithStorageHanging_AnswersWithinItsTimeout()
+    {
+        var store = new HangingStore();
+        var node = CreateNode(store);
+        var service = new RunPersistenceService(
+            node.Domain.Versions, node.Domain.Runs, node.Domain.Attempts, node.Domain.Activations, node.Domain.Sequences, node.Domain.BlockedSteps, node.Domain.PendingStarts, node.Domain.EntityVersions, node.Domain.PollTriggers,
+            node.Domain.ConfigSnapshotStore, node.Domain.PendingVersions,
+            new StorageOptions("test-bucket"), new PersistenceReadiness(), NullLogger<RunPersistenceService>.Instance, store)
+        { SaveTimeout = TimeSpan.FromMilliseconds(1) };
+        await service.StartingAsync(CancellationToken.None);
+        store.Hang = true;
+        node.Domain.AddVersion(node.Domain.CreatePipeline().Id);
+
+        await Assert.That(await service.SavedAsync()).Failed();
+    }
+
+    [Test]
+    public async Task Saved_InEphemeralMode_HasNothingToWaitFor()
+    {
+        var node = CreateNode(null, StorageMode.Ephemeral);
+        await node.Service.StartingAsync(CancellationToken.None);
+
+        await Assert.That(await node.Service.SavedAsync()).Succeeded();
+    }
+
+    private sealed class HangingStore : ISnapshotStore
+    {
+        public bool Hang { get; set; }
+        public Task<byte[]?> TryReadAsync(string key, CancellationToken ct) => Task.FromResult<byte[]?>(null);
+        public Task WriteAsync(string key, byte[] content, CancellationToken ct) => Hang ? new TaskCompletionSource().Task : Task.CompletedTask;
+        public Task DeleteAsync(string key, CancellationToken ct) => Task.CompletedTask;
+    }
+
+    // Catches: a caller released by a flush that read the state before its change.
+    [Test]
+    public async Task CoalescingFlush_ACallerDuringAFlush_WaitsForTheNextOne_AndManyShareIt()
+    {
+        var flushes = new List<TaskCompletionSource<bool>>();
+        var started = new SemaphoreSlim(0);
+        var flush = new CoalescingFlush(() =>
+        {
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (flushes)
+                flushes.Add(gate);
+            started.Release();
+            return gate.Task;
+        });
+
+        var first = flush.RequestAsync();
+        await started.WaitAsync();
+        var during = Enumerable.Range(0, 5).Select(_ => flush.RequestAsync()).ToList();
+
+        flushes[0].SetResult(true);
+        await Assert.That(await first).IsTrue();
+        await Assert.That(during.Any(t => t.IsCompleted)).IsFalse();
+
+        await started.WaitAsync();
+        flushes[1].SetResult(false);
+
+        await Assert.That(await Task.WhenAll(during)).IsEquivalentTo([false, false, false, false, false]);
+        await Assert.That(flushes.Count).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task CoalescingFlush_AThrowingFlush_IsAFailedSave()
+    {
+        var flush = new CoalescingFlush(() => throw new IOException("storage is gone"));
+
+        await Assert.That(await flush.RequestAsync()).IsFalse();
+    }
+
     // ---- protocol ----
 
     [Test]

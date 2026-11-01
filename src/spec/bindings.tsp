@@ -77,7 +77,7 @@ model PipelineBindingStatus {
 
 /** Creates a pipeline bound to a repo: the only way to create one. */
 model CreatePipeline {
-  /** `owner/name`. */
+  /** `owner/name`; anything else is refused with a 400. */
   repo: string;
 
   /** Default `main`. */

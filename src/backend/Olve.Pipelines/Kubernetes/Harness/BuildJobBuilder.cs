@@ -111,6 +111,9 @@ public static partial class BuildJobBuilder
     /// <summary>Per-build URL Secret name.</summary>
     public static string UrlSecretName(string jobName) => $"{jobName}-urls";
 
+    /// <summary>A GitHub <c>owner/name</c>, the only repository a build can check out.</summary>
+    public static bool IsValidRepo(string repo) => RepoRegex().IsMatch(repo);
+
     /// <summary>A relative path inside the repo: no leading <c>/</c>, no <c>.</c>/<c>..</c> segments (except the root <c>.</c>), no <c>\</c> or NUL.</summary>
     public static bool IsValidPipelinePath(string path)
     {
@@ -124,7 +127,7 @@ public static partial class BuildJobBuilder
     {
         if (!DnsLabelRegex().IsMatch(request.JobName) || request.JobName.Length > 57)
             return new ResultProblem("Invalid build Job name '{0}'.", request.JobName);
-        if (!RepoRegex().IsMatch(request.Repo))
+        if (!IsValidRepo(request.Repo))
             return new ResultProblem("Invalid GitHub repository '{0}'.", request.Repo);
         if (!ShaRegex().IsMatch(request.CommitSha))
             return new ResultProblem("Invalid commit sha '{0}' (want 40 lowercase hex).", request.CommitSha);

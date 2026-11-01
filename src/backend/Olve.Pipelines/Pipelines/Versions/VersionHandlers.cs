@@ -2,6 +2,7 @@ using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines.Configs;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Problems;
 using Olve.TypeSpec;
 using Api = Olve.Pipelines.Api;
@@ -74,14 +75,15 @@ public sealed class GetEffectivePipelineHandler(PipelineVersionService versions,
 
 /// <summary>Switch (or roll back) the active version: Active(a) → Draining(a → b) → Active(b). Refused with the reasons when the config or a secret doesn't satisfy the version.</summary>
 [OperationHandler]
-public sealed class SwitchVersionHandler(PipelineVersionService versions, ConfigActivationService gate, IPipelineSecretNames secretNames) : Api.IVersionsSwitchHandler
+public sealed class SwitchVersionHandler(PipelineVersionService versions, ConfigActivationService gate, IPipelineSecretNames secretNames, IStateDurability durability) : Api.IVersionsSwitchHandler
 {
     public async Task<Api.VersionsSwitchResponse> HandleAsync(Api.VersionsSwitchRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         if (!versions.TryGetByNumber(id, request.Body.Version, out var version))
             return new Api.VersionsSwitchResponse.NotFound(VersionViews.NotFound(id, request.Body.Version));
-        var result = gate.Switch(version, request.Body.CancelRunning ?? false, await secretNames.ListSetAsync(id, cancellationToken));
+        var result = await durability.SavedAsync(
+            gate.Switch(version, request.Body.CancelRunning ?? false, await secretNames.ListSetAsync(id, cancellationToken)), cancellationToken);
         if (result.TryPickProblems(out var problems, out var activation))
         {
             var problem = ApiProblems.Of([.. problems]);
@@ -89,6 +91,7 @@ public sealed class SwitchVersionHandler(PipelineVersionService versions, Config
             {
                 StatusCodes.Status404NotFound => new Api.VersionsSwitchResponse.NotFound(problem),
                 StatusCodes.Status409Conflict => new Api.VersionsSwitchResponse.Conflict(problem),
+                StatusCodes.Status503ServiceUnavailable => new Api.VersionsSwitchResponse.ServiceUnavailable(problem),
                 _ => new Api.VersionsSwitchResponse.BadRequest(problem),
             };
         }

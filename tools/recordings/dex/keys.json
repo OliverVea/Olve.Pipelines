@@ -1,0 +1,31 @@
+{
+  "system": "dex",
+  "name": "keys",
+  "source": "dexidp/dex:v2.43.1 with src/deploy/compose/dex.yaml",
+  "capturedAt": "2026-10-31",
+  "systemVersion": "v2.43.1",
+  "elided": "",
+  "request": {
+    "method": "GET",
+    "url": "/dex/keys",
+    "headers": {}
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "keys": [
+        {
+          "use": "sig",
+          "kty": "RSA",
+          "kid": "211ccea475939dee819fdb187f602eafbb0e63d4",
+          "alg": "RS256",
+          "n": "wwfe2d4k44V3AqnvJAV5HScr2ckqBO6zUH7ExGNh28llgMHdWr7lAtF3MV-ed2v5VphoCaU_ioP7vQTB2wg9WMyQppgFRdGkBqSWBASEiFpX4SlybhdZw-V6YBWkdQnUrfLYNFR8dCguBGiNTcBhVbJmQ-h-7bbGvgUtoORfJx3CNt2LvwAxUofNeuri1EcsDkEbx0Q0uhuiFTesSaa9RYnRgnb5cI7RM4MbJyGiXkITW0S2ohTQvdJcPTpelBtxZx5pYvfbrajiPm7b7VKHS3QBagMPHQ9H1Dpb2Rr6LlucVDrogpcnuJ6g8QzYkzbZYK1AtArFGTssmVtMPzfIkw",
+          "e": "AQAB"
+        }
+      ]
+    }
+  }
+}

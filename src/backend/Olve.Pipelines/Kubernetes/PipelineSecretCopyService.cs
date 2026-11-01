@@ -31,21 +31,22 @@ public class PipelineSecretCopyService(
         if (sourceData is null || sourceData.Count == 0)
             return new ResultProblem("Source pipeline '{0}' has no secrets.", source.Name);
 
-        var targetData = source.Id == target.Id
-            ? new Dictionary<string, string>(sourceData)
-            : await kubernetes.GetSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), ct);
+        var samePipeline = source.Id == target.Id;
+        IReadOnlyList<(string From, string To)> plan = [];
+        var edit = await kubernetes.EditSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), current =>
+        {
+            var from = samePipeline ? current ?? sourceData : sourceData;
+            if (Plan(from, current, request, samePipeline).TryPickProblems(out var problems, out var planned))
+                return problems;
 
-        if (Plan(sourceData, targetData, request, source.Id == target.Id).TryPickProblems(out var problems, out var plan))
-            return problems;
-
-        var merged = targetData is null ? new Dictionary<string, string>() : new Dictionary<string, string>(targetData);
-        foreach (var (from, to) in plan)
-            merged[to] = sourceData[from];
-
-        if (targetData is null)
-            await kubernetes.CreateSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), merged, ct);
-        else
-            await kubernetes.UpdateSecretAsync(options.Namespace, PipelineSecrets.Name(target.Id), merged, ct);
+            plan = planned;
+            var merged = current is null ? [] : new Dictionary<string, string>(current);
+            foreach (var (name, to) in plan)
+                merged[to] = from[name];
+            return merged;
+        }, ct);
+        if (edit.TryPickProblems(out var editProblems, out _))
+            return editProblems;
 
         var copied = plan.Select(p => p.To).ToArray();
         logger.LogInformation(

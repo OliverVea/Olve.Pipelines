@@ -47,7 +47,7 @@ Global flags: `--json`, `--verbose`/`-v`, `--help`/`-h`. `pl help`, `pl <noun> -
 # pipelines — <pipeline> is an id or a name (quote names with spaces)
 pl pipeline list [--summaries]                         # health, last run, active version, running/held, blocked steps
 pl pipeline get <pipeline>
-pl pipeline delete <pipeline>                          # also deletes its binding, runs and secrets
+pl pipeline delete <pipeline>                          # also deletes its binding, runs, K8s Jobs and secrets
 pl pipeline health <pipeline>
 pl pipeline versions <pipeline>                        # > marks the version runs start on
 pl pipeline manifest <pipeline> [--version <n>] [--json]

@@ -1,9 +1,11 @@
-import { cpSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { implement, step, Source } from '@olivervea/pipelines';
 import * as M from '../models';
 
 const TESTS = 'src/backend/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj';
+// `dotnet test` hides what the test process prints, so the run leaves its one-line report here.
+const RECORDED_FIXTURES = 'artifacts/recorded-fixtures.txt';
 
 export const test = implement(
   step({
@@ -49,6 +51,8 @@ export const test = implement(
       });
 
     const results = await Promise.allSettled([unitTests, format]);
+    const summary = join(tree, RECORDED_FIXTURES);
+    if (existsSync(summary)) ctx.log(readFileSync(summary, 'utf8').trim());
     const failed = results.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
     if (failed.length > 0)
       throw failed.length === 1

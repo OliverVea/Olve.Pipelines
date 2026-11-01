@@ -4,8 +4,8 @@ namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
 /// Cascade on deletion: pipeline → its runs; run → its attempts (active ones are cancelled first so
-/// any status subscriber sees them end). Garage objects and still-running K8s Jobs are left to
-/// retention (B9) and the executor (B5).
+/// any status subscriber sees them end). <see cref="Jobs.PipelineJobCleanupService"/> deletes the K8s Jobs;
+/// Garage objects are left to retention.
 /// </summary>
 public class RunCleanupService(
     RunService runs,

@@ -97,6 +97,84 @@ public class PipelineSecretServiceTests
         await (await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v")).Problems.IsSingle<UnavailableProblem>("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
     }
 
+    private static void RaceOnce(Fixture f, Action write)
+    {
+        var raced = false;
+        f.K8s.AfterRead = () =>
+        {
+            if (raced)
+                return;
+            raced = true;
+            write();
+        };
+    }
+
+    // Catches: a first set that lost the create race dropping its value, the bug of two parallel PUTs on a new pipeline.
+    [Test]
+    public async Task Set_ThatLosesTheRaceToCreateTheSecret_KeepsBothValues()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        RaceOnce(f, () => f.K8s.CreateSecretAsync("runners", name, new() { ["OTHER"] = "theirs" }).GetAwaiter().GetResult());
+
+        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "MINE", "ours")).Succeeded();
+
+        await Assert.That(f.K8s.Secrets[name]).IsEquivalentTo(new Dictionary<string, string> { ["OTHER"] = "theirs", ["MINE"] = "ours" });
+    }
+
+    [Test]
+    public async Task Set_OverAConcurrentWriteOfAnotherKey_KeepsBothValues()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        f.K8s.Secrets[name] = new() { ["FIRST"] = "1" };
+        RaceOnce(f, () => f.K8s.UpdateSecretAsync("runners", name, new() { ["FIRST"] = "1", ["OTHER"] = "theirs" }).GetAwaiter().GetResult());
+
+        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "MINE", "ours")).Succeeded();
+
+        await Assert.That(f.K8s.Secrets[name]).IsEquivalentTo(new Dictionary<string, string> { ["FIRST"] = "1", ["OTHER"] = "theirs", ["MINE"] = "ours" });
+    }
+
+    // Catches: removing the last key deleting a value another writer just added.
+    [Test]
+    public async Task Delete_OfTheLastKey_KeepsAValueSetMeanwhile()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        f.K8s.Secrets[name] = new() { ["ONLY"] = "1" };
+        RaceOnce(f, () => f.K8s.UpdateSecretAsync("runners", name, new() { ["ONLY"] = "1", ["OTHER"] = "theirs" }).GetAwaiter().GetResult());
+
+        await Assert.That(await f.Service.DeleteAsync(f.S.Pipeline.Id, "ONLY")).Succeeded();
+
+        await Assert.That(f.K8s.Secrets[name]).IsEquivalentTo(new Dictionary<string, string> { ["OTHER"] = "theirs" });
+    }
+
+    [Test]
+    public async Task Delete_OfTheLastKey_RemovesTheSecret()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        f.K8s.Secrets[name] = new() { ["ONLY"] = "1" };
+
+        await Assert.That(await f.Service.DeleteAsync(f.S.Pipeline.Id, "ONLY")).Succeeded();
+
+        await Assert.That(f.K8s.Secrets.ContainsKey(name)).IsFalse();
+    }
+
+    // Writers that never stop leave no version to write at: the caller is told, nothing is silently dropped.
+    [Test]
+    public async Task Set_UnderEndlessConcurrentWrites_FailsWithAConflict()
+    {
+        var f = Create();
+        var name = PipelineSecrets.Name(f.S.Pipeline.Id);
+        f.K8s.Secrets[name] = new() { ["FIRST"] = "1" };
+        f.K8s.AfterRead = () => f.K8s.UpdateSecretAsync("runners", name, new() { ["FIRST"] = "1" }).GetAwaiter().GetResult();
+
+        var result = await f.Service.SetAsync(f.S.Pipeline.Id, "MINE", "ours");
+
+        await Assert.That(result.TryPickProblems(out var problems) ? problems.Single().FormattedMessage : "").IsEqualTo($"Secret '{name}' kept changing under concurrent writes; try again.");
+    }
+
     [Test]
     public async Task DeleteAll_RemovesThePipelinesSecret()
     {

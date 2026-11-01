@@ -44,7 +44,8 @@ public class KubernetesJobExecutorTests
         JobWatcherRegistry Registry,
         FakeApplicationLifetime Lifetime,
         HarnessJobFactory Factory,
-        HarnessJobControl Control)
+        HarnessJobControl Control,
+        FakeDurability Durability)
     {
         public Attempt Hello => Scenario.Latest(Scenario.Get(Run), "hello")!;
         public AttemptService Attempts => Scenario.D.AttemptService;
@@ -54,6 +55,7 @@ public class KubernetesJobExecutorTests
     {
         var k8s = new FakeKubernetes();
         var storage = new FakeStorage();
+        var durability = new FakeDurability();
         var scenario = new SchedulerScenario(TestFixtureManifest.Text);
         var run = scenario.Start(input);
 
@@ -77,13 +79,14 @@ public class KubernetesJobExecutorTests
             sp.GetRequiredService<IServiceScopeFactory>(), registry, lifetime, control, factory, storage,
             scenario.D.AttemptService, scenario.D.Launches,
             new CallbackInputUrls(new CallbackKeyStore(new MemorySnapshotStore(), NullLogger<CallbackKeyStore>.Instance), new WebhookOptions(null)),
+            durability,
             NullLogger<KubernetesJobExecutor>.Instance)
         {
             SubmissionRetryDelay = TimeSpan.Zero,
             PollInterval = TimeSpan.FromMilliseconds(5),
         };
 
-        return new Harness(executor, k8s, storage, scenario, run, registry, lifetime, factory, control);
+        return new Harness(executor, k8s, storage, scenario, run, registry, lifetime, factory, control, durability);
     }
 
     private static Task RunWatcher(Harness h, Id<Attempt> id)
@@ -243,6 +246,110 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.Hello.Status).IsTypeOf<Obsolete>();
         await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
         await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
+    }
+
+    // Catches: a Job that keeps running, and a log that recreates objects, after its pipeline was deleted.
+    [Test]
+    public async Task DeletedWhileInProgress_DeletesTheJob_AndWritesNoLog()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        var polls = 0;
+        h.K8s.States.Add(Running);
+        h.K8s.OnPoll = () => { if (++polls == 2) h.Attempts.Delete(attempt.Id).DiscardResult(); };
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.DeletedJobs).Contains(attempt.KubernetesJobName);
+        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+        await Assert.That(h.Storage.Objects.Keys).DoesNotContain(StorageLayout.AttemptLogKey(attempt));
+    }
+
+    // Catches: a Job created after the deletion's listing of the pipeline's Jobs, which nothing would delete.
+    [Test]
+    public async Task DeletedBeforeTheJobIsCreated_CreatesNoJob()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.Storage.OnPut = _ => h.Attempts.Delete(attempt.Id).DiscardResult();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(h.K8s.UpsertedSecrets).IsEmpty();
+    }
+
+    // Catches: a Job that a crash leaves with no saved attempt.
+    [Test]
+    public async Task TheAttemptIsSavedBeforeItsJobExists()
+    {
+        var h = Build();
+        var savesWhenCreated = -1;
+        h.K8s.OnCreateJob = () => savesWhenCreated = h.Durability.Saves;
+
+        await RunWatcher(h, h.Hello.Id);
+
+        await Assert.That(savesWhenCreated).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task AnAttemptThatCannotBeSaved_GetsNoJob_AndFailsSaying()
+    {
+        var h = Build();
+        h.Durability.Fail = true;
+        var attempt = h.Hello;
+
+        for (var i = 0; i < KubernetesJobExecutor.MaxSubmissionAttempts; i++)
+            await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+        await Assert.That(h.Hello.Status is Failed { Reason: var reason } ? reason : "")
+            .IsEqualTo("K8s submission failed after 3 attempts: The change was made but could not be saved; it may be lost if the server restarts.");
+    }
+
+    [Test]
+    public async Task CancelledWhileSaving_CreatesNoJob()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.Durability.OnSave = () => h.Attempts.Cancel(attempt.Id).DiscardResult();
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+    }
+
+    // Catches: a kill after the delete and before the flush, which turns a success into "uploaded no result.tar.gz".
+    [Test]
+    public async Task TheArchiveOutlivesTheSaveOfTheTerminalStatus()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        var archive = HarnessStorageKeys.AttemptResultArchiveKey(attempt);
+        var deletedBeforeATerminalSave = true;
+        h.Durability.OnSave = () =>
+        {
+            if (h.Attempts.TryGet(attempt.Id, out var current) && !current.Status.IsActive())
+                deletedBeforeATerminalSave = h.Storage.Deleted.Contains(archive);
+        };
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(deletedBeforeATerminalSave).IsFalse();
+        await Assert.That(h.Storage.Deleted).Contains(archive);
+    }
+
+    [Test]
+    public async Task ATerminalStatusThatCannotBeSaved_KeepsTheArchive()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.K8s.OnCreateJob = () => h.Durability.Fail = true;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
+        await Assert.That(h.Storage.Deleted).DoesNotContain(HarnessStorageKeys.AttemptResultArchiveKey(attempt));
     }
 
     [Test]

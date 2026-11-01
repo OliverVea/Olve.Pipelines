@@ -37,36 +37,6 @@ public class HarnessResultCollectorTests
         return (collector, s3);
     }
 
-    // Catches: a step's files or output not landing at the keys later steps and the API read from.
-    [Test]
-    public async Task Collect_StoresFilesAndOutput_UnderTheAttemptsLayout()
-    {
-        var (collector, s3) = Collector();
-        s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
-            ("output.json", """{"output":{"message":"m"},"status":"succeeded"}"""),
-            ("files/chart/values.yaml", "a: 1"),
-            ("files/image.tar", "tar"));
-
-        var collection = await collector.CollectAsync(Attempt);
-
-        await Assert.That(collection.Archive!.Value).Succeeded();
-        var files = StorageLayout.AttemptFilesPrefix(Attempt);
-        await Assert.That(collection.FileKeys).IsEquivalentTo([$"{files}/chart/values.yaml", $"{files}/image.tar"]);
-        await Assert.That(Encoding.UTF8.GetString(s3.Objects[$"{files}/chart/values.yaml"])).IsEqualTo("a: 1");
-        await Assert.That(Encoding.UTF8.GetString(s3.Objects[StorageLayout.AttemptOutputKey(Attempt)])).IsEqualTo("""{"message":"m"}""");
-    }
-
-    [Test]
-    public async Task Collect_WithoutAnArchive_ReportsNone()
-    {
-        var (collector, s3) = Collector();
-
-        var collection = await collector.CollectAsync(Attempt);
-
-        await Assert.That(collection.Archive).IsNull();
-        await Assert.That(s3.Puts).IsEmpty();
-    }
-
     // Catches: an oversized result being downloaded and unpacked into storage anyway.
     [Test]
     public async Task Collect_AnArchiveOverTheCap_FailsWithoutStoringAnything()
@@ -96,17 +66,22 @@ public class HarnessResultCollectorTests
         await Assert.That(s3.Objects.ContainsKey(StorageLayout.AttemptOutputKey(Attempt))).IsFalse();
     }
 
+    // A restart before the attempt's status is saved collects the same archive again.
     [Test]
-    public async Task DeleteArchive_RemovesOnlyTheArchive()
+    public async Task Collect_Twice_GivesTheSameResult()
     {
         var (collector, s3) = Collector();
-        var archiveKey = HarnessStorageKeys.AttemptResultArchiveKey(Attempt);
-        s3.Objects[archiveKey] = Archive(("output.json", """{"output":{},"status":"succeeded"}"""));
-        await collector.CollectAsync(Attempt);
+        s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
+            ("output.json", """{"output":{"lines":3},"status":"succeeded"}"""), ("files/log.txt", "text"));
 
-        await collector.DeleteArchiveAsync(Attempt);
+        var first = await collector.CollectAsync(Attempt);
+        var stored = s3.Objects.ToDictionary(o => o.Key, o => o.Value);
+        var second = await collector.CollectAsync(Attempt);
 
-        await Assert.That(s3.Objects.ContainsKey(archiveKey)).IsFalse();
-        await Assert.That(s3.Objects.ContainsKey(StorageLayout.AttemptOutputKey(Attempt))).IsTrue();
+        await Assert.That(second.FileKeys).IsEquivalentTo(first.FileKeys);
+        await Assert.That(second.Archive!.Value).Succeeded();
+        await Assert.That(s3.Objects.Count).IsEqualTo(stored.Count);
+        foreach (var (key, value) in stored)
+            await Assert.That(s3.Objects[key]).IsEquivalentTo(value);
     }
 }

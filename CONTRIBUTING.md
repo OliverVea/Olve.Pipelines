@@ -28,7 +28,8 @@ src/
 │   │   │   ├── Triggers/           push / poll / manual triggers, map-trigger, input validation
 │   │   │   └── Versions/           PipelineVersion, activation (Active / Draining), version endpoints
 │   │   └── Shared/                 AttachmentStore, startup runner, persistence, S3 presigning
-│   └── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
+│   ├── Olve.Pipelines.UnitTests/   Unit tests (TUnit + Rocks)
+│   └── Olve.Pipelines.RealSystemTests/  Tests against a real server, Kubernetes and Garage (TUnit)
 ├── spec/                           The API contract (TypeSpec, one .tsp per area); bun run build → artifacts/ (gitignored): openapi.json, the server's generated C#, the TypeScript client, the API reference (docs/design/spec-first.md)
 ├── sdk/                            @olivervea/pipelines: authoring API, harness, olve-build, olve-dev (Bun)
 ├── harness/                        harness-base init image + end-to-end validation
@@ -42,6 +43,8 @@ src/
 .pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
+tools/real-system/                  The throwaway host the real-system tests run against
+tools/recordings/                   Real exchanges with GitHub, Dex and k3s (see Recorded fixtures)
 tools/version.cs                    CalVer versioning script
 ```
 
@@ -62,6 +65,102 @@ The server build compiles the contract when it changed (Olve.TypeSpec's `TypeSpe
 `tsp compile` in `src/spec/`) and compiles the generated `artifacts/generated/backend/*.g.cs`;
 `-p:SkipSpecGen=true` compiles already-generated files without bun (the deploy's `spec` step emits
 them for `compile-server` and `test`).
+
+### Real-system tests
+
+`src/backend/Olve.Pipelines.RealSystemTests` runs against a real server, Kubernetes and Garage. It isn't
+part of `dotnet build` or `dotnet test` at the root. The tests don't start a host, so start one first:
+
+```bash
+tools/real-system/host.sh up                                   # a throwaway host on http://localhost:5000
+dotnet run --project src/backend/Olve.Pipelines.RealSystemTests  # add -- --output Detailed for the host-size lines
+tools/real-system/host.sh down                                 # remove it and its data
+```
+
+The header of `tools/real-system/host.sh` covers a pool of hosts (`TEST_TARGETS`, `TEST_TARGETS_FILE`), the
+reset and the sweeper. The tests refuse a target whose cluster doesn't carry the host's marker Secret.
+
+A test takes a host with `await using var server = await TestServer.LeaseAsync();`. It creates its own
+pipelines (`server.NewPipelineAsync()`) and names anything else with `TestServer.NewName()`, asserts only
+on what it owns, and never cleans up: retention with short thresholds and the sweeper do that. A disruptive
+test is marked `[ExclusiveServer]`. Each contract in `Contracts/` runs the same assertions on the real
+system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSystem/FakeContractTests.cs`).
+
+### Chaos tests
+
+`Olve.Pipelines.RealSystemTests/Chaos` injects scripted faults at known risky moments of a run, each with a
+checked invariant. The tests are `[Explicit]`: the default real-system run leaves them out, no pipeline runs
+them, and they sit outside the flake budget. Each is `[ExclusiveServer]`, so the host is reset afterwards.
+
+```bash
+tools/real-system/host.sh up 1
+tools/real-system/host.sh chaos 1                              # every family, every moment once, from a random seed
+tools/real-system/host.sh chaos 1 ServerCrashTests             # one family
+CHAOS_ROUNDS=3 tools/real-system/host.sh chaos 1 OutageTests   # three times over
+CHAOS_SEEDS=17,18 tools/real-system/host.sh chaos 1 ServerCrashTests        # replay seeds
+CHAOS_SEEDS=17 CHAOS_CONTROL=1 tools/real-system/host.sh chaos 1 ServerCrashTests   # the harmless twin of the fault, same moment
+```
+
+The families are `ServerCrashTests` (SIGKILL through a run's life), `OutageTests` (Garage down, the Kubernetes
+API frozen), `PodDeletionTests` and `DrainRestartTests` (a restart right after a `--cancel-running` switch cancelled a run).
+
+A seed fixes the fault: moment, delay, downtime. It doesn't fix the server's timers, so a replay reproduces
+at a rate: run it a few times, and compare with `CHAOS_CONTROL=1` before calling a failure a bug. A failure
+prints its seed. A test reaches a fault only through `TestServer.ArmFaultAsync`, which is `host.sh fault`. It
+anchors on a server log line, so a changed log message shows up as `fault: the server logged nothing matching …`.
+
+### Browser tests
+
+`src/frontend/e2e` runs the main UI flows in Chromium ([Playwright](https://playwright.dev)) against the same
+host, serving the production bundle. It is its own package, so neither `npm run build` nor the deploy installs it:
+
+```bash
+tools/real-system/host.sh up                                   # a throwaway host, as above
+tools/real-system/host.sh ui                                   # after up: build the web UI into it; again after a frontend change
+cd src/frontend/e2e && npm install && npx playwright install chromium
+npm test                                                       # TEST_TARGETS picks the hosts, as above
+```
+
+The tests follow the rules above: each binds its own `e2e-` pipelines through the generated client, asserts only
+on what it owns and never cleans up, and the run starts by applying the same guard to every target. Don't run
+them on a host the real-system tests are using: those can reset it. The host has no sign-in, because its API has
+auth off, so the tests seed the session the app would have stored after one; sign-in itself isn't covered. A test
+fails on any uncaught error in the page. On a failure, `artifacts/real-system/browser/results` holds a trace for
+`npx playwright show-trace`.
+
+### Recorded fixtures
+
+`tools/recordings/<system>/*.json` holds real exchanges with GitHub, Dex and k3s, one file each: the capture
+date, source and system version, the request, the response, and the body fields removed at capture (`elided`).
+`Olve.Pipelines.UnitTests/Recordings` replays them through the code that reads those systems, and
+`GitHubStandInTests` checks the stand-in against them. Anything written by hand that stands for one of these
+systems is listed in `tools/recordings/hand-written.json`, and never carries capture metadata.
+
+A run of the unit tests reports how current the recordings are in one line, and this never fails a build:
+
+| System | Goes out of date |
+|---|---|
+| GitHub | 60 days after capture (`expired`) |
+| Dex | as soon as `docker-compose.yml` or `src/deploy/helm/values.yaml` pins another version (`stale`) |
+| k3s | as soon as `docker-compose.yml` or `tools/real-system/compose.yml` pins another version (`stale`) |
+
+`dotnet test` hides what a test process prints, so the line goes to `artifacts/recorded-fixtures.txt`: the
+`test` step and `tools/check.sh --full` show it. The homelab's k3s version isn't pinned in the repo, so what
+this tracks is the image the throwaway hosts run.
+
+To re-record, run one of these from the repo root:
+
+```bash
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- github      # anonymous reads of a public repo; no token is ever read
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- dex         # a throwaway container on the pinned image
+tools/real-system/host.sh up 3                                          # k3s needs a host, then:
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- k3s 3
+dotnet run --project src/backend/Olve.Pipelines.Recorder -- status      # the one-line report
+```
+
+Each command replaces that system's files and prints the diff, leaving nothing staged. It scrubs secrets,
+keeps only listed headers, and writes nothing if a scan of the result still finds one. A person approves every
+re-record: commit the diff to approve, restore the directory to reject.
 
 ### Check before you push
 

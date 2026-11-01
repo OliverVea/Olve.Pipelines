@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Triggers;
+using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Problems;
 using Olve.TypeSpec;
 using Contract = Olve.Pipelines.Api;
@@ -29,15 +30,15 @@ public sealed class ListRunsHandler(PipelineService pipelines, RunViewService vi
 
 /// <summary>Invalid input is a 400 listing every problem — never a half-started run.</summary>
 [OperationHandler]
-public sealed class StartRunHandler(RunInputService inputs, RunViewService views) : Contract.IRunsStartHandler
+public sealed class StartRunHandler(RunInputService inputs, RunViewService views, IStateDurability durability) : Contract.IRunsStartHandler
 {
-    public Task<Contract.RunsStartResponse> HandleAsync(Contract.RunsStartRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunsStartResponse> HandleAsync(Contract.RunsStartRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var started = inputs.StartManual(id, JsonFields.ToJsonObject(request.Body)).Bind(outcome => RunViews.ToApi(views, id, outcome));
-        return Task.FromResult(started.TryPickProblems(out var problems, out var start)
-            ? RunViews.Fail<Contract.RunsStartResponse>(problems, p => new Contract.RunsStartResponse.NotFound(p), p => new Contract.RunsStartResponse.Conflict(p), p => new Contract.RunsStartResponse.BadRequest(p))
-            : new Contract.RunsStartResponse.Ok(start));
+        return (await durability.SavedAsync(started, cancellationToken)).TryPickProblems(out var problems, out var start)
+            ? RunViews.Fail<Contract.RunsStartResponse>(problems, p => new Contract.RunsStartResponse.NotFound(p), p => new Contract.RunsStartResponse.Conflict(p), p => new Contract.RunsStartResponse.BadRequest(p), p => new Contract.RunsStartResponse.ServiceUnavailable(p))
+            : new Contract.RunsStartResponse.Ok(start);
     }
 }
 
@@ -68,45 +69,45 @@ public sealed class GetRunHandler(RunViewService views) : Contract.IRunsGetHandl
 
 /// <summary>Cancels the run and its scheduled/in-progress attempts (their K8s Jobs are deleted).</summary>
 [OperationHandler]
-public sealed class CancelRunHandler(RunService runs, RunCancellationService cancellation, RunViewService views) : Contract.IRunsCancelHandler
+public sealed class CancelRunHandler(RunService runs, RunCancellationService cancellation, RunViewService views, IStateDurability durability) : Contract.IRunsCancelHandler
 {
-    public Task<Contract.RunsCancelResponse> HandleAsync(Contract.RunsCancelRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunsCancelResponse> HandleAsync(Contract.RunsCancelRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var cancelled = RunViews.Find(runs, id, request.Number).Bind(run => cancellation.Cancel(run.Id)).Bind(run => views.Get(id, run.Number));
-        return Task.FromResult(cancelled.TryPickProblems(out var problems, out var detail)
-            ? RunViews.Fail<Contract.RunsCancelResponse>(problems, p => new Contract.RunsCancelResponse.NotFound(p), p => new Contract.RunsCancelResponse.Conflict(p), p => new Contract.RunsCancelResponse.BadRequest(p))
-            : new Contract.RunsCancelResponse.Ok(RunViews.ToApi(detail)));
+        return (await durability.SavedAsync(cancelled, cancellationToken)).TryPickProblems(out var problems, out var detail)
+            ? RunViews.Fail<Contract.RunsCancelResponse>(problems, p => new Contract.RunsCancelResponse.NotFound(p), p => new Contract.RunsCancelResponse.Conflict(p), p => new Contract.RunsCancelResponse.BadRequest(p), p => new Contract.RunsCancelResponse.ServiceUnavailable(p))
+            : new Contract.RunsCancelResponse.Ok(RunViews.ToApi(detail));
     }
 }
 
 /// <summary>A new run with the same input on the active version, linked via rerunOf.</summary>
 [OperationHandler]
-public sealed class RerunRunHandler(RunService runs, RunInputService inputs, RunViewService views) : Contract.IRunsRerunHandler
+public sealed class RerunRunHandler(RunService runs, RunInputService inputs, RunViewService views, IStateDurability durability) : Contract.IRunsRerunHandler
 {
-    public Task<Contract.RunsRerunResponse> HandleAsync(Contract.RunsRerunRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunsRerunResponse> HandleAsync(Contract.RunsRerunRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var started = RunViews.Find(runs, id, request.Number).Bind(inputs.RerunRun).Bind(outcome => RunViews.ToApi(views, id, outcome));
-        return Task.FromResult(started.TryPickProblems(out var problems, out var start)
-            ? RunViews.Fail<Contract.RunsRerunResponse>(problems, p => new Contract.RunsRerunResponse.NotFound(p), p => new Contract.RunsRerunResponse.Conflict(p), p => new Contract.RunsRerunResponse.BadRequest(p))
-            : new Contract.RunsRerunResponse.Ok(start));
+        return (await durability.SavedAsync(started, cancellationToken)).TryPickProblems(out var problems, out var start)
+            ? RunViews.Fail<Contract.RunsRerunResponse>(problems, p => new Contract.RunsRerunResponse.NotFound(p), p => new Contract.RunsRerunResponse.Conflict(p), p => new Contract.RunsRerunResponse.BadRequest(p), p => new Contract.RunsRerunResponse.ServiceUnavailable(p))
+            : new Contract.RunsRerunResponse.Ok(start);
     }
 }
 
 /// <summary>Keeps completed stages, re-evaluates the rest; the input changes are merged over the stored input (only fields no completed step consumed may change).</summary>
 [OperationHandler]
-public sealed class ContinueRunHandler(RunService runs, RunInputService inputs, RunViewService views) : Contract.IRunsContinueHandler
+public sealed class ContinueRunHandler(RunService runs, RunInputService inputs, RunViewService views, IStateDurability durability) : Contract.IRunsContinueHandler
 {
-    public Task<Contract.RunsContinueResponse> HandleAsync(Contract.RunsContinueRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunsContinueResponse> HandleAsync(Contract.RunsContinueRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var continued = RunViews.Find(runs, id, request.Number)
             .Bind(run => inputs.Continue(run, JsonFields.ToJsonObject(request.Body.Input)))
             .Bind(run => views.Get(id, run.Number));
-        return Task.FromResult(continued.TryPickProblems(out var problems, out var detail)
-            ? RunViews.Fail<Contract.RunsContinueResponse>(problems, p => new Contract.RunsContinueResponse.NotFound(p), p => new Contract.RunsContinueResponse.Conflict(p), p => new Contract.RunsContinueResponse.BadRequest(p))
-            : new Contract.RunsContinueResponse.Ok(RunViews.ToApi(detail)));
+        return (await durability.SavedAsync(continued, cancellationToken)).TryPickProblems(out var problems, out var detail)
+            ? RunViews.Fail<Contract.RunsContinueResponse>(problems, p => new Contract.RunsContinueResponse.NotFound(p), p => new Contract.RunsContinueResponse.Conflict(p), p => new Contract.RunsContinueResponse.BadRequest(p), p => new Contract.RunsContinueResponse.ServiceUnavailable(p))
+            : new Contract.RunsContinueResponse.Ok(RunViews.ToApi(detail));
     }
 }
 
@@ -141,14 +142,15 @@ public static class RunViews
             ? run
             : new NotFoundProblem("Run #{0} not found in pipeline '{1}'.", number, pipelineId);
 
-    /// <summary>The declared variant for the problems' status: 404, 409 (when declared) or 400.</summary>
-    public static T Fail<T>(ResultProblemCollection problems, Func<ApiProblem, T> notFound, Func<ApiProblem, T>? conflict, Func<ApiProblem, T> badRequest)
+    /// <summary>The declared variant for the problems' status: 404, 409 and 503 (when declared) or 400.</summary>
+    public static T Fail<T>(ResultProblemCollection problems, Func<ApiProblem, T> notFound, Func<ApiProblem, T>? conflict, Func<ApiProblem, T> badRequest, Func<ApiProblem, T>? unavailable = null)
     {
         var problem = ApiProblems.Of([.. problems]);
         return problem.Status switch
         {
             StatusCodes.Status404NotFound => notFound(problem),
             StatusCodes.Status409Conflict when conflict is not null => conflict(problem),
+            StatusCodes.Status503ServiceUnavailable when unavailable is not null => unavailable(problem),
             _ => badRequest(problem),
         };
     }

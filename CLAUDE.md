@@ -54,6 +54,8 @@ Each pipeline has a K8s Secret `olve-pipeline-{id:N}` in the runner namespace. V
 
 State survives restarts (notably v2's own self-deploy). Garage objects: `configuration.json` (pipelines + bindings), `binding-hooks.json`, and from `RunPersistenceService` `pipeline-versions.json`, `versions/<p>/<n>/manifest.json`, `pipeline-state.json` (activations, sequences, blocked steps, queued run starts, poll values, pending versions), `runs.json`, `runs/<p>/<n>/run.json` (a run + all its attempts), `pipeline-config.json` + `config/<p>/<n>.yaml` (config snapshots, write-once). Binaries: `versions/<p>/builds/<sha>/step.tar.gz`. Layout helpers: `StorageLayout`. `/api/ready` reports when persisted state is loaded.
 
+Run state is written within a second by a timer, or at once through `IStateDurability` (`SavedAsync`, implemented by `RunPersistenceService`; concurrent waiters share one flush). Anything outside the process that depends on run state waits for it at the async boundary: the replies of run start, rerun, continue, cancel, step rerun, step cancel and switch (503 when the save fails), the creation of a Job (a saved attempt always exists first), and the deletion of a result archive (a restart collects it again until the status is saved). At startup `LeftoverJobCleanupService` deletes unfinished step Jobs whose attempt ended or doesn't exist.
+
 ### Service map
 
 | Area | Key types |
@@ -68,10 +70,10 @@ State survives restarts (notably v2's own self-deploy). Garage objects: `configu
 | `Pipelines.Runs` | `Run`, `Attempt`, `RunService`, `AttemptService`, `RunQueryService`, `RunViewService`, `CriticalPathService`, `AttemptFileService`, `RunCleanupService` |
 | `Pipelines.Failures` / `Pipelines.Retention` | `FailureHandlerService`, `FailureContextBuilder` / `RetentionService`, `RetentionPlanner` |
 | `Distribution` | `CliDistribution` (handlers of `/download/{asset}`, `/install.sh`), `CliReleaseQuery` (latest `publish-cli` attempt of `Distribution:CliPipeline`; retention pins its run) |
-| `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
+| `Jobs` | `JobRunner`, `JobObsoletionService`, `JobQueueService`, `PipelineJobCleanupService`, `LeftoverJobCleanupService`, `KubernetesJobExecutor`, `NoOpJobExecutor` (tests), `JobLogService` |
 | `Kubernetes.Harness` | `HarnessJobFactory`, `HarnessJobBuilder`, `BuildJobBuilder`, `HarnessResultCollector`, `HarnessFailureHandlerLauncher`, `HarnessJobControl` |
 | `Streaming` | `ChangeBroadcaster` (SSE fan-out, `/api/events`), `ChangeEventRegistration` (domain hubs → notices), `AttemptLogStreamer` |
-| `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IPersistenceReadiness` |
+| `Shared.Persistence` | `ConfigurationPersistenceService`, `RunPersistenceService`, `IStateDurability`, `IPersistenceReadiness` |
 
 When adding a new way to start work, go through `RunStartService` (runs) or `RunContinuationService` (attempts in an existing run) so latest-wins, de-dup, draining and blocked steps apply; never create attempts directly.
 
@@ -126,7 +128,7 @@ cd src/frontend && npm run build                                # Production bui
 - **Domain CRUD services** (e.g. `PipelineService`) — typed create/read/update/delete over the store, no event awareness (transient; `RunService`, `AttemptService` and `PipelineVersionService` are singletons because they own lookup indexes and the lock that keeps numbers unique)
 - **Domain rule services** (e.g. `JobObsoletionService`) — implement business rules, event-driven (transient)
 - **Domain query services** (e.g. `JobQueueService`, `RunViewService`) — stateless queries over the store (transient)
-- **Cleanup services** (e.g. `RunCleanupService`, `PipelineVersionCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
+- **Cleanup services** (e.g. `RunCleanupService`, `PipelineVersionCleanupService`, `PipelineJobCleanupService`) — cascade deletes on parent deletion, event-driven (transient)
 
 **Key principles:**
 - **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).

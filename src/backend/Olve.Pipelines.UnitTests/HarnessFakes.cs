@@ -3,7 +3,10 @@ using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Runs;
+using Olve.Pipelines.Shared.Persistence;
+using Olve.Pipelines.Shared.Problems;
 using Olve.Pipelines.Shared.Storage;
+using Olve.Results;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -99,9 +102,27 @@ internal sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClie
 
     public Task<KubernetesJobStatus> GetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<KubernetesJobStatus?> TryGetJobStatusAsync(string ns, string jobName, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> CreateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<SecretRevision?> GetSecretRevisionAsync(string ns, string secretName, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> TryUpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, string resourceVersion, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> TryDeleteSecretAsync(string ns, string secretName, string resourceVersion, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Dictionary<string, string>?> GetSecretAsync(string ns, string secretName, CancellationToken ct = default) => Task.FromResult<Dictionary<string, string>?>(null);
     public Task UpdateSecretAsync(string ns, string secretName, Dictionary<string, string> data, CancellationToken ct = default) => throw new NotSupportedException();
+}
+
+/// <summary>Counts saves; each one succeeds until <see cref="Fail"/> is set.</summary>
+internal sealed class FakeDurability : IStateDurability
+{
+    public int Saves { get; private set; }
+    public bool Fail { get; set; }
+    public Action? OnSave { get; set; }
+
+    public Task<Result> SavedAsync(CancellationToken ct = default)
+    {
+        Saves++;
+        OnSave?.Invoke();
+        return Task.FromResult(Fail ? Result.Failure(new UnavailableProblem("The change was made but could not be saved; it may be lost if the server restarts.")) : Result.Success());
+    }
 }
 
 internal sealed class FakeStorage : IHarnessStorage

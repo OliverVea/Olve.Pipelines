@@ -6,4 +6,5 @@ TestResults
 **/obj
 **/node_modules
 src/frontend/dist
+src/frontend/e2e
 src/clients/olve-pipelines-client-ts/dist

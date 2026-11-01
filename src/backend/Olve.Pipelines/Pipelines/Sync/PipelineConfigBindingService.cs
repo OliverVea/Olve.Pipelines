@@ -1,4 +1,5 @@
 using Olve.Pipelines.Jobs;
+using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Shared;
 
 namespace Olve.Pipelines.Pipelines.Sync;
@@ -17,7 +18,7 @@ public class PipelineConfigBindingService(
         string path,
         string? credentialsSecret)
     {
-        if (string.IsNullOrWhiteSpace(repo))
+        if (!BuildJobBuilder.IsValidRepo(repo))
             return ValidationProblem.ForField("repo", "Binding requires a repository ('owner/name').");
         if (string.IsNullOrWhiteSpace(branch))
             return ValidationProblem.ForField("branch", "Binding requires a branch.");

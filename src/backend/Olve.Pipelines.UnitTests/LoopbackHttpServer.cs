@@ -63,9 +63,10 @@ internal sealed class LoopbackHttpServer : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // Stopping first would fail a pending accept with a SocketException instead of cancelling it.
         await _stop.CancelAsync();
-        _listener.Stop();
         await _loop;
+        _listener.Stop();
         _stop.Dispose();
     }
 }

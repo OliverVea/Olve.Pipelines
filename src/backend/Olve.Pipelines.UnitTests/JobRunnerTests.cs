@@ -74,29 +74,12 @@ public class JobRunnerTests
         => Task.WhenAll(jobIds.Select(h.Registry.WhenStopped)).WaitAsync(SafetyTimeout);
 
     [Test]
-    public async Task Job_FinishSuccess_TransitionsToSucceeded()
+    [Arguments("build")]
+    [Arguments("deploy")]
+    public async Task Job_FinishSuccess_TransitionsToSucceeded(string stepName)
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h);
-
-        using var cts = new CancellationTokenSource();
-        _ = h.Runner.StartAsync(cts.Token);
-
-        await WaitForPendingAsync(h.PendingStore, jobId);
-        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
-
-        await WaitForFinishedAsync(h, jobId);
-        cts.Cancel();
-
-        h.Store.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
-    }
-
-    [Test]
-    public async Task SecondStepJob_FinishSuccess_TransitionsToSucceeded()
-    {
-        var h = CreateRunner();
-        var jobId = CreateJob(h, "deploy");
+        var jobId = CreateJob(h, stepName);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);

@@ -90,13 +90,25 @@ public class PipelineConfigBindingTests
     }
 
     [Test]
+    public async Task UnknownBinding_IsNotFound()
+    {
+        var svc = CreateFixture();
+        var id = Id.New<PipelineConfigBinding>();
+        var message = $"Binding '{id}' not found.";
+
+        await svc.Bindings.TryGet(id).Problems.IsSingle<NotFoundProblem>(message);
+        await svc.Bindings.SetLastPushSha(id, "abc").Problems.IsSingle<NotFoundProblem>(message);
+        await svc.Bindings.SetLastReconciledSha(id, "abc").Problems.IsSingle<NotFoundProblem>(message);
+    }
+
+    [Test]
     public async Task SetBranch_BlankOrUnbound_Fails()
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
-        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, "main")).Failed();
+        await svc.Bindings.SetBranch(pipeline.Id, "main").Problems.IsSingle<NotFoundProblem>($"Pipeline '{pipeline.Id}' has no config binding.");
         await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
-        await Assert.That(svc.Bindings.SetBranch(pipeline.Id, " ")).Failed();
+        await svc.Bindings.SetBranch(pipeline.Id, " ").Problems.IsSingle<ValidationProblem>("branch: Binding requires a branch.");
     }
 
     [Test]
@@ -117,7 +129,7 @@ public class PipelineConfigBindingTests
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
 
-        await Assert.That(svc.Bindings.SetCredentialsSecret(pipeline.Id, "GITHUB_TOKEN").Failed).IsTrue();
+        await svc.Bindings.SetCredentialsSecret(pipeline.Id, "GITHUB_TOKEN").Problems.IsSingle<NotFoundProblem>($"Pipeline '{pipeline.Id}' has no config binding.");
     }
 
     [Test]
@@ -128,16 +140,19 @@ public class PipelineConfigBindingTests
         await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
 
         // One binding per pipeline — a second bind must be rejected.
-        await Assert.That(Bind(svc.Bindings, pipeline.Id).Failed).IsTrue();
+        await Bind(svc.Bindings, pipeline.Id).Problems.IsSingle<ConflictProblem>($"Pipeline '{pipeline.Id}' is already bound to a repository.");
     }
 
     [Test]
-    public async Task Create_WithBlankRepo_Fails()
+    [Arguments("  ", "main", ".pipelines", "repo: Binding requires a repository ('owner/name').")]
+    [Arguments("o/r", " ", ".pipelines", "branch: Binding requires a branch.")]
+    [Arguments("o/r", "main", " ", "path: Binding requires a config path (e.g. '.pipelines').")]
+    public async Task Create_WithABlankField_Fails(string repo, string branch, string path, string message)
     {
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
 
-        await Assert.That(svc.Bindings.Create(pipeline.Id, "  ", "main", ".pipelines", null).Failed).IsTrue();
+        await svc.Bindings.Create(pipeline.Id, repo, branch, path, null).Problems.IsSingle<ValidationProblem>(message);
     }
 
     [Test]
@@ -160,7 +175,7 @@ public class PipelineConfigBindingTests
         var pipeline = Pick(svc.Pipelines.Create("draft"));
 
         // A pipeline with no binding is a draft, per the GitOps design.
-        await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Failed).IsTrue();
+        await svc.Bindings.GetByPipelineId(pipeline.Id).Problems.IsSingle<NotFoundProblem>($"Pipeline '{pipeline.Id}' has no config binding.");
     }
 
     [Test]
@@ -169,11 +184,11 @@ public class PipelineConfigBindingTests
         var svc = CreateFixture();
         var pipeline = Pick(svc.Pipelines.Create("p"));
         await Assert.That(Bind(svc.Bindings, pipeline.Id)).Succeeded();
-        await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Succeeded).IsTrue();
+        await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id)).Succeeded();
 
-        await Assert.That(svc.Pipelines.Delete(pipeline.Id).Succeeded).IsTrue();
+        await Assert.That(svc.Pipelines.Delete(pipeline.Id)).Succeeded();
 
-        await Assert.That(svc.Bindings.GetByPipelineId(pipeline.Id).Failed).IsTrue();
+        await svc.Bindings.GetByPipelineId(pipeline.Id).Problems.IsSingle<NotFoundProblem>($"Pipeline '{pipeline.Id}' has no config binding.");
         await Assert.That(svc.BindingStore.List()).IsEmpty();
     }
 
@@ -186,9 +201,9 @@ public class PipelineConfigBindingTests
         var keepBinding = Pick(Bind(svc.Bindings, keep.Id));
         await Assert.That(Bind(svc.Bindings, drop.Id)).Succeeded();
 
-        await Assert.That(svc.Pipelines.Delete(drop.Id).Succeeded).IsTrue();
+        await Assert.That(svc.Pipelines.Delete(drop.Id)).Succeeded();
 
-        await Assert.That(svc.Bindings.GetByPipelineId(drop.Id).Failed).IsTrue();
+        await svc.Bindings.GetByPipelineId(drop.Id).Problems.IsSingle<NotFoundProblem>($"Pipeline '{drop.Id}' has no config binding.");
         await Assert.That(Pick(svc.Bindings.GetByPipelineId(keep.Id)).Id).IsEqualTo(keepBinding.Id);
     }
 }

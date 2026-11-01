@@ -64,54 +64,22 @@ public class JobRunnerTests
     // Each call schedules in a fresh pipeline, so attempts never share a (pipeline, step) key.
     private static Id<Attempt> CreateJob(TestHarness h, string stepName = "build") => h.Domain.Schedule(stepName).Id;
 
-    private static async Task WaitForPendingAsync(NoOpJobExecutorPendingStore pendingStore, Id<Attempt> jobId, TimeSpan? timeout = null)
-    {
-        timeout ??= TimeSpan.FromSeconds(5);
-        var deadline = DateTimeOffset.UtcNow + timeout.Value;
-        while (!pendingStore.HasPendingJob(jobId))
-        {
-            if (DateTimeOffset.UtcNow > deadline)
-                throw new TimeoutException($"Job '{jobId}' did not become pending within {timeout}.");
-            await Task.Delay(10);
-        }
-    }
+    private static readonly TimeSpan SafetyTimeout = TimeSpan.FromSeconds(5);
 
-    // The runner records results asynchronously; a fixed sleep raced it on slow CI nodes.
-    private static async Task WaitForFinishedAsync(TestHarness h, params Id<Attempt>[] jobIds)
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(5);
-        while (jobIds.Any(id => h.Store.TryGet(id, out var a) && a!.Status is Scheduled or InProgress))
-        {
-            if (DateTimeOffset.UtcNow > deadline)
-                throw new TimeoutException("Jobs did not finish within 5 s.");
-            await Task.Delay(10);
-        }
-    }
+    private static Task WaitForPendingAsync(NoOpJobExecutorPendingStore pendingStore, Id<Attempt> jobId)
+        => pendingStore.WhenPending(jobId).WaitAsync(SafetyTimeout);
+
+    // A watcher records the result before it stops.
+    private static Task WaitForFinishedAsync(TestHarness h, params Id<Attempt>[] jobIds)
+        => Task.WhenAll(jobIds.Select(h.Registry.WhenStopped)).WaitAsync(SafetyTimeout);
 
     [Test]
-    public async Task Job_FinishSuccess_TransitionsToSucceeded()
+    [Arguments("build")]
+    [Arguments("deploy")]
+    public async Task Job_FinishSuccess_TransitionsToSucceeded(string stepName)
     {
         var h = CreateRunner();
-        var jobId = CreateJob(h);
-
-        using var cts = new CancellationTokenSource();
-        _ = h.Runner.StartAsync(cts.Token);
-
-        await WaitForPendingAsync(h.PendingStore, jobId);
-        h.PendingStore.Finish(jobId, new NoOpJobResult.Success());
-
-        await WaitForFinishedAsync(h, jobId);
-        cts.Cancel();
-
-        h.Store.TryGet(jobId, out var job);
-        await Assert.That(job!.Status).IsTypeOf<Succeeded>();
-    }
-
-    [Test]
-    public async Task SecondStepJob_FinishSuccess_TransitionsToSucceeded()
-    {
-        var h = CreateRunner();
-        var jobId = CreateJob(h, "deploy");
+        var jobId = CreateJob(h, stepName);
 
         using var cts = new CancellationTokenSource();
         _ = h.Runner.StartAsync(cts.Token);
@@ -175,30 +143,27 @@ public class JobRunnerTests
         var job2 = CreateJob(h);
         var job3 = CreateJob(h);
 
-        using var cts = new CancellationTokenSource();
-        _ = h.Runner.StartAsync(cts.Token);
-
+        h.Runner.DispatchTick();
         await WaitForPendingAsync(h.PendingStore, job1);
         await WaitForPendingAsync(h.PendingStore, job2);
 
         // Third job should still be scheduled because max is 2
-        await Task.Delay(200);
-        await Assert.That(h.PendingStore.HasPendingJob(job3)).IsFalse();
+        h.Runner.DispatchTick();
         await Assert.That(h.Registry.ActiveCount).IsEqualTo(2);
         h.Store.TryGet(job3, out var job3Entity);
         await Assert.That(job3Entity!.Status).IsTypeOf<Scheduled>();
 
         // Finish one job to free a slot
         h.PendingStore.Finish(job1, new NoOpJobResult.Success());
+        await WaitForFinishedAsync(h, job1);
 
         // Now job3 should get picked up
+        h.Runner.DispatchTick();
         await WaitForPendingAsync(h.PendingStore, job3);
-        await Assert.That(h.PendingStore.HasPendingJob(job3)).IsTrue();
 
         h.PendingStore.Finish(job2, new NoOpJobResult.Success());
         h.PendingStore.Finish(job3, new NoOpJobResult.Success());
-        await Task.Delay(100);
-        cts.Cancel();
+        await WaitForFinishedAsync(h, job2, job3);
     }
 
     [Test]
@@ -263,24 +228,23 @@ public class JobRunnerTests
         var firstId = h.Domain.Schedule("build", h.Domain.CreateRun(version)).Id;
         var secondId = h.Domain.Schedule("build", h.Domain.CreateRun(version)).Id;
 
-        using var cts = new CancellationTokenSource();
-        _ = h.Runner.StartAsync(cts.Token);
-
+        h.Runner.DispatchTick();
         await WaitForPendingAsync(h.PendingStore, firstId);
 
         // Second should be held — same (pipeline, step) key, first is InProgress.
-        await Task.Delay(200);
-        await Assert.That(h.PendingStore.HasPendingJob(secondId)).IsFalse();
+        h.Runner.DispatchTick();
+        await Assert.That(h.Registry.IsRunning(secondId)).IsFalse();
         h.Store.TryGet(secondId, out var secondEntity);
         await Assert.That(secondEntity!.Status).IsTypeOf<Scheduled>();
 
         // Finish the first; second should now be dispatched.
         h.PendingStore.Finish(firstId, new NoOpJobResult.Success());
+        await WaitForFinishedAsync(h, firstId);
+        h.Runner.DispatchTick();
         await WaitForPendingAsync(h.PendingStore, secondId);
 
         h.PendingStore.Finish(secondId, new NoOpJobResult.Success());
-        await WaitForFinishedAsync(h, firstId, secondId);
-        cts.Cancel();
+        await WaitForFinishedAsync(h, secondId);
 
         h.Store.TryGet(firstId, out var j1);
         h.Store.TryGet(secondId, out var j2);

@@ -62,22 +62,22 @@ public class HarnessFileRefsTests
     }
 
     [Test]
-    [Arguments(1, "build", 1, "../escape")]
-    [Arguments(1, "build", 1, "/abs")]
-    [Arguments(1, "build", 1, "a/../b")]
-    [Arguments(1, "build", 1, "a\\b")]
-    [Arguments(1, "build", 1, "./a")]
-    [Arguments(1, "build", 1, "")]
-    [Arguments(1, "Build", 1, "a")]
-    [Arguments(1, "../x", 1, "a")]
-    [Arguments(-1, "build", 1, "a")]
-    [Arguments(1, "build", 0, "a")]
-    public async Task UrlMap_RejectsInvalidRefs(int run, string step, int attempt, string path)
+    [Arguments(1, "build", 1, "../escape", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "build", 1, "/abs", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "build", 1, "a/../b", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "build", 1, "a\\b", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "build", 1, "./a", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "build", 1, "", "File ref '1/build/1' has an invalid path.")]
+    [Arguments(1, "Build", 1, "a", "File ref has an invalid step name 'Build'.")]
+    [Arguments(1, "../x", 1, "a", "File ref has an invalid step name '../x'.")]
+    [Arguments(-1, "build", 1, "a", "File ref '-1/build/1/a' has an invalid run or attempt number.")]
+    [Arguments(1, "build", 0, "a", "File ref '1/build/0/a' has an invalid run or attempt number.")]
+    public async Task UrlMap_RejectsInvalidRefs(int run, string step, int attempt, string path, string message)
     {
         var map = await HarnessFileRefs.BuildUrlMapAsync(HarnessJobBuilderTests.PipelineId,
             [new HarnessFileRef(run, step, attempt, path, Sha)], Presigner(), TimeSpan.FromMinutes(30));
 
-        await Assert.That(map).Failed();
+        await map.Problems.IsSingle<ResultProblem>(message);
     }
 
     [Test]
@@ -86,7 +86,7 @@ public class HarnessFileRefsTests
         var map = await HarnessFileRefs.BuildUrlMapAsync(HarnessJobBuilderTests.PipelineId,
             [new HarnessFileRef(1, "build", 1, "a", "XYZ")], Presigner(), TimeSpan.FromMinutes(30));
 
-        await Assert.That(map).Failed();
+        await map.Problems.IsSingle<ResultProblem>("File ref '1/build/1/a' has an invalid sha256.");
     }
 
     [Test]

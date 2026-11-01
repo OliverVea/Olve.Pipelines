@@ -94,8 +94,9 @@ public class BindingWebhookReceiverTests
         var (receiver, _) = Create();
         var body = PushBody("main");
 
-        var (action, _, _) = receiver.Evaluate(Id.New<PipelineConfigBinding>(), body, "sig", "push");
+        var (action, _, push) = receiver.Evaluate(Id.New<PipelineConfigBinding>(), body, "sig", "push");
 
         await Assert.That(action).IsEqualTo(BindingWebhookAction.NotFound);
+        await Assert.That(push).IsNull();
     }
 }

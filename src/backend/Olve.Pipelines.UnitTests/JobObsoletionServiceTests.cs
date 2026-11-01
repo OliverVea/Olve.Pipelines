@@ -104,9 +104,9 @@ public class JobObsoletionServiceTests
     [Test]
     public async Task ConcurrentCreations_SameKey_NoMutualSupersession()
     {
+        var d = Create();
         for (var iteration = 0; iteration < 200; iteration++)
         {
-            var d = Create();
             var run = d.CreateRun();
 
             using var barrier = new Barrier(2);

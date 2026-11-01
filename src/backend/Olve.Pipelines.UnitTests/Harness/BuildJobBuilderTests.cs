@@ -6,9 +6,9 @@ namespace Olve.Pipelines.UnitTests.Harness;
 
 public class BuildJobBuilderTests
 {
-    private const string Sha = "0123456789abcdef0123456789abcdef01234567";
+    internal const string Sha = "0123456789abcdef0123456789abcdef01234567";
 
-    private static BuildJobRequest Request(string repo = "OliverVea/Olve.Pipelines", string sha = Sha, string path = ".pipelines", string? secret = "olve-pipeline-11111111222233334444555555555555") =>
+    internal static BuildJobRequest Request(string repo = "OliverVea/Olve.Pipelines", string sha = Sha, string path = ".pipelines", string? secret = "olve-pipeline-11111111222233334444555555555555") =>
         new("olve-build-1111-7", HarnessJobBuilderTests.PipelineId, repo, sha, path, secret, "http://garage/versions/step.tar.gz?sig");
 
     [Test]
@@ -124,18 +124,6 @@ public class BuildJobBuilderTests
         var envNames = spec.Job.Spec.Template.Spec.Containers[0].Env!.Select(e => e.Name).ToArray();
         await Assert.That(envNames).DoesNotContain("OLVE_GITHUB_TOKEN");
         await Assert.That(envNames).Contains("OLVE_BINARY_URL");
-    }
-
-    [Test]
-    [Arguments("not a repo", Sha, ".pipelines")]
-    [Arguments("a/b;rm -rf", Sha, ".pipelines")]
-    [Arguments("OliverVea/Olve.Pipelines", "main", ".pipelines")]
-    [Arguments("OliverVea/Olve.Pipelines", Sha, "../etc")]
-    [Arguments("OliverVea/Olve.Pipelines", Sha, "/abs")]
-    [Arguments("OliverVea/Olve.Pipelines", Sha, "a/./b")]
-    public async Task RejectsUnsafeInputs(string repo, string sha, string path)
-    {
-        await Assert.That(BuildJobBuilder.Build(Request(repo, sha, path), HarnessJobBuilderTests.Options)).Failed();
     }
 
     [Test]

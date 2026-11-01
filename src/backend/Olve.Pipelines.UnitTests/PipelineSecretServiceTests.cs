@@ -94,7 +94,7 @@ public class PipelineSecretServiceTests
         await Assert.That(secrets.Select(x => x.Name)).Contains("REGISTRY");
         await Assert.That(secrets.Select(x => x.Name)).Contains("GITHUB_TOKEN");
         await Assert.That(secrets.All(x => x.IsSet is null)).IsTrue();
-        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v")).Failed();
+        await (await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v")).Problems.IsSingle<UnavailableProblem>("Kubernetes is not configured or unreachable; pipeline secrets cannot be changed.");
     }
 
     [Test]

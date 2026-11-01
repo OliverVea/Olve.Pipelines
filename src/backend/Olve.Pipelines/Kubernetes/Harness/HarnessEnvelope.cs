@@ -79,7 +79,7 @@ public abstract record HarnessEnvelope
                     if (error.ValueKind != JsonValueKind.Object || !OnlyKeys(error, "kind", "message")
                         || error.GetProperty("kind").ValueKind != JsonValueKind.String
                         || error.GetProperty("message").ValueKind != JsonValueKind.String)
-                        return Fail("failed envelope 'error' must be {{kind, message}} strings");
+                        return Fail("failed envelope 'error' must be {kind, message} strings");
                     var kind = error.GetProperty("kind").GetString()!;
                     if (!FailureKinds.Contains(kind))
                         return Fail("unknown failure kind '{0}'", kind);

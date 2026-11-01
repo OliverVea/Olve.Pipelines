@@ -2,6 +2,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using System.Text;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.UnitTests.Configs;
 using Olve.Results;
 using Olve.Results.TUnit;
 
@@ -105,7 +106,7 @@ public class HarnessResultArchiveTests
     {
         var (result, sunk) = await Read(Archive(F("output.json", SucceededEnvelope), F(name, "evil")));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>($"Invalid result archive: unexpected entry '{name}'");
         await Assert.That(sunk.Count).IsEqualTo(0);
     }
 
@@ -116,7 +117,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope), new LinkEntry("files/link", "/etc/passwd", type)));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>($"Invalid result archive: entry 'files/link' has unsupported type {type}");
     }
 
     [Test]
@@ -124,7 +125,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope), new DirEntry("files/../x/")));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: unexpected directory 'files/../x/'");
     }
 
     [Test]
@@ -132,7 +133,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope), F("files/a", "1"), F("files/a", "2")));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: duplicate entry 'files/a'");
     }
 
     [Test]
@@ -140,7 +141,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("files/a", "1")));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: no output.json");
     }
 
     [Test]
@@ -148,7 +149,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("output.json", """{"status":"succeeded"}""")));
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid harness envelope: succeeded envelope must have exactly 'status' and 'output'");
     }
 
     [Test]
@@ -157,7 +158,7 @@ public class HarnessResultArchiveTests
         var limits = new HarnessResultLimits { MaxTotalBytes = 1024 };
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope), new FileEntry("files/big", new byte[4096])), limits);
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: contents exceed 1024 bytes");
     }
 
     [Test]
@@ -166,7 +167,7 @@ public class HarnessResultArchiveTests
         var limits = new HarnessResultLimits { MaxEnvelopeBytes = 16 };
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope)), limits);
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: output.json exceeds 16 bytes");
     }
 
     [Test]
@@ -175,7 +176,7 @@ public class HarnessResultArchiveTests
         var limits = new HarnessResultLimits { MaxEntries = 3 };
         var (result, _) = await Read(Archive(F("output.json", SucceededEnvelope), F("files/a", "1"), F("files/b", "1"), F("files/c", "1")), limits);
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ResultProblem>("Invalid result archive: more than 3 entries");
     }
 
     [Test]
@@ -183,7 +184,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(new MemoryStream(Encoding.UTF8.GetBytes("definitely not a tarball")));
 
-        await Assert.That(result).Failed();
+        await Assert.That(ConfigManifests.Problems(result)).StartsWith("Invalid result archive: not a valid tar.gz: ");
     }
 
     [Test]
@@ -192,6 +193,6 @@ public class HarnessResultArchiveTests
         var full = Archive(F("output.json", SucceededEnvelope), new FileEntry("files/a", new byte[8192])).ToArray();
         var (result, _) = await Read(new MemoryStream(full[..(full.Length / 2)]));
 
-        await Assert.That(result).Failed();
+        await Assert.That(ConfigManifests.Problems(result)).StartsWith("Invalid result archive: not a valid tar.gz: ");
     }
 }

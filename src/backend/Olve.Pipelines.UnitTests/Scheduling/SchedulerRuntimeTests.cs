@@ -173,7 +173,7 @@ public class SchedulerRuntimeTests
 
         // A scheduler-skipped attempt has nothing to launch.
         var skipped = s.D.AttemptService.RecordSkipped(run.Id, "summary", "input 'beta' needs deploy-beta (skipped: test)").Value!;
-        await Assert.That(s.D.Launches.Get(skipped.Id)).Failed();
+        await s.D.Launches.Get(skipped.Id).Problems.IsSingle<ResultProblem>("Attempt 1 of step 'summary' in run #1 has no input (it was not scheduled to run).");
     }
 
     private sealed class NullApplicationLifetime : IHostApplicationLifetime
@@ -200,7 +200,7 @@ public class SchedulerRuntimeTests
             sp.GetRequiredService<IServiceScopeFactory>(), registry, lifetime, pending, d.AttemptService,
             NullLogger<NoOpJobExecutor>.Instance));
         await using var sp = services.BuildServiceProvider();
-        var runner = new JobRunner(sp, registry, new JobDispatchSignal(), NullLogger<JobRunner>.Instance);
+        var runner = new JobRunner(sp, registry, d.Services.GetRequiredService<JobDispatchSignal>(), NullLogger<JobRunner>.Instance);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         _ = runner.StartAsync(cts.Token);
 
@@ -209,27 +209,18 @@ public class SchedulerRuntimeTests
         {
             foreach (var step in stage)
             {
-                var attempt = await WaitFor(() => s.Latest(run, step) is { } a && pending.HasPendingJob(a.Id) ? a : null);
+                var attempt = s.Latest(run, step)!;
+                await pending.WhenPending(attempt.Id).WaitAsync(SafetyTimeout);
                 pending.Finish(attempt.Id, new NoOpJobResult.Success(DefaultOutput(run.Number, step, attempt.Number)));
+                await registry.WhenStopped(attempt.Id).WaitAsync(SafetyTimeout);
             }
         }
 
-        await WaitFor(() => s.Get(run).Status is RunStatus.Succeeded ? s.Get(run) : null);
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Succeeded);
         await Assert.That(s.Latest(run, "deploy-prod")).IsNull();
         await cts.CancelAsync();
         await runner.StopAsync(CancellationToken.None);
     }
 
-    private static async Task<T> WaitFor<T>(Func<T?> probe) where T : class
-    {
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
-        while (true)
-        {
-            if (probe() is { } value)
-                return value;
-            if (DateTimeOffset.UtcNow > deadline)
-                throw new TimeoutException("condition not reached");
-            await Task.Delay(10);
-        }
-    }
+    private static readonly TimeSpan SafetyTimeout = TimeSpan.FromSeconds(10);
 }

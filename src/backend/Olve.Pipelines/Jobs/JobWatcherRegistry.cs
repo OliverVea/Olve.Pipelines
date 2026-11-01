@@ -13,6 +13,9 @@ public class JobWatcherRegistry(ILogger<JobWatcherRegistry> logger) : IHostedLif
 
     public bool IsRunning(Id<Attempt> id) => _watchers.ContainsKey(id);
 
+    /// <summary>Completes once the watcher of <paramref name="id"/> has left the registry; at once if it has none.</summary>
+    internal Task WhenStopped(Id<Attempt> id) => _watchers.TryGetValue(id, out var watcher) ? watcher : Task.CompletedTask;
+
     public void EnsureRunning(Id<Attempt> id, Func<Task> work)
     {
         // The watcher starts only once it is registered: removing itself in `finally` before

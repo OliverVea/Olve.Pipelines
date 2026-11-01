@@ -1,5 +1,6 @@
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Shared;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 using Olve.Utilities.Lookup;
 
@@ -44,10 +45,8 @@ public class EntityStoreIndexTests
         store.Set(step);
         await Assert.That(index.ContainsKey(pipelineId)).IsTrue();
 
-        await Assert.That(store.Delete(step.Id).Succeeded).IsTrue();
+        await Assert.That(store.Delete(step.Id)).Succeeded();
 
-        // Regression: the previous implementation never pruned on delete because the entity is
-        // already gone from the store when OnDeleted fires.
         await Assert.That(index.GetForKey(pipelineId).Count).IsEqualTo(0);
         await Assert.That(index.ContainsKey(pipelineId)).IsFalse();
     }
@@ -55,9 +54,6 @@ public class EntityStoreIndexTests
     [Test]
     public async Task GetForKey_ReturnsStableSnapshot_UnaffectedByLaterAdd()
     {
-        // Deterministic non-aliasing guard (design blocker B7): a reference handed out by
-        // GetForKey must not reflect a subsequent mutation. Fails on the old live-HashSet code,
-        // passes on the immutable-backed index.
         var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
@@ -87,7 +83,7 @@ public class EntityStoreIndexTests
         var snapshot = index.GetForKey(pipelineId);
         await Assert.That(snapshot.Count).IsEqualTo(2);
 
-        await Assert.That(store.Delete(a.Id).Succeeded).IsTrue();
+        await Assert.That(store.Delete(a.Id)).Succeeded();
 
         await Assert.That(snapshot.Count).IsEqualTo(2);           // captured reference unchanged
         await Assert.That(index.GetForKey(pipelineId).Count).IsEqualTo(1); // fresh read sees it
@@ -96,9 +92,6 @@ public class EntityStoreIndexTests
     [Test]
     public async Task ConcurrentEnumerationAndMutation_DoesNotThrow()
     {
-        // Supplementary stress test (B7): enumerate while concurrently adding/deleting on the
-        // same key. The old live-HashSet code throws InvalidOperationException on concurrent Add
-        // during iteration; the immutable index never does.
         var store = new EntityStore<TestStep>([]);
         var index = store.CreateIndex(s => s.PipelineId);
         var pipelineId = Id.New<Pipeline>();
@@ -133,7 +126,6 @@ public class EntityStoreIndexTests
         cts.Cancel();
         await reader;
 
-        // No exception means the test passed; assert the index is back to the seeded state.
         await Assert.That(failedDeletes).IsEqualTo(0);
         await Assert.That(index.GetForKey(pipelineId).Count).IsEqualTo(seed.Length);
     }

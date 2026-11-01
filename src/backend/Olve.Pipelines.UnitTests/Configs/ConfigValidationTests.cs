@@ -44,7 +44,8 @@ public class ConfigValidationTests
     {
         var check = ConfigValidation.Check(Parse(Text()), 9, Yaml("target: {host: h}\nauth: {mode: authentik}\n"), NoSecrets);
 
-        await Assert.That(check.Problems.Single()).Contains("matches none of the allowed shapes");
+        await Assert.That(check.Problems.Single()).IsEqualTo(
+            """config.auth: matches none of the allowed shapes (config.auth.mode: must be "none"; config.auth.clientId: is required; config.auth.clientSecret: is required; config.auth.mode: must be "dex")""");
     }
 
     [Test]
@@ -109,7 +110,7 @@ public class ConfigValidationTests
     {
         using var schema = JsonDocument.Parse("""{"oneOf":[{"type":"string"},{"type":"string","minLength":1}]}""");
 
-        await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonValue.Create("x"))).Failed();
+        await JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonValue.Create("x")).Problems.IsSingle<ValidationProblem>("input: matches more than one of the allowed shapes");
         await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonValue.Create(""))).Succeeded();
     }
 
@@ -120,6 +121,6 @@ public class ConfigValidationTests
         using var schema = JsonDocument.Parse("""{"type":"object","propertyNames":{"type":"string","pattern":"^[a-z.]+$"},"additionalProperties":{"type":"string"}}""");
 
         await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonNode.Parse("""{"slo.enabled":"false"}"""))).Succeeded();
-        await Assert.That(JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonNode.Parse("""{"Bad Key":"x"}"""))).Failed();
+        await JsonSchemaValidator.Validate(schema.RootElement, System.Text.Json.Nodes.JsonNode.Parse("""{"Bad Key":"x"}""")).Problems.IsSingle<ValidationProblem>("input.Bad Key (key): must match ^[a-z.]+$");
     }
 }

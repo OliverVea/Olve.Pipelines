@@ -12,6 +12,7 @@ using Olve.Pipelines.Pipelines.Versions;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Streaming;
 using Olve.Results;
+using Olve.Results.TUnit;
 using Olve.TypeSpec;
 using Olve.Utilities.Ids;
 using Contract = Olve.Pipelines.Api;
@@ -226,7 +227,7 @@ public class ChangeBroadcasterTests
         provider.GetRequiredService<AttachmentStore<Pipeline, PollTriggerStates>>().Set(pipeline.Id,
             new PollTriggerStates(new Dictionary<string, PollTriggerState> { ["poll"] = new("https://x", "v1", DateTimeOffset.UtcNow) }));
         provider.GetRequiredService<PipelineSecretEvents>().OnChanged.Invoke(pipeline.Id);
-        await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id).Succeeded).IsTrue();
+        await Assert.That(provider.GetRequiredService<PipelineVersionService>().Delete(version.Id)).Succeeded();
 
         var items = Drain(subscription).Select(i => $"{i.Data.EventType} {Json(i)}").ToList();
         await Assert.That(items).Contains(i => i.StartsWith("config ") && i.Contains("\"snapshot\":1"));

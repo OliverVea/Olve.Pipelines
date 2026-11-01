@@ -65,8 +65,7 @@ public class TriggerMappingServiceTests
 
         var result = await Map(h);
 
-        await Assert.That(result).Failed();
-        await Assert.That(string.Join("; ", result.Problems!.Select(p => p.ToString()))).Contains("produced invalid input");
+        await result.Problems.AreExactly("Trigger 'poll' produced invalid input.", "input.sha: expected string, got number");
         await Assert.That(h.S.D.Runs.List()).IsEmpty();
     }
 
@@ -78,8 +77,7 @@ public class TriggerMappingServiceTests
 
         var result = await Map(h);
 
-        await Assert.That(result).Failed();
-        await Assert.That(string.Join("; ", result.Problems!.Select(p => p.ToString()))).Contains("boom");
+        await result.Problems.IsSingle<ResultProblem>("Trigger 'poll' mapping failed: boom");
     }
 
     [Test]
@@ -87,7 +85,7 @@ public class TriggerMappingServiceTests
     {
         var h = Build("""{"status":"skipped","reason":"x"}""");
 
-        await Assert.That(await Map(h, trigger: "nope")).Failed();
+        await (await Map(h, trigger: "nope")).Problems.IsSingle<ResultProblem>($"Version 1 of pipeline '{h.S.Pipeline.Id}' declares no trigger 'nope'.");
         await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
     }
 }

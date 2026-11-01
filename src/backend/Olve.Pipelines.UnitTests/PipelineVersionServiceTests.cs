@@ -50,9 +50,10 @@ public class PipelineVersionServiceTests
         var p = d.CreatePipeline();
         var empty = new Dictionary<string, int>();
 
-        await Assert.That(d.VersionService.Add(Id.New<Pipeline>(), "{}", "sha256:x", null, empty, empty)).Failed();
-        await Assert.That(d.VersionService.Add(p.Id, "{ bad", "sha256:x", null, empty, empty)).Failed();
-        await Assert.That(d.VersionService.Add(p.Id, "{}", " ", null, empty, empty)).Failed();
+        var unknown = Id.New<Pipeline>();
+        await d.VersionService.Add(unknown, "{}", "sha256:x", null, empty, empty).Problems.IsSingle<NotFoundProblem>($"Pipeline '{unknown}' not found.");
+        await d.VersionService.Add(p.Id, "{ bad", "sha256:x", null, empty, empty).Problems.IsSingle<ResultProblem>("Manifest must be well-formed JSON.");
+        await d.VersionService.Add(p.Id, "{}", " ", null, empty, empty).Problems.IsSingle<ResultProblem>("Manifest hash is required.");
     }
 
     [Test]
@@ -83,7 +84,7 @@ public class PipelineVersionServiceTests
         d.AddVersion(p.Id);
         var v2 = d.AddVersion(p.Id);
 
-        await Assert.That(d.VersionService.Delete(v2.Id).Succeeded).IsTrue();
+        await Assert.That(d.VersionService.Delete(v2.Id)).Succeeded();
 
         await Assert.That(d.AddVersion(p.Id).Number).IsEqualTo(3);
     }
@@ -165,10 +166,10 @@ public class PipelineActivationServiceTests
     public async Task CompleteSwitch_FailsUnlessDraining()
     {
         var (d, p, v1, _, _) = Setup();
-        await Assert.That(d.ActivationService.CompleteSwitch(p)).Failed();
+        await d.ActivationService.CompleteSwitch(p).Problems.IsSingle<ConflictProblem>($"Pipeline '{p}' has no switch in progress.");
 
         Switch(d, p, v1);
-        await Assert.That(d.ActivationService.CompleteSwitch(p)).Failed();
+        await d.ActivationService.CompleteSwitch(p).Problems.IsSingle<ConflictProblem>($"Pipeline '{p}' has no switch in progress.");
     }
 
     [Test]
@@ -177,7 +178,8 @@ public class PipelineActivationServiceTests
         var (d, p, _, _, _) = Setup();
         var foreign = d.AddVersion(d.CreatePipeline().Id);
 
-        await Assert.That(d.ActivationService.BeginSwitch(p, foreign.Id)).Failed();
-        await Assert.That(d.ActivationService.BeginSwitch(p, Id.New<PipelineVersion>())).Failed();
+        await d.ActivationService.BeginSwitch(p, foreign.Id).Problems.IsSingle<ResultProblem>($"Version '{foreign.Id}' does not belong to pipeline '{p}'.");
+        var unknown = Id.New<PipelineVersion>();
+        await d.ActivationService.BeginSwitch(p, unknown).Problems.IsSingle<ResultProblem>($"Version '{unknown}' does not belong to pipeline '{p}'.");
     }
 }

@@ -77,7 +77,7 @@ public class ExternalInputTests
 
         var result = s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":"yes"}"""), "oliver");
 
-        await Assert.That(result).Failed();
+        await result.Problems.IsSingle<ValidationProblem>("value.approved: expected boolean, got string");
         await Assert.That(s.Latest(run, "deploy-beta")!.Status).IsTypeOf<Waiting>();
     }
 
@@ -86,7 +86,7 @@ public class ExternalInputTests
     {
         var (s, run) = AtTheGate();
 
-        await Assert.That(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "nope", Json("""{"approved":true}"""), "oliver")).Failed();
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "nope", Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ValidationProblem>("name: Step 'deploy-beta' has no external input 'nope'.");
     }
 
     [Test]
@@ -107,8 +107,8 @@ public class ExternalInputTests
         var (s, run) = AtTheGate();
         TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver"));
 
-        await Assert.That(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver")).Failed();
-        await Assert.That(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "build", null, Json("""{"approved":true}"""), "oliver")).Failed();
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' of run #1 is not waiting for input (it is scheduled).");
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "build", null, Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ConflictProblem>("Step 'build' has no external inputs.");
     }
 
     [Test]
@@ -155,8 +155,8 @@ public class ExternalInputTests
     {
         var (s, run) = AtTheGate(new JsonArray(new JsonObject { ["kind"] = "callback" }));
 
-        await Assert.That(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver")).Failed();
-        await Assert.That(s.D.Inputs.Decline(s.Pipeline.Id, run.Number, "deploy-beta", "no", "oliver")).Failed();
+        await s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver").Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' has no external input a person may answer.");
+        await s.D.Inputs.Decline(s.Pipeline.Id, run.Number, "deploy-beta", "no", "oliver").Problems.IsSingle<ConflictProblem>("Step 'deploy-beta' has no external input a person may answer.");
 
         var answered = TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", "decision", Json("""{"approved":true}"""), new Answerer("callback", "callback from 10.0.0.1")));
         await Assert.That(answered.Status).IsTypeOf<Scheduled>();

@@ -313,7 +313,7 @@ public class BindingHookRegistrationTests
         h.Queue.Reader.TryRead(out _); // drain create
         h.HookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN"));
 
-        await Assert.That(h.Svc.Delete(binding.Id).Succeeded).IsTrue();
+        await Assert.That(h.Svc.Delete(binding.Id)).Succeeded();
 
         await Assert.That(h.Queue.Reader.TryRead(out var work)).IsTrue();
         await Assert.That(work as DeleteBindingHookWork).IsNotNull();

@@ -141,6 +141,7 @@ public class ManifestValidatorTests
             r["failureHandlers"]!.AsArray().Add(copy);
         }
         ),
+        ["failure handler waits for input"] = (C.ExternalInputInFailureHandler, r => Step(r, "aoe-triage")["externalInputs"] = External("BuildArtifact")),
     };
 
     private static JsonObject External(string model, string key = "decision", string title = "Go?", string[]? sources = null) => new()

@@ -2,10 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Configuration;
+using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Retention;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
 
@@ -27,9 +29,19 @@ public class RetentionServiceTests
         }
     }
 
+    private sealed class FakeInventory(IReadOnlyList<ClusterJob> jobs, IReadOnlyList<ClusterSecret> secrets) : IKubernetesInventory
+    {
+        public Task<IReadOnlyList<ClusterJob>> ListJobsAsync(string ns, CancellationToken ct = default) => Task.FromResult(jobs);
+        public Task<IReadOnlyList<ClusterSecret>> ListSecretsAsync(string ns, CancellationToken ct = default) => Task.FromResult(secrets);
+    }
+
     private sealed record Setup(TestRunDomain D, FakeObjects Objects, Run Old, Run Recent, PipelineVersion Version);
 
-    private static (RetentionService Service, Setup Setup) Build(bool dryRun)
+    /// <param name="beforeApply">Runs after the sweep planned and before it applies the plan.</param>
+    /// <param name="inventory">The cluster listing; <see cref="Setup"/>'s pipeline id labels its Jobs.</param>
+    private static (RetentionService Service, Setup Setup) Build(
+        bool dryRun, Action<TestRunDomain, Run>? beforeApply = null,
+        Func<Id<Pipeline>, DateTimeOffset, IKubernetesInventory>? inventory = null, IKubernetesClient? kubernetes = null)
     {
         var d = new TestRunDomain().WireEvents();
         var pipeline = d.CreatePipeline();
@@ -59,9 +71,20 @@ public class RetentionServiceTests
         services.AddSingleton(d.Attempts);
         services.AddSingleton(d.Versions);
         services.AddSingleton(d.Activations);
-        services.AddSingleton(d.RunService);
+        // Only applying a plan resolves RunService.
+        services.AddSingleton(_ =>
+        {
+            beforeApply?.Invoke(d, old);
+            return d.RunService;
+        });
         services.AddSingleton(d.SchedulingLock);
         services.AddSingleton<IRetentionObjectStore>(objects);
+        if (inventory is not null)
+        {
+            services.AddSingleton(inventory(pipeline.Id, at));
+            services.AddSingleton(new KubernetesOptions("runners"));
+            services.AddSingleton(kubernetes!);
+        }
 
         var service = new RetentionService(options, new StorageOptions("b"), services.BuildServiceProvider(), d.Time,
             NullLogger<RetentionService>.Instance);
@@ -94,4 +117,41 @@ public class RetentionServiceTests
         await Assert.That(StatusOf(s.D, s.Old)).IsEqualTo(RunStatus.Succeeded);
         await Assert.That(s.Objects.Deleted).IsEmpty();
     }
+
+    [Test]
+    public async Task Sweep_KeepsARunResumedAfterItWasPlanned_WithItsObjects()
+    {
+        var (service, s) = Build(dryRun: false, beforeApply: (d, old) => TestRunDomain.Pick(d.RunService.Reopen(old.Id)));
+
+        var plan = await service.SweepAsync(CancellationToken.None);
+
+        await Assert.That(plan.ExpiredRuns.Single().Id).IsEqualTo(s.Old.Id);
+        await Assert.That(StatusOf(s.D, s.Old)).IsEqualTo(RunStatus.Running);
+        await Assert.That(s.Objects.Deleted).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(true, false)]
+    [Arguments(false, true)]
+    public async Task Sweep_DeletesLeakedSecretsAndJobs_WhenTheOtherListIsEmpty(bool secret, bool job)
+    {
+        var k8s = new FakeKubernetes();
+        var (service, _) = Build(dryRun: false, kubernetes: k8s, inventory: (pipeline, now) => new FakeInventory(
+            job ? [LeakedJob(pipeline, now)] : [],
+            secret ? [new ClusterSecret("olve-map-0123-urls", now.AddHours(-5))] : []));
+
+        await service.SweepAsync(CancellationToken.None);
+
+        await Assert.That(k8s.DeletedSecrets).IsEquivalentTo(secret ? ["olve-map-0123-urls"] : Array.Empty<string>());
+        await Assert.That(k8s.DeletedJobs).IsEquivalentTo(job ? ["olve-fh-x"] : Array.Empty<string>());
+    }
+
+    private static ClusterJob LeakedJob(Id<Pipeline> pipeline, DateTimeOffset now) => new("olve-fh-x",
+        new Dictionary<string, string>
+        {
+            ["app"] = "olve-pipelines",
+            ["olve-role"] = "on-failure",
+            ["olve-pipeline"] = pipeline.Value.Value.ToString("N"),
+        },
+        now.AddDays(-30), Finished: true, TtlSecondsAfterFinished: null);
 }

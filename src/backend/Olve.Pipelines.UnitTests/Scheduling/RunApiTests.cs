@@ -213,6 +213,20 @@ public class RunInputOperationTests
         await Assert.That(JsonNode.DeepEquals(JsonNode.Parse(rerun.Input), JsonNode.Parse(run.Input))).IsTrue();
         await Assert.That(s.D.Views.Summarize(rerun).RerunOfNumber).IsEqualTo(run.Number);
     }
+
+    [Test]
+    public async Task RerunRun_FillsTheDefaultsOfTheInputModel()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start($$"""{"sha":"{{Sha}}"}""");
+
+        var outcome = TestRunDomain.Pick(Inputs(s).RerunRun(s.Get(run)));
+
+        var input = JsonNode.Parse(((RunStartOutcome.Started)outcome).Run.Input)!;
+        await Assert.That(input["sha"]!.GetValue<string>()).IsEqualTo(Sha);
+        await Assert.That(input["deployTo"]!.GetValue<string>()).IsEqualTo("prod");
+        await Assert.That(input["publishCli"]!.GetValue<bool>()).IsTrue();
+    }
 }
 
 public class PipelineHealthTests

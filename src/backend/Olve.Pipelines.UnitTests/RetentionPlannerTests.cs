@@ -259,6 +259,31 @@ public class RetentionPlannerTests
         await Assert.That(plan.Objects.Count(o => o.Category == RetentionCategory.TriggerEvent)).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task ASparedRun_KeepsItsObjectsAndBinary_AndTheRestOfThePlanStands()
+    {
+        PipelineVersion Version(string binaryKey) => new(Id.New<PipelineVersion>(), P, 1, "{}", "sha256:x", "c", binaryKey,
+            new Dictionary<string, int>(), new Dictionary<string, int>(), Now);
+        var sparedBinary = $"versions/{Hex(P)}/builds/aaa/step.tar.gz";
+        var goneBinary = $"versions/{Hex(P)}/builds/bbb/step.tar.gz";
+        var (sparedVersion, goneVersion) = (Version(sparedBinary), Version(goneBinary));
+        var spared = Run(P, 1, 300, version: sparedVersion.Id);
+        var gone = Run(P, 2, 300, version: goneVersion.Id);
+        var latest = Enumerable.Range(3, 20).Select(n => Run(P, n, 300));
+        var plan = RetentionPlanner.Plan(Inputs([spared, gone, .. latest], versions: [sparedVersion, goneVersion], objects:
+        [
+            Obj($"runs/{Hex(P)}/1/build/1/output.json"),
+            Obj($"runs/{Hex(P)}/2/build/1/output.json"),
+            Obj(sparedBinary, 400),
+            Obj(goneBinary, 400),
+        ]), Options);
+        await Assert.That(plan.Objects).Count().IsEqualTo(4);
+
+        var objects = RetentionPlanner.ObjectsAfterSparing(plan, [spared], [sparedVersion, goneVersion]);
+
+        await Assert.That(objects.Select(o => o.Object.Key)).IsEquivalentTo([$"runs/{Hex(P)}/2/build/1/output.json", goneBinary]);
+    }
+
     // ---- cluster ----
 
     private static ClusterJob Job(string name, string? role, Id<Pipeline>? pipeline, bool finished, double ageHours, int? ttl = 604800)

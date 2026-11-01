@@ -325,6 +325,39 @@ public class KubernetesJobExecutorTests
         await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
     }
 
+    // Catches: a kill after the delete and before the flush, which turns a success into "uploaded no result.tar.gz".
+    [Test]
+    public async Task TheArchiveOutlivesTheSaveOfTheTerminalStatus()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        var archive = HarnessStorageKeys.AttemptResultArchiveKey(attempt);
+        var deletedBeforeATerminalSave = true;
+        h.Durability.OnSave = () =>
+        {
+            if (h.Attempts.TryGet(attempt.Id, out var current) && !current.Status.IsActive())
+                deletedBeforeATerminalSave = h.Storage.Deleted.Contains(archive);
+        };
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(deletedBeforeATerminalSave).IsFalse();
+        await Assert.That(h.Storage.Deleted).Contains(archive);
+    }
+
+    [Test]
+    public async Task ATerminalStatusThatCannotBeSaved_KeepsTheArchive()
+    {
+        var h = Build();
+        var attempt = h.Hello;
+        h.K8s.OnCreateJob = () => h.Durability.Fail = true;
+
+        await RunWatcher(h, attempt.Id);
+
+        await Assert.That(h.Hello.Status).IsTypeOf<Succeeded>();
+        await Assert.That(h.Storage.Deleted).DoesNotContain(HarnessStorageKeys.AttemptResultArchiveKey(attempt));
+    }
+
     [Test]
     public async Task Reattach_ExistingJob_DoesNotSubmitAgain()
     {

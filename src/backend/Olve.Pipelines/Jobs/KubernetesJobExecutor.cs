@@ -21,7 +21,7 @@ namespace Olve.Pipelines.Jobs;
 /// its Job deleted.</item>
 /// <item><b>Finish</b>: persist the logs (<c>step</c>, plus <c>olve-init</c> when the step never ran),
 /// collect <c>result.tar.gz</c> into the attempt's storage layout, resolve the outcome and mark the
-/// attempt; then delete the archive and the URL Secret. On controller shutdown (cancellation) nothing
+/// attempt; once that is saved delete the archive, and delete the URL Secret. On controller shutdown (cancellation) nothing
 /// is cleaned up, so the reattach finds working URLs.</item>
 /// </list>
 /// </summary>
@@ -163,7 +163,11 @@ public class KubernetesJobExecutor(
 
             case HarnessWait.Finished finished:
                 await FinishAsync(attempt, logKey, finished, ct);
-                await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
+                // Until the verdict is saved, a restarted server has only the archive to reach it again.
+                if ((await durability.SavedAsync(ct)).TryPickProblems(out var unsaved))
+                    logger.LogProblems(LogLevel.Warning, unsaved, "Keeping the result archive of attempt '{AttemptId}': its status is not saved", attempt.Id);
+                else
+                    await storage.DeleteAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), ct);
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 

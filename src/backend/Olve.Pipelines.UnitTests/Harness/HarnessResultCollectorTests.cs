@@ -64,17 +64,22 @@ public class HarnessResultCollectorTests
         await Assert.That(s3.Objects.ContainsKey(StorageLayout.AttemptOutputKey(Attempt))).IsFalse();
     }
 
+    // A restart before the attempt's status is saved collects the same archive again.
     [Test]
-    public async Task DeleteArchive_RemovesOnlyTheArchive()
+    public async Task Collect_Twice_GivesTheSameResult()
     {
         var (collector, s3) = Collector();
-        var archiveKey = HarnessStorageKeys.AttemptResultArchiveKey(Attempt);
-        s3.Objects[archiveKey] = Archive(("output.json", """{"output":{},"status":"succeeded"}"""));
-        await collector.CollectAsync(Attempt);
+        s3.Objects[HarnessStorageKeys.AttemptResultArchiveKey(Attempt)] = Archive(
+            ("output.json", """{"output":{"lines":3},"status":"succeeded"}"""), ("files/log.txt", "text"));
 
-        await collector.DeleteArchiveAsync(Attempt);
+        var first = await collector.CollectAsync(Attempt);
+        var stored = s3.Objects.ToDictionary(o => o.Key, o => o.Value);
+        var second = await collector.CollectAsync(Attempt);
 
-        await Assert.That(s3.Objects.ContainsKey(archiveKey)).IsFalse();
-        await Assert.That(s3.Objects.ContainsKey(StorageLayout.AttemptOutputKey(Attempt))).IsTrue();
+        await Assert.That(second.FileKeys).IsEquivalentTo(first.FileKeys);
+        await Assert.That(second.Archive!.Value).Succeeded();
+        await Assert.That(s3.Objects.Count).IsEqualTo(stored.Count);
+        foreach (var (key, value) in stored)
+            await Assert.That(s3.Objects[key]).IsEquivalentTo(value);
     }
 }

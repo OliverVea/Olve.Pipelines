@@ -15,8 +15,8 @@ public sealed record HarnessCollection(Result<HarnessResultContents>? Archive, I
 /// <summary>
 /// Unpacks an attempt's <c>result.tar.gz</c> (PUT by the harness to <see cref="HarnessStorageKeys.AttemptResultArchiveKey"/>)
 /// into the attempt's storage layout: each <c>files/&lt;p&gt;</c> → <c>runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;a&gt;/files/&lt;p&gt;</c>,
-/// and a succeeded envelope's output → <c>…/output.json</c>. Collection is idempotent; the archive is
-/// kept until <see cref="DeleteArchiveAsync"/>.
+/// and a succeeded envelope's output → <c>…/output.json</c>. Collection is idempotent (same keys): a restarted
+/// controller collects again until the attempt's terminal status is saved, so the archive must outlive that save.
 /// Feed the result to <see cref="HarnessOutcome.Resolve"/>.
 /// </summary>
 public sealed class HarnessResultCollector(
@@ -96,23 +96,6 @@ public sealed class HarnessResultCollector(
         {
             try { tempDir.Delete(recursive: true); }
             catch (IOException e) { logger.LogWarning(e, "Could not delete temp dir '{TempDir}'", tempDir.FullName); }
-        }
-    }
-
-    /// <summary>
-    /// Removes the attempt's <c>result.tar.gz</c>. Call only after the attempt's terminal status is
-    /// persisted: until then a restarted controller must be able to collect again (idempotent — same keys).
-    /// </summary>
-    public async Task DeleteArchiveAsync(Attempt attempt, CancellationToken ct = default)
-    {
-        var key = HarnessStorageKeys.AttemptResultArchiveKey(attempt);
-        try
-        {
-            await s3.DeleteObjectAsync(storageOptions.Bucket, key, ct);
-        }
-        catch (AmazonS3Exception e)
-        {
-            logger.LogWarning(e, "Could not delete result archive '{Key}'", key);
         }
     }
 

@@ -1,6 +1,8 @@
+using System.Text.Json.Nodes;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
+using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results.TUnit;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
@@ -80,6 +82,48 @@ public class BlockAndSwitchTests
         await Assert.That(s.Latest(older, "deploy-prod")).IsNull();
     }
 
+    public enum SiblingState { Scheduled, Waiting, InProgress }
+
+    private static string WaitingBuild() => Mutated(root =>
+    {
+        root["models"]!["Approval"] = new JsonObject
+        {
+            ["output"] = new JsonObject { ["type"] = "object", ["additionalProperties"] = false },
+        };
+        ManifestFixture.Step(root, "build")["externalInputs"] = new JsonObject
+        {
+            ["decision"] = new JsonObject
+            {
+                ["model"] = "Approval",
+                ["title"] = "Build?",
+                ["from"] = new JsonArray(new JsonObject { ["kind"] = "person" }),
+            },
+        };
+    });
+
+    // The same stage holds the sibling and the step the newer run took: superseding reaches the sibling mid-stage.
+    [Test]
+    [Arguments(SiblingState.Scheduled, typeof(Cancelled))]
+    [Arguments(SiblingState.Waiting, typeof(Cancelled))]
+    [Arguments(SiblingState.InProgress, typeof(InProgress))]
+    public async Task Superseding_CancelsWorkThatHasNotStarted_AndLeavesRunningWorkAlone(SiblingState sibling, Type expected)
+    {
+        var s = new SchedulerScenario(sibling is SiblingState.Waiting ? WaitingBuild() : null);
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "test")).Succeeded();
+        var older = s.Start(Input(sha: Sha), RunTriggerKind.Push);
+        s.Succeed(older, "checkout");
+        if (sibling is SiblingState.InProgress)
+            s.MarkInProgress(older, "build");
+        var newer = s.Start(Input(sha: OtherSha), RunTriggerKind.Push);
+        TestRunDomain.Pick(s.D.AttemptService.Schedule(newer.Id, "test"));
+
+        await Assert.That(s.D.GateService.Unblock(s.Pipeline.Id, "test")).Succeeded();
+
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
+        await Assert.That(s.Get(older).SupersededBy).IsEqualTo(newer.Id);
+        await Assert.That(s.Latest(older, "build")!.Status.GetType()).IsEqualTo(expected);
+    }
+
     [Test]
     public async Task ContinuingAnOlderRun_StillRunsAStepANewerRunStartedBefore()
     {
@@ -111,6 +155,25 @@ public class BlockAndSwitchTests
         await Assert.That(result).IsTypeOf<PipelineActivation.Active>();
         await Assert.That(s.Latest(old, "checkout")!.Status).IsTypeOf<Cancelled>();
         await Assert.That(s.Get(old).Status).IsEqualTo(RunStatus.Cancelled);
+    }
+
+    [Test]
+    public async Task Draining_StopsTheSchedulerStartingWork()
+    {
+        var s = new SchedulerScenario();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "build")).Succeeded();
+        await Assert.That(s.D.GateService.Block(s.Pipeline.Id, "test")).Succeeded();
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        var v2 = s.AddVersion();
+        TestRunDomain.Pick(s.D.ActivationService.BeginSwitch(s.Pipeline.Id, v2.Id, cancelRunning: true));
+
+        await Assert.That(s.D.GateService.Unblock(s.Pipeline.Id, "build")).Succeeded();
+        await Assert.That(s.D.GateService.Unblock(s.Pipeline.Id, "test")).Succeeded();
+
+        await Assert.That(s.All(run, "build")).IsEmpty();
+        await Assert.That(s.All(run, "test")).IsEmpty();
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Running);
     }
 
     [Test]

@@ -44,6 +44,7 @@ public class PipelineReconcileService(
     ILogger<PipelineReconcileService> logger) : IConfigReconciler
 {
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(3);
+    internal TimeSpan DeletePollInterval { get; init; } = TimeSpan.FromSeconds(1);
 
     private const int LogTailLines = 40;
 
@@ -243,7 +244,7 @@ public class PipelineReconcileService(
         {
             if (await control.GetStateAsync(jobName, ct) is null)
                 return true;
-            await Task.Delay(TimeSpan.FromSeconds(1), ct);
+            await Task.Delay(DeletePollInterval, ct);
         }
         return false;
     }

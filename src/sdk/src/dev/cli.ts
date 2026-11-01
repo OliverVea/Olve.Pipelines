@@ -36,12 +36,6 @@ export async function devConfig(
   const harness = harnessInfo();
   return {
     pipeline,
-    handlers: Object.fromEntries(
-      project.handlers.map(([name, file]) => [
-        name,
-        () => import(file) as Promise<{ default: unknown }>,
-      ]),
-    ),
     ...(withHashes ? { codeHash: await codeHash(project, harness) } : {}),
     harness,
   };

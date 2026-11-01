@@ -1,7 +1,6 @@
 // Layout of a pipeline directory and the identity of the SDK building it.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { isImplementation } from '../core/handlers.ts';
 import { sha256Hex } from '../util/hash.ts';
 import type { HarnessInfo } from '../util/code-hash.ts';
 
@@ -10,8 +9,6 @@ export const SDK_ROOT = resolve(import.meta.dir, '../..');
 export interface Project {
   dir: string;
   pipelineFile: string;
-  /** step name → absolute handler file, sorted by step name. The step is the one the file's `implement(step, …)` names. */
-  handlers: [string, string][];
 }
 
 export class ProjectError extends Error {
@@ -22,36 +19,23 @@ export async function loadProject(dirArg: string): Promise<Project> {
   const dir = resolve(dirArg);
   if (!existsSync(dir) || !statSync(dir).isDirectory())
     throw new ProjectError(`${dirArg} is not a directory`);
-  const pipelineFile = entryOf(dirArg, dir);
-  const hdir = join(dir, 'handlers');
-  const files = existsSync(hdir)
-    ? readdirSync(hdir)
-        .filter(
-          (f) =>
-            f.endsWith('.ts') &&
-            !f.endsWith('.test.ts') &&
-            !f.endsWith('.d.ts') &&
-            statSync(join(hdir, f)).isFile(),
-        )
-        .sort()
-    : [];
-  return {
-    dir,
-    pipelineFile,
-    handlers: await resolveHandlers(hdir, files),
-  };
+  return { dir, pipelineFile: entryOf(dirArg, dir) };
 }
 
-/** The package's `main`, or `pipeline.ts` in a package that doesn't name one. */
+/** The file `main` in the package's package.json names. */
 function entryOf(dirArg: string, dir: string): string {
   const pkg = join(dir, 'package.json');
   const main = existsSync(pkg)
     ? (JSON.parse(readFileSync(pkg, 'utf8')) as { main?: string }).main
     : undefined;
-  const entry = join(dir, main ?? 'pipeline.ts');
+  if (!main)
+    throw new ProjectError(
+      `${join(dirArg, 'package.json')} must name the entry point in \`main\` (a file that default-exports pipeline({...}))`,
+    );
+  const entry = join(dir, main);
   if (!existsSync(entry))
     throw new ProjectError(
-      `${join(dirArg, main ?? 'pipeline.ts')} not found (it must default-export pipeline({...}))`,
+      `${join(dirArg, main)} not found (it must default-export pipeline({...}))`,
     );
   return entry;
 }
@@ -64,37 +48,6 @@ export async function loadPipeline(project: Project): Promise<unknown> {
       `${project.pipelineFile} has no default export (export default pipeline({...})...)`,
     );
   return mod.default;
-}
-
-/** Pairs each handler file with the step its default export implements (file names don't matter). */
-async function resolveHandlers(
-  hdir: string,
-  files: string[],
-): Promise<[string, string][]> {
-  const byStep = new Map<string, string>();
-  for (const f of files) {
-    const file = join(hdir, f);
-    let impl: unknown;
-    try {
-      impl = ((await import(file)) as { default?: unknown }).default;
-    } catch (e) {
-      throw new ProjectError(
-        `handlers/${f} failed to load: ${(e as Error)?.message ?? String(e)}`,
-      );
-    }
-    if (!isImplementation(impl))
-      throw new ProjectError(
-        `handlers/${f} must default-export implement(<step>, …); put shared code in a subfolder such as handlers/lib/`,
-      );
-    const step = (impl.step as { name: string }).name;
-    const other = byStep.get(step);
-    if (other)
-      throw new ProjectError(
-        `handlers/${other.slice(hdir.length + 1)} and handlers/${f} both implement step '${step}'`,
-      );
-    byStep.set(step, file);
-  }
-  return [...byStep].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 function listFiles(dir: string): string[] {

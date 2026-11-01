@@ -13,7 +13,6 @@ import {
   pipeline,
   secret,
   secretRef,
-  step,
   steps,
   z,
   type Ctx,
@@ -31,7 +30,7 @@ import { describePipeline, DescribeError } from '../../src/describe/describe.ts'
 import { Manifest } from '../../src/describe/manifest-schema.ts';
 import { SERVICE_ACCOUNT_TOKEN } from '../../src/library/helm-deploy.ts';
 import { testFileRef, testHandler } from '../../src/testing/index.ts';
-import { SHA, tmp } from './helpers.ts';
+import { SHA, stubStep, tmp } from './helpers.ts';
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 const KEY = secret('SSH_PRIVATE_KEY', 'ssh key');
@@ -62,11 +61,7 @@ const source = {
   sha: SHA,
   tree: testFileRef({ step: 'source', path: 'tree/' }),
 };
-const describeOf = (p: unknown, handlers: string[] = []) =>
-  describePipeline(p, {
-    handlerNames: handlers,
-    harness,
-  });
+const describeOf = (p: unknown) => describePipeline(p, { harness });
 const problems = (p: unknown): string[] => {
   try {
     describeOf(p);
@@ -464,13 +459,13 @@ describe('target deploys and select', () => {
   });
 
   test('a step every case has stays available after the select', () => {
-    const check = step({
+    const check = stubStep({
       name: 'check',
       description: '',
       image: 'alpine',
       input: { release: HelmRelease },
     });
-    const m = describeOf(selectPipeline().stage(check), ['check']) as any;
+    const m = describeOf(selectPipeline().stage(check)) as any;
     expect(m.stages[3].steps[0].input).toEqual({ release: { ref: 'deploy-prod' } });
   });
 

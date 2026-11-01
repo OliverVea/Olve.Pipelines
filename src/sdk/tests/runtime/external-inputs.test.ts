@@ -10,6 +10,7 @@ import {
   z,
 } from '../../src/index.ts';
 import { describePipeline, DescribeError } from '../../src/describe/describe.ts';
+import { stubStep } from './helpers.ts';
 import { Manifest } from '../../src/describe/manifest-schema.ts';
 import { validateInput } from '../../src/harness/validate.ts';
 import { testHandler } from '../../src/testing/index.ts';
@@ -26,14 +27,14 @@ const Choice = model(
   z.object({ target: z.enum(['beta', 'prod']), notes: z.string().default('') }),
 );
 
-const build = step({
+const build = stubStep({
   name: 'build',
   description: '',
   image: 'alpine',
   input: { req: Req },
   output: Art,
 });
-const pick = step({
+const pick = stubStep({
   name: 'pick',
   description: '',
   image: 'alpine',
@@ -52,11 +53,7 @@ const review = implement(reviewStep, ({ verdict }) => {
   if (!verdict.accepted) throw new Error(verdict.comment ?? 'rejected');
 });
 
-const describeIt = (p: unknown, handlers = ['build', 'pick', 'review']) =>
-  describePipeline(p, {
-    handlerNames: handlers,
-    harness,
-  });
+const describeIt = (p: unknown) => describePipeline(p, { harness });
 
 const stepsOf = (m: ReturnType<typeof describeIt>) =>
   m.stages.flatMap((s) => ('steps' in s ? s.steps : []));
@@ -64,7 +61,7 @@ const stepsOf = (m: ReturnType<typeof describeIt>) =>
 describe('external inputs in the manifest', () => {
   test('are recorded apart from the mapped inputs, by model, and the manifest is schema-valid', () => {
     const m = describeIt(
-      pipeline({ name: 't', input: Req }).stage(build).stage(pick).stage(reviewStep),
+      pipeline({ name: 't', input: Req }).stage(build).stage(pick).stage(review),
     );
     expect(Manifest.safeParse(m).success).toBe(true);
     const [, picked, reviewed] = stepsOf(m);
@@ -94,14 +91,13 @@ describe('external inputs in the manifest', () => {
       pipeline({ name: 't', input: Req })
         .stage(build)
         .stage([pick, (from) => ({ art: from.build })]),
-      ['build', 'pick'],
     );
     expect(stepsOf(m)[1]!.externalInputs?.choice?.model).toBe('Choice');
   });
 
   test("a failure handler can't wait for input", () => {
     const Ctx = model('FailureContext', z.object({ reason: z.string() }));
-    const handler = step({
+    const handler = stubStep({
       name: 'on-fail',
       description: '',
       image: 'alpine',
@@ -113,7 +109,6 @@ describe('external inputs in the manifest', () => {
         pipeline({ name: 't', input: Req })
           .stage(build)
           .onFailure(handler as never),
-        ['build', 'on-fail'],
       );
     } catch (e) {
       if (e instanceof DescribeError) problems = [...e.problems];
@@ -150,7 +145,7 @@ describe('a handler', () => {
 });
 
 describe('callback and poll sources', () => {
-  const signalled = step({
+  const signalled = stubStep({
     name: 'signalled',
     description: '',
     image: 'alpine',
@@ -167,7 +162,6 @@ describe('callback and poll sources', () => {
   test('are recorded with their settings', () => {
     const m = describeIt(
       pipeline({ name: 't', input: Req }).stage(build).stage(signalled),
-      ['build', 'signalled'],
     );
     expect(Manifest.safeParse(m).success).toBe(true);
     expect(stepsOf(m)[1]!.externalInputs).toEqual({
@@ -194,7 +188,7 @@ describe('callback and poll sources', () => {
   });
 
   test('bad sources are describe problems', () => {
-    const bad = step({
+    const bad = stubStep({
       name: 'bad',
       description: '',
       image: 'alpine',
@@ -208,7 +202,7 @@ describe('callback and poll sources', () => {
     });
     let problems: string[] = [];
     try {
-      describeIt(pipeline({ name: 't', input: Req }).stage(bad), ['bad']);
+      describeIt(pipeline({ name: 't', input: Req }).stage(bad));
     } catch (e) {
       if (e instanceof DescribeError) problems = [...e.problems];
       else throw e;

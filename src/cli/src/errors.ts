@@ -6,6 +6,8 @@ export const ExitCode = {
   Usage: 2,
   /** `pl wait`: the run waits for a person's input. */
   NeedsInput: 3,
+  /** `pl wait`: the run is held at a blocked step. */
+  Held: 4,
   /** `pl wait --timeout` elapsed. */
   Timeout: 124,
   /** Ctrl+C. */

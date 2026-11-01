@@ -31,15 +31,9 @@ import {
 } from './result.ts';
 import { formatIssues, parseStrict } from './validate.ts';
 
-/** step name → lazy import of `handlers/<name>.ts`. Literal import() paths so Bun bundles them. */
-export type HandlerRegistry = Readonly<
-  Record<string, () => Promise<{ default: unknown }>>
->;
-
 export interface HarnessConfig {
   /** Default export of the entry point. */
   pipeline: unknown;
-  handlers: HandlerRegistry;
   /** Hash of the build (from the build; includes the harness identity). */
   codeHash?: string;
   harness: HarnessInfo;
@@ -129,26 +123,10 @@ export function cancellation(): { signal: AbortSignal; dispose(): void } {
   };
 }
 
-/** Resolves the function that implements `step` (carried by the step, or a handler module). */
-export async function resolveStepFunction(
-  step: AnyStep,
-  handlers: HandlerRegistry,
-): Promise<StepFunction | string> {
+/** The function `step` carries, or what is wrong. */
+export function resolveStepFunction(step: AnyStep): StepFunction | string {
   if (isImplementation(step)) return step.handler as unknown as StepFunction;
-  const load = handlers[step.name];
-  if (!load) return `step '${step.name}' has no handler`;
-  let mod: { default: unknown };
-  try {
-    mod = await load();
-  } catch (e) {
-    return `the handler of step '${step.name}' failed to load: ${(e as Error)?.stack ?? String(e)}`;
-  }
-  const impl = mod.default;
-  if (!isImplementation(impl))
-    return `the handler of step '${step.name}' must default-export implement(<step '${step.name}'>, …)`;
-  if (impl.step !== step)
-    return `the handler of step '${step.name}' implements a different step object (it must be implement(<the '${step.name}' step from pipeline.ts>, …))`;
-  return impl.handler as unknown as StepFunction;
+  return `step '${step.name}' has no implementation (stage implement(step({...}), fn))`;
 }
 
 /** Writes output.json, prints the sentinel block and uploads result.tar.gz when OLVE_RESULT_URL is set. */
@@ -189,7 +167,6 @@ async function describeMode(
   try {
     const text = manifestText(
       describePipeline(cfg.pipeline, {
-        handlerNames: Object.keys(cfg.handlers),
         codeHash: cfg.codeHash,
         harness: cfg.harness,
       }),
@@ -214,7 +191,7 @@ async function runMode(
   const data = pipelineData(cfg.pipeline);
   const step = findStep(data, name, selectedCases());
   if (typeof step === 'string') return (io.stderr(step), EXIT.usage);
-  const fn = await resolveStepFunction(step, cfg.handlers);
+  const fn = resolveStepFunction(step);
   if (typeof fn === 'string') return (io.stderr(fn), EXIT.configInvalid);
 
   const p = paths();

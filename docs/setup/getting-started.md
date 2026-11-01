@@ -11,7 +11,7 @@ A pipeline imports the SDK, published to npm as
 [`@olivervea/pipelines`](https://www.npmjs.com/package/@olivervea/pipelines):
 
 ```json
-"dependencies": { "@olivervea/pipelines": "2.0.0-beta.21" }
+"dependencies": { "@olivervea/pipelines": "2.0.0-beta.22" }
 ```
 
 Until v2 reaches prod, releases are `2.0.0-beta.N` on the `beta` dist-tag; pin an exact version.
@@ -69,7 +69,7 @@ or rename files as you like.
   "type": "module",
   "main": "pipeline.ts",
   "scripts": { "typecheck": "tsc --noEmit -p .", "describe": "olve-dev describe .", "build": "olve-build . --out .olve/out" },
-  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.21" },
+  "dependencies": { "@olivervea/pipelines": "2.0.0-beta.22" },
   "devDependencies": { "@types/bun": "1.4.3", "typescript": "7.0.2" }
 }
 ```

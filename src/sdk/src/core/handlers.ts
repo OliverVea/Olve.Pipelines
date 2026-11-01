@@ -30,7 +30,7 @@ export type Handler<S extends AnyStep> = (
   ctx: Ctx<SecretsOf<S>, ConfigOf<S>>,
 ) => Awaitable<HandlerResult<S>>;
 
-/** A step with its handler. It is itself a step: stage it directly, or default-export it from `handlers/*.ts`. */
+/** A step with its handler. It is itself a step: stage it like any value. */
 export type Implementation<S extends AnyStep = AnyStep> = S & {
   readonly [ImplementationBrand]: true;
   /** The step as defined. */
@@ -48,8 +48,8 @@ type NoExtraFields<R, T> = R extends Skipped | void
     };
 
 /**
- * Implement a step. Input, ctx and return types come from the step definition alone. Default-export
- * the result from a `handlers/*.ts` file, or stage it directly (a reusable step: give it a `kind`).
+ * Implement a step. Input, ctx and return types come from the step definition alone. Stage the
+ * result directly; a reusable step gives itself a `kind`.
  */
 export function implement<S extends AnyStep, R extends HandlerResult<S>>(
   step: S &

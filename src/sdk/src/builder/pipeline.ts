@@ -314,7 +314,7 @@ export function pipelineData(p: unknown): PipelineData {
       : undefined;
   if (!d)
     throw new TypeError(
-      'not a pipeline (pipeline.ts must default-export pipeline({...})...)',
+      'not a pipeline (the entry point must default-export pipeline({...})...)',
     );
   return d as PipelineData;
 }
@@ -553,7 +553,7 @@ export class Pipeline<In extends AnyModel, A extends AvailMap> {
   }
 }
 
-/** Start a pipeline definition. `pipeline.ts` must default-export the result. */
+/** Start a pipeline definition. The entry point must default-export the result. */
 export function pipeline<In extends AnyModel>(
   def: PipelineDef<In>,
 ): Pipeline<In, InitialAvail<In>> {

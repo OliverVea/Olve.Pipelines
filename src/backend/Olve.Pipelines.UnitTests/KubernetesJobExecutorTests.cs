@@ -83,7 +83,7 @@ public class KubernetesJobExecutorTests
             NullLogger<KubernetesJobExecutor>.Instance)
         {
             SubmissionRetryDelay = TimeSpan.Zero,
-            PollInterval = TimeSpan.FromMilliseconds(5),
+            PollInterval = TimeSpan.Zero,
         };
 
         return new Harness(executor, k8s, storage, scenario, run, registry, lifetime, factory, control, durability);
@@ -492,7 +492,7 @@ public class KubernetesJobExecutorTests
         return new HarnessFailureHandlerLauncher(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), h.Lifetime,
             NullLogger<HarnessFailureHandlerLauncher>.Instance)
-        { PollInterval = TimeSpan.FromMilliseconds(5) };
+        { PollInterval = TimeSpan.Zero };
     }
 
     [Test]

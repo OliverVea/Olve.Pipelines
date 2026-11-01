@@ -159,10 +159,16 @@ public class ChangeBroadcasterTests
         var broadcaster = New();
         using var subscription = broadcaster.Subscribe(null, null);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var stream = SseStreams.WithHeartbeat(subscription.Reader, TimeProvider.System, TimeSpan.FromMilliseconds(20), ChangeBroadcaster.Heartbeat, cts.Token)
+        var clock = new ManualClock();
+        await using var stream = SseStreams.WithHeartbeat(subscription.Reader, clock, TimeSpan.FromSeconds(20), ChangeBroadcaster.Heartbeat, cts.Token)
             .GetAsyncEnumerator(cts.Token);
 
-        await stream.MoveNextAsync();
+        var next = stream.MoveNextAsync().AsTask();
+        clock.Advance(TimeSpan.FromSeconds(19));
+        await Assert.That(next.IsCompleted).IsFalse();
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await next;
 
         await Assert.That(stream.Current.Data.EventType).IsEqualTo("ping");
     }

@@ -16,15 +16,21 @@ public class PodWatchTests
         await Assert.That(wait.IsCompleted).IsFalse();
         signals.Notify("olve-a");
 
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
     public async Task WithoutANotify_TheWaitEndsAtItsTimeout()
     {
-        var signals = new PodChangeSignals(TimeProvider.System);
+        var clock = new ManualClock();
+        var signals = new PodChangeSignals(clock);
+        var wait = signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromSeconds(20), CancellationToken.None);
 
-        await signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromMilliseconds(20), CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(19));
+        await Assert.That(wait.IsCompleted).IsFalse();
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -39,7 +45,7 @@ public class PodWatchTests
 
         await k8s.JobChanges.Writer.WriteAsync("olve-a");
 
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
         bool[] watches;
         lock (k8s.Watches) watches = [.. k8s.Watches];
         await Assert.That(watches).IsEquivalentTo([true, false]);
@@ -50,13 +56,16 @@ public class PodWatchTests
     [Test]
     public async Task OneWaiterTimingOut_LeavesTheOtherArmed()
     {
-        var signals = new PodChangeSignals(TimeProvider.System);
+        var clock = new ManualClock();
+        var signals = new PodChangeSignals(clock);
         var executor = signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromMinutes(5), CancellationToken.None);
+        var other = signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromSeconds(10), CancellationToken.None);
 
-        await signals.WaitAsync("olve-a", signals.Arm("olve-a"), TimeSpan.FromMilliseconds(10), CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        await other.WaitAsync(TimeSpan.FromSeconds(5));
         signals.Notify("olve-a");
 
-        await Assert.That(await Task.WhenAny(executor, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(executor);
+        await executor.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -68,7 +77,7 @@ public class PodWatchTests
         signals.Notify("olve-a");
         var wait = signals.WaitAsync("olve-a", armed, TimeSpan.FromMinutes(5), CancellationToken.None);
 
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -83,7 +92,7 @@ public class PodWatchTests
 
         await k8s.JobChanges.Writer.WriteAsync("olve-a");
 
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
         await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
     }

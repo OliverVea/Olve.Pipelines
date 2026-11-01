@@ -12,7 +12,7 @@ public class JobDispatchSignalTests
 
         var wait = signal.WaitAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -22,12 +22,12 @@ public class JobDispatchSignalTests
         var wait = signal.WaitAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
         signal.Nudge();
-        await Assert.That(await Task.WhenAny(wait, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(wait);
+        await wait.WaitAsync(TimeSpan.FromSeconds(5));
 
         await Assert.That(signal.IsNudged).IsFalse();
 
         var next = signal.WaitAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
         signal.Nudge();
-        await Assert.That(await Task.WhenAny(next, Task.Delay(TimeSpan.FromSeconds(5)))).IsEqualTo(next);
+        await next.WaitAsync(TimeSpan.FromSeconds(5));
     }
 }

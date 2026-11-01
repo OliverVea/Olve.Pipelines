@@ -22,12 +22,17 @@ public class DeployPollServiceTests
     {
         public List<string> Calls { get; } = [];
         public Func<string, Result<ReconcileReport>>? Outcome { get; set; }
-        public TimeSpan Delay { get; set; }
+
+        /// <summary>When set, a reconcile holds here until the test completes it.</summary>
+        public TaskCompletionSource? Held { get; set; }
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public async Task<Result<ReconcileReport>> ReconcileAsync(PipelineConfigBinding binding, string commitSha, CancellationToken ct)
         {
             lock (Calls) Calls.Add(commitSha);
-            if (Delay > TimeSpan.Zero) await Task.Delay(Delay, ct);
+            Entered.TrySetResult();
+            if (Held is { } held) await held.Task.WaitAsync(ct);
             return Outcome?.Invoke(commitSha) ?? Report();
         }
 
@@ -253,9 +258,12 @@ public class DeployPollServiceTests
         c.Source.ConfigSha = "cfg-1";
         c.Source.ConfigETag = "etag-1";
         c.Source.BranchHeadSha = "head-1";
-        c.Reconciler.Delay = TimeSpan.FromMilliseconds(100);
+        c.Reconciler.Held = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await Task.WhenAll(c.Run(), c.Run(), c.Run());
+        var polls = new[] { c.Run(), c.Run(), c.Run() };
+        await c.Reconciler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        c.Reconciler.Held.SetResult();
+        await Task.WhenAll(polls).WaitAsync(TimeSpan.FromSeconds(5));
 
         await Assert.That(c.Reconciler.Calls.Count(s => s == "cfg-1")).IsEqualTo(1);
         await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });

@@ -82,7 +82,7 @@ public class AttemptLogStreamerTests
         var streamer = new AttemptLogStreamer(domain.AttemptService, live,
             new JobLogService(s3, new StorageOptions("b"), domain.AttemptService, live), new PodChangeSignals(TimeProvider.System), TimeProvider.System)
         {
-            PollInterval = TimeSpan.FromMilliseconds(10),
+            PollInterval = TimeSpan.Zero,
         };
 
         var events = new List<(string Type, string Data)>();

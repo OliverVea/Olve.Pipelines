@@ -56,7 +56,7 @@ internal sealed class LoopbackHttpServer : IAsyncDisposable
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception) when (_stop.IsCancellationRequested)
         {
         }
     }

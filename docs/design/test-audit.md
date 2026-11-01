@@ -485,3 +485,35 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Suite flake rate | Under 5%, combined |
 | `[NotInParallel]` classes | 0 |
 | Real-system tests | A few minutes, parallel across the pool |
+
+## Not done
+
+Open work from the pipeline package migration and the `pl wait` changes.
+
+**Tests and reliability**
+
+- Fix the 12 load-sensitive tests in Olve.AgentRuntimeManager: replace real-time waits with its clock seam and explicit signals. Not started. No retries.
+- Find the cause of the `build-sdk` exit 137 in `Olve.Pipelines v2#167`.
+- Try the `pl wait` rerun following and the held exit code 4 against a real rerun and a real held run. Only unit tests cover them.
+
+**This plan**
+
+- Track A is merged (`4bfd147`), but its gaps still read as open under Confirmed gaps, the change plan and the metrics table.
+- `track-fixes` has commits for the bugs under Findings from the new test tiers, and the table has not been checked against them. They are not on `main`.
+- `track-b`, `track-c`, `track-e`, `track-f`, `track-g`, `track-i` and `track-fixes` are unmerged, and their status has not been reviewed here.
+
+**Pipelines and SDK**
+
+- `packResult` writes a tar and then gzips it, which doubles scratch use for large outputs. This contributed to `claude-code` exceeding its 1 GiB limit.
+- crafty's `deploy` and `verify` stay blocked and `crafty#2` was cancelled, so its migrated pipeline has not deployed. Unblocking is a prod action for Oliver to decide.
+
+**From the roadmap, unchanged**
+
+- npm staged publishing, before `NPM_TOKEN` expires in late January 2027.
+- The `contentTag` cache key must cover build options.
+- Pin `KANIKO_IMAGE`.
+- Step reliability tracking.
+
+**For Oliver**
+
+- Pull the local checkouts of the migrated repos. They are behind origin. `Olve.Homelab`, `Olve.SlimeRepublics`, `Olve.Trains` and `QuestionBank` also have uncommitted work that was left untouched.

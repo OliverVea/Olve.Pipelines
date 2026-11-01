@@ -4,6 +4,7 @@ using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Sync.ConfigSource;
+using Olve.Pipelines.RealSystemTests.Contracts;
 using Olve.Pipelines.Recorder.Recordings;
 using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
@@ -22,13 +23,13 @@ public class RecordedGitHubTests
     private static readonly Recording NoUserAgent = RecordingReplay.Get("github", "no-user-agent");
 
     // GitHub refuses a request without a User-Agent, so the replay does too.
-    private static LoopbackHttpServer GitHub() => LoopbackHttpServer.Start(head =>
+    internal static LoopbackHttpServer GitHub() => LoopbackHttpServer.Start(head =>
         RecordingReplay.Respond(
             RecordingReplay.Header(head, "User-Agent") is null
                 ? NoUserAgent
                 : RecordingReplay.Match(Exchanges, head) ?? throw new InvalidOperationException($"nothing recorded for {head}")));
 
-    private static GitHubConfigSource Source(LoopbackHttpServer server, IKubernetesClient? kubernetes = null) => new(
+    internal static GitHubConfigSource Source(LoopbackHttpServer server, IKubernetesClient? kubernetes = null) => new(
         kubernetes!,
         new KubernetesOptions("ns"),
         new ConfigurationBuilder().AddInMemoryCollection([KeyValuePair.Create<string, string?>("GitHub:ApiUrl", $"http://127.0.0.1:{server.Port}")]).Build(),
@@ -38,27 +39,10 @@ public class RecordedGitHubTests
         Id.New<PipelineConfigBinding>(), Id.New<Pipeline>(), "OliverVea/Olve.Pipelines", "main", ".pipelines", credentials, null, null,
         ReconcileStatus.NeverRun, DateTimeOffset.UnixEpoch);
 
-    private static string Sha(string name)
+    internal static string Sha(string name)
     {
         var body = RecordingReplay.Get("github", name).Response.Body!;
         return (body is System.Text.Json.Nodes.JsonArray list ? list[0]! : body)["sha"]!.GetValue<string>();
-    }
-
-    [Test]
-    public async Task AFullSync_ReadsGitHubsRealReplies_AndAnIdlePollCostsNothing()
-    {
-        await using var server = GitHub();
-        var source = Source(server);
-        var binding = Binding();
-
-        await Assert.That(await source.GetBranchHeadShaAsync(binding)).SucceededAndValue(sha => sha.IsEqualTo(Sha("branch-head")));
-
-        var first = TestRunDomain.Pick(await source.FetchConfigAsync(binding));
-        var changed = await Assert.That(first).IsTypeOf<ConfigFetch.Changed>();
-        await Assert.That(changed!.Sha).IsEqualTo(Sha("dependency-cursor"));
-
-        var second = TestRunDomain.Pick(await source.FetchConfigAsync(binding, changed.ETag));
-        await Assert.That(second).IsTypeOf<ConfigFetch.NotModified>();
     }
 
     [Test]
@@ -110,5 +94,16 @@ public class RecordedGitHubTests
         await Assert.That(result).Failed();
         result.TryPickProblems(out var problems, out _);
         await Assert.That(problems!.Single().Message).IsEqualTo("GitHub returned 403 fetching branch head for 'OliverVea/Olve.Pipelines@main'.");
+    }
+}
+
+[InheritsTests]
+public class RecordedGitHubContract : ConfigSourceContract
+{
+    protected override Task<ContractSubject<Repository>> SubjectAsync()
+    {
+        var server = RecordedGitHubTests.GitHub();
+        var repository = new Repository(RecordedGitHubTests.Source(server), RecordedGitHubTests.Sha("branch-head"), RecordedGitHubTests.Sha("dependency-cursor"));
+        return Task.FromResult(new ContractSubject<Repository>(repository, "", () => "", server));
     }
 }

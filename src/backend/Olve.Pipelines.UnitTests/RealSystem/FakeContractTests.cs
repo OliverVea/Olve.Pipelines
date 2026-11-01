@@ -83,3 +83,13 @@ public class FakeS3Contract : ResultCollectionContract
     protected override Task<ContractSubject<Store>> SubjectAsync() =>
         Task.FromResult(new ContractSubject<Store>(new Store(new FakeS3().Client(), FakeS3.Bucket), "", () => $"obj-{Guid.NewGuid():N}"));
 }
+
+[InheritsTests]
+public class FakeConfigSourceContract : ConfigSourceContract
+{
+    protected override Task<ContractSubject<Repository>> SubjectAsync()
+    {
+        var source = new FakeConfigSource { BranchHeadSha = "head-sha", ConfigSha = "config-sha" };
+        return Task.FromResult(new ContractSubject<Repository>(new Repository(source, source.BranchHeadSha, source.ConfigSha), "", () => ""));
+    }
+}

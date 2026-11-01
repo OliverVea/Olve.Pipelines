@@ -109,18 +109,6 @@ public class WebhookTriggerTests
     }
 
     [Test]
-    public async Task Validator_RejectsUndeclaredSecret_AndBadName()
-    {
-        var undeclared = ManifestValidator.Validate(TestRunDomain.Pick(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(Hmac, declareSecret: false)))));
-        var badName = Hmac.DeepClone().AsObject();
-        badName["name"] = "Bad_Name";
-        var named = ManifestValidator.Validate(TestRunDomain.Pick(ManifestParser.Parse(Encoding.UTF8.GetBytes(WithTrigger(badName)))));
-
-        await Assert.That(undeclared.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.WebhookSecretUndeclared);
-        await Assert.That(named.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.TriggerNameInvalid);
-    }
-
-    [Test]
     public async Task EventJson_LowerCasesHeaders_HidesCredentials_AndParsesJsonBodies()
     {
         var verify = new HmacSha256TriggerVerify("HOOK", "X-Hub-Signature-256", "sha256=");

@@ -128,13 +128,13 @@ public class HarnessJobBuilderTests
         var spec = HarnessJobBuilder.Build(Request(), Options);
 
         await Assert.That(spec).Succeeded();
-        await AssertJsonEqual(Serialize(spec.Value!.Job), GoldenStepJob);
+        await AssertJsonEqual(Serialize(TestRunDomain.Pick(spec).Job), GoldenStepJob);
     }
 
     [Test]
     public async Task StepJob_UrlsLiveOnlyInTheSecret()
     {
-        var spec = HarnessJobBuilder.Build(Request(), Options).Value!;
+        var spec = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(), Options));
         var json = Serialize(spec.Job);
 
         await Assert.That(json).DoesNotContain("garage");
@@ -148,7 +148,7 @@ public class HarnessJobBuilderTests
     [Test]
     public async Task StepJob_NoInputNoFiles_OmitsThoseEnvVars()
     {
-        var spec = HarnessJobBuilder.Build(Request(inputUrl: null, fileUrls: new Dictionary<string, string>(), secrets: []), Options).Value!;
+        var spec = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(inputUrl: null, fileUrls: new Dictionary<string, string>(), secrets: []), Options));
         var json = Serialize(spec.Job);
 
         await Assert.That(json).DoesNotContain("OLVE_INPUT_URL");
@@ -161,8 +161,8 @@ public class HarnessJobBuilderTests
     [Test]
     public async Task StepJob_Deadline_DefaultsAndCaps()
     {
-        var noTimeout = HarnessJobBuilder.Build(Request(timeout: null), Options).Value!;
-        var huge = HarnessJobBuilder.Build(Request(timeout: 999_999), Options).Value!;
+        var noTimeout = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(timeout: null), Options));
+        var huge = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(timeout: 999_999), Options));
 
         await Assert.That(noTimeout.Job.Spec.ActiveDeadlineSeconds).IsEqualTo(3600 + 120);
         await Assert.That(huge.Job.Spec.ActiveDeadlineSeconds).IsEqualTo(6 * 3600 + 120);
@@ -171,7 +171,7 @@ public class HarnessJobBuilderTests
     [Test]
     public async Task StepJob_NoRuntimeClass_OmitsIt()
     {
-        var spec = HarnessJobBuilder.Build(Request(), Options with { RuntimeClassName = null }).Value!;
+        var spec = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(), Options with { RuntimeClassName = null }));
 
         await Assert.That(Serialize(spec.Job)).DoesNotContain("runtimeClassName");
     }
@@ -182,9 +182,9 @@ public class HarnessJobBuilderTests
         var granted = Options with { StepServiceAccount = "olve-deployer" };
         var asks = Request() with { ClusterAccess = true };
 
-        var withToken = HarnessJobBuilder.Build(asks, granted).Value!.Job.Spec.Template.Spec;
-        var notGranted = HarnessJobBuilder.Build(asks, Options).Value!.Job.Spec.Template.Spec;
-        var notAsked = HarnessJobBuilder.Build(Request(), granted).Value!.Job.Spec.Template.Spec;
+        var withToken = TestRunDomain.Pick(HarnessJobBuilder.Build(asks, granted)).Job.Spec.Template.Spec;
+        var notGranted = TestRunDomain.Pick(HarnessJobBuilder.Build(asks, Options)).Job.Spec.Template.Spec;
+        var notAsked = TestRunDomain.Pick(HarnessJobBuilder.Build(Request(), granted)).Job.Spec.Template.Spec;
 
         await Assert.That(withToken.ServiceAccountName).IsEqualTo("olve-deployer");
         await Assert.That(withToken.AutomountServiceAccountToken).IsTrue();

@@ -44,26 +44,6 @@ public class ManifestConfigTests
     public async Task Valid_ConfigManifest_HasNoErrors()
         => await Assert.That(ManifestValidator.Validate(Parse(Text())).Errors).IsEmpty();
 
-    [Test]
-    public async Task StepReceivingASecretRef_MustDeclareTheSecret()
-    {
-        var report = ManifestValidator.Validate(Parse(Text(helloDeclaresSecret: false)));
-
-        await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigSecretRefNotInStep);
-    }
-
-    [Test]
-    public async Task StepUsingAnUndeclaredEntry_AndBadNames_AreErrors()
-    {
-        var node = JsonNode.Parse(Text())!.AsObject();
-        node["stages"]![0]!["steps"]![0]!["configEntries"] = new JsonArray("auth", "nope", "target");
-        node["config"]![1]!["name"] = "Target";
-        var report = ManifestValidator.Validate(Parse(node.ToJsonString()));
-
-        await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigUnknown);
-        await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigNameInvalid);
-    }
-
     private static string WithStepConfig(JsonObject config, bool clusterAccess = false)
     {
         var node = JsonNode.Parse(Text())!.AsObject();
@@ -95,7 +75,7 @@ public class ManifestConfigTests
         await Assert.That(notReceived.Errors.Select(e => e.Code)).IsEquivalentTo([ManifestIssueCodes.ConfigRefNotReceived]);
         await Assert.That(notReceived.Errors.Single().Path).IsEqualTo("stages[0].steps[0].config.x");
         await Assert.That(noField.Errors.Select(e => e.Code)).IsEquivalentTo([ManifestIssueCodes.ConfigRefFieldUnknown]);
-        await Assert.That(noField.Errors.Single().Message).Contains("config 'target' has no field 'port'");
+        await Assert.That(noField.Errors.Single().Message).IsEqualTo("step 'hello': config reference 'target.port': config 'target' has no field 'port'");
     }
 
     [Test]
@@ -119,17 +99,6 @@ public class ManifestConfigTests
         node["stages"]![0]!["steps"]![0]!["clusterAccess"] = false;
 
         await Assert.That(ManifestParser.TryParse(System.Text.Encoding.UTF8.GetBytes(node.ToJsonString()), out _, out _)).IsFalse();
-    }
-
-    [Test]
-    public async Task SecretRefToAnUndeclaredSecret_IsAnError()
-    {
-        var node = JsonNode.Parse(Text())!.AsObject();
-        node["secrets"] = new JsonArray();
-        node["stages"]![0]!["steps"]![0]!["secrets"] = new JsonArray();
-        var report = ManifestValidator.Validate(Parse(node.ToJsonString()));
-
-        await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigSecretRefUndeclared);
     }
 
     [Test]

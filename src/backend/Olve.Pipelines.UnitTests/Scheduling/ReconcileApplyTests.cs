@@ -48,9 +48,9 @@ public class ReconcileApplyTests
         var report = service.Apply(p.Id, Sha, TestFixtureManifest.Text);
 
         await Assert.That(report).Succeeded();
-        var version = report.Value!.Version;
+        var version = TestRunDomain.Pick(report).Version;
         await Assert.That(version.Number).IsEqualTo(1);
-        await Assert.That(report.Value.Created).IsTrue();
+        await Assert.That(TestRunDomain.Pick(report).Created).IsTrue();
         await Assert.That(version.BinaryKey).IsEqualTo(StorageLayout.BuildBinaryKey(p.Id, Sha));
         await Assert.That(version.CommitSha).IsEqualTo(Sha);
         await Assert.That(version.StepVersions["hello"]).IsEqualTo(1);
@@ -71,7 +71,7 @@ public class ReconcileApplyTests
         var again = service.Apply(p.Id, new string('b', 40), TestFixtureManifest.Text);
 
         await Assert.That(again).Succeeded();
-        await Assert.That(again.Value!.Created).IsFalse();
+        await Assert.That(TestRunDomain.Pick(again).Created).IsFalse();
         await Assert.That(d.VersionService.ListByPipeline(p.Id).Count).IsEqualTo(1);
     }
 
@@ -84,11 +84,11 @@ public class ReconcileApplyTests
         var report = service.Apply(p.Id, new string('c', 40), WithHandlerHash("count", "sha256:" + new string('9', 64)));
 
         await Assert.That(report).Succeeded();
-        var v2 = report.Value!.Version;
+        var v2 = TestRunDomain.Pick(report).Version;
         await Assert.That(v2.Number).IsEqualTo(2);
         await Assert.That(v2.StepVersions["count"]).IsEqualTo(2);
         await Assert.That(v2.StepVersions["hello"]).IsEqualTo(1);
-        await Assert.That(report.Value.ChangedSteps).IsEquivalentTo(new[] { "count" });
+        await Assert.That(TestRunDomain.Pick(report).ChangedSteps).IsEquivalentTo(new[] { "count" });
         d.ActivationService.TryGet(p.Id, out var activation);
         await Assert.That(((PipelineActivation.Active)activation!).VersionNumber).IsEqualTo(2);
     }

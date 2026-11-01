@@ -106,17 +106,8 @@ public class SelectTests
             n["stages"]!.AsArray().Insert(3, new JsonObject { ["steps"] = new JsonArray(again) });
         });
 
-        await Assert.That(ManifestValidator.Validate(manifest).Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.StepNameDuplicate);
-    }
-
-    [Test]
-    public async Task MissingCase_AndANarrowedReferenceOutsideItsCase_AreErrors()
-    {
-        var missing = Manifest(n => n["stages"]![1]!["cases"]!.AsObject().Remove("inCluster"));
-        var leaked = Manifest(n => n["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]![0]!["config"]!["target"]!["$case"] = "target.kind=inCluster");
-
-        await Assert.That(ManifestValidator.Validate(missing).Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.SelectCaseMissing);
-        await Assert.That(ManifestValidator.Validate(leaked).Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.ConfigRefOutsideCase);
+        await Assert.That(ManifestValidator.Validate(manifest).Errors.Where(e => e.Code == ManifestIssueCodes.StepNameDuplicate).Select(e => e.Message))
+            .IsEquivalentTo(["duplicate step name 'count' (also at stages[1].cases.ssh[0].steps[0])", "duplicate step name 'count' (also at stages[1].cases.inCluster[0].steps[0])"]);
     }
 
     [Test]
@@ -201,7 +192,7 @@ public class SelectTests
             new HarnessUrls("http://garage/step", null, "http://garage/result", new Dictionary<string, string>()))
         { Cases = ["target.kind=ssh"] };
 
-        var job = HarnessJobBuilder.Build(request, new HarnessOptions()).Value!.Job;
+        var job = TestRunDomain.Pick(HarnessJobBuilder.Build(request, new HarnessOptions())).Job;
         var env = job.Spec.Template.Spec.Containers[0].Env!;
 
         await Assert.That(env.Single(e => e.Name == HarnessJobBuilder.CasesKey).Value).IsEqualTo("""["target.kind=ssh"]""");

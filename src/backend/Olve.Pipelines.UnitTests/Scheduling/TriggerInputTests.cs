@@ -27,7 +27,7 @@ public class JsonSchemaValidatorTests
         var result = JsonSchemaValidator.Validate(FixtureInputView(), JsonNode.Parse("""{"sha":"abcdef1"}"""));
 
         await Assert.That(result).Succeeded();
-        await Assert.That(result.Value!["mode"]!.GetValue<string>()).IsEqualTo("normal");
+        await Assert.That(TestRunDomain.Pick(result)!["mode"]!.GetValue<string>()).IsEqualTo("normal");
     }
 
     [Test]
@@ -135,7 +135,7 @@ public class ManualTriggerTests
         var outcome = inputs.StartManual(s.Pipeline.Id, JsonNode.Parse("""{"sha":"abcdef1"}"""));
 
         await Assert.That(outcome).Succeeded();
-        var run = ((RunStartOutcome.Started)outcome.Value!).Run;
+        var run = ((RunStartOutcome.Started)TestRunDomain.Pick(outcome)).Run;
         await Assert.That(run.Trigger.Kind).IsEqualTo(RunTriggerKind.Manual);
         await Assert.That(JsonNode.Parse(run.Input)!["mode"]!.GetValue<string>()).IsEqualTo("normal");
         await Assert.That(s.Latest(run, "hello")!.Status).IsTypeOf<Scheduled>();
@@ -145,7 +145,7 @@ public class ManualTriggerTests
     public async Task SkipLast_ExcludesTheWhenBlock()
     {
         var (s, inputs) = Build();
-        var run = ((RunStartOutcome.Started)inputs.StartManual(s.Pipeline.Id, JsonNode.Parse("""{"sha":"abcdef1","mode":"skip-last"}""")).Value!).Run;
+        var run = ((RunStartOutcome.Started)TestRunDomain.Pick(inputs.StartManual(s.Pipeline.Id, JsonNode.Parse("""{"sha":"abcdef1","mode":"skip-last"}""")))).Run;
 
         s.Succeed(run, "hello", """{"message":"m","file":{"run":1,"step":"hello","attempt":1,"path":"greeting.txt","sha256":"%"}}""".Replace("%", new string('a', 64)));
         s.Succeed(run, "count", """{"lines":3}""");
@@ -174,10 +174,10 @@ public class ManualTriggerTests
             HarnessJobBuilderTests.Options);
 
         await Assert.That(spec).Succeeded();
-        var pod = spec.Value!.Job.Spec.Template.Spec;
+        var pod = TestRunDomain.Pick(spec).Job.Spec.Template.Spec;
         await Assert.That(pod.Containers.Single().Image).IsEqualTo(HarnessJobBuilderTests.Options.HarnessBaseImage);
         await Assert.That(pod.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "map-trigger", "push" });
-        await Assert.That(spec.Value.UrlSecretData.Keys).IsEquivalentTo(new[] { HarnessJobBuilder.StepUrlKey, HarnessJobBuilder.InputUrlKey });
+        await Assert.That(TestRunDomain.Pick(spec).UrlSecretData.Keys).IsEquivalentTo(new[] { HarnessJobBuilder.StepUrlKey, HarnessJobBuilder.InputUrlKey });
         await Assert.That(pod.AutomountServiceAccountToken!.Value).IsFalse();
         await Assert.That(pod.EnableServiceLinks!.Value).IsFalse();
     }

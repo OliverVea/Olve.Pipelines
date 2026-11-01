@@ -247,7 +247,7 @@ public class FailureHandlerTests
 
         await Assert.That(dispatches).IsEmpty();
         await Assert.That(skipped.Single().Handler).IsEqualTo("aoe-triage");
-        await Assert.That(skipped.Single().Reason).Contains("does not match this version's FailureContext model");
+        await Assert.That(skipped.Single().Reason).StartsWith("the run's FailureContext does not match this version's FailureContext model; failure.step: is required");
     }
 
     [Test]

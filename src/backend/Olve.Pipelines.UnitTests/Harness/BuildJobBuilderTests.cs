@@ -17,7 +17,7 @@ public class BuildJobBuilderTests
         var spec = BuildJobBuilder.Build(Request(), HarnessJobBuilderTests.Options);
         await Assert.That(spec).Succeeded();
 
-        var json = JsonNode.Parse(HarnessJobBuilderTests.Serialize(spec.Value!.Job))!;
+        var json = JsonNode.Parse(HarnessJobBuilderTests.Serialize(TestRunDomain.Pick(spec).Job))!;
         // The script is asserted separately; compare the rest structurally.
         var container = json["spec"]!["template"]!["spec"]!["containers"]![0]!.AsObject();
         await Assert.That(container["args"]![0]!.GetValue<string>()).IsEqualTo(BuildJobBuilder.ShellScript(BuildJobBuilder.Script));
@@ -76,7 +76,7 @@ public class BuildJobBuilderTests
               }
             }
             """);
-        await Assert.That(spec.Value.UrlSecretData["OLVE_BINARY_URL"]).IsEqualTo("http://garage/versions/step.tar.gz?sig");
+        await Assert.That(TestRunDomain.Pick(spec).UrlSecretData["OLVE_BINARY_URL"]).IsEqualTo("http://garage/versions/step.tar.gz?sig");
     }
 
     [Test]
@@ -119,7 +119,7 @@ public class BuildJobBuilderTests
     [Test]
     public async Task NoPipelineSecret_NoTokenEnv()
     {
-        var spec = BuildJobBuilder.Build(Request(secret: null), HarnessJobBuilderTests.Options).Value!;
+        var spec = TestRunDomain.Pick(BuildJobBuilder.Build(Request(secret: null), HarnessJobBuilderTests.Options));
 
         var envNames = spec.Job.Spec.Template.Spec.Containers[0].Env!.Select(e => e.Name).ToArray();
         await Assert.That(envNames).DoesNotContain("OLVE_GITHUB_TOKEN");

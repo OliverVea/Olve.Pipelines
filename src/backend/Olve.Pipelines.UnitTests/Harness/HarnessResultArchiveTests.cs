@@ -67,8 +67,8 @@ public class HarnessResultArchiveTests
             F("files/sub/a.txt", "hello")));
 
         await Assert.That(result).Succeeded();
-        await Assert.That(result.Value!.Envelope).IsTypeOf<HarnessEnvelope.Succeeded>();
-        await Assert.That(result.Value.Files).IsEquivalentTo(new[] { "chart.tar", "sub/a.txt" });
+        await Assert.That(TestRunDomain.Pick(result).Envelope).IsTypeOf<HarnessEnvelope.Succeeded>();
+        await Assert.That(TestRunDomain.Pick(result).Files).IsEquivalentTo(new[] { "chart.tar", "sub/a.txt" });
         await Assert.That(sunk["sub/a.txt"]).IsEqualTo("hello");
         await Assert.That(sunk["chart.tar"]).IsEqualTo("tar-bytes");
     }
@@ -81,7 +81,7 @@ public class HarnessResultArchiveTests
         var (result, _) = await Read(Archive(F("output.json", canonical)));
 
         await Assert.That(result).Succeeded();
-        await Assert.That(((HarnessEnvelope.Succeeded)result.Value!.Envelope).OutputJson).IsEqualTo("""{"n":1,"sha":"abc"}""");
+        await Assert.That(((HarnessEnvelope.Succeeded)TestRunDomain.Pick(result).Envelope).OutputJson).IsEqualTo("""{"n":1,"sha":"abc"}""");
     }
 
     [Test]

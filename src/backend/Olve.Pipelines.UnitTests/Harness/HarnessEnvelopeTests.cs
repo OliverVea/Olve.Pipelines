@@ -12,14 +12,14 @@ public class HarnessEnvelopeTests
         var parsed = HarnessEnvelope.Parse("""{"output":{"sha":"abc","n":1},"status":"succeeded"}""");
 
         await Assert.That(parsed).Succeeded();
-        var s = (HarnessEnvelope.Succeeded)parsed.Value!;
+        var s = (HarnessEnvelope.Succeeded)TestRunDomain.Pick(parsed);
         await Assert.That(s.OutputOrNull).IsEqualTo("""{"sha":"abc","n":1}""");
     }
 
     [Test]
     public async Task Succeeded_NullOutput()
     {
-        var parsed = (HarnessEnvelope.Succeeded)HarnessEnvelope.Parse("""{"output":null,"status":"succeeded"}""").Value!;
+        var parsed = (HarnessEnvelope.Succeeded)TestRunDomain.Pick(HarnessEnvelope.Parse("""{"output":null,"status":"succeeded"}"""));
 
         await Assert.That(parsed.OutputOrNull).IsNull();
     }
@@ -50,7 +50,7 @@ public class HarnessEnvelopeTests
         var parsed = HarnessEnvelope.Parse(json);
 
         await Assert.That(parsed).Succeeded();
-        await Assert.That(((HarnessEnvelope.Succeeded)parsed.Value!).OutputJson).StartsWith("""{"xs":[0,1,2""");
+        await Assert.That(((HarnessEnvelope.Succeeded)TestRunDomain.Pick(parsed)).OutputJson).StartsWith("""{"xs":[0,1,2""");
     }
 
 }

@@ -292,7 +292,7 @@ public class StepReliabilityTests
         await Assert.That((everything.FromRun, everything.Runs, everything.RequestedRuns, everything.LimitedByRetention))
             .IsEqualTo((first.Number, 3, StepReliabilityService.DefaultRuns, false));
 
-        await Assert.That(s.D.RunService.Delete(first.Id).Succeeded).IsTrue();
+        await Assert.That(s.D.RunService.Delete(first.Id)).Succeeded();
         var trimmed = Report(s).Window;
         await Assert.That((trimmed.FromRun, trimmed.Runs, trimmed.LimitedByRetention)).IsEqualTo((second.Number, 2, true));
     }

@@ -197,7 +197,7 @@ public class PipelineSecretServiceTests
         var services = new ServiceCollection().AddSingleton(f.Service).BuildServiceProvider();
         await Assert.That(new PipelineSecretEventRegistration(f.S.D.PipelineEvents, services).Run()).Succeeded();
 
-        await Assert.That(f.S.D.PipelineService.Delete(f.S.Pipeline.Id).Failed).IsFalse();
+        await Assert.That(f.S.D.PipelineService.Delete(f.S.Pipeline.Id)).Succeeded();
 
         await Assert.That(f.K8s.Secrets.ContainsKey(name)).IsFalse();
     }

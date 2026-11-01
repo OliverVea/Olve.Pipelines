@@ -311,7 +311,7 @@ public class StageSchedulerTests
 
         var deploy = s.Latest(run, "deploy-beta")!;
         await Assert.That(deploy.Status).IsTypeOf<Failed>();
-        await Assert.That(((Failed)deploy.Status).Reason).Contains("input.json exceeds");
+        await Assert.That(((Failed)deploy.Status).Reason).IsEqualTo($"input.json exceeds {AttemptService.MaxInputJsonBytes} bytes");
         await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
     }
 

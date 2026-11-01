@@ -54,7 +54,7 @@ public class HarnessFileRefsTests
         var map = await HarnessFileRefs.BuildUrlMapAsync(HarnessJobBuilderTests.PipelineId, refs, Presigner(), TimeSpan.FromMinutes(30));
 
         await Assert.That(map).Succeeded();
-        var urls = map.Value!;
+        var urls = TestRunDomain.Pick(map);
         await Assert.That(urls.Count).IsEqualTo(2);
         await Assert.That(urls["410/source/2/tree/"]).StartsWith("http://garage.svc:3900/bucket/runs/11111111222233334444555555555555/410/source/2/files/tree.tar?");
         await Assert.That(urls["412/build/1/image.tar"]).StartsWith("http://garage.svc:3900/bucket/runs/11111111222233334444555555555555/412/build/1/files/image.tar?");

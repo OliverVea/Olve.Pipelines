@@ -187,7 +187,7 @@ public class SchedulerRuntimeTests
         await Assert.That(spec.Environment["OLVE_PIPELINE"]).IsEqualTo(s.Pipeline.Id.Value.Value.ToString());
 
         // A scheduler-skipped attempt has nothing to launch.
-        var skipped = s.D.AttemptService.RecordSkipped(run.Id, "summary", "input 'beta' needs deploy-beta (skipped: test)").Value!;
+        var skipped = TestRunDomain.Pick(s.D.AttemptService.RecordSkipped(run.Id, "summary", "input 'beta' needs deploy-beta (skipped: test)"));
         await s.D.Launches.Get(skipped.Id).Problems.IsSingle<ResultProblem>("Attempt 1 of step 'summary' in run #1 has no input (it was not scheduled to run).");
     }
 

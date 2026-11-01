@@ -131,7 +131,7 @@ public class RunPersistenceServiceTests
         store.Hang = true;
         node.Domain.AddVersion(node.Domain.CreatePipeline().Id);
 
-        await Assert.That(await service.SavedAsync()).Failed();
+        await (await service.SavedAsync()).Problems.IsSingle<UnavailableProblem>("The change was made but could not be saved; it may be lost if the server restarts.");
     }
 
     [Test]

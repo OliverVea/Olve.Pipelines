@@ -352,7 +352,7 @@ public class ManifestValidateTests
         var report = ManifestValidation.Validate("{ not json"u8.ToArray());
 
         await Assert.That(report.Valid).IsFalse();
-        await Assert.That(report.Errors.Select(e => e.Code)).Contains(ManifestIssueCodes.InvalidJson);
+        await Assert.That(report.Errors.Select(e => e.Code)).IsEquivalentTo([ManifestIssueCodes.InvalidJson]);
         await Assert.That(report.ManifestHash).IsNull();
     }
 

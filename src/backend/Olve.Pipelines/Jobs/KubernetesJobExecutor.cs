@@ -4,6 +4,7 @@ using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Shared.Persistence;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
 namespace Olve.Pipelines.Jobs;
@@ -34,6 +35,7 @@ public class KubernetesJobExecutor(
     AttemptService attempts,
     AttemptLaunchService launches,
     CallbackInputUrls callbacks,
+    IStateDurability durability,
     ILogger<KubernetesJobExecutor> logger)
     : JobExecutorBase(scopeFactory, registry, lifetime, logger)
 {
@@ -111,7 +113,11 @@ public class KubernetesJobExecutor(
             return false;
         }
 
-        // The upload and the Secret took time: a newer attempt of the step may have made this one obsolete.
+        // A Job no saved attempt owns would be an orphan after a crash.
+        if ((await durability.SavedAsync(ct)).TryPickProblems(out var unsaved))
+            throw new IOException(unsaved.Single().FormattedMessage);
+
+        // The upload, the Secret and the save took time: a newer attempt of the step may have made this one obsolete.
         if (IsAbandoned(attempt.Id))
         {
             logger.LogInformation("Not creating K8s Job '{JobName}': attempt {AttemptNumber} of step '{StepName}' (run #{RunNumber}, pipeline '{PipelineId}') was cancelled or made obsolete while it was being submitted",

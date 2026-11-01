@@ -2,6 +2,7 @@ using System.Text.Json;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Api;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Shared.Persistence;
 using Olve.Pipelines.Shared.Problems;
 using Olve.Pipelines.Streaming;
 using Olve.TypeSpec;
@@ -23,15 +24,15 @@ public sealed class ListStepAttemptsHandler(RunService runs, AttemptService atte
 
 /// <summary>A new attempt of one step (same pinned version, current pool input); continue re-opens the run downstream.</summary>
 [OperationHandler]
-public sealed class RerunStepHandler(RunService runs, RunContinuationService continuations) : Contract.IRunStepsRerunHandler
+public sealed class RerunStepHandler(RunService runs, RunContinuationService continuations, IStateDurability durability) : Contract.IRunStepsRerunHandler
 {
-    public Task<Contract.RunStepsRerunResponse> HandleAsync(Contract.RunStepsRerunRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunStepsRerunResponse> HandleAsync(Contract.RunStepsRerunRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var rerun = RunViews.Find(runs, id, request.Number).Bind(run => continuations.RerunStep(run.Id, request.Step, request.Body.Continue ?? false));
-        return Task.FromResult(rerun.TryPickProblems(out var problems, out var attempt)
-            ? RunViews.Fail<Contract.RunStepsRerunResponse>(problems, p => new Contract.RunStepsRerunResponse.NotFound(p), p => new Contract.RunStepsRerunResponse.Conflict(p), p => new Contract.RunStepsRerunResponse.BadRequest(p))
-            : new Contract.RunStepsRerunResponse.Ok(RunViews.ToApi(attempt)));
+        return (await durability.SavedAsync(rerun, cancellationToken)).TryPickProblems(out var problems, out var attempt)
+            ? RunViews.Fail<Contract.RunStepsRerunResponse>(problems, p => new Contract.RunStepsRerunResponse.NotFound(p), p => new Contract.RunStepsRerunResponse.Conflict(p), p => new Contract.RunStepsRerunResponse.BadRequest(p), p => new Contract.RunStepsRerunResponse.ServiceUnavailable(p))
+            : new Contract.RunStepsRerunResponse.Ok(RunViews.ToApi(attempt));
     }
 }
 
@@ -40,15 +41,15 @@ public sealed class RerunStepHandler(RunService runs, RunContinuationService con
 /// other steps keep running and the run ends Cancelled at the stage barrier; rerun the step with continue to re-open it.
 /// </summary>
 [OperationHandler]
-public sealed class CancelStepHandler(RunService runs, RunCancellationService cancellation) : Contract.IRunStepsCancelHandler
+public sealed class CancelStepHandler(RunService runs, RunCancellationService cancellation, IStateDurability durability) : Contract.IRunStepsCancelHandler
 {
-    public Task<Contract.RunStepsCancelResponse> HandleAsync(Contract.RunStepsCancelRequest request, CancellationToken cancellationToken)
+    public async Task<Contract.RunStepsCancelResponse> HandleAsync(Contract.RunStepsCancelRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
         var cancelled = RunViews.Find(runs, id, request.Number).Bind(run => cancellation.CancelStep(run.Id, request.Step));
-        return Task.FromResult(cancelled.TryPickProblems(out var problems, out var attempt)
-            ? RunViews.Fail<Contract.RunStepsCancelResponse>(problems, p => new Contract.RunStepsCancelResponse.NotFound(p), p => new Contract.RunStepsCancelResponse.Conflict(p), p => new Contract.RunStepsCancelResponse.BadRequest(p))
-            : new Contract.RunStepsCancelResponse.Ok(RunViews.ToApi(attempt)));
+        return (await durability.SavedAsync(cancelled, cancellationToken)).TryPickProblems(out var problems, out var attempt)
+            ? RunViews.Fail<Contract.RunStepsCancelResponse>(problems, p => new Contract.RunStepsCancelResponse.NotFound(p), p => new Contract.RunStepsCancelResponse.Conflict(p), p => new Contract.RunStepsCancelResponse.BadRequest(p), p => new Contract.RunStepsCancelResponse.ServiceUnavailable(p))
+            : new Contract.RunStepsCancelResponse.Ok(RunViews.ToApi(attempt));
     }
 }
 

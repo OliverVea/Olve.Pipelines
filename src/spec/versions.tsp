@@ -80,7 +80,7 @@ interface Versions {
 
   /** New runs start on `version`. 409, with the reasons, when the config document or a secret it references doesn't satisfy that version. */
   @summary("Switch the active version")
-  @post @route("switch") switch(@path @format("uuid") pipelineId: string, @body body: SwitchVersion): PipelineActivation | NotFound | BadRequest | Conflict;
+  @post @route("switch") switch(@path @format("uuid") pipelineId: string, @body body: SwitchVersion): PipelineActivation | NotFound | BadRequest | Conflict | ServiceUnavailable;
 }
 
 enum ManifestIssueSeverity {

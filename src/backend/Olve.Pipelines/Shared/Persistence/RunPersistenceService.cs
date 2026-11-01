@@ -37,8 +37,8 @@ namespace Olve.Pipelines.Shared.Persistence;
 ///
 /// <para><b>Protocol</b> (same guarantees as the other snapshot services): readiness gate; a failed or
 /// corrupt read fails startup without writing (an index entry whose object is missing counts as
-/// corrupt); first run writes empty baselines; writes are gated on a confirmed load; 1 s dirty flush;
-/// final flush on stop. Ordering invariant: an index only lists objects already durably written
+/// corrupt); first run writes empty baselines; writes are gated on a confirmed load; 1 s dirty flush,
+/// or sooner through <see cref="IStateDurability"/>; final flush on stop. Ordering invariant: an index only lists objects already durably written
 /// (tracked in <c>_written*</c>), and an object is deleted only after an index without it was written,
 /// so a crash at any point leaves a loadable state (at worst an orphaned object).</para>
 /// </summary>
@@ -57,7 +57,7 @@ public class RunPersistenceService(
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<RunPersistenceService> logger,
-    ISnapshotStore? store = null) : IHostedLifecycleService, IDisposable
+    ISnapshotStore? store = null) : IHostedLifecycleService, IStateDurability, IDisposable
 {
     internal const string VersionsIndexKey = "pipeline-versions.json";
     internal const string StateKey = "pipeline-state.json";
@@ -82,7 +82,12 @@ public class RunPersistenceService(
     private readonly DirtyFlag _configIndexDirty = new();
 
     private volatile bool _loaded;
+    private volatile bool _writeFailed;
     private FlushTimer? _timer;
+    private CoalescingFlush? _saves;
+
+    /// <summary>How long <see cref="SavedAsync"/> waits, so a storage outage answers instead of hanging.</summary>
+    internal TimeSpan SaveTimeout { get; init; } = TimeSpan.FromSeconds(15);
 
     private static RunPersistenceJsonContext Json => RunPersistenceJsonContext.Default;
 
@@ -163,6 +168,24 @@ public class RunPersistenceService(
 
     public Task StoppingAsync(CancellationToken cancellationToken) => FlushAsync(cancellationToken);
 
+    public async Task<Result> SavedAsync(CancellationToken ct = default)
+    {
+        if (store is null || !_loaded)
+            return Result.Success();
+
+        var saves = LazyInitializer.EnsureInitialized(ref _saves, () => new CoalescingFlush(() => FlushAsync(CancellationToken.None)));
+        try
+        {
+            if (await saves.RequestAsync().WaitAsync(SaveTimeout, ct))
+                return Result.Success();
+        }
+        catch (TimeoutException)
+        {
+        }
+
+        return new UnavailableProblem("The change was made but could not be saved; it may be lost if the server restarts.");
+    }
+
     // ---- change tracking (never before a confirmed load) ----
 
     private void OnVersionChanged(Id<PipelineVersion> id)
@@ -223,15 +246,18 @@ public class RunPersistenceService(
 
     // ---- flush ----
 
-    internal async Task FlushAsync(CancellationToken cancellationToken)
+    /// <summary>True when everything changed before the call is written.</summary>
+    internal async Task<bool> FlushAsync(CancellationToken cancellationToken)
     {
         // Write-gate: never persist before a load has been confirmed (or with no store at all).
         if (store is null || !_loaded)
-            return;
+            return true;
 
         await _flushGate.WaitAsync(cancellationToken);
         try
         {
+            _writeFailed = false;
+
             // Keys deleted before this flush: removed only once the indexes no longer list them.
             var toDelete = new List<string>();
             while (_deletedKeys.TryDequeue(out var key))
@@ -264,6 +290,8 @@ public class RunPersistenceService(
                 logger.LogDebug(
                     "Flushed run state: {Manifests} manifest(s), {RunDocuments} run document(s), {ConfigSnapshots} config snapshot(s), {Deleted} deletion(s); state ok={StateOk}",
                     manifests, runDocs, configDocs, versionsOk && runsOk && configOk ? toDelete.Count : 0, stateOk);
+
+            return versionsOk && stateOk && runsOk && configOk && !_writeFailed;
         }
         finally
         {
@@ -291,6 +319,7 @@ public class RunPersistenceService(
             {
                 // Never lose a write-once object: retry next tick. The index excludes it until then.
                 _pendingManifests.TryAdd(id, 0);
+                _writeFailed = true;
                 logger.LogError(ex, "Failed to write manifest of version {VersionNumber} of pipeline '{PipelineId}'; will retry",
                     version.Number, version.PipelineId);
             }
@@ -318,6 +347,7 @@ public class RunPersistenceService(
             catch (Exception ex)
             {
                 _pendingConfigs.TryAdd(id, 0);
+                _writeFailed = true;
                 logger.LogError(ex, "Failed to write config #{SnapshotNumber} of pipeline '{PipelineId}'; will retry",
                     snapshot.Number, snapshot.PipelineId);
             }
@@ -349,6 +379,7 @@ public class RunPersistenceService(
             catch (Exception ex)
             {
                 _dirtyRuns.TryAdd(runId, 0);
+                _writeFailed = true;
                 logger.LogError(ex, "Failed to write state of run #{RunNumber} of pipeline '{PipelineId}'; will retry",
                     run.Number, run.PipelineId);
             }

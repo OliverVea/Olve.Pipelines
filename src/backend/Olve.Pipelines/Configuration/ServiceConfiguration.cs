@@ -197,7 +197,9 @@ public static class ServiceConfiguration
         });
         services.AddSingleton<IPersistenceReadiness, PersistenceReadiness>();
         services.AddHostedService<ConfigurationPersistenceService>();
-        services.AddHostedService<RunPersistenceService>();
+        services.AddSingleton<RunPersistenceService>();
+        services.AddSingleton<IStateDurability>(sp => sp.GetRequiredService<RunPersistenceService>());
+        services.AddHostedService(sp => sp.GetRequiredService<RunPersistenceService>());
 
         // Retention (Retention:*): expired runs, unused binaries, leftovers, orphaned URL Secrets / Jobs.
         services.AddSingleton(sp => RetentionOptions.From(sp.GetRequiredService<IConfiguration>()));

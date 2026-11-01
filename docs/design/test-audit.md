@@ -176,7 +176,7 @@ All 116 rows. "Reached through" names the calling path where the effect lands aw
 | Medium | G59 | `FailureHandlerService.cs:106` | Untested: handlers fire only on Running to Failed. A regression would fire on-failure handlers on any update of a Running run, and on a run that recovered on retry. | RunEvents.OnUpdated | 1 | FailureHandlerTests has no retry-then-succeed run. |
 | Medium | G63 | `PipelineSecretService.cs:239` | Untested: deleting a pipeline deletes its K8s Secret. A regression would leave its secret values in the cluster for good; retention only sweeps URL Secrets. | PipelineEvents.OnDeleted | 1 | DeleteAll_RemovesThePipelinesSecret calls the method directly; PipelineSecretEventRegistration is in no test. |
 | Medium | G94 | `ConfigSnapshot.cs:47` | Untested: config snapshot numbers keep rising. A regression would give the third save the same number as the second, overwriting a write-once snapshot and breaking rollback. | ConfigService save to ConfigSnapshotService.Add | 1 | No test saves three snapshots. |
-| Low | G15 | `ManifestParser.cs:86,267,288,478-481; ManifestValidator.cs:350,481-482,525,571; HarnessFailures.cs:116,131,161; JsonSchemaValidator.cs:99,319; ExternalInputService.cs:76,99; HarnessResultArchive.cs:112-113; YamlJson.cs:65,154; HarnessJobControl.cs:86,97; RunPlan.cs:123; RunContinuationService.cs:109; AttemptFileRefs.cs:51; KubernetesJobExecutor.cs:171; ConfigRefs.cs:33; GitHubConfigSource.cs:122; ApiResultMapping.cs:23; ProblemTypes.cs:54; HarnessAttemptResult.cs:79` | Untested: message text chosen by logic, not literal strings: which of two messages, hints, issue paths, order inside a message. A regression would show wrong or garbled text. Separate from the 763 string survivors; plan step 2.3's table covers most. Decline with no comment would throw (ExternalInputService.cs:76). |  | 48 | Rows assert codes; plan step 2.3's table would cover most of these. |
+| Low | G15 | `ManifestParser.cs:86,267,288,478-481; ManifestValidator.cs:350,481-482,525,571; HarnessFailures.cs:116,131,161; JsonSchemaValidator.cs:99,319; ExternalInputService.cs:76,99; HarnessResultArchive.cs:112-113; YamlJson.cs:65,154; HarnessJobControl.cs:86,97; RunPlan.cs:123; RunContinuationService.cs:109; AttemptFileRefs.cs:51; KubernetesJobExecutor.cs:171; ConfigRefs.cs:33; GitHubConfigSource.cs:122; ApiResultMapping.cs:23; ProblemTypes.cs:54; HarnessAttemptResult.cs:79` | Untested: message text chosen by logic, not literal strings: which of two messages, hints, issue paths, order inside a message. A regression would show wrong or garbled text. Separate from the string survivors; the message tables cover most. Decline with no comment would throw (ExternalInputService.cs:76). |  | 48 | Rows assert codes; the message tables would cover most of these. |
 | Low | G53 | `RunViewService.cs:90,92,104,106-107,115; Attempt.cs:76,80,84; ManifestHandlers.cs:29,45; PushTriggerService.cs:56,69; RunPlan.cs:220; PipelineHealth.cs:53; PipelineSummaryService.cs:55; PipelineVersionService.cs:68; TriggerMappingService.cs:43; ConfigActivationService.cs:164; ConfigService.cs:148; ConfigValidation.cs:84; BindingHandlers.cs:195; PipelineReconcileService.cs:132` | Untested: read views: Held vs Pending, awaited inputs, phase seconds, health's held list, last activity, version order, run origin, effective-pipeline view, binding warnings, manifest-validate severities, reconcile report, changed-default warning. A regression would show an operator the wrong state; nothing acts on these. | API handlers | 38 | WaitingFor is asserted only unanswered (ExternalInputTests:175). Phases only with all timings set (KubernetesJobExecutorTests:157). ForSnapshot/ForCurrentConfig callers are VersionHandlers, PipelineSecretService and PipelineSummaryService, none on run start. |
 | Low | G16 | `RetentionPlanner.cs:97,131,167,180,215,239,241; HarnessResultArchive.cs:42,62,69,103; AttemptService.cs:44,154,202; WebhookTriggerService.cs:65,67,69; JsonSchemaValidator.cs:281,283; YamlJson.cs:36,71; HarnessEnvelope.cs:38,66; StageScheduler.cs:62; ManifestValidator.cs:352; HarnessJobBuilder.cs:140; ManifestParser.cs:34; CriticalPathService.cs:41; AttemptLogStreamer.cs:58; HarnessJobControl.cs:92; HarnessResultCollector.cs:42` | Untested: exactly-at-the-limit cases, the same shape as the doc's RunStartService.cs:153 row. A regression would move a limit by one byte, entry or tick; retries: 0 is the only legal value that would be refused. |  | 31 | Tests stay well past each limit. |
 | Low | G114 | `CriticalPathService.cs:32,35,38,41,46,65-68,75,93,99,111-112,115,126,153` | Untested: critical-path report numbers: range clamps, totals and shares, averages, stage membership, idle time, and empty cases (0/0 gives NaN, which JSON can't write). A regression would show wrong analysis, or a 500. | Critical path handler | 27 | CriticalPathTests has 8 single-scenario tests; nothing acts on the report. |
@@ -269,12 +269,13 @@ A greedy selection keeps all 3,988 kills with about 416 tests. **That is not a r
 | `ManifestParserTests.RefMapping_SplitsRootAndPath` | No mutator applies to `Split('.')[0]` or `[1..]` |
 | `CliDistributionTests.InstallScripts_*` | No mutant on the lines it reaches |
 | `CliDistributionTests.OnlyAllowListedAssetsResolve`, 2 rows | Static set, and mutators can only shrink it, while these rows check it isn't wider. A security guard. |
-- **15 covered but killing nothing:** mostly rejection rows and failure paths. Keep `BindingResponses_NeverCarryTheWebhookSecret` as a security guard. Review the rest for weak assertions.
+- **9 tests covered but killing nothing on the `070c49b` run:** none is weak. Their mutants are killed first by other tests, or survive in code they don't assert on. `Verify_RejectsMissingOrMalformedHeader` is a security boundary and all 5 of its mutants are killed. `BindingResponses_NeverCarryTheWebhookSecret` stays as a security guard.
 
 ### Weak assertion patterns
 
-- **Bare `.Failed()`:** `HarnessResultArchiveTests.Oversize_Envelope_IsRejected` passes on any failure, so it can't show the size limit was the cause. Rejection tests should assert the problem code or type.
-- **`.Failed).IsTrue()` or `.Succeeded).IsTrue()`:** 22 uses in 10 files, against the repo's Olve.Results.TUnit convention. 9 are in `PipelineConfigBindingTests`.
+- **Bare `.Failed()`:** one is left, `EntityStoreTests.Mutate_Missing_Fails_NoFire`, on a store Step 3 moves upstream. Two more sites follow `.Failed()` with the exact message.
+- **Result checks:** no test reads `.Value!` or asserts `.Failed` or `.Succeeded` as a boolean.
+- **Code-only rejections:** `RunApiTests.MalformedJson_IsReportedAsAnIssue_NotAnError` asserts the code, because the message carries the parser's text. `ManifestIssueTests` pins the exact path and message for every other code.
 
 ## Reliability and parallelism
 
@@ -302,14 +303,15 @@ Parallel scaling, 5 runs each. Other work may have been running on the machine d
 | 32 | 5.39s |
 | auto | 4.90s |
 
-The suite gains only about 2.3x from full parallelism, using about 1.6 cores on average, because it mostly waits. `EndToEnd_ThroughJobRunnerAndNoOpExecutor` alone takes about 3 seconds, which sets a floor. 116 tests of 100ms or more account for 37.5s of the 50.5s total test time in idle runs.
+At audit the suite gained only about 2.3x from full parallelism, using about 1.6 cores on average, because it mostly waited. It now runs in about 2.5s, and this table has not been re-measured.
 
-Serial tests: one class, `LoggingJsonFormatTests` (`[NotInParallel("console-capture")]`), because it swaps the process-wide `Console.Out`.
+Every test runs in parallel. `LoggingJsonFormatTests` writes to a buffer rather than the process-wide console.
 
 Real time in tests:
 
-- **Proving a negative after a fixed wait:** `JobRunnerTests.cs:185` and `:272`. These can pass falsely. Also review `JobRunnerTests.cs:200` and `JobDispatchSignalTests.cs:28`.
-- **Polling at 10ms:** `JobRunnerTests.cs:75` and `:87`, `KubernetesJobExecutorTests.cs:97`, `SchedulerRuntimeTests.cs:232`.
+- **No fixed waits and no real-time polling.** Timeouts on a seam use `ManualClock`, and overlap is forced with a held task. Poll loops in tests use an interval of zero.
+- **Safety timeouts:** `.WaitAsync(timeout)` on signals and tasks only fires when a test is already failing.
+- **`RunPersistenceServiceTests.Saved_WithStorageHanging_AnswersWithinItsTimeout`:** the one short real wait, 1 ms. `SavedAsync` has no clock seam. The store never answers, so the test can't pass falsely.
 
 ## Outside this audit
 
@@ -373,11 +375,16 @@ Add tests for the High and Medium rows under Confirmed gaps, as in-process flow 
 
 ### 2. Tighten assertions and timing
 
-1. Assert the problem code or type in rejection tests, then re-check the 15 covered tests with no kills.
-2. Replace the 22 `.IsTrue()` result assertions with `.Failed()` and `.Succeeded()`.
-3. Add one table-driven test of issue code to exact message for manifest messages, then extend to other user-facing errors. Rewording a message means updating the table.
-4. Replace fixed waits and polling with `TimeProvider` or explicit signals, starting with `JobRunnerTests.cs:185` and `:272`. Then remove the 3-second floor in `EndToEnd_ThroughJobRunnerAndNoOpExecutor`.
-5. Make `LoggingJsonFormatTests` parallel by giving the formatter a writer instead of swapping `Console.Out`.
+Status: done. `ManifestIssueTests` and `ErrorMessageTests` hold the exact text of user-facing refusals, and rewording a message means updating its row. On the 12 service files that gained rows, a scoped run scores 84.44% against 71.21%, and live string mutants fall from 82 to 31.
+
+Not in the tables:
+
+- **Reachable, no row yet:** `ExternalInputService.cs:119`, `RunStartService.cs:138`, and the refusals in `RunStepHandlers`, `VersionHandlers`, `CallbackInputs`, `ApiErrorMiddleware`, `PollTriggerService`, `FailureHandlerPlanner`, `JobLogService` and `PipelineSecretService`.
+- **Only a race or a corrupt store reaches them:** "changed concurrently", `AttemptLaunchService.cs:50,52`, `RunContinuationService.cs:79`.
+- **Not messages:** `ApiHandlerConfiguration` summaries and tags (120), `HarnessJobBuilder` names and `ManifestVersioning` field names.
+- **Client glue:** `GitHubClient` and `KubernetesClient*` text, which no fake reaches.
+
+Stryker reports the `AttemptFailures` prefix table as surviving because it can't reach mutants in a static initializer. `HarnessFailureMessages_ReadBackAsTheirKind` covers it, and a hand-applied change to the table fails that test.
 
 ### 3. Tidy the suite
 
@@ -452,9 +459,9 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Backend mutation score | 55.06% at audit, 67.91% on `070c49b` | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
 | High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1, covered |
 | Medium and low gaps | 5 confirmed | Partly | Step 1, Medium covered. The Low rows wait. |
-| Gaps from the survivor triage | 116 rows: 8 High, 50 Medium, 58 Low | Partly | Step 1 covers High, then Medium. Low rows wait, and many fall to step 2. |
+| Gaps from the survivor triage | 116 rows: 8 High, 50 Medium, 58 Low | Partly | Step 1 covers High, then Medium. Low rows wait. |
 | Reconcile build path, binding API, file serving | 24.3%, 0%, 33.3% at audit, not re-measured | Yes | Step 1, covered |
-| String survivors | 763 | Yes | Step 2, table-driven message test |
+| String survivors | 763 at audit, 453 on `070c49b`, not re-measured in full | Yes | Step 2. What remains is listed under step 2 of the change plan. |
 | Other survivors | 1,061 | Yes | All triaged: 581 gap, 14 already listed, 124 equivalent, 340 harmless, 2 artefacts |
 | Not-covered mutants | 1,441 | Partly | Steps 1, 5 and 7. Wiring is left to indirect coverage. |
 | `Configuration` score | 31.7% | By design | Mostly metadata and wiring. `RequireRead()` is checked and is not a gap. |
@@ -462,16 +469,16 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Mutants hidden by `*Log*` | About 60 | Yes | Step 4 narrows the pattern |
 | Cross-method duplicate groups | 16 (1 merge, 1 optional) | Yes | Step 3 |
 | No unique kill | 463 tests | No action, by design | Most keep their place as rules or guards |
-| Zero-kill tests | 42 | Yes | Steps 2 and 3. The 12 with no recorded coverage are resolved and all stay. |
-| Weak rejection assertions | Pattern found, not counted | Yes | Step 2 |
-| `.IsTrue()` convention breaks | 22 in 10 files | Yes | Step 2 |
-| Flaky runs | 0 of 156 | Yes | Step 8 tracks real pipeline data |
+| Zero-kill tests | 42 at audit, 9 covered on `070c49b` | Yes | The 9 are judged and stay. Step 3 covers the rest. The 12 with no recorded coverage are resolved and all stay. |
+| Weak rejection assertions | 1 bare `.Failed()` | Yes | Step 2 done. The last one moves with `EntityStore*Tests` in Step 3. |
+| `.IsTrue()` convention breaks | 0 | Yes | Step 2, done |
+| Flaky runs | 0 of 156 at audit. With 16 busy loops: 2 of 93 runs failed, and 0 of 78 once the loopback server's shutdown race was fixed. | Yes | Step 8 tracks real pipeline data |
 | Rare flakes near 1 in 300 | Can't be seen locally | Yes | Step 8 |
 | Test order dependence | Not tested | Partly | `order-isolation.sh` is ready and has not run. A true reversal needs a test code change. |
-| Serial test classes | 1 | Yes | Step 2 |
-| Real-time waits | 4 fixed, 4 polling | Yes | Step 2 |
-| Parallel speed-up | About 2.3x | Yes | Step 2 removes waits and the 3s floor |
-| Suite run time | 4.9s | Protected | Budget of about 30s |
+| Serial test classes | 0 | Yes | Step 2, done |
+| Real-time waits | 1 of 1 ms, plus safety timeouts | Yes | Step 2, done |
+| Parallel speed-up | About 2.3x at audit, not re-measured | Yes | The waits and the 3s floor are gone |
+| Suite run time | About 2.5s for 1,414 tests | Protected | Budget of about 30s |
 | Real-system tests | 61, plus 5 off-cadence chaos test methods. Not in a pipeline. | Yes | Step 5 |
 | Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 7 known disagreements. Other fakes wait. |
 | Frontend tests | 5 browser flows. Not in a pipeline. | Yes | Step 7 |
@@ -504,7 +511,6 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 2:** 9 `Task.Delay` or `Thread.Sleep` calls remain, not yet judged.
 - **Step 3:** the `FakeConfigSourceTests` fold is not checked.
 - **Step 4:** every score above is the audit's. A full run on `070c49b` scores 67.91%: 5,088 killed, 22 timed out, 1,366 survived, 1,049 uncovered, 1,985 unmeasured.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.

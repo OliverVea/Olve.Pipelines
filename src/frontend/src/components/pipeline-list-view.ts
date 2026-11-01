@@ -558,7 +558,13 @@ export class PipelineListView extends LitElement {
   private async _create() {
     const repo = window.prompt('Repository (owner/name)');
     if (!repo) return;
-    await bindingsCreate({ client: api, body: { repo } });
+    this._error = null;
+    try {
+      await bindingsCreate({ client: api, body: { repo } });
+    } catch (e) {
+      this._error = extractErrorMessage(e);
+      return;
+    }
     await this._load();
   }
 

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import type { Pipeline } from '@olve/api';
 import { ID, fakeFetch, health, pl } from './helpers';
 
-const alpha = (overrides: Record<string, unknown> = {}) => ({
+const alpha = (overrides: Partial<Pipeline> = {}): Pipeline => ({
   id: ID,
   name: 'alpha',
   description: null,
@@ -31,7 +32,19 @@ describe('pipeline list', () => {
           health: health({
             status: 'Unhealthy',
             blockedSteps: ['deploy-prod'],
-            lastRun: { number: 41, status: 'Failed', createdAt: '2026-10-28T10:00:00Z' },
+            lastRun: {
+              id: ID,
+              number: 41,
+              status: 'Failed',
+              triggerKind: 'Push',
+              versionNumber: 7,
+              versionStamp: '2026.10.28.41',
+              createdAt: '2026-10-28T10:00:00Z',
+              finishedAt: null,
+              heldAt: null,
+              supersededByNumber: null,
+              rerunOfNumber: null,
+            },
             activation: {
               type: 'active',
               versionId: ID,

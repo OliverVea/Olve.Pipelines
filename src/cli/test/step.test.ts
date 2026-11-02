@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { Pipeline } from '@olve/api';
 import { ID, fakeFetch, health, pl } from './helpers';
 
 const alpha = {
@@ -8,7 +9,7 @@ const alpha = {
   repo: null,
   health: health(),
   stages: [],
-};
+} satisfies Pipeline;
 
 const attempt = (number: number, type: string, extra: Record<string, unknown> = {}) => ({
   id: ID,

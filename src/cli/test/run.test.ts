@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { Pipeline, Run } from '@olve/api';
 import { coerce } from '../src/input';
 import { ID, fakeFetch, health, pl } from './helpers';
 
@@ -9,7 +10,7 @@ const alpha = {
   repo: null,
   health: health(),
   stages: [],
-};
+} satisfies Pipeline;
 
 const manifest = JSON.stringify({
   input: 'Input',
@@ -33,7 +34,7 @@ const manifest = JSON.stringify({
   ],
 });
 
-const run = (overrides: Record<string, unknown> = {}) => ({
+const run = (overrides: Partial<Run> = {}): Run => ({
   id: ID,
   number: 15,
   status: 'Running',

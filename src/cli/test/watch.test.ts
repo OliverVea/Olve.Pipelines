@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { Pipeline } from '@olve/api';
 import { ID, fakeFetch, health, pl } from './helpers';
 
 const alpha = {
@@ -8,7 +9,7 @@ const alpha = {
   repo: null,
   health: health(),
   stages: [],
-};
+} satisfies Pipeline;
 
 const sse = (event: string, data: Record<string, unknown>) =>
   `event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`;

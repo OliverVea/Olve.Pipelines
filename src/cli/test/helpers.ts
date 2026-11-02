@@ -1,3 +1,4 @@
+import type { PipelineHealth } from '@olve/api';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -123,7 +124,7 @@ export async function pl(
 
 export const ID = '11111111-1111-1111-1111-111111111111';
 
-export const health = (overrides: Record<string, unknown> = {}) => ({
+export const health = (overrides: Partial<PipelineHealth> = {}): PipelineHealth => ({
   status: 'Healthy',
   lastRun: null,
   lastSettledRun: null,

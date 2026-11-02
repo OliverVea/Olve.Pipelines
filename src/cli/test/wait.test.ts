@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import type { Pipeline, Run, RunStage, RunStep } from '@olve/api';
 import { parseTimeout, waitSettings } from '../src/wait';
 import { ID, fakeFetch, health, pl } from './helpers';
 
@@ -13,13 +14,13 @@ const alpha = {
   repo: null,
   health: health(),
   stages: [],
-};
+} satisfies Pipeline;
 
 const run = (
   number: number,
-  status: string,
-  overrides: Record<string, unknown> = {},
-) => ({
+  status: Run['status'],
+  overrides: Partial<Run> = {},
+): Run => ({
   id: ID,
   number,
   status,
@@ -41,17 +42,18 @@ const run = (
   ...overrides,
 });
 
-const stepView = (name: string) => ({
+const stepView = (name: string, overrides: Partial<RunStep> = {}): RunStep => ({
   name,
   stepVersion: 1,
   status: 'pending',
   reason: null,
   attemptCount: 0,
-  latestAttempt: null as number | null,
+  latestAttempt: null,
   succeededAttempt: null,
   startedAt: null,
   finishedAt: null,
   blocked: false,
+  ...overrides,
 });
 
 const events = {
@@ -90,7 +92,7 @@ describe('wait', () => {
   });
 
   test('a step waiting for a person ends the wait with exit 3; a step wait reports its status', async () => {
-    const stages = [
+    const stages: RunStage[] = [
       {
         index: 0,
         when: [],
@@ -137,12 +139,12 @@ describe('wait', () => {
   });
 
   test('a step wait follows a rerun in an ended run; @<attempt> must be the latest', async () => {
-    const stages = (status: string, latestAttempt: number) => [
+    const stages = (status: RunStep['status'], latestAttempt: number): RunStage[] => [
       {
         index: 0,
         when: [],
         steps: [
-          { ...stepView('build'), status, latestAttempt, attemptCount: latestAttempt },
+          stepView('build', { status, latestAttempt, attemptCount: latestAttempt }),
         ],
       },
     ];
@@ -176,14 +178,14 @@ describe('wait', () => {
   });
 
   test('a held run ends the wait with exit 4, unless a step is still running', async () => {
-    const stages = [
+    const stages: RunStage[] = [
       {
         index: 0,
         when: [],
         steps: [
-          { ...stepView('deploy'), status: 'held', blocked: true },
-          { ...stepView('verify'), status: 'pending', blocked: true },
-          { ...stepView('side'), status: 'in-progress' },
+          stepView('deploy', { status: 'held', blocked: true }),
+          stepView('verify', { status: 'pending', blocked: true }),
+          stepView('side', { status: 'in-progress' }),
         ],
       },
     ];
@@ -195,7 +197,7 @@ describe('wait', () => {
       const side =
         polls < 2
           ? stages
-          : [{ ...stages[0], steps: [{ ...stepView('side'), status: 'succeeded' }] }];
+          : [{ index: 0, when: [], steps: [stepView('side', { status: 'succeeded' })] }];
       return { body: run(7, 'Running', { heldAt: 'deploy', stages: side }) };
     });
     const parallel = await pl(['wait', 'run', 'alpha#7/side'], { fetch });

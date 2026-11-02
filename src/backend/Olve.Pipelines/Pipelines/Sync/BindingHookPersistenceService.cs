@@ -135,7 +135,7 @@ public class BindingHookPersistenceService(
         _dirty = true;
     }
 
-    private Task SaveIfDirtyAsync()
+    internal Task SaveIfDirtyAsync()
     {
         if (!_dirty) return Task.CompletedTask;
         _dirty = false;

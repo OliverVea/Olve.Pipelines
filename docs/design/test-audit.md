@@ -436,6 +436,8 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 ### 8. Pipeline
 
+Status: done. `real-system-test` runs both tiers once after `beta-test` and must pass before `deploy-prod`, through `tools/real-system/gate.sh` on the beta machine: a throwaway host on slot 9, a clean copy of the commit, about 5 minutes. It starts only with 8 GiB available, and stops below 4 GiB, at a deadline, or when a cancelled step hangs up its SSH terminal, which takes about 15 seconds. It always takes the host down and removes its copy. The stage exists for an ssh beta target only. Six passes from fresh hosts had no failure, which can't show a rate near 1 in 300. Chaos and load tests stay off-cadence. `pl pipeline reliability` reports the combined rate: 4 of the latest 100 runs failed for no real reason (4.0%), a lower bound, against the 5% budget. A failed test is named in its step's log; no per-test history is kept.
+
 - Run the new tiers once each, against the deployment or configuration they target.
 - Keep special cases such as load tests off-cadence.
 - Keep flake data from real pipeline runs, because local runs can't see rates near 1 in 300, and report the suite's combined rate against the 5% budget. The roadmap's step reliability tracking would supply this per step. Naming the individual flaky test still needs per-test results from the `test` step.
@@ -468,15 +470,15 @@ Open: `commands/login.ts` scores 1%, `commands/binding.ts` 19% and `auth/oidc.ts
 | Weak rejection assertions | 0 bare `.Failed()` | Yes | Steps 2 and 3, done |
 | `.IsTrue()` convention breaks | 0 | Yes | Step 2, done |
 | Flaky runs | 0 of 156 at audit. With 16 busy loops, 2 of 93 runs failed. One failure was a shutdown race in `LoopbackHttpServer`, which any exception during shutdown now ends cleanly. The other's cause wasn't captured. | Yes | Step 8 tracks real pipeline data |
-| Rare flakes near 1 in 300 | Can't be seen locally | Yes | Step 8 |
+| Rare flakes near 1 in 300 | 4.0% of the latest 100 runs, a lower bound | Yes | Step 8, `pl pipeline reliability` |
 | Test order dependence | Not tested | Partly | `order-isolation.sh` is ready and has not run. A true reversal needs a test code change. |
 | Serial test classes | 0 | Yes | Step 2, done |
 | Real-time waits | 1 of 1 ms, plus safety timeouts | Yes | Step 2, done |
 | Parallel speed-up | About 2.3x at audit, not re-measured | Yes | The waits and the 3s floor are gone |
 | Suite run time | About 2.5s for 1,414 tests | Protected | Budget of about 30s |
-| Real-system tests | 61, plus 5 off-cadence chaos test methods. Not in a pipeline. | Yes | Step 5 |
+| Real-system tests | 66, plus 5 off-cadence chaos test methods | Yes | Steps 5 and 8, gating prod |
 | Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 7 known disagreements. Other fakes wait. |
-| Frontend tests | 5 browser flows. Not in a pipeline. | Yes | Step 7 |
+| Frontend tests | 5 browser flows | Yes | Steps 7 and 8, gating prod |
 | TypeScript mutation score | `src/cli` 45.84%, `src/sdk/src/core` at least 75.18% | Partly | Step 9. The other SDK directories are not run. |
 | TypeScript tests in no pipeline step | 0 | Yes | Step 9, done |
 | Interface bugs in fix history | Prominent in a skim | Yes | Steps 5 and 6, though nothing measures it yet |
@@ -507,7 +509,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 **This plan**
 
 - **Step 4:** every score above Step 4's Status line is the audit's. Its open rows are listed there.
-- **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
+- **Step 8:** the gate's own flake rate is unknown until runs accumulate, and it counts towards the 5% budget.
 - **Step 9:** its open rows are in its Status line.
 
 **Pipelines and SDK**

@@ -5,6 +5,7 @@ using Olve.Pipelines.Pipelines;
 using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Shared;
 using Olve.Pipelines.Shared.Persistence;
+using Olve.Results.TUnit;
 using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests;
@@ -39,10 +40,10 @@ public class ConfigurationPersistenceServiceTests
     }
 
     private static (ConfigurationPersistenceService Service, EntityStore<Pipeline> Pipelines, PersistenceReadiness Readiness)
-        CreateService(ISnapshotStore? store, StorageMode mode = StorageMode.Persistent)
+        CreateService(ISnapshotStore? store, StorageMode mode = StorageMode.Persistent, EntityStore<PipelineConfigBinding>? bindings = null)
     {
         var pipelines = new EntityStore<Pipeline>([]);
-        var bindings = new EntityStore<PipelineConfigBinding>([]);
+        bindings ??= new EntityStore<PipelineConfigBinding>([]);
         var readiness = new PersistenceReadiness();
 
         var service = new ConfigurationPersistenceService(
@@ -247,6 +248,42 @@ public class ConfigurationPersistenceServiceTests
 
         var saved = JsonSerializer.Deserialize(store.Data!, ConfigurationPersistenceJsonContext.Default.ConfigurationSnapshot)!;
         await Assert.That(saved.Pipelines!.Select(p => p.Id)).Contains(pipelineId);
+    }
+
+    private static PipelineConfigBinding Binding(Id<PipelineConfigBinding> id, string branch) => new(
+        id, Id.New<Pipeline>(), "OliverVea/Olve.Pipelines", branch, ".pipelines", null, null, null, ReconcileStatus.NeverRun, DateTimeOffset.UnixEpoch);
+
+    // A write that isn't saved comes back after a restart: a deleted pipeline or binding would return.
+    [Test]
+    [Arguments("pipeline renamed")]
+    [Arguments("pipeline deleted")]
+    [Arguments("binding added")]
+    [Arguments("binding updated")]
+    [Arguments("binding deleted")]
+    public async Task EveryConfigurationWrite_IsSaved(string write)
+    {
+        var store = new FakeSnapshotStore();
+        var bindings = new EntityStore<PipelineConfigBinding>([]);
+        var (service, pipelines, _) = CreateService(store, bindings: bindings);
+        await service.StartingAsync(CancellationToken.None);
+        var pipelineId = Id.New<Pipeline>();
+        var bindingId = Id.New<PipelineConfigBinding>();
+        pipelines.Set(new Pipeline(pipelineId, "before"));
+        bindings.Set(Binding(bindingId, "before"));
+        await service.SaveIfDirtyAsync();
+        var writes = store.WriteCount;
+
+        switch (write)
+        {
+            case "pipeline renamed": pipelines.Set(new Pipeline(pipelineId, "after")); break;
+            case "pipeline deleted": await Assert.That(pipelines.Delete(pipelineId)).Succeeded(); break;
+            case "binding added": bindings.Set(Binding(Id.New<PipelineConfigBinding>(), "main")); break;
+            case "binding updated": bindings.Set(Binding(bindingId, "after")); break;
+            case "binding deleted": await Assert.That(bindings.Delete(bindingId)).Succeeded(); break;
+        }
+        await service.SaveIfDirtyAsync();
+
+        await Assert.That(store.WriteCount).IsEqualTo(writes + 1);
     }
 
     // Reframed from the old AppFixture integration test CreatedPipeline_SurvivesRestart: state

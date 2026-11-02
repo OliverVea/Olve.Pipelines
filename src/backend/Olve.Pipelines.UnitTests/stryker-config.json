@@ -9,7 +9,7 @@
       "**/*.cs",
       "!**/*.g.cs"
     ],
-    "ignore-methods": ["*Log*", "LogProblems"],
+    "ignore-methods": ["LogTrace", "LogDebug", "LogInformation", "LogWarning", "LogError", "LogCritical", "LogProblems", "LogSummary", "LogItems"],
     "thresholds": { "high": 80, "low": 60, "break": 0 }
   }
 }

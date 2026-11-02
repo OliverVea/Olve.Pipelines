@@ -13,6 +13,6 @@
       "**/Pipelines/Manifests/ConfigRefs.cs",
       "**/Pipelines/Retention/RetentionService.cs"
     ],
-    "ignore-methods": ["*Log*", "LogProblems"]
+    "ignore-methods": ["LogTrace", "LogDebug", "LogInformation", "LogWarning", "LogError", "LogCritical", "LogProblems", "LogSummary", "LogItems"]
   }
 }

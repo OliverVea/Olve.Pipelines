@@ -4,6 +4,7 @@ using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.UnitTests.Manifests;
 using Olve.Results.TUnit;
+using Olve.Utilities.Ids;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 using static Olve.Pipelines.UnitTests.Scheduling.SchedulerScenario;
 
@@ -338,5 +339,19 @@ public class StageSchedulerTests
         s.SucceedThroughDeployBeta(run);
 
         await Assert.That(s.Latest(run, "deploy-prod")).IsNotNull();
+    }
+
+    // A run left with nothing to run must end: Running would hold it forever.
+    [Test]
+    public async Task ObsoleteAttempt_WhoseWinnerIsGone_CancelsItsRun()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input());
+        var attempt = s.Latest(run, "checkout")!;
+        await Assert.That(s.D.AttemptService.Update(attempt.Id, a => a with { Status = new AttemptStatus.Obsolete(Id.New<Attempt>()) })).Succeeded();
+
+        s.D.Scheduler.Advance(run.Id);
+
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Cancelled);
     }
 }

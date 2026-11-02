@@ -46,7 +46,7 @@
  },
  {
   "file": "Pipelines/Retention/RetentionPlanner.cs",
-  "line": 277,
+  "line": 300,
   "col": 17,
   "member": "RetentionPlanner.Secrets",
   "src": "continue;",
@@ -172,11 +172,20 @@
  },
  {
   "file": "Shared/Persistence/RunPersistenceService.cs",
-  "line": 264,
+  "line": 290,
   "col": 17,
   "member": "RunPersistenceService.FlushAsync",
   "src": "logger.LogDebug(",
   "code": "CS1503",
   "mutators": "Linq"
+ },
+ {
+  "file": "Jobs/PipelineJobCleanupService.cs",
+  "line": 25,
+  "col": 17,
+  "member": "PipelineJobCleanupService.HandlePipelineDeletedAsync",
+  "src": "return;",
+  "code": "CS0165",
+  "mutators": "Statement"
  }
 ]

@@ -317,7 +317,7 @@ Real time in tests:
 
 - **Real systems:** no tracked test project runs against real Kubernetes, Garage, GitHub or Dex. About 20 hand-written test doubles carry those assumptions, and `beta-test` is the main real check.
 - **Frontend:** `src/frontend` has no test files or test script.
-- **TypeScript:** `src/sdk`, `src/cli`, `.pipelines/tests` and `src/deploy` hold 27 test files and 304 tests. They were audited by reading and not mutation tested. See [TypeScript tests](#typescript-tests).
+- **TypeScript:** `src/sdk`, `src/cli`, `.pipelines/tests` and `src/deploy` hold 27 test files and 304 tests. They were audited by reading, and `src/cli` and `src/sdk/src/core` are mutation tested. See [TypeScript tests](#typescript-tests).
 - **Bug types mutation testing can't see:** a skim of the 70 most recent of 114 fix commits, by subject only, suggests external-interface and ordering bugs are prominent. A good mutation score does not protect against those.
 - **Pipeline:** it already follows the no-repeat rule. `test` appears once, and `betaTest` sits in alternative `select` cases.
 - **Olve.AgentRuntimeManager:** its suite is load-sensitive, unlike this one. In `Olve.AgentRuntimeManager#28`, 12 timing tests failed at a load average of about 50 and passed on rerun under similar load. They are not fixed. `Call_ThatStopsWithTheServer_StaysInterrupted` no longer depends on a timer (`8e762f5`).
@@ -328,17 +328,11 @@ These are good tests overall: flow-shaped, exact about messages and argv, with a
 
 | Finding | Location | Risk |
 |---|---|---|
-| The public-API guard can never fail: its regex needs double quotes and all 44 relative imports use single quotes. The rule holds today. | `src/sdk/tests/runtime/library-public.test.ts:29-31` | High |
-| 13 tests run in no pipeline step or `tools/check.sh` | `.pipelines/tests` (10), `src/deploy/compose/deployer` (3) | High |
-| The rollback path has no test | `deployer.ts:102-147` | High |
-| A fixed 500ms sleep before SIGTERM | `build.test.ts:385` | Medium |
-| Fake API bodies are untyped, so a renamed field leaves CLI tests green | `wait.test.ts:17-41`, and `run`, `pipeline`, `step` | Medium |
 | Login, and most binding commands, are untested | `commands/login.ts` 0%, `auth/oidc.ts` 47%, `commands/binding.ts` 29% | Medium |
-| `compile-fail` runs twice in one step | `src/sdk/package.json:53`, `tools/check.sh:97` | Low |
 | Module state is set and not restored, which blocks `test.concurrent` | `wait.test.ts:5-7`, `publish-sdk.test.ts:39`, `deployer.test.ts:4-6`, `config-refs.test.ts:232,281` | Low |
 | Upper bounds on wall time, and real timeouts in place of the `sleep` seam | `ctx.test.ts:116,150,161`, `wait.test.ts:200` | Low |
 
-**StrykerJS and bun:** no official bun runner exists, and the community one needs core ^9 and has a report of bun incompatibility. The `command` runner works but reruns the suite for every mutant. That is an estimated 5 minutes for `src/cli` and 3 to 5 hours for all of `src/sdk`, so mutate the SDK one directory at a time. These are estimates; no run has happened.
+**StrykerJS and bun:** no official bun runner exists, and the community one needs core ^9 and has a report of bun incompatibility. StrykerJS 10.1.1's `command` runner works but reruns the suite for every mutant, and it needs a copy of the tree that holds the files the tests read. `src/cli` takes 19m44s at 6 workers: 5,938 mutants, 45.84%. `src/sdk/src/core` takes 1m26s against the 8 test files that finish in under a second: 411 mutants, 75.18%. That score leaves out `ctx`, `build` and `harness`, which take about 22s together, so it is a floor. Pair each SDK directory with its fast test files.
 
 ## Findings from the new test tiers
 
@@ -449,10 +443,9 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 ### 9. TypeScript tests
 
-1. Fix `library-public.test.ts`, and run `.pipelines/tests` and `deployer.test.ts` in a pipeline step and in `tools/check.sh`.
-2. Remove the second `compile-fail` run, and replace `build.test.ts:385` with a readiness signal.
-3. Add a `deploy()` rollback test against a fake Docker socket, and type the CLI's fake API bodies.
-4. Try the `command` runner on `src/cli`, then the SDK a directory at a time.
+Status: done. `library-public.test.ts` reads both quote styles, and rows prove it refuses each import form. The rule holds. `.pipelines/tests` and `deployer.test.ts` run in `build-sdk` and in `tools/check.sh --full`. The SIGTERM test waits for the step to report ready. `deployer.test.ts` runs `deploy()` against a fake Docker daemon on a unix socket and pins the order of Docker calls for each failure, proven by four hand-applied regressions. The CLI's fake API bodies are typed against the generated client, so a renamed field fails `tsc`. `compile-fail` runs once in each of `bun run check` and `tools/check.sh --full`, and no step runs both.
+
+Open: `commands/login.ts` scores 1%, `commands/binding.ts` 19% and `auth/oidc.ts` 28%. `main.ts` scores 0%, because the tests call `pl` below it. Mutation runs stay manual and the other SDK directories have not been run.
 
 ### Metrics against the plan
 
@@ -484,8 +477,8 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Real-system tests | 61, plus 5 off-cadence chaos test methods. Not in a pipeline. | Yes | Step 5 |
 | Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 7 known disagreements. Other fakes wait. |
 | Frontend tests | 5 browser flows. Not in a pipeline. | Yes | Step 7 |
-| TypeScript tests | 27 files, 304 tests, audited by reading | Yes | Step 9. Mutation run still to do. |
-| TypeScript tests in no pipeline step | 13 | Yes | Step 9 |
+| TypeScript mutation score | `src/cli` 45.84%, `src/sdk/src/core` at least 75.18% | Partly | Step 9. The other SDK directories are not run. |
+| TypeScript tests in no pipeline step | 0 | Yes | Step 9, done |
 | Interface bugs in fix history | Prominent in a skim | Yes | Steps 5 and 6, though nothing measures it yet |
 
 ### Suggested targets
@@ -515,7 +508,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 - **Step 4:** every score above Step 4's Status line is the audit's. Its open rows are listed there.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
-- **Step 9:** not started.
+- **Step 9:** its open rows are in its Status line.
 
 **Pipelines and SDK**
 

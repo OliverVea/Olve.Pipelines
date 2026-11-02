@@ -16,8 +16,11 @@ export const SSH_CLIENT_INSTALL =
 
 export interface SshSession {
   readonly host: string;
-  /** Runs a remote command; a non-zero exit throws. */
-  run(remote: string): Promise<void>;
+  /**
+   * Runs a remote command; a non-zero exit throws. With `tty`, the command gets a terminal, so a client that
+   * dies (a cancelled step) hangs it up: without one, the command gets no signal and carries on.
+   */
+  run(remote: string, options?: { tty?: boolean }): Promise<void>;
   /** Runs a remote command and returns its stdout. */
   text(remote: string): Promise<string>;
   /** `scp -r` a local file or directory to a remote path. */
@@ -58,7 +61,8 @@ export async function sshSession(
   const argv = (remote: string) => ['ssh', ...sshOpts, opts.host, remote];
   return {
     host: opts.host,
-    run: (remote) => ctx.exec(argv(remote)),
+    run: (remote, options) =>
+      ctx.exec(options?.tty ? ['ssh', '-tt', ...argv(remote).slice(1)] : argv(remote)),
     text: (remote) => ctx.sh.text(argv(remote).map(shq).join(' ')),
     copy: (local, remote) =>
       ctx.exec(['scp', ...sshOpts, '-r', local, `${opts.host}:${remote}`]),

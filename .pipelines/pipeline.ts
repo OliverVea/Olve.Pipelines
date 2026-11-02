@@ -1,5 +1,5 @@
 // Olve.Pipelines deploying itself: build and verify every component once, publish prereleases,
-// deploy beta, smoke-test it, deploy prod, then promote the same artifacts. Where it all goes is the
+// deploy beta, smoke-test it, run the real-system and browser tests, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts).
 import { pipeline, steps, type ConfigRef } from '@olivervea/pipelines';
 import {
@@ -24,6 +24,7 @@ import { promote } from './steps/promote';
 import { publishCli } from './steps/publish-cli';
 import { publishImages } from './steps/publish-images';
 import { publishSdk } from './steps/publish-sdk';
+import { realSystemTest } from './steps/real-system-test';
 import { spec } from './steps/spec';
 import { test } from './steps/test';
 
@@ -70,7 +71,7 @@ const describeDeploy = (stage: string) =>
 export default pipeline({
   name: 'Olve.Pipelines v2',
   description:
-    'Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (and smoke-test a helm beta); deploy prod; promote the same artifacts. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.',
+    'Build and verify the server image, harness image, SDK, CLI and frontend once; publish them as prereleases; deploy beta if one is configured (smoke-test a helm beta, and run the real-system and browser tests on an ssh one); deploy prod; promote the same artifacts. Targets come from config (helm in-cluster, helm over SSH, or a Docker Compose deployer). deployTo=beta stops after beta.',
   input: M.DeployRequest,
   retention: { keepLatestRuns: 50, minRunAgeDays: 30 },
 })
@@ -102,7 +103,8 @@ export default pipeline({
             (from) => ({ server: from['build-server'], harness: from['build-harness'] }),
           ],
         )
-        .stage(betaTest),
+        .stage(betaTest)
+        .stage(realSystemTest(beta.host)),
     inCluster: (p, beta) =>
       p
         .stage(

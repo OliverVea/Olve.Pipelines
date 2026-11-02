@@ -1,7 +1,8 @@
 // Library steps used by Olve.Pipelines' own deploy: gitHubSource, imageBuild, helmDeployOverSsh, httpHealthCheck.
 // Run through testHandler with faked ctx parts; the assertions pin the exact commands they run.
 import { describe, expect, test } from 'bun:test';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   checkSpa,
@@ -11,6 +12,7 @@ import {
   pipeline,
   secret,
   serviceUrl,
+  sshSession,
   steps,
   z,
   type AnyStep,
@@ -1597,5 +1599,30 @@ describe('library steps in the manifest', () => {
         { source: { ref: 'source' }, image: { ref: 'build' } },
       ],
     ]);
+  });
+});
+
+describe('sshSession', () => {
+  test('a terminal is asked for only when a run wants the remote command hung up with its client', async () => {
+    const commands: string[][] = [];
+    const ssh = await sshSession(
+      {
+        exec: async (argv: readonly string[]) => {
+          commands.push([...argv]);
+        },
+        sh: Object.assign(async () => {}, { text: async () => '' }),
+        tmpDir: mkdtempSync(join(tmpdir(), 'ssh-')),
+      } as unknown as Parameters<typeof sshSession>[0],
+      { host: 'oliver@host', key: 'k' },
+    );
+
+    await ssh.run('true');
+    await ssh.run('true', { tty: true });
+
+    expect(commands.map((c) => c.slice(0, 2))).toEqual([
+      ['ssh', '-i'],
+      ['ssh', '-tt'],
+    ]);
+    expect(commands.map((c) => c.at(-1))).toEqual(['true', 'true']);
   });
 });

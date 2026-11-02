@@ -86,6 +86,11 @@ on what it owns, and never cleans up: retention with short thresholds and the sw
 test is marked `[ExclusiveServer]`. Each contract in `Contracts/` runs the same assertions on the real
 system here and on the fake in the unit tests (`Olve.Pipelines.UnitTests/RealSystem/FakeContractTests.cs`).
 
+Every deploy with an ssh beta target runs this tier and the browser tests in the `real-system-test` step,
+through `tools/real-system/gate.sh` on the beta machine: it runs after `beta-test`, and a failure stops the
+deploy before prod. The script's header covers its slot and memory limits. Run it yourself to see what the
+step sees, from a checkout with no `artifacts/`.
+
 ### Chaos tests
 
 `Olve.Pipelines.RealSystemTests/Chaos` injects scripted faults at known risky moments of a run, each with a

@@ -16,13 +16,14 @@
 //   DEPLOYER_REGISTRY_ALIASES   {"registry:5000": "localhost:5001"}: how the Docker daemon reaches a registry
 //   DEPLOYER_REGISTRY_AUTH      {"localhost:5001": {"username": "…", "password": "…"}}
 //   DEPLOYER_IMAGE_ENV          env var set on the container to the deployed image (default Deployment__Image)
+//   DEPLOYER_DOCKER_SOCKET      the Docker socket (default /var/run/docker.sock)
 
-const SOCKET = "/var/run/docker.sock";
 const env = (name: string, fallback?: string): string => {
   const v = process.env[name] ?? fallback;
   if (v === undefined) throw new Error(`${name} is not set`);
   return v;
 };
+const SOCKET = env("DEPLOYER_DOCKER_SOCKET", "/var/run/docker.sock");
 const TOKEN = env("DEPLOYER_TOKEN");
 const PROJECT = env("DEPLOYER_PROJECT");
 const SERVICES = JSON.parse(env("DEPLOYER_SERVICES", "{}")) as Record<string, { health: string; healthTimeoutSeconds?: number }>;
@@ -99,7 +100,7 @@ async function healthy(url: string, timeoutSeconds: number, containerId: string)
 
 let busy: Promise<unknown> = Promise.resolve();
 
-async function deploy(service: string, image: string): Promise<{ code: number; body: Json }> {
+export async function deploy(service: string, image: string): Promise<{ code: number; body: Json }> {
   const lines: string[] = [];
   const log = (s: string) => {
     lines.push(s);

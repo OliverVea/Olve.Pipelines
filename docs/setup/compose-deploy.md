@@ -44,6 +44,7 @@ services:
 | `DEPLOYER_REGISTRY_ALIASES` | How the Docker daemon reaches a registry, when that differs from the name in the image (`{"registry:5000": "localhost:5001"}`). |
 | `DEPLOYER_REGISTRY_AUTH` | Logins for private registries, keyed by the host the daemon pulls from: `{"<host>": {"username": "…", "password": "…"}}`. |
 | `DEPLOYER_IMAGE_ENV` | Env var set on the recreated container to the deployed image (default `Deployment__Image`; Olve.Pipelines reports it in `/api/health`). |
+| `DEPLOYER_DOCKER_SOCKET` | The Docker socket. Default `/var/run/docker.sock`. |
 | `PORT` | Listen port (default `8080`). |
 
 **Access to the Docker socket is root on the host.** Keep the deployer on a private network, reachable

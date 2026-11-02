@@ -19,26 +19,40 @@ const exported = (file: string) =>
       .filter(Boolean),
   );
 
+const offendingImports = (text: string, publicNames: Set<string>) => {
+  const offending: string[] = [];
+  for (const m of text.matchAll(
+    /import (?:type )?\{([^}]*)\} from ['"](\.\.\/[^'"]+)['"]/g,
+  )) {
+    if (m[2]!.startsWith('../util/')) continue;
+    for (const raw of m[1]!.split(',')) {
+      const name = raw
+        .trim()
+        .replace(/^type /, '')
+        .split(/\s+as\s+/)[0]!;
+      if (name && !publicNames.has(name)) offending.push(`${name} (${m[2]})`);
+    }
+  }
+  return offending;
+};
+
 describe('library steps use the public API', () => {
   const publicNames = exported(join(src, 'index.ts'));
   const library = join(src, 'library');
   for (const f of readdirSync(library).filter((f) => f.endsWith('.ts'))) {
     test(f, () => {
-      const text = readFileSync(join(library, f), 'utf8');
-      const offending: string[] = [];
-      for (const m of text.matchAll(
-        /import (?:type )?\{([^}]*)\} from "(\.\.\/[^"]+)"/g,
-      )) {
-        if (m[2]!.startsWith('../util/')) continue;
-        for (const raw of m[1]!.split(',')) {
-          const name = raw
-            .trim()
-            .replace(/^type /, '')
-            .split(/\s+as\s+/)[0]!;
-          if (name && !publicNames.has(name)) offending.push(`${name} (${m[2]})`);
-        }
-      }
-      expect(offending).toEqual([]);
+      expect(
+        offendingImports(readFileSync(join(library, f), 'utf8'), publicNames),
+      ).toEqual([]);
     });
   }
+
+  test.each([
+    `import { internal } from '../core/internal.ts';`,
+    `import { internal } from "../core/internal.ts";`,
+    `import type { internal } from '../core/internal.ts';`,
+    `import {\n  internal,\n} from '../core/internal.ts';`,
+  ])('the guard refuses %j', (line) => {
+    expect(offendingImports(line, new Set())).toEqual(['internal (../core/internal.ts)']);
+  });
 });

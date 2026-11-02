@@ -6,14 +6,16 @@ import * as M from '../models';
 export const buildSdk = implement(
   step({
     name: 'build-sdk',
-    description: 'Checks src/sdk/ (tsc, compile-fail cases, bun test) and packs it.',
+    description:
+      'Checks src/sdk/ (tsc, compile-fail cases, bun test), runs the pipeline and deployer tests, and packs the SDK.',
     image: 'oven/bun:1.4.3-slim',
     input: { source: Source },
     output: M.SdkPackage,
     timeoutSeconds: 1200,
   }),
   async ({ source }, ctx) => {
-    const dir = join(await ctx.files.fetch(source.tree), 'src/sdk');
+    const tree = await ctx.files.fetch(source.tree);
+    const dir = join(tree, 'src/sdk');
     const { name, version } = await ctx.readJson<{ name: string; version: string }>(
       join(dir, 'package.json'),
     );
@@ -30,6 +32,13 @@ export const buildSdk = implement(
     ];
     await ctx.exec([...clean, 'bun', 'install', '--frozen-lockfile'], { cwd: dir });
     await ctx.exec([...clean, 'bun', 'run', 'check'], { cwd: dir });
+
+    const pipelines = join(tree, '.pipelines');
+    await ctx.exec([...clean, 'bun', 'install', '--frozen-lockfile'], { cwd: pipelines });
+    await ctx.exec([...clean, 'bun', 'test'], { cwd: pipelines });
+    await ctx.exec([...clean, 'bun', 'test'], {
+      cwd: join(tree, 'src/deploy/compose/deployer'),
+    });
 
     const out = join(ctx.tmpDir, 'pack');
     mkdirSync(out, { recursive: true });

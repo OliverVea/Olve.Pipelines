@@ -372,7 +372,7 @@ describe('cancellation through the real loader', () => {
 const Req = model("Req", z.object({ x: z.string() }));
 const slow = implement(
   step({ name: "slow", description: "", image: "alpine" }),
-  async (_i, ctx) => { await ctx.sh("sleep 30"); },
+  async (_i, ctx) => { await ctx.sh("echo ready; sleep 30"); },
 );
 export default pipeline({ name: "slow", input: Req }).stage(slow);
 `,
@@ -389,7 +389,12 @@ export default pipeline({ name: "slow", input: Req }).stage(slow);
         stderr: 'pipe',
       },
     );
-    await Bun.sleep(500);
+    const stdout = proc.stdout.getReader();
+    for (let seen = ''; !seen.includes('ready');) {
+      const { done, value } = await stdout.read();
+      if (done) throw new Error('the step ended before it was ready');
+      seen += new TextDecoder().decode(value);
+    }
     const t0 = Date.now();
     proc.kill('SIGTERM');
     expect(await proc.exited).toBe(EXIT.sigterm);

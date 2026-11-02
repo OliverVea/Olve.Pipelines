@@ -32,6 +32,7 @@ if [ $changed = 1 ]; then
     case "$f" in
       src/sdk/*) want[sdk]=1 ;;
       .pipelines/*) want[pipelines]=1 ;;
+      src/deploy/compose/deployer/*) want[deployer]=1 ;;
       src/frontend/*) want[frontend]=1; want[spec]=1 ;;
       src/cli/*) want[cli]=1; want[spec]=1 ;;
       src/client/*) want[frontend]=1; want[cli]=1; want[spec]=1 ;;
@@ -99,6 +100,10 @@ fi
 if [ -n "${want[pipelines]:-}" ]; then
   run "pipelines: prettier"            "$prettier" --check ".pipelines/**/*.ts"
   run "pipelines: pl dev validate"     pipeline_valid
+  [ $full = 0 ] || run "pipelines: tests" bash -c 'cd .pipelines && bun test'
+fi
+if [ -n "${want[deployer]:-}" ]; then
+  [ $full = 0 ] || run "deployer: tests" bash -c 'cd src/deploy/compose/deployer && bun test'
 fi
 # The contract first: the server compiles its generated surface and the frontend type-checks against its client.
 if [ -n "${want[spec]:-}" ]; then

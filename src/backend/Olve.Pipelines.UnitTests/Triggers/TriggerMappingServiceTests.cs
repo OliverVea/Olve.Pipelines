@@ -1,13 +1,18 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.Pipelines.Scheduling;
+using Olve.Pipelines.Pipelines.Sync;
 using Olve.Pipelines.Pipelines.Triggers;
 using Olve.Pipelines.Shared.Storage;
 using Olve.Pipelines.UnitTests.Scheduling;
 using Olve.Results;
 using Olve.Results.TUnit;
+using Olve.Utilities.Ids;
 
 namespace Olve.Pipelines.UnitTests.Triggers;
 
@@ -109,5 +114,117 @@ public class TriggerMappingServiceTests
 
         await (await Map(h, trigger: "nope")).Problems.IsSingle<ResultProblem>($"Version 1 of pipeline '{h.S.Pipeline.Id}' declares no trigger 'nope'.");
         await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+    }
+
+    private const string PollUrl = "https://api.example/head";
+
+    private static readonly PollTrigger Poll = new("poll", PollUrl, new Dictionary<string, string>(), [], "sha", 60);
+
+    private sealed class ConfigGate : IConfigLock
+    {
+        public bool Current { get; set; } = true;
+        public int Calls { get; private set; }
+
+        public async Task<bool> RunIfConfigCurrentAsync(Id<Pipeline> pipelineId, Func<Task> action, CancellationToken ct, bool force = false)
+        {
+            Calls++;
+            if (Current)
+                await action();
+            return Current;
+        }
+    }
+
+    private static Func<string, Task> PollValues(Harness h, IConfigLock? gate = null)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(h.Service);
+        if (gate is not null)
+            services.AddSingleton(gate);
+        var provider = services.BuildServiceProvider();
+        var poll = new PollTriggerService(h.S.D.Pipelines, h.S.D.PollTriggers, provider, h.S.D.Time, NullLogger<PollTriggerService>.Instance);
+        return value => poll.ApplyValueAsync(provider, h.S.Pipeline, Poll, value, CancellationToken.None);
+    }
+
+    private static string? LastValue(Harness h) =>
+        h.S.D.PollTriggers.TryGet(h.S.Pipeline.Id, out var states) ? states.Triggers["poll"].LastValue : null;
+
+    private static string Mapped() => $$"""{"status":"succeeded","output":{{SchedulerScenario.Input()}}}""";
+
+    [Test]
+    public async Task FirstPolledValue_SeedsWithoutARun()
+    {
+        var h = Build(Mapped());
+
+        await PollValues(h)("v0");
+
+        await Assert.That(LastValue(h)).IsEqualTo("v0");
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+    }
+
+    [Test]
+    [Arguments(true)]
+    [Arguments(false)]
+    public async Task ChangedPolledValue_MapsThatValue_AndStartsAPollRun(bool configGate)
+    {
+        var h = Build(Mapped());
+        var poll = PollValues(h, configGate ? new ConfigGate() : null);
+        await poll("v0");
+        var events = new List<string>();
+        h.Storage.OnPut = key => { if (key.StartsWith("triggers/")) events.Add(h.Storage.Objects[key]); };
+
+        await poll("v1");
+
+        await Assert.That(events).IsEquivalentTo(new[] { """{"value":"v1"}""" });
+        await Assert.That(h.S.D.Runs.List().Single().Trigger.Kind).IsEqualTo(RunTriggerKind.Poll);
+        await Assert.That(LastValue(h)).IsEqualTo("v1");
+    }
+
+    // The gate can start a reconcile, so a value that hasn't changed must not reach it.
+    [Test]
+    public async Task UnchangedPolledValue_DoesNotReachTheConfigGate()
+    {
+        var h = Build(Mapped());
+        var gate = new ConfigGate();
+        var poll = PollValues(h, gate);
+        await poll("v0");
+        var calls = gate.Calls;
+
+        await poll("v0");
+
+        await Assert.That(gate.Calls).IsEqualTo(calls);
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+    }
+
+    // Catches: a change seen while its config commit is unapplied, recorded and so never run.
+    [Test]
+    public async Task ChangeSeenBeforeItsConfigIsApplied_RunsOnALaterPoll()
+    {
+        var h = Build(Mapped());
+        var gate = new ConfigGate();
+        var poll = PollValues(h, gate);
+        await poll("v0");
+
+        gate.Current = false;
+        await poll("v1");
+        await Assert.That(LastValue(h)).IsEqualTo("v0");
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(0);
+
+        gate.Current = true;
+        await poll("v1");
+        await Assert.That(LastValue(h)).IsEqualTo("v1");
+        await Assert.That(h.S.D.Runs.List()).Count().IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task ChangedValueWhoseMappingFails_IsNotRecorded()
+    {
+        var h = Build("""{"status":"succeeded","output":{"sha":42}}""");
+        var poll = PollValues(h);
+        await poll("v0");
+
+        await poll("v1");
+
+        await Assert.That(LastValue(h)).IsEqualTo("v0");
+        await Assert.That(h.S.D.Runs.List()).IsEmpty();
     }
 }

@@ -68,6 +68,11 @@ public partial class PollTriggerService(
             return;
         }
 
+        await ApplyValueAsync(services, pipeline, poll, value, ct);
+    }
+
+    internal async Task ApplyValueAsync(IServiceProvider services, Pipeline pipeline, PollTrigger poll, string value, CancellationToken ct)
+    {
         if (IsUnchanged(pipeline.Id, poll.Name, poll.Url, value))
             return;
 

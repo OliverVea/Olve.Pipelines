@@ -390,7 +390,7 @@ Don't remove tests just for lacking a unique kill.
 
 Status: measured. With the comments applied and `ignore-methods` narrowed, a full run scores 69.04%: 5,393 killed, 25 timed out, 1,410 survived, 1,020 uncovered, 1,586 unmeasured, no Safe Mode wipes. The default level wipes 25 times and `-l Basic` none, though it creates only 3,999 of the 11,141 mutants. `safe-mode-triggers.json` holds 21 triggers and needs refreshing when their lines move. The comments live only in a throwaway worktree, so a plain `dotnet stryker` on `main` still reports about 1,985 unmeasured. Of the 1,985, 65 are in `StepReliabilityService`, the largest part of the rise from 1,876; the mutants are new code, not lost measurement.
 
-The recovered mutants leave 115 live, and 210 are killed. Rows closed: `EveryConfigurationWrite_IsSaved`, `ObsoleteAttempt_WhoseWinnerIsGone_CancelsItsRun` and `BindingHookPersistenceServiceTests`, each proven by a hand-applied regression. Open: `PollTriggerService.PollOneAsync` has no unit coverage past the fetch, `DeployPollService.cs:180,211,220` status recording, and `StageScheduler.cs:238`. The string mutants on `LogIfFailed` lines only change a log label. Static field mutants show no stable killer between runs, so a status change there is not a regression signal.
+The recovered mutants leave 115 live, and 210 are killed. Rows closed: `EveryConfigurationWrite_IsSaved`, `ObsoleteAttempt_WhoseWinnerIsGone_CancelsItsRun`, `BindingHookPersistenceServiceTests`, the changed-value path of `PollTriggerService` (`ApplyValueAsync`) and the fetch, in-progress and cancel status recording in `DeployPollService`, each proven by a hand-applied regression. The failed-schedule branch of `StageScheduler.Act` has no test and needs none: `Decide` turns oversized input into a `Fail` first, `AttemptInputBuilder` parses what it builds, and a run deleted mid-advance fails `RecordFailed` the same way. The string mutants on `LogIfFailed` lines only change a log label. Static field mutants show no stable killer between runs, so a status change there is not a regression signal.
 
 `ignore-mutations`, `ignore-methods` and `mutate` spans apply after rollback, so they can't help. Only `mutation-level` and `// Stryker disable` comments act before placement.
 
@@ -508,7 +508,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 4:** every score above Step 4's Status line is the audit's. Its open rows are listed there.
+- **Step 4:** every score above Step 4's Status line is the audit's.
 - **Step 8:** the gate's own flake rate is unknown until runs accumulate, and it counts towards the 5% budget.
 - **Step 9:** its open rows are in its Status line.
 

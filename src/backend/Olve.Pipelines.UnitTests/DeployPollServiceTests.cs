@@ -304,6 +304,7 @@ public class DeployPollServiceTests
         var first = c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None);
         await Assert.That(first.IsCompleted).IsTrue();
         await Assert.That(first.IsCanceled).IsEqualTo(ending == "cancelled");
+        await Assert.That(c.Current.Status.InProgress).IsFalse();
         c.Reconciler.Outcome = null;
 
         var again = c.Poll.ReconcileNowAsync(c.Binding.PipelineId, CancellationToken.None);
@@ -314,6 +315,63 @@ public class DeployPollServiceTests
         var gate = c.Poll.RunIfConfigCurrentAsync(c.Binding.PipelineId, () => { ran = true; return Task.CompletedTask; }, CancellationToken.None);
         await Assert.That(gate.IsCompleted).IsTrue();
         await Assert.That(ran).IsTrue();
+    }
+
+    [Test]
+    public async Task FailedConfigFetch_RecordsTheProblem_HoldsRuns_AndClearsOnTheNextFetch()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        c.Source.FetchOverride = Result.Failure<ConfigFetch>(new ResultProblem("GitHub answered 502"));
+
+        await c.Run();
+
+        await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Error);
+        await Assert.That(c.Current.Status.LastSyncTime).IsNotNull();
+        await Assert.That(c.Current.Status.Problems.Single()).IsEqualTo("GitHub answered 502");
+        await Assert.That(c.Reconciler.Calls).IsEmpty();
+        await Assert.That(c.Current.LastPushSha).IsNull();
+
+        c.Source.FetchOverride = null;
+        await c.Run();
+
+        await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Success);
+        await Assert.That(c.Current.Status.Problems).IsEmpty();
+    }
+
+    // The UI shows a reconcile as running from this status alone.
+    [Test]
+    public async Task ReconcileInProgress_IsShownWithItsSha_UntilItEnds()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        c.Reconciler.Held = held;
+
+        var run = c.Run();
+        await c.Reconciler.Entered.Task;
+
+        await Assert.That(c.Current.Status.InProgress).IsTrue();
+        await Assert.That(c.Current.Status.Sha).IsEqualTo("cfg-1");
+
+        held.SetResult();
+        await run;
+
+        await Assert.That(c.Current.Status.InProgress).IsFalse();
+    }
+
+    [Test]
+    public async Task ThrownReconcile_IsRecordedWithItsMessage()
+    {
+        await using var c = Build();
+        c.Source.ConfigSha = "cfg-1";
+        c.Reconciler.Outcome = _ => throw new InvalidOperationException("boom");
+
+        await c.Run();
+
+        await Assert.That(c.Current.Status.Result).IsEqualTo(ReconcileResult.Error);
+        await Assert.That(c.Current.Status.Problems.Single()).IsEqualTo("Reconcile failed: boom");
+        await Assert.That(c.Current.Status.InProgress).IsFalse();
     }
 
     [Test]

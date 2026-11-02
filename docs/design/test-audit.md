@@ -471,11 +471,11 @@ Open: `commands/login.ts` scores 1%, `commands/binding.ts` 19% and `auth/oidc.ts
 | `.IsTrue()` convention breaks | 0 | Yes | Step 2, done |
 | Flaky runs | 0 of 156 at audit. With 16 busy loops, 2 of 93 runs failed. One failure was a shutdown race in `LoopbackHttpServer`, which any exception during shutdown now ends cleanly. The other's cause wasn't captured. | Yes | Step 8 tracks real pipeline data |
 | Rare flakes near 1 in 300 | 4.0% of the latest 100 runs, a lower bound | Yes | Step 8, `pl pipeline reliability` |
-| Test order dependence | Not tested | Partly | `order-isolation.sh` is ready and has not run. A true reversal needs a test code change. |
+| Test order dependence | 0 failures: each of 113 classes alone, each of 854 methods alone, and 20 random half-sets of classes | Partly | `order-isolation.sh` reports the 7 skipped tests as `NOMATCH`. A true reversal needs a test code change. |
 | Serial test classes | 0 | Yes | Step 2, done |
 | Real-time waits | 1 of 1 ms, plus safety timeouts | Yes | Step 2, done |
 | Parallel speed-up | About 2.3x at audit, not re-measured | Yes | The waits and the 3s floor are gone |
-| Suite run time | About 2.5s for 1,414 tests | Protected | Budget of about 30s |
+| Suite run time | About 2.5s for 1,444 tests | Protected | Budget of about 30s |
 | Real-system tests | 66, plus 5 off-cadence chaos test methods | Yes | Steps 5 and 8, gating prod |
 | Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 7 known disagreements. Other fakes wait. |
 | Frontend tests | 5 browser flows | Yes | Steps 7 and 8, gating prod |
@@ -522,7 +522,6 @@ Open work from the pipeline package migration and the `pl wait` changes.
 - npm staged publishing, before `NPM_TOKEN` expires in late January 2027.
 - The `contentTag` cache key must cover build options.
 - Pin `KANIKO_IMAGE`.
-- Step reliability tracking.
 
 **For Oliver**
 

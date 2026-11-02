@@ -84,7 +84,7 @@ Files with the most undetected mutants worth attention: `ManifestValidator.cs` (
 - **Repeatability:** Manifests ran twice. 2,150 of 2,158 statuses matched, and 1,414 of 1,415 killer sets. All 8 status differences went from Survived to Killed. The one killer-set difference was `SchedulerRuntimeTests.EndToEnd_ThroughJobRunnerAndNoOpExecutor`.
 - **Coverage-off control:** every test ran against 367 mutants from 6 files. 364 statuses agreed in substance (NoCoverage reads as Survived when coverage is off). The 3 differences all under-counted detection, so the score may be very slightly low. 68 of 69 killer sets matched.
 - **Compile failures:** 1,876 mutants have this status, but 1,031 of them fail to compile even alone, so no mutant exists to measure. The real gap is about 845 mutants (7.9%), not 17.5%. This comes from compiling each mutant alone offline; 162 sit in members with errors in that reconstruction, so the split could move slightly. Of the 845, 439 were lost to Safe Mode, 17 members wiped in full. The other 406 were rolled back with a neighbouring mutant, or are unexplained (94). The code shape that triggers Safe Mode is `StatementMutator` removing a `continue`, `return;` or `throw` that makes a later variable definitely assigned, so `CS0165` lands outside the mutant. 19 such sites in 15 members were confirmed by compiling them alone. `TryPickProblems(out var problems)` is not the cause. The `CS8070` is one `yield break` at `SseStreams.cs:25`. `FlushAsync` has only a candidate trigger, and about 4 of the 24 events are unaccounted for until a rerun with `--diag`. Affected members include `ApplyStageOutcome`, `CheckWhen` and `CheckTriggers`. `StageScheduler.cs` has 41 and `ManifestValidator.cs` 106 unmeasured mutants that do compile alone, so those scores overstate what is known.
-- **Hidden mutants:** `ignore-methods: "*Log*"` matches any call with "log" in its name. About 60 of the 536 mutants it removed are not logger calls, including `LogIfFailed(runs.Complete(...))` at `StageScheduler.cs:79,87,170,262,269,283,287`. Those state transitions were never mutated, and `GetLogsAsync` and `PutLogAsync` are hidden the same way.
+- **Hidden mutants:** `ignore-methods` names the logger calls one by one, because `*Log*` matches any call with "log" in its name, including `LogIfFailed(runs.Complete(...))` at `StageScheduler.cs:79,87,170,262,269,283,287`, `GetLogsAsync` and `PutLogAsync`.
 - **Runner:** the MTP runner is in preview. The checks above are why these results are treated as sound for this suite.
 
 ## Confirmed gaps
@@ -394,6 +394,10 @@ Don't remove tests just for lacking a unique kill.
 
 ### 4. Measure the unmeasured
 
+Status: measured. With the comments applied and `ignore-methods` narrowed, a full run scores 69.04%: 5,393 killed, 25 timed out, 1,410 survived, 1,020 uncovered, 1,586 unmeasured, no Safe Mode wipes. The default level wipes 25 times and `-l Basic` none, though it creates only 3,999 of the 11,141 mutants. `safe-mode-triggers.json` holds 21 triggers and needs refreshing when their lines move. The comments live only in a throwaway worktree, so a plain `dotnet stryker` on `main` still reports about 1,985 unmeasured. Of the 1,985, 65 are in `StepReliabilityService`, the largest part of the rise from 1,876; the mutants are new code, not lost measurement.
+
+The recovered mutants leave 115 live, and 210 are killed. Rows closed: `EveryConfigurationWrite_IsSaved` and `ObsoleteAttempt_WhoseWinnerIsGone_CancelsItsRun`, each proven by a hand-applied regression. Open: `BindingHookPersistenceService` startup and save have no unit coverage (25 live), `PollTriggerService.PollOneAsync` has no unit coverage past the fetch, `DeployPollService.cs:180,211,220` status recording, and `StageScheduler.cs:238`. The string mutants on `LogIfFailed` lines only change a log label. Static field mutants show no stable killer between runs, so a status change there is not a regression signal.
+
 `ignore-mutations`, `ignore-methods` and `mutate` spans apply after rollback, so they can't help. Only `mutation-level` and `// Stryker disable` comments act before placement.
 
 1. Run a compile-only pass for the real tally: `dotnet stryker -L --diag -O <dir> -m '**/*.cs{0..1}' -m '!**/*.g.cs' -r json`. Mutants still compile and roll back, then every mutant is filtered out, so this takes minutes.
@@ -454,7 +458,7 @@ Add a small set of browser-level tests of the main user flows, running against a
 
 | Metric | Result | Addressed? | How |
 |---|---|---|---|
-| Backend mutation score | 55.06% at audit, 67.91% on `070c49b` | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
+| Backend mutation score | 55.06% at audit, 69.04% with Step 4's recovery | Yes | Steps 1 and 2 raise it where it matters. The target is 80%+ on critical logic, not everywhere. |
 | High-risk gaps (drain, retention guard, superseded attempts) | 3 confirmed | Yes | Step 1, covered |
 | Medium and low gaps | 5 confirmed | Partly | Step 1, Medium covered. The Low rows wait. |
 | Gaps from the survivor triage | 116 rows: 8 High, 50 Medium, 58 Low | Partly | Step 1 covers High, then Medium. Low rows wait. |
@@ -463,8 +467,8 @@ Add a small set of browser-level tests of the main user flows, running against a
 | Other survivors | 1,061 | Yes | All triaged: 581 gap, 14 already listed, 124 equivalent, 340 harmless, 2 artefacts |
 | Not-covered mutants | 1,441 | Partly | Steps 1, 5 and 7. Wiring is left to indirect coverage. |
 | `Configuration` score | 31.7% | By design | Mostly metadata and wiring. `RequireRead()` is checked and is not a gap. |
-| Unmeasured mutants | 1,876 labelled, about 845 (7.9%) real | Partly | Step 4 has the workaround. Its runs are still to do. |
-| Mutants hidden by `*Log*` | About 60 | Yes | Step 4 narrows the pattern |
+| Unmeasured mutants | 1,586 with Step 4's recovery, 1,985 without | Yes | Step 4, measured. The rest mostly fail to compile even alone. |
+| Mutants hidden by `*Log*` | 0 | Yes | Step 4, done |
 | Cross-method duplicate groups | 16 (1 merged, 15 kept) | Yes | Step 3, done |
 | No unique kill | 463 tests | No action, by design | Most keep their place as rules or guards |
 | Zero-kill tests | 42 at audit, 9 covered on `070c49b` | Yes | The 9 are judged and stay. Step 3 resolved the rest. The 12 with no recorded coverage are resolved and all stay. |
@@ -509,7 +513,7 @@ Open work from the pipeline package migration and the `pl wait` changes.
 
 **This plan**
 
-- **Step 4:** every score above is the audit's. A full run on `070c49b` scores 67.91%: 5,088 killed, 22 timed out, 1,366 survived, 1,049 uncovered, 1,985 unmeasured.
+- **Step 4:** every score above Step 4's Status line is the audit's. Its open rows are listed there.
 - **Step 8:** no new tier runs in a pipeline. The `test` step shows only the fixtures line.
 - **Step 9:** not started.
 

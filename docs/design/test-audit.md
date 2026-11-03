@@ -332,7 +332,32 @@ These are good tests overall: flow-shaped, exact about messages and argv, with a
 | Module state is set and not restored, which blocks `test.concurrent` | `wait.test.ts:5-7`, `publish-sdk.test.ts:39`, `deployer.test.ts:4-6`, `config-refs.test.ts:232,281` | Low |
 | Upper bounds on wall time, and real timeouts in place of the `sleep` seam | `ctx.test.ts:116,150,161`, `wait.test.ts:200` | Low |
 
-**StrykerJS and bun:** no official bun runner exists, and the community one needs core ^9 and has a report of bun incompatibility. StrykerJS 10.1.1's `command` runner works but reruns the suite for every mutant, and it needs a copy of the tree that holds the files the tests read. `src/cli` takes 19m44s at 6 workers: 5,938 mutants, 45.84%. `src/sdk/src/core` takes 1m26s against the 8 test files that finish in under a second: 411 mutants, 75.18%. That score leaves out `ctx`, `build` and `harness`, which take about 22s together, so it is a floor. Pair each SDK directory with its fast test files.
+**StrykerJS and bun:** no official bun runner exists, and the community one needs core ^9 and has a report of bun incompatibility. StrykerJS 10.1.1's `command` runner works but reruns the suite for every mutant, and it needs a copy of the tree that holds the files the tests read. `src/cli` takes 19m44s at 6 workers: 5,938 mutants, 45.84%. `src/sdk/src/core` takes 1m26s against the 8 test files that finish in under a second: 411 mutants, 75.18%. That score leaves out `ctx`, `build` and `harness`, so it is a floor. Pair each SDK directory with the test files that exercise it, run `bun test --bail`, and restore the executable bit of `src/build/cli.ts` and `src/dev/cli.ts` in the command, which the sandbox drops. The TypeScript 7 compiler lacks the API Stryker's tsconfig rewrite calls, so point `tsconfigFile` at a file that doesn't exist. `describe.test.ts` reads the C# test fixture at `../backend/...` from the SDK, so put that file beside the sandbox directory.
+
+The other SDK directories, each against its paired tests (the dev runner against `build.test.ts`, `util/tar.ts` against `ctx` and `harness`), 5,133 mutants:
+
+| Directory | Paired tests | Before | After | Undetected |
+|---|---|---:|---:|---:|
+| `builder` | the fast files | 69.23% | 97.20% | 4 |
+| `dev` | `build` | 94.96% | 94.96% | 6 |
+| `build` | `build` | 52.47% | 92.99% | 23 |
+| `library` | the fast files | 75.97% | 89.79% | 88 |
+| `harness` | `harness` | 56.42% | 89.19% | 77 |
+| `describe` | the fast files | 70.04% | 88.98% | 238 |
+| `util` | the fast files; `tar.ts` `ctx` and `harness` | 47.57% | 86.33% | 35 |
+| `ctx` | `ctx` | 53.99% | 86.01% | 74 |
+| `testing` | the fast files | 66.67% | 75.00% | 6 |
+| all | | 65.62% | 89.27% | 551 |
+
+The fast files are `describe`, `config`, `config-refs`, `external-inputs`, `library`, `mapper-source`, `record` and `library-public`. Each "after" score is a floor, since other test files kill more. All 1,739 survivors of the first run (`dev` and `tar.ts` from their runs against their real tests) were triaged by reading the code: 1,177 were gaps, 119 already covered by another test file, the rest equivalent or harmless. The High and Medium gaps have tests, each proven by a hand-applied regression. Two of those regressions (a fifo archived as a file, a shrinking file in `writeTar`) hang the test run instead of failing a test, since the loops are synchronous.
+
+The triage found and fixed:
+
+- A mapper string constant holding a newline or both quote kinds was refused as a template string, because Bun prints such a string as a template literal.
+- A step that references a `secretRef` through a record (`z.record(z.string(), secretRef(S))`, `K.keys.foo`) passed both describe and reconcile without declaring the secret, so its pod never got it.
+- The fake registry ignored `Accept`. ghcr answers a manifest request for a multi-arch image (an OCI index) with 404 unless `Accept` names the index type, and a single-arch one with 200 whatever `Accept` says (checked against ghcr.io on 2026-11-03).
+
+Not covered: the Low gaps that need a timer seam in `createSh` (the idle watchdog), the progress log lines of the library steps, and the `olve-dev` usage rows.
 
 ## Findings from the new test tiers
 
@@ -447,7 +472,7 @@ Status: done. `real-system-test` runs both tiers once after `beta-test` and must
 
 Status: done. `library-public.test.ts` reads both quote styles, and rows prove it refuses each import form. The rule holds. `.pipelines/tests` and `deployer.test.ts` run in `build-sdk` and in `tools/check.sh --full`. The SIGTERM test waits for the step to report ready. `deployer.test.ts` runs `deploy()` against a fake Docker daemon on a unix socket and pins the order of Docker calls for each failure, proven by four hand-applied regressions. The CLI's fake API bodies are typed against the generated client, so a renamed field fails `tsc`. `compile-fail` runs once in each of `bun run check` and `tools/check.sh --full`, and no step runs both.
 
-`login.test.ts`, `binding.test.ts` and `oidc.test.ts` cover the login flows, the binding commands and the OIDC client, each rule proven by a hand-applied regression. Line coverage is 82% for `commands/login.ts`, 96% for `commands/binding.ts` and 100% for `auth/oidc.ts`; the mutation scores above are from before those tests. Open: the browser timeout, a cancelled browser login and a loopback with no free port are untested. `main.ts` scores 0%, because the tests call `pl` below it. Mutation runs stay manual and the other SDK directories have not been run.
+`login.test.ts`, `binding.test.ts` and `oidc.test.ts` cover the login flows, the binding commands and the OIDC client, each rule proven by a hand-applied regression. Line coverage is 82% for `commands/login.ts`, 96% for `commands/binding.ts` and 100% for `auth/oidc.ts`; the mutation scores above are from before those tests. Open: the browser timeout, a cancelled browser login and a loopback with no free port are untested. `main.ts` scores 0%, because the tests call `pl` below it. Mutation runs stay manual.
 
 ### Metrics against the plan
 
@@ -479,7 +504,7 @@ Status: done. `library-public.test.ts` reads both quote styles, and rows prove i
 | Real-system tests | 66, plus 5 off-cadence chaos test methods | Yes | Steps 5 and 8, gating prod |
 | Fakes unchecked against reality | About 20 | Partly | Kubernetes and S3 fakes now run a shared contract, with 7 known disagreements. Other fakes wait. |
 | Frontend tests | 5 browser flows | Yes | Steps 7 and 8, gating prod |
-| TypeScript mutation score | `src/cli` 45.84%, `src/sdk/src/core` at least 75.18% | Partly | Step 9. The other SDK directories are not run. |
+| TypeScript mutation score | `src/cli` 45.84%, `src/sdk/src/core` at least 75.18%, the rest of `src/sdk/src` at least 89.27% | Partly | Step 9. `src/cli` has not been re-run since its new tests. |
 | TypeScript tests in no pipeline step | 0 | Yes | Step 9, done |
 | Interface bugs in fix history | Prominent in a skim | Yes | Steps 5 and 6, though nothing measures it yet |
 

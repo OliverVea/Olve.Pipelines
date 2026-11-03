@@ -411,10 +411,6 @@ What step 5 built, and where it differs from §9 and §11.
   server image (registry by digest, `IfNotPresent`), an explicit `Harness__HarnessBaseImage` (the
   value the old server defaulted to) and, on prod, `Distribution__CliPromotedBy` set empty, so
   prod's `/download` keeps serving its latest `publish-cli` until its own runs promote.
-- **Follow-up (parked): `publish` should `select` too.** build-server, build-harness, publish-*
-  and promote each declare GHCR_TOKEN, NPM_TOKEN and REGISTRY_PASSWORD and pick at runtime from
-  `publish`, which is branching on config inside a step. Like the deploy targets, each registry
-  kind should be a `select` case whose steps declare only the secret that registry needs.
 - **Public images come from staging (2026-10-24).** `build-server` and `build-harness` push to
   `publish.*.repository` in parallel with `test`, so that repository holds unverified builds and
   should be private (prod: registry.ovea.pro); beta and prod deploy from it. `publish.*.release`

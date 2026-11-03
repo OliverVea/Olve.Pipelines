@@ -60,8 +60,6 @@ record is in the plan's Track E.
    F4, T3 to T7 (CLI, `devMain` and frontend tests; `.Value!` in tests), D3 to D6.
 5. **Bring crafty back**, when wanted: unblock `deploy` and `verify`, then run it.
 6. Small follow-ups found on the way:
-   - `publish-*` steps declare `REGISTRY_SECRETS` whole; with `select` each would declare only the
-     selected registry's secret.
    - ~~The `contentTag` cache key, a cached `imageBuild`, the kaniko pin.~~ Done in SDK
      2.0.0-beta.24: the key hashes the build recipe (the pinned kaniko image and its flags) with the
      context, and `PushedImage.cached` says the build was skipped.

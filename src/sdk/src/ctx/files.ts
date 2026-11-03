@@ -37,6 +37,8 @@ export interface FilesDeps {
   root: string;
   signal: AbortSignal;
   log: (message: string, fields?: Record<string, unknown>) => void;
+  /** Backoff between download retries (default: real sleep). */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 function checkName(name: string, what: string): void {
@@ -122,6 +124,7 @@ async function download(
   headers: Record<string, string>,
   signal: AbortSignal,
   log: FilesDeps['log'],
+  sleep: (ms: number) => Promise<void>,
 ): Promise<void> {
   const attempts = 4;
   for (let i = 1; ; i++) {
@@ -143,13 +146,14 @@ async function download(
         attempt: i,
         error: (e as Error).message,
       });
-      await Bun.sleep(1000 * 2 ** (i - 1));
+      await sleep(1000 * 2 ** (i - 1));
     }
   }
 }
 
 export function createFetch(deps: FilesDeps) {
   const cache = new Map<string, string>();
+  const sleep = deps.sleep ?? ((ms: number) => Bun.sleep(ms));
   return async (input: FileRef): Promise<string> => {
     const parsed = fileRefSchema.safeParse(input);
     if (!parsed.success)
@@ -181,7 +185,8 @@ export function createFetch(deps: FilesDeps) {
     const baseUrl = process.env[ENV.filesBaseUrl];
     if (own && existsSync(join(deps.workFiles, obj)))
       copyFileSync(join(deps.workFiles, obj), objFile);
-    else if (urls[key]) await download(urls[key], objFile, {}, deps.signal, deps.log);
+    else if (urls[key])
+      await download(urls[key], objFile, {}, deps.signal, deps.log, sleep);
     else if (
       localDir &&
       existsSync(
@@ -201,6 +206,7 @@ export function createFetch(deps: FilesDeps) {
         token ? { authorization: `Bearer ${token}` } : {},
         deps.signal,
         deps.log,
+        sleep,
       );
     } else {
       throw new Error(

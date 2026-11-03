@@ -89,9 +89,25 @@ export function createHttp(signal: AbortSignal): Http {
   };
 }
 
+/** Waits `ms`, or rejects at once when the step is cancelled. */
+function cancellableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((res, rej) => {
+    const t = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      res();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(t);
+      rej(new Error('retry cancelled: the step was cancelled'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 export function createRetry(
   signal: AbortSignal,
   log: (m: string, f?: Record<string, unknown>) => void,
+  sleep: (ms: number, signal: AbortSignal) => Promise<void> = cancellableSleep,
 ) {
   return async <T>(
     opts: RetryOptions,
@@ -110,17 +126,7 @@ export function createRetry(
           of: opts.attempts,
           error: (e as Error)?.message ?? String(e),
         });
-        await new Promise<void>((res, rej) => {
-          const t = setTimeout(() => {
-            signal.removeEventListener('abort', onAbort);
-            res();
-          }, delay);
-          const onAbort = () => {
-            clearTimeout(t);
-            rej(new Error('retry cancelled: the step was cancelled'));
-          };
-          signal.addEventListener('abort', onAbort, { once: true });
-        });
+        await sleep(delay, signal);
         delay *= opts.backoff ?? 1;
       }
     }

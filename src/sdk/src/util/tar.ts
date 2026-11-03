@@ -20,7 +20,6 @@ import { createGzip } from 'node:zlib';
 
 export type TarEntry =
   | { path: string; type: 'file'; mode: number; source: string }
-  | { path: string; type: 'bytes'; mode: number; data: Uint8Array }
   | { path: string; type: 'dir'; mode: number }
   | { path: string; type: 'symlink'; target: string };
 
@@ -88,7 +87,6 @@ export function writeTar(out: string, entries: readonly TarEntry[]): void {
       const link = e.type === 'symlink' ? e.target : '';
       let size = 0;
       if (e.type === 'file') size = lstatSync(e.source).size;
-      else if (e.type === 'bytes') size = e.data.length;
       const pax: string[] = [];
       if (enc.encode(name).length > 100) pax.push(paxRecord('path', name));
       if (enc.encode(link).length > 100) pax.push(paxRecord('linkpath', link));
@@ -104,10 +102,7 @@ export function writeTar(out: string, entries: readonly TarEntry[]): void {
       write(
         header(shortName, size, mode, flag, link.length > 100 ? link.slice(0, 99) : link),
       );
-      if (e.type === 'bytes') {
-        write(e.data);
-        pad(size);
-      } else if (e.type === 'file') {
+      if (e.type === 'file') {
         const src = openSync(e.source, 'r');
         try {
           const buf = new Uint8Array(1 << 20);

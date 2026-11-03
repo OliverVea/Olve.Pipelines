@@ -217,7 +217,10 @@ describe('callback and poll sources', () => {
     const send = implement(
       step({ name: 'send', description: '', image: 'alpine', input: { art: Art } }),
       async (_, ctx) => {
-        ctx.log('url', { url: ctx.inputUrl(signalled, 'verdict') });
+        ctx.log('url', {
+          byStep: ctx.inputUrl(signalled, 'verdict'),
+          byName: ctx.inputUrl('signalled', 'verdict'),
+        });
       },
     );
     const ok = await testHandler(
@@ -226,7 +229,7 @@ describe('callback and poll sources', () => {
       { callbackUrls: { 'signalled/verdict': 'https://hooks/x' } },
     );
     expect(ok.status).toBe('succeeded');
-    expect(ok.logs.join('\n')).toContain('https://hooks/x');
+    expect(ok.logs).toContain('url byStep=https://hooks/x byName=https://hooks/x');
     const missing = await testHandler(send, { art: { version: '1' } });
     expect(missing.status).toBe('failed');
     expect(JSON.stringify(missing)).toContain('no callback URL');

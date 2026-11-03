@@ -220,6 +220,7 @@ describe('config references', () => {
       registryAuth: PUBLISH.auth,
       secrets: [REG],
     });
+    expect(step.secrets).toEqual([REG]);
     const dockerConfig = tmp('cfg-ref-docker');
     process.env.DOCKER_CONFIG = dockerConfig;
     try {
@@ -272,6 +273,38 @@ describe('config references', () => {
     } finally {
       delete process.env.DOCKER_CONFIG;
     }
+  });
+
+  test('a config registryAuth naming a secret the step does not declare fails the step', async () => {
+    const LOGIN = config(
+      'login',
+      'Registry login.',
+      z.object({ username: z.string(), password: z.object({ secret: z.string() }) }),
+    );
+    const tree = tmp('cfg-ref-undeclared');
+    writeFileSync(join(tree, 'Dockerfile'), 'FROM scratch\n');
+    const r = await testHandler(
+      steps.imageBuild({
+        name: 'build',
+        description: '',
+        repository: 'registry:5000/app',
+        push: true,
+        registryMap: {},
+        registryAuth: LOGIN as any,
+        secrets: [REG],
+      }),
+      { source },
+      {
+        ctx: { files: { fetch: async () => tree } },
+        secrets: { REGISTRY_PASSWORD: 'pw' },
+        config: { login: { username: 'u', password: { secret: 'OTHER' } } },
+      },
+    );
+    expect(r).toMatchObject({ status: 'failed', error: { kind: 'handler' } });
+    if (r.status === 'failed')
+      expect(r.error.message).toContain(
+        'registryAuth names secret OTHER, which the step does not declare (add it to secrets)',
+      );
   });
 });
 
@@ -562,6 +595,48 @@ describe('target deploys and select', () => {
     expect(wrong.error.message).toContain("the target is kind 'inCluster', not 'ssh'");
   });
 
+  test.each([
+    [undefined, 120],
+    [60, 60],
+  ])(
+    'ssh target with defaults (rolloutTimeoutSeconds %p): the image flags, no values files, rollout --timeout=%ps',
+    async (rolloutTimeoutSeconds, timeout) => {
+      const f = fakes();
+      const deploy = steps.helmDeployOverSsh({
+        name: 'deploy-prod',
+        description: '',
+        target: TARGET.prod as any,
+        sshKey: KEY,
+        chart: 'helm',
+        rolloutTimeoutSeconds,
+      });
+      const r = await testHandler(
+        deploy as any,
+        { source, image: server },
+        {
+          ctx: f.ctx,
+          secrets: { SSH_PRIVATE_KEY: 'k' },
+          config: {
+            target: {
+              beta: { kind: 'ssh', host: 'u@h', namespace: 'apps-beta' },
+              prod: { kind: 'ssh', host: 'u@h', namespace: 'apps' },
+            },
+          },
+        },
+      );
+      expect(r.status).toBe('succeeded');
+      const remote = f.calls
+        .filter((c): c is string[] => Array.isArray(c) && c[0] === 'ssh')
+        .map((c) => c.at(-1)!);
+      expect(remote.slice(-2)).toEqual([
+        'cd /tmp/app-helm-apps && helm upgrade --install app . -n apps --set image.repository=registry:5000/app ' +
+          `--set image.tag=2026.10.24.7 --set image.pullPolicy=IfNotPresent --set-string image.digest=${server.digest} ` +
+          '&& cd / && rm -rf /tmp/app-helm-apps',
+        `kubectl -n apps rollout status deploy/app --timeout=${timeout}s`,
+      ]);
+    },
+  );
+
   test('inCluster target: needs the ServiceAccount token, then helm --wait in the step pod', async () => {
     const deploy = steps.helmDeployInCluster({
       name: 'deploy-beta',
@@ -762,6 +837,12 @@ describe('steps.composeDeploy and deployTarget', () => {
     expect(
       T.schema.safeParse({ beta: { kind: 'none' }, prod: { kind: 'none' } }).success,
     ).toBe(false);
+  });
+
+  test('extend adds its fields to the compose kind too', () => {
+    const target = deployTarget({ composeToken: TOKEN, extend: { x: z.string() } });
+    const parsed = target.parse({ ...docConfig.target.prod, x: '1' });
+    expect(parsed).toMatchObject({ kind: 'compose', x: '1' });
   });
 
   test("POSTs the image by digest with the token and reports the deployer's answer", async () => {

@@ -20,7 +20,7 @@ import {
   type FileRef,
 } from '../../src/index.ts';
 import { recordConfigRefs } from '../../src/core/config-refs.ts';
-import { SSH_CLIENT_INSTALL } from '../../src/library/ssh.ts';
+import { chartDependencies, helmPullCommand } from '../../src/library/helm-deploy-ssh.ts';
 import {
   BUILD_RECIPE,
   contentTagOf,
@@ -28,7 +28,9 @@ import {
   KANIKO_BUILD_FLAGS,
   KANIKO_IMAGE,
   parseChallenge,
+  qualifyRepository,
   reachableMirrors,
+  registryDigest,
   registryUp,
   writeDockerConfig,
 } from '../../src/library/image-build.ts';
@@ -219,12 +221,60 @@ describe('steps.gitHubSource', () => {
     expect(authorization).toBeNull();
   });
 
-  test('rejects a malformed repo', async () => {
-    const r = await testHandler(steps.gitHubSource({ name: 'source', description: '' }), {
-      repo: 'not a repo',
-      sha: SHA,
+  test.each(['not a repo', 'a/b/c', 'x y/b', '/a/b', 'a/b/'])(
+    'rejects a malformed repo: %p',
+    async (repo) => {
+      const r = await testHandler(
+        steps.gitHubSource({ name: 'source', description: '' }),
+        {
+          repo,
+          sha: SHA,
+        },
+      );
+      expect(r).toMatchObject({ status: 'failed', error: { kind: 'input' } });
+      if (r.status === 'failed') expect(r.error.message).toContain('expected owner/name');
+    },
+  );
+
+  test('the token is trimmed; apiUrl is recorded and used without trailing slashes', async () => {
+    expect(settingsOf(steps.gitHubSource({ name: 'source', description: '' }))).toEqual(
+      {},
+    );
+    const step = steps.gitHubSource({
+      name: 'source',
+      description: '',
+      token: TOKEN,
+      apiUrl: 'https://ghe/api/v3//',
     });
-    expect(r).toMatchObject({ status: 'failed', error: { kind: 'input' } });
+    expect(settingsOf(step)).toEqual({
+      token: 'GITHUB_TOKEN',
+      apiUrl: 'https://ghe/api/v3//',
+    });
+    const body = await tarball();
+    const seen: { url: string; authorization: string | null }[] = [];
+    const r = await testHandler(
+      step,
+      { repo: 'a/b', sha: SHA },
+      {
+        // fetch's Headers strip the outer whitespace of a value, not the space after "Bearer".
+        secrets: { GITHUB_TOKEN: ' tok\n' },
+        ctx: {
+          http: {
+            fetch: async (url: string, init?: RequestInit) => {
+              seen.push({
+                url,
+                authorization: new Headers(init?.headers).get('authorization'),
+              });
+              return new Response(body);
+            },
+          } as unknown as Ctx['http'],
+        },
+      },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(seen).toEqual([
+      { url: `https://ghe/api/v3/repos/a/b/tarball/${SHA}`, authorization: 'Bearer tok' },
+    ]);
   });
 });
 
@@ -421,9 +471,11 @@ describe('steps.imageBuild', () => {
     expect(await registryUp(statusOf(404), 'h')).toBe(false);
     expect(await registryUp(statusOf(503), 'h')).toBe(false);
     const hang = fakeKaniko({ hang: ['slow.example'] });
-    const t0 = Date.now();
     expect(await registryUp(hang.http, 'slow.example', undefined, 50)).toBe(false);
-    expect(Date.now() - t0).toBeLessThan(2000);
+    // The run's signal never fires here: the probe's own timeout must still end it.
+    expect(
+      await registryUp(hang.http, 'slow.example', new AbortController().signal, 50),
+    ).toBe(false);
     const k = fakeKaniko({ down: ['registry.example'] });
     const logs: string[] = [];
     const ctx = {
@@ -518,6 +570,105 @@ describe('steps.imageBuild', () => {
     if (bad.status === 'failed')
       expect(bad.error.message).toContain('not a valid image tag');
     else throw new Error('expected failure');
+  });
+});
+
+describe('steps.imageBuild: definitions', () => {
+  test.each([
+    ['app', 'docker.io/library/app'],
+    ['o/app', 'docker.io/o/app'],
+    ['registry.ovea.pro/a/b', 'registry.ovea.pro/a/b'],
+    ['registry:5000/app', 'registry:5000/app'],
+    ['localhost/app', 'localhost/app'],
+    ['localhostx/app', 'docker.io/localhostx/app'],
+  ])('a loaded tarball %p is named %p', (repository, name) => {
+    expect(qualifyRepository(repository)).toBe(name);
+  });
+
+  test.each<[string, Record<string, unknown>, Record<string, unknown>]>([
+    [
+      'context is normalised',
+      { context: './/src//' },
+      { repository: 'x', context: 'src' },
+    ],
+    ['context . is the root', { context: '.' }, { repository: 'x' }],
+    [
+      'insecureRegistry on',
+      { repository: 'registry:5000/x', insecureRegistry: true },
+      { repository: 'registry:5000/x', insecureRegistry: true },
+    ],
+    [
+      'insecureRegistry off',
+      { repository: 'registry:5000/x', insecureRegistry: false },
+      { repository: 'registry:5000/x' },
+    ],
+  ])('settings: %s', (_, def, settings) => {
+    const step = steps.imageBuild({
+      name: 'b',
+      description: '',
+      repository: 'x',
+      ...def,
+    } as never);
+    expect(settingsOf(step)).toEqual(settings);
+  });
+
+  const auth = { username: 'u', password: secret('GHCR_TOKEN', 'token') };
+  const pushNeeds = (r: string) =>
+    `imageBuild 'b': push needs a repository with a registry host, got '${r}'`;
+  const loginNeeds = (r: string) =>
+    `imageBuild 'b': registryAuth and insecureRegistry need a repository with a registry host, got '${r}'`;
+  test.each<[string, Record<string, unknown>, string | undefined]>([
+    [
+      'an absolute context',
+      { context: '/etc' },
+      "imageBuild context '/etc' must be a relative path inside the source tree",
+    ],
+    [
+      'push to mylocalhost',
+      { repository: 'mylocalhost/app', push: true },
+      pushNeeds('mylocalhost/app'),
+    ],
+    [
+      'push to localhostx',
+      { repository: 'localhostx/app', push: true },
+      pushNeeds('localhostx/app'),
+    ],
+    ['push to localhost', { repository: 'localhost/app', push: true }, undefined],
+    [
+      'login without a host',
+      { repository: 'app', registryAuth: auth },
+      loginNeeds('app'),
+    ],
+    [
+      'login to mylocalhost',
+      { repository: 'mylocalhost/app', registryAuth: auth },
+      loginNeeds('mylocalhost/app'),
+    ],
+    [
+      'insecure localhostx',
+      { repository: 'localhostx/app', insecureRegistry: true },
+      loginNeeds('localhostx/app'),
+    ],
+    [
+      'login to localhost',
+      { repository: 'localhost/app', registryAuth: auth },
+      undefined,
+    ],
+    [
+      'insecure localhost',
+      { repository: 'localhost/app', insecureRegistry: true },
+      undefined,
+    ],
+  ])('definition: %s', (_, def, error) => {
+    const build = () =>
+      steps.imageBuild({
+        name: 'b',
+        description: '',
+        repository: 'x',
+        ...def,
+      } as never);
+    if (error) expect(build).toThrow(error);
+    else expect(build).not.toThrow();
   });
 });
 
@@ -735,7 +886,12 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
     writeFileSync(join(tree, 'harness/base/Dockerfile'), 'FROM scratch\n');
     writeFileSync(join(tree, 'Dockerfile'), 'FROM scratch\n');
     const calls: string[][] = [];
-    const requests: { url: string; method: string; authorization: string | null }[] = [];
+    const requests: {
+      url: string;
+      method: string;
+      authorization: string | null;
+      accept: string | null;
+    }[] = [];
     const exec: Ctx['exec'] = async (argv) => {
       calls.push([...argv]);
       if (argv[0] === '/kaniko/executor')
@@ -746,11 +902,21 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
     };
     const http = {
       fetch: async (url: string, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        const accept = headers.get('accept');
         requests.push({
           url,
           method: init?.method ?? 'GET',
-          authorization: new Headers(init?.headers).get('authorization'),
+          authorization: headers.get('authorization'),
+          accept,
         });
+        // ghcr answers a manifest request that doesn't accept an OCI index (multi-arch images) with 404.
+        if (
+          url.includes('/manifests/') &&
+          headers.has('authorization') &&
+          !accept?.includes('application/vnd.oci.image.index.v1+json')
+        )
+          return new Response(null, { status: 404 });
         return registry(url, init);
       },
     } as unknown as Ctx['http'];
@@ -785,6 +951,15 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
       registryAuth: { username: 'olivervea', password: GHCR },
     });
     expect(step.secrets).toEqual([GHCR]);
+    expect(
+      steps.imageBuild({
+        name: 'b',
+        description: '',
+        repository: 'ghcr.io/o/x',
+        registryAuth: { username: 'o', password: GHCR },
+        secrets: [GHCR],
+      }).secrets,
+    ).toEqual([GHCR]);
     expect(settingsOf(step)).toEqual({
       repository: 'ghcr.io/olivervea/harness-base',
       context: 'harness/base',
@@ -828,6 +1003,13 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
         basic,
       ],
       ['HEAD', 'https://ghcr.io/v2/olivervea/harness-base', 'Bearer registry-token'],
+    ]);
+    const manifestTypes =
+      'application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, ' +
+      'application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json';
+    expect(s.requests.filter((q) => q.method === 'HEAD').map((q) => q.accept)).toEqual([
+      manifestTypes,
+      manifestTypes,
     ]);
     expect(JSON.parse(readFileSync(join(s.dockerConfig, 'config.json'), 'utf8'))).toEqual(
       {
@@ -922,7 +1104,17 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
       testHandler(step, { source }, { ctx: s.ctx, secrets: {} }),
     );
     if (unset.status !== 'failed') throw new Error('expected failure');
-    expect(unset.error.message).toContain('secret GHCR_TOKEN is not set');
+    expect(unset.error.message).toContain(
+      'secret GHCR_TOKEN is not set (the harness reads it from the environment variable GHCR_TOKEN)',
+    );
+    const empty = await withDockerConfig(s.dockerConfig, () =>
+      testHandler(step, { source }, { ctx: s.ctx, secrets: { GHCR_TOKEN: '' } }),
+    );
+    expect(empty).toMatchObject({ status: 'failed', error: { kind: 'handler' } });
+    if (empty.status === 'failed')
+      expect(empty.error.message).toContain(
+        'secret GHCR_TOKEN (registryAuth) is not set',
+      );
 
     const anon = steps.imageBuild({
       name: 'p',
@@ -1007,6 +1199,158 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
   });
 });
 
+describe('registryDigest', () => {
+  const DIGEST = 'sha256:' + 'ab'.repeat(32);
+  const creds = { username: 'o', password: 'pw' };
+  const login = `Basic ${Buffer.from('o:pw').toString('base64')}`;
+  const BEARER = 'Bearer realm="https://ghcr.io/token",service="ghcr.io"';
+  type Row = {
+    access?: { username: string; password: string };
+    challenge: string;
+    token?: () => Response;
+    digest?: string;
+    result: string | undefined | { error: string };
+    tokenRequest: { url: string; authorization: string | null } | null;
+  };
+  // The registry challenges an unauthenticated HEAD, then answers an authenticated one with the digest.
+  test.each<[string, Row]>([
+    [
+      'anonymous Bearer: a token without login',
+      {
+        challenge: BEARER,
+        result: DIGEST,
+        tokenRequest: {
+          url: 'https://ghcr.io/token?service=ghcr.io',
+          authorization: null,
+        },
+      },
+    ],
+    [
+      'login Bearer: the token request logs in',
+      {
+        access: creds,
+        challenge: BEARER,
+        result: DIGEST,
+        tokenRequest: {
+          url: 'https://ghcr.io/token?service=ghcr.io',
+          authorization: login,
+        },
+      },
+    ],
+    [
+      'login, token denied',
+      {
+        access: creds,
+        challenge: BEARER,
+        token: () => new Response(null, { status: 403 }),
+        result: { error: 'registry lookup of ghcr.io/o/x:t answered HTTP 403' },
+        tokenRequest: {
+          url: 'https://ghcr.io/token?service=ghcr.io',
+          authorization: login,
+        },
+      },
+    ],
+    [
+      'login, token endpoint 404 is a denial',
+      {
+        access: creds,
+        challenge: BEARER,
+        token: () => new Response(null, { status: 404 }),
+        result: { error: 'registry lookup of ghcr.io/o/x:t answered HTTP 401' },
+        tokenRequest: {
+          url: 'https://ghcr.io/token?service=ghcr.io',
+          authorization: login,
+        },
+      },
+    ],
+    [
+      'login, no token in the answer',
+      {
+        access: creds,
+        challenge: BEARER,
+        token: () => Response.json({}),
+        result: {
+          error: 'registry token endpoint https://ghcr.io/token returned no token',
+        },
+        tokenRequest: {
+          url: 'https://ghcr.io/token?service=ghcr.io',
+          authorization: login,
+        },
+      },
+    ],
+    [
+      'login, unknown scheme',
+      {
+        access: creds,
+        challenge: 'Negotiate',
+        result: { error: 'registry lookup of ghcr.io/o/x:t answered HTTP 401' },
+        tokenRequest: null,
+      },
+    ],
+    [
+      'anonymous Basic: denied, so build',
+      { challenge: 'Basic realm="r"', result: undefined, tokenRequest: null },
+    ],
+    [
+      'anonymous Bearer without a realm: denied, no token fetch',
+      { challenge: 'Bearer service="x"', result: undefined, tokenRequest: null },
+    ],
+    [
+      'the token query carries only what the challenge gave',
+      {
+        challenge: 'Bearer realm="https://t/token"',
+        result: DIGEST,
+        tokenRequest: { url: 'https://t/token?', authorization: null },
+      },
+    ],
+    [
+      'a digest with a trailing character',
+      {
+        access: creds,
+        challenge: 'Basic realm="r"',
+        digest: DIGEST + '0',
+        result: undefined,
+        tokenRequest: null,
+      },
+    ],
+    [
+      'a digest with a leading character',
+      {
+        access: creds,
+        challenge: 'Basic realm="r"',
+        digest: 'x' + DIGEST,
+        result: undefined,
+        tokenRequest: null,
+      },
+    ],
+  ])('%s', async (_, row) => {
+    const tokenRequests: { url: string; authorization: string | null }[] = [];
+    const http = {
+      fetch: async (url: string, init?: RequestInit) => {
+        const authorization = new Headers(init?.headers).get('authorization');
+        if (!url.includes('/manifests/')) {
+          tokenRequests.push({ url, authorization });
+          return row.token?.() ?? Response.json({ token: 'tok' });
+        }
+        if (!authorization)
+          return new Response(null, {
+            status: 401,
+            headers: { 'WWW-Authenticate': row.challenge },
+          });
+        return new Response(null, {
+          status: 200,
+          headers: { 'Docker-Content-Digest': row.digest ?? DIGEST },
+        });
+      },
+    } as unknown as Ctx['http'];
+    const lookup = registryDigest(http, 'ghcr.io/o/x', 't', row.access);
+    if (typeof row.result === 'object')
+      await expect(lookup).rejects.toThrow(row.result.error);
+    else expect(await lookup).toBe(row.result);
+    expect(tokenRequests).toEqual(row.tokenRequest ? [row.tokenRequest] : []);
+  });
+});
+
 describe('steps.helmDeployOverSsh', () => {
   const def = {
     name: 'deploy-beta',
@@ -1078,7 +1422,8 @@ describe('steps.helmDeployOverSsh', () => {
     const ssh = (remote: string) => ['ssh', ...o.split(' '), 'oliver@bulwark-m2', remote];
     const remote = '/tmp/olve-pipelines-v2-helm-apps-beta';
     expect(f.calls).toEqual([
-      SSH_CLIENT_INSTALL,
+      'command -v ssh >/dev/null 2>&1 || if command -v apk >/dev/null 2>&1; then apk add --no-cache openssh-client; ' +
+        'else apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends openssh-client; fi',
       `ssh ${o} oliver@bulwark-m2 'sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io load' < ${f.tar}`,
       ssh(`rm -rf ${remote}`),
       ['scp', ...o.split(' '), '-r', join(f.tree, 'helm'), `oliver@bulwark-m2:${remote}`],
@@ -1482,20 +1827,170 @@ describe('steps.helmDeployOverSsh: several images, registry images, rollouts', (
     expect(bad.error.message).toContain('an http(s) or oci repository');
   });
 
-  test('bad image config is a definition error', () => {
-    expect(() =>
+  test('helmWait: helm --wait with the rollout timeout instead of the rollout waits', async () => {
+    const step = steps.helmDeployOverSsh({
+      name: 'deploy',
+      description: '',
+      host: 'u@h',
+      sshKey: KEY,
+      release: 'app',
+      namespace: 'apps',
+      chart: 'helm',
+      helmWait: true,
+      rolloutTimeoutSeconds: 90,
+    });
+    expect(settingsOf(step)).toMatchObject({ helmWait: true });
+    expect(settingsOf(step)).not.toHaveProperty('atomic');
+    const f = fakes();
+    const r = await testHandler(
+      step,
+      { source, image: built('docker.io/library/app', 'app.tar') },
+      { secrets: { SSH_PRIVATE_KEY: 'k' }, ctx: f.ctx },
+    );
+    expect(r.status).toBe('succeeded');
+    const remote = sshCmd(f.calls);
+    expect(remote.at(-1)).toContain(
+      '--set image.pullPolicy=Never --wait --timeout=90s && cd /',
+    );
+    expect(remote.join('\n')).not.toContain('--atomic');
+    expect(remote.some((c) => c.includes('rollout status'))).toBe(false);
+  });
+
+  const depError = (d: string) =>
+    `chart dependency ${d}: needs a name, a version and an http(s) or oci repository`;
+  test.each<[string, string, unknown[] | string]>([
+    ['no dependencies', 'name: x\n', []],
+    ['an empty Chart.yaml', '', []],
+    [
+      'an http repository',
+      'dependencies:\n  - name: a\n    version: 1.0.0\n    repository: http://a\n',
+      [{ name: 'a', version: '1.0.0', repository: 'http://a' }],
+    ],
+    [
+      'no name',
+      'dependencies:\n  - version: 1.0.0\n    repository: https://a\n',
+      depError('{"version":"1.0.0","repository":"https://a"}'),
+    ],
+    [
+      'no version',
+      'dependencies:\n  - name: a\n    repository: https://a\n',
+      depError('{"name":"a","repository":"https://a"}'),
+    ],
+    [
+      'no repository',
+      'dependencies:\n  - name: a\n    version: 1.0.0\n',
+      depError('{"name":"a","version":"1.0.0"}'),
+    ],
+    [
+      'a scheme not at the start',
+      'dependencies:\n  - name: a\n    version: 1.0.0\n    repository: xhttps://a\n',
+      depError('{"name":"a","version":"1.0.0","repository":"xhttps://a"}'),
+    ],
+    [
+      'an ftp repository',
+      'dependencies:\n  - name: a\n    version: 1.0.0\n    repository: ftp://a\n',
+      depError('{"name":"a","version":"1.0.0","repository":"ftp://a"}'),
+    ],
+  ])('chart dependencies: %s', (_, chart, expected) => {
+    const dir = tmp('chart-deps');
+    writeFileSync(join(dir, 'Chart.yaml'), chart);
+    if (typeof expected === 'string')
+      expect(() => chartDependencies(dir)).toThrow(expected);
+    else expect(chartDependencies(dir)).toEqual(expected as never);
+  });
+
+  test('an oci dependency is pulled by reference, trailing slashes dropped', () => {
+    expect(
+      helmPullCommand({ name: 't', version: '1', repository: 'oci://r/c//' }, '/x'),
+    ).toBe('helm pull oci://r/c/t --version 1 --destination /x/charts');
+  });
+});
+
+describe('helm deploys: bad image config', () => {
+  const sshDef = {
+    name: 'd',
+    description: '',
+    host: 'u@h',
+    sshKey: KEY,
+    release: 'a',
+    namespace: 'n',
+    chart: 'helm',
+  };
+  const target = { namespace: 'n', release: 'a', values: [], set: {} };
+  const make: Record<string, (extra: object) => unknown> = {
+    ssh: (e) => steps.helmDeployOverSsh({ ...sshDef, ...e } as never),
+    sshTarget: (e) =>
       steps.helmDeployOverSsh({
         name: 'd',
         description: '',
-        host: 'u@h',
         sshKey: KEY,
-        release: 'a',
-        namespace: 'n',
         chart: 'helm',
-        deployments: [],
-      }),
-    ).toThrow('deployments must not be empty');
+        target: { kind: 'ssh', host: 'u@h', ...target },
+        ...e,
+      } as never),
+    inCluster: (e) =>
+      steps.helmDeployInCluster({
+        name: 'd',
+        description: '',
+        chart: 'helm',
+        target: { kind: 'inCluster', ...target },
+        ...e,
+      } as never),
+  };
+  const kindOf = {
+    ssh: 'helmDeployOverSsh',
+    sshTarget: 'helmDeployOverSsh',
+    inCluster: 'helmDeployInCluster',
+  } as const;
+  const rows: [string, object, string, (keyof typeof kindOf)[]][] = [
+    [
+      'source as an image',
+      { images: { source: 'x' } },
+      "'source' can't be an image input",
+      ['ssh', 'sshTarget', 'inCluster'],
+    ],
+    [
+      'source as an imageRef',
+      { imageRefs: { source: 'x' } },
+      "'source' can't be an image input",
+      ['ssh', 'sshTarget', 'inCluster'],
+    ],
+    [
+      'a key in both maps',
+      { images: { a: 'a' }, imageRefs: { a: 'a' } },
+      "'a' is both in images and imageRefs",
+      ['ssh', 'sshTarget', 'inCluster'],
+    ],
+    [
+      'no deployments',
+      { deployments: [] },
+      'deployments must not be empty',
+      ['ssh', 'sshTarget'],
+    ],
+    [
+      'a relative healthPath',
+      { healthPath: 'api/health' },
+      "healthPath must start with '/'",
+      ['sshTarget', 'inCluster'],
+    ],
+  ];
+  test.each(
+    rows.flatMap(([what, extra, message, on]) =>
+      on.map((k) => [k, what, extra, message] as const),
+    ),
+  )('%s: %s', (k, _, extra, message) => {
+    expect(() => make[k]!(extra)).toThrow(`${kindOf[k]} 'd': ${message}`);
   });
+
+  test.each(['ssh', 'sshTarget', 'inCluster'] as const)(
+    '%s: a good definition constructs',
+    (k) => {
+      expect(() =>
+        make[k]!(k === 'ssh' ? {} : { healthPath: '/api/health' }),
+      ).not.toThrow();
+      expect(() => make[k]!({})).not.toThrow();
+    },
+  );
 });
 
 describe('serviceUrl and checkSpa', () => {
@@ -1650,15 +2145,19 @@ describe('library steps in the manifest', () => {
 });
 
 describe('sshSession', () => {
-  test('a terminal is asked for only when a run wants the remote command hung up with its client', async () => {
+  test('a terminal is asked for only when a run wants the remote command hung up with its client; text returns stdout', async () => {
     const commands: string[][] = [];
+    const texts: string[] = [];
+    const tmpDir = mkdtempSync(join(tmpdir(), 'ssh-'));
     const ssh = await sshSession(
       {
         exec: async (argv: readonly string[]) => {
           commands.push([...argv]);
         },
-        sh: Object.assign(async () => {}, { text: async () => '' }),
-        tmpDir: mkdtempSync(join(tmpdir(), 'ssh-')),
+        sh: Object.assign(async () => {}, {
+          text: async (cmd: string) => (texts.push(cmd), 'out'),
+        }),
+        tmpDir,
       } as unknown as Parameters<typeof sshSession>[0],
       { host: 'oliver@host', key: 'k' },
     );
@@ -1666,10 +2165,34 @@ describe('sshSession', () => {
     await ssh.run('true');
     await ssh.run('true', { tty: true });
 
-    expect(commands.map((c) => c.slice(0, 2))).toEqual([
-      ['ssh', '-i'],
-      ['ssh', '-tt'],
+    const opts = [
+      '-i',
+      join(tmpDir, 'ssh', 'id'),
+      '-o',
+      'StrictHostKeyChecking=no',
+      '-o',
+      'UserKnownHostsFile=/dev/null',
+      '-o',
+      'LogLevel=ERROR',
+      '-o',
+      'BatchMode=yes',
+    ];
+    expect(commands).toEqual([
+      ['ssh', ...opts, 'oliver@host', 'true'],
+      ['ssh', '-tt', ...opts, 'oliver@host', 'true'],
     ]);
-    expect(commands.map((c) => c.at(-1))).toEqual(['true', 'true']);
+    expect(await ssh.text("echo 'a b'")).toBe('out');
+    expect(texts).toEqual([`ssh ${opts.join(' ')} oliver@host 'echo '\\''a b'\\'''`]);
+  });
+});
+
+describe('testHandler', () => {
+  test('a bare step() is refused with a clear error', async () => {
+    const contract = steps.gitHubSource({ name: 'source', description: '' }).step;
+    await expect(
+      testHandler(contract as never, { repo: 'a/b', sha: SHA } as never),
+    ).rejects.toThrow(
+      'testHandler expects implement(…): a step that carries its implementation',
+    );
   });
 });

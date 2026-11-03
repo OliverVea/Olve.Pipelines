@@ -72,6 +72,8 @@ public static class ConfigRefs
             }
             if (node.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object && props.TryGetProperty(path[at], out var child))
                 foreach (var found in Walk(child, at + 1, $"{here}.{path[at]}")) yield return found;
+            else if (node.TryGetProperty("additionalProperties", out var extra) && extra.ValueKind == JsonValueKind.Object)
+                foreach (var found in Walk(extra, at + 1, $"{here}.{path[at]}")) yield return found;
         }
     }
 

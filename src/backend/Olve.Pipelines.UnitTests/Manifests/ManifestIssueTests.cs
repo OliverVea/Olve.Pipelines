@@ -283,6 +283,7 @@ public class ManifestIssueTests
         })),
         ["config ref to the secret part of an entry"] = Row(C.ConfigSecretRefNotInStep, "stages[0].steps[0].configEntries[0]", "step 'hello' receives config entry 'auth', which references secret 'DEX_CLIENT_SECRET'; the step must also declare that secret", () => HelloRefersTo("auth.clientSecret")),
         ["config ref to another entry leaves this one whole"] = Row(C.ConfigSecretRefNotInStep, "stages[0].steps[0].configEntries[0]", "step 'hello' receives config entry 'auth', which references secret 'DEX_CLIENT_SECRET'; the step must also declare that secret", () => HelloRefersTo("target.host")),
+        ["config ref into a record of secrets"] = Row(C.ConfigSecretRefNotInStep, "stages[0].steps[0].configEntries[0]", "step 'hello' receives config entry 'auth', which references secret 'DEX_CLIENT_SECRET'; the step must also declare that secret", () => HelloRefersTo("auth.keys.foo", schema => schema["keys"] = new JsonObject { ["type"] = "object", ["additionalProperties"] = JsonNode.Parse(SecretRefSchema) })),
         ["config ref not narrowed needs every branch's secret"] = Row(C.ConfigSecretRefNotInStep, "stages[1].cases.ssh[0].steps[0].configEntries[0]", "step 'count' receives config entry 'target', which references secret 'KUBE_KEY'; the step must also declare that secret", () => Selected(r =>
         {
             SelectTests.SecretPerCase(r);
@@ -331,12 +332,23 @@ public class ManifestIssueTests
     private static string NullableObject(string combinator) =>
         "{\"" + combinator + "\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]},{\"type\":\"null\"}]}";
 
-    private static string HelloRefersTo(string reference)
+    private static string HelloRefersTo(string reference, Action<JsonObject>? authProperties = null)
     {
         var node = JsonNode.Parse(ConfigManifests.Text(helloDeclaresSecret: false))!.AsObject();
         node["stages"]![0]!["steps"]![0]!["config"] = ConfigRef(reference);
+        if (authProperties is not null)
+        {
+            var auth = node["config"]!.AsArray().Single(e => (string?)e!["name"] == "auth")!["schema"]!.AsObject();
+            auth.Clear();
+            auth["type"] = "object";
+            var properties = new JsonObject();
+            authProperties(properties);
+            auth["properties"] = properties;
+        }
         return node.ToJsonString();
     }
+
+    private const string SecretRefSchema = """{"type":"object","properties":{"secret":{"type":"string","const":"DEX_CLIENT_SECRET"}},"required":["secret"],"additionalProperties":false,"x-olve-kind":"secretRef"}""";
 
     private static JsonObject ConfigRef(string reference) => new() { ["x"] = new JsonObject { ["$config"] = reference } };
 

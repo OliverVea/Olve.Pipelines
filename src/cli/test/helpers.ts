@@ -99,6 +99,7 @@ export async function pl(
     run?: ProcessRunner;
     stdinIsTerminal?: boolean;
     prompt?: (text: string) => Promise<string>;
+    openBrowser?: (url: string) => void;
   } = {},
 ) {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'pl-test-'));
@@ -117,6 +118,7 @@ export async function pl(
     stdinIsTerminal: options.stdinIsTerminal ?? options.stdin === undefined,
     run: options.run,
     prompt: options.prompt,
+    openBrowser: options.openBrowser,
   };
   const code = await run(argv, io);
   return { code, stdout: stdout.join(''), stderr: stderr.join('\n'), home };

@@ -447,7 +447,7 @@ Status: done. `real-system-test` runs both tiers once after `beta-test` and must
 
 Status: done. `library-public.test.ts` reads both quote styles, and rows prove it refuses each import form. The rule holds. `.pipelines/tests` and `deployer.test.ts` run in `build-sdk` and in `tools/check.sh --full`. The SIGTERM test waits for the step to report ready. `deployer.test.ts` runs `deploy()` against a fake Docker daemon on a unix socket and pins the order of Docker calls for each failure, proven by four hand-applied regressions. The CLI's fake API bodies are typed against the generated client, so a renamed field fails `tsc`. `compile-fail` runs once in each of `bun run check` and `tools/check.sh --full`, and no step runs both.
 
-Open: `commands/login.ts` scores 1%, `commands/binding.ts` 19% and `auth/oidc.ts` 28%. `main.ts` scores 0%, because the tests call `pl` below it. Mutation runs stay manual and the other SDK directories have not been run.
+`login.test.ts`, `binding.test.ts` and `oidc.test.ts` cover the login flows, the binding commands and the OIDC client, each rule proven by a hand-applied regression. Line coverage is 82% for `commands/login.ts`, 96% for `commands/binding.ts` and 100% for `auth/oidc.ts`; the mutation scores above are from before those tests. Open: the browser timeout, a cancelled browser login and a loopback with no free port are untested. `main.ts` scores 0%, because the tests call `pl` below it. Mutation runs stay manual and the other SDK directories have not been run.
 
 ### Metrics against the plan
 

@@ -46,14 +46,62 @@ describe('recording', () => {
       recordMapper((r: R) => ({ x: { ref: r.input.sha, other: 1 } }), roots),
     ).toEqual({ x: { ref: { ref: 'input.sha' }, other: { const: 1 } } });
   });
-  test('undefined, functions, refs in arrays, non-object results', () => {
-    expect(() => recordMapper(() => ({ a: undefined }), roots)).toThrow(/undefined/);
-    expect(() => recordMapper(() => ({ a: () => 1 }), roots)).toThrow(/function/);
-    expect(() => recordMapper((r: R) => ({ a: [r.build] }), roots)).toThrow(
-      /inside an array/,
-    );
-    expect(() => recordMapper((r: R) => r.build, roots)).toThrow(/object literal/);
+  test('null, booleans, single-key objects and null-prototype objects record as values', () => {
+    const bare = Object.assign(Object.create(null), { k: 1 });
+    expect(
+      recordMapper(
+        (r: R) => ({ z: null, t: true, f: false, one: { a: r.input.sha }, bare }),
+        roots,
+      ),
+    ).toEqual({
+      z: { const: null },
+      t: { const: true },
+      f: { const: false },
+      one: { a: { ref: 'input.sha' } },
+      bare: { k: { const: 1 } },
+    });
   });
+  const LITERALS =
+    'mappers may only use property access and literals (no template strings, arithmetic, method calls or logic) — move computation into the handler';
+  const refused: [string, (r: R) => unknown, string, Set<string>?][] = [
+    ['undefined', () => ({ o: { p: undefined } }), "mapper returns undefined at 'o.p'"],
+    ['a function', () => ({ a: () => 1 }), "mapper returns a function at 'a'"],
+    ['NaN', () => ({ a: [1, NaN] }), "mapper returns a non-finite number at 'a[1]'"],
+    ['Infinity', () => ({ a: Infinity }), "mapper returns a non-finite number at 'a'"],
+    [
+      'a bigint',
+      () => ({ a: 1n }),
+      "mapper returns an unsupported value (bigint) at 'a'",
+    ],
+    [
+      'a reference in an array',
+      (r) => ({ a: [1, r.build] }),
+      "mapper puts references inside an array at 'a' (only constant arrays are supported)",
+    ],
+    ['a Map', () => ({ a: new Map() }), "mapper returns a non-plain object at 'a'"],
+    ['a Date', () => ({ a: new Date(0) }), "mapper returns a non-plain object at 'a'"],
+    [
+      'a field name with a dot',
+      (r) => ({ a: r.input['a.b'] }),
+      `mapper accesses field 'a.b' (field names containing '.' cannot be mapped) on reference 'input'; ${LITERALS}`,
+    ],
+    [
+      'an unavailable root',
+      (r) => ({ a: r['deploy-prod'] }),
+      "mapper references 'deploy-prod', which is not available at this stage (available: build, checkout, deploy-beta, input)",
+    ],
+    [
+      'any root before the first stage',
+      (r) => ({ a: r.input }),
+      "mapper references 'input', which is not available at this stage (available: none)",
+      new Set(),
+    ],
+    ['its whole argument', (r) => ({ a: r }), 'mapper enumerates/spreads its argument'],
+    ['a non-object result', (r) => r.build, 'mapper must return an object literal'],
+  ];
+  test.each(refused)('refuses %s', (_, fn, message, available = roots) =>
+    expect(() => recordMapper(fn as never, available)).toThrow(message),
+  );
 });
 
 describe('proxy throws on what it can see', () => {

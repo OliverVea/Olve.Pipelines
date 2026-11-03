@@ -34,3 +34,11 @@ export function readInterpreter(path: string): string | null {
     closeSync(fd);
   }
 }
+
+/** Why `binary` won't start through `target`'s loader (the harness runs it via /olve/lib/<loader>), or undefined. */
+export function loaderProblem(binary: string, target: string): string | undefined {
+  const expected = target === 'bun-linux-x64' ? GLIBC_INTERP : MUSL_INTERP;
+  const interp = readInterpreter(binary);
+  if (interp === expected) return undefined;
+  return `compiled binary has PT_INTERP ${interp ?? '(none)'}, expected ${expected} — compile on a glibc Bun image (oven/bun:<version>-slim), not alpine`;
+}

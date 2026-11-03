@@ -131,8 +131,8 @@ function tokenize(src: string): Tok[] {
       i = e + 2;
       continue;
     }
-    if (c === '`') throw new MapperError('mapper uses a template string');
-    if (c === '"' || c === "'") {
+    // Bun prints a string constant holding a newline or both quote kinds as a template literal.
+    if (c === '"' || c === "'" || c === '`') {
       let j = i + 1;
       let v = '';
       for (;;) {
@@ -140,6 +140,8 @@ function tokenize(src: string): Tok[] {
           throw new MapperError('mapper source has an unterminated string');
         const d = src[j]!;
         if (d === c) break;
+        if (c === '`' && d === '$' && src[j + 1] === '{')
+          throw new MapperError('mapper uses a template string');
         if (d === '\\') {
           v += src.slice(j, j + 2);
           j += 2;

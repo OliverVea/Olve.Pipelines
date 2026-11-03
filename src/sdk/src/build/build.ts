@@ -6,7 +6,7 @@ import { sha256File } from '../util/hash.ts';
 import type { HarnessInfo } from '../util/code-hash.ts';
 import { writeTarZst } from '../util/tar.ts';
 import { MANIFEST_BEGIN, MANIFEST_END, uploadFile } from '../harness/result.ts';
-import { GLIBC_INTERP, MUSL_INTERP, readInterpreter } from './elf.ts';
+import { loaderProblem } from './elf.ts';
 import { codeHash } from './hashes.ts';
 import { harnessInfo, loadProject, relPosix, type Project } from './project.ts';
 
@@ -112,14 +112,9 @@ export async function build(dir: string, opts: BuildOptions): Promise<BuildResul
     `olve-build: compiled ${target} in ${((performance.now() - t1) / 1000).toFixed(2)}s`,
   );
 
-  // 2. loader check: the harness launches the binary through /olve/lib/<loader>; a musl binary
-  //    (e.g. compiled on alpine, where bun-linux-x64 silently yields musl) would not start.
-  const expected = target === 'bun-linux-x64' ? GLIBC_INTERP : MUSL_INTERP;
-  const interp = readInterpreter(binary);
-  if (interp !== expected)
-    throw new BuildError(
-      `compiled binary has PT_INTERP ${interp ?? '(none)'}, expected ${expected} — compile on a glibc Bun image (oven/bun:<version>-slim), not alpine`,
-    );
+  // 2. loader check: on alpine, bun-linux-x64 silently yields a musl binary, which would not start.
+  const problem = loaderProblem(binary, target);
+  if (problem) throw new BuildError(problem);
 
   // 3. describe (runs the real binary: the manifest is exactly what the step pods will see)
   const d = Bun.spawnSync([binary, 'describe'], {

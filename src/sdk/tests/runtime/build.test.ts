@@ -13,13 +13,14 @@ import {
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { build } from '../../src/build/build.ts';
-import { readInterpreter, GLIBC_INTERP } from '../../src/build/elf.ts';
+import { GLIBC_INTERP, loaderProblem, readInterpreter } from '../../src/build/elf.ts';
 import { codeHash } from '../../src/build/hashes.ts';
 import { model, pipeline, z } from '../../src/index.ts';
-import { harnessInfo, loadProject } from '../../src/build/project.ts';
+import { harnessInfo, loadPipeline, loadProject } from '../../src/build/project.ts';
 import { devMain } from '../../src/dev/cli.ts';
 import { EXIT } from '../../src/harness/exit.ts';
-import { EXAMPLE, SDK, SHA, tmp } from './helpers.ts';
+import { canonicalJson } from '../../src/util/canonical.ts';
+import { EXAMPLE, SDK, SHA, tmp, withEnv } from './helpers.ts';
 
 function copyExample(dest: string): string {
   cpSync(EXAMPLE, dest, { recursive: true, filter: (src) => !src.includes('/.olve') });
@@ -85,7 +86,7 @@ describe('code hash (the whole build, with the SDK external)', () => {
       await changed((d) =>
         writeFileSync(
           join(d, 'scripts/deploy.sh'),
-          readFileSync(join(d, 'scripts/deploy.sh'), 'utf8') + '# changed\n',
+          readFileSync(join(d, 'scripts/deploy.sh'), 'utf8') + '// changed\n',
         ),
       ),
     ).toBe(true));
@@ -163,23 +164,241 @@ export default pipeline({ name: 'plain', input: model('In', z.object({ x: z.stri
     edit(join(dir, 'ci/steps/hello.ts'), "ctx.log('hello')", "ctx.log('hi')");
     expect(await codeHash(await loadProject(dir), harnessInfo())).not.toBe(before);
   });
-  test('a main that does not exist is a build error', async () => {
-    const dir = plain();
-    rmSync(join(dir, 'ci/main.ts'));
-    await expect(loadProject(dir)).rejects.toThrow('ci/main.ts not found');
+  const projectErrors: [string, (dir: string) => string, string][] = [
+    [
+      'a main that does not exist',
+      (d) => (rmSync(join(d, 'ci/main.ts')), d),
+      'ci/main.ts not found (it must default-export pipeline({...}))',
+    ],
+    [
+      'a package.json without main',
+      (d) => (writeFileSync(join(d, 'package.json'), '{}'), d),
+      'package.json must name the entry point in `main` (a file that default-exports pipeline({...}))',
+    ],
+    [
+      'a directory without a package.json',
+      (d) => (rmSync(join(d, 'package.json')), d),
+      'package.json must name the entry point in `main` (a file that default-exports pipeline({...}))',
+    ],
+    [
+      'a path that does not exist',
+      (d) => join(d, 'missing'),
+      '/missing is not a directory',
+    ],
+    [
+      'a path to a file',
+      (d) => join(d, 'package.json'),
+      '/package.json is not a directory',
+    ],
+  ];
+  test.each(projectErrors)('%s is a build error', async (_, arrange, message) => {
+    await expect(loadProject(arrange(plain()))).rejects.toThrow(message);
   });
-  test('a package.json without main is a build error', async () => {
+  test('an entry without a default export is a build error', async () => {
     const dir = plain();
-    writeFileSync(join(dir, 'package.json'), '{}');
-    await expect(loadProject(dir)).rejects.toThrow(
-      /package\.json must name the entry point in `main`/,
+    writeFileSync(join(dir, 'ci/main.ts'), 'export const x = 1;\n');
+    await expect(loadPipeline(await loadProject(dir))).rejects.toThrow(
+      `${join(dir, 'ci/main.ts')} has no default export (export default pipeline({...})...)`,
     );
   });
-  test('a directory without a package.json is a build error', async () => {
-    const dir = plain();
-    rmSync(join(dir, 'package.json'));
-    await expect(loadProject(dir)).rejects.toThrow(
-      /package\.json must name the entry point in `main`/,
+});
+
+describe('harness identity (sdkHash)', () => {
+  // A copy of the SDK's sources with its own project.ts, so each row hashes its own tree.
+  const sdkCopy = (zod = '4.0.0') => {
+    const root = join(tmp('sdk-copy'), 'sdk');
+    cpSync(join(SDK, 'src'), join(root, 'src'), { recursive: true });
+    cpSync(join(SDK, 'package.json'), join(root, 'package.json'));
+    mkdirSync(join(root, 'node_modules/zod'), { recursive: true });
+    writeFileSync(
+      join(root, 'node_modules/zod/package.json'),
+      JSON.stringify({ name: 'zod', version: zod }),
+    );
+    return root;
+  };
+  const sdkHashOf = async (root: string) =>
+    (
+      (await import(
+        join(root, 'src/build/project.ts')
+      )) as typeof import('../../src/build/project.ts')
+    ).harnessInfo().sdkHash;
+  const append = (file: string) => (root: string) =>
+    writeFileSync(
+      join(root, file),
+      readFileSync(join(root, file), 'utf8') + '\nexport const changed = 1;\n',
+    );
+  let baseline: string;
+  beforeAll(async () => {
+    baseline = await sdkHashOf(sdkCopy());
+  });
+  const rows: [string, (root: string) => void, boolean][] = [
+    ['an identical tree elsewhere', () => {}, false],
+    ['a runtime file in a nested directory', append('src/harness/exit.ts'), true],
+    ['the SDK entry point', append('src/index.ts'), true],
+    ['a build tool file', append('src/build/elf.ts'), false],
+    ['a dev tool file', append('src/dev/cli.ts'), false],
+    ['a testing helper', append('src/testing/index.ts'), false],
+    [
+      'a file that is not TypeScript',
+      (r) => writeFileSync(join(r, 'src/core/NOTES.md'), 'x'),
+      false,
+    ],
+    [
+      'the zod version',
+      (r) =>
+        writeFileSync(
+          join(r, 'node_modules/zod/package.json'),
+          JSON.stringify({ name: 'zod', version: '4.0.1' }),
+        ),
+      true,
+    ],
+  ];
+  test.each(rows)('%s: changes it = %p', async (_, change, changes) => {
+    const root = sdkCopy();
+    change(root);
+    expect((await sdkHashOf(root)) !== baseline).toBe(changes);
+  });
+});
+
+describe('the loader check', () => {
+  /** A minimal x86-64 ELF: the header, one program header (PT_INTERP naming `interp`, or a PT_LOAD), then the name. */
+  const elf = (
+    interp: string | null,
+    header: Partial<{ cls: number; data: number }> = {},
+  ) => {
+    const name = Buffer.from(interp === null ? '' : interp + '\0', 'latin1');
+    const b = Buffer.alloc(64 + 56 + name.length);
+    b.writeUInt32BE(0x7f454c46, 0);
+    b[4] = header.cls ?? 2;
+    b[5] = header.data ?? 1;
+    b.writeBigUInt64LE(64n, 0x20);
+    b.writeUInt16LE(56, 0x36);
+    b.writeUInt16LE(1, 0x38);
+    b.writeUInt32LE(interp === null ? 1 : 3, 64);
+    b.writeBigUInt64LE(120n, 64 + 0x08);
+    b.writeBigUInt64LE(BigInt(name.length), 64 + 0x20);
+    name.copy(b, 120);
+    const file = join(tmp('elf'), 'step');
+    writeFileSync(file, b);
+    return file;
+  };
+  const MUSL = '/lib/ld-musl-x86-64.so.1';
+  const advice = ' — compile on a glibc Bun image (oven/bun:<version>-slim), not alpine';
+  const rows: [string, string | null, string, string | undefined][] = [
+    ['a glibc binary for the glibc target', GLIBC_INTERP, 'bun-linux-x64', undefined],
+    ['a musl binary for the musl target', MUSL, 'bun-linux-x64-musl', undefined],
+    [
+      'a musl binary for the glibc target',
+      MUSL,
+      'bun-linux-x64',
+      `compiled binary has PT_INTERP ${MUSL}, expected ${GLIBC_INTERP}${advice}`,
+    ],
+    [
+      'a glibc binary for the musl target',
+      GLIBC_INTERP,
+      'bun-linux-x64-musl',
+      `compiled binary has PT_INTERP ${GLIBC_INTERP}, expected ${MUSL}${advice}`,
+    ],
+    [
+      'a static binary',
+      null,
+      'bun-linux-x64',
+      `compiled binary has PT_INTERP (none), expected ${GLIBC_INTERP}${advice}`,
+    ],
+  ];
+  test.each(rows)('%s', (_, interp, target, problem) => {
+    expect(loaderProblem(elf(interp), target)).toBe(problem);
+  });
+  const refused: [string, (file: string) => void, string][] = [
+    ['not an ELF file', (f) => writeFileSync(f, 'x'.repeat(64)), 'is not an ELF file'],
+    [
+      'a 32-bit ELF',
+      (f) => writeFileSync(f, readFileSync(elf(GLIBC_INTERP, { cls: 1 }))),
+      'is not a 64-bit little-endian ELF file',
+    ],
+    [
+      'a big-endian ELF',
+      (f) => writeFileSync(f, readFileSync(elf(GLIBC_INTERP, { data: 2 }))),
+      'is not a 64-bit little-endian ELF file',
+    ],
+    [
+      'a truncated file',
+      (f) => writeFileSync(f, readFileSync(elf(GLIBC_INTERP)).subarray(0, 40)),
+      'truncated ELF file',
+    ],
+  ];
+  test.each(refused)('readInterpreter refuses %s', (_, write, message) => {
+    const file = join(tmp('elf-bad'), 'step');
+    write(file);
+    expect(() => readInterpreter(file)).toThrow(message);
+  });
+});
+
+describe('olve-build cli', () => {
+  const cli = join(SDK, 'src/build/cli.ts');
+  const run = (args: string[], cwd = SDK) => {
+    const p = Bun.spawnSync([process.execPath, cli, ...args], {
+      cwd,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+    return { code: p.exitCode, stdout: p.stdout.toString(), stderr: p.stderr.toString() };
+  };
+  const USAGE = 'usage: olve-build <pipelineDir> --out <dir>';
+  const example = () => copyExample(join(tmp('cli'), 'p'));
+  const rows: [string, (dir: string) => string[], number, string, 'stdout' | 'stderr'][] =
+    [
+      ['--help', () => ['--help'], 0, USAGE, 'stdout'],
+      ['no arguments', () => [], 64, USAGE, 'stderr'],
+      [
+        'an unknown option',
+        (d) => [d, '--nope'],
+        64,
+        "Unknown option '--nope'",
+        'stderr',
+      ],
+      ['no --out', (d) => [d], 64, `--out is required\n${USAGE}`, 'stderr'],
+      [
+        'an unsupported target',
+        (d) => [d, '--out', 'o', '--target', 'arm'],
+        64,
+        'unsupported target arm',
+        'stderr',
+      ],
+      [
+        'a package without main',
+        (d) => (writeFileSync(join(d, 'package.json'), '{}'), [d, '--hash-only']),
+        78,
+        'package.json must name the entry point in `main`',
+        'stderr',
+      ],
+      [
+        'code that does not bundle',
+        (d) => (
+          writeFileSync(join(d, 'release.ts'), 'export const = ;\n'),
+          [d, '--hash-only']
+        ),
+        1,
+        `bundling ${'$'}{DIR}/pipeline.ts failed:`,
+        'stderr',
+      ],
+    ];
+  test.each(rows)('%s exits %#', (_, argv, code, text, stream) => {
+    const dir = example();
+    const r = run(argv(dir));
+    expect(r.code).toBe(code);
+    expect(r[stream]).toContain(text.replace('${DIR}', dir));
+  });
+  test('--hash-only prints the harness identity and code hash as canonical JSON', async () => {
+    const dir = example();
+    const r = run([dir, '--hash-only']);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe(
+      canonicalJson({
+        harness: harnessInfo(),
+        codeHash: await codeHash(await loadProject(dir), harnessInfo()),
+      }),
     );
   });
 });
@@ -187,12 +406,31 @@ export default pipeline({ name: 'plain', input: model('In', z.object({ x: z.stri
 describe('compiled binary', () => {
   let a: Awaited<ReturnType<typeof build>>;
   let dirA: string;
+  const uploads: { method: string; body: Uint8Array }[] = [];
   beforeAll(async () => {
     dirA = copyExample(join(tmp('build-a'), 'pipeline'));
-    a = await build(dirA, { out: join(dirA, '..', 'out'), log: () => {} });
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (req) => {
+        uploads.push({
+          method: req.method,
+          body: new Uint8Array(await req.arrayBuffer()),
+        });
+        return new Response(null, { status: 200 });
+      },
+    });
+    try {
+      a = await build(dirA, {
+        out: join(dirA, '..', 'out'),
+        log: () => {},
+        uploadUrl: `http://127.0.0.1:${server.port}/step.tar.zst?sig=x`,
+      });
+    } finally {
+      server.stop(true);
+    }
   }, 60000);
 
-  test('PT_INTERP is the glibc loader; step.tar.zst holds `step` (0755)', async () => {
+  test('PT_INTERP is the glibc loader; step.tar.zst holds the binary as `step` (0755) and is uploaded', async () => {
     expect(readInterpreter(a.binary)).toBe(GLIBC_INTERP);
     const unpacked = `${a.archive}.tar`;
     writeFileSync(unpacked, Bun.zstdDecompressSync(await Bun.file(a.archive).bytes()));
@@ -202,6 +440,10 @@ describe('compiled binary', () => {
       .split('\n');
     expect(tar).toHaveLength(1);
     expect(tar[0]).toMatch(/^-rwxr-xr-x 0\/0 .* 1970-01-01 00:00 step$/);
+    const step = Bun.spawnSync(['tar', '-xOf', unpacked, 'step']).stdout;
+    expect(Bun.hash(step)).toBe(Bun.hash(readFileSync(a.binary)));
+    expect(uploads.map((u) => u.method)).toEqual(['PUT']);
+    expect(Bun.hash(uploads[0]!.body)).toBe(Bun.hash(readFileSync(a.archive)));
   });
   test('the generated entry imports the pipeline and carries the code hash', () => {
     const entry = readFileSync(join(dirA, '.olve/gen/entry.ts'), 'utf8');
@@ -210,7 +452,10 @@ describe('compiled binary', () => {
   });
   test('deterministic: another directory gives the same manifest, binary and archive', async () => {
     const dirB = copyExample(join(tmp('build-b'), 'pipeline'));
-    const b = await build(dirB, { out: join(dirB, '..', 'out'), log: () => {} });
+    const b = await build(dirB, {
+      out: join(dirB, '..', 'out'),
+      log: () => {},
+    });
     expect(b.manifest).toBe(a.manifest);
     expect(Bun.hash(readFileSync(b.binary))).toBe(Bun.hash(readFileSync(a.binary)));
     expect(Bun.hash(readFileSync(b.archive))).toBe(Bun.hash(readFileSync(a.archive)));
@@ -374,10 +619,14 @@ const slow = implement(
   step({ name: "slow", description: "", image: "alpine" }),
   async (_i, ctx) => { await ctx.sh("echo ready; sleep 30"); },
 );
-export default pipeline({ name: "slow", input: Req }).stage(slow);
+export default pipeline({ name: "slow", description: process.env.OLVE_BUILD_ENV_PROBE ?? "clean", input: Req }).stage(slow);
 `,
     );
-    const b = await build(dir, { out: join(dir, '..', 'out'), log: () => {} });
+    // describe runs the binary with PATH only: the build Job's environment never shapes the manifest
+    const b = await withEnv({ OLVE_BUILD_ENV_PROBE: 'leak' }, () =>
+      build(dir, { out: join(dir, '..', 'out'), log: () => {} }),
+    );
+    expect(JSON.parse(b.manifest).description).toBe('clean');
     const io = tmp('sigterm-io');
     writeFileSync(join(io, 'input.json'), '{}');
     const loader = '/lib64/ld-linux-x86-64.so.2';

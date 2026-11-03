@@ -31,7 +31,11 @@ export function assemble(step: DevStep, pool: Pool): Assembly {
         skippedBecause.push(`needs '${root}', which was skipped (${entry.reason})`);
       else if (entry?.status === 'failed')
         problems.push(
-          `input '${key}' needs the output of '${root}', whose last local run failed; rerun \`pl dev run ${root}\``,
+          `input '${key}' needs the output of '${root}', which failed (${entry.reason}); rerun \`pl dev run ${root}\``,
+        );
+      else if (pool.source)
+        problems.push(
+          `input '${key}' needs the output of '${root}', which has none in ${pool.source.pipeline}#${pool.source.run}; run \`pl dev run ${root}\` first (or pass --input-file)`,
         );
       else
         problems.push(

@@ -61,10 +61,19 @@ export class Workspace {
   }
 }
 
+/** The real run a pool was seeded from (`--from`): its files are fetched from there, its config is the default. */
+export type PoolSource = {
+  pipeline: string;
+  pipelineId: string;
+  run: number;
+  config?: JsonObject;
+};
+
 /** The pipeline input and each step's last local result, kept in pool.json between runs. */
 export class Pool {
   input?: JsonObject;
   steps = new Map<string, PoolEntry>();
+  source?: PoolSource;
 
   static load(path: string): Pool {
     const pool = new Pool();
@@ -80,6 +89,26 @@ export class Pool {
     if (!root || typeof root !== 'object' || Array.isArray(root)) return pool;
     const input = root.input;
     if (input && typeof input === 'object' && !Array.isArray(input)) pool.input = input;
+    const source = root.source;
+    if (
+      source &&
+      typeof source === 'object' &&
+      !Array.isArray(source) &&
+      typeof source.pipeline === 'string' &&
+      typeof source.pipelineId === 'string' &&
+      typeof source.run === 'number'
+    ) {
+      const config = source.config;
+      pool.source = {
+        pipeline: source.pipeline,
+        pipelineId: source.pipelineId,
+        run: source.run,
+        config:
+          config && typeof config === 'object' && !Array.isArray(config)
+            ? config
+            : undefined,
+      };
+    }
     const steps = root.steps;
     if (steps && typeof steps === 'object' && !Array.isArray(steps))
       for (const [name, entry] of Object.entries(steps)) {
@@ -101,10 +130,9 @@ export class Pool {
       steps[name] = e;
     }
     mkdirSync(dirname(resolve(path)), { recursive: true });
-    writeFileSync(
-      path,
-      JSON.stringify({ input: this.input ?? null, steps }, null, 2) + '\n',
-    );
+    const root: JsonObject = { input: this.input ?? null, steps };
+    if (this.source) root.source = { ...this.source, config: this.source.config ?? null };
+    writeFileSync(path, JSON.stringify(root, null, 2) + '\n');
   }
 
   /** The step's envelope: its output and files on success, the reason otherwise. */

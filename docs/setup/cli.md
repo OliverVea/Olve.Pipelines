@@ -111,11 +111,11 @@ pl config history <pipeline>
 pl config rollback <pipeline> <N>                      # save snapshot N again as the newest
 pl config check <pipeline> [--version V]               # problems, missing secrets, changed defaults; exit 1 if V can't activate
 
-# local development (no service, except dev validate)
+# local development (no service, except dev validate and --from/--config-from)
 pl dev describe [--dir <path>] [--json]
 pl dev validate [--dir <path>] [--json]
-pl dev run <step> [--field k=v ...] [--input-file <f>] [--config <f.json> | --config-from <pipeline>] [--secret NAME=value ...] [--docker] [--json]
-pl dev pipeline [--field k=v ...] [--config <f.json> | --config-from <pipeline>] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
+pl dev run <step> [--from <pipeline>#<run>] [--field k=v ...] [--input-file <f>] [--config <f.json> | --config-from <pipeline>] [--secret NAME=value ...] [--docker] [--json]
+pl dev pipeline [--from <pipeline>#<run>] [--field k=v ...] [--config <f.json> | --config-from <pipeline>] [--until <step>] [--only a,b] [--secret NAME=value ...] [--docker] [--yes]
 
 # installation
 pl bootstrap / pl teardown                             # cold install / remove of an instance

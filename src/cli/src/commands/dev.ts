@@ -15,6 +15,7 @@ import {
 } from '../dev/manifest';
 import { flatten, placeStep, select, whenMismatch } from '../dev/plan';
 import { Pool, Workspace } from '../dev/pool';
+import { fetchInputFiles, seedFromRun } from '../dev/remote';
 import {
   DevSession,
   outcomeStatus,
@@ -184,6 +185,38 @@ async function resolveConfig(ctx: CommandContext): Promise<JsonObject | undefine
   return parsed as JsonObject;
 }
 
+/** `--from <pipeline>#<run>`: seeds the pool from that run. The config is --config/--config-from, else the run's. */
+async function seed(
+  ctx: CommandContext,
+  dev: Dev,
+  console: DevConsole,
+  explicitConfig: JsonObject | undefined,
+): Promise<JsonObject | undefined> {
+  const from = ctx.args.option('from');
+  if (from !== undefined) {
+    await seedFromRun(ctx.api, from, dev.pool, dev.session.workspace);
+    dev.pool.save(dev.session.workspace.poolJson);
+    const outputs = [...dev.pool.steps.values()].filter(
+      (e) => e.status === 'succeeded',
+    ).length;
+    status(
+      console,
+      `pool seeded from ${from}: its input, ${outputs} step output(s)${dev.pool.source?.config ? ', its config' : ''}`,
+    );
+  }
+  return explicitConfig ?? dev.pool.source?.config;
+}
+
+const fetchFiles = (ctx: CommandContext, dev: Dev, input: JsonObject) =>
+  fetchInputFiles(
+    ctx.api,
+    dev.pool,
+    input,
+    dev.session.workspace,
+    (line) => status(devConsole(ctx), line),
+    ctx.signal,
+  );
+
 const exitMeaning = (code: number) =>
   code === 64
     ? ': usage, unknown step'
@@ -306,6 +339,7 @@ const triggerLabel = (t: JsonObject) =>
 const dirOption = '  --dir <path>   Pipeline directory (default: .pipelines)';
 
 async function runOne(
+  ctx: CommandContext,
   dev: Dev,
   stepName: string,
   inputFile: string | undefined,
@@ -328,6 +362,7 @@ async function runOne(
       throw new CliError(
         `${placed.step.name} ${assembly.skippedBecause.join('; ')}; it would be skipped in a run (rerun that step, or pass --input-file).`,
       );
+    await fetchFiles(ctx, dev, assembly.input);
     session.writeInput(assembly.input);
   }
   const outcome = await session.runStep(
@@ -363,10 +398,11 @@ async function runPipeline(
   const workspace = session.workspace;
   const only = parseList(ctx.args.options('only'));
   const plan = select(flatten(manifest, options.config), ctx.args.option('until'), only);
-  // A full run starts a fresh pool; --only reuses its input and the other steps' outputs.
-  if (!only) {
+  // A full run starts a fresh pool; --only and --from reuse its input and the other steps' outputs.
+  if (!only && ctx.args.option('from') === undefined) {
     pool.input = undefined;
     pool.steps.clear();
+    pool.source = undefined;
   }
   const input = buildPipelineInput(manifest.inputSchema, pool.input, fieldPairs(ctx));
   const missing = missingRequired(
@@ -419,6 +455,7 @@ async function runPipeline(
         throw new CliError(`Stopped before '${step.name}' (not confirmed).`);
       }
     }
+    await fetchFiles(ctx, dev, assembly.input);
     session.writeInput(assembly.input);
     const outcome = await session.runStep(manifest, step, pool, options, planned.cases);
     pool.save(workspace.poolJson);
@@ -515,7 +552,16 @@ ${dirOption}
     verb: 'run',
     operands: 1,
     usesApi: false,
-    options: ['config', 'config-from', 'dir', 'field', 'input', 'input-file', 'secret'],
+    options: [
+      'config',
+      'config-from',
+      'dir',
+      'field',
+      'from',
+      'input',
+      'input-file',
+      'secret',
+    ],
     flags: ['docker'],
     summary: 'Run one step locally from source (or --docker in its image)',
     detail: `pl dev run <step> [options]
@@ -531,12 +577,19 @@ ${dirOption}
   from previous \`pl dev run\`/\`pl dev pipeline\` runs, so running steps in order chains them.
   Output files go to <dir>/.olve/files/ for later steps' ctx.files.fetch.
 
+  --from <pipeline>#<run> replaces the pool with a real run's input, the outputs of its
+  steps' latest successful attempts and its config, so the step runs on that run's data.
+  The files a step's input references are downloaded the first time a step needs them
+  (sha256-checked). Later \`pl dev run\`s keep using that pool. Needs a session (\`pl login\`).
+
 ${dirOption}
+  --from <pipeline>#<run>  Seed the pool from that run (input, outputs, config, files)
   --field k=v              Set a pipeline-input field (repeatable; typed by the input model)
   --input-file <file>      Use this file as input.json verbatim (skips assembly)
   --config <file.json>     The config the step gets (a JSON object of config entries)
   --config-from <pipeline> Use that pipeline's effective config, as its runs get it; also picks
-                           the \`select\` case of a step several cases share
+                           the \`select\` case of a step several cases share (default: the
+                           config of the --from run, if the pool has one)
   --secret NAME=value      Secret value (repeatable). Default: the step's declared secrets
                            from the environment; other pipeline secrets are not passed on
   --docker                 Compile with olve-build and run the binary in the step's image
@@ -548,14 +601,17 @@ ${dirOption}
       const pairs = fieldPairs(ctx);
       if (inputFile !== undefined && pairs.length)
         throw new CliError('Use either --input-file or --field, not both.');
+      if (inputFile !== undefined && ctx.args.option('from') !== undefined)
+        throw new CliError('Use either --input-file or --from, not both.');
       if (inputFile !== undefined && !existsSync(inputFile))
         throw new CliError(`Input file '${inputFile}' not found.`);
       const secretOverrides = parseSecrets(ctx.args.options('secret'));
-      const config = await resolveConfig(ctx);
+      const explicitConfig = await resolveConfig(ctx);
       const console = devConsole(ctx);
       const dev = await open(ctx, console);
       if (!dev) return;
-      const outcome = await runOne(dev, stepName, inputFile, pairs, {
+      const config = await seed(ctx, dev, console, explicitConfig);
+      const outcome = await runOne(ctx, dev, stepName, inputFile, pairs, {
         secretOverrides,
         docker: ctx.args.flag('docker'),
         warnUndeclaredSecrets: true,
@@ -574,6 +630,7 @@ ${dirOption}
       'config-from',
       'dir',
       'field',
+      'from',
       'input',
       'only',
       'secret',
@@ -592,10 +649,13 @@ ${dirOption}
   without a terminal it refuses unless --yes. Failure handlers are not run.
 
 ${dirOption}
+  --from <pipeline>#<run>   Seed the pool from that run (input, outputs, config, files), e.g.
+                      with --only to run some steps locally on that run's data
   --field k=v         Pipeline-input field (repeatable); the model's defaults fill the rest
   --config <file.json>      The config every step gets; it also picks each \`select\` case
   --config-from <pipeline>  Use that pipeline's effective config, as its runs get it
-                      (without a config, every case of a \`select\` runs)
+                      (default: the --from run's config; without any config, every case
+                      of a \`select\` runs)
   --until <step>      Stop after the stage containing <step>
   --only <a,b,...>    Run only these steps, reusing the pool's input and outputs for the rest
   --secret NAME=value Secret value (repeatable); default: from the environment
@@ -604,10 +664,16 @@ ${dirOption}
   --json              Print a JSON summary [{step, status, detail}] on stdout`,
     async run(ctx) {
       const secretOverrides = parseSecrets(ctx.args.options('secret'));
-      const config = await resolveConfig(ctx);
+      const explicitConfig = await resolveConfig(ctx);
       const console = devConsole(ctx);
       const dev = await open(ctx, console);
       if (!dev) return;
+      // A full run resets the pool, so it doesn't inherit an earlier --from run's config.
+      const fresh =
+        !ctx.args.options('only').length && ctx.args.option('from') === undefined;
+      const config = fresh
+        ? explicitConfig
+        : await seed(ctx, dev, console, explicitConfig);
       for (const name of Object.keys(secretOverrides))
         if (!dev.manifest.secrets.some((s) => s.name === name))
           status(

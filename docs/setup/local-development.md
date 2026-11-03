@@ -71,6 +71,7 @@ pl dev run build                             # next step: inputs come from the l
 pl dev run checkout --input-file in.json     # use input.json verbatim
 pl dev run deploy-beta                       # declared secrets come from your environment (or --secret NAME=value)
 pl dev run beta-test --config-from <pipeline>  # the config that pipeline's runs get
+pl dev run spec --from <pipeline>#<run>       # on a real run's input, outputs and config
 ```
 
 The step runs through the same harness path as in the cluster: validate input → handler → validate
@@ -90,6 +91,13 @@ the raw envelope.
   then the model's defaults); step refs read earlier steps' outputs. Output files are copied into
   `<dir>/.olve/files/` and passed as `OLVE_FILES_DIR`, so running steps in order chains them, file
   references included.
+- **From a real run.** `--from <pipeline>#<run>` replaces the pool with that run's input, the output
+  of each step's latest successful attempt (a step skipped, excluded or failed there is recorded as
+  such) and the run's config, which a step gets unless you pass `--config` or `--config-from`. Files a
+  step's input references are downloaded into `<dir>/.olve/files/` the first time a step needs them
+  and checked against their sha256. Later `pl dev run`s keep using that pool, so you can rerun one step
+  of a real run on its real data, change it, and run it again. `--field` values go over the run's
+  input. Needs a session on the run's instance (`pl login`).
 - **Missing inputs.** If a required input's step never ran, `pl dev run` fails with a hint to run it
   first. If that step was skipped, an optional input is left out.
 - **Secrets.** Only the step's declared secrets reach it, from `--secret NAME=value` or your
@@ -123,6 +131,8 @@ pl dev pipeline --field sha=<sha> --field deployTo=beta [--until <step>] [--only
 - Asks for confirmation before each step that declares secrets (those do real things); without a
   terminal it refuses unless `--yes`.
 - A full run starts a fresh pool; `--only` reuses the pool for every step it doesn't run.
+- `--from <pipeline>#<run>` starts from that run's pool instead (see above); with `--only` it runs some
+  steps locally on that run's data.
 - `--until <step>` stops after the stage containing `<step>`.
 - Failure handlers are not run.
 - With `--config` / `--config-from`, each `select` runs only the case that config picks; without

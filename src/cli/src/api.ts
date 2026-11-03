@@ -1,3 +1,4 @@
+import { runStepsDownload } from '@olve/api';
 import type { Client } from '@olve/api/client';
 import { ApiError, createApiClient, serverProblems } from '@olve/client';
 import { CliError, describe } from './errors';
@@ -72,4 +73,29 @@ export function apiError(status: number, statusText: string, body: unknown): Cli
 function snippet(body: string): string {
   const line = body.trim().replace(/\s+/g, ' ');
   return line.length <= 200 ? line : `${line.slice(0, 199)}…`;
+}
+
+/** A step file's answer with its body unread, so the file streams through. */
+export async function downloadStepFile(
+  api: Client,
+  file: {
+    pipelineId: string;
+    number: number;
+    step: string;
+    path: string;
+    attempt?: number;
+  },
+  signal?: AbortSignal,
+): Promise<Response> {
+  const { attempt, ...path } = file;
+  const result = await runStepsDownload({
+    client: api,
+    path,
+    query: attempt === undefined ? undefined : { attempt },
+    headers: { Accept: '*/*' },
+    parseAs: 'stream',
+    signal,
+  });
+  await call(Promise.resolve(result));
+  return result.response!;
 }

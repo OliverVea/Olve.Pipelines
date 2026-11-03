@@ -13,7 +13,7 @@ import {
   parseSecrets,
 } from '../src/commands/dev';
 import type { ProcessResult, ProcessSpec } from '../src/process';
-import { pl } from './helpers';
+import { fakeFetch, ID, pl, type Recorded } from './helpers';
 
 const demoText = readFileSync(
   join(import.meta.dir, 'fixtures/demo.manifest.json'),
@@ -94,10 +94,16 @@ async function dev(
   argv: string[],
   harness: ReturnType<typeof fakeHarness>,
   p: ReturnType<typeof pipelineDir>,
-  extra: { prompt?: string; terminal?: boolean; env?: Record<string, string> } = {},
+  extra: {
+    prompt?: string;
+    terminal?: boolean;
+    env?: Record<string, string>;
+    fetch?: typeof fetch;
+  } = {},
 ) {
   const questions: string[] = [];
   const result = await pl(['dev', ...argv, '--dir', p.dir], {
+    fetch: extra.fetch,
     run: harness.run,
     env: { ...p.env, ...(extra.env ?? {}) },
     stdinIsTerminal: extra.terminal ?? false,
@@ -238,8 +244,8 @@ describe('input', () => {
       'run `pl dev run src` first',
     );
     pool.steps.set('src', { status: 'failed', reason: 'boom' });
-    expect(assemble(step('build'), pool).problems[0]).toContain(
-      'whose last local run failed',
+    expect(assemble(step('build'), pool).problems[0]).toBe(
+      "input 'source' needs the output of 'src', which failed (boom); rerun `pl dev run src`",
     );
     pool.steps.set('build', { status: 'succeeded', output: {} });
     pool.steps.set('deploy', { status: 'skipped', reason: 'when' });
@@ -492,4 +498,251 @@ describe('pl dev', () => {
       '--config must be a JSON object',
     );
   });
+
+  test('--from seeds the pool from a run: its input, latest successful outputs, config and the files a step uses, fetched once', async () => {
+    const p = pipelineDir();
+    const h = fakeHarness(demoText);
+    const api = fakeRunApi();
+    const from = (argv: string[]) => dev(argv, h, p, { fetch: api.fetch });
+
+    const publish = await from(['run', 'publish', '--from', 'demo#7']);
+    expect(publish.code).toBe(1);
+    expect(publish.stderr).toContain(
+      "publish: input 'release' needs the output of 'deploy', which has none in demo#7; run `pl dev run deploy` first (or pass --input-file)",
+    );
+    const pool = Pool.load(p.workspace.poolJson);
+    expect(pool.input).toEqual(RUN_INPUT);
+    expect(pool.source).toEqual({
+      pipeline: 'demo',
+      pipelineId: ID,
+      run: 7,
+      config: SSH,
+    });
+    expect(Object.fromEntries(pool.steps)).toEqual({
+      src: { status: 'succeeded', output: { sha: SHA }, reason: undefined },
+      build: { status: 'succeeded', output: BUILD_OUTPUT, reason: undefined },
+      lint: {
+        status: 'skipped',
+        output: undefined,
+        reason: 'skipped in demo#7: no changes',
+      },
+    });
+    expect(api.requests.some((r) => r.path.includes('/steps/src/output?attempt=1'))).toBe(
+      true,
+    );
+
+    const deploy = await from(['run', 'deploy']);
+    expect(deploy.code).toBe(0);
+    expect(h.inputs.deploy).toEqual({ artifact: BUILD_OUTPUT, $config: SSH });
+    const files = join(p.workspace.poolFiles, '7', 'build', '2', 'files');
+    expect(readFileSync(join(files, 'app.bin'), 'utf8')).toBe('binary');
+    expect(readFileSync(join(files, 'site.tar'), 'utf8')).toBe('tarball');
+    expect(deploy.stderr).toContain('fetching demo#7/build@2/app.bin');
+    expect(api.downloads()).toEqual(['app.bin?attempt=2', 'site/?attempt=2']);
+
+    await from(['run', 'deploy']);
+    expect(api.downloads()).toHaveLength(2);
+
+    const beta = await from([
+      'run',
+      'src',
+      '--from',
+      'demo#7',
+      '--field',
+      'deployTo=beta',
+    ]);
+    expect(beta.code).toBe(0);
+    expect(h.inputs.src).toEqual({
+      sha: SHA,
+      opts: { depth: 1, target: 'beta' },
+      $config: SSH,
+    });
+    expect(existsSync(files)).toBe(false);
+
+    h.calls.length = 0;
+    const only = await from([
+      'pipeline',
+      '--from',
+      'demo#7',
+      '--only',
+      'deploy',
+      '--yes',
+    ]);
+    expect(only.code).toBe(0);
+    expect(h.ran()).toEqual(['deploy']);
+    expect(h.inputs.deploy).toEqual({ artifact: BUILD_OUTPUT, $config: SSH });
+
+    h.calls.length = 0;
+    const replay = await from([
+      'pipeline',
+      '--from',
+      'demo#7',
+      '--until',
+      'src',
+      '--yes',
+    ]);
+    expect(replay.code).toBe(0);
+    expect(h.inputs.src!.opts).toEqual({ depth: 1, target: 'prod' });
+
+    h.calls.length = 0;
+    expect((await from(['pipeline', '--field', `sha=${SHA}`, '--yes'])).code).toBe(0);
+    expect(h.inputs.src!.$config).toBeUndefined();
+    expect(Pool.load(p.workspace.poolJson).source).toBeUndefined();
+  });
+
+  test("--from: a step rerun locally mixes its own files with the run's; only the run's are fetched", async () => {
+    const p = pipelineDir();
+    const h = fakeHarness(demoText);
+    const api = fakeRunApi();
+    const local = {
+      run: 0,
+      step: 'build',
+      attempt: 1,
+      path: 'app.bin',
+      sha256: sha('local'),
+    };
+    h.steps.build = () => ({
+      envelope: {
+        status: 'succeeded',
+        output: { binary: local, assets: BUILD_OUTPUT.assets },
+      },
+      exitCode: 0,
+    });
+    const opts = { fetch: api.fetch };
+    expect((await dev(['run', 'build', '--from', 'demo#7'], h, p, opts)).code).toBe(0);
+    const deploy = await dev(['run', 'deploy'], h, p, opts);
+    expect(deploy.code).toBe(0);
+    expect(h.inputs.deploy!.artifact).toEqual({
+      binary: local,
+      assets: BUILD_OUTPUT.assets,
+    });
+    expect(api.downloads()).toEqual(['site/?attempt=2']);
+  });
+
+  const refusals: [string, string[], (api: RunApi) => void, string][] = [
+    [
+      'a file whose sha256 differs',
+      ['run', 'deploy'],
+      (api) => (api.content['app.bin'] = 'tampered'),
+      `demo#7/build@2/app.bin has sha256 ${sha('tampered')}, expected ${sha('binary')}.`,
+    ],
+    [
+      'a run without stages',
+      ['run', 'deploy'],
+      (api) => (api.run.stages = []),
+      "demo#7 has no stages (its version's manifest is unavailable), so its outputs can't be used.",
+    ],
+    [
+      'a file of another run',
+      ['run', 'deploy'],
+      (api) => (BUILD_OUTPUT_OF(api).binary.run = 6),
+      'The input references demo#6/build@2/app.bin, which is not from a run in the local pool; pass --from <pipeline>#6.',
+    ],
+    [
+      '--input-file with --from',
+      ['run', 'deploy', '--input-file', 'in.json'],
+      () => {},
+      'Use either --input-file or --from, not both.',
+    ],
+  ];
+  test.each(refusals)('--from refuses %s', async (_, argv, change, message) => {
+    const p = pipelineDir();
+    const h = fakeHarness(demoText);
+    const api = fakeRunApi();
+    change(api);
+    const result = await dev([...argv, '--from', 'demo#7'], h, p, { fetch: api.fetch });
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain(message);
+    expect(h.ran()).toEqual([]);
+  });
 });
+
+const sha = (text: string) => new Bun.CryptoHasher('sha256').update(text).digest('hex');
+const RUN_INPUT = { sha: SHA, deployTo: 'prod', publish: false, replicas: 1 };
+const fileRef = (path: string, content: string) => ({
+  run: 7,
+  step: 'build',
+  attempt: 2,
+  path,
+  sha256: sha(content),
+});
+const BUILD_OUTPUT = {
+  binary: fileRef('app.bin', 'binary'),
+  assets: [{ site: fileRef('site/', 'tarball') }],
+};
+const BUILD_OUTPUT_OF = (api: RunApi) =>
+  api.outputs.build as unknown as typeof BUILD_OUTPUT;
+
+type RunApi = ReturnType<typeof fakeRunApi>;
+
+/** `demo#7` on deployTo=prod: src succeeded on attempt 1 (its rerun failed), build on attempt 2, lint skipped, the rest not reached. */
+function fakeRunApi() {
+  const step = (
+    name: string,
+    status: string,
+    succeededAttempt: number | null,
+    reason?: string,
+  ) => ({
+    name,
+    stepVersion: 1,
+    status,
+    reason: reason ?? null,
+    attemptCount: 2,
+    latestAttempt: 2,
+    succeededAttempt,
+    startedAt: null,
+    finishedAt: null,
+    blocked: false,
+  });
+  const run = {
+    number: 7,
+    input: RUN_INPUT,
+    config: 'target:\n  kind: ssh\n  host: box\n',
+    stages: [
+      { index: 0, when: [], steps: [step('src', 'failed', 1, 'boom')] },
+      {
+        index: 1,
+        when: [],
+        steps: [
+          step('build', 'succeeded', 2),
+          step('lint', 'skipped', null, 'no changes'),
+        ],
+      },
+      { index: 2, when: [], steps: [step('deploy', 'not-run', null)] },
+    ] as unknown[],
+  };
+  const outputs: Record<string, JsonObject> = {
+    src: { sha: SHA },
+    build: structuredClone(BUILD_OUTPUT) as unknown as JsonObject,
+  };
+  const content: Record<string, string> = { 'app.bin': 'binary', 'site/': 'tarball' };
+  const base = `/api/pipelines/${ID}/runs/7`;
+  const { fetch, requests } = fakeFetch((req: Recorded) => {
+    if (req.path === '/api/pipelines') return { body: [{ id: ID, name: 'demo' }] };
+    if (req.path === base) return { body: run };
+    const output = /\/steps\/([^/]+)\/output\?attempt=(\d+)$/.exec(req.path);
+    if (output)
+      return {
+        body: {
+          run: 7,
+          step: output[1],
+          attempt: Number(output[2]),
+          status: 'succeeded',
+          output: outputs[output[1]!] ?? null,
+          outputKey: null,
+        },
+      };
+    const file = /\/steps\/build\/files\/(.+)\?attempt=2$/.exec(req.path);
+    if (file && content[decodeURIComponent(file[1]!)] !== undefined)
+      return {
+        body: content[decodeURIComponent(file[1]!)],
+        headers: { 'Content-Type': 'application/octet-stream' },
+      };
+    return { status: 404 };
+  });
+  const downloads = () =>
+    requests
+      .filter((r) => r.path.includes('/files/'))
+      .map((r) => decodeURIComponent(r.path.split('/files/')[1]!));
+  return { fetch, requests, run, outputs, content, downloads };
+}

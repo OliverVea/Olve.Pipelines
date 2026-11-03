@@ -4,7 +4,6 @@ import {
   runsGet,
   runStepsAttempts,
   runStepsCancel,
-  runStepsDownload,
   runStepsFiles,
   runStepsLogs,
   runStepsOutput,
@@ -15,14 +14,8 @@ import {
   stepsUnblock,
   type Attempt,
 } from '@olve/api';
-import {
-  formatAddress,
-  parseStepRef,
-  resolvePipeline,
-  resolveStep,
-  type ResolvedAddress,
-} from '../address';
-import { call } from '../api';
+import { formatAddress, parseStepRef, resolvePipeline, resolveStep } from '../address';
+import { call, downloadStepFile } from '../api';
 import { CliError, describe } from '../errors';
 import { duration, indented, time } from '../format';
 import { table } from '../output';
@@ -59,30 +52,6 @@ async function toggleBlock(ctx: CommandContext, block: boolean): Promise<void> {
     ctx.out.line(`${block ? 'blocked' : 'unblocked'} ${ref.pipeline}/${ref.step}`);
     printBlocked(ctx, blocked);
   });
-}
-
-/** The answer with its body unread, so the file streams through. */
-async function downloadFile(
-  ctx: CommandContext,
-  addr: ResolvedAddress & { address: { step: string } },
-  path: string,
-): Promise<Response> {
-  const result = await runStepsDownload({
-    client: ctx.api,
-    path: {
-      pipelineId: addr.id,
-      number: addr.address.run,
-      step: addr.address.step,
-      path,
-    },
-    query:
-      addr.address.attempt === undefined ? undefined : { attempt: addr.address.attempt },
-    headers: { Accept: '*/*' },
-    parseAs: 'stream',
-    signal: ctx.signal,
-  });
-  await call(Promise.resolve(result));
-  return result.response!;
 }
 
 export const stepCommands: Command[] = [
@@ -179,7 +148,17 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
         );
 
       const outFile = ctx.args.option('output');
-      const response = await downloadFile(ctx, addr, path);
+      const response = await downloadStepFile(
+        ctx.api,
+        {
+          pipelineId: addr.id,
+          number: addr.address.run,
+          step: addr.address.step,
+          path,
+          attempt: addr.address.attempt,
+        },
+        ctx.signal,
+      );
       if (outFile === undefined || outFile === '-') {
         if (response.body)
           for await (const chunk of response.body) ctx.stdoutBytes(chunk);

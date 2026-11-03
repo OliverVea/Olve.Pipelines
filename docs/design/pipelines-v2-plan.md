@@ -141,9 +141,10 @@ health|versions|manifest [--version]|switch [--cancel-running]`, `pl dev validat
 `<pipeline>#<run>[/<step>[@n][/<path>]]` and `<pipeline>/<step>`, pipeline by id or name (resolved via
 `ListPipelines`). Hand-rolled AOT client (no Refit), 400 `ResultProblem[]` bodies shown one per line;
 AOT publish has no trim warnings. No v1 client methods were left without an endpoint (`pl job` stays as
-the attempt-by-id view). Verified live on v2 beta against the fixture. Open: `pl dev run --from` (C2)
-still stubbed. C2 `pl dev describe|validate|run [--from|--docker]|pipeline` shelling out to the SDK's dev
-runner (Bun). (C2 can start right after A2/A4; local runs are wanted early.)
+the attempt-by-id view). Verified live on v2 beta against the fixture. C2 `pl dev describe|validate|run
+[--from|--docker]|pipeline` shelling out to the SDK's dev runner (Bun); `--from <pipeline>#<run>` seeds
+the local pool from a real run (input, latest successful outputs, config) and fetches the files a step's
+input references on first use. (C2 can start right after A2/A4; local runs are wanted early.)
 
 ### Track D — frontend
 

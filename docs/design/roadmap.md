@@ -53,8 +53,8 @@ record is in the plan's Track E.
    that expires in late January 2027, when npm also removes direct publishing for such tokens.
    Change `publish-sdk` to stage, have Oliver approve each version on npmjs.com, then move to a
    stage-only token. Trusted publishing is out: it needs GitHub Actions, which this repo doesn't use.
-3. **`pl dev run --from`** (plan C2, inventory U6): hidden from help since 3187dc8; the run API it
-   needs exists.
+3. ~~**`pl dev run --from`**~~ Done 2026-11-03: `pl dev run|pipeline --from <pipeline>#<run>` seeds
+   the local pool from a real run and fetches the files a step uses on first use.
 4. **Quality inventory**, the unmarked items: U2 (`pl wait push` matches on an input field named
    `sha` over the newest 15 runs), F2 (the log tail stops following after a clean disconnect), F3,
    F4, T3 to T7 (CLI, `devMain` and frontend tests; `.Value!` in tests), D3 to D6.

@@ -806,7 +806,7 @@ export function describePipeline(pipeline: unknown, opts: DescribeOptions): Mani
 export const manifestText = (m: ManifestT): string => canonicalJson(m);
 
 /**
- * The schemas at `path` inside an entry's schema: every union branch that has the field, except where
+ * The schemas at `path` inside an entry's schema (through properties and records): every union branch that has the field, except where
  * `kase` (`<entry>.<path>.<discriminator>=<value>`) narrows a union to one branch.
  */
 export function subSchemas(
@@ -848,6 +848,8 @@ export function subSchemas(
     const props = o.properties as Record<string, JsonSchema> | undefined;
     if (props && Object.hasOwn(props, rest[0]!))
       return walk(props[rest[0]!], rest.slice(1), `${here}.${rest[0]}`);
+    if (o.additionalProperties && typeof o.additionalProperties === 'object')
+      return walk(o.additionalProperties, rest.slice(1), `${here}.${rest[0]}`);
     return [];
   };
   return walk(schema, path, entry);

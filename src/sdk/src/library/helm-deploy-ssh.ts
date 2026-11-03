@@ -275,6 +275,8 @@ export async function deployOverSsh(
     rolloutTimeoutSeconds: number;
     dependencies?: readonly ChartDependency[];
     wait?: HelmWait;
+    /** Files in the chart holding secret values: deleted from the host after the upgrade, also when it fails (a successful upgrade removes the whole chart). */
+    secretFiles?: readonly string[];
   },
 ): Promise<void> {
   const ssh = await sshSession(ctx, { host: o.host, key: o.key });
@@ -306,15 +308,22 @@ export async function deployOverSsh(
     });
     await ssh.run(helmPullCommand(dep, remoteChart));
   }
-  await ssh.run(
-    helmUpgradeCommand({
-      ...o.flags,
-      remoteChart,
-      release: o.release,
-      namespace: o.namespace,
-      ...(o.wait ? { wait: o.wait } : {}),
-    }),
-  );
+  try {
+    await ssh.run(
+      helmUpgradeCommand({
+        ...o.flags,
+        remoteChart,
+        release: o.release,
+        namespace: o.namespace,
+        ...(o.wait ? { wait: o.wait } : {}),
+      }),
+    );
+  } finally {
+    if (o.secretFiles?.length)
+      await ssh.run(
+        `rm -f ${o.secretFiles.map((f) => shq(`${remoteChart}/${f}`)).join(' ')}`,
+      );
+  }
   for (const d of o.deployments) {
     const target = d.includes('/') ? d : `deploy/${d}`;
     ctx.log('waiting for rollout', { deployment: target });

@@ -1,7 +1,7 @@
 // Helm deploys to a target from config (`helmTarget()`): steps.helmDeployInCluster runs helm in the step
 // pod against its own cluster; steps.helmDeployOverSsh({ target, … }) runs it on a k3s host. Pick one
 // per target kind with `select`. Images come from a registry, pinned by digest.
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Ctx } from '../ctx/types.ts';
@@ -192,6 +192,13 @@ export interface HelmTargetDeployDef<
    */
   inlineValues?: readonly Readonly<Record<string, unknown>>[];
   /**
+   * Secrets the `secretRef`s in `inlineValues` may name; the step declares them. Each `{ secret: NAME }`
+   * in the resolved values becomes the secret's value, so a chart can render its own Secret from a
+   * pipeline secret. The values files holding one are deleted after the upgrade (helm's release record
+   * keeps the values, as for any Helm value).
+   */
+  secrets?: readonly Secret[];
+  /**
    * The images to deploy: step input key → the chart's values prefix. Each input is a `PushedImage`;
    * the step sets `<prefix>.repository`, `.tag`, `.digest` and `.pullPolicy=IfNotPresent`. `{}` deploys
    * the chart alone.
@@ -274,6 +281,7 @@ interface AnyTargetDef {
   chart: string;
   target: unknown;
   inlineValues?: readonly Readonly<Record<string, unknown>>[];
+  secrets?: readonly Secret[];
   images?: Readonly<Record<string, string>>;
   imageRefs?: Readonly<Record<string, string>>;
   rolloutTimeoutSeconds?: number;
@@ -308,6 +316,11 @@ function targetDeploy(
     ...Object.fromEntries(refEntries.map(([key]) => [key, optional(PushedImage)])),
   };
   const configurable = { target: def.target, inlineValues: def.inlineValues ?? [] };
+  const declaredSecrets = [
+    ...(sshKey ? [sshKey] : []),
+    ...(def.secrets ?? []).filter((s) => s.name !== sshKey?.name),
+  ];
+  const valueSecrets = new Set((def.secrets ?? []).map((s) => s.name));
 
   const contract = step({
     name: def.name,
@@ -316,7 +329,7 @@ function targetDeploy(
     image: inCluster ? HELM_IMAGE : HELM_DEPLOY_IMAGE,
     input,
     output: HelmRelease,
-    secrets: sshKey ? [sshKey] : [],
+    secrets: declaredSecrets,
     timeoutSeconds: def.timeoutSeconds,
     ...(inCluster ? { clusterAccess: true } : {}),
     settings: {
@@ -349,11 +362,27 @@ function targetDeploy(
       );
     const chartDir = chartDirectory(await ctx.files.fetch(input.source.tree), def.chart);
 
+    const secretFiles: string[] = [];
     const generated = inlineValues.map((values, i) => {
       const file = `olve-values-${i}.json`;
-      writeFileSync(join(chartDir, file), JSON.stringify(values));
+      const resolved = resolveSecretRefs(values, (name) => {
+        if (!valueSecrets.has(name))
+          throw new Error(
+            `${kind} '${def.name}': inlineValues names secret ${name}, which the step does not declare (add it to secrets)`,
+          );
+        const value = (ctx.secrets as Record<string, string | undefined>)[name];
+        if (!value) throw new Error(`secret ${name} (inlineValues) is not set`);
+        return value;
+      });
+      if (resolved.secret) secretFiles.push(file);
+      writeFileSync(join(chartDir, file), JSON.stringify(resolved.value), {
+        mode: resolved.secret ? 0o600 : 0o644,
+      });
       return file;
     });
+    const removeSecretFiles = () => {
+      for (const file of secretFiles) rmSync(join(chartDir, file), { force: true });
+    };
     const flags: HelmImageFlags[] = imageEntries.map(([key, prefix]) => {
       const image = input[key]!;
       return {
@@ -395,7 +424,8 @@ function targetDeploy(
         flags: helm,
         deployments: deployments ?? (imageEntries.length ? [release] : []),
         rolloutTimeoutSeconds: rolloutTimeout,
-      });
+        secretFiles,
+      }).finally(removeSecretFiles);
     } else {
       if (!existsSync(SERVICE_ACCOUNT_TOKEN))
         throw new Error(
@@ -407,29 +437,33 @@ function targetDeploy(
         namespace,
         images: flags.map((f) => `${f.repository}@${f.digest}`).join(' '),
       });
-      await ctx.exec(
-        [
-          'helm',
-          'upgrade',
-          '--install',
-          release,
-          '.',
-          '-n',
-          namespace,
-          ...helmFlags(helm),
-          '--wait',
-          `--timeout=${rolloutTimeout}s`,
-        ],
-        {
-          cwd: chartDir,
-          env: {
-            HOME: home,
-            HELM_CACHE_HOME: join(home, 'cache'),
-            HELM_CONFIG_HOME: join(home, 'config'),
-            HELM_DATA_HOME: join(home, 'data'),
+      try {
+        await ctx.exec(
+          [
+            'helm',
+            'upgrade',
+            '--install',
+            release,
+            '.',
+            '-n',
+            namespace,
+            ...helmFlags(helm),
+            '--wait',
+            `--timeout=${rolloutTimeout}s`,
+          ],
+          {
+            cwd: chartDir,
+            env: {
+              HOME: home,
+              HELM_CACHE_HOME: join(home, 'cache'),
+              HELM_CONFIG_HOME: join(home, 'config'),
+              HELM_DATA_HOME: join(home, 'data'),
+            },
           },
-        },
-      );
+        );
+      } finally {
+        removeSecretFiles();
+      }
     }
 
     const url = (target.url ?? serviceUrl({ release, namespace })).replace(/\/+$/, '');
@@ -446,4 +480,36 @@ function targetDeploy(
       ...(target.url ? { url } : {}),
     } as never;
   }) as never;
+}
+
+/**
+ * `v` with every `{ secret: NAME }` (a resolved `secretRef`) replaced by `lookup(NAME)`; `secret` says
+ * whether there was one.
+ */
+export function resolveSecretRefs(
+  v: unknown,
+  lookup: (name: string) => string,
+): { value: unknown; secret: boolean } {
+  let secret = false;
+  const walk = (x: unknown): unknown => {
+    if (Array.isArray(x)) return x.map(walk);
+    if (
+      x !== null &&
+      typeof x === 'object' &&
+      Object.getPrototypeOf(x) === Object.prototype
+    ) {
+      const entries = Object.entries(x as Record<string, unknown>);
+      if (
+        entries.length === 1 &&
+        entries[0]![0] === 'secret' &&
+        typeof entries[0]![1] === 'string'
+      ) {
+        secret = true;
+        return lookup(entries[0]![1]);
+      }
+      return Object.fromEntries(entries.map(([k, y]) => [k, walk(y)]));
+    }
+    return x;
+  };
+  return { value: walk(v), secret };
 }

@@ -164,8 +164,8 @@ a step only one pipeline needs stays a custom step there.
 |---|---|---|---|
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:v1.24.0-debug`, pinned by digest | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image pull-through caches; none by default), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`; or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
-| `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`; or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
@@ -241,6 +241,18 @@ config are reserved.
     ssh: (p, beta) => p.stage([steps.helmDeployOverSsh({ name: "deploy-beta", description: "…", target: beta, sshKey: SSH_PRIVATE_KEY, ...deploy }), from => ({ … })]),
     inCluster: (p, beta) => p.stage([steps.helmDeployInCluster({ name: "deploy-beta", description: "…", target: beta, ...deploy }), from => ({ … })]),
   })
+  ```
+
+  **A pipeline secret into the chart**: a `secretRef` in a config entry the `inlineValues` reference
+  becomes the secret's value in its values file, so the chart can render its own Secret. The step
+  declares the secret in `secrets` (reconcile checks it); the values file holding it is deleted
+  after the upgrade, and Helm's release record keeps the value, as for any Helm value.
+
+  ```ts
+  export const ANTHROPIC_API_KEY = secret("ANTHROPIC_API_KEY", "The app's API key.");
+  export const AI = config("ai", "The app's AI.", z.object({ apiKey: secretRef(ANTHROPIC_API_KEY) }));
+  steps.helmDeployOverSsh({ …, target: beta, sshKey: SSH_PRIVATE_KEY, inlineValues: [{ ai: AI }], secrets: [ANTHROPIC_API_KEY] })
+  // config: ai: { apiKey: { secret: ANTHROPIC_API_KEY } }   →   values: ai.apiKey = <the key>
   ```
 - **`steps.composeDeploy`** asks a Docker Compose deployer to recreate a service with the image
   (`POST <deployerUrl>/v1/deploy`, bearer token); the deployer pulls it, waits for the service's

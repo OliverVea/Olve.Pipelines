@@ -608,6 +608,112 @@ describe('target deploys and select', () => {
     );
     expect(f.calls[f.calls.indexOf(helm) + 1]).toEqual({ cwd: join(f.tree, 'helm') });
   });
+
+  describe('secrets in inlineValues', () => {
+    const AI_KEY = secret('AI_KEY', 'an API key the app needs');
+    const AI = config('ai', 'The app AI.', z.object({ apiKey: secretRef(AI_KEY) }));
+    const sshDeploy = (secrets?: readonly (typeof AI_KEY)[]) =>
+      steps.helmDeployOverSsh({
+        name: 'deploy-beta',
+        description: '',
+        sshKey: KEY,
+        target: TARGET.beta as any,
+        chart: 'helm',
+        inlineValues: [{ ai: AI }, { plain: { a: 1 } }],
+        secrets: secrets ?? [],
+      });
+    const config_ = {
+      target: {
+        beta: { kind: 'ssh', host: 'u@h', namespace: 'apps-beta' },
+        prod: { kind: 'ssh', host: 'u@h', namespace: 'apps' },
+      },
+      ai: { apiKey: { secret: 'AI_KEY' } },
+    };
+
+    test('describe: the step declares them, and must, for a secretRef its values reference', () => {
+      const pipe = (d: ReturnType<typeof sshDeploy>) =>
+        base()
+          .stage(
+            steps.imageBuild({
+              name: 'server',
+              description: '',
+              repository: 'registry:5000/app',
+              push: true,
+            }),
+          )
+          .select(TARGET.beta, {
+            ssh: (p) => p.stage(d),
+            inCluster: (p) => p,
+          });
+      const m = describeOf(pipe(sshDeploy([AI_KEY]))) as any;
+      expect(m.stages[2].cases.ssh[0].steps[0].secrets).toEqual([
+        'AI_KEY',
+        'SSH_PRIVATE_KEY',
+      ]);
+      expect(problems(pipe(sshDeploy()))).toEqual([
+        "step 'deploy-beta': config 'ai' references secret 'AI_KEY' (secretRef), so the step must declare it in secrets",
+      ]);
+    });
+
+    test('ssh target: the value goes into its values file, which is deleted on the host and in the pod after the upgrade', async () => {
+      const f = fakes();
+      let written = '';
+      const exec = f.ctx.exec!;
+      f.ctx.exec = async (argv, o) => {
+        if (argv[0] === 'scp')
+          written = readFileSync(join(f.tree, 'helm', 'olve-values-0.json'), 'utf8');
+        return exec(argv, o);
+      };
+      const r = await testHandler(
+        sshDeploy([AI_KEY]) as any,
+        { source, image: server },
+        {
+          ctx: f.ctx,
+          secrets: { SSH_PRIVATE_KEY: 'k', AI_KEY: 'sk-test' },
+          config: config_,
+        },
+      );
+      expect(r).toMatchObject({ status: 'succeeded' });
+      expect(JSON.parse(written)).toEqual({ ai: { apiKey: 'sk-test' } });
+      expect(existsSync(join(f.tree, 'helm', 'olve-values-0.json'))).toBe(false);
+      expect(
+        JSON.parse(readFileSync(join(f.tree, 'helm', 'olve-values-1.json'), 'utf8')),
+      ).toEqual({ plain: { a: 1 } });
+      const flat = f.calls.filter(Array.isArray).map((c) => (c as string[]).join(' '));
+      const helm = flat.findIndex((c) => c.includes('helm upgrade --install app .'));
+      const rm = flat.findIndex((c) =>
+        c.endsWith('u@h rm -f /tmp/app-helm-apps-beta/olve-values-0.json'),
+      );
+      expect(helm).toBeGreaterThan(-1);
+      expect(rm).toBeGreaterThan(helm);
+      expect(flat.join('\n')).not.toContain('sk-test');
+    });
+
+    test('an undeclared or unset secret fails the step before helm runs', async () => {
+      for (const [secrets, values, message] of [
+        [
+          [],
+          { SSH_PRIVATE_KEY: 'k', AI_KEY: 'x' },
+          'inlineValues names secret AI_KEY, which the step does not declare (add it to secrets)',
+        ],
+        [[AI_KEY], { SSH_PRIVATE_KEY: 'k' }, 'secret AI_KEY is not set'],
+      ] as const) {
+        const f = fakes();
+        const r = await testHandler(
+          sshDeploy(secrets) as any,
+          { source, image: server },
+          { ctx: f.ctx, secrets: values, config: config_ },
+        );
+        if (r.status !== 'failed') throw new Error('expected failure');
+        expect(r.error.message).toContain(message);
+        expect(
+          f.calls
+            .filter(Array.isArray)
+            .some((c) => (c as string[]).join(' ').includes('helm upgrade')),
+        ).toBe(false);
+      }
+    });
+  });
 });
 
 describe('steps.composeDeploy and deployTarget', () => {

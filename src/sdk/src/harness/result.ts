@@ -53,10 +53,15 @@ export async function uploadFile(
   url: string,
   file: string,
   log: (line: string) => void,
-  opts: { attempts?: number; baseDelayMs?: number } = {},
+  opts: {
+    attempts?: number;
+    baseDelayMs?: number;
+    sleep?: (ms: number) => Promise<void>;
+  } = {},
 ): Promise<void> {
   const attempts = opts.attempts ?? 5;
   const base = opts.baseDelayMs ?? 1000;
+  const sleep = opts.sleep ?? ((ms: number) => Bun.sleep(ms));
   for (let i = 1; ; i++) {
     let status = 0;
     let detail: string;
@@ -73,7 +78,7 @@ export async function uploadFile(
     if (!transient || i >= attempts)
       throw new Error(`upload to ${redactUrl(url)} failed: ${detail}`);
     log(`upload to ${redactUrl(url)} failed (${detail}); retry ${i}/${attempts - 1}`);
-    await Bun.sleep(base * 2 ** (i - 1));
+    await sleep(base * 2 ** (i - 1));
   }
 }
 

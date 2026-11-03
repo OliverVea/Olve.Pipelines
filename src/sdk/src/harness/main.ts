@@ -56,12 +56,6 @@ export const defaultIO: HarnessIO = {
 const USAGE =
   'usage: step describe [--sentinels] | step run <step> | step map-trigger <trigger>';
 
-export function allSteps(data: PipelineData): AnyStep[] {
-  const out: AnyStep[] = [];
-  for (const { step } of stepsWithCases(data)) if (!out.includes(step)) out.push(step);
-  return out;
-}
-
 /** Every step with the `select` case conditions (`<ref>.<discriminator>=<value>`) it sits in. */
 export function stepsWithCases(data: PipelineData): { step: AnyStep; cases: string[] }[] {
   const out: { step: AnyStep; cases: string[] }[] = [];

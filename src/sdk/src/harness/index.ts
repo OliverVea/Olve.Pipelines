@@ -2,7 +2,6 @@
 export {
   runHarness,
   defaultIO,
-  allSteps,
   resolveStepFunction,
   type HarnessConfig,
   type HarnessIO,

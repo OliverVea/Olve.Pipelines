@@ -22,14 +22,17 @@ import {
 import { recordConfigRefs } from '../../src/core/config-refs.ts';
 import { SSH_CLIENT_INSTALL } from '../../src/library/ssh.ts';
 import {
+  BUILD_RECIPE,
   contentTagOf,
   dockerConfigJson,
+  KANIKO_BUILD_FLAGS,
+  KANIKO_IMAGE,
   parseChallenge,
   reachableMirrors,
   registryUp,
   writeDockerConfig,
 } from '../../src/library/image-build.ts';
-import { sha256File } from '../../src/util/hash.ts';
+import { sha256File, sha256Hex } from '../../src/util/hash.ts';
 import { dirEntries, writeTar } from '../../src/util/tar.ts';
 import { describePipeline } from '../../src/describe/describe.ts';
 import { Manifest } from '../../src/describe/manifest-schema.ts';
@@ -273,7 +276,7 @@ describe('steps.imageBuild', () => {
       timeoutSeconds: 3600,
     });
     expect(step).toMatchObject({
-      image: 'gcr.io/kaniko-project/executor:debug',
+      image: KANIKO_IMAGE,
       timeoutSeconds: 3600,
       retries: 2,
       secrets: [],
@@ -636,7 +639,7 @@ describe('steps.imageBuild: context, push', () => {
       },
     });
     if (r.status === 'succeeded')
-      expect(Object.keys(r.output!)).toEqual(['repository', 'tag', 'digest']);
+      expect(Object.keys(r.output!)).toEqual(['repository', 'tag', 'digest', 'cached']);
     const argv = k.calls[2]!;
     expect(argv).toContain('--destination=registry.ovea.pro/app/api:2026.10.22.3');
     expect(argv.some((a) => a === '--no-push' || a.startsWith('--tar-path'))).toBe(false);
@@ -660,11 +663,11 @@ describe('steps.imageBuild: context, push', () => {
     const k = kaniko();
     const ref = join(tmp('content-tag-ref'), 'ref.tar');
     writeTar(ref, dirEntries(join(k.tree, 'src/frontend')));
-    const tag = `src-${sha256File(ref).slice(0, 12)}`;
+    const tag = `src-${sha256Hex(`${BUILD_RECIPE}\n${sha256File(ref)}`).slice(0, 12)}`;
     expect(contentTagOf(join(k.tree, 'src/frontend'), tmp('content-tag'))).toBe(tag);
 
     const built = await testHandler(steps.imageBuild(def), { source }, { ctx: k.ctx });
-    expect(built).toMatchObject({ status: 'succeeded', output: { tag } });
+    expect(built).toMatchObject({ status: 'succeeded', output: { tag, cached: false } });
     expect(k.heads).toEqual([`https://registry.ovea.pro/v2/qb/figures/manifests/${tag}`]);
     expect(k.calls[2]).toContain(`--destination=registry.ovea.pro/qb/figures:${tag}`);
 
@@ -673,9 +676,53 @@ describe('steps.imageBuild: context, push', () => {
     const skipped = await testHandler(steps.imageBuild(def), { source }, { ctx: k2.ctx });
     expect(skipped).toMatchObject({
       status: 'succeeded',
-      output: { repository: 'registry.ovea.pro/qb/figures', tag, digest: existing },
+      output: {
+        repository: 'registry.ovea.pro/qb/figures',
+        tag,
+        digest: existing,
+        cached: true,
+      },
     });
     expect(k2.calls).toEqual([]);
+  });
+
+  // Catches: an image built by another executor or flags reused because only the context was hashed.
+  test('contentTag: the tag changes with the build recipe as well as the context', () => {
+    const dir = tmp('content-tag-recipe');
+    writeFileSync(join(dir, 'Dockerfile'), 'FROM scratch\n');
+    const tagOf = (recipe?: string) => contentTagOf(dir, tmp('content-tag-work'), recipe);
+    const before = tagOf();
+
+    expect(tagOf()).toBe(before);
+    expect(tagOf(BUILD_RECIPE.replace('v1.24.0', 'v1.23.2'))).not.toBe(before);
+    expect(tagOf(BUILD_RECIPE.replace('--use-new-run', '--single-snapshot'))).not.toBe(
+      before,
+    );
+    writeFileSync(join(dir, 'Dockerfile'), 'FROM busybox\n');
+    expect(tagOf()).not.toBe(before);
+  });
+
+  test('every build runs the pinned executor with the flags its recipe names', async () => {
+    const k = kaniko();
+    const build = steps.imageBuild({
+      name: 'b',
+      description: '',
+      repository: 'registry.ovea.pro/app/api',
+      push: true,
+      registryMap: {},
+    });
+
+    await testHandler(build, { source }, { ctx: k.ctx });
+
+    expect(build.step.image).toMatch(
+      /^gcr\.io\/kaniko-project\/executor:v[\d.]+-debug@sha256:[0-9a-f]{64}$/,
+    );
+    expect(JSON.parse(BUILD_RECIPE)).toEqual({
+      kaniko: build.step.image,
+      flags: [...KANIKO_BUILD_FLAGS],
+    });
+    const argv = k.calls.find((c) => c[0] === '/kaniko/executor')!;
+    for (const flag of KANIKO_BUILD_FLAGS) expect(argv).toContain(flag);
   });
 });
 
@@ -1578,7 +1625,7 @@ describe('library steps in the manifest', () => {
       ],
       [
         'imageBuild',
-        'gcr.io/kaniko-project/executor:debug',
+        KANIKO_IMAGE,
         [],
         { repository: 'app' },
         { source: { ref: 'source' } },

@@ -24,11 +24,17 @@ export const BuiltImage = model(
 
 /**
  * A container image pushed to a registry by a step (`imageBuild` with `push: true`), pulled from there
- * by the deploy. `repository` includes the registry host.
+ * by the deploy. `repository` includes the registry host. `cached` is true when `contentTag` found the
+ * image already in the registry and the build was skipped.
  */
 export const PushedImage = model(
   'PushedImage',
-  z.object({ repository: z.string(), tag: z.string(), digest: z.string() }),
+  z.object({
+    repository: z.string(),
+    tag: z.string(),
+    digest: z.string(),
+    cached: z.boolean().optional(),
+  }),
 );
 
 /** A Helm release that was installed or upgraded. */

@@ -62,10 +62,9 @@ record is in the plan's Track E.
 6. Small follow-ups found on the way:
    - `publish-*` steps declare `REGISTRY_SECRETS` whole; with `select` each would declare only the
      selected registry's secret.
-   - Fix the `contentTag` cache key: it must cover build options, not just the context.
-   - A cached `imageBuild` (`contentTag` found the image, kaniko skipped) reads as a plain success;
-     the step output or `pl run get` should say the build was skipped.
-   - Pin `KANIKO_IMAGE` (today `gcr.io/kaniko-project/executor:debug`, floating).
+   - ~~The `contentTag` cache key, a cached `imageBuild`, the kaniko pin.~~ Done in SDK
+     2.0.0-beta.24: the key hashes the build recipe (the pinned kaniko image and its flags) with the
+     context, and `PushedImage.cached` says the build was skipped.
    - Beta runs the new harness before prod now (the fixture), so that item is done.
 7. **The step destination link** (a deploy step links to what it deployed).
 8. **A real config UI** (2.1 or 2.2). Oliver lists the requirements first; then we iterate on a

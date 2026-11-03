@@ -520,8 +520,6 @@ Open work from the pipeline package migration and the `pl wait` changes.
 **From the roadmap, unchanged**
 
 - npm staged publishing, before `NPM_TOKEN` expires in late January 2027.
-- The `contentTag` cache key must cover build options.
-- Pin `KANIKO_IMAGE`.
 
 **For Oliver**
 

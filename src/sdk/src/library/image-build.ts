@@ -18,12 +18,30 @@ import { isConfigRef, type ConfigRef, type Configurable } from '../core/config.t
 import { isLiteral, resolveConfigRefs } from '../core/config-refs.ts';
 import { implement, type Implementation } from '../core/handlers.ts';
 import { step, type LiteralName, type Step } from '../core/steps.ts';
-import { sha256File } from '../util/hash.ts';
+import { sha256File, sha256Hex } from '../util/hash.ts';
 import { dirEntries, writeTar } from '../util/tar.ts';
 import { BuiltImage, PushedImage, Source } from './models.ts';
 
-/** kaniko's debug image (it has a busybox shell for debugging; the executor itself needs none). */
-export const KANIKO_IMAGE = 'gcr.io/kaniko-project/executor:debug';
+/** kaniko's debug image, pinned by digest. The handler needs its busybox for `mkdir` and `cp`. */
+export const KANIKO_IMAGE =
+  'gcr.io/kaniko-project/executor:v1.24.0-debug@sha256:2562c4fe551399514277ffff7dcca9a3b1628c4ea38cb017d7286dc6ea52f4cd';
+
+/** The executor flags every build uses; part of `BUILD_RECIPE`. */
+export const KANIKO_BUILD_FLAGS: readonly string[] = [
+  '--snapshot-mode=redo',
+  '--use-new-run',
+  '--compressed-caching=false',
+];
+
+/**
+ * What decides the built image besides its context: the executor and its flags. A content tag hashes
+ * it with the context, so a change here rebuilds every `contentTag` image once instead of reusing an
+ * image another build produced.
+ */
+export const BUILD_RECIPE = JSON.stringify({
+  kaniko: KANIKO_IMAGE,
+  flags: KANIKO_BUILD_FLAGS,
+});
 
 /**
  * Footgun: the build context must live under /kaniko, NOT /workspace (or another plain directory in
@@ -216,14 +234,17 @@ function checkRelative(what: string, path: string): string {
   return clean === '.' ? '' : clean;
 }
 
-/** The `src-<12 hex>` tag of a directory: the sha256 of its deterministic tar (as `ctx.output.dir` writes it). */
-export function contentTagOf(dir: string, tmpDir: string): string {
+/**
+ * The `src-<12 hex>` tag of a build context: the sha256 of the build recipe and of the directory's
+ * deterministic tar (as `ctx.output.dir` writes it).
+ */
+export function contentTagOf(dir: string, tmpDir: string, recipe = BUILD_RECIPE): string {
   mkdirSync(tmpDir, { recursive: true });
   const work = mkdtempSync(join(tmpDir, 'content-tag-'));
   try {
     const tar = join(work, 'context.tar');
     writeTar(tar, dirEntries(dir));
-    return `src-${sha256File(tar).slice(0, 12)}`;
+    return `src-${sha256Hex(`${recipe}\n${sha256File(tar)}`).slice(0, 12)}`;
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -486,11 +507,11 @@ export function imageBuild<const N extends string, const K extends string = neve
     if (contentTag) {
       const digest = await registryDigest(ctx.http, repository, tag, access);
       if (digest) {
-        ctx.log('image already in the registry', {
+        ctx.log('image already in the registry; build skipped', {
           image: `${repository}:${tag}`,
           digest,
         });
-        return { repository, tag, digest };
+        return { repository, tag, digest, cached: true };
       }
     }
 
@@ -521,9 +542,7 @@ export function imageBuild<const N extends string, const K extends string = neve
         `--digest-file=${digestPath}`,
         `--destination=${repository}:${tag}`,
         ...(insecure ? ['--insecure', `--insecure-registry=${host}`] : []),
-        '--snapshot-mode=redo',
-        '--use-new-run',
-        '--compressed-caching=false',
+        ...KANIKO_BUILD_FLAGS,
         ...Object.entries(mirrors).map(([from, to]) => `--registry-map=${from}=${to}`),
       ],
       { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS },
@@ -539,7 +558,7 @@ export function imageBuild<const N extends string, const K extends string = neve
       throw new Error(`kaniko wrote an unexpected digest: '${digest}'`);
     if (push) {
       ctx.log('image pushed', { image: `${repository}:${tag}`, digest });
-      return { repository, tag, digest };
+      return { repository, tag, digest, cached: false };
     }
     const tar = await ctx.output.file(tarPath, { name: 'image.tar' });
     rmSync(tarPath); // the copy in the step's files is the one that counts; don't hold the image twice in /olve

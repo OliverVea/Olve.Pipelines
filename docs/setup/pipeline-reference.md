@@ -163,7 +163,7 @@ a step only one pipeline needs stays a custom step there.
 | Step | Image | Input → output | Config |
 |---|---|---|---|
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
-| `steps.imageBuild` | `gcr.io/kaniko-project/executor:debug` | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image pull-through caches; none by default), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
+| `steps.imageBuild` | `gcr.io/kaniko-project/executor:v1.24.0-debug`, pinned by digest | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image pull-through caches; none by default), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
 | `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`; or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
 | `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
@@ -185,8 +185,10 @@ config are reserved.
   kaniko falls back upstream when a mirror lacks an image.
   **`push: true`** is for images too big to travel as a file (the step's scratch space is ~1 GiB):
   kaniko pushes to `repository` (which must name a registry host) and the output is a `PushedImage`.
-  With **`contentTag: true`** the tag is `src-<hash>` of the build context's content, and the build is
-  skipped when the registry already has that tag:
+  With **`contentTag: true`** the tag is `src-<hash>` of the build context's content and the build
+  recipe (the pinned kaniko image and its flags), and the build is skipped when the registry already
+  has that tag; the output's `cached` is then `true`. A new SDK that changes the recipe rebuilds each
+  such image once:
 
   ```ts
   export const buildFigures = steps.imageBuild({

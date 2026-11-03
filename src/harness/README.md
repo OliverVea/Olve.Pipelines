@@ -183,7 +183,7 @@ All of these ran on 2026-10-21 in `olve-runners-beta` with `runtimeClassName: gv
 |---|---|---|
 | `debian:bookworm-slim` | yes | `/bin/sh`, Debian 12 |
 | `alpine:latest` (musl) | yes | `/bin/sh`, Alpine |
-| `gcr.io/kaniko-project/executor:debug` | yes | `/bin/sh` |
+| `gcr.io/kaniko-project/executor:v1.24.0-debug` (pinned by digest) | yes | `/bin/sh` |
 | `debian:bookworm-slim`, step `runAsUser: 65534` | yes, as uid 65534 | `/bin/sh` |
 | tampered signature (negative) | init exit 65 in <1 s: `HTTP/1.1 403 Forbidden` | n/a |
 

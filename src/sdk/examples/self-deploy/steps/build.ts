@@ -8,7 +8,8 @@ export const build = implement(
   step({
     name: 'build',
     description: 'Builds the image and the chart.',
-    image: 'gcr.io/kaniko-project/executor:debug',
+    image:
+      'gcr.io/kaniko-project/executor:v1.24.0-debug@sha256:2562c4fe551399514277ffff7dcca9a3b1628c4ea38cb017d7286dc6ea52f4cd',
     input: { source: Source },
     output: M.BuildArtifact,
     timeoutSeconds: 1800,

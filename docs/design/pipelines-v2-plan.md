@@ -500,9 +500,13 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   now" is config only. Repo, branch and credentials stay binding data, so `onPush` takes no source
   config of its own.
 - **Next**: phase 4 a Triggers page in the UI.
-- **2.1 candidate (asked for)**: a step's destination as a link on the overview, e.g. a deploy step
-  links to the deployed site. Likely an SDK step field or an output convention (a URL the step
-  declares or returns), shown on the step card and step page.
+- **Step links** (built, SDK 2.0.0-beta.27): a handler calls `ctx.link(url, label?)`; the links
+  travel in the result envelope on any status (`links`, strict on the server: absolute http(s), at
+  most 10, URL ≤ 2048 and label ≤ 100 characters), are stored on the attempt and shown on the step
+  card (the run's succeeded attempt, else its latest; the pipeline overview's latest), the step
+  page, `pl run get` and `pl dev run`. The library deploys link to their target's `link` (or the
+  literal `helmDeployOverSsh`'s `link`). A step-declared link was not built: the URL usually depends
+  on config or on what the run did.
 
 ### Blocking, not gates (2026-10-22)
 

@@ -42,30 +42,25 @@ record is in the plan's Track E.
 
 ## 2.1: now
 
-0. **Spec-first API (TypeSpec)**, decided 2026-10-27: [spec-first.md](spec-first.md). The emitter
-   and runtime move from ARM to Olve.Utilities first, then the API migrates area by area with a
-   Hey API frontend client, then `pl` is rewritten in TypeScript, then Olve.Template.Api follows.
+0. ~~**Spec-first API (TypeSpec)**~~ Done: [spec-first.md](spec-first.md). The API is the
+   TypeSpec contract, the frontend and `pl` (in TypeScript) use the Hey API client generated from it.
 1. ~~**Retention live on prod.**~~ Done 2026-10-27: the dry-run sweep would have deleted two
    leftover result archives (572 bytes) and one orphaned URL Secret, no runs and no binaries; the
    deployer declares `retention` (a self-deploy run is ~55 MB, so 183 days of it would outgrow the
    100 Gi Garage) and `values-v2-prod.yaml` sets `Retention__DryRun=false`. Watch the first sweeps.
-2. **npm staged publishing.** `NPM_TOKEN` is a package-scoped direct-publish token from 2026-10-25
-   that expires in late January 2027, when npm also removes direct publishing for such tokens.
-   Change `publish-sdk` to stage, have Oliver approve each version on npmjs.com, then move to a
-   stage-only token. Trusted publishing is out: it needs GitHub Actions, which this repo doesn't use.
-3. ~~**`pl dev run --from`**~~ Done 2026-11-03: `pl dev run|pipeline --from <pipeline>#<run>` seeds
+2. ~~**`pl dev run --from`**~~ Done 2026-11-03: `pl dev run|pipeline --from <pipeline>#<run>` seeds
    the local pool from a real run and fetches the files a step uses on first use.
-4. **Quality inventory**, the unmarked items: U2 (`pl wait push` matches on an input field named
+3. **Quality inventory**, the unmarked items: U2 (`pl wait push` matches on an input field named
    `sha` over the newest 15 runs), F2 (the log tail stops following after a clean disconnect), F3,
    F4, T3 to T7 (CLI, `devMain` and frontend tests; `.Value!` in tests), D3 to D6.
-5. **Bring crafty back**, when wanted: unblock `deploy` and `verify`, then run it.
-6. Small follow-ups found on the way:
+4. Small follow-ups found on the way:
    - ~~The `contentTag` cache key, a cached `imageBuild`, the kaniko pin.~~ Done in SDK
      2.0.0-beta.24: the key hashes the build recipe (the pinned kaniko image and its flags) with the
      context, and `PushedImage.cached` says the build was skipped.
    - Beta runs the new harness before prod now (the fixture), so that item is done.
-7. **The step destination link** (a deploy step links to what it deployed).
-8. **A real config UI** (2.1 or 2.2). Oliver lists the requirements first; then we iterate on a
+5. ~~**The step destination link**~~ Done in SDK 2.0.0-beta.27: `ctx.link(url, label?)` in a
+   handler, `link` on deploy targets; shown on the step card, the step page and in `pl run get`.
+6. **A real config UI** (2.1 or 2.2). Oliver lists the requirements first; then we iterate on a
    local frontend (`npm run dev:beta`) against beta. Agreed starting points for `select`:
    - The overview shows the *effective* pipeline: steps from a select carry a
      `target.prod.kind = ssh` chip, and an optional "show all variants" toggle draws the
@@ -88,6 +83,16 @@ Olve.MinimalApi. External inputs' open ideas (`at`, another run) are in
   ending differently; infrastructure failures and timeouts apart from the step's own; the observed
   share of runs that failed for no real reason. Definitions and limits:
   [runs-and-operations.md](../setup/runs-and-operations.md#step-reliability).
+
+## After 2.2
+
+- **npm staged publishing.** `NPM_TOKEN` is a package-scoped direct-publish token from 2026-10-25
+  that expires in late January 2027, when npm also removes direct publishing for such tokens; it has
+  to be settled before then. Trusted publishing is out (GitHub Actions, GitLab and CircleCI only, no
+  self-hosted runners). The options: stage once in `promote` with `npm stage publish --tag beta`
+  (Oliver approves each SDK version on npmjs.com), or a self-hosted registry carrying every version
+  with rare, deliberate npm staged releases.
+- **Bring crafty back**, when wanted: unblock `deploy` and `verify`, then run it.
 
 ## 2.3 / 2.4
 

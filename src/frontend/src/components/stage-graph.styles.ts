@@ -12,35 +12,6 @@ export const stageGraphStyles = css`
   .note {
     margin-left: auto;
   }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--color-surface);
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--color-text);
-    padding: 0.2rem 0.6rem;
-    font-size: 0.76rem;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--color-border);
-  }
-  .seg button:hover {
-    background: var(--color-surface-hover);
-  }
-  .seg button[aria-pressed='true'] {
-    background: var(--color-primary);
-    color: var(--color-surface);
-  }
-  .seg button:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
-
   .scroller {
     overflow-x: auto;
     overscroll-behavior-x: contain;

@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { api, errorMessages } from '../api/client.js';
 import {
   configCheck,
@@ -8,6 +8,7 @@ import {
   configRollback,
   configSet,
   pipelinesHealth,
+  secretsList,
   versionsList,
   type ConfigCheck,
   type ConfigSaveResult,
@@ -23,14 +24,24 @@ import {
 } from '../model/config-schema.js';
 import { diffLines, foldDiff, type DiffHunk } from '../model/diff.js';
 import type { JsonSchema } from '../model/manifest.js';
-import type { ConfigEditor } from './config-editor.js';
 import './config-editor.js';
+import './config-form.js';
 import './diff-view.js';
 import './relative-time.js';
 import './pipeline-header.js';
 import { LiveController, forPipeline } from '../api/events.js';
 
 type Target = { version: number; role: 'active' | 'pending'; entries: ConfigEntry[] };
+
+const MODE_KEY = 'olve-config-mode';
+
+function storedMode(): 'form' | 'yaml' {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'yaml' ? 'yaml' : 'form';
+  } catch {
+    return 'form';
+  }
+}
 
 /**
  * A pipeline's config document: a YAML editor validated against the active (or pending) version's
@@ -41,6 +52,9 @@ export class PipelineConfigView extends LitElement {
   static styles = [
     sharedStyles,
     css`
+      .mode {
+        margin: 0.5rem 0;
+      }
       .row {
         display: flex;
         flex-wrap: wrap;
@@ -125,7 +139,8 @@ export class PipelineConfigView extends LitElement {
   @state() declare private _to: number | null;
   @state() declare private _diff: DiffHunk[] | null;
   @state() declare private _error: string | null;
-  @query('config-editor') declare private _editor: ConfigEditor;
+  @state() declare private _mode: 'form' | 'yaml';
+  @state() declare private _secrets: Map<string, boolean>;
 
   constructor() {
     super();
@@ -136,6 +151,8 @@ export class PipelineConfigView extends LitElement {
     );
     this.pipelineId = '';
     this._yaml = '';
+    this._mode = storedMode();
+    this._secrets = new Map();
     this._snapshot = null;
     this._history = [];
     this._targets = [];
@@ -160,14 +177,20 @@ export class PipelineConfigView extends LitElement {
   async reload(replaceText: boolean) {
     const path = { pipelineId: this.pipelineId };
     try {
-      const [doc, history, versions, health] = await Promise.all([
+      const [doc, history, versions, health, secrets] = await Promise.all([
         configGet({ client: api, path }).then((r) => r.data),
         configHistory({ client: api, path }).then((r) => r.data),
         versionsList({ client: api, path }).then((r) => r.data),
         pipelinesHealth({ client: api, path: { pipelineId: this.pipelineId } }).then(
           (r) => r.data,
         ),
+        secretsList({ client: api, path })
+          .then((r) => r.data)
+          .catch(() => null),
       ]);
+      this._secrets = new Map(
+        (secrets ?? []).map((s) => [s.name ?? '', s.isSet !== false]),
+      );
       this._snapshot = doc?.snapshot ?? null;
       if (replaceText || !this._dirty) {
         this._yaml = doc?.yaml ?? '';
@@ -232,7 +255,7 @@ export class PipelineConfigView extends LitElement {
           await configSet({
             client: api,
             path: { pipelineId: this.pipelineId },
-            body: { yaml: this._editor.text },
+            body: { yaml: this._yaml },
           })
         ).data ?? null;
       this._dirty = false;
@@ -317,11 +340,29 @@ export class PipelineConfigView extends LitElement {
               >`
             : nothing}
         </div>
-        <config-editor
-          .value=${this._yaml}
-          .schema=${this._schema}
-          @change=${() => (this._dirty = true)}
-        ></config-editor>
+        <div class="seg mode" role="group" aria-label="Edit as">
+          ${(['form', 'yaml'] as const).map(
+            (m) =>
+              html`<button
+                aria-pressed=${this._mode === m}
+                @click=${() => this._setMode(m)}
+              >
+                ${m === 'form' ? 'Form' : 'YAML'}
+              </button>`,
+          )}
+        </div>
+        ${this._mode === 'form'
+          ? html`<config-form
+              .text=${this._yaml}
+              .schema=${this._schema}
+              .secrets=${this._secrets}
+              @change=${this._edited}
+            ></config-form>`
+          : html`<config-editor
+              .value=${this._yaml}
+              .schema=${this._schema}
+              @change=${this._edited}
+            ></config-editor>`}
         <div class="row">
           <button class="btn" ?disabled=${this._busy} @click=${() => this._save()}>
             Save as a new snapshot
@@ -340,6 +381,20 @@ export class PipelineConfigView extends LitElement {
       </section>
       ${this._renderCheck()} ${this._renderHistory()}
     `;
+  }
+
+  private _edited = (e: CustomEvent<string>) => {
+    this._yaml = e.detail;
+    this._dirty = true;
+  };
+
+  private _setMode(mode: 'form' | 'yaml') {
+    this._mode = mode;
+    try {
+      localStorage.setItem(MODE_KEY, mode);
+    } catch {
+      /* storage unavailable */
+    }
   }
 
   private async _selectTarget(version: number) {

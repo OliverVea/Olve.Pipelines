@@ -114,9 +114,13 @@ auth:
   string, `true`/`false` are booleans; anchors and aliases are not supported.
 - Diffs between snapshots are computed for display only.
 
-The web UI's **Config** page (from a pipeline's page) has a YAML editor that marks errors on the
-offending lines and completes keys and values from the version's schema, the snapshot history with
-rollback, and a diff between any two snapshots.
+The web UI's **Config** page (from a pipeline's page) edits the document as a **form** or as **YAML**;
+both edit the same text, so you can switch at any time. The form is generated from the version's
+schema: a union such as `target.prod.kind` is a dropdown that brings in that choice's fields,
+optional blocks are added or removed as a whole, lists and maps get rows, and a secret reference
+says whether its secret is set. Edits go into the YAML in place, so comments stay. The YAML editor
+marks errors on the offending lines and completes keys and values from the schema. Below them are
+the snapshot history with rollback and a diff between any two snapshots.
 
 ## Config and secrets
 

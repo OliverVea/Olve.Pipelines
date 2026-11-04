@@ -370,8 +370,10 @@ export class PipelineListView extends LitElement {
       this._pipelines = pipelines ?? [];
       this._waiting = waiting ?? [];
       this._loaded = true;
+      this._error = null;
     } catch (e) {
-      if (!silent) this._error = extractErrorMessage(e);
+      const message = extractErrorMessage(e);
+      this._error = silent && this._loaded ? `Couldn't refresh: ${message}` : message;
     } finally {
       if (!silent) this._loading = false;
     }

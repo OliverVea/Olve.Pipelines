@@ -12,6 +12,24 @@ interface Listener {
 
 const RETRY_MS = [1_000, 5_000, 15_000, 30_000];
 
+/** `reconnecting` while the stream is down after having been open: what views show may be stale. */
+export type LiveState = 'live' | 'reconnecting';
+const stateListeners = new Set<(state: LiveState) => void>();
+let liveState: LiveState = 'live';
+
+function setLiveState(state: LiveState) {
+  if (state === liveState) return;
+  liveState = state;
+  for (const l of stateListeners) l(state);
+}
+
+/** Calls `listener` now and on every change of the stream's state; returns the unsubscribe. */
+export function onLiveState(listener: (state: LiveState) => void): () => void {
+  stateListeners.add(listener);
+  listener(liveState);
+  return () => stateListeners.delete(listener);
+}
+
 /**
  * One change-event stream per tab, open while a view listens and the tab is visible. Every `hello`
  * (first connect or reconnect) and `resync` tells all listeners to reload: nothing is replayed, so
@@ -46,6 +64,7 @@ class ChangeStream {
   }
 
   private close() {
+    setLiveState('live');
     clearTimeout(this.retryTimer);
     this.retryTimer = undefined;
     this.abort?.abort();
@@ -56,6 +75,7 @@ class ChangeStream {
     try {
       for await (const event of changeEvents(api, abort.signal)) {
         this.failures = 0;
+        setLiveState('live');
         if (reloadsAll(event)) this.all();
         else if (isNotice(event)) this.dispatch(event);
       }
@@ -65,6 +85,7 @@ class ChangeStream {
     }
     if (this.abort !== abort) return;
     this.abort = undefined;
+    setLiveState('reconnecting');
     const delay = RETRY_MS[Math.min(this.failures, RETRY_MS.length - 1)];
     this.retryTimer = setTimeout(() => {
       this.retryTimer = undefined;

@@ -294,7 +294,7 @@ export class StageGraph extends LitElement {
       .plain {
         --tone: var(--color-border);
       }
-      .tile:focus-visible,
+      .tile .name:focus-visible,
       .chip:focus-visible {
         outline: 2px solid var(--color-primary);
         outline-offset: 2px;
@@ -326,6 +326,13 @@ export class StageGraph extends LitElement {
       .name {
         flex: 1;
         min-width: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
         font-weight: 600;
         font-size: 0.88rem;
         overflow-wrap: anywhere;
@@ -903,19 +910,25 @@ export class StageGraph extends LitElement {
         step.name,
         rel,
       )} ${this.selected === step.name ? 'selected' : ''}"
-      role="button"
-      tabindex="0"
       data-step=${step.name}
-      aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}"
       @mouseenter=${ev.enter}
       @mouseleave=${ev.leave}
-      @focus=${ev.enter}
-      @blur=${ev.leave}
       @click=${ev.click}
-      @keydown=${ev.key}
     >
       <div class="head">
-        <span class="name">${step.name}</span>
+        <button
+          type="button"
+          class="name"
+          aria-label="${step.name}${st ? `, ${statusLabel(st.status)}` : ''}"
+          @focus=${ev.enter}
+          @blur=${ev.leave}
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            ev.click();
+          }}
+        >
+          ${step.name}
+        </button>
         ${st && st.status !== 'not-run'
           ? st.logsHref
             ? html`<a

@@ -25,6 +25,8 @@ const keyOf = (a: LogAddress | null) =>
  * Logs of one attempt. While `live`, follows the log stream (falling back to re-fetching every few
  * seconds) and keeps the view pinned to the bottom unless the reader has scrolled up.
  */
+const RETRY_MS = [1_000, 5_000, 15_000, 30_000];
+
 @customElement('log-pane')
 export class LogPane extends LitElement {
   static styles = [
@@ -63,7 +65,7 @@ export class LogPane extends LitElement {
   @state() declare private _loading: boolean;
   @query('pre') declare private _pre: HTMLPreElement | null;
 
-  private _timer?: ReturnType<typeof setInterval>;
+  private _timer?: ReturnType<typeof setTimeout>;
   private _stream?: AbortController;
   private _loadedKey = '';
 
@@ -101,17 +103,19 @@ export class LogPane extends LitElement {
   }
 
   private _stop() {
-    if (this._timer) clearInterval(this._timer);
+    clearTimeout(this._timer);
     this._timer = undefined;
     this._stream?.abort();
     this._stream = undefined;
   }
 
-  private async _follow(address: LogAddress) {
+  /** Follows the log until the attempt ends; a dropped connection (a redeploy, a proxy timeout) reconnects. */
+  private async _follow(address: LogAddress, failures = 0, resumed = false) {
     const stream = new AbortController();
     this._stream = stream;
     const key = keyOf(address);
     const { pipelineId, number, step, attempt } = address;
+    let ended = false;
     try {
       for await (const event of logEvents(
         api,
@@ -120,17 +124,25 @@ export class LogPane extends LitElement {
         attempt,
       )) {
         if (key !== this._key) return;
+        failures = 0;
         if (event.type === 'log') {
+          // A reconnect opens with an empty reset before the full log: keep showing what we have.
+          if (resumed && event.reset && !event.text) continue;
           await this._show(event.reset ? event.text : this._text + event.text);
         } else if (event.type === 'end') {
+          ended = true;
           break;
         }
       }
-      if (!stream.signal.aborted) this._load(true); // the stored log, once the attempt is done
     } catch {
-      if (!stream.signal.aborted && key === this._key)
-        this._timer = setInterval(() => this._load(true), 3000);
+      failures++;
     }
+    if (stream.signal.aborted || key !== this._key) return;
+    if (ended) return this._load(true); // the stored log, once the attempt is done
+    const delay = RETRY_MS[Math.min(failures, RETRY_MS.length - 1)];
+    this._timer = setTimeout(() => {
+      if (this.live && key === this._key) this._follow(address, failures, true);
+    }, delay);
   }
 
   private async _show(text: string) {

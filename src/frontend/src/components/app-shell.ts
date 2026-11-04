@@ -1,6 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { resolve, navigate, type ResolvedRoute } from '../router.js';
+import { onLiveState, type LiveState } from '../api/events.js';
 import {
   getUser,
   login,
@@ -49,6 +50,14 @@ export class AppShell extends LitElement {
       flex: 1;
     }
 
+    .stale {
+      padding: 0.1rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--color-warning) 50%, transparent);
+      color: var(--color-warning);
+      font-size: 0.78rem;
+    }
+
     .user-info {
       display: flex;
       align-items: center;
@@ -95,6 +104,8 @@ export class AppShell extends LitElement {
 
   @state() declare private _route: ResolvedRoute;
   @state() declare private _user: AuthUser | null;
+  @state() declare private _live: LiveState;
+  private _unsubLive?: () => void;
   @state() declare private _authReady: boolean;
 
   private _unsubAuth?: () => void;
@@ -103,6 +114,7 @@ export class AppShell extends LitElement {
     super();
     this._route = resolve(window.location.pathname);
     this._user = null;
+    this._live = 'live';
     this._authReady = false;
   }
 
@@ -111,6 +123,7 @@ export class AppShell extends LitElement {
     window.addEventListener('route-changed', this._onRouteChanged);
     window.addEventListener('popstate', this._onRouteChanged);
     this._unsubAuth = onUserChanged((user) => (this._user = user));
+    this._unsubLive = onLiveState((state) => (this._live = state));
     this._initAuth();
   }
 
@@ -119,6 +132,7 @@ export class AppShell extends LitElement {
     window.removeEventListener('route-changed', this._onRouteChanged);
     window.removeEventListener('popstate', this._onRouteChanged);
     this._unsubAuth?.();
+    this._unsubLive?.();
   }
 
   private async _initAuth(): Promise<void> {
@@ -161,6 +175,14 @@ export class AppShell extends LitElement {
       <header>
         <h1><a href="/" @click=${this._handleNav}>Olve Pipelines</a></h1>
         <span class="spacer"></span>
+        ${this._live === 'reconnecting'
+          ? html`<span
+              class="stale"
+              role="status"
+              title="Live updates are disconnected; pages may be out of date until they reconnect."
+              >Reconnecting…</span
+            >`
+          : nothing}
         <div class="user-info">
           <span class="user-name"
             >${this._user.profile.preferred_username ??

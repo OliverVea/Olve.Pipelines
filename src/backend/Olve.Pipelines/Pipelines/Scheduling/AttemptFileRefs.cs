@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// A file reference found in an attempt's input (spec §5.5): a value shaped
+/// A file reference found in an attempt's input: a value shaped
 /// <c>{run, step, attempt, path, sha256}</c> (the output view of an <c>x-olve-kind: fileRef</c> schema).
 /// </summary>
 /// <param name="JsonPath">Where in <c>input.json</c> the ref sits (<c>$.artifact.image</c>), for diagnostics.</param>

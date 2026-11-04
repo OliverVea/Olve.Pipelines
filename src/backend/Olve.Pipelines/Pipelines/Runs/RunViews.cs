@@ -23,11 +23,11 @@ public record RunSummary(
     int? ConfigSnapshot = null);
 
 /// <summary>
-/// One run in full (spec §7 run view): its input, pinned version, links, and the stage layout of the
+/// One run in full: its input, pinned version, links, and the stage layout of the
 /// pinned version's manifest with every planned step's latest attempt.
 /// </summary>
 /// <param name="Continuable">True while the run is pinned to the pipeline's active version and not superseded —
-/// reruns and continues are possible (spec §6.2: after a switch, re-trigger instead).</param>
+/// reruns and continues are possible (after a switch, re-trigger instead).</param>
 /// <param name="Stages">Empty when the pinned version's manifest is unavailable.</param>
 /// <param name="Config">The run's effective config (JSON text: the pinned snapshot with the version's defaults); null when the version declares none.</param>
 public record RunDetail(
@@ -74,7 +74,7 @@ public record RunStepView(
 }
 
 /// <summary>
-/// One row of a step's history across runs (spec §6.3), newest first. <see cref="StepVersionChanged"/>
+/// One row of a step's history across runs, newest first. <see cref="StepVersionChanged"/>
 /// marks the first row after a definition change (its step version differs from the next older row's).
 /// </summary>
 public record StepHistoryItem(

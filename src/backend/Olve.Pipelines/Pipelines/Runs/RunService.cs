@@ -24,7 +24,7 @@ public class RunService(
     /// <summary>
     /// Creates the next run of a pipeline, pinned to <paramref name="versionId"/>, in
     /// <see cref="RunStatus.Running"/>. Input validation against the input model is the trigger
-    /// layer's job (B7); here it only has to be well-formed JSON.
+    /// layer's job; here it only has to be well-formed JSON.
     /// </summary>
     public Result<Run> Create(
         Id<Pipeline> pipelineId,
@@ -116,7 +116,7 @@ public class RunService(
 
     public Result<Run> Cancel(Id<Run> id) => Complete(id, RunStatus.Cancelled);
 
-    /// <summary>Marks a running run superseded by a newer automatic run (spec §5.3).</summary>
+    /// <summary>Marks a running run superseded by a newer automatic run.</summary>
     public Result<Run> Supersede(Id<Run> id, Id<Run> supersededBy)
     {
         if (id == supersededBy)
@@ -127,7 +127,7 @@ public class RunService(
     }
 
     /// <summary>
-    /// Re-opens a finished run for a continue (spec §5.2): Succeeded/Failed/Cancelled → Running, with
+    /// Re-opens a finished run for a continue: Succeeded/Failed/Cancelled → Running, with
     /// <see cref="Run.ResumedAt"/> = now (its failed/cancelled attempts become stale and are retried).
     /// A superseded run cannot be re-opened — a newer run replaced it. Optionally replaces the input.
     /// Also valid on a Running run (only stamps <see cref="Run.ResumedAt"/> and the input).

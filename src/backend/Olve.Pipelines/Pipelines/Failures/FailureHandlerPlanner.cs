@@ -42,8 +42,8 @@ public sealed record FailureHandlerDispatch(
 public sealed record FailureHandlerSkip(string Handler, string Reason);
 
 /// <summary>
-/// Decides which failure handlers of a failed run's pinned manifest run, and builds their input (spec §3.6
-/// "Failure handlers"). A handler runs when its scope (null = any step) contains one of the run's failed
+/// Decides which failure handlers of a failed run's pinned manifest run, and builds their input.
+/// A handler runs when its scope (null = any step) contains one of the run's failed
 /// steps; its <c>failedSteps</c> are the failed steps in that scope. The context is projected onto the
 /// pinned manifest's <c>FailureContext</c> schema (its top-level properties) and validated against it, so a
 /// version built with an older SDK whose FailureContext differs is skipped with a reason instead of

@@ -54,7 +54,7 @@ export const HelmRelease = model(
 export const FailedStep = z.object({
   step: z.string(),
   attempt: z.number().int(),
-  /** `<pipeline id>#<run>/<step>@<attempt>` (spec §5.5). */
+  /** `<pipeline id>#<run>/<step>@<attempt>`. */
   address: z.string(),
   /** The attempt's failure reason (handler error, exit code, timeout, …). */
   reason: z.string(),
@@ -74,7 +74,7 @@ export const FailureContext = model(
     run: z.object({
       id: z.string(),
       number: z.number().int(),
-      /** `<pipeline id>#<run>` (spec §5.5). */
+      /** `<pipeline id>#<run>`. */
       address: z.string(),
       /** The run's derived version, `yyyy.MM.dd.<run>`. */
       versionStamp: z.string(),

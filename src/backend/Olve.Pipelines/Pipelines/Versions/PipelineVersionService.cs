@@ -20,7 +20,7 @@ public class PipelineVersionService(
 
     /// <summary>
     /// Adds the next version of a pipeline. The hash and entity version maps are computed by the
-    /// manifest layer (B2); this only validates shape and allocates the number. <paramref name="binaryKey"/> is
+    /// manifest layer; this only validates shape and allocates the number. <paramref name="binaryKey"/> is
     /// where reconcile's build Job stored the compiled harness (default: <see cref="StorageLayout.VersionBinaryKey"/>).
     /// Never deduplicates — callers compare <see cref="PipelineVersion.ManifestHash"/> with
     /// <see cref="TryGetLatest"/> first.

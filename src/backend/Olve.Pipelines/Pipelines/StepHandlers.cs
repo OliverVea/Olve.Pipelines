@@ -56,7 +56,7 @@ public sealed class UnblockStepHandler(StepBlockService blocks) : Contract.IStep
     }
 }
 
-/// <summary>The step's attempts across runs, by identity (spec §6.3).</summary>
+/// <summary>The step's attempts across runs, by identity.</summary>
 [OperationHandler]
 public sealed class GetStepHistoryHandler(PipelineService pipelines, RunViewService views) : Contract.IStepsHistoryHandler
 {

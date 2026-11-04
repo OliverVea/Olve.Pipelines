@@ -136,7 +136,7 @@ public static partial class HarnessJobBuilder
         if (request.Urls.FileUrls.Count > 0)
         {
             var json = HarnessFileRefs.ToJson(request.Urls.FileUrls);
-            // TODO(B5+): fall back to the SDK's files.json (fetched by olve-init) when the map outgrows an env var.
+            // TODO: fall back to the SDK's files.json (fetched by olve-init) when the map outgrows an env var.
             if (Encoding.UTF8.GetByteCount(json) > HarnessFileRefs.MaxFileUrlsJsonBytes)
                 return new ResultProblem("Step '{0}' has {1} input file refs; the URL map exceeds {2} bytes.",
                     request.StepName, request.Urls.FileUrls.Count, HarnessFileRefs.MaxFileUrlsJsonBytes);

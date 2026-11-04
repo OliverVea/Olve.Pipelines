@@ -4,7 +4,7 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 namespace Olve.Pipelines.Jobs;
 
 /// <summary>
-/// Latest-wins among not-yet-started (Waiting or Scheduled) attempts sharing a (pipeline, step name) key (spec §5.3). The loser
+/// Latest-wins among not-yet-started (Waiting or Scheduled) attempts sharing a (pipeline, step name) key. The loser
 /// becomes Obsolete; the scheduler then supersedes the loser's run by the winner's run.
 /// </summary>
 public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletionService> logger)

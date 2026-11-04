@@ -21,7 +21,7 @@ public sealed record ReconcileReport(
     PendingVersion? Pending = null);
 
 /// <summary>
-/// v2 reconcile of one config commit (spec §5.1, §6): build/describe Job (compile the pipeline at the
+/// v2 reconcile of one config commit: build/describe Job (compile the pipeline at the
 /// commit, PUT <c>step.tar.gz</c> to <see cref="StorageLayout.BuildBinaryKey"/>, print the manifest
 /// between sentinels) → parse → validate (errors fail the reconcile; warnings are reported) → entity
 /// versions over the persisted history → a new <see cref="PipelineVersion"/> when the manifest hash

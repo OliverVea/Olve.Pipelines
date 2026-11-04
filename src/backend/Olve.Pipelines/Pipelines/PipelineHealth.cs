@@ -7,7 +7,7 @@ using Olve.Pipelines.Shared;
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// Health of a pipeline over its runs (spec §7). <see cref="Status"/> is a <see cref="PipelineStatus"/>
+/// Health of a pipeline over its runs. <see cref="Status"/> is a <see cref="PipelineStatus"/>
 /// value: running when any run is Running, else from the latest settled run (Succeeded/Failed —
 /// cancelled and superseded runs say nothing about health, and a run that skipped steps still succeeded).
 /// </summary>

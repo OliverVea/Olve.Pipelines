@@ -4,7 +4,7 @@ using Olve.Utilities.Lookup;
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
-/// One execution of one step within a run (spec §5.2) — the unit the job machinery schedules and
+/// One execution of one step within a run — the unit the job machinery schedules and
 /// runs as one K8s Job. Reruns add attempts; <see cref="Number"/> is 1..n per (run, step).
 /// <see cref="PipelineId"/> and <see cref="RunNumber"/> are denormalised from the run so the busy key
 /// and storage keys never need a run lookup.
@@ -100,5 +100,5 @@ public record AttemptPhases(double Queued, double? PodStart, double? Fetch, doub
 /// <summary>A succeeded attempt's output: its Garage key and the (size-capped) raw output JSON.</summary>
 public record AttemptOutput(string Key, string Json);
 
-/// <summary>Scheduling key: steps are keyed by name (identity), not version (spec §5.3).</summary>
+/// <summary>Scheduling key: steps are keyed by name (identity), not version.</summary>
 public readonly record struct StepKey(Id<Pipeline> PipelineId, string StepName);

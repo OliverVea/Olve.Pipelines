@@ -8,7 +8,7 @@ using Olve.Pipelines.Pipelines.Scheduling;
 namespace Olve.Pipelines.Pipelines.Triggers;
 
 /// <summary>
-/// Automatic triggers (spec §3.6, §5.3): one event → a short <c>map-trigger &lt;name&gt;</c> Job on the
+/// Automatic triggers: one event → a short <c>map-trigger &lt;name&gt;</c> Job on the
 /// binary of the version a run would bind to → the mapped input (from the result block in the pod log) →
 /// server-side validation → <see cref="RunStartService.Start"/> with the automatic trigger kind. De-dup
 /// uses the default key (the canonical hash of the mapped input), so the same commit arriving by push and

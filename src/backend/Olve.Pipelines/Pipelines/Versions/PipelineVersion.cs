@@ -4,11 +4,11 @@ using Olve.Utilities.Lookup;
 namespace Olve.Pipelines.Pipelines.Versions;
 
 /// <summary>
-/// An immutable snapshot of a pipeline's definition (spec §6.1), added by reconcile whenever the
+/// An immutable snapshot of a pipeline's definition, added by reconcile whenever the
 /// manifest changes. <see cref="Number"/> is monotonic per pipeline.
 /// </summary>
 /// <param name="Manifest">The canonical manifest JSON (sorted keys), stored verbatim.</param>
-/// <param name="ManifestHash">sha256 of the canonical manifest (<c>sha256:&lt;hex&gt;</c>; computed in B2).</param>
+/// <param name="ManifestHash">sha256 of the canonical manifest (<c>sha256:&lt;hex&gt;</c>).</param>
 /// <param name="CommitSha">The commit the manifest was described from (null for non-git sources).</param>
 /// <param name="BinaryKey">Garage key of the compiled harness (<see cref="StorageLayout.VersionBinaryKey"/>).</param>
 /// <param name="StepVersions">Step name → entity version number at this pipeline version.</param>
@@ -26,7 +26,7 @@ public record PipelineVersion(
     DateTimeOffset CreatedAt) : IHasId<Id<PipelineVersion>>;
 
 /// <summary>
-/// Which version of a pipeline starts new runs (spec §6.2) — operational state attached to the
+/// Which version of a pipeline starts new runs — operational state attached to the
 /// pipeline, not config. Absent = no version yet (nothing can run).
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

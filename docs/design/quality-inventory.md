@@ -74,7 +74,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 |---|---|
 | D1 ✓ — **fixed** (7c9b29f) | `README.md:39` says `git switch v2`. There is no `v2` branch, so the quickstart fails at step one. |
 | D2 — **fixed** (3187dc8) | `sdk/README.md:172` mentions v1's deploy-beta loop. `docs/setup/llms.txt` mentions an SDK-publishing limitation that no longer exists. `docs/setup/cli.md:113` documents `--from` (see U6). |
-| D3 ✓ | 57 `spec §`/`(B7)` references in comments (for example `StageScheduler.cs:12`, `RunStartService.cs:23`), and long narrative XML docs. |
+| D3 — **fixed** (the references; the long XML docs stay where they explain a why) | 57 `spec §`/`(B7)` references in comments (for example `StageScheduler.cs:12`, `RunStartService.cs:23`), and long narrative XML docs. |
 | D4 — **fixed** | `DateTimeOffset.UtcNow` instead of `TimeProvider` (`DeployPollService.cs:183,238,249`, `PipelineConfigBindingService.cs:41`). A raw `Guid` in `TriggerMappingService.EventKey` (`:29,77`). |
 | D5 — **fixed** (the webhook registration subscribes to the binding hub; SSE already used the hubs. Persistence subscribing to the stores is deliberate, see CLAUDE.md's two-tier events; resolving transient services through `sp` in singletons is the project's pattern) | Persistence and SSE subscribe to the stores instead of the event hubs (`ConfigurationPersistenceService.cs:28-33`). `DeployPollService`, `WebhookTriggerService` and `RetentionService` resolve dependencies through `sp.GetRequiredService` (18 calls). |
 | D6 ✓ | Large files that mix responsibilities: `stage-graph.ts` (1020 lines), `describe.ts` (908), `run-view.ts` (845), `src/cli/src/commands/dev.ts` (702). |

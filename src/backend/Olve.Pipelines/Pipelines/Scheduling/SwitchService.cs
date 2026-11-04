@@ -5,7 +5,7 @@ using Olve.Pipelines.Shared;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Drives a version switch (spec §6.2): <c>Active(7)</c> → <c>Active(8)</c>.
+/// Drives a version switch: <c>Active(7)</c> → <c>Active(8)</c>.
 /// <list type="bullet">
 /// <item>A switch completes at once. Runs pinned to the old version carry on there; new runs start on
 /// the new version. Runs never overtake each other (<see cref="StageScheduler"/>), so an old-version

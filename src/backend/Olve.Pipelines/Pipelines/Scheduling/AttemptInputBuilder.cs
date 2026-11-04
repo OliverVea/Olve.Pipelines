@@ -20,7 +20,7 @@ public abstract record PoolEntry
     public sealed record Missing : PoolEntry;
 }
 
-/// <summary>A run's pool: the pipeline input plus each step's latest successful output (spec §5.2).</summary>
+/// <summary>A run's pool: the pipeline input plus each step's latest successful output.</summary>
 public interface IRunPool
 {
     JsonElement Input { get; }
@@ -39,7 +39,7 @@ public abstract record AttemptInputResult
 }
 
 /// <summary>
-/// Builds a step's <c>input.json</c> from its tagged mappings over the run pool (spec §3.6/§4):
+/// Builds a step's <c>input.json</c> from its tagged mappings over the run pool:
 /// <c>{ref:"input.sha"}</c> walks the pipeline input, <c>{ref:"build"}</c> takes a step's whole output,
 /// <c>{ref:"build.image"}</c> a field of it, <c>{const:…}</c> a literal, and nested objects compose these.
 /// A ref whose path does not resolve is left out. A ref to a skipped (or never-produced) step makes the
@@ -134,7 +134,7 @@ public static class AttemptInputBuilder
         if (r.Root == ManifestRoots.Input)
             return Walk(pool.Input, r.Path);
         if (r.Root == ManifestRoots.Failure)
-            return new Absent(); // failure context is built for failure handlers (B9), never in stages
+            return new Absent(); // failure context is built for failure handlers, never in stages
 
         return pool.Get(r.Root) switch
         {

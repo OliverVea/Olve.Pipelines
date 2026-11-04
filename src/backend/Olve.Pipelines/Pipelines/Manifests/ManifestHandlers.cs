@@ -5,7 +5,7 @@ using Contract = Olve.Pipelines.Api;
 namespace Olve.Pipelines.Pipelines.Manifests;
 
 /// <summary>
-/// <c>pl dev validate</c> (spec §7.1): runs the service's reconcile checks (<see cref="ManifestParser"/> +
+/// <c>pl dev validate</c>: runs the service's reconcile checks (<see cref="ManifestParser"/> +
 /// <see cref="ManifestValidator"/>) on a posted manifest without persisting anything. Always 200 with the
 /// report — an invalid manifest is a result, not a request error.
 /// </summary>

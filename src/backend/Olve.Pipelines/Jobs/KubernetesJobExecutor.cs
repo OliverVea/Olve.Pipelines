@@ -10,7 +10,7 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 namespace Olve.Pipelines.Jobs;
 
 /// <summary>
-/// Runs one attempt as a harness step Job (spec §5.1, src/harness/README.md "Pod template"):
+/// Runs one attempt as a harness step Job (src/harness/README.md "Pod template"):
 /// <list type="number">
 /// <item><b>Submit</b> (only when no Job with the attempt's deterministic name exists): upload the
 /// assembled <c>input.json</c>, pre-sign the URLs, upsert the per-attempt URL Secret, create the Job.

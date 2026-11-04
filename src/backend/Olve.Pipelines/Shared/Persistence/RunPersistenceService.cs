@@ -15,7 +15,7 @@ namespace Olve.Pipelines.Shared.Persistence;
 
 /// <summary>
 /// Persists the v2 run domain — pipeline versions, active-version/switch state, number sequences,
-/// runs and attempts — so all of it survives a restart (spec §5.4), notably v2's own self-deploy.
+/// runs and attempts — so all of it survives a restart, notably v2's own self-deploy.
 ///
 /// <para><b>Layout.</b> Small indexes plus per-object documents, instead of one whole-state snapshot:</para>
 /// <code>

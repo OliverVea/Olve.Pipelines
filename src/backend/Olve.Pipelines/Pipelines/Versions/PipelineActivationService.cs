@@ -5,9 +5,9 @@ using static Olve.Pipelines.Pipelines.Versions.PipelineActivation;
 namespace Olve.Pipelines.Pipelines.Versions;
 
 /// <summary>
-/// State transitions of a pipeline's single active version (spec §6.2). Pure state machine: deciding
+/// State transitions of a pipeline's single active version. Pure state machine: deciding
 /// when a drain is complete (no Scheduled/InProgress attempts on the old version) and cancelling
-/// in-flight work belong to the scheduler/reconcile (B4/B6), which call <see cref="CompleteSwitch"/>.
+/// in-flight work belong to the scheduler and reconcile, which call <see cref="CompleteSwitch"/>.
 /// Singleton: the lock makes each read-modify-write of the attachment atomic.
 /// </summary>
 public class PipelineActivationService(

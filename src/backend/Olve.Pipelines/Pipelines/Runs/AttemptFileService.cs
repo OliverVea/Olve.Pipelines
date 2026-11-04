@@ -19,7 +19,7 @@ public sealed class AttemptFileDownload(GetObjectResponse response, string fileN
 }
 
 /// <summary>
-/// Output files of attempts in Garage (spec §5.5): <c>runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;attempt&gt;/files/&lt;object path&gt;</c>.
+/// Output files of attempts in Garage: <c>runs/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;attempt&gt;/files/&lt;object path&gt;</c>.
 /// A file ref's <c>path</c> maps to its object path by the storage rule (src/sdk/README.md): files as-is,
 /// directories (<c>dir/</c>) as <c>dir.tar</c>. Transient.
 /// </summary>

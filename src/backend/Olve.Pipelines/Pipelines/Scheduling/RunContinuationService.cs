@@ -6,7 +6,7 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Explicit reruns and continues within a run (spec §5.2). All require the run to be pinned to the
+/// Explicit reruns and continues within a run. All require the run to be pinned to the
 /// pipeline's Active version: after a switch, old runs are un-continuable (re-trigger instead).
 /// <list type="bullet">
 /// <item><see cref="RerunStep"/> adds an attempt of one step with the same pinned version and the

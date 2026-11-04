@@ -7,7 +7,7 @@ using Olve.Pipelines.Pipelines.Versions;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// A manifest's stages flattened into execution order (spec §3.6): nested <c>when</c> blocks become
+/// A manifest's stages flattened into execution order: nested <c>when</c> blocks become
 /// conditions carried by each stage they enclose (outermost first). The scheduler walks this list.
 /// <c>select</c> blocks are resolved by a config (<see cref="ForConfig"/>): only the selected case's stages
 /// are in the plan, which is the version's effective pipeline for that config. A plan built without

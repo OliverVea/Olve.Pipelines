@@ -6,7 +6,7 @@ namespace Olve.Pipelines.Pipelines.Runs;
 public class RunQueryService(RunService runs, AttemptService attempts)
 {
     /// <summary>
-    /// Resolves an address <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;[@&lt;attempt&gt;]</c> (spec §5.5). Without an
+    /// Resolves an address <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;[@&lt;attempt&gt;]</c>. Without an
     /// attempt it resolves to the latest successful attempt — the one later stages consume.
     /// </summary>
     public bool TryResolve(

@@ -13,13 +13,13 @@ public sealed record PipelineBlockedSteps(IReadOnlyList<string> BlockedSteps)
 }
 
 /// <summary>
-/// A run start requested while the pipeline was draining (spec §6.2): queued latest-wins per pipeline,
+/// A run start requested while the pipeline was draining: queued latest-wins per pipeline,
 /// started on the new active version when the switch completes. Persisted in <c>pipeline-state.json</c>.
 /// </summary>
 public sealed record PendingRunStart(string Input, RunTrigger Trigger, DateTimeOffset QueuedAt, Id<Run>? RerunOf = null);
 
 /// <summary>
-/// The single scheduling lock (spec §5.3). Every entry point that creates runs or attempts, or moves a
+/// The single scheduling lock. Every entry point that creates runs or attempts, or moves a
 /// run between states, takes it first — so sibling attempts finishing on different threads cannot both
 /// pass a stage barrier, and the creation locks inside <see cref="RunService"/>/<see cref="AttemptService"/>
 /// are always taken after it (no lock-order inversion). <see cref="Lock"/> is re-entrant: synchronous

@@ -3,7 +3,7 @@ using Olve.Pipelines.Pipelines;
 
 namespace Olve.Pipelines.Kubernetes.Harness;
 
-/// <summary>Everything one build/describe Job is built from (spec §5.1, src/sdk/README.md "Build tool").</summary>
+/// <summary>Everything one build/describe Job is built from (src/sdk/README.md "Build tool").</summary>
 /// <param name="JobName">K8s Job name (deterministic per build so a restart can reattach).</param>
 /// <param name="Repo">GitHub <c>owner/name</c>.</param>
 /// <param name="CommitSha">Full 40-hex commit id.</param>

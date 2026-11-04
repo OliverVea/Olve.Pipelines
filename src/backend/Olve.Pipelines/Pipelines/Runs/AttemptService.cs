@@ -99,7 +99,7 @@ public class AttemptService(
 
     /// <summary>
     /// The latest successful attempt of a step in a run — what later stages consume and what an
-    /// address without <c>@attempt</c> resolves to (spec §5.5).
+    /// address without <c>@attempt</c> resolves to.
     /// </summary>
     public bool TryGetLatestSucceeded(Id<Run> runId, string stepName, [NotNullWhen(true)] out Attempt? attempt)
     {

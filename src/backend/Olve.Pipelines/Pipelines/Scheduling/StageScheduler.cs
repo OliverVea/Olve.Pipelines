@@ -9,7 +9,7 @@ using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Drives a run through its stages (spec §3.6, §5.2, §5.3). <see cref="Advance"/> is idempotent and
+/// Drives a run through its stages. <see cref="Advance"/> is idempotent and
 /// stateless: it re-derives everything from the store, walking the flattened stages from the start.
 /// For each step of the first unfinished stage it decides:
 /// <list type="number">
@@ -190,7 +190,7 @@ public class StageScheduler(
     }
 
     /// <summary>
-    /// Automatic retry (spec §5.2: a step opts in with <c>retries: n</c>, an idempotency claim): the
+    /// Automatic retry (a step opts in with <c>retries: n</c>, an idempotency claim): the
     /// step's latest attempt failed, the decision is to run it, and the trailing streak of failed
     /// attempts since the run was last resumed is at most <see cref="StepDescriptor.Retries"/> — so a
     /// step gets 1 + n consecutive tries. Cancelled/obsolete attempts and scheduler-side failures

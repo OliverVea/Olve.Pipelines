@@ -7,7 +7,7 @@ using Olve.Pipelines.Pipelines.Versions;
 namespace Olve.Pipelines.Pipelines.Scheduling;
 
 /// <summary>
-/// Everything the harness executor (B5) needs to launch one attempt as a K8s Job, derived from the
+/// Everything the harness executor needs to launch one attempt as a K8s Job, derived from the
 /// attempt, its run and the run's pinned version — so the executor re-derives nothing.
 /// </summary>
 /// <param name="Step">The step as declared in the pinned manifest: image, kind, declared secrets

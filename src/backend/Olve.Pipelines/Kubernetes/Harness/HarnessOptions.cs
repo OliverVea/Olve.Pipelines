@@ -91,7 +91,7 @@ public sealed record HarnessOptions
         => TimeSpan.FromSeconds(DeadlineSeconds(stepTimeoutSeconds) + UrlExpiryGraceSeconds);
 }
 
-/// <summary>Size caps for result collection. Step outputs are untrusted (spec §8).</summary>
+/// <summary>Size caps for result collection. Step outputs are untrusted.</summary>
 public sealed record HarnessResultLimits
 {
     /// <summary>Largest <c>result.tar.gz</c> accepted (compressed).</summary>

@@ -4,7 +4,7 @@ using Olve.Pipelines.Pipelines.Failures;
 namespace Olve.Pipelines.Kubernetes.Harness;
 
 /// <summary>
-/// Runs a failure handler as an untracked harness Job (spec §3.6): store its <c>input.json</c> (the
+/// Runs a failure handler as an untracked harness Job: store its <c>input.json</c> (the
 /// FailureContext), submit <c>run &lt;handler&gt;</c> on the failed run's pinned binary, wait for a verdict,
 /// persist the log to <see cref="FailureHandlerDispatch.LogKey"/> and delete the URL Secret. Best-effort:
 /// nothing is retried and no outcome feeds back into the run. The Job name is deterministic, so a duplicate

@@ -9,7 +9,7 @@ using Contract = Olve.Pipelines.Api;
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
-/// Read models of the run API (spec §5, §7): run list, run detail with the pinned stage layout, step
+/// Read models of the run API: run list, run detail with the pinned stage layout, step
 /// history by identity. Stateless queries over runs, attempts, versions, blocked steps and activation. Transient.
 /// </summary>
 public class RunViewService(
@@ -116,7 +116,7 @@ public class RunViewService(
         version is not null && version.StepVersions.TryGetValue(stepName, out var v) ? v : null;
 
     /// <summary>
-    /// History of one step identity across runs, newest first, with definition-change markers (spec §6.3).
+    /// History of one step identity across runs, newest first, with definition-change markers.
     /// Runs the step was not part of (its <c>when</c> did not match) are left out.
     /// </summary>
     public IReadOnlyList<StepHistoryItem> History(Id<Pipeline> pipelineId, string stepName, int limit)

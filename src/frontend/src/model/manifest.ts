@@ -1,5 +1,5 @@
 /**
- * Types and helpers for the v2 pipeline manifest (spec §4; grammar:
+ * Types and helpers for the v2 pipeline manifest (grammar:
  * `src/sdk/manifest.schema.json`). The API serves a version's manifest as a JSON
  * string; these types are a hand-kept mirror of the schema's shape.
  */

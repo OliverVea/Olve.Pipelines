@@ -6,7 +6,7 @@ using Olve.Utilities.Lookup;
 namespace Olve.Pipelines.Pipelines.Runs;
 
 /// <summary>
-/// One execution of a pinned pipeline version (spec §5.2): its input plus, via its attempts, every
+/// One execution of a pinned pipeline version: its input plus, via its attempts, every
 /// step's output (the pool). <see cref="Number"/> is monotonic per pipeline — the build number that
 /// addresses outputs (<c>&lt;pipeline&gt;#&lt;number&gt;/&lt;step&gt;</c>).
 /// </summary>
@@ -59,13 +59,13 @@ public enum RunTriggerKind
 }
 
 /// <summary>
-/// What started a run. <see cref="DedupKey"/> is the automatic-trigger de-duplication key (spec §5.3:
-/// pipeline + mapped input); null for explicit (manual) runs, which always create work.
+/// What started a run. <see cref="DedupKey"/> is the automatic-trigger de-duplication key
+/// (pipeline + mapped input); null for explicit (manual) runs, which always create work.
 /// </summary>
 /// <param name="Origin">For automatic triggers: when the event happened and how it reached the run.</param>
 public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin? Origin = null)
 {
-    /// <summary>Webhook/poll triggers: de-duplicated and superseding (spec §5.3). Explicit actions are neither.</summary>
+    /// <summary>Webhook/poll triggers: de-duplicated and superseding. Explicit actions are neither.</summary>
     [JsonIgnore]
     public bool IsAutomatic => Kind is RunTriggerKind.Push or RunTriggerKind.Poll or RunTriggerKind.Webhook;
 }
@@ -90,7 +90,7 @@ public static class RunStatusExtensions
     public static bool IsTerminal(this RunStatus status) => status is not RunStatus.Running;
 }
 
-/// <summary>The run version stamp, <c>yyyy.MM.dd.&lt;run number&gt;</c> (spec §5.5) — known before any step starts.</summary>
+/// <summary>The run version stamp, <c>yyyy.MM.dd.&lt;run number&gt;</c> — known before any step starts.</summary>
 public static class RunVersionStamp
 {
     public static string Format(DateTimeOffset createdAt, int runNumber)

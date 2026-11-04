@@ -12,7 +12,7 @@ public abstract record RunStartOutcome
     /// <summary>A new run was created on the active version (its first stage is already scheduled).</summary>
     public sealed record Started(Run Run) : RunStartOutcome;
 
-    /// <summary>An automatic trigger matched an existing run (spec §5.3); nothing was created.</summary>
+    /// <summary>An automatic trigger matched an existing run; nothing was created.</summary>
     public sealed record Deduplicated(Run Existing) : RunStartOutcome;
 
     /// <summary>The pipeline is draining; the request replaced any earlier queued one and starts when the switch completes.</summary>
@@ -20,7 +20,7 @@ public abstract record RunStartOutcome
 }
 
 /// <summary>
-/// Starts runs (spec §5.2, §5.3, §6.2).
+/// Starts runs.
 /// <list type="bullet">
 /// <item><b>Version.</b> A run pins the pipeline's Active version. While the pipeline is Draining the
 /// request is queued latest-wins (one <see cref="PendingRunStart"/> per pipeline) and started by
@@ -37,7 +37,7 @@ public abstract record RunStartOutcome
 /// </list>
 /// <item><b>Config.</b> A run pins the latest config snapshot and records its effective config for the
 /// version (defaults applied). A held active version (a secret its config references is unset) starts nothing.</item>
-/// Input is assumed validated against the input model already (B7); it is stored verbatim.
+/// Input is assumed validated against the input model already; it is stored verbatim.
 /// </summary>
 public class RunStartService(
     EntityStore<Pipeline> pipelines,

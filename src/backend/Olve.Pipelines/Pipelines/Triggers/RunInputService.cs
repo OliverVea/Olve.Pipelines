@@ -9,7 +9,7 @@ namespace Olve.Pipelines.Pipelines.Triggers;
 
 /// <summary>
 /// Validates run input against the pipeline input model of the version a new run binds to (the active
-/// version, or the drain target while switching — spec §6.2), and starts runs with it. Manual input is
+/// version, or the drain target while switching), and starts runs with it. Manual input is
 /// the model's <c>input</c> view (defaults filled in), then checked against the strict <c>output</c> view;
 /// a trigger mapper's result is already the output view and is re-validated against it. The stored input
 /// is the output view, so <c>when</c> sees defaulted fields. Transient.
@@ -79,7 +79,7 @@ public class RunInputService(
     }
 
     /// <summary>
-    /// Re-runs a whole run (spec §5.2): a new run with the same input on the version a run started now binds
+    /// Re-runs a whole run: a new run with the same input on the version a run started now binds
     /// to. The input is re-validated against that version's input model first, so a model change surfaces as
     /// a problem instead of a broken run.
     /// </summary>
@@ -93,7 +93,7 @@ public class RunInputService(
     }
 
     /// <summary>
-    /// Continues a run (spec §5.2): <paramref name="changes"/> (a JSON object, or null for none) is merged over
+    /// Continues a run: <paramref name="changes"/> (a JSON object, or null for none) is merged over
     /// the stored input field by field (top level), validated against the run's pinned input model, and handed
     /// to <see cref="RunContinuationService.ContinueRun"/> (which rejects changes to consumed fields).
     /// </summary>

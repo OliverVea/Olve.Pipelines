@@ -4,7 +4,7 @@ using Olve.Pipelines.Pipelines.Versions;
 namespace Olve.Pipelines.Pipelines;
 
 /// <summary>
-/// The single source of every Garage object key the v2 domain derives (spec §5.5). Keys mirror the
+/// The single source of every Garage object key the v2 domain derives. Keys mirror the
 /// addressing scheme <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;[@&lt;attempt&gt;]</c>, using the pipeline id in
 /// <c>N</c> format, the per-pipeline run number and the per-(run, step) attempt number:
 /// <code>

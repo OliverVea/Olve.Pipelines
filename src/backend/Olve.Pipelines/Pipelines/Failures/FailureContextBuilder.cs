@@ -9,8 +9,8 @@ namespace Olve.Pipelines.Pipelines.Failures;
 /// Assembles the <c>FailureContext</c> a failure handler receives (sdk <c>library/models.ts</c>):
 /// <c>pipeline {id, name}</c>, <c>run {id, number, address, versionStamp, trigger, url}</c>,
 /// <c>version {number, commit}</c>, the run's <c>input</c>, a one-line <c>reason</c> and
-/// <c>failedSteps[] {step, attempt, address, reason, logUrl}</c>. Addresses follow spec §5.5
-/// (<c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;@&lt;attempt&gt;</c>); links point at the run API under
+/// <c>failedSteps[] {step, attempt, address, reason, logUrl}</c>. Addresses are
+/// <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;@&lt;attempt&gt;</c>; links point at the run API under
 /// <paramref name="linkBase"/> (relative when empty). Pure.
 /// </summary>
 public static class FailureContextBuilder

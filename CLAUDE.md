@@ -114,6 +114,7 @@ cd src/frontend && npm run dev                                  # Dev server (pr
 cd src/frontend && npm run dev:prod                             # Dev server (proxies /api to https://pipelines-private.ovea.pro)
 cd src/frontend && VITE_DEV_AUTH=bypass npm run dev:beta        # Dev server against v2 beta (dev-only auth bypass)
 cd src/frontend && npm run build                                # Production build
+cd src/frontend && npm run test                                 # Unit tests (vitest; build-frontend runs them)
 ```
 
 - Stack: Lit + Vite + TypeScript

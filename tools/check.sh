@@ -113,6 +113,7 @@ if [ -n "${want[frontend]:-}" ]; then
   run "frontend: lint"                 bash -c 'cd src/frontend && npm run -s lint'
   run "frontend: prettier"             bash -c 'cd src/frontend && npm run -s format:check'
   run "frontend: typecheck"            bash -c 'cd src/frontend && npm run -s typecheck'
+  run "frontend: tests"                bash -c 'cd src/frontend && npm run -s test'
   [ $full = 0 ] || run "frontend: build" bash -c 'cd src/frontend && npm run -s build'
 fi
 if [ -n "${want[frontend]:-}${want[cli]:-}" ]; then

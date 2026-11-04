@@ -8,7 +8,7 @@ export const buildFrontend = implement(
   step({
     name: 'build-frontend',
     description:
-      'Lints the frontend, checks its formatting and builds it as an image layer.',
+      'Lints and tests the frontend, checks its formatting and builds it as an image layer.',
     image: 'node:22-slim',
     input: { source: Source, spec: M.SpecBuild },
     output: M.FrontendBuild,
@@ -27,6 +27,7 @@ export const buildFrontend = implement(
     await ctx.exec(['npm', 'install', '--no-audit', '--no-fund'], { cwd: frontend, env });
     await ctx.exec(['npm', 'run', 'lint'], { cwd: frontend, env });
     await ctx.exec(['npm', 'run', 'format:check'], { cwd: frontend, env });
+    await ctx.exec(['npm', 'run', 'test'], { cwd: frontend, env });
     await ctx.exec(['npm', 'run', 'build'], { cwd: frontend, env });
 
     const root = join(ctx.tmpDir, 'frontend');
@@ -35,7 +36,7 @@ export const buildFrontend = implement(
     const layer = await ctx.output.file(await layerTar(ctx, root, 'frontend.tar.gz'), {
       name: 'frontend.tar.gz',
     });
-    ctx.log('frontend lint, formatting and build OK');
+    ctx.log('frontend lint, tests, formatting and build OK');
     return { layer };
   },
 );

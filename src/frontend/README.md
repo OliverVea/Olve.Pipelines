@@ -29,7 +29,8 @@ npm run build        # Type-check (tsc) + production build to dist/
 npm run preview      # Preview the production build
 npm run typecheck    # Type-check src/, the shared client and the generated client
 npm run lint         # Lint src/
-npm run format       # Format src/ with Prettier
+npm run test         # Unit tests of the pure modules (vitest, test/)
+npm run format       # Format src/ and test/ with Prettier
 npm run format:check # Check formatting
 ```
 

@@ -39,7 +39,7 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 | # | What's wrong | Fix |
 |---|---|---|
 | U1 ✓ — **fixed** (5a9febf) | `pl dev` never passes `--config-file` and never sets `OLVE_CASES`, and `DevPlan.Flatten` runs without config. So `pl dev pipeline` can't get through this repo's own `.pipelines/`: `beta-test` needs `config.auth`, and `deploy-beta` sits in several `select` cases. | `pl dev --config <file\|yaml>`; choose the cases from it and set `OLVE_CASES`. |
-| U2 | `pl wait push` matches runs on an input field named `sha` (`WaitCommands.cs:330`) and scans only the newest 15 runs (`:258`). Neither limit is documented. | Have the server record the trigger sha and match on that; meanwhile document both limits. |
+| U2 ✓ | `pl wait push` matches runs on an input field named `sha` (`src/cli/src/commands/wait.ts:128`) and scans only the newest 15 runs (`:209`). Neither limit is documented. | Have the server record the trigger sha and match on that; meanwhile document both limits. |
 | U3 — **fixed** (ae0efa3) | An unknown command or too few operands exits 1; an unknown option or a bad flag exits 2 (`CliDispatcher.cs:174-202`). | Route all usage errors through one path; document the exit codes 0/1/2/124/130 in `docs/setup/cli.md`. |
 | U4 — **fixed** (ae0efa3) | `pl trigger --input` takes JSON or `@file` (with `--field k=v`), while `pl dev run/pipeline --input` takes `k=v`. | Use `--field` for `k=v` in both places. |
 | U5 ✓ — **fixed** (ae0efa3) | `echo $TOKEN \| pl secret set …` keeps the trailing newline (`SecretCommands.cs:124`), which breaks Authorization headers. | Warn when the value ends in `\n`, or add `--trim`. |
@@ -51,21 +51,22 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 | # | What's wrong | Fix |
 |---|---|---|
 | F1 — **fixed** (eb809e0) | Every view polls (`frontend/src/v2/poll.ts`: 10 s by default, 3 s on the run view). Only the log tail uses `/api/events`, which contradicts `docs/setup/runs-and-operations.md:163`. | One shared SSE controller that reloads views on each notice, with polling only as a fallback after a disconnect. |
-| F2 | The log tail (`log-pane.ts:95-111`) stops following after a clean disconnect, such as a proxy idle timeout or the service redeploying itself. After an error it polls every 3 s forever and never goes back to the stream. The `retry:` field is ignored (`api.ts:137`). | Reconnect with backoff while the view is still live. |
-| F3 | Errors during background reloads are swallowed (`pipeline-list-view.ts:324`, `run-view.ts:344`), so a page can show stale data with no sign that anything is wrong. | A "stale / reconnecting" badge. |
-| F4 | An `<a class="badge">` sits inside a `role="button"` card (`stage-graph.ts:907`). | Move the link out, or make the card itself the link. |
+| F2 ✓ | The log tail (`log-pane.ts`, `_follow`) stops following after a clean disconnect, such as a proxy idle timeout or the service redeploying itself: it loads the stored log once and stops. After an error it polls every 3 s forever and never goes back to the stream. | Reconnect with backoff while the view is still live. |
+| F3 ✓ | Errors during background reloads are swallowed (`pipeline-list-view.ts` `_load(silent)`, likewise the other views' live reloads), so a page can show stale data with no sign that anything is wrong. | A "stale / reconnecting" badge. |
+| F4 ✓ | An `<a class="badge">` sits inside a `role="button"` card (`stage-graph.ts:914`). | Move the link out, or make the card itself the link. |
 
 ### Test gaps
 
 | # | Gap |
 |---|---|
 | T1 — **fixed** (ebec896) | No test covers the real endpoint auth table. `ReadPolicyTests` only checks a synthetic route; nine `AllowAnonymous` endpoints are unchecked. Walk `EndpointDataSource` and assert exactly which endpoints are anonymous and which need read access. |
-| T2 — **mostly fixed** (17625cc; OAuth2/OpenBao providers removed; beta-test end-to-end step still open) | No tests for `OpenBaoCredentialsProvider`, `OAuth2TokenProvider`, `InClusterCredentialsProvider`, `KubernetesPipelineSecretReader`, `FailureContextBuilder` or `ChangeEventRegistration` (the mapping `pl wait` depends on). `HarnessResultCollector`'s size limit and streaming into storage are untested. `beta-test` never runs a step, so real deploys are the only coverage. |
-| T3 | The CLI has no tests for login, the OIDC and device flows, the `pl wait` loop (only its parse helpers) or the dispatcher's exit codes. `RefreshingAuthHandler` has one test. |
-| T4 | `olve-dev`'s entry point `devMain` has no test; tests go through `runHarness`. That is how B1 slipped through. |
-| T5 | Some "not dispatched yet" assertions follow a fixed `Task.Delay(100/200)` and can pass without proving anything (`JobRunnerTests.cs:185,272`, `JobDispatchSignalTests.cs:28`). |
-| T6 | No frontend tests. Pure modules to start with: `v2/diff.ts`, `config-schema.ts`, `schema-form.ts`, `api.ts:problemsFromBody`, the stage-graph layout. |
-| T7 | 26 uses of `.Value!` in tests (9 in `Harness/HarnessJobBuilderTests.cs`, 4 in `TriggerInputTests.cs`, 3 in `ReconcileApplyTests.cs`). Use `TestRunDomain.Pick` or `SucceededAndValue`. |
+| T2 — **fixed** (17625cc; OAuth2/OpenBao providers removed; `beta-test` runs beta's `v2 test fixture`, whose steps run for real) | No tests for `OpenBaoCredentialsProvider`, `OAuth2TokenProvider`, `InClusterCredentialsProvider`, `KubernetesPipelineSecretReader`, `FailureContextBuilder` or `ChangeEventRegistration` (the mapping `pl wait` depends on). `HarnessResultCollector`'s size limit and streaming into storage are untested. `beta-test` never runs a step, so real deploys are the only coverage. |
+| T3 — **fixed** (`pl` in TypeScript: `src/cli/test/login.test.ts`, `oidc.test.ts`, `wait.test.ts` covers the loop, retries and exit codes 3/4/124, `cli.test.ts` the runner's usage errors) | The CLI has no tests for login, the OIDC and device flows, the `pl wait` loop (only its parse helpers) or the dispatcher's exit codes. `RefreshingAuthHandler` has one test. |
+| T4 — **fixed** (`build.test.ts` calls `devMain`) | `olve-dev`'s entry point `devMain` has no test; tests go through `runHarness`. That is how B1 slipped through. |
+| T5 — **fixed** (no fixed delays left in the unit tests) | Some "not dispatched yet" assertions follow a fixed `Task.Delay(100/200)` and can pass without proving anything (`JobRunnerTests.cs:185,272`, `JobDispatchSignalTests.cs:28`). |
+| T6 ✓ | No frontend tests. Pure modules to start with: `model/diff.ts`, `model/config-schema.ts`, `model/schema-form.ts`, `model/favorites.ts`, the stage-graph layout. |
+| T7 — **fixed** (the one `.Value!` left, `TriggerInputTests.cs:71`, is a `JsonNode`, not a result) | 26 uses of `.Value!` in tests (9 in `Harness/HarnessJobBuilderTests.cs`, 4 in `TriggerInputTests.cs`, 3 in `ReconcileApplyTests.cs`). Use `TestRunDomain.Pick` or `SucceededAndValue`. |
+| T8 ✓ | The SDK tests make their directories under `src/sdk/tests/.tmp` (`tests/runtime/helpers.ts:tmp`) and never remove them, so a local checkout grows by about 130 MB per build test run (929 MB on one host). Deploy pods are thrown away, so only local checkouts fill up. Remove them after each file, or put them in `os.tmpdir()` where the paths allow. |
 
 ### Docs and conventions
 
@@ -73,10 +74,10 @@ At review time all tests passed: SDK 198/198, .NET 974/974. `tsc`, eslint, prett
 |---|---|
 | D1 ✓ — **fixed** (7c9b29f) | `README.md:39` says `git switch v2`. There is no `v2` branch, so the quickstart fails at step one. |
 | D2 — **fixed** (3187dc8) | `sdk/README.md:172` mentions v1's deploy-beta loop. `docs/setup/llms.txt` mentions an SDK-publishing limitation that no longer exists. `docs/setup/cli.md:113` documents `--from` (see U6). |
-| D3 | About 60 `spec §`/`(B7)` references in comments (for example `StageScheduler.cs:12`, `RunStartService.cs:23`), and long narrative XML docs. |
-| D4 | `DateTimeOffset.UtcNow` instead of `TimeProvider` (`DeployPollService.cs:182,237`, `PipelineConfigBindingService.cs:40`). A raw `Guid` in `TriggerMappingService.EventKey`. |
-| D5 | Persistence and SSE subscribe to the stores instead of the event hubs. `DeployPollService`, `WebhookTriggerService` and `RetentionService` resolve dependencies through `sp.GetRequiredService`. |
-| D6 | Large files that mix responsibilities: `stage-graph.ts` (1013 lines), `run-view.ts` (818), `DevCommands.cs` (576), `WaitCommands.cs` (375), `describe.ts` (565). |
+| D3 ✓ | 57 `spec §`/`(B7)` references in comments (for example `StageScheduler.cs:12`, `RunStartService.cs:23`), and long narrative XML docs. |
+| D4 ✓ | `DateTimeOffset.UtcNow` instead of `TimeProvider` (`DeployPollService.cs:183,238,249`, `PipelineConfigBindingService.cs:41`). A raw `Guid` in `TriggerMappingService.EventKey` (`:29,77`). |
+| D5 ✓ | Persistence and SSE subscribe to the stores instead of the event hubs (`ConfigurationPersistenceService.cs:28-33`). `DeployPollService`, `WebhookTriggerService` and `RetentionService` resolve dependencies through `sp.GetRequiredService` (18 calls). |
+| D6 ✓ | Large files that mix responsibilities: `stage-graph.ts` (1020 lines), `describe.ts` (908), `run-view.ts` (845), `src/cli/src/commands/dev.ts` (702). |
 
 ## 2. Patterns to check for
 

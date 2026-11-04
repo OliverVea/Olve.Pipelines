@@ -16,7 +16,7 @@
     "lint": "eslint src/",
     "format": "prettier --write src/ test/",
     "format:check": "prettier --check src/ test/",
-    "test": "vitest run"
+    "test": "vitest run --dir test"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

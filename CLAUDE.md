@@ -132,7 +132,7 @@ cd src/frontend && npm run build                                # Production bui
 
 **Key principles:**
 - **Sync core logic** — all domain services are synchronous. Async is reserved for I/O boundaries (K8s client, S3, HTTP).
-- **Two-tier events** — EntityStore fires low-level CRUD events, forwarded to domain event hubs. Subscribers subscribe to domain hubs, not the store.
+- **Two-tier events** — EntityStore fires low-level CRUD events, forwarded to domain event hubs. Subscribers subscribe to domain hubs, not the store. The exception is persistence (`ConfigurationPersistenceService`, `RunPersistenceService`): it subscribes to the stores and attachment stores in `StartingAsync`, before the startup hooks wire the hubs, so it sees every write, startup work included.
 - **Explicit event registration** — each domain area has a `*EventRegistration` class implementing `IRunOnStartup`. Each line is one subscription. Handlers are resolved from `IServiceProvider` at dispatch time so services stay transient.
 - **Transient by default, singleton only for state** — don't cache what you can query. Keep derived state as queries until performance proves otherwise.
 - **Result error handling** — no exceptions, `Olve.Results` everywhere. The problem type decides the HTTP status (`NotFoundProblem` 404, `ConflictProblem` 409, `ValidationProblem` 400 with `Field`, `UnavailableProblem` 503; `Shared/Problems`); endpoints use `WithApiResultMapping`, which answers an `ApiProblem` body (see the error-model entry in the v2 plan).

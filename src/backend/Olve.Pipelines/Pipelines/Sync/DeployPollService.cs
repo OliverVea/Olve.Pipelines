@@ -47,6 +47,7 @@ public class DeployPollService(
     EntityStore<PipelineConfigBinding> bindings,
     ReconcileOptions options,
     IServiceProvider sp,
+    TimeProvider timeProvider,
     ILogger<DeployPollService> logger) : IPollSourceProvider, IConfigLock, IHostedService, IDisposable
 {
     // Per-binding config cursor cache (in-memory). The ETag is a rate-limit optimization; the sha is
@@ -180,7 +181,7 @@ public class DeployPollService(
             RecordStatus(bindingService, binding.Id, s => s with
             {
                 Result = ReconcileResult.Error,
-                LastSyncTime = DateTimeOffset.UtcNow,
+                LastSyncTime = timeProvider.GetUtcNow(),
                 Problems = fetchProblems.Select(p => p.ToBriefString()).ToArray(),
             });
             return false;
@@ -235,7 +236,7 @@ public class DeployPollService(
             RecordStatus(bindingService, binding.Id, s => s with
             {
                 Result = ReconcileResult.Error,
-                LastSyncTime = DateTimeOffset.UtcNow,
+                LastSyncTime = timeProvider.GetUtcNow(),
                 Problems = problems.Select(p => p.ToBriefString()).ToArray(),
                 Warnings = [],
                 Sha = sha,
@@ -246,7 +247,7 @@ public class DeployPollService(
 
         _failed.TryRemove(binding.Id, out _);
         RecordStatus(bindingService, binding.Id, _ => new ReconcileStatus(
-            ReconcileResult.Success, DateTimeOffset.UtcNow, [], report.Warnings, sha, InProgress: false, report.Version.Number));
+            ReconcileResult.Success, timeProvider.GetUtcNow(), [], report.Warnings, sha, InProgress: false, report.Version.Number));
         bindingService.SetLastReconciledSha(binding.Id, sha).DiscardResult();
         return report.Pending is null && !HasPending(services, binding.PipelineId);
     }

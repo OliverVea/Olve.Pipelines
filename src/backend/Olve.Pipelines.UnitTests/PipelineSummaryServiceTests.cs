@@ -15,7 +15,7 @@ public class PipelineSummaryServiceTests
     {
         var domain = new TestRunDomain(TimeProvider.System);
         var bindings = new EntityStore<PipelineConfigBinding>([]);
-        var service = new PipelineSummaryService(domain.PipelineService, new PipelineConfigBindingService(bindings, new IdProvider()), domain.Health,
+        var service = new PipelineSummaryService(domain.PipelineService, new PipelineConfigBindingService(bindings, new IdProvider(), TimeProvider.System), domain.Health,
             domain.ActivationService, domain.Plans, domain.Views, domain.ConfigSnapshots);
         return new Fixture(domain, bindings, service);
     }
@@ -51,7 +51,7 @@ public class PipelineSummaryServiceTests
     {
         var f = Create();
         var pipeline = f.Domain.CreatePipeline("p");
-        await Assert.That(new PipelineConfigBindingService(f.Bindings, new IdProvider())
+        await Assert.That(new PipelineConfigBindingService(f.Bindings, new IdProvider(), TimeProvider.System)
             .Create(pipeline.Id, "OliverVea/Olve.Pipelines", "main", ".pipelines", null)).Succeeded();
 
         await Assert.That(f.Service.List().Single().Repo).IsEqualTo("OliverVea/Olve.Pipelines");

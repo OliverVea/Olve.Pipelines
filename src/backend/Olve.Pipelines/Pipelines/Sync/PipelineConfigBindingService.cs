@@ -6,7 +6,8 @@ namespace Olve.Pipelines.Pipelines.Sync;
 
 public class PipelineConfigBindingService(
     EntityStore<PipelineConfigBinding> store,
-    IdProvider idProvider)
+    IdProvider idProvider,
+    TimeProvider timeProvider)
 {
     private readonly EntityStoreIndex<PipelineConfigBinding, Id<Pipeline>> _byPipeline =
         store.CreateIndex(b => b.PipelineId);
@@ -38,7 +39,7 @@ public class PipelineConfigBindingService(
             LastPushSha: null,
             LastReconciledSha: null,
             ReconcileStatus.NeverRun,
-            DateTimeOffset.UtcNow,
+            timeProvider.GetUtcNow(),
             WebhookSecret: idProvider.CreateSecret());
 
         store.Set(binding);

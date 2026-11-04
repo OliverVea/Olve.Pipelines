@@ -14,7 +14,7 @@ public class BindingWebhookReceiverTests
 {
     private static (BindingWebhookReceiver Receiver, PipelineConfigBindingService Svc) Create()
     {
-        var svc = new PipelineConfigBindingService(new EntityStore<PipelineConfigBinding>([]), new IdProvider());
+        var svc = new PipelineConfigBindingService(new EntityStore<PipelineConfigBinding>([]), new IdProvider(), TimeProvider.System);
         return (new BindingWebhookReceiver(svc, NullLogger<BindingWebhookReceiver>.Instance), svc);
     }
 

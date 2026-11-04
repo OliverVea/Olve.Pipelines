@@ -181,12 +181,22 @@ public class BindingHookRegistrationTests
     private static async Task<Harness> CreateEventHarness(string? baseUrl = BaseUrl)
     {
         var store = new EntityStore<PipelineConfigBinding>([]);
-        var svc = new PipelineConfigBindingService(store, new IdProvider());
+        var svc = new PipelineConfigBindingService(store, new IdProvider(), TimeProvider.System);
         var hookState = new BindingHookStateStore();
         var queue = new BindingHookWorkQueue();
-        var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(baseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
+        var reg = new BindingWebhookEventRegistration(store, Events(store), hookState, queue, new WebhookOptions(baseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
         await Assert.That(reg.Run()).Succeeded();
         return new Harness(store, svc, hookState, queue);
+    }
+
+    /// <summary>The binding hub, fed by <paramref name="store"/> as <c>PipelineConfigBindingEventRegistration</c> does.</summary>
+    private static PipelineConfigBindingEvents Events(EntityStore<PipelineConfigBinding> store)
+    {
+        var events = new PipelineConfigBindingEvents();
+        store.OnAdded.Subscribe(events.OnAdded.Invoke);
+        store.OnUpdated.Subscribe(events.OnUpdated.Invoke);
+        store.OnDeleted.Subscribe(events.OnDeleted.Invoke);
+        return events;
     }
 
     private static T Pick<T>(Result<T> r) { r.TryPickProblems(out _, out var v); return v!; }
@@ -290,14 +300,14 @@ public class BindingHookRegistrationTests
     public async Task Startup_HookAtAnOldUrl_EnqueuesARepoint()
     {
         var store = new EntityStore<PipelineConfigBinding>([]);
-        var svc = new PipelineConfigBindingService(store, new IdProvider());
+        var svc = new PipelineConfigBindingService(store, new IdProvider(), TimeProvider.System);
         var pid = Id.New<Pipeline>();
         var binding = Pick(svc.Create(pid, "acme/widgets", "main", ".pipelines", "GITHUB_TOKEN"));
         var hookState = new BindingHookStateStore();
         hookState.Set(binding.Id, new BindingHookState(pid, "acme", "widgets", 5L, "GITHUB_TOKEN", "https://old.example.com/x"));
         var queue = new BindingHookWorkQueue();
 
-        var reg = new BindingWebhookEventRegistration(store, hookState, queue, new WebhookOptions(BaseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
+        var reg = new BindingWebhookEventRegistration(store, Events(store), hookState, queue, new WebhookOptions(BaseUrl), new IdProvider(), NullLogger<BindingWebhookEventRegistration>.Instance);
         await Assert.That(reg.Run()).Succeeded();
 
         await Assert.That(queue.Reader.TryRead(out var work)).IsTrue();

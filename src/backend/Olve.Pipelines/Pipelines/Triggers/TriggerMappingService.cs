@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
@@ -22,12 +23,13 @@ public class TriggerMappingService(
     IHarnessStorage storage,
     HarnessOptions options,
     TimeProvider time,
+    IdProvider ids,
     ILogger<TriggerMappingService> logger)
 {
     internal TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
 
-    public static string EventKey(Id<Pipeline> pipelineId, Guid eventId)
-        => $"triggers/{pipelineId.Value.Value:N}/{eventId:N}/event.json";
+    public static string EventKey(Id<Pipeline> pipelineId, Id<TriggerEvent> eventId)
+        => $"triggers/{pipelineId.Value.Value:N}/{eventId.Value.Value:N}/event.json";
 
     /// <returns>The run start outcome, or null when the trigger's mapper ignored the event.</returns>
     public async Task<Result<RunStartOutcome?>> MapAndStartAsync(
@@ -74,9 +76,9 @@ public class TriggerMappingService(
     /// <summary>Runs the map-trigger Job; returns the envelope's output JSON, or null when the mapper ignored the event.</summary>
     private async Task<Result<string?>> MapAsync(Id<Pipeline> pipelineId, string binaryKey, string triggerName, string eventJson, CancellationToken ct)
     {
-        var eventId = Guid.NewGuid();
+        var eventId = ids.Create<TriggerEvent>();
         var eventKey = EventKey(pipelineId, eventId);
-        var jobName = $"olve-map-{eventId:N}"[..41];
+        var jobName = $"olve-map-{eventId.Value.Value:N}"[..41];
 
         await storage.PutTextAsync(eventKey, eventJson, "application/json", ct);
         var spec = await factory.CreateMapTriggerJobAsync(jobName, pipelineId, binaryKey, triggerName, eventKey, ct);
@@ -122,3 +124,6 @@ public class TriggerMappingService(
         }
     }
 }
+
+/// <summary>One event handed to a <c>map-trigger</c> Job; only its id is used.</summary>
+public sealed record TriggerEvent;

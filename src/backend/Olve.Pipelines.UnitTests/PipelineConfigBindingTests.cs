@@ -24,7 +24,7 @@ public class PipelineConfigBindingTests
         var bindingStore = new EntityStore<PipelineConfigBinding>([]);
 
         var pipelineService = new PipelineService(pipelineStore, idProvider);
-        var bindingService = new PipelineConfigBindingService(bindingStore, idProvider);
+        var bindingService = new PipelineConfigBindingService(bindingStore, idProvider, TimeProvider.System);
         var cleanup = new PipelineConfigBindingCleanupService(bindingStore);
 
         // Mirror the production wiring: the binding layer reacts to pipeline deletion.

@@ -6,8 +6,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 
 /// <summary>
 /// Drives GitHub hook (de)registration from binding lifecycle, so a binding that can have a push hook
-/// has one and a deleted one does not. Subscribes directly to the binding
-/// store (bindings have no domain event hub, same as the persistence service). Handlers run
+/// has one and a deleted one does not. Handlers run
 /// synchronously during reconcile, so they only diff desired-vs-current and post work to
 /// <see cref="BindingHookWorkQueue"/>; the drainer does the network calls.
 ///
@@ -16,6 +15,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// </summary>
 public class BindingWebhookEventRegistration(
     EntityStore<PipelineConfigBinding> store,
+    PipelineConfigBindingEvents events,
     BindingHookStateStore hookState,
     BindingHookWorkQueue queue,
     WebhookOptions options,
@@ -24,9 +24,9 @@ public class BindingWebhookEventRegistration(
 {
     public Result Run()
     {
-        store.OnAdded.Subscribe(e => Reconcile(e.Id));
-        store.OnUpdated.Subscribe(e => Reconcile(e.Id));
-        store.OnDeleted.Subscribe(e => HandleDeleted(e.Id));
+        events.OnAdded.Subscribe(e => Reconcile(e.Id));
+        events.OnUpdated.Subscribe(e => Reconcile(e.Id));
+        events.OnDeleted.Subscribe(e => HandleDeleted(e.Id));
         // Persisted bindings and hooks are loaded before startup runs: converge them once, so a changed
         // public URL repoints hooks without waiting for each binding's next update.
         foreach (var binding in store.List().ToList())

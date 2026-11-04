@@ -21,7 +21,7 @@ public class PipelineSecretServiceTests
             ManifestFixture.Step(root, "build")["secrets"] = new System.Text.Json.Nodes.JsonArray("REGISTRY");
             root["secrets"]!.AsArray().Add(new System.Text.Json.Nodes.JsonObject { ["name"] = "REGISTRY", ["description"] = "registry creds" });
         }));
-        var bindings = new PipelineConfigBindingService(new EntityStore<PipelineConfigBinding>([]), new IdProvider());
+        var bindings = new PipelineConfigBindingService(new EntityStore<PipelineConfigBinding>([]), new IdProvider(), TimeProvider.System);
         TestRunDomain.Pick(bindings.Create(s.Pipeline.Id, "o/r", "main", ".pipelines", "GITHUB_TOKEN"));
 
         var k8s = new PipelineSecretCopyServiceTests.FakeSecrets();

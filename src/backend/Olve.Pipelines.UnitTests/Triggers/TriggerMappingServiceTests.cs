@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
 using Olve.Pipelines.Kubernetes.Harness;
 using Olve.Pipelines.Pipelines;
@@ -33,7 +34,7 @@ public class TriggerMappingServiceTests
         var control = new HarnessJobControl(k8s, k8s, new KubernetesOptions("runners"), time ?? TimeProvider.System, new PodChangeSignals(time ?? TimeProvider.System), NullLogger<HarnessJobControl>.Instance);
         var inputs = new RunInputService(s.D.ActivationService, s.D.VersionService, s.D.Plans, s.D.Starts, s.D.Continuations);
         var service = new TriggerMappingService(inputs, s.D.Starts, new HarnessJobFactory(presigner, new HarnessOptions()), control, storage,
-            new HarnessOptions(), TimeProvider.System, NullLogger<TriggerMappingService>.Instance)
+            new HarnessOptions(), TimeProvider.System, new IdProvider(), NullLogger<TriggerMappingService>.Instance)
         { PollInterval = TimeSpan.Zero };
         return new Harness(service, k8s, storage, s);
     }

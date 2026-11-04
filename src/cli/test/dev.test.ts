@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assemble } from '../src/dev/assemble';
-import { parseManifest, type JsonObject } from '../src/dev/manifest';
+import { parseManifest, type Json, type JsonObject } from '../src/dev/manifest';
 import { flatten, placeStep, select, whenMismatch } from '../src/dev/plan';
 import { Pool, Workspace } from '../src/dev/pool';
 import {
@@ -315,6 +315,34 @@ describe('pl dev', () => {
     });
     expect(noSdk.stderr).toContain('run `bun install` there');
   });
+
+  test.each([
+    ['succeeded', { status: 'succeeded', output: null }, 0],
+    ['skipped', { status: 'skipped', reason: 'nothing to do' }, 0],
+    ['failed', { status: 'failed', error: { kind: 'handler', message: 'boom' } }, 1],
+  ])(
+    'run prints the links of a %s step after its result',
+    async (_, envelope, exitCode) => {
+      const p = pipelineDir();
+      const h = fakeHarness(demoText);
+      h.steps.src = () => ({
+        envelope: {
+          ...envelope,
+          links: [
+            { url: 'https://beta.example.com', label: 'Beta' },
+            { url: 'https://x.example.com' },
+          ] as Json[],
+        },
+        exitCode,
+      });
+      const r = await dev(['run', 'src', '--field', `sha=${SHA}`], h, p);
+      const lines = r.stdout.trimEnd().split('\n');
+      expect(lines.slice(-2)).toEqual([
+        '  → https://beta.example.com (Beta)',
+        '  → https://x.example.com',
+      ]);
+    },
+  );
 
   test('run mirrors the harness exit code, prints the envelope, and successive runs chain through the pool', async () => {
     const p = pipelineDir();

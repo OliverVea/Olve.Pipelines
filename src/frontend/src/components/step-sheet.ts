@@ -7,7 +7,15 @@ import {
   producersOf,
   stepsByName,
 } from '../model/manifest.js';
-import { sharedStyles, toneOf, statusLabel, navClick, runPath } from '../styles/ui.js';
+import {
+  sharedStyles,
+  toneOf,
+  statusLabel,
+  navClick,
+  runPath,
+  stepLinks,
+  stepLinkStyles,
+} from '../styles/ui.js';
 import type { StepState } from './stage-graph.js';
 
 /** Height of the sheet in px, as its CSS sets it. */
@@ -49,6 +57,7 @@ export const sheetContentStyles = css`
 @customElement('step-sheet')
 export class StepSheet extends LitElement {
   static styles = [
+    stepLinkStyles,
     sharedStyles,
     sheetContentStyles,
     css`
@@ -127,6 +136,9 @@ export class StepSheet extends LitElement {
       .d-desc {
         margin: 0.35rem 0 0;
         color: var(--color-text-muted);
+      }
+      .d-links {
+        margin: 0.35rem 0 0;
       }
       .d-reason {
         margin: 0.5rem 0 0;
@@ -235,6 +247,9 @@ export class StepSheet extends LitElement {
         </div>
         ${def?.description
           ? html`<p class="d-desc wide">${def.description}</p>`
+          : nothing}
+        ${st?.links?.length
+          ? html`<p class="d-links wide">${stepLinks(st.links)}</p>`
           : nothing}
         ${st?.reason
           ? html`<p class="d-reason wide t-${tone ?? 'idle'}">${st.reason}</p>`

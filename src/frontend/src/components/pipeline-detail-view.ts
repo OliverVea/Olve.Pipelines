@@ -222,6 +222,7 @@ export class PipelineDetailView extends LitElement {
         finishedAt: a.finishedAt,
         blocked: this._blocked.has(name),
         heldRuns: held.get(name),
+        links: a.links,
         retryable:
           a.versionNumber === currentVersion(this._activation) &&
           !isActiveStatus(a.status) &&

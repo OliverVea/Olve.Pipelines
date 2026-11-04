@@ -262,6 +262,11 @@ function renderEnvelope(console: DevConsole, step: string, outcome: StepOutcome)
         `${step}: no result (exit ${outcome.exitCode}${exitMeaning(outcome.exitCode)}); see the log above`,
       );
   }
+  for (const link of Array.isArray(e?.links) ? e.links : []) {
+    const l = link && typeof link === 'object' && !Array.isArray(link) ? link : {};
+    const url = str(l.url);
+    if (url) console.out(`  → ${url}${str(l.label) ? ` (${str(l.label)})` : ''}`);
+  }
 }
 
 /** The `pl dev describe` summary, also `pl pipeline manifest`'s. */

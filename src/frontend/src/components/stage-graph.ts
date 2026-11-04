@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, svg, type TemplateResult } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { RunStepStatus } from '@olve/api';
+import type { AttemptLink, RunStepStatus } from '@olve/api';
 import {
   type Manifest,
   type ManifestStep,
@@ -18,6 +18,8 @@ import {
   statusLabel,
   formatDuration,
   navClick,
+  stepLinks,
+  stepLinkStyles,
 } from '../styles/ui.js';
 import { sheetHeight } from './step-sheet.js';
 import { formatRelative } from './relative-time.js';
@@ -37,6 +39,7 @@ export type StepState = {
   finishedAt?: Date | string | null;
   blocked?: boolean;
   heldRuns?: number[];
+  links?: readonly AttemptLink[] | null;
 };
 
 export type Level = 'chips' | 'cards';
@@ -75,6 +78,7 @@ const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stro
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
   static styles = [
+    stepLinkStyles,
     sharedStyles,
     css`
       .bar {
@@ -381,6 +385,10 @@ export class StageGraph extends LitElement {
       }
       .run:hover {
         color: var(--color-primary);
+      }
+      .tile-links {
+        margin-top: 0.25rem;
+        min-width: 0;
       }
       .reason {
         margin-top: 0.2rem;
@@ -933,6 +941,9 @@ export class StageGraph extends LitElement {
         ${this.stepControls ? this._retry(step.name, st) : nothing}
         ${this.stepControls ? this._lock(step.name, blocked) : nothing}
       </div>
+      ${st?.links?.length
+        ? html`<div class="tile-links">${stepLinks(st.links)}</div>`
+        : nothing}
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
       ${blocked
         ? html`<div class="block-note">

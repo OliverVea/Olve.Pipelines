@@ -191,6 +191,30 @@ describe('run get and list', () => {
     expect(result.stdout).toContain('blocked');
   });
 
+  test.each([
+    [undefined, ''],
+    [[{ url: 'https://beta.example.com' }], '→ https://beta.example.com'],
+    [
+      [
+        { url: 'https://beta.example.com', label: 'Beta' },
+        { url: 'https://x.example.com/d' },
+      ],
+      '→ https://beta.example.com (Beta); → https://x.example.com/d',
+    ],
+  ])("get shows a step's links in its note (%p)", async (links, text) => {
+    const base = run();
+    const step = { ...base.stages[0]!.steps[0]!, blocked: false, reason: null, links };
+    const body = { ...base, stages: [{ ...base.stages[0]!, steps: [step] }] };
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines' ? { body: [alpha] } : { body },
+    );
+    const result = await pl(['run', 'get', 'alpha#15'], { fetch });
+    const line = result.stdout.split('\n').find((l) => l.startsWith(`  ${step.name} `))!;
+    expect(line.trimEnd().endsWith(text) && (text !== '' || !line.includes('→'))).toBe(
+      true,
+    );
+  });
+
   test('list pages with offset and limit', async () => {
     const { fetch, requests } = fakeFetch((req) =>
       req.path === '/api/pipelines'

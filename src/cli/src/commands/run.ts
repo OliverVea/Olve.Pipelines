@@ -49,6 +49,8 @@ function stepNote(s: RunStep): string {
   if (s.succeededAttempt !== null && s.succeededAttempt !== s.latestAttempt)
     notes.push(`uses @${s.succeededAttempt}`);
   if (s.reason) notes.push(s.reason);
+  for (const l of s.links ?? [])
+    notes.push(`→ ${l.url}${l.label ? ` (${l.label})` : ''}`);
   return notes.join('; ');
 }
 

@@ -14,6 +14,8 @@ import {
   runPath,
   stepPath,
   stepLogsPath,
+  stepLinks,
+  stepLinkStyles,
 } from '../styles/ui.js';
 import { LiveController } from '../api/events.js';
 import './phase-bar.js';
@@ -47,6 +49,7 @@ const kind = (status: string | null | undefined): Filter => {
 @customElement('step-runs-view')
 export class StepRunsView extends LitElement {
   static styles = [
+    stepLinkStyles,
     sharedStyles,
     statusCardStyles,
     css`
@@ -347,6 +350,7 @@ export class StepRunsView extends LitElement {
           ${r.reason
             ? html`<div class="reason" title=${r.reason}>${r.reason}</div>`
             : nothing}
+          ${r.links?.length ? html`<div>${stepLinks(r.links)}</div>` : nothing}
         </td>
         <td>
           v${r.versionNumber}

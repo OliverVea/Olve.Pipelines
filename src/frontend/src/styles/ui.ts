@@ -1,5 +1,5 @@
-import { css, html } from 'lit';
-import type { PipelineStatus, RunStatus, RunStepStatus } from '@olve/api';
+import { css, html, nothing } from 'lit';
+import type { AttemptLink, PipelineStatus, RunStatus, RunStepStatus } from '@olve/api';
 import { navigate } from '../router.js';
 
 /**
@@ -678,5 +678,76 @@ export const statusCardStyles = css`
       flex-basis: 100%;
       border-bottom: 0;
     }
+  }
+`;
+
+/** A step's links (`ctx.link`): what it made or deployed, opened in a new tab. */
+export function stepLinks(links: readonly AttemptLink[] | null | undefined) {
+  if (!links?.length) return nothing;
+  const stop = (e: Event) => e.stopPropagation();
+  return html`<span class="step-links">
+    ${links.map(
+      (l) =>
+        html`<a
+          class="step-link"
+          href=${l.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title=${l.url}
+          @click=${stop}
+          @keydown=${stop}
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg
+          >${l.label || linkHost(l.url)}</a
+        >`,
+    )}
+  </span>`;
+}
+
+function linkHost(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.host + (u.pathname === '/' ? '' : u.pathname);
+  } catch {
+    return url;
+  }
+}
+
+export const stepLinkStyles = css`
+  .step-links {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.6rem;
+    min-width: 0;
+  }
+  .step-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-primary);
+    font-size: 0.8rem;
+    text-decoration: none;
+  }
+  .step-link:hover {
+    text-decoration: underline;
+  }
+  .step-link svg {
+    flex-shrink: 0;
+    width: 0.8rem;
+    height: 0.8rem;
   }
 `;

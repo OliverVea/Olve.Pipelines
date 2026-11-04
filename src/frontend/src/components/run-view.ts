@@ -364,6 +364,7 @@ export class RunView extends LitElement {
           startedAt: s.startedAt,
           finishedAt: s.finishedAt,
           blocked: s.blocked ?? false,
+          links: s.links,
         });
       }
     }

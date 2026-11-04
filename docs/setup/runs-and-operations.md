@@ -69,7 +69,7 @@ shows the latest attempt whatever its status; output and files use the latest su
 |---|---|---|
 | Start a run | `pl trigger <pipeline> [--input json\|@file] [--field k=v …]` — prints `<pipeline>#<run>` | Pipeline view → trigger form (run plan preview) |
 | List runs | `pl run list <pipeline>` | Pipeline view → recent runs |
-| Inspect a run | `pl run get <pipeline>#<run>` — input, version and config snapshot (`v8, config #5`), stages, each step's status/reason, blocked/held | Run view |
+| Inspect a run | `pl run get <pipeline>#<run>` — input, version and config snapshot (`v8, config #5`), stages, each step's status/reason, blocked/held and links (`→ <url>`) | Run view |
 | Cancel | `pl run cancel <pipeline>#<run>` | Run view → Cancel |
 | Rerun the whole run | `pl run rerun <pipeline>#<run>` | Run view → Rerun |
 | Continue with changed input | `pl run continue <pipeline>#<run> --field deployTo=prod` | Run view → Continue |

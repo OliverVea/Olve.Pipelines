@@ -16,7 +16,7 @@ import {
 } from '@olve/api';
 import { resolvePipeline } from '../address';
 import { parseManifest } from '../dev/manifest';
-import { renderManifest } from './dev';
+import { renderManifest } from '../dev/render';
 import { call } from '../api';
 import { CliError } from '../errors';
 import { short, time } from '../format';

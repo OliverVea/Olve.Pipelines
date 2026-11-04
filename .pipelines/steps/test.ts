@@ -1,6 +1,7 @@
 import { cpSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { implement, step, Source } from '@olivervea/pipelines';
+import { DOTNET_SDK } from '../images';
 import * as M from '../models';
 
 const TESTS = 'src/backend/Olve.Pipelines.UnitTests/Olve.Pipelines.UnitTests.csproj';
@@ -11,7 +12,7 @@ export const test = implement(
   step({
     name: 'test',
     description: 'Runs the .NET unit tests and checks the C# formatting.',
-    image: 'mcr.microsoft.com/dotnet/sdk:10.0-noble',
+    image: DOTNET_SDK,
     input: { source: Source, spec: M.SpecBuild },
     timeoutSeconds: 1800,
   }),

@@ -24,6 +24,8 @@ import {
 } from '../styles/ui.js';
 import { toActivation } from '../model/versions.js';
 import { LiveController } from '../api/events.js';
+import { favorites, onFavoritesChanged } from '../model/favorites.js';
+import './favorite-star.js';
 
 const GITHUB_MARK = svg`<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" /></svg>`;
 
@@ -120,6 +122,22 @@ export class PipelineListView extends LitElement {
       .pr-menu {
         grid-area: menu;
         align-self: center;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .section {
+        margin: 1.25rem 0 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+      }
+
+      .section:first-of-type {
+        margin-top: 0;
       }
 
       @media (max-width: 640px) {
@@ -306,6 +324,8 @@ export class PipelineListView extends LitElement {
   @state() declare private _error: string | null;
   @state() declare private _loaded: boolean;
   @state() declare private _deleting: Pipeline | null;
+  @state() declare private _favorites: Set<string>;
+  private _unsubscribe?: () => void;
   @query('confirm-delete-dialog') declare private _confirmDelete: ConfirmDeleteDialog;
 
   constructor() {
@@ -316,6 +336,7 @@ export class PipelineListView extends LitElement {
     this._error = null;
     this._loaded = false;
     this._deleting = null;
+    this._favorites = favorites();
     new LiveController(
       this,
       () => this._load(true),
@@ -325,7 +346,13 @@ export class PipelineListView extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this._unsubscribe = onFavoritesChanged(() => (this._favorites = favorites()));
     this._load();
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._unsubscribe?.();
   }
 
   private async _load(silent = false) {
@@ -387,9 +414,7 @@ export class PipelineListView extends LitElement {
       ${!this._loaded
         ? ''
         : this._pipelines.length
-          ? html`<div class="rows">
-              ${this._pipelines.map((p) => this._renderRow(p))}
-            </div>`
+          ? this._renderLists()
           : html`<p class="empty">No pipelines yet. Add one to bind a repository.</p>`}
       <confirm-delete-dialog
         .name=${this._deleting?.name ?? ''}
@@ -397,6 +422,20 @@ export class PipelineListView extends LitElement {
         .onConfirm=${this._delete}
       ></confirm-delete-dialog>
     `;
+  }
+
+  private _renderLists() {
+    const starred = this._pipelines.filter((p) => this._favorites.has(p.id ?? ''));
+    const rows = (list: Pipeline[]) =>
+      html`<div class="rows">${list.map((p) => this._renderRow(p))}</div>`;
+    if (!starred.length) return rows(this._pipelines);
+    const rest = this._pipelines.filter((p) => !this._favorites.has(p.id ?? ''));
+    return html`<h3 class="section">Favorites</h3>
+      ${rows(starred)}
+      ${rest.length
+        ? html`<h3 class="section">Other pipelines</h3>
+            ${rows(rest)}`
+        : nothing}`;
   }
 
   private _renderRow(p: Pipeline) {
@@ -427,6 +466,7 @@ export class PipelineListView extends LitElement {
             : html`<span class="pc-empty">No steps yet</span>`}
         </div>
         <div class="pr-menu">
+          <favorite-star .pipelineId=${p.id ?? ''}></favorite-star>
           <button class="btn-delete" type="button" @click=${() => this._askDelete(p)}>
             Delete
           </button>

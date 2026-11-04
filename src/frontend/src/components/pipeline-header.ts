@@ -47,6 +47,7 @@ import {
 import { LiveController, forPipeline } from '../api/events.js';
 import './clamped-text.js';
 import './relative-time.js';
+import './favorite-star.js';
 
 /** The header of every pipeline page: name, health, description and tabs; the overview adds a status card. Actions go in the `actions` slot. */
 @customElement('pipeline-header')
@@ -187,6 +188,7 @@ export class PipelineHeader extends LitElement {
   render() {
     return html`<div class="line">
         <h2>${this._name}</h2>
+        <favorite-star .pipelineId=${this.pipelineId}></favorite-star>
         ${this._health
           ? html`<span class="st t-${toneOf(this._health.status)}"
               ><span class="dot"></span>${statusLabel(this._health.status)}</span

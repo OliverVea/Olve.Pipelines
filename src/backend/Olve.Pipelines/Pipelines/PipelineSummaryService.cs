@@ -52,7 +52,8 @@ public class PipelineSummaryService(
             {
                 var latest = views.History(pipelineId, step.Name, 1).FirstOrDefault();
                 return new PipelineStepSummary(step.Name, latest?.Status, latest?.RunNumber,
-                    latest is null ? null : latest.FinishedAt ?? latest.StartedAt ?? latest.CreatedAt);
+                    latest is null ? null : latest.FinishedAt ?? latest.StartedAt ?? latest.CreatedAt)
+                { Links = latest?.Links };
             }).ToArray())).ToArray();
     }
 }

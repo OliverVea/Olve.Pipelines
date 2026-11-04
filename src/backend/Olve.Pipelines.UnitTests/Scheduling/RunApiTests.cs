@@ -40,6 +40,26 @@ public class RunViewTests
     }
 
     [Test]
+    public async Task Links_ShowTheSucceededAttemptsElseTheLatest_AndFollowTheHistory()
+    {
+        var s = new SchedulerScenario();
+        var run = s.Start(Input(deployTo: "beta"));
+        var checkout = s.Succeed(run, "checkout");
+        var build = s.Fail(run, "build", "compile error");
+        IReadOnlyList<AttemptLink> site = [new("https://app.example.com", "App")];
+        IReadOnlyList<AttemptLink> logs = [new("https://ci.example.com/1")];
+        await Assert.That(s.D.AttemptService.Update(checkout.Id, a => a with { Links = site })).Succeeded();
+        await Assert.That(s.D.AttemptService.Update(build.Id, a => a with { Links = logs })).Succeeded();
+
+        var steps = TestRunDomain.Pick(s.D.Views.Get(s.Pipeline.Id, run.Number)).Stages.SelectMany(st => st.Steps).ToDictionary(x => x.Name);
+
+        await Assert.That(steps["checkout"].Links).IsEquivalentTo(site);
+        await Assert.That(steps["build"].Links).IsEquivalentTo(logs);
+        await Assert.That(steps["test"].Links).IsNull();
+        await Assert.That(s.D.Views.History(s.Pipeline.Id, "checkout", limit: 10).Single().Links).IsEquivalentTo(site);
+    }
+
+    [Test]
     public async Task RunDetail_MarksAStepHeldAtItsGate_AndBlocked()
     {
         var s = new SchedulerScenario();

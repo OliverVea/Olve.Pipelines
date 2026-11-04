@@ -17,4 +17,7 @@ public record PipelineSummary(
 public record PipelineStageSummary(RunStageCondition[] When, PipelineStepSummary[] Steps);
 
 /// <summary>A step and its latest attempt across runs (<see cref="Status"/> null = never run).</summary>
-public record PipelineStepSummary(string Name, Contract.AttemptState? Status, int? RunNumber, DateTimeOffset? At);
+public record PipelineStepSummary(string Name, Contract.AttemptState? Status, int? RunNumber, DateTimeOffset? At)
+{
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
+}

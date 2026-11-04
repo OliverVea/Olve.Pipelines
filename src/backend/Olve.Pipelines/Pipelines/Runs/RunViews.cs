@@ -68,6 +68,9 @@ public record RunStepView(
 {
     /// <summary>For a waiting step: the source kinds that may still answer it (<c>person</c>, <c>callback</c>, <c>poll</c>).</summary>
     public string[]? WaitingFor { get; init; }
+
+    /// <summary>The succeeded attempt's links, else the latest attempt's.</summary>
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
 }
 
 /// <summary>
@@ -88,7 +91,10 @@ public record StepHistoryItem(
     DateTimeOffset? FinishedAt,
     int? StepVersion,
     bool StepVersionChanged,
-    AttemptPhases? Phases = null);
+    AttemptPhases? Phases = null)
+{
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
+}
 
 internal static class JsonFields
 {

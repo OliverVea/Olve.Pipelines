@@ -109,6 +109,9 @@ model RunStep {
 
   /** For a waiting step: the source kinds that may still answer it (`person`, `callback`, `poll`). */
   waitingFor?: string[] | null;
+
+  /** What the step links to: its succeeded attempt's links, else its latest attempt's. */
+  links?: AttemptLink[] | null;
 }
 
 /** How long an attempt spent in each phase, in seconds; a phase it never reached is null. */
@@ -207,6 +210,12 @@ union AttemptStatus {
   obsolete: AttemptStatusObsolete,
 }
 
+/** A link a step reported with `ctx.link`: what it made or deployed. */
+model AttemptLink {
+  url: string;
+  label?: string | null;
+}
+
 /** A succeeded attempt's output: its storage key and the raw output JSON (size-capped). */
 model AttemptOutput {
   key: string;
@@ -249,6 +258,7 @@ model Attempt {
 
   timings?: AttemptTimings | null;
   answers?: Record<ExternalAnswer> | null;
+  links?: AttemptLink[] | null;
 }
 
 /** An attempt that is waiting, scheduled or in progress, by address. */

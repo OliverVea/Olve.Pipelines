@@ -22,6 +22,7 @@ model StepHistoryItem {
   stepVersion: int32 | null;
   stepVersionChanged: boolean;
   phases?: AttemptPhases | null;
+  links?: AttemptLink[] | null;
 }
 
 /** The runs the report covers: the latest `requestedRuns`, or fewer when no more exist. `from` and `to` are when the first and last covered runs started. */

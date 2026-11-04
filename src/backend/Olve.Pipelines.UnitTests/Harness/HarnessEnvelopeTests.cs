@@ -1,4 +1,5 @@
 using Olve.Pipelines.Kubernetes.Harness;
+using Olve.Pipelines.Pipelines.Runs;
 using Olve.Pipelines.UnitTests.Configs;
 using Olve.Results.TUnit;
 
@@ -53,4 +54,23 @@ public class HarnessEnvelopeTests
         await Assert.That(((HarnessEnvelope.Succeeded)TestRunDomain.Pick(parsed)).OutputJson).StartsWith("""{"xs":[0,1,2""");
     }
 
+
+    [Test]
+    [Arguments("""{"status":"succeeded","output":null,"links":[{"url":"https://app.example.com","label":"App"},{"url":"http://beta.example.com"}]}""")]
+    [Arguments("""{"status":"skipped","reason":"r","links":[{"url":"https://app.example.com","label":"App"},{"url":"http://beta.example.com"}]}""")]
+    [Arguments("""{"status":"failed","error":{"kind":"handler","message":"m"},"links":[{"url":"https://app.example.com","label":"App"},{"url":"http://beta.example.com"}]}""")]
+    public async Task Links_AreKeptOnEveryStatus(string json)
+    {
+        var parsed = TestRunDomain.Pick(HarnessEnvelope.Parse(json));
+
+        await Assert.That(parsed.Links).IsEquivalentTo(new[] { new AttemptLink("https://app.example.com", "App"), new AttemptLink("http://beta.example.com") });
+    }
+
+    [Test]
+    [Arguments("""{"status":"succeeded","output":null}""")]
+    [Arguments("""{"status":"succeeded","output":null,"links":[]}""")]
+    public async Task NoLinks_IsNull(string json)
+    {
+        await Assert.That(TestRunDomain.Pick(HarnessEnvelope.Parse(json)).Links).IsNull();
+    }
 }

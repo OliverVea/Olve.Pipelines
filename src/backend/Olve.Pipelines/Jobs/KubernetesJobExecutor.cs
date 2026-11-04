@@ -195,6 +195,9 @@ public class KubernetesJobExecutor(
         var outcome = HarnessOutcome.Resolve(finished.State, collection.Archive, collection.FileKeys,
             HarnessSentinels.TryExtractResult(logs.Main));
 
+        if (outcome.Links is { } links)
+            LogIfFailed(attempts.Update(attempt.Id, a => a with { Links = links }), attempt.Id);
+
         switch (outcome)
         {
             case HarnessAttemptResult.Succeeded s:

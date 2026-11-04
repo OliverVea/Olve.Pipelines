@@ -15,6 +15,7 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// the executor uploads for the step; null for attempts the scheduler skipped or failed without running.</param>
 /// <param name="Timings">The pod's timestamps, recorded when its Job finished; null before that or when unknown.</param>
 /// <param name="Answers">The values given for the step's external inputs, by input name; null when it has none answered.</param>
+/// <param name="Links">What the handler linked to (<c>ctx.link</c>): what it made or deployed; null when none.</param>
 public record Attempt(
     Id<Attempt> Id,
     Id<Pipeline> PipelineId,
@@ -28,7 +29,8 @@ public record Attempt(
     AttemptOutput? Output = null,
     string? Input = null,
     AttemptTimings? Timings = null,
-    IReadOnlyDictionary<string, ExternalAnswer>? Answers = null) : IHasId<Id<Attempt>>
+    IReadOnlyDictionary<string, ExternalAnswer>? Answers = null,
+    IReadOnlyList<AttemptLink>? Links = null) : IHasId<Id<Attempt>>
 {
     /// <summary>The scheduling key: at most one InProgress attempt per (pipeline, step name).</summary>
     [JsonIgnore]
@@ -40,6 +42,14 @@ public record Attempt(
     /// </summary>
     [JsonIgnore]
     public string KubernetesJobName => $"olve-{Id.Value.Value:N}";
+}
+
+/// <summary>A link a step reported: an absolute http(s) URL and an optional label.</summary>
+public record AttemptLink(string Url, string? Label = null)
+{
+    public const int MaxCount = 10;
+    public const int MaxUrlLength = 2048;
+    public const int MaxLabelLength = 100;
 }
 
 /// <summary>A value given for an external input: the JSON as validated (defaults applied), who gave it and when.</summary>

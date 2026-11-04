@@ -137,6 +137,21 @@ public class KubernetesJobExecutorTests
     }
 
     [Test]
+    public async Task FinishedPod_RecordsTheStepsLinks()
+    {
+        var h = Build();
+        h.K8s.States.Add(Exited0);
+        IReadOnlyList<AttemptLink> links = [new("https://app.example.com", "App")];
+        h.Storage.Collection = new(new HarnessResultContents(new HarnessEnvelope.Succeeded("null") { Links = links }, "{}", []), []);
+
+        await RunWatcher(h, h.Hello.Id);
+
+        var after = h.Scenario.D.Get(h.Hello.Id);
+        await Assert.That(after.Status).IsTypeOf<Succeeded>();
+        await Assert.That(after.Links).IsEquivalentTo(links);
+    }
+
+    [Test]
     public async Task FinishedPod_RecordsItsTimings()
     {
         var h = Build();

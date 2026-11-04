@@ -149,7 +149,7 @@ public class HarnessResultArchiveTests
     {
         var (result, _) = await Read(Archive(F("output.json", """{"status":"succeeded"}""")));
 
-        await result.Problems.IsSingle<ResultProblem>("Invalid harness envelope: succeeded envelope must have exactly 'status' and 'output'");
+        await result.Problems.IsSingle<ResultProblem>("Invalid harness envelope: succeeded envelope must have exactly 'status' and 'output' (and optionally 'links')");
     }
 
     [Test]

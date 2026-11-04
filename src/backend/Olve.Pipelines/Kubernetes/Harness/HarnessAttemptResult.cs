@@ -5,6 +5,9 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// <summary>The verdict of one harness attempt, ready to map onto <c>AttemptService.MarkSucceeded/MarkSkipped/MarkFailed</c>.</summary>
 public abstract record HarnessAttemptResult
 {
+    /// <summary>The links the step's envelope reported, whatever the verdict; null when none.</summary>
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
+
     /// <param name="OutputJson">The step output JSON (stored at <c>output.json</c>), or null for a step without output.</param>
     /// <param name="FileKeys">Garage keys of the re-uploaded <c>files/…</c> objects.</param>
     public sealed record Succeeded(string? OutputJson, IReadOnlyList<string> FileKeys) : HarnessAttemptResult;
@@ -46,6 +49,16 @@ public static class HarnessOutcome
                 envelope = contents.Envelope;
         }
 
+        return Verdict(failure, envelope, archiveProblem, fileKeys, logEnvelopeJson) with { Links = envelope?.Links };
+    }
+
+    private static HarnessAttemptResult Verdict(
+        HarnessFailure? failure,
+        HarnessEnvelope? envelope,
+        string? archiveProblem,
+        IReadOnlyList<string> fileKeys,
+        string? logEnvelopeJson)
+    {
         if (failure is null)
         {
             return envelope switch

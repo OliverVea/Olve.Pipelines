@@ -107,6 +107,7 @@ public class RunViewService(
                         ? step.ExternalInputs.Where(i => latest.Answers?.ContainsKey(i.Key) != true)
                             .SelectMany(i => i.Value.From.Select(f => f.Kind)).Distinct().Order(StringComparer.Ordinal).ToArray()
                         : null,
+                    Links = (list.LastOrDefault(a => a.Status is Succeeded) ?? latest)?.Links,
                 };
             }).ToArray())).ToArray();
     }
@@ -138,7 +139,8 @@ public class RunViewService(
 
             rows.Add(new StepHistoryItem(run.Number, run.Status, run.VersionNumber, run.VersionStamp, attempt.Id, attempt.Number,
                 attempt.Status.State(), Reason(attempt.Status), attempt.CreatedAt, attempt.StartedAt(), attempt.FinishedAt(),
-                stepVersion, StepVersionChanged: false, AttemptPhases.From(attempt)));
+                stepVersion, StepVersionChanged: false, AttemptPhases.From(attempt))
+            { Links = attempt.Links });
         }
 
         for (var i = 0; i < rows.Count - 1; i++)

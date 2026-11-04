@@ -158,6 +158,22 @@ public class HarnessOutcomeTests
     }
 
     [Test]
+    [Arguments(0, "Succeeded")]
+    [Arguments(1, "Failed")]
+    public async Task Resolve_KeepsTheEnvelopesLinks(int exitCode, string verdict)
+    {
+        IReadOnlyList<AttemptLink> links = [new("https://app.example.com")];
+        HarnessEnvelope envelope = exitCode == 0
+            ? new HarnessEnvelope.Succeeded("null") { Links = links }
+            : new HarnessEnvelope.Failed("handler", "kaboom") { Links = links };
+
+        var result = HarnessOutcome.Resolve(Step(exitCode), Archive(envelope), [], null);
+
+        await Assert.That(result.GetType().Name).IsEqualTo(verdict);
+        await Assert.That(result.Links).IsEquivalentTo(links);
+    }
+
+    [Test]
     public async Task Resolve_Exit74_FailsEvenIfLogSaysSucceeded()
     {
         var result = HarnessOutcome.Resolve(Step(74), null, [], """{"output":null,"status":"succeeded"}""");

@@ -215,6 +215,7 @@ public static class RunViews
         Blocked = s.Blocked,
         Phases = s.Phases is null ? null : StepViews.ToApi(s.Phases),
         WaitingFor = s.WaitingFor,
+        Links = ToApi(s.Links),
     };
 
     public static Contract.Attempt ToApi(Attempt a) => new()
@@ -238,7 +239,11 @@ public static class RunViews
             AnsweredAt = x.Value.AnsweredAt,
             Source = x.Value.Source,
         }),
+        Links = ToApi(a.Links),
     };
+
+    public static Contract.AttemptLink[]? ToApi(IReadOnlyList<AttemptLink>? links)
+        => links is null ? null : [.. links.Select(l => new Contract.AttemptLink { Url = l.Url, Label = l.Label })];
 
     public static Contract.AttemptStatus ToApi(AttemptStatus s) => s switch
     {

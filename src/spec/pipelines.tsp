@@ -39,6 +39,9 @@ model PipelineStepSummary {
   status: AttemptState | null;
   runNumber: int32 | null;
   at: utcDateTime | null;
+
+  /** The latest attempt's links. */
+  links?: AttemptLink[] | null;
 }
 
 enum PipelineStatus {

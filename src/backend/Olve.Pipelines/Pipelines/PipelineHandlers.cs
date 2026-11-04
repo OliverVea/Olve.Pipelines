@@ -146,7 +146,7 @@ public static class PipelineViews
     private static Api.PipelineStageSummary ToApi(PipelineStageSummary s) => new()
     {
         When = [.. s.When.Select(c => new Api.RunStageCondition { Field = c.Field, Values = c.Values })],
-        Steps = [.. s.Steps.Select(st => new Api.PipelineStepSummary { Name = st.Name, Status = st.Status, RunNumber = st.RunNumber, At = st.At })],
+        Steps = [.. s.Steps.Select(st => new Api.PipelineStepSummary { Name = st.Name, Status = st.Status, RunNumber = st.RunNumber, At = st.At, Links = RunViews.ToApi(st.Links) })],
     };
 
     private static Api.PipelineStatus Status(string status) => status switch

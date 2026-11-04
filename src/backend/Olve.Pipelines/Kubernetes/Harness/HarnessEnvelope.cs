@@ -12,10 +12,13 @@ namespace Olve.Pipelines.Kubernetes.Harness;
 /// { "status": "skipped",   "reason": "…" }
 /// { "status": "failed",    "error": { "kind": "handler" | "input" | "output", "message": "…" } }
 /// </code>
-/// Parsed strictly — it is untrusted step output (spec §8).
+/// Any of them may add <c>"links": [{ "url": "…", "label": "…" }]</c>. Parsed strictly: it is untrusted step output.
 /// </summary>
 public abstract record HarnessEnvelope
 {
+    /// <summary>The step's links (<c>ctx.link</c>); null when it reported none.</summary>
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
+
     /// <param name="OutputJson">The raw <c>output</c> JSON value (<c>null</c> for steps without an output model).</param>
     public sealed record Succeeded(string OutputJson) : HarnessEnvelope
     {
@@ -55,26 +58,33 @@ public abstract record HarnessEnvelope
                 return Fail("envelope is not a JSON object");
             if (!root.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String)
                 return Fail("envelope has no string 'status'");
+            IReadOnlyList<AttemptLink>? links = null;
+            if (root.TryGetProperty("links", out var linksElement))
+            {
+                if (ParseLinks(linksElement).TryPickProblems(out var linkProblems, out var parsed))
+                    return Result.Failure<HarnessEnvelope>(linkProblems);
+                links = parsed.Count == 0 ? null : parsed;
+            }
 
             switch (status.GetString())
             {
                 case "succeeded":
                     if (!OnlyKeys(root, "status", "output"))
-                        return Fail("succeeded envelope must have exactly 'status' and 'output'");
+                        return Fail("succeeded envelope must have exactly 'status' and 'output' (and optionally 'links')");
                     // output.json is canonical *indented* JSON; cap and store the compact form.
                     var output = Compact(root.GetProperty("output"));
                     if (Encoding.UTF8.GetByteCount(output) > AttemptService.MaxOutputJsonBytes)
                         return Fail("output exceeds {0} bytes", AttemptService.MaxOutputJsonBytes);
-                    return new Succeeded(output);
+                    return new Succeeded(output) { Links = links };
 
                 case "skipped":
                     if (!OnlyKeys(root, "status", "reason") || root.GetProperty("reason").ValueKind != JsonValueKind.String)
-                        return Fail("skipped envelope must have exactly 'status' and a string 'reason'");
-                    return new Skipped(root.GetProperty("reason").GetString()!);
+                        return Fail("skipped envelope must have exactly 'status' and a string 'reason' (and optionally 'links')");
+                    return new Skipped(root.GetProperty("reason").GetString()!) { Links = links };
 
                 case "failed":
                     if (!OnlyKeys(root, "status", "error"))
-                        return Fail("failed envelope must have exactly 'status' and 'error'");
+                        return Fail("failed envelope must have exactly 'status' and 'error' (and optionally 'links')");
                     var error = root.GetProperty("error");
                     if (error.ValueKind != JsonValueKind.Object || !OnlyKeys(error, "kind", "message")
                         || error.GetProperty("kind").ValueKind != JsonValueKind.String
@@ -83,7 +93,7 @@ public abstract record HarnessEnvelope
                     var kind = error.GetProperty("kind").GetString()!;
                     if (!FailureKinds.Contains(kind))
                         return Fail("unknown failure kind '{0}'", kind);
-                    return new Failed(kind, error.GetProperty("message").GetString()!);
+                    return new Failed(kind, error.GetProperty("message").GetString()!) { Links = links };
 
                 default:
                     return Fail("unknown envelope status '{0}'", status.GetString()!);
@@ -99,11 +109,42 @@ public abstract record HarnessEnvelope
         return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
+    private static Result<IReadOnlyList<AttemptLink>> ParseLinks(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Array || element.GetArrayLength() > AttemptLink.MaxCount)
+            return LinkFail("'links' must be an array of at most {0} {{url, label}} objects", AttemptLink.MaxCount);
+        var links = new List<AttemptLink>();
+        var i = 0;
+        foreach (var item in element.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object || !item.EnumerateObject().All(p => p.Name is "url" or "label"))
+                return LinkFail("link {0} must be an object with 'url' and an optional 'label'", i);
+            if (!item.TryGetProperty("url", out var url) || url.ValueKind != JsonValueKind.String
+                || url.GetString()!.Length > AttemptLink.MaxUrlLength
+                || !Uri.TryCreate(url.GetString(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+                return LinkFail("link {0}: 'url' must be an absolute http or https URL of at most {1} characters", i, AttemptLink.MaxUrlLength);
+            string? label = null;
+            if (item.TryGetProperty("label", out var l))
+            {
+                if (l.ValueKind != JsonValueKind.String || l.GetString()!.Length > AttemptLink.MaxLabelLength)
+                    return LinkFail("link {0}: 'label' must be a string of at most {1} characters", i, AttemptLink.MaxLabelLength);
+                label = l.GetString();
+            }
+            links.Add(new AttemptLink(url.GetString()!, label));
+            i++;
+        }
+        return links;
+    }
+
+    private static Result<IReadOnlyList<AttemptLink>> LinkFail(string format, params object[] args)
+        => Result.Failure<IReadOnlyList<AttemptLink>>(new ResultProblem("Invalid harness envelope: " + format, args));
+
     private static bool OnlyKeys(JsonElement obj, params string[] keys)
     {
         var seen = 0;
         foreach (var p in obj.EnumerateObject())
         {
+            if (p.Name == "links") continue;
             if (!keys.Contains(p.Name)) return false;
             seen++;
         }

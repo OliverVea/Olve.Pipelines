@@ -201,6 +201,7 @@ import deployScript from "./scripts/deploy.sh" with { type: "file" };
 export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), async ({ artifact }, ctx) => {
   await ctx.sh(deployScript, { env: { IMAGE_TAR: await ctx.files.fetch(artifact.image), CHART_DIR: await ctx.files.fetch(artifact.chart) } });
   await ctx.retry({ attempts: 5, delaySeconds: 5 }, () => ctx.http.expectOk("https://pipelines-beta.ovea.pro/api/health"));
+  ctx.link("https://pipelines-beta.ovea.pro", "beta");                             // shown on the step card and in pl run get
   return { release: "olve-pipelines", version: artifact.version, url: "https://pipelines-beta.ovea.pro" };   // or ctx.skip("reason")
 });
 ```
@@ -323,6 +324,8 @@ It retries network errors, 5xx, 408 and 429. It always verifies `sha256`.
 { "status": "skipped",   "reason": "…" }
 { "status": "failed",    "error": { "kind": "handler" | "input" | "output", "message": "…" } }
 ```
+
+Any of the three may carry `"links": [{ "url": "https://…", "label": "…" }]`, what the handler passed to `ctx.link` (absolute http(s) URLs of at most 2048 characters, labels of at most 100, at most 10). The key is left out when there are none. The server refuses an envelope whose links break these limits.
 
 For `map-trigger`, `output` is the pipeline input after it has been parsed by the input model, so defaults are applied. Validate it again server-side.
 

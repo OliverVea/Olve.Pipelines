@@ -6,15 +6,17 @@ import { isSkipped } from '../core/handlers.ts';
 import type { AnyStep } from '../core/steps.ts';
 import type { Ctx, RunInfo } from '../ctx/types.ts';
 import { objectPath } from '../ctx/files.ts';
+import { createLinks, type StepLink } from '../ctx/links.ts';
 import { sha256File } from '../util/hash.ts';
 import { EXIT } from './exit.ts';
 import { validateConfig, validateInput, validateOutput } from './validate.ts';
 
 export type FailureKind = 'handler' | 'input' | 'output';
-export type Envelope =
+export type Envelope = (
   | { status: 'succeeded'; output: unknown }
   | { status: 'skipped'; reason: string }
-  | { status: 'failed'; error: { kind: FailureKind; message: string } };
+  | { status: 'failed'; error: { kind: FailureKind; message: string } }
+) & { links?: StepLink[] };
 
 export interface Execution {
   envelope: Envelope;
@@ -85,7 +87,14 @@ export async function executeStep(args: {
       exitCode: EXIT.inputInvalid,
     };
   }
-  const ctx: Ctx = { ...args.ctx, config: Object.freeze(config.value) as Ctx['config'] };
+  const collected = createLinks();
+  const ctx: Ctx = {
+    ...args.ctx,
+    config: Object.freeze(config.value) as Ctx['config'],
+    link: collected.link,
+  };
+  const withLinks = (e: Envelope): Envelope =>
+    collected.links.length ? { ...e, links: [...collected.links] } : e;
 
   let value: unknown;
   try {
@@ -98,14 +107,17 @@ export async function executeStep(args: {
     log(message);
     if (e instanceof Error && e.stack && !cancelled) log(e.stack);
     return {
-      envelope: { status: 'failed', error: { kind: 'handler', message } },
+      envelope: withLinks({ status: 'failed', error: { kind: 'handler', message } }),
       exitCode: cancelled ?? EXIT.handlerFailed,
     };
   }
 
   if (isSkipped(value)) {
     log(`step '${step.name}' skipped: ${value.reason}`);
-    return { envelope: { status: 'skipped', reason: value.reason }, exitCode: EXIT.ok };
+    return {
+      envelope: withLinks({ status: 'skipped', reason: value.reason }),
+      exitCode: EXIT.ok,
+    };
   }
   const out = validateOutput(step, value);
   const problems = out.ok
@@ -115,9 +127,12 @@ export async function executeStep(args: {
     const message = `step '${step.name}': returned value does not match ${step.output?.name ?? 'its (absent) output model'}:\n  ${problems.join('\n  ')}`;
     log(message);
     return {
-      envelope: { status: 'failed', error: { kind: 'output', message } },
+      envelope: withLinks({ status: 'failed', error: { kind: 'output', message } }),
       exitCode: EXIT.outputInvalid,
     };
   }
-  return { envelope: { status: 'succeeded', output: out.value }, exitCode: EXIT.ok };
+  return {
+    envelope: withLinks({ status: 'succeeded', output: out.value }),
+    exitCode: EXIT.ok,
+  };
 }

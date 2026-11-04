@@ -20,6 +20,7 @@ export interface ComposeTargetValue {
   service: string;
   token: { secret: string };
   healthUrl?: string | undefined;
+  link?: string | undefined;
 }
 
 /** What the deployer answers to `POST /v1/deploy`. */
@@ -103,6 +104,7 @@ export function composeDeploy<const N extends string, const K extends string>(
       );
     if (target.healthUrl)
       await httpHealthCheck(ctx, target.healthUrl, { attempts: 12, delaySeconds: 5 });
+    if (target.link) ctx.link(target.link);
     ctx.log('deployed', {
       service: target.service,
       image: ref,

@@ -14,6 +14,7 @@ import type {
 } from '../core/steps.ts';
 import { createCtx } from '../ctx/index.ts';
 import type { Ctx, RunInfo } from '../ctx/types.ts';
+import type { StepLink } from '../ctx/links.ts';
 import { executeStep, type FailureKind, type StepFunction } from '../harness/execute.ts';
 import { sha256Hex } from '../util/hash.ts';
 
@@ -39,6 +40,8 @@ export type TestResult<S extends AnyStep> = {
   filesDir: string;
   logs: string[];
   exitCode: number;
+  /** What the handler passed to `ctx.link`; absent when nothing. */
+  links?: StepLink[];
 } & (
   | { status: 'succeeded'; output: OutputValue<S> }
   | { status: 'skipped'; reason: string }

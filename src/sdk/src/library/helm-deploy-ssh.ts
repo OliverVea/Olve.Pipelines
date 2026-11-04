@@ -113,6 +113,8 @@ export interface HelmDeployOverSshDef<
   helmWait?: boolean;
   /** `helm upgrade --atomic`: wait like `helmWait`, and roll back when the upgrade fails. Default false. */
   atomic?: boolean;
+  /** Public URL of what the release serves; the step links to it after a successful deploy. */
+  link?: Configurable<string>;
   /** After the rollouts, GET this URL until it returns 2xx (`httpHealthCheck`: 5 × 5 s unless given), or fail the step. */
   healthUrl?:
     | Configurable<string>
@@ -407,6 +409,7 @@ function helmDeployOverSshLiteral(
     values: def.values ?? [],
     set: def.set ?? {},
     healthUrl: def.healthUrl,
+    link: def.link,
   };
 
   const contract = step({
@@ -436,6 +439,7 @@ function helmDeployOverSshLiteral(
       ...(def.dependencies ? { dependencies: true } : {}),
       ...(def.atomic ? { atomic: true } : def.helmWait ? { helmWait: true } : {}),
       ...(def.healthUrl !== undefined ? { healthUrl: def.healthUrl } : {}),
+      ...(def.link !== undefined ? { link: def.link } : {}),
     },
   });
   return implement(contract, async (stepInput, ctx: Ctx) => {
@@ -449,6 +453,7 @@ function helmDeployOverSshLiteral(
       namespace: string;
       values: string[];
       set: Record<string, string>;
+      link?: string;
       healthUrl?:
         | string
         | ({ url: string } & Pick<HttpHealthCheckOptions, 'attempts' | 'delaySeconds'>);
@@ -495,6 +500,7 @@ function helmDeployOverSshLiteral(
         attempts: health.attempts,
         delaySeconds: health.delaySeconds,
       });
+    if (d.link) ctx.link(d.link);
     return {
       release: d.release,
       namespace: d.namespace,

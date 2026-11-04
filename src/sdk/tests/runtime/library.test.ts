@@ -1439,6 +1439,50 @@ describe('steps.helmDeployOverSsh', () => {
     ]);
   });
 
+  test.each([
+    ['no link', {}, undefined],
+    [
+      'a link',
+      { link: 'https://pipelines-beta.example.com' },
+      [{ url: 'https://pipelines-beta.example.com' }],
+    ],
+  ])('links to what it deployed: %s', async (_, extra, links) => {
+    const step = steps.helmDeployOverSsh({ ...def, ...extra, healthUrl: undefined });
+    expect((step as any).settings.link).toBe((extra as { link?: string }).link);
+    const r = await testHandler(
+      step,
+      { source, image },
+      { secrets: { SSH_PRIVATE_KEY: 'k' }, ctx: fakes().ctx },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(r.links).toEqual(links as never);
+  });
+
+  test("a target's link", async () => {
+    const step = steps.helmDeployOverSsh({
+      name: 'deploy-beta',
+      description: '',
+      sshKey: KEY,
+      chart: 'helm',
+      target: {
+        kind: 'ssh',
+        host: 'oliver@bulwark-m2',
+        namespace: 'apps-beta',
+        release: 'app',
+        values: [],
+        set: {},
+        link: 'https://app.example.com',
+      },
+    } as never);
+    const r = await testHandler(
+      step as any,
+      { source, image: { ...image, tar: undefined } },
+      { secrets: { SSH_PRIVATE_KEY: 'k' }, ctx: fakes().ctx },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(r.links).toEqual([{ url: 'https://app.example.com' }]);
+  });
+
   test('remote arguments are shell-quoted', async () => {
     const f = fakes();
     const r = await testHandler(

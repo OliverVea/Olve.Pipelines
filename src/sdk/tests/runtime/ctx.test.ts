@@ -1177,3 +1177,117 @@ describe('testHandler on the example handlers', () => {
   });
   test('Source is the library source model', () => expect(Source.name).toBe('Source'));
 });
+
+describe('ctx.link', () => {
+  const Out = model('LinkOut', z.object({ ok: z.boolean() }));
+  const linking = (fn: (ctx: any) => unknown) =>
+    implement(
+      step({ name: 'linker', description: '', image: 'alpine', output: Out }),
+      (async (_: unknown, ctx: any) => fn(ctx)) as never,
+    );
+
+  test.each([
+    {
+      name: 'succeeded, with and without a label',
+      fn: (ctx: any) => {
+        ctx.link('https://example.com/app', 'App');
+        ctx.link('http://beta.example.com');
+        return { ok: true };
+      },
+      status: 'succeeded',
+      links: [
+        { url: 'https://example.com/app', label: 'App' },
+        { url: 'http://beta.example.com' },
+      ],
+    },
+    {
+      name: 'skipped keeps its links',
+      fn: (ctx: any) => {
+        ctx.link('https://example.com');
+        return ctx.skip('already deployed');
+      },
+      status: 'skipped',
+      links: [{ url: 'https://example.com' }],
+    },
+    {
+      name: 'a handler failure keeps its links',
+      fn: (ctx: any) => {
+        ctx.link('https://example.com');
+        throw new Error('boom');
+      },
+      status: 'failed',
+      links: [{ url: 'https://example.com' }],
+    },
+    {
+      name: 'an output failure keeps its links',
+      fn: (ctx: any) => {
+        ctx.link('https://example.com');
+        return { ok: 'no' };
+      },
+      status: 'failed',
+      links: [{ url: 'https://example.com' }],
+    },
+    {
+      name: 'no links: no links key',
+      fn: () => ({ ok: true }),
+      status: 'succeeded',
+      links: undefined,
+    },
+  ])('$name', async ({ fn, status, links }) => {
+    const r = await testHandler(linking(fn) as any, {});
+    expect(r.status).toBe(status as never);
+    expect(r.links).toEqual(links as never);
+    if (!links) expect('links' in r).toBe(false);
+  });
+
+  test.each([
+    [
+      'example.com',
+      undefined,
+      "ctx.link: 'example.com' is not an absolute http or https URL",
+    ],
+    [
+      'ftp://example.com',
+      undefined,
+      "ctx.link: 'ftp://example.com' is not an absolute http or https URL",
+    ],
+    ['https://', undefined, "ctx.link: 'https://' is not an absolute http or https URL"],
+    [
+      `https://example.com/${'a'.repeat(2048)}`,
+      undefined,
+      'ctx.link: the URL is longer than 2048 characters',
+    ],
+    [
+      'https://example.com',
+      'x'.repeat(101),
+      'ctx.link: the label is longer than 100 characters',
+    ],
+  ])('refuses %p (label %p)', async (url, label, message) => {
+    const r = await testHandler(
+      linking((ctx) => {
+        ctx.link(url, label);
+        return { ok: true };
+      }) as any,
+      {},
+    );
+    expect(r.status).toBe('failed');
+    expect((r as any).error).toEqual({
+      kind: 'handler',
+      message: `step 'linker' failed: ${message}`,
+    });
+  });
+
+  test('at most 10 links', async () => {
+    const r = await testHandler(
+      linking((ctx) => {
+        for (let i = 0; i <= 10; i++) ctx.link(`https://example.com/${i}`);
+        return { ok: true };
+      }) as any,
+      {},
+    );
+    expect((r as any).error.message).toBe(
+      "step 'linker' failed: ctx.link: a step can add at most 10 links",
+    );
+    expect(r.links).toHaveLength(10);
+  });
+});

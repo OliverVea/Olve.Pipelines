@@ -93,7 +93,9 @@ export const TARGET = config("target", "Where beta and prod are deployed.", z.ob
 
 `deployTarget` options: `namespace?` and `release?` (defaults for the helm kinds), `extend?` (fields
 added to every kind but `none`), `composeToken` (the secret a compose target's `token` names) and
-`optional?`. `helmTarget()` is the helm-only form (`inCluster | ssh`).
+`optional?`. `helmTarget()` is the helm-only form (`inCluster | ssh`). Every kind but `none` takes an
+optional `link`: the public URL of what the target serves, which the deploy step links to (`ctx.link`)
+after a successful deploy, so it shows on the step's card and in `pl run get`.
 
 A compose target in the config document:
 
@@ -107,6 +109,7 @@ target:
     service: app
     token: { secret: DEPLOYER_TOKEN }
     healthUrl: https://app.example.com/health   # optional
+    link: https://app.example.com               # optional: the step links to it
 ```
 
 Set the token with `printf '%s' "$TOKEN" | pl secret set <pipeline> DEPLOYER_TOKEN`.

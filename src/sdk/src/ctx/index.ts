@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { skipped } from '../core/handlers.ts';
+import { createLinks } from './links.ts';
 import type { Secret } from '../core/secrets.ts';
 import { createFetch, createOutput, redactUrl } from './files.ts';
 import { createSh } from './sh.ts';
@@ -165,6 +166,7 @@ export function createCtx(o: CtxOptions): Ctx {
     run: Object.freeze({ ...o.run }),
     tmpDir: o.paths.tmp,
     skip: skipped,
+    link: createLinks().link,
     inputUrl: (step, input) => {
       const name = typeof step === 'string' ? step : step.name;
       const url = o.callbackUrls?.[`${name}/${input}`];

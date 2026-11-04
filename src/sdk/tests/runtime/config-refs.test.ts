@@ -839,6 +839,31 @@ describe('steps.composeDeploy and deployTarget', () => {
     ).toBe(false);
   });
 
+  test.each([
+    [{}, undefined],
+    [
+      { link: 'https://pipelines.example.com' },
+      [{ url: 'https://pipelines.example.com' }],
+    ],
+  ])("links to the target's link after the deploy (%p)", async (extra, links) => {
+    const ctx = {
+      http: {
+        fetch: async () =>
+          Response.json({ status: 'deployed', service: 'pipelines', image: 'x' }),
+      } as unknown as Ctx['http'],
+    };
+    const config = {
+      target: { ...docConfig.target, prod: { ...docConfig.target.prod, ...extra } },
+    };
+    const r = await testHandler(
+      deploy as any,
+      { image },
+      { ctx, config, secrets: { DEPLOYER_TOKEN: 'tok' } },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(r.links).toEqual(links as never);
+  });
+
   test('extend adds its fields to the compose kind too', () => {
     const target = deployTarget({ composeToken: TOKEN, extend: { x: z.string() } });
     const parsed = target.parse({ ...docConfig.target.prod, x: '1' });

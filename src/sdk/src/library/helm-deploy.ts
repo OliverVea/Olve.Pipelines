@@ -53,6 +53,12 @@ function targetVariants<const E extends z.ZodRawShape, const K extends string>(
       .describe(
         'Base URL step pods reach the release at (health checks, smoke tests); default http://<release>.<namespace>.svc.cluster.local.',
       ),
+    link: z
+      .string()
+      .optional()
+      .describe(
+        'Public URL of what the target serves (a site, an API); the deploy step links to it.',
+      ),
     ...(o.extend ?? ({} as E)),
   };
   const inCluster = z.object({
@@ -85,6 +91,12 @@ function targetVariants<const E extends z.ZodRawShape, const K extends string>(
       .optional()
       .describe(
         "Checked by the step after the deployer's own health check, when the step can reach it.",
+      ),
+    link: z
+      .string()
+      .optional()
+      .describe(
+        'Public URL of what the target serves (a site, an API); the deploy step links to it.',
       ),
     ...(o.extend ?? ({} as E)),
   });
@@ -156,6 +168,7 @@ interface TargetCommon {
   values: readonly string[];
   set: Readonly<Record<string, string>>;
   url?: string | undefined;
+  link?: string | undefined;
 }
 /** A resolved `kind: inCluster` target. */
 export type InClusterTargetValue = TargetCommon & { kind: 'inCluster' };
@@ -472,6 +485,7 @@ function targetDeploy(
         attempts: 12,
         delaySeconds: 5,
       });
+    if (target.link) ctx.link(target.link);
     const main = flags[0];
     return {
       release,

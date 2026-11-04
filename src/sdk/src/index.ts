@@ -77,6 +77,7 @@ export type {
   RetryOptions,
   OutputFileOptions,
 } from './ctx/types.ts';
+export type { StepLink } from './ctx/links.ts';
 export type { Ref, Mappable, MapperResult } from './builder/refs.ts';
 export {
   pipeline,

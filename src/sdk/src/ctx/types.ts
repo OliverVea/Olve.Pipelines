@@ -111,6 +111,11 @@ export interface Ctx<Sec extends string = string, Cfg extends AnyConfigEntry = n
   readonly run: RunInfo;
   /** A writable scratch directory (`$OLVE_DIR/tmp`; images like kaniko have no /tmp). */
   readonly tmpDir: string;
+  /**
+   * Link to what the step made or deployed (a site, a release, an image), shown with the attempt in the
+   * UI and `pl run get`. Absolute http(s) URL; at most 10 per attempt.
+   */
+  link(url: string, label?: string): void;
   /** Runtime escape hatch: produce no output. Prefer `when` blocks. */
   skip(reason: string): Skipped;
   /**

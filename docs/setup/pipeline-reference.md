@@ -164,8 +164,8 @@ a step only one pipeline needs stays a custom step there.
 |---|---|---|---|
 | `steps.gitHubSource` | `alpine:3.22` | `{ repo: "owner/name", sha }` (plain schema: **needs a mapper**) → `Source` | `token?: Secret` (private repos; raises the rate limit), `apiUrl?` (GitHub Enterprise) |
 | `steps.imageBuild` | `gcr.io/kaniko-project/executor:v1.24.0-debug`, pinned by digest | `{ source: Source }` → `BuiltImage`, or `PushedImage` with `push` | `repository`, `context?` (dir in the source with the `Dockerfile`), `push?`, `contentTag?` (with `push`), `registryMap?` (base-image pull-through caches; none by default), `stallTimeoutSeconds?` (default 300, 0 = off), `retries?`, `registryAuth?` (`{ username, password: Secret }`, or a config reference whose password is a `secretRef` named in `secrets`), `insecureRegistry?`, `secrets?`, `enabled?` (false skips the step) |
-| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`; or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
-| `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
+| `steps.helmDeployOverSsh` | `alpine:3.22` | `{ source: Source, image: BuiltImage }` (per `images`; `PushedImage` with `fromRegistry`) → `HelmRelease` | `host` (`user@host`), `sshKey`, `release`, `namespace`, `chart` (dir in the source), `values?`, `set?`, `images?` (`{}`: the chart alone), `fromRegistry?`, `imageRefs?`, `deployments?`, `rolloutTimeoutSeconds?`, `dependencies?`, `helmWait?`, `atomic?`, `healthUrl?`, `link?` (the public URL the step links to after the deploy); or the target form: `target` (an ssh `deployTarget()` value; its optional `url` is where step pods reach the release, for the health check and `HelmRelease.url`, and its optional `link` the public URL the step links to), `sshKey`, `chart`, `inlineValues?`, `secrets?` (what `secretRef`s in `inlineValues` name), `images?` (`PushedImage`), `imageRefs?` (`optional(PushedImage)`), `deployments?`, `rolloutTimeoutSeconds?`, `healthPath?` |
+| `steps.helmDeployInCluster` | `alpine/helm:3.16.2` | `{ source: Source, image: PushedImage }` (per `images`; `imageRefs` are `optional(PushedImage)`) → `HelmRelease` | `target` (an inCluster `helmTarget()` value; its optional `link` is the public URL the step links to), `chart`, `inlineValues?`, `secrets?`, `images?`, `imageRefs?`, `rolloutTimeoutSeconds?`, `healthPath?`; declares `clusterAccess` |
 | `steps.composeDeploy` | `alpine:3.22` | `{ image: PushedImage }` → `HelmRelease` (`release` = the service, `namespace` = `compose`) | `target` (a compose `deployTarget()` value), `token` (the secret the target's `token` names), `timeoutSeconds?` |
 
 All take `name`, `description` and `timeoutSeconds?`. Fields that don't change the step's inputs or
@@ -257,7 +257,7 @@ config are reserved.
 - **`steps.composeDeploy`** asks a Docker Compose deployer to recreate a service with the image
   (`POST <deployerUrl>/v1/deploy`, bearer token); the deployer pulls it, waits for the service's
   health and rolls back if it fails. The target is `{ kind: "compose", deployerUrl, service, token:
-  { secret }, healthUrl? }`. Running the deployer, the API and an example: [Deploying to Docker
+  { secret }, healthUrl?, link? }`. Running the deployer, the API and an example: [Deploying to Docker
   Compose](compose-deploy.md).
 - **Helpers for custom handlers:** `httpHealthCheck(ctx, url, { attempts?, delaySeconds?, headers? })`;
   `serviceUrl(release)` (`http://<release>.<namespace>.svc.cluster.local` from a `HelmRelease`);
@@ -330,6 +330,7 @@ A handler returns a valid output (validated strictly against the output model) o
 | `output.file(path, { name })`, `output.dir(…)`, `output.write(name, content)` | Add a file to the step's output; returns the `FileRef` to put in the output. |
 | `http.getJson`, `http.expectOk`, `http.fetch` | HTTP, bound to cancellation. |
 | `retry({ attempts, delaySeconds }, fn)` | Retry a function. |
+| `link(url, label?)` | Link to what the step made or deployed (a site, a release, a dashboard). The links show on the step's card, the step page and in `pl run get`. An absolute http(s) URL of at most 2048 characters, a label of at most 100, at most 10 links per attempt; anything else throws. Links are kept whether the step succeeds, skips or fails. |
 | `secrets.NAME`, `log(msg, fields)`, `run` (`{ pipeline, id, number, attempt, step, version }`), `tmpDir`, `signal` | |
 
 Test handlers with `testHandler(step, input, { ctx })` from `@olivervea/pipelines/testing` under `bun test`.

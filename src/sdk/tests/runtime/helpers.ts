@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { implement, step } from '../../src/index.ts';
 import type { HarnessIO } from '../../src/harness/main.ts';
@@ -11,7 +11,16 @@ export const SHA = '0123456789abcdef0123456789abcdef01234567';
 /** A fresh directory inside the SDK (so `@olivervea/pipelines` resolves via tsconfig paths). */
 export function tmp(prefix: string): string {
   mkdirSync(TMP, { recursive: true });
-  return mkdtempSync(join(TMP, `${prefix}-`));
+  const dir = mkdtempSync(join(TMP, `${prefix}-`));
+  made.push(dir);
+  return dir;
+}
+
+const made: string[] = [];
+
+/** Removes every directory `tmp` made; `tests/cleanup.ts` calls it after the last test. */
+export function removeTmpDirs(): void {
+  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
 
 /** `step()` with a no-op implementation, for tests about anything but the handler. */

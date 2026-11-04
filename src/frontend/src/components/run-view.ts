@@ -8,15 +8,14 @@ import {
   runsGet,
   runsRerun,
   runStepsCancel,
-  runStepsFiles,
   runStepsRerun,
   type Attempt,
   type Run,
-  type StepFile,
   type AttemptState,
 } from '@olve/api';
 import { api, errorMessages } from '../api/client.js';
-import { downloadFile } from '../api/files.js';
+import { downloadFile, downloadName } from '../api/files.js';
+import './attempt-files.js';
 import { navigate } from '../router.js';
 import {
   sharedStyles,
@@ -26,7 +25,6 @@ import {
   toneOf,
   statusLabel,
   formatDuration,
-  formatSize,
   shortSha,
   navClick,
   pipelinePath,
@@ -194,8 +192,6 @@ export class RunView extends LitElement {
   @state() declare private _busy: boolean;
   @state() declare private _step: string;
   @state() declare private _attempt: number | null;
-  @state() declare private _files: StepFile[] | null;
-  @state() declare private _filesError: string | null;
   @state() declare private _continueErrors: string[];
   @state() declare private _detailsOpen: boolean;
 
@@ -203,7 +199,6 @@ export class RunView extends LitElement {
   @query('#continue-form') declare private _continueForm: InputForm;
 
   private _loading = false;
-  private _filesKey = '';
 
   constructor() {
     super();
@@ -230,8 +225,6 @@ export class RunView extends LitElement {
     const q = new URLSearchParams(location.search);
     this._step = q.get('step') ?? '';
     this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
-    this._files = null;
-    this._filesError = null;
     this._continueErrors = [];
     this._detailsOpen = detailsOpen();
   }
@@ -245,7 +238,6 @@ export class RunView extends LitElement {
       this._detail = null;
       this._version = null;
       this._actionErrors = [];
-      this._filesKey = '';
       const q = new URLSearchParams(location.search);
       this._step = q.get('step') ?? '';
       this._attempt = q.get('attempt') ? Number(q.get('attempt')) : null;
@@ -284,7 +276,6 @@ export class RunView extends LitElement {
         this._version = version;
         this._effective = effective;
       }
-      this._loadFiles();
     } catch (e) {
       if (current()) this._error = errorMessages(e).join(' ');
     } finally {
@@ -311,27 +302,6 @@ export class RunView extends LitElement {
       : (this._version?.manifest ?? null);
   }
 
-  private async _loadFiles() {
-    const a = this._selectedAttempt();
-    const st = a ? attemptStatus(a).type : null;
-    const key = a ? `${a.id}:${st}` : '';
-    if (key === this._filesKey) return;
-    this._filesKey = key;
-    this._files = null;
-    this._filesError = null;
-    if (!a || st !== 'succeeded') return;
-    try {
-      const res = await runStepsFiles({
-        client: api,
-        path: { ...this._path, step: a.stepName },
-        query: { attempt: a.number },
-      });
-      if (this._filesKey === key) this._files = res.data?.files ?? [];
-    } catch (e) {
-      if (this._filesKey === key) this._filesError = errorMessages(e).join(' ');
-    }
-  }
-
   private _selectStep(step: string, attempt: number | null = null) {
     this._step = step;
     this._attempt = attempt;
@@ -343,7 +313,6 @@ export class RunView extends LitElement {
       '',
       `${location.pathname}${q.size ? `?${q}` : ''}`,
     );
-    this._loadFiles();
   }
 
   render() {
@@ -656,7 +625,14 @@ export class RunView extends LitElement {
                       >`}
                 </div>
               </div>
-              ${this._renderFiles(a)}
+              ${as.type === 'succeeded'
+                ? html`<attempt-files
+                    .pipelineId=${this.pipelineId}
+                    .run=${Number(this.run)}
+                    .step=${a.stepName ?? ''}
+                    .attempt=${a.number ?? 0}
+                  ></attempt-files>`
+                : nothing}
               <h4 class="sheet-h">Logs</h4>
               <log-pane
                 .address=${{ ...this._path, step: this._step, attempt: a.number }}
@@ -664,60 +640,6 @@ export class RunView extends LitElement {
               ></log-pane>`
           : nothing}
     </step-sheet>`;
-  }
-
-  private _renderFiles(a: Attempt) {
-    if (attemptStatus(a).type !== 'succeeded') return nothing;
-    return html`<div>
-      <h4 class="sheet-h">Files</h4>
-      ${this._filesError
-        ? html`<p class="error">${this._filesError}</p>`
-        : this._files === null
-          ? html`<span class="muted">Loading…</span>`
-          : this._files.length === 0
-            ? html`<span class="muted">No files.</span>`
-            : html`<div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Path</th>
-                      <th class="num">Size</th>
-                      <th>Modified</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${this._files.map(
-                      (f) =>
-                        html`<tr>
-                          <td class="mono">${f.path}</td>
-                          <td class="num">${formatSize(f.size)}</td>
-                          <td>
-                            ${f.lastModified
-                              ? html`<relative-time
-                                  .value=${f.lastModified}
-                                ></relative-time>`
-                              : ''}
-                          </td>
-                          <td>
-                            <button
-                              class="btn small"
-                              @click=${() =>
-                                this._download(
-                                  a.stepName ?? '',
-                                  a.number ?? 0,
-                                  f.path ?? '',
-                                )}
-                            >
-                              Download
-                            </button>
-                          </td>
-                        </tr>`,
-                    )}
-                  </tbody>
-                </table>
-              </div>`}
-    </div>`;
   }
 
   private _renderContinueDialog(input: Record<string, unknown>) {
@@ -820,22 +742,10 @@ export class RunView extends LitElement {
       this._selectStep(step, a?.number ?? null);
     });
 
-  private _download(step: string, attempt: number, path: string) {
-    const name = path.endsWith('/')
-      ? `${path.slice(0, -1).split('/').pop()}.tar`
-      : (path.split('/').pop() ?? path);
-    const file = { ...this._path, step, attempt, path };
-    return this._act(() => downloadFile(file, name));
-  }
-
   private _onFileRef = (e: CustomEvent<{ ref: FileRefValue }>) => {
-    const ref = e.detail.ref;
-    const name = ref.path.endsWith('/')
-      ? `${ref.path.slice(0, -1).split('/').pop()}.tar`
-      : (ref.path.split('/').pop() ?? ref.path);
-    const { run: number, step, attempt, path } = ref;
+    const { run: number, step, attempt, path } = e.detail.ref;
     const file = { pipelineId: this.pipelineId, number, step, attempt, path };
-    this._act(() => downloadFile(file, name));
+    this._act(() => downloadFile(file, downloadName(path)));
   };
 }
 

@@ -1,6 +1,12 @@
 import { runStepsDownload } from '@olve/api';
 import { api } from './client.js';
 
+/** The name a download of `path` gets: a directory (`dir/`) comes as `dir.tar`. */
+export const downloadName = (path: string): string =>
+  path.endsWith('/')
+    ? `${path.slice(0, -1).split('/').pop()}.tar`
+    : (path.split('/').pop() ?? path);
+
 /** One stored file of an attempt, handed to the browser as a download. */
 export async function downloadFile(
   file: {

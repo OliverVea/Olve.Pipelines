@@ -17,7 +17,7 @@ public sealed class ListRunsHandler(PipelineService pipelines, RunViewService vi
         var id = PipelineViews.PipelineId(request.PipelineId);
         if (!pipelines.TryGet(id, out _))
             return Task.FromResult<Contract.RunsListResponse>(new Contract.RunsListResponse.NotFound(PipelineViews.NotFound(id)));
-        var slice = views.List(id, request.Offset ?? 0, request.Limit ?? 50);
+        var slice = views.List(id, request.Offset ?? 0, request.Limit ?? 50, request.PushSha);
         return Task.FromResult<Contract.RunsListResponse>(new Contract.RunList
         {
             Items = [.. slice.Items.Select(PipelineViews.ToApi)],

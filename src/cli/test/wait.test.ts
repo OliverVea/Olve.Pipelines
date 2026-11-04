@@ -221,6 +221,37 @@ describe('wait', () => {
     expect(asked.code).toBe(0);
   });
 
+  test('wait push finds the run the push trigger recorded for the sha, however old', async () => {
+    const queries: string[] = [];
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      if (req.path.startsWith(`/api/pipelines/${ID}/runs?`)) {
+        queries.push(req.path.slice(req.path.indexOf('?')));
+        const filtered = req.path.includes('pushSha=abcdef');
+        return {
+          body: {
+            items: filtered
+              ? [run(3, 'Running', { input: {}, pushSha: 'abcdef1234' })]
+              : [],
+            offset: 0,
+            limit: 1,
+            total: filtered ? 1 : 0,
+          },
+        };
+      }
+      if (req.path.endsWith('/runs/3'))
+        return { body: run(3, 'Running', { input: {}, pushSha: 'abcdef1234' }) };
+      return { status: 404 };
+    });
+    const started = await pl(['wait', 'push', 'alpha', 'ABCDEF', '--timeout', '2s'], {
+      fetch,
+    });
+    expect(started.stdout).toBe('alpha#3\n');
+    expect(started.code).toBe(0);
+    expect(queries).toEqual(['?offset=0&limit=1&pushSha=abcdef']);
+  });
+
   test('wait push finds the run by its input sha, prints its address, and reports a failed reconcile', async () => {
     let calls = 0;
     const { fetch } = fakeFetch((req) => {

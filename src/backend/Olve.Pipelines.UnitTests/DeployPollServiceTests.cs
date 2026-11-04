@@ -45,11 +45,16 @@ public class DeployPollServiceTests
     private sealed class FakePush : IPushTriggerHandler
     {
         public List<string> Fired { get; } = [];
+        public List<string?> PushShas { get; } = [];
         public bool Fail { get; set; }
 
         public Task<Result> FireAsync(PipelineConfigBinding binding, string headSha, CancellationToken ct, Olve.Pipelines.Pipelines.Runs.RunOrigin? origin = null)
         {
-            lock (Fired) Fired.Add(headSha);
+            lock (Fired)
+            {
+                Fired.Add(headSha);
+                PushShas.Add(origin?.PushSha);
+            }
             return Task.FromResult(Fail ? Result.Failure(new ResultProblem("map-trigger Job failed")) : Result.Success());
         }
     }
@@ -195,6 +200,7 @@ public class DeployPollServiceTests
         await c.Run();
 
         await Assert.That(c.Push.Fired).IsEquivalentTo(new[] { "head-1" });
+        await Assert.That(c.Push.PushShas).IsEquivalentTo(new string?[] { "head-1" });
         await Assert.That(c.Current.LastPushSha).IsEqualTo("head-1");
     }
 

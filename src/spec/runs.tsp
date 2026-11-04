@@ -40,6 +40,9 @@ model RunSummary {
   supersededByNumber: int32 | null;
   rerunOfNumber: int32 | null;
   configSnapshot?: int32 | null;
+
+  /** For a run a push trigger started: the branch head it fired for. */
+  pushSha?: string | null;
 }
 
 /** A run: its input, pinned version, links, and the pinned version's stage layout with each step's latest attempt. */
@@ -407,12 +410,13 @@ model CriticalPathSkip {
 @tag("Runs")
 @route("/api/pipelines/{pipelineId}/runs")
 interface Runs {
-  /** Runs of the pipeline, newest first. */
+  /** Runs of the pipeline, newest first; with `pushSha`, only the runs a push trigger started for a branch head starting with it. */
   @summary("List runs")
   @get list(
     @path @format("uuid") pipelineId: string,
     @query offset?: int32,
     @query limit?: int32,
+    @query pushSha?: string,
   ): RunList | NotFound;
 
   /** Starts a manual run; the body is the pipeline input, validated against the input model. Invalid input lists every problem and starts nothing. */

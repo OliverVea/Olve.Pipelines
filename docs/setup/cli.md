@@ -90,7 +90,7 @@ pl watch [<pipeline>] [--json]
 
 # block until something happens (re-checks on live events; rides out the server restarting or a 5xx); exit 0 ok, 1 failed, 4 the run is held at a blocked step, 3 a step waits for a person's input, 124 --timeout
 pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held] [--timeout 45m]   # a step wait follows its latest attempt, also a rerun in an ended run
-pl wait push <pipeline> <sha> [--until started|finished]   # prints the run's address: addr=$(pl wait push p <sha>)
+pl wait push <pipeline> <sha> [--until started|finished]   # the run the push trigger started for <sha> (a prefix); prints its address: addr=$(pl wait push p <sha>)
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit
 
 # secrets and bindings

@@ -67,7 +67,7 @@ public class PushTriggerService(
         }
 
         var origin = new RunOrigin(noticedAt, notice is null ? "poll" : "webhook",
-            PushedAt: notice?.Push is { } push && push.Sha == head ? push.PushedAt : null);
+            PushedAt: notice?.Push is { } push && push.Sha == head ? push.PushedAt : null, PushSha: head);
         await services.GetRequiredService<IConfigLock>().RunIfConfigCurrentAsync(pipelineId,
             () => DetectAsync(services, pipelineId, head, origin with { ConfigReadyAt = time.GetUtcNow() }, ct), ct, forceConfig);
     }

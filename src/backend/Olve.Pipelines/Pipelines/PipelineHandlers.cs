@@ -95,6 +95,7 @@ public static class PipelineViews
         SupersededByNumber = r.SupersededByNumber,
         RerunOfNumber = r.RerunOfNumber,
         ConfigSnapshot = r.ConfigSnapshot,
+        PushSha = r.PushSha,
     };
 
     public static Api.RunStatus ToApi(RunStatus s) => s switch

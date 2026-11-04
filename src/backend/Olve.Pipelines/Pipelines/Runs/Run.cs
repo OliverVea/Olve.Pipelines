@@ -75,7 +75,7 @@ public record RunTrigger(RunTriggerKind Kind, string? DedupKey = null, RunOrigin
 /// poll check started (<see cref="Via"/> <c>webhook</c> | <c>poll</c>); <see cref="PushedAt"/>: GitHub's push time,
 /// when the webhook announced this commit; <see cref="ConfigReadyAt"/>: the pipeline's config commit was applied
 /// (after reading the branch head and any reconcile); <see cref="MapStartedAt"/>..<see cref="MapFinishedAt"/>: the
-/// map-trigger Job.
+/// map-trigger Job; <see cref="PushSha"/>: the branch head a push trigger fired for.
 /// </summary>
 public record RunOrigin(
     DateTimeOffset NoticedAt,
@@ -83,7 +83,8 @@ public record RunOrigin(
     DateTimeOffset? PushedAt = null,
     DateTimeOffset? ConfigReadyAt = null,
     DateTimeOffset? MapStartedAt = null,
-    DateTimeOffset? MapFinishedAt = null);
+    DateTimeOffset? MapFinishedAt = null,
+    string? PushSha = null);
 
 public static class RunStatusExtensions
 {

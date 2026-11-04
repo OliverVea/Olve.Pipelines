@@ -20,9 +20,12 @@ public class RunViewService(
     RunPlanCache plans,
     StepBlockService blocks)
 {
-    public Slice<RunSummary> List(Id<Pipeline> pipelineId, int offset, int limit)
+    /// <param name="pushSha">Only runs a push trigger started for a branch head starting with it (any case).</param>
+    public Slice<RunSummary> List(Id<Pipeline> pipelineId, int offset, int limit, string? pushSha = null)
     {
-        var all = runs.ListByPipeline(pipelineId); // newest first
+        IReadOnlyList<Run> all = runs.ListByPipeline(pipelineId); // newest first
+        if (!string.IsNullOrEmpty(pushSha))
+            all = [.. all.Where(r => r.Trigger.Origin?.PushSha?.StartsWith(pushSha, StringComparison.OrdinalIgnoreCase) == true)];
         offset = Math.Max(0, offset);
         limit = Math.Clamp(limit, 1, 500);
         var items = all.Skip(offset).Take(limit).Select(Summarize).ToList();
@@ -41,7 +44,8 @@ public class RunViewService(
         run.HeldAt,
         run.SupersededBy is { } s && runs.TryGet(s, out var newer) ? newer.Number : null,
         run.RerunOf is { } r && runs.TryGet(r, out var original) ? original.Number : null,
-        run.ConfigSnapshot);
+        run.ConfigSnapshot,
+        run.Trigger.Origin?.PushSha);
 
     public Result<RunDetail> Get(Id<Pipeline> pipelineId, int number)
     {

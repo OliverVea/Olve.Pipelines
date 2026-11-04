@@ -20,7 +20,8 @@ public record RunSummary(
     string? HeldAt,
     int? SupersededByNumber,
     int? RerunOfNumber,
-    int? ConfigSnapshot = null);
+    int? ConfigSnapshot = null,
+    string? PushSha = null);
 
 /// <summary>
 /// One run in full: its input, pinned version, links, and the stage layout of the

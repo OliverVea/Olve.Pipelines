@@ -183,8 +183,10 @@ export const waitCommands: Command[] = [
       'Wait for a run of a commit to start (or --until finished); prints its address',
     detail: `pl wait push <pipeline> <sha> [--until started|finished] [--timeout 30m] [--no-follow]
 
-  Blocks until a run whose input sha is <sha> (a prefix is enough) exists, and prints its
-  address (e.g. olve-pipelines#412): addr=$(pl wait push olve-pipelines 6881313).
+  Blocks until the run the push trigger started for <sha> (a prefix is enough) exists, and
+  prints its address (e.g. olve-pipelines#412): addr=$(pl wait push olve-pipelines 6881313).
+  A run started otherwise counts when its input field \`sha\` is <sha> and it is among the
+  newest 15 runs.
   --until finished keeps waiting until that run finishes, waits for input or is held (exit
   as \`pl wait run\`). When a
   newer push supersedes it, the wait follows the newer run, which contains the commit;
@@ -202,21 +204,37 @@ export const waitCommands: Command[] = [
       await waitFor(ctx, id, new Set(['run', 'attempt', 'binding']), async () => {
         if (found)
           return runFinished(label, await getRunFollowing(ctx, id, label, found, follow));
-        const page = await call(
+        const pushed = await call(
           runsList({
             client: ctx.api,
             path: { pipelineId: id },
-            query: { offset: 0, limit: 15 },
+            query: { offset: 0, limit: 1, pushSha: sha },
           }),
         );
-        for (const summary of page.items.filter((r) => !notIt.has(r.number))) {
+        // A server that doesn't record push shas ignores the filter: then only the input decides.
+        const byPush = pushed.items.filter((r) =>
+          r.pushSha?.toLowerCase().startsWith(sha),
+        );
+        const page = byPush.length
+          ? pushed
+          : await call(
+              runsList({
+                client: ctx.api,
+                path: { pipelineId: id },
+                query: { offset: 0, limit: 15 },
+              }),
+            );
+        const candidates = byPush.length
+          ? byPush
+          : page.items.filter((r) => !notIt.has(r.number));
+        for (const summary of candidates) {
           let run = await call(
             runsGet({
               client: ctx.api,
               path: { pipelineId: id, number: summary.number },
             }),
           );
-          if (!inputSha(run).toLowerCase().startsWith(sha)) {
+          if (!byPush.length && !inputSha(run).toLowerCase().startsWith(sha)) {
             notIt.add(summary.number);
             continue;
           }

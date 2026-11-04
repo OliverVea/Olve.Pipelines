@@ -93,6 +93,30 @@ public class RunViewTests
     }
 
     [Test]
+    [Arguments("ABC123", new[] { "abc push" })]
+    [Arguments("abc1", new[] { "abc push" })]
+    [Arguments("def456", new[] { "def push" })]
+    [Arguments("abc999", new string[0])]
+    public async Task List_ByPushSha_MatchesThePushedHead_ByPrefix(string pushSha, string[] expected)
+    {
+        var s = new SchedulerScenario();
+        Run Pushed(string head, string sha) => TestRunDomain.Pick(s.D.Starts.Start(s.Pipeline.Id, Input(sha: sha),
+            new RunTrigger(RunTriggerKind.Push, $"push:{head}", new RunOrigin(DateTimeOffset.UnixEpoch, "webhook", PushSha: head)))) is RunStartOutcome.Started st
+            ? st.Run
+            : throw new InvalidOperationException("not started");
+        s.Start(Input(sha: "abc123abc123abc123abc123abc123abc123abc1")); // a manual run whose input names the sha
+        var first = Pushed("abc123abc123abc123abc123abc123abc123abc1", "a");
+        var second = Pushed("def456def456def456def456def456def456def4", "b");
+
+        var page = s.D.Views.List(s.Pipeline.Id, 0, 50, pushSha);
+
+        var names = new Dictionary<int, string> { [first.Number] = "abc push", [second.Number] = "def push" };
+        await Assert.That(page.Items.Select(r => names.GetValueOrDefault(r.Number, "manual"))).IsEquivalentTo(expected);
+        await Assert.That(page.TotalCount).IsEqualTo(expected.Length);
+        await Assert.That(s.D.Views.Summarize(second).PushSha).IsEqualTo("def456def456def456def456def456def456def4");
+    }
+
+    [Test]
     public async Task History_FollowsTheStepAcrossRuns_WithChangeMarkers()
     {
         var s = new SchedulerScenario();

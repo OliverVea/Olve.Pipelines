@@ -1,130 +1,77 @@
 # Olve.Pipelines v2: roadmap
 
-The milestone scope agreed with Oliver on 2026-10-24, refreshed 2026-10-27. The detail behind each
-item lives in [pipelines-v2-plan.md](pipelines-v2-plan.md), [pipeline-config.md](pipeline-config.md),
+What is being worked on next, agreed with Oliver. The detail behind each item lives in
+[pipelines-v2-plan.md](pipelines-v2-plan.md), [pipeline-config.md](pipeline-config.md),
 [external-inputs.md](external-inputs.md), [review-2026-10-24.md](review-2026-10-24.md) and
 [quality-inventory.md](quality-inventory.md).
 
-## State on 2026-10-27
+## State
 
-- **v2 is the only Olve.Pipelines.** v1 was uninstalled on 2026-10-25; prod serves on
-  `pipelines-private.ovea.pro`, beta on `pipelines-beta.ovea.pro`, webhooks on `pipelines-hooks(-beta)`.
-  Development is on `main`; every push deploys beta, runs `beta-test` (the unit suite plus beta's
-  `v2 test fixture`, whose steps wait for a callback and a poll), then deploys prod.
-- **No homelab dependencies** since 2026-10-26: sign-in is the bundled Dex (GitHub connector,
+- **v2 is the only Olve.Pipelines.** Prod serves on `pipelines-private.ovea.pro`, beta on
+  `pipelines-beta.ovea.pro`, webhooks on `pipelines-hooks(-beta)`. Development is on `main`; every
+  push deploys beta, runs `beta-test` (the unit suite plus beta's `v2 test fixture`, whose steps wait
+  for a callback and a poll), then deploys prod.
+- **No homelab dependencies**: sign-in is the bundled Dex (GitHub connector,
   `auth.allow.users: [OliverVea]` enforced by the server, device flow for `pl`), cluster access is
-  `InCluster`, telemetry is standard OTLP (`none` on both instances). Authentik and OpenBao are gone
-  from the server and the chart.
-- **Prod's config document** is [prod-config.example.yaml](prod-config.example.yaml) (config #13):
-  the server image is built to `registry.ovea.pro` and released to ghcr by digest, the harness goes
-  to ghcr through the Hub cache, npm publishing is on (`next` on publish, `beta` on promote),
+  `InCluster`, telemetry is standard OTLP (`none` on both instances).
+- **Prod's config document** is [prod-config.example.yaml](prod-config.example.yaml): the server
+  image is built to `registry.ovea.pro` and released to ghcr by digest, the harness goes to ghcr
+  through the Hub cache, npm publishing is on (`next` on publish, `beta` on promote),
   `build.runtime: jit`.
 - **Every repo runs on v2**: Olve.Homelab, Olve.Authentik, Olve.AgentRuntimeManager, Olve.Trains,
   crafty, QuestionBank, homelab-dashboard, Olve.SlimeRepublics, Olve.Template.Api, and the deployer.
-  crafty's `deploy` and `verify` are blocked since 2026-10-25 because crafty itself is taken down
-  (no release in `apps`, only its backups PVC); unblocking both brings it back.
-- **External inputs** shipped 2026-10-26: `external(model, { from: [person() | callback() | poll()] })`,
-  `pl input`, machine tokens, bindings that don't poll.
-- **Retention** deletes for real on both instances since 2026-10-27: prod on the defaults (183 days
-  and keep 20), beta on 14 days and keep 3, the deployer on its own `retention` (30 days, keep 50;
-  SDK 2.0.0-beta.18).
-- **Local checks**: `tools/check.sh` runs what the deploy checks (`--changed`, `--full`, `--fix`); a
-  pre-push hook gates `git push` on it. The SDK, its examples and `.pipelines` are under prettier,
-  the server under `dotnet format`, and the deploy's `build-sdk` and `test` steps enforce both.
-- Parked branch: `wip/compose-deploy` (the compose deploy target plus deployer, a single local
-  instance that redeploys itself). `rollout/phase-1-dropped` is deleted.
+  crafty's `deploy` and `verify` are blocked because crafty itself is taken down (no release in
+  `apps`, only its backups PVC); unblocking both brings it back.
+- **Retention** deletes for real on both instances: prod on the defaults (183 days and keep 20),
+  beta on 14 days and keep 3, the deployer on its own `retention` (30 days, keep 50).
+- **Local checks**: `tools/check.sh` runs what the deploy checks; a pre-push hook gates `git push`
+  on it.
+- Shipped in 2.1: the spec-first API, `pl dev run --from`, the cached `imageBuild` (`contentTag`
+  hashes the build recipe), step destination links, every quality-inventory item, step reliability,
+  and config editing as a form generated from the schema.
 
-## 2.0: done
+## Next
 
-Prod auth on Dex with the allow-list, ghcr harness and server images, npm publishing, all v1 repos
-migrated, `v2` promoted to `main`, v1 retired. Shipped 2026-10-24 to 2026-10-26; the per-item
-record is in the plan's Track E.
+1. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
+   (`pl run critical-path`), then:
+   - **Output caching**: a step whose code hash, step version, pinned config and input match an
+     earlier succeeded attempt reuses that attempt's output and files instead of running.
+   - **Build caching** beyond kaniko layers: dependency caches (bun, npm, NuGet) for step pods and
+     the build/describe Job, so a cold pod doesn't re-download them.
+2. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
+   stored.
+3. **Packaged steps** with a public `defineStep(def, impl)`:
+   - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
+     list goes away.
+   - Every step is versioned by its bundled code + config.
+   - Steps carry provenance (package, version, author, repository, docs; optionally verified npm
+     provenance).
 
-## 2.1: now
+## Deadline
 
-0. ~~**Spec-first API (TypeSpec)**~~ Done: [spec-first.md](spec-first.md). The API is the
-   TypeSpec contract, the frontend and `pl` (in TypeScript) use the Hey API client generated from it.
-1. ~~**Retention live on prod.**~~ Done 2026-10-27: the dry-run sweep would have deleted two
-   leftover result archives (572 bytes) and one orphaned URL Secret, no runs and no binaries; the
-   deployer declares `retention` (a self-deploy run is ~55 MB, so 183 days of it would outgrow the
-   100 Gi Garage) and `values-v2-prod.yaml` sets `Retention__DryRun=false`. Watch the first sweeps.
-2. ~~**`pl dev run --from`**~~ Done 2026-11-03: `pl dev run|pipeline --from <pipeline>#<run>` seeds
-   the local pool from a real run and fetches the files a step uses on first use.
-3. **Quality inventory**, the unmarked items: U2 (`pl wait push` matches on an input field named
-   `sha` over the newest 15 runs), F2 (the log tail stops following after a clean disconnect), F3,
-   F4, T3 to T7 (CLI, `devMain` and frontend tests; `.Value!` in tests), D3 to D6.
-4. Small follow-ups found on the way:
-   - ~~The `contentTag` cache key, a cached `imageBuild`, the kaniko pin.~~ Done in SDK
-     2.0.0-beta.24: the key hashes the build recipe (the pinned kaniko image and its flags) with the
-     context, and `PushedImage.cached` says the build was skipped.
-   - Beta runs the new harness before prod now (the fixture), so that item is done.
-5. ~~**The step destination link**~~ Done in SDK 2.0.0-beta.27: `ctx.link(url, label?)` in a
-   handler, `link` on deploy targets; shown on the step card, the step page and in `pl run get`.
-6. **A real config UI** (2.1 or 2.2). Oliver lists the requirements first; then we iterate on a
-   local frontend (`npm run dev:beta`) against beta. Agreed starting points for `select`:
-   - The overview shows the *effective* pipeline: steps from a select carry a
-     `target.prod.kind = ssh` chip, and an optional "show all variants" toggle draws the
-     unselected cases greyed.
-   - The run view shows the run's pinned snapshot, with a note when current config would select
-     differently.
-   - The config page previews a discriminator change before saving (steps, secrets, cluster
-     access, whether the version would go pending), and the pending banner names the branch.
-   - The manifest view lists every case.
+- **npm staged publishing**, before late January 2027. `NPM_TOKEN` is a package-scoped
+  direct-publish token that expires then, when npm also removes direct publishing for such tokens.
+  Trusted publishing is out (GitHub Actions, GitLab and CircleCI only, no self-hosted runners). The
+  options: stage once in `promote` with `npm stage publish --tag beta` (Oliver approves each SDK
+  version on npmjs.com), or a self-hosted registry carrying every version with rare, deliberate npm
+  staged releases.
 
-## 2.2
+## Parked
 
-The plan doc's candidates: manifest preview, event-stream filtering, OpenObserve metrics, environments/tags, problem types lifted into
-Olve.MinimalApi. External inputs' open ideas (`at`, another run) are in
-[external-inputs.md](external-inputs.md).
+Not planned; picked up only when a need shows.
 
-- ~~**Step reliability tracking.**~~ Done 2026-10-31: `pl pipeline reliability` and
-  `/pipeline/<id>/reliability`, a query over attempt history for any step. Failure rates with a
-  highlight for steps above their own usual rate; flakiness from the same code, config and input
-  ending differently; infrastructure failures and timeouts apart from the step's own; the observed
-  share of runs that failed for no real reason. Definitions and limits:
-  [runs-and-operations.md](../setup/runs-and-operations.md#step-reliability).
-
-## After 2.2
-
-- **npm staged publishing.** `NPM_TOKEN` is a package-scoped direct-publish token from 2026-10-25
-  that expires in late January 2027, when npm also removes direct publishing for such tokens; it has
-  to be settled before then. Trusted publishing is out (GitHub Actions, GitLab and CircleCI only, no
-  self-hosted runners). The options: stage once in `promote` with `npm stage publish --tag beta`
-  (Oliver approves each SDK version on npmjs.com), or a self-hosted registry carrying every version
-  with rare, deliberate npm staged releases.
-- **Bring crafty back**, when wanted: unblock `deploy` and `verify`, then run it.
-
-## 2.3 / 2.4
-
-- **Per-pipeline ServiceAccounts.**
-  - Today a step opts in with `clusterAccess`, and every opted-in step shares
-    `Kubernetes:StepServiceAccount`.
-  - Next: steps declare the namespaces they need, and the server binds a per-pipeline
-    ServiceAccount and Role scoped to them.
-- **Modelled permissions** (roles, per-pipeline rights) on top of the allowlist.
-- **Most of the 2026-10-24 review:**
-  - secret masking in logs
-  - roles
-  - docs and v1-residue cleanup (e.g. the `olve-pipelines-minio` secret name)
-  - approval and rollback
-- Output caching and rollback monitoring (plan doc).
-
-## 3.0
-
-- **Pluggable runtimes:** `kubernetes | docker | process (unsafe)` behind one abstraction (run,
-  reattach, clean up, secret store). Kubernetes coupling to unpick:
-  - `KubernetesJobExecutor` and the failure-handler launcher
-  - build Jobs in `PipelineReconcileService`
-  - `TriggerMappingService`
-  - `PipelineSecretService` / `GitHubConfigSource`
-  - `RetentionService`
-- **Gitea / Forgejo sources.**
-- **Packaged steps** with a public `defineStep(def, impl)`:
-  - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
-    list goes away.
-  - Every step is versioned by its bundled code + config.
-  - Steps carry provenance (package, version, author, repository, docs; optionally verified npm
-    provenance).
+- Config UI: preview a change before saving, the effective pipeline on the overview (which `select`
+  branch is chosen), the run's pinned config in the run view, every case in the manifest view.
+- Manifest preview of a `.pipelines/` change before pushing.
+- Event-stream filtering, OpenObserve metrics, environments/tags.
+- Problem types lifted into Olve.MinimalApi.
+- External inputs' open ideas (`at`, another run): [external-inputs.md](external-inputs.md).
+- Per-pipeline ServiceAccounts (steps declare their namespaces; a Role scoped to them), modelled
+  permissions and roles.
+- Approval and rollback, rollback monitoring.
+- Docs and v1-residue cleanup (e.g. the `olve-pipelines-minio` secret name).
+- Pluggable runtimes (`kubernetes | docker | process`), Gitea / Forgejo sources.
+- Bringing crafty back: unblock `deploy` and `verify`, then run it.
 
 ## Design rules agreed
 

@@ -82,6 +82,19 @@ public class RunPersistenceServiceTests
     // ---- durability ----
 
     [Test]
+    [Arguments("cancelled: linux · x64 failed")]
+    [Arguments(null)]
+    public async Task ACancelReason_SurvivesRunState(string? reason)
+    {
+        var info = (System.Text.Json.Serialization.Metadata.JsonTypeInfo<AttemptStatus>)Json.GetTypeInfo(typeof(AttemptStatus))!;
+        AttemptStatus status = new AttemptStatus.Cancelled(null, DateTimeOffset.UnixEpoch, reason);
+
+        var again = JsonSerializer.Deserialize(JsonSerializer.Serialize(status, info), info);
+
+        await Assert.That(again).IsEqualTo(status);
+    }
+
+    [Test]
     public async Task Saved_WritesWhatChanged_WithoutWaitingForTheTimer()
     {
         var store = new FakeObjectStore();

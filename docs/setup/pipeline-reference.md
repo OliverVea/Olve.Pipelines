@@ -541,6 +541,8 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | Config entry name not `^[a-z][a-zA-Z0-9]*$`; two schemas or descriptions under one entry name | describe, reconcile |
 | A step uses a config entry the pipeline doesn't declare | TS, reconcile |
 | A step receives a config entry with a `secretRef` but doesn't declare that secret (a library step only the secrets of the parts it references, in its `select` case); a `secretRef` to an undeclared secret | describe, reconcile |
+| A matrix with no or more than 4 axes, an axis or value outside its pattern, a repeated value, an exclude naming an unknown axis or value, more than 64 cells or none, `maxParallel` below 1; a matrix failure handler; external inputs on a matrix step | reconcile |
+| A matrix step read other than whole through a `cells` input; a `cells` input of a plain step, or of a matrix step inside a `when`; select cases disagreeing on whether a step is a matrix step | reconcile |
 | An input key starting with `$` (reserved) | describe |
 | A staged step without an implementation | describe |
 | No `main` in `package.json`, or a `main` whose file is missing | build |

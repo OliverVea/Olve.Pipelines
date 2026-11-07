@@ -8,6 +8,7 @@ import type { Manifest, ManifestStep } from '../src/model/manifest.js';
 import {
   type Cell,
   type CellState,
+  type ManifestMatrix,
   type Matrix,
   cellAddress,
   cellLabel,
@@ -19,7 +20,7 @@ import { sharedStyles, statusLabel, toneOf } from '../src/styles/ui.js';
 import '../src/components/stage-graph.js';
 import '../src/components/matrix-cells.js';
 
-const step = (name: string, matrix?: Matrix): ManifestStep => ({
+const step = (name: string, matrix?: ManifestMatrix): ManifestStep => ({
   name,
   kind: 'custom',
   image: 'oven/bun:1.4.3-slim',
@@ -30,23 +31,28 @@ const step = (name: string, matrix?: Matrix): ManifestStep => ({
   ...(matrix ? { matrix } : {}),
 });
 
-const cross = (axes: Record<string, string[]>, exclude: Cell[] = []): Matrix => {
-  let cells: Cell[] = [{}];
-  for (const [axis, values] of Object.entries(axes))
-    cells = cells.flatMap((c) => values.map((v) => ({ ...c, [axis]: v })));
-  return {
-    axes,
-    cells: cells.filter(
-      (c) => !exclude.some((x) => Object.entries(x).every(([k, v]) => c[k] === v)),
-    ),
-  };
-};
+const manifestMatrix = (
+  axes: Record<string, string[]>,
+  exclude: Cell[] = [],
+): ManifestMatrix => ({
+  axes: Object.entries(axes).map(([name, values]) => ({ name, values })),
+  exclude,
+  failure: { kind: 'keepRunning' },
+});
 
-const buildCli = cross({ os: ['linux', 'windows', 'macos'], arch: ['x64', 'arm64'] }, [
-  { os: 'windows', arch: 'arm64' },
-]);
-const testSdk = cross({ typescript: ['7.0', '5.9'] });
-const e2e = cross({ browser: ['chromium', 'firefox', 'webkit'] });
+const steps = {
+  'build-cli': step(
+    'build-cli',
+    manifestMatrix({ os: ['linux', 'windows', 'macos'], arch: ['x64', 'arm64'] }, [
+      { os: 'windows', arch: 'arm64' },
+    ]),
+  ),
+  'test-sdk': step('test-sdk', manifestMatrix({ typescript: ['7.0', '5.9'] })),
+  e2e: step('e2e', manifestMatrix({ browser: ['chromium', 'firefox', 'webkit'] })),
+};
+const buildCli = matrixOf(steps['build-cli'])!;
+const testSdk = matrixOf(steps['test-sdk'])!;
+const e2e = matrixOf(steps.e2e)!;
 
 const manifest = {
   apiVersion: 'olve.pipelines/v2',
@@ -59,14 +65,10 @@ const manifest = {
   stages: [
     { steps: [step('source')] },
     {
-      steps: [
-        step('compile-server'),
-        step('build-cli', buildCli),
-        step('test-sdk', testSdk),
-      ],
+      steps: [step('compile-server'), steps['build-cli'], steps['test-sdk']],
     },
     { steps: [step('deploy-beta')] },
-    { steps: [step('e2e', e2e), step('beta-test')] },
+    { steps: [steps.e2e, step('beta-test')] },
     { steps: [step('deploy-prod')] },
   ],
 } as unknown as Manifest;

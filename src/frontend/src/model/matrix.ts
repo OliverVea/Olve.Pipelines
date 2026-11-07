@@ -1,6 +1,6 @@
 /**
- * A matrix step runs once per cell: one combination of its axes' values, after excludes and
- * includes. The step's own status is rolled up from its cells.
+ * A matrix step runs once per cell: one combination of its axes' values, minus the excludes.
+ * The step's own status is rolled up from its cells.
  */
 import type { RunStepStatus } from '@olve/api';
 import type { ManifestStep } from './manifest.js';
@@ -25,9 +25,27 @@ export type CellState = {
   logsHref?: string;
 };
 
+/** A step's `matrix` as the manifest writes it. */
+export type ManifestMatrix = {
+  axes: { name: string; values: string[] }[];
+  exclude?: Cell[];
+  failure: { kind: string };
+  maxParallel?: number;
+};
+
+/** The step's matrix with its cells: the cross product in axis order, minus the excludes. */
 export function matrixOf(step: ManifestStep): Matrix | undefined {
-  const m = step.matrix as Matrix | undefined;
-  return m && Object.keys(m.axes).length > 0 ? m : undefined;
+  const m = step.matrix as ManifestMatrix | undefined;
+  if (!m?.axes?.length) return undefined;
+  let cells: Cell[] = [{}];
+  for (const { name, values } of m.axes)
+    cells = cells.flatMap((c) => values.map((v) => ({ ...c, [name]: v })));
+  const excluded = (c: Cell) =>
+    (m.exclude ?? []).some((x) => Object.entries(x).every(([k, v]) => c[k] === v));
+  return {
+    axes: Object.fromEntries(m.axes.map((a) => [a.name, a.values])),
+    cells: cells.filter((c) => !excluded(c)),
+  };
 }
 
 export const cellLabel = (cell: Cell): string => Object.values(cell).join(' · ');

@@ -4,6 +4,7 @@ import {
   cellAddress,
   cellLabel,
   gridOf,
+  matrixOf,
   progressOf,
   rollUp,
 } from '../src/model/matrix.js';
@@ -44,4 +45,49 @@ describe('cells', () => {
     });
     expect(gridOf({ axes: { os: ['linux'] }, cells: [{ os: 'linux' }] })).toBeNull();
   });
+});
+
+describe('matrixOf', () => {
+  const step = (matrix?: unknown) =>
+    ({ name: 'build-cli', matrix }) as unknown as Parameters<typeof matrixOf>[0];
+
+  test('the cells are the cross product in axis order, minus the excludes', () =>
+    expect(
+      matrixOf(
+        step({
+          axes: [
+            { name: 'os', values: ['linux', 'windows'] },
+            { name: 'arch', values: ['x64', 'arm64'] },
+          ],
+          exclude: [{ os: 'windows', arch: 'arm64' }],
+          failure: { kind: 'keepRunning' },
+        }),
+      ),
+    ).toEqual({
+      axes: { os: ['linux', 'windows'], arch: ['x64', 'arm64'] },
+      cells: [
+        { os: 'linux', arch: 'x64' },
+        { os: 'linux', arch: 'arm64' },
+        { os: 'windows', arch: 'x64' },
+      ],
+    }));
+
+  test('an exclude naming one axis drops every cell with that value', () =>
+    expect(
+      matrixOf(
+        step({
+          axes: [
+            { name: 'os', values: ['linux', 'windows'] },
+            { name: 'arch', values: ['x64', 'arm64'] },
+          ],
+          exclude: [{ os: 'windows' }],
+          failure: { kind: 'keepRunning' },
+        }),
+      )?.cells,
+    ).toEqual([
+      { os: 'linux', arch: 'x64' },
+      { os: 'linux', arch: 'arm64' },
+    ]));
+
+  test('a plain step has no matrix', () => expect(matrixOf(step())).toBeUndefined());
 });

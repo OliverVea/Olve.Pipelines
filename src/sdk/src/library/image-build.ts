@@ -101,6 +101,12 @@ export interface ImageBuildDef<N extends string, K extends string = never> {
    * Used for kaniko's push, base image and cache pulls from that registry, and the `contentTag` lookup.
    */
   registryAuth?: RegistryAuth<K> | ConfigRef<RegistryAuthConfig | undefined>;
+  /**
+   * kaniko's layer cache: a repository it reuses unchanged layers from and pushes new ones to. Default
+   * `<repository>/cache` when pushing, none for a tarball build; `false` turns it off. Login and plain
+   * HTTP apply when it is on `repository`'s registry. An unreachable cache is skipped, never a failure.
+   */
+  cacheRepo?: Configurable<string | false | undefined>;
   /** The registry of `repository` speaks plain HTTP (a local `registry:2`). */
   insecureRegistry?: Configurable<boolean | undefined>;
   /** Secrets a config-referenced `registryAuth` may name (the step declares them). */
@@ -195,6 +201,22 @@ export async function reachableMirrors(
     else ctx.log(`${registryHost(to)} unreachable; pulling from ${from} directly`);
   }
   return reachable;
+}
+
+/** The layer cache repository when its registry answers, else nothing (logged). */
+export async function reachableCache(
+  ctx: Pick<Ctx, 'http' | 'log' | 'signal'>,
+  cacheRepo: string | false,
+  insecureHosts: readonly string[] = [],
+): Promise<string | undefined> {
+  if (!cacheRepo) return undefined;
+  const host = registryHost(cacheRepo);
+  if (
+    await registryUp(ctx.http, host, ctx.signal, undefined, insecureHosts.includes(host))
+  )
+    return cacheRepo;
+  ctx.log(`${host} unreachable; building without the layer cache`);
+  return undefined;
 }
 
 /** Default `retries`: a stalled or flaky build gets two fresh attempts before the run fails. */
@@ -446,6 +468,7 @@ export function imageBuild<const N extends string, const K extends string = neve
       ...(push ? { push: true } : {}),
       ...(contentTag ? { contentTag: true } : {}),
       ...(mapped ? { registryMap } : {}),
+      ...(def.cacheRepo !== undefined ? { cacheRepo: def.cacheRepo } : {}),
       ...(authSecret
         ? {
             registryAuth: {
@@ -468,6 +491,7 @@ export function imageBuild<const N extends string, const K extends string = neve
       {
         repository: def.repository,
         registryMap: def.registryMap,
+        cacheRepo: def.cacheRepo,
         insecureRegistry: def.insecureRegistry,
         registryAuth: def.registryAuth,
         enabled: def.enabled,
@@ -520,6 +544,12 @@ export function imageBuild<const N extends string, const K extends string = neve
       (d.registryMap as Record<string, string> | undefined) ?? DEFAULT_REGISTRY_MAP,
       insecure ? [host] : [],
     );
+    const cache = await reachableCache(
+      ctx,
+      (d.cacheRepo as string | false | undefined) ??
+        (push ? `${repository}/cache` : false),
+      insecure ? [host] : [],
+    );
     await ctx.exec(['mkdir', '-p', KANIKO_CONTEXT]);
     await ctx.exec(['cp', '-r', `${tree}/.`, KANIKO_CONTEXT]);
     const kanikoContext = context ? `${KANIKO_CONTEXT}/${context}` : KANIKO_CONTEXT;
@@ -543,6 +573,7 @@ export function imageBuild<const N extends string, const K extends string = neve
         `--destination=${repository}:${tag}`,
         ...(insecure ? ['--insecure', `--insecure-registry=${host}`] : []),
         ...KANIKO_BUILD_FLAGS,
+        ...(cache ? ['--cache=true', `--cache-repo=${cache}`] : []),
         ...Object.entries(mirrors).map(([from, to]) => `--registry-map=${from}=${to}`),
       ],
       { idleTimeoutSeconds: def.stallTimeoutSeconds ?? DEFAULT_STALL_TIMEOUT_SECONDS },

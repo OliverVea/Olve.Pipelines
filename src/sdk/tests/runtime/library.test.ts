@@ -463,6 +463,27 @@ describe('steps.imageBuild', () => {
     );
   });
 
+  test('an unreachable layer cache never blocks the build: it is left out', async () => {
+    const step = steps.imageBuild({
+      name: 'build',
+      description: '',
+      repository: 'x',
+      registryMap: {},
+      cacheRepo: 'registry.example/x/cache',
+    });
+    const k = fakeKaniko({ down: ['registry.example'] });
+    const r = await testHandler(
+      step,
+      { source },
+      { ctx: { exec: k.exec, files: k.files, http: k.http } },
+    );
+    expect(r.status).toBe('succeeded');
+    expect(k.calls[2]!.some((a) => a.startsWith('--cache'))).toBe(false);
+    expect(r.logs.join('\n')).toContain(
+      'registry.example unreachable; building without the layer cache',
+    );
+  });
+
   test('cache probe: 200/401 = up, other statuses, errors and timeouts = down; one probe per host', async () => {
     const statusOf = (status: number) =>
       ({ fetch: async () => new Response('', { status }) }) as unknown as Ctx['http'];
@@ -801,6 +822,53 @@ describe('steps.imageBuild: context, push', () => {
     ).toThrow('registry host');
   });
 
+  const repo = {
+    name: 'build',
+    description: '',
+    repository: 'registry.ovea.pro/app/api',
+    registryMap: {},
+  } as const;
+
+  test.each([
+    [
+      'caches next to its repository',
+      undefined,
+      ['--cache=true', '--cache-repo=registry.ovea.pro/app/api/cache'],
+    ],
+    ['has none with cacheRepo: false', false as const, []],
+  ])('layer cache: a push %s', async (_, cacheRepo, flags) => {
+    const step = steps.imageBuild({
+      ...repo,
+      push: true,
+      ...(cacheRepo === false ? { cacheRepo } : {}),
+    });
+    expect((settingsOf(step) as { cacheRepo?: unknown }).cacheRepo).toBe(cacheRepo);
+    const k = kaniko();
+    expect((await testHandler(step, { source }, { ctx: k.ctx })).status).toBe(
+      'succeeded',
+    );
+    const argv = k.calls.find((c) => c[0] === '/kaniko/executor')!;
+    expect(argv.filter((a) => a.startsWith('--cache'))).toEqual(flags);
+  });
+
+  test.each([
+    ['has none by default', undefined, []],
+    [
+      'caches where cacheRepo says',
+      'registry.ovea.pro/app/cache',
+      ['--cache=true', '--cache-repo=registry.ovea.pro/app/cache'],
+    ],
+  ])('layer cache: a tarball build %s', async (_, cacheRepo, flags) => {
+    const step = steps.imageBuild({ ...repo, ...(cacheRepo ? { cacheRepo } : {}) });
+    expect((settingsOf(step) as { cacheRepo?: unknown }).cacheRepo).toBe(cacheRepo);
+    const k = kaniko();
+    expect((await testHandler(step, { source }, { ctx: k.ctx })).status).toBe(
+      'succeeded',
+    );
+    const argv = k.calls.find((c) => c[0] === '/kaniko/executor')!;
+    expect(argv.filter((a) => a.startsWith('--cache'))).toEqual(flags);
+  });
+
   test("contentTag: tag from the context's deterministic tar; an existing tag skips kaniko", async () => {
     const def = {
       name: 'build-figures',
@@ -1003,6 +1071,7 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
         basic,
       ],
       ['HEAD', 'https://ghcr.io/v2/olivervea/harness-base', 'Bearer registry-token'],
+      ['GET', 'https://ghcr.io/v2/', null],
     ]);
     const manifestTypes =
       'application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, ' +
@@ -1062,13 +1131,16 @@ describe('steps.imageBuild: registry login and plain-HTTP registries', () => {
     );
     expect(built).toMatchObject({ status: 'succeeded', output: { digest } });
     expect(
-      s.requests.every((q) =>
-        q.url.startsWith('http://registry:5000/v2/harness/manifests/src-'),
+      s.requests.every(
+        (q) =>
+          q.url.startsWith('http://registry:5000/v2/harness/manifests/src-') ||
+          q.url === 'http://registry:5000/v2/',
       ),
     ).toBe(true);
     const argv = s.calls.find((c) => c[0] === '/kaniko/executor')!;
     expect(argv).toContain('--insecure');
     expect(argv).toContain('--insecure-registry=registry:5000');
+    expect(argv).toContain('--cache-repo=registry:5000/harness/cache');
 
     present = true;
     s.calls.length = 0;

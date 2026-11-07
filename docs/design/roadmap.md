@@ -32,15 +32,23 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
 
 ## Next
 
-1. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
+1. **Matrix builds.** One step run once per entry of a list (platforms, targets, versions), shown
+   as one step with its cells in the UI. Starts with a UI mock.
+2. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
    (`pl run critical-path`), then:
    - **Output caching**: a step whose code hash, step version, pinned config and input match an
      earlier succeeded attempt reuses that attempt's output and files instead of running.
-   - **Build caching** beyond kaniko layers: dependency caches (bun, npm, NuGet) for step pods and
-     the build/describe Job, so a cold pod doesn't re-download them.
-2. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
+   - **Build caching**: `imageBuild` reuses kaniko layers from `cacheRepo` (by default next to a
+     pushed image). Still open: dependency caches (bun, npm, NuGet) for step pods and the
+     build/describe Job, so a cold pod doesn't re-download them.
+   - **BuildKit** in place of kaniko, which is no longer developed: faster builds, parallel stages
+     and `RUN --mount=type=cache`. Rootless BuildKit needs user namespaces and relaxed
+     seccomp/AppArmor, which the gVisor step pods and PSS baseline don't give, so it is likely a
+     long-running builder service with its own volume that steps send builds to. That is an
+     infrastructure and security decision first.
+3. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
    stored.
-3. **Packaged steps** with a public `defineStep(def, impl)`:
+4. **Packaged steps** with a public `defineStep(def, impl)`:
    - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
      list goes away.
    - Every step is versioned by its bundled code + config.

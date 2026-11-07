@@ -1,4 +1,11 @@
-import type { DevStep, Json, JsonObject } from './manifest';
+import {
+  findStep,
+  type DevManifest,
+  type DevStep,
+  type Json,
+  type JsonObject,
+} from './manifest';
+import { cellName, cellsOf } from './matrix';
 import type { Pool, PoolEntry } from './pool';
 
 export type Assembly = {
@@ -11,13 +18,21 @@ type Resolved = { present: true; value: Json } | { present: false };
 const absent: Resolved = { present: false };
 
 /** The step's input.json from its tagged mappings over the local pool, as the scheduler builds it. */
-export function assemble(step: DevStep, pool: Pool): Assembly {
+/** `pl dev run build-cli --cell os=linux,arch=x64` for a cell's name. */
+const runCommand = (name: string) => {
+  const m = /^([^[]+)\[(.*)\]$/.exec(name);
+  return m ? `pl dev run ${m[1]} --cell ${m[2]}` : `pl dev run ${name}`;
+};
+
+export function assemble(step: DevStep, pool: Pool, manifest?: DevManifest): Assembly {
   const input: JsonObject = {};
   const problems: string[] = [];
   const skippedBecause: string[] = [];
   for (const [key, mapping] of Object.entries(step.input)) {
     const unavailable: { root: string; entry?: PoolEntry }[] = [];
-    const resolved = resolveMapping(mapping, pool, unavailable, problems);
+    const resolved = step.cellsInputs[key]
+      ? resolveCells(mapping, pool, manifest, unavailable, problems)
+      : resolveMapping(mapping, pool, unavailable, problems);
     if (unavailable.length === 0) {
       if (resolved.present) input[key] = resolved.value;
       continue;
@@ -31,7 +46,7 @@ export function assemble(step: DevStep, pool: Pool): Assembly {
         skippedBecause.push(`needs '${root}', which was skipped (${entry.reason})`);
       else if (entry?.status === 'failed')
         problems.push(
-          `input '${key}' needs the output of '${root}', which failed (${entry.reason}); rerun \`pl dev run ${root}\``,
+          `input '${key}' needs the output of '${root}', which failed (${entry.reason}); rerun \`${runCommand(root)}\``,
         );
       else if (pool.source)
         problems.push(
@@ -44,6 +59,43 @@ export function assemble(step: DevStep, pool: Pool): Assembly {
     }
   }
   return { input, problems, skippedBecause };
+}
+
+/** A `cells` input: `[{cell, output}]` in cell order, from the cells' pool entries. */
+function resolveCells(
+  mapping: Json,
+  pool: Pool,
+  manifest: DevManifest | undefined,
+  unavailable: { root: string; entry?: PoolEntry }[],
+  problems: string[],
+): Resolved {
+  const root =
+    mapping && typeof mapping === 'object' && !Array.isArray(mapping)
+      ? mapping.ref
+      : undefined;
+  const matrix =
+    typeof root === 'string' && manifest ? findStep(manifest, root)?.matrix : undefined;
+  if (typeof root !== 'string' || !matrix) {
+    problems.push(`a cells input must map a matrix step, got ${JSON.stringify(mapping)}`);
+    return absent;
+  }
+  const whole = pool.steps.get(root);
+  if (whole?.status === 'skipped') {
+    unavailable.push({ root, entry: whole });
+    return absent;
+  }
+  const value: Json[] = [];
+  let ran = false;
+  for (const cell of cellsOf(matrix)) {
+    const name = cellName(root, cell);
+    const entry = pool.steps.get(name);
+    if (entry) ran = true;
+    if (entry?.status === 'failed') unavailable.push({ root: name, entry });
+    if (entry?.status === 'succeeded')
+      value.push({ cell, output: structuredClone(entry.output ?? null) });
+  }
+  if (!ran) unavailable.push({ root });
+  return { present: true, value };
 }
 
 function resolveMapping(

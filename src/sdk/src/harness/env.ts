@@ -9,6 +9,8 @@ export const ENV = {
   run: 'OLVE_RUN',
   attempt: 'OLVE_ATTEMPT',
   versionStamp: 'OLVE_VERSION_STAMP',
+  /** A matrix step's cell, as compact JSON in axis order (`{"os":"linux","arch":"x64"}`). */
+  cell: 'OLVE_CELL',
   /** Pre-signed PUT for result.tar.gz (run / map-trigger). Optional. */
   resultUrl: 'OLVE_RESULT_URL',
   /** JSON object: file key (`<run>/<step>/<attempt>/<path>`) → pre-signed GET URL. Optional. */

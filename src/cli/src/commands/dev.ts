@@ -6,6 +6,7 @@ import { call } from '../api';
 import { assemble } from '../dev/assemble';
 import { type DevManifest, type Json, type JsonObject } from '../dev/manifest';
 import { flatten, placeStep, select, whenMismatch } from '../dev/plan';
+import { cellName, pickCells } from '../dev/matrix';
 import { Pool, Workspace } from '../dev/pool';
 import { fetchInputFiles, seedFromRun } from '../dev/remote';
 import {
@@ -217,6 +218,8 @@ const fetchFiles = (ctx: CommandContext, dev: Dev, input: JsonObject) =>
 
 const dirOption = '  --dir <path>   Pipeline directory (default: .pipelines)';
 
+type NamedOutcome = { name: string; outcome: StepOutcome };
+
 async function runOne(
   ctx: CommandContext,
   dev: Dev,
@@ -224,9 +227,10 @@ async function runOne(
   inputFile: string | undefined,
   pairs: string[],
   options: RunOptions,
-): Promise<StepOutcome> {
+): Promise<NamedOutcome[]> {
   const { session, manifest, pool } = dev;
   const placed = placeStep(manifest, stepName, options.config);
+  const cells = pickCells(placed.step, ctx.args.option('cell'));
   pool.input = buildPipelineInput(manifest.inputSchema, pool.input, pairs);
   if (inputFile !== undefined) session.copyInput(inputFile);
   else {
@@ -234,7 +238,7 @@ async function runOne(
       throw new CliError(
         `'${placed.step.name}' is a failure handler: pass its FailureContext with --input-file.`,
       );
-    const assembly = assemble(placed.step, pool);
+    const assembly = assemble(placed.step, pool, manifest);
     if (assembly.problems.length)
       throw new CliError(assembly.problems.map((p) => `${placed.step.name}: ${p}`));
     if (assembly.skippedBecause.length)
@@ -244,15 +248,24 @@ async function runOne(
     await fetchFiles(ctx, dev, assembly.input);
     session.writeInput(assembly.input);
   }
-  const outcome = await session.runStep(
-    manifest,
-    placed.step,
-    pool,
-    options,
-    placed.cases,
-  );
-  pool.save(session.workspace.poolJson);
-  return outcome;
+  const outcomes: NamedOutcome[] = [];
+  if (cells) pool.steps.delete(placed.step.name);
+  for (const cell of cells ?? [undefined]) {
+    const outcome = await session.runStep(
+      manifest,
+      placed.step,
+      pool,
+      options,
+      placed.cases,
+      cell,
+    );
+    pool.save(session.workspace.poolJson);
+    outcomes.push({
+      name: cell ? cellName(placed.step.name, cell) : placed.step.name,
+      outcome,
+    });
+  }
+  return outcomes;
 }
 
 async function confirm(
@@ -307,7 +320,7 @@ async function runPipeline(
       skip(step.name, when);
       continue;
     }
-    const assembly = assemble(step, pool);
+    const assembly = assemble(step, pool, manifest);
     if (assembly.problems.length)
       throw new CliError(assembly.problems.map((p) => `${step.name}: ${p}`));
     if (assembly.skippedBecause.length) {
@@ -334,19 +347,36 @@ async function runPipeline(
     }
     await fetchFiles(ctx, dev, assembly.input);
     session.writeInput(assembly.input);
-    const outcome = await session.runStep(manifest, step, pool, options, planned.cases);
-    pool.save(workspace.poolJson);
-    if (!console.json) renderEnvelope(console, step.name, outcome);
-    const entry = pool.steps.get(step.name)!;
-    results.push({ step: step.name, status: entry.status, detail: entry.reason ?? null });
-    if (entry.status === 'failed') {
-      status(
-        console,
-        `'${step.name}' failed (exit ${outcome.exitCode}${exitMeaning(outcome.exitCode)}); stopping`,
+    // Every cell runs; a failed cell stops the run after the last one.
+    const cells = pickCells(step, undefined);
+    if (cells) pool.steps.delete(step.name);
+    let stop: number | undefined;
+    for (const cell of cells ?? [undefined]) {
+      const name = cell ? cellName(step.name, cell) : step.name;
+      const outcome = await session.runStep(
+        manifest,
+        step,
+        pool,
+        options,
+        planned.cases,
+        cell,
       );
-      return outcome.exitCode === 0 ? 1 : outcome.exitCode;
+      pool.save(workspace.poolJson);
+      if (!console.json) renderEnvelope(console, name, outcome);
+      const entry = pool.steps.get(name)!;
+      results.push({ step: name, status: entry.status, detail: entry.reason ?? null });
+      if (entry.status === 'failed') {
+        status(
+          console,
+          `'${name}' failed (exit ${outcome.exitCode}${exitMeaning(outcome.exitCode)})${cells ? '' : '; stopping'}`,
+        );
+        stop ??= outcome.exitCode === 0 ? 1 : outcome.exitCode;
+      } else if (outcome.exitCode !== 0) stop ??= outcome.exitCode;
     }
-    if (outcome.exitCode !== 0) return outcome.exitCode;
+    if (stop !== undefined) {
+      if (cells) status(console, `'${step.name}' failed; stopping`);
+      return stop;
+    }
   }
   return 0;
 }
@@ -415,6 +445,7 @@ ${dirOption}
     operands: 1,
     usesApi: false,
     options: [
+      'cell',
       'config',
       'config-from',
       'dir',
@@ -439,6 +470,10 @@ ${dirOption}
   from previous \`pl dev run\`/\`pl dev pipeline\` runs, so running steps in order chains them.
   Output files go to <dir>/.olve/files/ for later steps' ctx.files.fetch.
 
+  A matrix step runs every cell in turn (each with OLVE_CELL set), or the cells --cell picks;
+  each cell's result is kept in the pool under its name (build-cli[os=linux,arch=x64]), and a
+  later step's cells(...) input reads them in cell order.
+
   --from <pipeline>#<run> replaces the pool with a real run's input, the outputs of its
   steps' latest successful attempts and its config, so the step runs on that run's data.
   The files a step's input references are downloaded the first time a step needs them
@@ -448,6 +483,8 @@ ${dirOption}
   --from <pipeline>#<run>  Seed the pool from that run (input, outputs, config, files)
   --field k=v              Set a pipeline-input field (repeatable; typed by the input model)
   --input-file <file>      Use this file as input.json verbatim (skips assembly)
+  --cell axis=value,...    A matrix step: run only the cells with these values
+                           (os=linux,arch=x64, or os=linux for every linux cell)
   --config <file.json>     The config the step gets (a JSON object of config entries)
   --config-from <pipeline> Use that pipeline's effective config, as its runs get it; also picks
                            the \`select\` case of a step several cases share (default: the
@@ -456,7 +493,8 @@ ${dirOption}
                            from the environment; other pipeline secrets are not passed on
   --docker                 Compile with olve-build and run the binary in the step's image
                            like the pod (/olve layout, bundled loader, same env)
-  --json                   Print the raw envelope on stdout (step output goes to stderr)`,
+  --json                   Print the raw envelope on stdout, one line per cell for a matrix
+                           step (step output goes to stderr)`,
     async run(ctx) {
       const stepName = ctx.args.operand(0)!;
       const inputFile = ctx.args.option('input-file');
@@ -473,14 +511,15 @@ ${dirOption}
       const dev = await open(ctx, console);
       if (!dev) return;
       const config = await seed(ctx, dev, console, explicitConfig);
-      const outcome = await runOne(ctx, dev, stepName, inputFile, pairs, {
+      const outcomes = await runOne(ctx, dev, stepName, inputFile, pairs, {
         secretOverrides,
         docker: ctx.args.flag('docker'),
         warnUndeclaredSecrets: true,
         config,
       });
-      renderEnvelope(console, stepName, outcome);
-      ctx.exitCode = outcome.exitCode;
+      for (const { name, outcome } of outcomes) renderEnvelope(console, name, outcome);
+      ctx.exitCode =
+        outcomes.find((o) => o.outcome.exitCode !== 0)?.outcome.exitCode ?? 0;
     },
   },
   {
@@ -503,9 +542,9 @@ ${dirOption}
     summary: "Run the pipeline's stages locally from source",
     detail: `pl dev pipeline [options]
 
-  Runs the stages in order from source (steps of a stage run one after another locally),
-  chaining outputs through the local pool and evaluating \`when\` blocks against the
-  pipeline input. A step whose \`when\` does not match is skipped, and so is any later step
+  Runs the stages in order from source (steps of a stage, and a matrix step's cells, run one
+  after another locally), chaining outputs through the local pool and evaluating \`when\`
+  blocks against the pipeline input. A step whose \`when\` does not match is skipped, and so is any later step
   that requires its output. A failed step stops the run (exit = the harness exit code).
   Before each step that declares secrets (they do real things) it asks for confirmation;
   without a terminal it refuses unless --yes. Failure handlers are not run.

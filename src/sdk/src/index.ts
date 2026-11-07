@@ -15,6 +15,18 @@ export {
 } from './core/models.ts';
 export { secret, type Secret, type DeclaredSecrets } from './core/secrets.ts';
 export {
+  cells,
+  keepRunning,
+  cascadeFailure,
+  type Axes,
+  type Cell,
+  type CellOutput,
+  type Cells,
+  type FailureStrategy,
+  type Matrix,
+  type MatrixDef,
+} from './core/matrix.ts';
+export {
   config,
   secretRef,
   isConfigRef,
@@ -53,6 +65,7 @@ export {
   type StepInput,
   type StepKind,
   type ConfigOf,
+  type CellOf,
   type InputEntry,
   type InputSpec,
   type LiteralName,
@@ -62,12 +75,14 @@ export type { Simplify } from './core/types.ts';
 export {
   implement,
   type Implementation,
+  type CtxOf,
   type Handler,
   type HandlerResult,
   type Skipped,
 } from './core/handlers.ts';
 export type {
   Ctx,
+  StepCtx,
   RunInfo,
   Sh,
   ShOptions,

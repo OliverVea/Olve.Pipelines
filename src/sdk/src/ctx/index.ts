@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { skipped } from '../core/handlers.ts';
 import { createLinks } from './links.ts';
 import type { Secret } from '../core/secrets.ts';
+import type { Cell } from '../core/matrix.ts';
 import { createFetch, createOutput, redactUrl } from './files.ts';
 import { createSh } from './sh.ts';
 import type { Ctx, Http, RetryOptions, RunInfo } from './types.ts';
@@ -21,6 +22,8 @@ export interface CtxOptions {
   logSink?: (line: string) => void;
   /** `<step>/<input>` → callback URL (`ctx.inputUrl`). */
   callbackUrls?: Readonly<Record<string, string>>;
+  /** A matrix step's cell (`ctx.cell`). */
+  cell?: Cell;
 }
 
 export function formatLog(message: string, fields?: Record<string, unknown>): string {
@@ -151,6 +154,7 @@ export function createCtx(o: CtxOptions): Ctx {
     log,
   };
   return {
+    ...(o.cell ? { cell: o.cell } : {}),
     secrets: createSecrets(o.secrets, o.secretValues) as Ctx['secrets'],
     config: Object.freeze({ ...o.config }) as Ctx['config'],
     sh,

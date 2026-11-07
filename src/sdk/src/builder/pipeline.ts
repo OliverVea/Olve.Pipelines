@@ -1,7 +1,8 @@
 import { PIPELINE } from '../core/brands.ts';
 import type { AnyModel, Infer, InferInput, Plain } from '../core/models.ts';
 import type { Secret } from '../core/secrets.ts';
-import type { AnyStep, OutputValue, Step } from '../core/steps.ts';
+import type { AnyStep, CellOf, OutputValue, Step } from '../core/steps.ts';
+import type { Cells, CellOutput } from '../core/matrix.ts';
 import { isStep } from '../core/steps.ts';
 import type { WebhookEvent, WebhookVerify } from '../core/webhooks.ts';
 import type { IsUnion, OrError, Simplify } from '../core/types.ts';
@@ -66,15 +67,25 @@ type EntryError<
       : IsUnion<ProducersOf<A, M['name']>> extends true
         ? `❌ ${M['name']} (input '${Key}' of step '${SN}') has several producers; use a mapper to pick one`
         : never
-    : E extends AnyModel
-      ? [ProducersOf<A, E['name']>] extends [never]
-        ? `❌ ${E['name']} (input '${Key}' of step '${SN}') is not available at this stage`
-        : [DefiniteProducersOf<A, E['name']>] extends [never]
-          ? `❌ ${E['name']} (input '${Key}' of step '${SN}') is only maybe-available (produced inside a when block); declare it optional(${E['name']})`
-          : IsUnion<ProducersOf<A, E['name']>> extends true
-            ? `❌ ${E['name']} (input '${Key}' of step '${SN}') has several producers; use a mapper to pick one`
+    : E extends Cells<infer M>
+      ? [ProducersOf<A, `cells:${M['name']}`>] extends [never]
+        ? `❌ ${M['name']} (input '${Key}' of step '${SN}') has no matrix step producing it at this stage; cells() reads a matrix step`
+        : [DefiniteProducersOf<A, `cells:${M['name']}`>] extends [never]
+          ? `❌ ${M['name']} (input '${Key}' of step '${SN}') is only maybe-available (produced inside a when block); cells() cannot read a maybe-skipped matrix step`
+          : IsUnion<ProducersOf<A, `cells:${M['name']}`>> extends true
+            ? `❌ ${M['name']} (input '${Key}' of step '${SN}') has several matrix steps producing it; use a mapper to pick one`
             : never
-      : `❌ input '${Key}' of step '${SN}' is a plain schema, not a model, so it cannot be matched by model; add a mapper`;
+      : E extends AnyModel
+        ? [ProducersOf<A, E['name']>] extends [never]
+          ? [ProducersOf<A, `cells:${E['name']}`>] extends [never]
+            ? `❌ ${E['name']} (input '${Key}' of step '${SN}') is not available at this stage`
+            : `❌ ${E['name']} (input '${Key}' of step '${SN}') is produced by a matrix step; read it with cells(${E['name']})`
+          : [DefiniteProducersOf<A, E['name']>] extends [never]
+            ? `❌ ${E['name']} (input '${Key}' of step '${SN}') is only maybe-available (produced inside a when block); declare it optional(${E['name']})`
+            : IsUnion<ProducersOf<A, E['name']>> extends true
+              ? `❌ ${E['name']} (input '${Key}' of step '${SN}') has several producers; use a mapper to pick one`
+              : never
+        : `❌ input '${Key}' of step '${SN}' is a plain schema, not a model, so it cannot be matched by model; add a mapper`;
 
 type DefaultMatchError<S extends AnyStep, A extends AvailMap> = {
   [K in keyof S['input'] & string]: EntryError<S['name'], K, S['input'][K], A>;
@@ -138,12 +149,19 @@ export type CheckStage<E extends readonly unknown[], A extends AvailMap> = {
   [K in keyof E]: CheckEntry<NoInfer<E>, K, E[K], A>;
 };
 
+// A matrix step's slot holds its cells, under `cells:<model>`: only cells() inputs match it.
 type OutputsOf<E extends readonly unknown[], Maybe extends boolean> = {
-  [S in StepOfEntry<E[number]> as S['name']]: Slot<
-    S['output'] extends AnyModel ? S['output']['name'] : null,
-    OutputValue<S>,
-    Maybe
-  >;
+  [S in StepOfEntry<E[number]> as S['name']]: [CellOf<S>] extends [never]
+    ? Slot<
+        S['output'] extends AnyModel ? S['output']['name'] : null,
+        OutputValue<S>,
+        Maybe
+      >
+    : Slot<
+        S['output'] extends AnyModel ? `cells:${S['output']['name']}` : null,
+        S['output'] extends AnyModel ? CellOutput<S['output'], CellOf<S>>[] : void,
+        Maybe
+      >;
 };
 type MakeMaybe<X extends AvailMap> = {
   [K in keyof X]: Slot<X[K]['model'], X[K]['value'], true>;

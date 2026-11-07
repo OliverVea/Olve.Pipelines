@@ -4,9 +4,11 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isImplementation, type Implementation } from '../core/handlers.ts';
+import { cellName, parseCell } from '../core/matrix.ts';
 import type { FileRef } from '../core/models.ts';
 import type {
   AnyStep,
+  CellOf,
   ConfigOf,
   OutputValue,
   SecretsOf,
@@ -15,6 +17,7 @@ import type {
 import { createCtx } from '../ctx/index.ts';
 import type { Ctx, RunInfo } from '../ctx/types.ts';
 import type { StepLink } from '../ctx/links.ts';
+import { EXIT } from '../harness/exit.ts';
 import { executeStep, type FailureKind, type StepFunction } from '../harness/execute.ts';
 import { sha256Hex } from '../util/hash.ts';
 
@@ -32,6 +35,8 @@ export interface TestHandlerOptions<S extends AnyStep> {
   signal?: AbortSignal;
   /** `<step>/<input>` → URL returned by `ctx.inputUrl`. */
   callbackUrls?: Record<string, string>;
+  /** The cell to run a matrix step in (`ctx.cell`), like `OLVE_CELL`. */
+  cell?: CellOf<S>;
 }
 
 export type TestResult<S extends AnyStep> = {
@@ -65,9 +70,27 @@ export async function testHandler<S extends AnyStep>(
   const step: AnyStep = target.step;
   const fn = target.handler as unknown as StepFunction;
 
+  const cell = step.matrix
+    ? parseCell(
+        step.name,
+        step.matrix,
+        opts.cell === undefined ? undefined : JSON.stringify(opts.cell),
+      )
+    : undefined;
   const dir = opts.dir ?? mkdtempSync(join(tmpdir(), `olve-test-${step.name}-`));
   const filesDir = join(dir, 'work', 'files');
   const logs: string[] = [];
+  if (cell && !cell.ok) {
+    logs.push(cell.message);
+    return {
+      dir,
+      filesDir,
+      logs,
+      exitCode: EXIT.inputInvalid,
+      status: 'failed',
+      error: { kind: 'input', message: cell.message },
+    };
+  }
   const run: RunInfo = {
     pipeline: 'test',
     id: 'test',
@@ -75,7 +98,7 @@ export async function testHandler<S extends AnyStep>(
     attempt: 1,
     version: '0.0.0-test',
     ...opts.run,
-    step: step.name,
+    step: cell?.ok ? cellName(step.name, cell.cell) : step.name,
   };
   const real = createCtx({
     run,
@@ -85,6 +108,7 @@ export async function testHandler<S extends AnyStep>(
     signal: opts.signal ?? new AbortController().signal,
     logSink: (l) => logs.push(l),
     callbackUrls: opts.callbackUrls,
+    ...(cell?.ok ? { cell: cell.cell } : {}),
   });
   const ctx = { ...real, ...opts.ctx } as Ctx;
   // Round-trip through JSON like input.json does (drops undefined, rejects non-JSON values early).

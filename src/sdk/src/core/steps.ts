@@ -6,24 +6,35 @@ import type { AnyConfigEntry } from './config.ts';
 import { configRefsIn } from './config-refs.ts';
 import type { Secret } from './secrets.ts';
 import type { Simplify } from './types.ts';
+import {
+  makeMatrix,
+  type Axes,
+  type CellOfAxes,
+  type CellOutput,
+  type Cells,
+  type Matrix,
+  type MatrixDef,
+} from './matrix.ts';
 
 /**
- * A step input entry: a model (matchable by model), `optional(model)`, a plain zod schema (mapper required),
- * or `external(model, …)`, answered from outside the run.
+ * A step input entry: a model (matchable by model), `optional(model)`, `cells(model)` (every cell of a
+ * matrix step), a plain zod schema (mapper required), or `external(model, …)`, answered from outside the run.
  */
-export type InputEntry = AnyModel | Optional | External | z.ZodType;
+export type InputEntry = AnyModel | Optional | Cells | External | z.ZodType;
 export type InputSpec = { readonly [key: string]: InputEntry };
 
 export type InferEntry<E> =
   E extends Optional<infer M>
     ? Infer<M> | undefined
-    : E extends External<infer M>
-      ? Infer<M>
-      : E extends AnyModel
-        ? Infer<E>
-        : E extends z.ZodType
-          ? z.output<E>
-          : never;
+    : E extends Cells<infer M>
+      ? CellOutput<M>[]
+      : E extends External<infer M>
+        ? Infer<M>
+        : E extends AnyModel
+          ? Infer<E>
+          : E extends z.ZodType
+            ? z.output<E>
+            : never;
 /** What a handler receives: the output view of every input entry. */
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
@@ -56,6 +67,8 @@ export interface Step<
   readonly clusterAccess?: boolean;
   /** How the step is set up, as written in the definition (may hold config references). */
   readonly settings?: Readonly<Record<string, unknown>>;
+  /** Set on a matrix step: it runs once per cell. */
+  readonly matrix?: Matrix;
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyStep = Step<string, any, AnyModel | null, any, any>;
@@ -64,6 +77,10 @@ export type AnyStep = Step<string, any, AnyModel | null, any, any>;
 export type SecretsOf<S> = S extends Step<any, any, any, infer Sec, any> ? Sec : never;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ConfigOf<S> = S extends Step<any, any, any, any, infer C> ? C : never;
+/** The cell type of a matrix step (`never` for any other step). */
+export type CellOf<S> = S extends { readonly matrix: Matrix<infer Ax> }
+  ? CellOfAxes<Ax>
+  : never;
 export type OutputValue<S extends AnyStep> = S['output'] extends AnyModel
   ? Infer<S['output']>
   : void;
@@ -82,6 +99,7 @@ export interface StepDef<
   O extends AnyModel | null,
   Sec extends readonly Secret[],
   Cfg extends readonly AnyConfigEntry[] = [],
+  Ax extends Axes = never,
 > {
   name: LiteralName<N>;
   /** What the step does, shown in the UI. Required; may be empty. */
@@ -109,6 +127,8 @@ export interface StepDef<
    * references is delivered to the step, and `resolveConfigRefs(value, ctx.config)` resolves them.
    */
   settings?: Readonly<Record<string, unknown>>;
+  /** Run the step once per cell of these axes; the handler reads its cell from `ctx.cell`. */
+  matrix?: MatrixDef<Ax>;
 }
 
 function makeStep(def: Record<string, unknown>): AnyStep {
@@ -130,6 +150,9 @@ function makeStep(def: Record<string, unknown>): AnyStep {
     ...(def.retries !== undefined ? { retries: def.retries } : {}),
     ...(def.clusterAccess === true ? { clusterAccess: true } : {}),
     ...(def.settings !== undefined ? { settings: def.settings } : {}),
+    ...(def.matrix !== undefined
+      ? { matrix: makeMatrix(def.matrix as MatrixDef<Axes>) }
+      : {}),
   };
   return Object.freeze(s) as unknown as AnyStep;
 }
@@ -150,6 +173,10 @@ export function step<
   O extends AnyModel | null = null,
   const Sec extends readonly Secret[] = [],
   const Cfg extends readonly AnyConfigEntry[] = [],
->(def: StepDef<N, I, O, Sec, Cfg>): Step<N, I, O, Sec[number]['name'], Cfg[number]> {
+  const Ax extends Axes = never,
+>(
+  def: StepDef<N, I, O, Sec, Cfg, Ax>,
+): Step<N, I, O, Sec[number]['name'], Cfg[number]> &
+  ([Ax] extends [never] ? unknown : { readonly matrix: Matrix<Ax> }) {
   return makeStep(def as never) as never;
 }

@@ -124,3 +124,10 @@ export interface Ctx<Sec extends string = string, Cfg extends AnyConfigEntry = n
    */
   inputUrl(step: string | { readonly name: string }, input: string): string;
 }
+
+/** The ctx a step's handler gets: a matrix step's also carries its cell (`ctx.cell`), in axis order. */
+export type StepCtx<Sec extends string, Cfg extends AnyConfigEntry, Cell> = Ctx<
+  Sec,
+  Cfg
+> &
+  ([Cell] extends [never] ? unknown : { readonly cell: Cell });

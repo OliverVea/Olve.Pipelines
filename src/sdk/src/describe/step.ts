@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import { isModel, isOptional } from '../core/models.ts';
 import { isExternal } from '../core/external.ts';
+import {
+  AXIS_NAME,
+  AXIS_VALUE,
+  MAX_AXES,
+  MAX_CELLS,
+  isCells,
+  matrixCells,
+  type Matrix,
+} from '../core/matrix.ts';
 import type { AnyStep } from '../core/steps.ts';
 import { isImplementation } from '../core/handlers.ts';
 import { recordConfigRefs } from '../core/config-refs.ts';
@@ -20,6 +29,7 @@ import {
 } from './context.ts';
 
 type InputTypes = StepDescriptorT['inputTypes'];
+type MatrixT = NonNullable<StepDescriptorT['matrix']>;
 type ExternalInputs = NonNullable<StepDescriptorT['externalInputs']>;
 type InputEntries = [string, unknown][];
 
@@ -77,6 +87,9 @@ export function describeStep(
     problems.push(`${at}: timeoutSeconds must be a positive integer`);
   if (s.retries !== undefined && !(Number.isInteger(s.retries) && s.retries >= 0))
     problems.push(`${at}: retries must be a non-negative integer`);
+  if (s.matrix !== undefined && failureHandler)
+    problems.push(`${at}: a failure handler cannot be a matrix step`);
+  const matrix = s.matrix !== undefined ? describeMatrix(ctx, at, s.matrix) : undefined;
 
   const out: StepDescriptorT = {
     name: s.name,
@@ -89,6 +102,7 @@ export function describeStep(
     secrets: secretNames,
     ...(s.timeoutSeconds !== undefined ? { timeoutSeconds: s.timeoutSeconds } : {}),
     ...(s.retries !== undefined ? { retries: s.retries } : {}),
+    ...(matrix !== undefined ? { matrix } : {}),
     ...(settings !== undefined
       ? { config: settings as Record<string, z.core.util.JSONType> }
       : {}),
@@ -156,7 +170,13 @@ function describeInputTypes(
 ): InputTypes {
   const inputTypes: InputTypes = {};
   for (const [key, e] of entries) {
-    if (isOptional(e))
+    if (isCells(e))
+      inputTypes[key] = {
+        model: ctx.useModel(e.model, `${at} input '${key}'`),
+        optional: false,
+        cells: true,
+      };
+    else if (isOptional(e))
       inputTypes[key] = {
         model: ctx.useModel(e.model, `${at} input '${key}'`),
         optional: true,
@@ -176,7 +196,7 @@ function describeInputTypes(
       }
     } else
       ctx.problems.push(
-        `${at} input '${key}': must be a model, optional(model) or a zod schema`,
+        `${at} input '${key}': must be a model, optional(model), cells(model) or a zod schema`,
       );
   }
   return inputTypes;
@@ -209,6 +229,25 @@ function matchInputsByModel(
   const problems = ctx.problems;
   const input: Record<string, Mapping> = {};
   for (const [key, e] of entries) {
+    if (isCells(e)) {
+      const producers = [...avail].filter(
+        ([, a]) => a.matrix && a.model === e.model.name,
+      );
+      if (producers.length === 1) {
+        const [producer, a] = producers[0]!;
+        if (a.maybe) problems.push(maybeCells(at, e.model.name, key));
+        input[key] = { ref: producer };
+      } else
+        problems.push(
+          producers.length === 0
+            ? `${at}: ${e.model.name} (input '${key}') has no matrix step producing it at this stage; cells() reads a matrix step`
+            : `${at}: ${e.model.name} (input '${key}') has several matrix steps producing it (${producers
+                .map(([n]) => n)
+                .sort()
+                .join(', ')}); use a mapper to pick one`,
+        );
+      continue;
+    }
     const optional = isOptional(e);
     const m = optional ? e.model : isModel(e) ? e : undefined;
     if (!m) {
@@ -217,8 +256,13 @@ function matchInputsByModel(
       );
       continue;
     }
-    const producers = [...avail].filter(([, a]) => a.model === m.name);
-    if (producers.length === 0) {
+    const producers = [...avail].filter(([, a]) => !a.matrix && a.model === m.name);
+    const matrixProducer = [...avail].find(([, a]) => a.matrix && a.model === m.name);
+    if (producers.length === 0 && matrixProducer) {
+      problems.push(
+        `${at}: ${m.name} (input '${key}') is produced by matrix step '${matrixProducer[0]}'; read it with cells(${m.name})`,
+      );
+    } else if (producers.length === 0) {
       problems.push(
         `${at}: ${m.name} (input '${key}') is not available at this stage${optional ? ' (optional() means maybe-skipped; there must still be an earlier producer)' : ''}`,
       );
@@ -273,9 +317,45 @@ function mapStep(
   for (const k of Object.keys(recorded))
     if (!(k in declared))
       problems.push(`${at}: mapper provides '${k}', which is not an input of the step`);
-  for (const [k, m] of Object.entries(recorded))
-    checkMapping(ctx, `${at} input '${k}'`, m, avail, isOptional(declared[k]), true);
+  for (const [k, m] of Object.entries(recorded)) {
+    const e = declared[k];
+    if (isCells(e)) checkCellsMapping(ctx, `${at} input '${k}'`, m, avail, e.model.name);
+    else checkMapping(ctx, `${at} input '${k}'`, m, avail, isOptional(e), true);
+  }
   return recorded;
+}
+
+const maybeCells = (at: string, model: string, key: string) =>
+  `${at}: ${model} (input '${key}') is only maybe-available (produced inside a when block); cells() cannot read a maybe-skipped matrix step`;
+
+function checkCellsMapping(
+  ctx: DescribeContext,
+  at: string,
+  m: Mapping,
+  avail: Map<string, Avail>,
+  model: string,
+): void {
+  const problems = ctx.problems;
+  const ref =
+    Object.keys(m).length === 1 && typeof (m as { ref?: unknown }).ref === 'string'
+      ? (m as { ref: string }).ref
+      : undefined;
+  if (ref === undefined || ref.includes('.'))
+    return void problems.push(
+      `${at}: a cells() input takes a whole matrix step (from['<step>']), not a field or an object`,
+    );
+  const a = avail.get(ref);
+  if (!a) return void problems.push(`${at}: '${ref}' is not available at this stage`);
+  if (!a.matrix)
+    return void problems.push(
+      `${at}: '${ref}' is not a matrix step; cells() reads a matrix step`,
+    );
+  if (a.model !== model)
+    problems.push(`${at}: '${ref}' outputs ${a.model ?? 'nothing'}, not ${model}`);
+  if (a.maybe)
+    problems.push(
+      `${at}: '${ref}' is only maybe-available (produced inside a when block); cells() cannot read a maybe-skipped matrix step`,
+    );
 }
 
 function checkMapping(
@@ -299,6 +379,10 @@ function checkMapping(
     ];
     const a = avail.get(root);
     if (!a) return void problems.push(`${at}: '${root}' is not available at this stage`);
+    if (a.matrix)
+      return void problems.push(
+        `${at}: '${(m as { ref: string }).ref}' — '${root}' is a matrix step; read it whole through a cells() input`,
+      );
     if (!resolveField(ctx.outputViewOf(a.model), path))
       problems.push(
         `${at}: '${(m as { ref: string }).ref}' — model ${a.model} has no field '${path.join('.')}'`,
@@ -392,4 +476,69 @@ function checkConfigRefs(
         `${at}: config reference '${ref}': config '${entry}' has no field '${path.join('.')}'`,
       );
   }
+}
+
+function describeMatrix(
+  ctx: DescribeContext,
+  at: string,
+  m: Matrix,
+): MatrixT | undefined {
+  const problems = ctx.problems;
+  const before = problems.length;
+  const axes = Object.entries(
+    typeof m.axes === 'object' && m.axes !== null ? m.axes : {},
+  ) as [string, unknown][];
+  if (axes.length < 1 || axes.length > MAX_AXES)
+    problems.push(
+      `${at}: a matrix has 1 to ${MAX_AXES} axes (this one has ${axes.length})`,
+    );
+  for (const [name, values] of axes) {
+    if (!AXIS_NAME.test(name))
+      problems.push(`${at}: matrix axis name '${name}' must match ${AXIS_NAME}`);
+    if (!Array.isArray(values) || values.some((v) => typeof v !== 'string')) {
+      problems.push(`${at}: matrix axis '${name}' must be a list of strings`);
+      continue;
+    }
+    if (values.length === 0) problems.push(`${at}: matrix axis '${name}' has no values`);
+    for (const v of values as string[])
+      if (!AXIS_VALUE.test(v))
+        problems.push(
+          `${at}: matrix axis '${name}': value '${v}' must match ${AXIS_VALUE}`,
+        );
+    for (const v of new Set(
+      (values as string[]).filter((v, i) => values.indexOf(v) !== i),
+    ))
+      problems.push(`${at}: matrix axis '${name}': value '${v}' is listed twice`);
+  }
+  const known = new Map(axes);
+  m.exclude.forEach((x, i) => {
+    const where = `${at}: matrix exclude ${i + 1}`;
+    if (Object.keys(x).length === 0)
+      problems.push(`${where} must name at least one axis`);
+    for (const [k, v] of Object.entries(x)) {
+      const values = known.get(k);
+      if (!values) problems.push(`${where}: '${k}' is not an axis`);
+      else if (!(Array.isArray(values) && values.includes(v)))
+        problems.push(`${where}: '${String(v)}' is not a value of axis '${k}'`);
+    }
+  });
+  const kind = (m.failure as { kind?: unknown } | undefined)?.kind;
+  if (kind !== 'keepRunning' && kind !== 'cascadeFailure')
+    problems.push(`${at}: matrix failure must be keepRunning() or cascadeFailure()`);
+  if (
+    m.maxParallel !== undefined &&
+    !(Number.isInteger(m.maxParallel) && m.maxParallel >= 1)
+  )
+    problems.push(`${at}: matrix maxParallel must be a positive integer`);
+  if (problems.length > before) return undefined;
+  const count = matrixCells(m).length;
+  if (count === 0) problems.push(`${at}: the matrix excludes every cell`);
+  else if (count > MAX_CELLS)
+    problems.push(`${at}: the matrix has ${count} cells (at most ${MAX_CELLS})`);
+  return {
+    axes: axes.map(([name, values]) => ({ name, values: [...(values as string[])] })),
+    ...(m.exclude.length ? { exclude: m.exclude.map((x) => ({ ...x })) } : {}),
+    failure: { kind: kind as MatrixT['failure']['kind'] },
+    ...(m.maxParallel !== undefined ? { maxParallel: m.maxParallel } : {}),
+  };
 }

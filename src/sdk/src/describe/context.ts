@@ -12,10 +12,11 @@ import { schemaViews, type JsonSchema } from './schemas.ts';
 export const FAILURE_ROOT = 'failure';
 const RESERVED = new Set([...RESERVED_STEP_NAMES, FAILURE_ROOT]);
 
-/** What a step can read at a point of the pipeline: its output model, and whether it may have been skipped. */
+/** What a step can read at a point of the pipeline: its output model, whether it may have been skipped, and whether it is a matrix step. */
 export interface Avail {
   model: string | null;
   maybe: boolean;
+  matrix?: boolean;
 }
 
 /** A select case a step sits in: which select (numbered in describe order), which value, and its condition text. */
@@ -153,6 +154,10 @@ export class DescribeContext {
     else if (prev.some((p) => (p.step.output?.name ?? null) !== (s.output?.name ?? null)))
       problems.push(
         `step '${s.name}': its select cases must give it the same output model`,
+      );
+    else if (prev.some((p) => !p.step.matrix !== !s.matrix))
+      problems.push(
+        `step '${s.name}': its select cases must all make it a matrix step, or none`,
       );
     this.placements.set(s.name, [...prev, { step: s, cases }]);
     if (!this.steps.has(s.name)) this.steps.set(s.name, s);

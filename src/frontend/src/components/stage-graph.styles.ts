@@ -206,6 +206,12 @@ export const stageGraphStyles = css`
     width: 0.75rem;
     height: 0.75rem;
   }
+  .chip .cnt {
+    font-size: 0.66rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
   .chip .att {
     font-size: 0.66rem;
     color: var(--tone);

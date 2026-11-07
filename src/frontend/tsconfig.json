@@ -28,6 +28,6 @@
       "@olve/client": ["../client/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "mocks"],
   "exclude": ["node_modules", "../clients"]
 }

@@ -24,6 +24,8 @@ import {
 import { sheetHeight } from './step-sheet.js';
 import { formatRelative } from './relative-time.js';
 import { stageGraphStyles } from './stage-graph.styles.js';
+import { type CellState, matrixOf, progressOf } from '../model/matrix.js';
+import './matrix-cells.js';
 
 export type StepState = {
   status: RunStepStatus;
@@ -41,6 +43,8 @@ export type StepState = {
   blocked?: boolean;
   heldRuns?: number[];
   links?: readonly AttemptLink[] | null;
+  /** A matrix step's cells; the fields above are rolled up from them. */
+  cells?: CellState[];
 };
 
 export type Level = 'chips' | 'cards';
@@ -74,7 +78,7 @@ const LOCK = svg`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stro
  * The stage graph at two levels (chips, cards). Landscape viewports lay stages out left to right,
  * portrait ones top to bottom. Hovering a step outlines what it reads from and what reads it.
  * A selected step is assumed to have the step sheet open below it.
- * Events: `step-select` {step}, `step-retry` {step}, `step-cancel` {step}, `block-toggle` {step, block}.
+ * Events: `step-select` {step, cell?}, `step-retry` {step}, `step-cancel` {step}, `block-toggle` {step, block}.
  */
 @customElement('stage-graph')
 export class StageGraph extends LitElement {
@@ -416,6 +420,14 @@ export class StageGraph extends LitElement {
       @keydown=${ev.key}
     >
       <span class="dot"></span><span class="label">${step.name}</span>
+      ${matrixOf(step)
+        ? html`<span class="cnt" title="cells finished"
+            >${progressOf(
+              st?.cells ??
+                matrixOf(step)!.cells.map(() => ({ status: 'not-run' as const })),
+            )}</span
+          >`
+        : nothing}
       ${(st?.attemptCount ?? 0) > 1
         ? html`<span class="att">@${st!.latestAttempt}</span>`
         : nothing}
@@ -444,6 +456,7 @@ export class StageGraph extends LitElement {
           : nothing}
       </div>
       <div class="hc-meta">${meta.map((x) => html`<span>${x}</span>`)}</div>
+      ${this._hoverCells(c.step, st)}
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
       ${blocked
         ? html`<div class="block-note">
@@ -453,6 +466,19 @@ export class StageGraph extends LitElement {
           </div>`
         : nothing}
     </div>`;
+  }
+
+  private _hoverCells(name: string, st: StepState | undefined) {
+    const step =
+      this.manifest && allSteps(this.manifest.stages).find((s) => s.name === name);
+    const matrix = step && matrixOf(step);
+    if (!matrix) return nothing;
+    return html`<matrix-cells
+      compact
+      .matrix=${matrix}
+      .cells=${st?.cells ?? null}
+      .step=${name}
+    ></matrix-cells>`;
   }
 
   private _placeCard() {
@@ -528,6 +554,23 @@ export class StageGraph extends LitElement {
       </div>
       ${st?.links?.length
         ? html`<div class="tile-links">${stepLinks(st.links)}</div>`
+        : nothing}
+      ${matrixOf(step)
+        ? html`<matrix-cells
+            compact
+            .matrix=${matrixOf(step)}
+            .cells=${st?.cells ?? null}
+            .step=${step.name}
+            @cell-select=${(e: CustomEvent<{ cell: Record<string, string> }>) => {
+              e.stopPropagation();
+              this._card = null;
+              this.dispatchEvent(
+                new CustomEvent('step-select', {
+                  detail: { step: step.name, cell: e.detail.cell },
+                }),
+              );
+            }}
+          ></matrix-cells>`
         : nothing}
       ${st?.reason ? html`<div class="reason">${st.reason}</div>` : nothing}
       ${blocked

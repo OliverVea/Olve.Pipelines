@@ -27,14 +27,17 @@ npm run dev:prod     # Dev server proxying /api/ to https://pipelines-private.ov
 npm run dev:beta     # Dev server proxying /api/ to https://pipelines-beta.ovea.pro
 npm run build        # Type-check (tsc) + production build to dist/
 npm run preview      # Preview the production build
-npm run typecheck    # Type-check src/, the shared client and the generated client
-npm run lint         # Lint src/
+npm run typecheck    # Type-check src/, mocks/, the shared client and the generated client
+npm run lint         # Lint src/ and mocks/
 npm run test         # Unit tests of the pure modules (vitest, test/)
-npm run format       # Format src/ and test/ with Prettier
+npm run format       # Format src/, test/ and mocks/ with Prettier
 npm run format:check # Check formatting
 ```
 
 Browser tests of the main flows are in `e2e/`, a separate package: see [Browser tests](../../CONTRIBUTING.md#browser-tests).
+
+UI mocks of features the server doesn't have yet are in `mocks/`: the real components on fixture data,
+served by `npm run dev` only (e.g. `/mocks/matrix.html`), never part of the build.
 
 `npm run dev` and `npm run build` first index `docs/setup` for the docs search
 (`scripts/build-docs-index.mjs`).
@@ -72,6 +75,7 @@ Against prod (`dev:prod`) anything you do changes real pipelines.
 src/frontend/
 ├── index.html, api-reference.html  # The two Vite entries
 ├── e2e/                            # Browser tests of the main flows (own package)
+├── mocks/                          # UI mocks on fixture data (dev server only)
 ├── scripts/build-docs-index.mjs    # docs/setup → public/docs-index.json (docs search)
 └── src/
     ├── main.ts                     # Component imports (side-effect registration)

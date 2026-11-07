@@ -13,9 +13,9 @@
     "build": "tsc -p tsconfig.app.json && vite build",
     "typecheck": "tsc -p tsconfig.app.json",
     "preview": "vite preview",
-    "lint": "eslint src/",
-    "format": "prettier --write src/ test/",
-    "format:check": "prettier --check src/ test/",
+    "lint": "eslint src/ mocks/",
+    "format": "prettier --write src/ test/ mocks/",
+    "format:check": "prettier --check src/ test/ mocks/",
     "test": "vitest run --dir test"
   },
   "dependencies": {

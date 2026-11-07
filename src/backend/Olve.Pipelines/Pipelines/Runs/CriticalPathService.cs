@@ -80,7 +80,7 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
         var byStep = attempts.ListByRun(run.Id).ToLookup(a => a.StepName, StringComparer.Ordinal);
         var stages = plan.Stages
             .Where(stage => stage.EvaluateWhen(input) is null)
-            .Select(stage => (stage.Index, Attempts: stage.Steps.SelectMany(s => byStep[s.Name]).Where(a => a.FinishedAt() is not null).OrderBy(a => a.CreatedAt).ToList()))
+            .Select(stage => (stage.Index, Attempts: stage.Units.SelectMany(u => byStep[u.Name]).Where(a => a.FinishedAt() is not null).OrderBy(a => a.CreatedAt).ToList()))
             .Where(s => s.Attempts.Count > 0)
             .ToList();
 

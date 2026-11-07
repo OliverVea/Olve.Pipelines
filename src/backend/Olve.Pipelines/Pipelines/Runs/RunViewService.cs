@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Scheduling;
 using Olve.Pipelines.Pipelines.Versions;
 using Olve.Utilities.Paginations;
@@ -83,37 +84,68 @@ public class RunViewService(
                 .ToArray(),
             stage.Steps.Select(step =>
             {
-                // Not part of the run: no attempt, whatever an older scheduler recorded for it.
-                if (stage.EvaluateWhen(input) is { } excluded)
-                    return new RunStepView(step.Name, StepVersion(version, step.Name), Contract.RunStepStatus.Excluded, excluded, 0, null, null, null, null, blocked.Contains(step.Name));
-
-                var list = byStep.TryGetValue(step.Name, out var l) ? l : [];
-                var latest = list.LastOrDefault();
                 var isBlocked = blocked.Contains(step.Name);
-                var status = latest?.Status.State().ToStepStatus()
-                             ?? (run.Status is RunStatus.Running && (run.HeldAt == step.Name || (isBlocked && heldStage == stage.Index))
-                                 ? Contract.RunStepStatus.Held
-                                 : run.Status is RunStatus.Running ? Contract.RunStepStatus.Pending : Contract.RunStepStatus.NotRun);
+                var excluded = stage.EvaluateWhen(input);
+                var units = stage.Units.Where(u => ReferenceEquals(u.Step, step))
+                    .Select(u => Unit(run, u, byStep.TryGetValue(u.Name, out var l) ? l : [], excluded, isBlocked, heldStage == stage.Index))
+                    .ToList();
+                if (step.Matrix is null)
+                    return units[0].View(step.Name, StepVersion(version, step.Name), isBlocked) with
+                    {
+                        WaitingFor = units[0].Latest?.Status is Waiting
+                            ? step.ExternalInputs.Where(i => units[0].Latest!.Answers?.ContainsKey(i.Key) != true)
+                                .SelectMany(i => i.Value.From.Select(f => f.Kind)).Distinct().Order(StringComparer.Ordinal).ToArray()
+                            : null,
+                    };
+
+                var cells = units.Select(u => u.CellView()).ToArray();
                 return new RunStepView(
                     step.Name,
                     StepVersion(version, step.Name),
-                    status,
-                    latest is null ? null : Reason(latest.Status),
-                    list.Count,
-                    latest?.Number,
-                    list.LastOrDefault(a => a.Status is Succeeded)?.Number,
-                    latest?.StartedAt(),
-                    latest?.FinishedAt(),
-                    isBlocked,
-                    latest is null ? null : AttemptPhases.From(latest))
-                {
-                    WaitingFor = latest?.Status is Waiting
-                        ? step.ExternalInputs.Where(i => latest.Answers?.ContainsKey(i.Key) != true)
-                            .SelectMany(i => i.Value.From.Select(f => f.Kind)).Distinct().Order(StringComparer.Ordinal).ToArray()
-                        : null,
-                    Links = (list.LastOrDefault(a => a.Status is Succeeded) ?? latest)?.Links,
-                };
+                    MatrixRollUp.Status(cells.Select(c => c.Status).ToList()),
+                    MatrixRollUp.Reason([.. units.Select(u => (u.Unit.Cell!, u.Status, u.Reason))]),
+                    cells.Sum(c => c.AttemptCount),
+                    null,
+                    null,
+                    cells.Min(c => c.StartedAt),
+                    cells.All(c => c.FinishedAt is not null) ? cells.Max(c => c.FinishedAt) : null,
+                    isBlocked)
+                { Cells = cells };
             }).ToArray())).ToArray();
+    }
+
+    /// <summary>One step or cell of a run: its latest attempt's state, or without one held / pending / not-run / excluded.</summary>
+    private static UnitState Unit(Run run, PlanUnit unit, List<Attempt> list, string? excluded, bool blocked, bool atHeldStage)
+    {
+        // Not part of the run: no attempt, whatever an older scheduler recorded for it.
+        if (excluded is not null)
+            return new UnitState(unit, Contract.RunStepStatus.Excluded, excluded, [], null);
+
+        var latest = list.LastOrDefault();
+        var status = latest?.Status.State().ToStepStatus()
+                     ?? (run.Status is RunStatus.Running && (run.HeldAt == unit.Step.Name || (blocked && atHeldStage))
+                         ? Contract.RunStepStatus.Held
+                         : run.Status is RunStatus.Running ? Contract.RunStepStatus.Pending : Contract.RunStepStatus.NotRun);
+        return new UnitState(unit, status, latest is null ? null : Reason(latest.Status), list, latest);
+    }
+
+    private sealed record UnitState(PlanUnit Unit, Contract.RunStepStatus Status, string? Reason, List<Attempt> Attempts, Attempt? Latest)
+    {
+        private Attempt? Succeeded => Attempts.LastOrDefault(a => a.Status is AttemptStatus.Succeeded);
+
+        public RunStepView View(string name, int? stepVersion, bool blocked) => new(
+            name, stepVersion, Status, Reason, Attempts.Count, Latest?.Number, Succeeded?.Number,
+            Latest?.StartedAt(), Latest?.FinishedAt(), blocked, Latest is null ? null : AttemptPhases.From(Latest))
+        {
+            Links = (Succeeded ?? Latest)?.Links,
+        };
+
+        public RunCellView CellView() => new(
+            Unit.Name, Unit.Cell!.Values, Status, Reason, Attempts.Count, Latest?.Number, Succeeded?.Number,
+            Latest?.StartedAt(), Latest?.FinishedAt(), Latest is null ? null : AttemptPhases.From(Latest))
+        {
+            Links = (Succeeded ?? Latest)?.Links,
+        };
     }
 
     private static int? StepVersion(PipelineVersion? version, string stepName) =>
@@ -128,23 +160,24 @@ public class RunViewService(
         var rows = new List<StepHistoryItem>();
         var stepVersionsByVersion = new Dictionary<Id<PipelineVersion>, int?>();
         // One extra row so the oldest returned row still knows whether it changed.
-        foreach (var attempt in attempts.ListByStepName(pipelineId, stepName))
+        var isCell = MatrixCells.TryParseName(stepName, out var declared);
+        foreach (var attempt in isCell ? attempts.ListByStepName(pipelineId, stepName) : attempts.ListByDeclaredStep(pipelineId, stepName))
         {
             if (rows.Count > limit)
                 break;
-            if (!runs.TryGet(attempt.RunId, out var run) || IsExcluded(run, stepName))
+            if (!runs.TryGet(attempt.RunId, out var run) || IsExcluded(run, attempt.StepName))
                 continue;
 
             if (!stepVersionsByVersion.TryGetValue(run.VersionId, out var stepVersion))
             {
-                stepVersion = versions.TryGet(run.VersionId, out var version) && version.StepVersions.TryGetValue(stepName, out var sv) ? sv : null;
+                stepVersion = versions.TryGet(run.VersionId, out var version) && version.StepVersions.TryGetValue(declared, out var sv) ? sv : null;
                 stepVersionsByVersion[run.VersionId] = stepVersion;
             }
 
             rows.Add(new StepHistoryItem(run.Number, run.Status, run.VersionNumber, run.VersionStamp, attempt.Id, attempt.Number,
                 attempt.Status.State(), Reason(attempt.Status), attempt.CreatedAt, attempt.StartedAt(), attempt.FinishedAt(),
                 stepVersion, StepVersionChanged: false, AttemptPhases.From(attempt))
-            { Links = attempt.Links });
+            { Links = attempt.Links, Cell = attempt.StepName == stepName ? null : attempt.StepName });
         }
 
         for (var i = 0; i < rows.Count - 1; i++)
@@ -167,6 +200,7 @@ public class RunViewService(
     {
         Skipped s => s.Reason,
         Failed f => f.Reason,
+        Cancelled c => c.Reason,
         _ => null,
     };
 }

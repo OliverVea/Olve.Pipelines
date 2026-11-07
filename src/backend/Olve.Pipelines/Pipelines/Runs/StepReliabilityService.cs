@@ -159,17 +159,17 @@ public class StepReliabilityService(RunService runs, AttemptService attempts, Ru
     }
 
     private int Retries(Run run, string step)
-        => !plans.ForRun(run).TryPickProblems(out _, out var plan) && plan.TryGetStep(step, out _, out var descriptor)
-            ? (int)(descriptor.Retries ?? 0)
+        => !plans.ForRun(run).TryPickProblems(out _, out var plan) && plan.TryGetUnit(step, out _, out var unit)
+            ? (int)(unit.Step.Retries ?? 0)
             : 0;
 
     /// <summary>What makes two attempts the same execution: the step's code and definition, the run's config, and the input.</summary>
     private string Identity(Run run, Attempt attempt)
     {
-        var code = !plans.ForRun(run).TryPickProblems(out _, out var plan) && plan.TryGetStep(attempt.StepName, out _, out var step)
-            ? plan.Manifest.CodeHash ?? step.HandlerHash
+        var code = !plans.ForRun(run).TryPickProblems(out _, out var plan) && plan.TryGetUnit(attempt.StepName, out _, out var unit)
+            ? plan.Manifest.CodeHash ?? unit.Step.HandlerHash
             : null;
-        var definition = versions.TryGet(run.VersionId, out var version) ? version.StepVersions.GetValueOrDefault(attempt.StepName) : 0;
+        var definition = versions.TryGet(run.VersionId, out var version) ? version.StepVersions.GetValueOrDefault(Manifests.MatrixCells.StepOf(attempt.StepName)) : 0;
         return $"{code ?? $"v{run.VersionNumber}"}|{definition}|{run.ConfigSnapshot}|{InputIdentity(attempt)}";
     }
 

@@ -67,7 +67,7 @@ public static partial class ManifestValidator
         private readonly HashSet<string> _usedModels = new(StringComparer.Ordinal);
         private readonly HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
-        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output)>> _placements = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output, bool Matrix)>> _placements = new(StringComparer.Ordinal);
         private readonly List<(string Name, string Path)> _producers = [];
 
         private void Error(string code, string path, string message, string? step = null) =>
@@ -248,8 +248,11 @@ public static partial class ManifestValidator
                 else if (!string.Equals(other.Output, step.Output, StringComparison.Ordinal))
                     Error(ManifestIssueCodes.SelectOutputMismatch, $"{path}.output",
                         $"step '{step.Name}' has output {step.Output ?? "none"} here and {other.Output ?? "none"} at {other.Path}; select cases must agree", step.Name);
+                else if (other.Matrix != step.Matrix is not null)
+                    Error(ManifestIssueCodes.MatrixInvalid, $"{path}.matrix",
+                        $"step '{step.Name}' is {(step.Matrix is null ? "not " : "")}a matrix step here and {(other.Matrix ? "is" : "is not")} at {other.Path}; select cases must agree", step.Name);
             }
-            placed.Add((path, cases, step.Output));
+            placed.Add((path, cases, step.Output, step.Matrix is not null));
         }
 
         private static bool Exclusive(IReadOnlyList<CaseOf> a, IReadOnlyList<CaseOf> b) =>
@@ -356,6 +359,8 @@ public static partial class ManifestValidator
                     Error(ManifestIssueCodes.MatrixInFailureHandler, $"{path}.matrix", $"failure handler '{n}': a failure handler can't be a matrix step", n);
                 else
                     CheckMatrix(n, $"{path}.matrix", matrix);
+                if (s.ExternalInputs.Count > 0)
+                    Error(ManifestIssueCodes.MatrixInvalid, $"{path}.externalInputs", $"step '{n}': a matrix step can't wait for external inputs", n);
             }
 
             var stepSecrets = new HashSet<string>(StringComparer.Ordinal);
@@ -457,6 +462,12 @@ public static partial class ManifestValidator
                 if (!TryRoot(at, path, step, r, avail, type.Optional, out var a, cells: type.Cells)) return;
                 if (a.Model != type.Model)
                     Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: expects {type.Model} but '{r.Root}' produces {a.Model} (models are nominal)", step);
+                if (type.Cells && a.Maybe)
+                {
+                    Error(ManifestIssueCodes.CellsInputInvalid, path,
+                        $"{at}: matrix step '{r.Root}' may be skipped (it runs inside a when block); a cells input reads a matrix step every run has", step);
+                    return;
+                }
                 if (a.Maybe && !type.Optional)
                     Error(ManifestIssueCodes.RefMaybeAvailable, path,
                         $"{at}: {a.Model} from '{r.Root}' is only maybe-available (produced inside a when block); declare it optional({type.Model})", step);

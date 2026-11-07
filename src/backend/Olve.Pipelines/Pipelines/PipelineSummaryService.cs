@@ -50,10 +50,24 @@ public class PipelineSummaryService(
                 .ToArray(),
             stage.Steps.Select(step =>
             {
+                if (step.Matrix is not null)
+                    return MatrixSummary(pipelineId, step.Name);
                 var latest = views.History(pipelineId, step.Name, 1).FirstOrDefault();
                 return new PipelineStepSummary(step.Name, latest?.Status, latest?.RunNumber,
                     latest is null ? null : latest.FinishedAt ?? latest.StartedAt ?? latest.CreatedAt)
                 { Links = latest?.Links };
             }).ToArray())).ToArray();
+    }
+
+    /// <summary>A matrix step's latest run: its cells' latest attempts, rolled up.</summary>
+    private PipelineStepSummary MatrixSummary(Id<Pipeline> pipelineId, string stepName)
+    {
+        var rows = views.History(pipelineId, stepName, Manifests.MatrixCells.MaxCells * 4);
+        if (rows.Count == 0)
+            return new PipelineStepSummary(stepName, null, null, null);
+        var cells = rows.Where(r => r.RunNumber == rows[0].RunNumber).DistinctBy(r => r.Cell).ToList();
+        var status = Runs.MatrixRollUp.Status([.. cells.Select(c => c.Status.ToStepStatus())]);
+        return new PipelineStepSummary(stepName, Runs.AttemptStatusExtensions.ToAttemptState(status), rows[0].RunNumber,
+            cells.Max(c => c.FinishedAt ?? c.StartedAt ?? c.CreatedAt));
     }
 }

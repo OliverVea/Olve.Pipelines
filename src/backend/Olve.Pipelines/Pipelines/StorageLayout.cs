@@ -6,7 +6,8 @@ namespace Olve.Pipelines.Pipelines;
 /// <summary>
 /// The single source of every Garage object key the v2 domain derives. Keys mirror the
 /// addressing scheme <c>&lt;pipeline&gt;#&lt;run&gt;/&lt;step&gt;[@&lt;attempt&gt;]</c>, using the pipeline id in
-/// <c>N</c> format, the per-pipeline run number and the per-(run, step) attempt number:
+/// <c>N</c> format, the per-pipeline run number and the per-(run, step) attempt number. A matrix cell's step segment
+/// is its cell name verbatim (<c>build[os=linux,arch=x64]</c>); pre-signed URLs percent-encode it:
 /// <code>
 /// versions/&lt;p&gt;/builds/&lt;sha&gt;/step.tar.gz compiled harness binary built for a commit (a version keeps its key)
 /// versions/&lt;p&gt;/&lt;n&gt;/step.tar.gz        (legacy default binary key of version n)
@@ -69,7 +70,7 @@ public static class StorageLayout
 
     /// <summary>
     /// Objects of one failure-handler run (<c>input.json</c>, <c>log</c>), under the failed run so retention
-    /// removes them with it. <c>_failure</c> cannot collide with a step directory: step names are DNS labels.
+    /// removes them with it. <c>_failure</c> cannot collide with a step directory: step and cell names start with a DNS label.
     /// </summary>
     public static string FailureHandlerPrefix(Id<Pipeline> pipelineId, int runNumber, string handlerName, string dispatchId)
         => $"{RunPrefix(pipelineId, runNumber)}/_failure/{handlerName}/{dispatchId}";

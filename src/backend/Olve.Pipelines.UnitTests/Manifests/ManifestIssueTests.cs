@@ -325,6 +325,12 @@ public class ManifestIssueTests
         ["matrix maxParallel"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.maxParallel", "step 'test': maxParallel must be at least 1", r => Step(r, "test")["matrix"] = Matrix(maxParallel: 0)),
         ["matrix excluding every cell"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix", "step 'test': the matrix has 0 cells; it needs 1 to 64", r => Step(r, "test")["matrix"] = Matrix(exclude: [new JsonObject { ["os"] = "linux" }, new JsonObject { ["os"] = "windows" }])),
         ["matrix with too many cells"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix", "step 'test': the matrix has 125 cells; it needs 1 to 64", r => Step(r, "test")["matrix"] = Matrix(axes: [("a", ["1", "2", "3", "4", "5"]), ("b", ["1", "2", "3", "4", "5"]), ("c", ["1", "2", "3", "4", "5"])])),
+        ["matrix step with an external input"] = Row(C.MatrixInvalid, "stages[1].steps[1].externalInputs", "step 'test': a matrix step can't wait for external inputs", r =>
+        {
+            Step(r, "test")["matrix"] = Matrix();
+            Step(r, "test")["externalInputs"] = External("BuildArtifact");
+        }
+        ),
         ["matrix failure handler"] = Row(C.MatrixInFailureHandler, "failureHandlers[0].step.matrix", "failure handler 'aoe-triage': a failure handler can't be a matrix step", r => r["failureHandlers"]![0]!["step"]!["matrix"] = Matrix()),
         ["matrix step read by a model input"] = Row(C.RefMatrixStep, "stages[2].steps[0].input.artifact", "step 'deploy-beta' input 'artifact': 'build' is a matrix step; read it through a cells input (a list of its cells' outputs)", r => Step(r, "build")["matrix"] = Matrix()),
         ["matrix step field read"] = Row(C.RefMatrixStep, "stages[2].steps[0].input.version", "step 'deploy-beta' input 'version': 'build' is a matrix step; read it through a cells input (a list of its cells' outputs)", r =>
@@ -341,6 +347,14 @@ public class ManifestIssueTests
             Step(r, "deploy-beta")["input"]!["artifact"] = Ref("build.commit");
         }
         ),
+        ["cells input of a maybe-skipped matrix step"] = Row(C.CellsInputInvalid, "stages[4].steps[0].input.prod", "step 'summary' input 'prod': matrix step 'deploy-prod' may be skipped (it runs inside a when block); a cells input reads a matrix step every run has", r =>
+        {
+            Step(r, "deploy-prod")["matrix"] = Matrix();
+            Step(r, "summary")["inputTypes"]!["prod"] = CellsType("ProdDeployment", optional: true);
+            Step(r, "publish-cli")["inputTypes"]!["prod"] = CellsType("ProdDeployment");
+        }
+        ),
+        ["select cases disagreeing on matrix"] = Row(C.MatrixInvalid, "stages[1].cases.inCluster[0].steps[0].matrix", "step 'count' is not a matrix step here and is at stages[1].cases.ssh[0].steps[0]; select cases must agree", () => Selected(r => r["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]![0]!["matrix"] = Matrix())),
         ["cells false"] = Row(C.WrongType, "stages[2].steps[0].inputTypes.artifact.cells", "cells must be true (omit it otherwise)", r => Step(r, "deploy-beta")["inputTypes"]!["artifact"]!["cells"] = false),
         ["unknown matrix property"] = Row(C.UnknownProperty, "stages[1].steps[1].matrix.include", "unknown property 'include'", r =>
         {

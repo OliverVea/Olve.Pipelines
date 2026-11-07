@@ -9,7 +9,7 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// Explicit reruns and continues within a run. All require the run to be pinned to the
 /// pipeline's Active version: after a switch, old runs are un-continuable (re-trigger instead).
 /// <list type="bullet">
-/// <item><see cref="RerunStep"/> adds an attempt of one step with the same pinned version and the
+/// <item><see cref="RerunStep"/> adds an attempt of one step (or matrix cell) with the same pinned version and the
 /// current pool input. Allowed when the run has finished, or the step's latest attempt failed or was
 /// cancelled (the run is then still at that stage's barrier). <b>Rerun only</b> on a finished run leaves
 /// the run's status alone; <b>rerun and continue</b> re-opens it, and the scheduler re-evaluates every
@@ -31,6 +31,10 @@ public class RunContinuationService(
     StageScheduler scheduler,
     RunSchedulingLock schedulingLock)
 {
+    /// <summary>
+    /// Reruns one step, or one cell of a matrix step by its cell name. A matrix step's own name reruns every cell
+    /// (each checked first, so a refusal schedules nothing); the first cell's new attempt is returned.
+    /// </summary>
     public Result<Attempt> RerunStep(Id<Run> runId, string stepName, bool continueAfter) => schedulingLock.Run<Result<Attempt>>(() =>
     {
         if (!runs.TryGet(runId, out var run))
@@ -39,18 +43,30 @@ public class RunContinuationService(
             return versionProblem;
         if (plans.ForRun(run).TryPickProblems(out var planProblems, out var plan))
             return planProblems;
-        if (!plan.TryGetStep(stepName, out var stage, out var step))
+
+        PlanStage? stage;
+        IReadOnlyList<PlanUnit> units;
+        if (plan.TryGetUnit(stepName, out stage, out var unit))
+            units = [unit];
+        else if (plan.TryGetStep(stepName, out stage, out var matrixStep) && matrixStep.Matrix is not null)
+            units = [.. stage.Units.Where(u => ReferenceEquals(u.Step, matrixStep))];
+        else
             return new NotFoundProblem("Run #{0} has no step '{1}'.", run.Number, stepName);
-        if (blocks.IsBlocked(run.PipelineId, stepName))
-            return new ConflictProblem("Step '{0}' is blocked; unblock it first.", stepName);
 
-        var stepAttempts = attempts.ListForStep(run.Id, stepName);
-        if (stepAttempts.Any(a => a.Status.IsActive()))
-            return new ConflictProblem("Step '{0}' already has an active attempt in run #{1}.", stepName, run.Number);
+        var step = units[0].Step;
+        if (blocks.IsBlocked(run.PipelineId, step.Name))
+            return new ConflictProblem("Step '{0}' is blocked; unblock it first.", step.Name);
 
-        var latest = stepAttempts.LastOrDefault();
-        if (run.Status is RunStatus.Running && latest?.Status is not (Failed or Cancelled))
-            return new ConflictProblem("Step '{0}' can be rerun only once run #{1} has finished or the step's latest attempt failed.", stepName, run.Number);
+        foreach (var name in units.Select(u => u.Name))
+        {
+            var stepAttempts = attempts.ListForStep(run.Id, name);
+            if (stepAttempts.Any(a => a.Status.IsActive()))
+                return new ConflictProblem("Step '{0}' already has an active attempt in run #{1}.", name, run.Number);
+
+            var latest = stepAttempts.LastOrDefault();
+            if (run.Status is RunStatus.Running && latest?.Status is not (Failed or Cancelled))
+                return new ConflictProblem("Step '{0}' can be rerun only once run #{1} has finished or the step's latest attempt failed.", name, run.Number);
+        }
         if (continueAfter && run.Status is RunStatus.Superseded)
             return new ConflictProblem("Run #{0} was superseded by a newer run and cannot be continued.", run.Number);
 
@@ -69,12 +85,17 @@ public class RunContinuationService(
                 if (continueAfter && run.Status.IsTerminal() && runs.Reopen(run.Id).TryPickProblems(out var reopenProblems))
                     return reopenProblems;
 
-                if (attempts.Schedule(run.Id, stepName, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
-                    .TryPickProblems(out var problems, out var attempt))
-                    return problems;
+                Attempt? first = null;
+                foreach (var name in units.Select(u => u.Name))
+                {
+                    if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
+                        .TryPickProblems(out var problems, out var attempt))
+                        return problems;
+                    first ??= attempt;
+                }
 
                 scheduler.Advance(run.Id);
-                return attempt;
+                return first!;
             default:
                 return new ResultProblem("Unknown decision for step '{0}'.", stepName);
         }
@@ -128,9 +149,9 @@ public class RunContinuationService(
         var consumers = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var stage in plan.Stages)
         {
-            foreach (var step in stage.Steps)
+            foreach (var (step, cell) in stage.Units)
             {
-                var latest = attempts.ListForStep(run.Id, step.Name).LastOrDefault();
+                var latest = attempts.ListForStep(run.Id, cell?.Name ?? step.Name).LastOrDefault();
                 if (latest is null || latest.Status is not (Succeeded or Skipped) || latest.IsSchedulerSkip())
                     continue;
 

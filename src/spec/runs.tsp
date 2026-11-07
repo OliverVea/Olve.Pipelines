@@ -90,7 +90,11 @@ enum RunStepStatus {
   excluded,
 }
 
-/** One step of a run. */
+/**
+ * One step of a run. A matrix step runs once per cell; its own `status` is rolled up from `cells` (a failed cell
+ * fails it, a cell still going keeps it going, it succeeds when every cell succeeded or was skipped) and its
+ * `reason` names the failed cell (`<label> failed: <reason>`, or `<n> cells failed. …` when several did).
+ */
 model RunStep {
   name: string;
   stepVersion: int32 | null;
@@ -114,6 +118,31 @@ model RunStep {
   waitingFor?: string[] | null;
 
   /** What the step links to: its succeeded attempt's links, else its latest attempt's. */
+  links?: AttemptLink[] | null;
+
+  /** A matrix step's cells, in cell order; null for a plain step. */
+  cells?: RunStepCell[] | null;
+}
+
+/** One cell of a matrix step in a run, addressed `<step>[<axis>=<value>,…]` like a step. */
+model RunStepCell {
+  /** The cell name: `build-cli[os=linux,arch=x64]`. */
+  name: string;
+
+  /** The cell's values, in axis order. */
+  cell: Record<string>;
+
+  status: RunStepStatus;
+
+  /** The latest attempt's skip, failure or cancel reason (`cancelled: <label> failed` when another cell's failure cancelled it). */
+  reason: string | null;
+
+  attemptCount: int32;
+  latestAttempt: int32 | null;
+  succeededAttempt: int32 | null;
+  startedAt: utcDateTime | null;
+  finishedAt: utcDateTime | null;
+  phases?: AttemptPhases | null;
   links?: AttemptLink[] | null;
 }
 
@@ -182,6 +211,9 @@ model AttemptStatusSkipped {
 model AttemptStatusCancelled {
   startedAt: utcDateTime | null;
   cancelledAt: utcDateTime;
+
+  /** Why the service cancelled it: `cancelled: <label> failed` when a matrix cell's failure cascaded. */
+  reason?: string | null;
 }
 
 model AttemptStatusObsolete {
@@ -472,6 +504,7 @@ interface Runs {
   ): Attempt[] | NotFound;
 }
 
+/** `step` is a step's name or a matrix cell's (`build-cli[os=linux,arch=x64]`, URL-encoded). */
 @tag("Steps")
 @route("/api/pipelines/{pipelineId}/runs/{number}/steps/{step}")
 interface RunSteps {
@@ -482,7 +515,7 @@ interface RunSteps {
     @path step: string,
   ): Attempt[] | NotFound;
 
-  /** A new attempt of the step on the run's pinned version and pool. */
+  /** A new attempt of the step on the run's pinned version and pool. A matrix step's name reruns every cell and returns the first cell's attempt. */
   @summary("Rerun a step")
   @post @route("rerun") rerun(
     @path @format("uuid") pipelineId: string,
@@ -491,7 +524,7 @@ interface RunSteps {
     @body body: RerunStep,
   ): Attempt | NotFound | BadRequest | Conflict | ServiceUnavailable;
 
-  /** Cancels the step's scheduled or in-progress attempt (its Job is deleted). The run ends Cancelled once the stage settles. */
+  /** Cancels the step's scheduled or in-progress attempt (its Job is deleted); a matrix step's name cancels every cell in flight and returns the first. The run ends Cancelled once the stage settles. */
   @summary("Cancel a step")
   @post @route("cancel") cancel(
     @path @format("uuid") pipelineId: string,

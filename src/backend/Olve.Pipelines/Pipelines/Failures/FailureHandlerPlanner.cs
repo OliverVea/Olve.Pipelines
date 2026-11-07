@@ -64,7 +64,7 @@ public static class FailureHandlerPlanner
             var fh = manifest.FailureHandlers[i];
             var inScope = fh.Steps is null
                 ? failedAttempts
-                : failedAttempts.Where(a => fh.Steps.Contains(a.StepName, StringComparer.Ordinal)).ToList();
+                : failedAttempts.Where(a => fh.Steps.Contains(Manifests.MatrixCells.StepOf(a.StepName), StringComparer.Ordinal)).ToList();
             if (inScope.Count == 0)
                 continue;
 

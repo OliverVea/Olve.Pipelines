@@ -115,6 +115,7 @@ public static class StepViews
         StepVersionChanged = h.StepVersionChanged,
         Phases = h.Phases is null ? null : ToApi(h.Phases),
         Links = RunViews.ToApi(h.Links),
+        Cell = h.Cell,
     };
 
     public static Contract.ReliabilityReport ToApi(ReliabilityReport r) => new()

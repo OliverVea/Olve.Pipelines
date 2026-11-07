@@ -23,6 +23,9 @@ model StepHistoryItem {
   stepVersionChanged: boolean;
   phases?: AttemptPhases | null;
   links?: AttemptLink[] | null;
+
+  /** The cell the attempt ran, in a matrix step's history; null for a plain step. */
+  cell?: string | null;
 }
 
 /** The runs the report covers: the latest `requestedRuns`, or fewer when no more exist. `from` and `to` are when the first and last covered runs started. */

@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Shared.Storage;
 
 namespace Olve.Pipelines.Kubernetes.Harness;
@@ -49,7 +50,7 @@ public static partial class HarnessFileRefs
     {
         if (fileRef.Run < 0 || fileRef.Attempt < 1)
             return new ResultProblem("File ref '{0}' has an invalid run or attempt number.", fileRef.UrlKey);
-        if (!StepNameRegex().IsMatch(fileRef.Step))
+        if (!StepNameRegex().IsMatch(fileRef.Step) && !MatrixCells.TryParseName(fileRef.Step, out _))
             return new ResultProblem("File ref has an invalid step name '{0}'.", fileRef.Step);
         if (!FilePathRegex().IsMatch(fileRef.Path))
             return new ResultProblem("File ref '{0}/{1}/{2}' has an invalid path.", fileRef.Run, fileRef.Step, fileRef.Attempt);

@@ -28,7 +28,7 @@ public class PresignedUrlTests
     {
         await using var server = await TestServer.LeaseAsync();
         var presigner = Presigner(server);
-        var key = $"{TestServer.NewName("url")}/result file+1.tar.gz";
+        var key = $"{TestServer.NewName("url")}/build[os=linux,arch=x64]/result file+1.tar.gz";
         byte[] body = [0, 1, 2, 255];
 
         using var put = await Http.PutAsync(await presigner.PresignPutAsync(key), new ByteArrayContent(body));

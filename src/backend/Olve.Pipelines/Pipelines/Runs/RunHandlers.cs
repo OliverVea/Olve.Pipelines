@@ -216,6 +216,22 @@ public static class RunViews
         Phases = s.Phases is null ? null : StepViews.ToApi(s.Phases),
         WaitingFor = s.WaitingFor,
         Links = ToApi(s.Links),
+        Cells = s.Cells?.Select(ToApi).ToArray(),
+    };
+
+    private static Contract.RunStepCell ToApi(RunCellView c) => new()
+    {
+        Name = c.Name,
+        Cell = c.Cell.ToDictionary(v => v.Key, v => v.Value, StringComparer.Ordinal),
+        Status = c.Status,
+        Reason = c.Reason,
+        AttemptCount = c.AttemptCount,
+        LatestAttempt = c.LatestAttempt,
+        SucceededAttempt = c.SucceededAttempt,
+        StartedAt = c.StartedAt,
+        FinishedAt = c.FinishedAt,
+        Phases = c.Phases is null ? null : StepViews.ToApi(c.Phases),
+        Links = ToApi(c.Links),
     };
 
     public static Contract.Attempt ToApi(Attempt a) => new()
@@ -253,7 +269,7 @@ public static class RunViews
         AttemptStatus.Succeeded x => new Contract.AttemptStatusSucceeded { StartedAt = x.StartedAt, FinishedAt = x.FinishedAt },
         AttemptStatus.Failed x => new Contract.AttemptStatusFailed { StartedAt = x.StartedAt, FinishedAt = x.FinishedAt, Reason = x.Reason },
         AttemptStatus.Skipped x => new Contract.AttemptStatusSkipped { Reason = x.Reason, StartedAt = x.StartedAt, FinishedAt = x.FinishedAt },
-        AttemptStatus.Cancelled x => new Contract.AttemptStatusCancelled { StartedAt = x.StartedAt, CancelledAt = x.CancelledAt },
+        AttemptStatus.Cancelled x => new Contract.AttemptStatusCancelled { StartedAt = x.StartedAt, CancelledAt = x.CancelledAt, Reason = x.Reason },
         AttemptStatus.Obsolete x => new Contract.AttemptStatusObsolete { SupersedingAttemptId = x.SupersedingAttemptId.Value.Value },
         _ => throw new UnreachableException(),
     };

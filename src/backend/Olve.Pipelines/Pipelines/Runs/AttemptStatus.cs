@@ -24,7 +24,8 @@ public abstract record AttemptStatus
     public record Failed(DateTimeOffset StartedAt, DateTimeOffset FinishedAt, string? Reason = null, AttemptFailureKind? Kind = null) : AttemptStatus;
     /// <param name="StartedAt">Null when the scheduler skipped it without running (<c>when</c>, upstream skip).</param>
     public record Skipped(string Reason, DateTimeOffset? StartedAt, DateTimeOffset FinishedAt) : AttemptStatus;
-    public record Cancelled(DateTimeOffset? StartedAt, DateTimeOffset CancelledAt) : AttemptStatus;
+    /// <param name="Reason">Why the service cancelled it (a matrix cascade); null for an explicit cancel.</param>
+    public record Cancelled(DateTimeOffset? StartedAt, DateTimeOffset CancelledAt, string? Reason = null) : AttemptStatus;
     public record Obsolete(Id<Attempt> SupersedingAttemptId) : AttemptStatus;
 }
 
@@ -63,6 +64,19 @@ public static class AttemptStatusExtensions
         Contract.AttemptState.Skipped => Contract.RunStepStatus.Skipped,
         Contract.AttemptState.Cancelled => Contract.RunStepStatus.Cancelled,
         _ => Contract.RunStepStatus.Obsolete,
+    };
+
+    /// <summary>The attempt state a step status stands for; a status without an attempt reads as scheduled.</summary>
+    public static Contract.AttemptState ToAttemptState(this Contract.RunStepStatus status) => status switch
+    {
+        Contract.RunStepStatus.Waiting => Contract.AttemptState.Waiting,
+        Contract.RunStepStatus.InProgress => Contract.AttemptState.InProgress,
+        Contract.RunStepStatus.Succeeded => Contract.AttemptState.Succeeded,
+        Contract.RunStepStatus.Failed => Contract.AttemptState.Failed,
+        Contract.RunStepStatus.Skipped => Contract.AttemptState.Skipped,
+        Contract.RunStepStatus.Cancelled => Contract.AttemptState.Cancelled,
+        Contract.RunStepStatus.Obsolete => Contract.AttemptState.Obsolete,
+        _ => Contract.AttemptState.Scheduled,
     };
 
     public static Contract.LogEndStatus ToLogEnd(this Contract.AttemptState state) => state switch

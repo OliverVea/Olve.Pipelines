@@ -38,6 +38,7 @@ public class StageScheduler(
     RunPlanCache plans,
     StepBlockService blocks,
     PipelineActivationService activations,
+    RunCancellationService cancellation,
     RunSchedulingLock schedulingLock,
     ILogger<StageScheduler> logger)
 {
@@ -96,22 +97,31 @@ public class StageScheduler(
         {
             var waiting = false;
             string? heldAt = null;
+            // Cells of a matrix step share one decision: the same input.
+            var decisions = new Dictionary<StepDescriptor, StepDecision>(ReferenceEqualityComparer.Instance);
+            StepDecision DecisionFor(StepDescriptor step) =>
+                decisions.TryGetValue(step, out var d) ? d : decisions[step] = Decide(stage, step, pool);
 
-            foreach (var step in stage.Steps)
+            foreach (var step in stage.Steps.Where(s => s.Matrix is { Cascades: true }))
+                Cascade(run, stage, step, DecisionFor(step));
+
+            foreach (var unit in stage.Units)
             {
-                var latest = Latest(run.Id, step.Name);
+                var step = unit.Step;
+                var latest = Latest(run.Id, unit.Name);
                 if (latest is not null && latest.Status.IsActive())
                 {
                     waiting = true;
                     continue;
                 }
 
-                var decision = Decide(stage, step, pool);
+                var decision = DecisionFor(step);
                 if (decision is StepDecision.Excluded)
                     continue;
-                if (IsSettled(latest, decision, run) && !RetryDue(run, step, decision))
+                if (IsSettled(latest, decision, run) && !RetryDue(run, unit, decision, log: true))
                     continue;
 
+                // A blocked matrix step holds every cell.
                 if (decision is StepDecision.Schedule && blocks.IsBlocked(run.PipelineId, step.Name))
                 {
                     heldAt ??= step.Name;
@@ -125,14 +135,14 @@ public class StageScheduler(
                     continue;
                 }
 
-                if (decision is StepDecision.Schedule && OvertakenBy(run, step.Name) is { } newer)
+                if (decision is StepDecision.Schedule && OvertakenBy(run, unit.Name) is { } newer)
                 {
-                    SupersedeOvertaken(run, newer, step.Name);
+                    SupersedeOvertaken(run, newer, unit.Name);
                     return;
                 }
 
-                Act(run, step, decision);
-                if (Latest(run.Id, step.Name) is { } created && created.Status.IsActive())
+                Act(run, unit, decision);
+                if (Latest(run.Id, unit.Name) is { } created && created.Status.IsActive())
                     waiting = true;
             }
 
@@ -196,13 +206,14 @@ public class StageScheduler(
     /// step gets 1 + n consecutive tries. Cancelled/obsolete attempts and scheduler-side failures
     /// (<see cref="StepDecision.Fail"/>) are never retried; a continue resets the count.
     /// </summary>
-    private bool RetryDue(Run run, StepDescriptor step, StepDecision decision)
+    private bool RetryDue(Run run, PlanUnit unit, StepDecision decision, bool log = false)
     {
+        var step = unit.Step;
         if (step.Retries is not > 0 || decision is not StepDecision.Schedule)
             return false;
 
         var failures = 0;
-        foreach (var attempt in attempts.ListForStep(run.Id, step.Name).Reverse())
+        foreach (var attempt in attempts.ListForStep(run.Id, unit.Name).Reverse())
         {
             if (attempt.Status is not Failed || (run.ResumedAt is { } resumed && attempt.CreatedAt < resumed))
                 break;
@@ -212,41 +223,76 @@ public class StageScheduler(
         if (failures == 0 || failures > step.Retries)
             return false;
 
-        logger.LogInformation("Retrying step '{StepName}' in run #{RunNumber} ('{RunId}'): failure {Failures} of {MaxTries} tries",
-            step.Name, run.Number, run.Id, failures, step.Retries + 1);
+        if (log)
+            logger.LogInformation("Retrying step '{StepName}' in run #{RunNumber} ('{RunId}'): failure {Failures} of {MaxTries} tries",
+                unit.Name, run.Number, run.Id, failures, step.Retries + 1);
         return true;
     }
 
-    private void Act(Run run, StepDescriptor step, StepDecision decision)
+    /// <summary>
+    /// <c>cascadeFailure</c>: once a cell's last allowed attempt failed (since the run was last resumed, no retry due),
+    /// the step's other cells that are scheduled or running are cancelled with <c>cancelled: &lt;label&gt; failed</c>.
+    /// Only attempts created before that failure: a cell rerun afterwards runs.
+    /// </summary>
+    private void Cascade(Run run, PlanStage stage, StepDescriptor step, StepDecision decision)
     {
+        if (decision is StepDecision.Excluded)
+            return;
+
+        var cells = stage.Units.Where(u => ReferenceEquals(u.Step, step)).ToList();
+        var failures = cells
+            .Select(u => (Unit: u, Latest: Latest(run.Id, u.Name)))
+            .Where(c => c.Latest is { Status: Failed } latest
+                        && !(run.ResumedAt is { } resumed && latest.CreatedAt < resumed)
+                        && !RetryDue(run, c.Unit, decision))
+            .ToList();
+        if (failures.Count == 0)
+            return;
+        var source = failures.MinBy(c => ((Failed)c.Latest!.Status).FinishedAt);
+        var failed = (Failed)source.Latest!.Status;
+
+        var cancel = cells
+            .Where(u => u != source.Unit)
+            .Select(u => Latest(run.Id, u.Name))
+            .OfType<Attempt>()
+            .Where(a => a.Status.IsActive() && a.CreatedAt <= failed.FinishedAt)
+            .ToList();
+        if (cancel.Count > 0)
+            cancellation.CancelCells(run, cancel, $"cancelled: {source.Unit.Cell!.Label} failed");
+    }
+
+    private void Act(Run run, PlanUnit unit, StepDecision decision)
+    {
+        var step = unit.Step;
+        var name = unit.Name;
         switch (decision)
         {
             case StepDecision.Skip skip:
-                if (attempts.RecordSkipped(run.Id, step.Name, skip.Reason).TryPickProblems(out var skipProblems))
+                if (attempts.RecordSkipped(run.Id, name, skip.Reason).TryPickProblems(out var skipProblems))
                     logger.LogProblems(LogLevel.Warning, skipProblems, "Could not record skip of step '{StepName}' in run #{RunNumber} ('{RunId}')",
-                        step.Name, run.Number, run.Id);
+                        name, run.Number, run.Id);
                 else
-                    logger.LogInformation("Skipped step '{StepName}' in run #{RunNumber} ('{RunId}'): {Reason}", step.Name, run.Number, run.Id, skip.Reason);
+                    logger.LogInformation("Skipped step '{StepName}' in run #{RunNumber} ('{RunId}'): {Reason}", name, run.Number, run.Id, skip.Reason);
                 break;
 
             case StepDecision.Schedule schedule:
-                if (attempts.Schedule(run.Id, step.Name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
+                if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
                     .TryPickProblems(out var scheduleProblems, out var attempt))
                 {
                     logger.LogProblems(LogLevel.Warning, scheduleProblems, "Could not schedule step '{StepName}' in run #{RunNumber} ('{RunId}'); failing it",
-                        step.Name, run.Number, run.Id);
-                    LogIfFailed(attempts.RecordFailed(run.Id, step.Name, string.Join("; ", scheduleProblems.Select(p => p.FormattedMessage)), schedule.Hash), run, "record a failed attempt in");
+                        name, run.Number, run.Id);
+                    LogIfFailed(attempts.RecordFailed(run.Id, name, string.Join("; ", scheduleProblems.Select(p => p.FormattedMessage)), schedule.Hash), run, "record a failed attempt in");
                 }
                 else
                 {
                     logger.LogInformation("Scheduled step '{StepName}' attempt {AttemptNumber} in run #{RunNumber} ('{RunId}')",
-                        step.Name, attempt.Number, run.Number, run.Id);
+                        name, attempt.Number, run.Number, run.Id);
                 }
                 break;
 
             case StepDecision.Fail fail:
-                logger.LogWarning("Failing step '{StepName}' in run #{RunNumber} ('{RunId}') without running it: {Reason}", step.Name, run.Number, run.Id, fail.Reason);
-                LogIfFailed(attempts.RecordFailed(run.Id, step.Name, fail.Reason, fail.Hash), run, "record a failed attempt in");
+                logger.LogWarning("Failing step '{StepName}' in run #{RunNumber} ('{RunId}') without running it: {Reason}", name, run.Number, run.Id, fail.Reason);
+                LogIfFailed(attempts.RecordFailed(run.Id, name, fail.Reason, fail.Hash), run, "record a failed attempt in");
                 break;
         }
     }
@@ -254,7 +300,7 @@ public class StageScheduler(
     /// <returns>True when the stage ended the run.</returns>
     private bool ApplyStageOutcome(Run run, PlanStage stage)
     {
-        var latest = stage.Steps.Select(s => Latest(run.Id, s.Name)).OfType<Attempt>().ToList();
+        var latest = stage.Units.Select(u => Latest(run.Id, u.Name)).OfType<Attempt>().ToList();
 
         if (latest.FirstOrDefault(a => a.Status is Failed) is { } failed)
         {
@@ -349,6 +395,8 @@ internal sealed class RunPool(Id<Run> runId, JsonElement input, RunPlan plan, At
     {
         if (plan.ExcludedReason(stepName, input) is { } excluded)
             return new PoolEntry.Excluded(excluded);
+        if (plan.TryGetStep(stepName, out _, out var step) && step.Matrix is not null)
+            return Cells(step);
         var latest = attempts.ListForStep(runId, stepName).LastOrDefault();
         if (latest?.Status is Skipped skipped)
             return new PoolEntry.Skipped(skipped.Reason);
@@ -356,6 +404,25 @@ internal sealed class RunPool(Id<Run> runId, JsonElement input, RunPlan plan, At
             return new PoolEntry.Missing();
 
         return new PoolEntry.Produced(Output(succeeded));
+    }
+
+    /// <summary>A matrix step's cells: skipped cells are left out, and all of them skipped is the step skipped.</summary>
+    private PoolEntry Cells(StepDescriptor step)
+    {
+        var outputs = new List<CellOutput>();
+        var skipped = new List<string>();
+        var units = PlanStage.UnitsOf(step).ToList();
+        foreach (var unit in units)
+        {
+            if (attempts.ListForStep(runId, unit.Name).LastOrDefault()?.Status is Skipped s)
+                skipped.Add(s.Reason);
+            else if (!attempts.TryGetLatestSucceeded(runId, unit.Name, out var succeeded))
+                return new PoolEntry.Missing();
+            else if (Output(succeeded) is { } output)
+                outputs.Add(new CellOutput(unit.Cell!, output));
+        }
+
+        return skipped.Count == units.Count ? new PoolEntry.Skipped(skipped[0]) : new PoolEntry.Cells(outputs);
     }
 
     private JsonElement? Output(Attempt attempt)

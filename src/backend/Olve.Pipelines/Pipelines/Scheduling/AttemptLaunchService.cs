@@ -37,6 +37,9 @@ public sealed record AttemptLaunchSpec(
 
     /// <summary>The run's effective plan (callback URLs cover its steps).</summary>
     public RunPlan? Plan { get; init; }
+
+    /// <summary>The cell the attempt runs, for a matrix step (<c>OLVE_CELL</c>); <see cref="Step"/> is then the matrix step.</summary>
+    public MatrixCell? Cell { get; init; }
 }
 
 /// <summary>Builds <see cref="AttemptLaunchSpec"/>s. Stateless query (transient).</summary>
@@ -52,8 +55,9 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
             return new NotFoundProblem("Version {0} of run #{1} not found.", run.VersionNumber, run.Number);
         if (plans.ForRun(run).TryPickProblems(out var problems, out var plan))
             return problems;
-        if (!plan.TryGetStep(attempt.StepName, out var stage, out var step))
+        if (!plan.TryGetUnit(attempt.StepName, out var stage, out var unit))
             return new ResultProblem("Version {0} has no step '{1}'.", run.VersionNumber, attempt.StepName);
+        var step = unit.Step;
         if (attempt.Input is not { } input)
             return new ResultProblem("Attempt {0} of step '{1}' in run #{2} has no input (it was not scheduled to run).",
                 attempt.Number, attempt.StepName, run.Number);
@@ -70,6 +74,6 @@ public class AttemptLaunchService(RunService runs, AttemptService attempts, Pipe
         return new AttemptLaunchSpec(
             attempt, run, version, step, ConfigDelivery.WithConfig(input, step, run.Config), attempt.InputHash,
             AttemptFileRefs.Extract(input), environment, version.BinaryKey, StorageLayout.AttemptPrefix(attempt))
-        { Cases = stage.Cases, Plan = plan };
+        { Cases = stage.Cases, Plan = plan, Cell = unit.Cell };
     }
 }

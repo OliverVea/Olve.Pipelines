@@ -13,6 +13,7 @@ import {
   cellAddress,
   cellLabel,
   matrixOf,
+  matrixReason,
   rollUp,
 } from '../src/model/matrix.js';
 import type { StepState } from '../src/components/stage-graph.js';
@@ -98,14 +99,6 @@ function cellStates(
     logsHref: '#logs',
     ...pick(cell, i),
   }));
-}
-
-/** The step's reason: the failure, and for a cascade only the failure that caused it. */
-function matrixReason(cells: CellState[]): string | null {
-  const failed = cells.filter((c) => c.status === 'failed');
-  if (failed.length === 0) return null;
-  const first = `${cellLabel(failed[0]!.cell)} failed: ${failed[0]!.reason}`;
-  return failed.length > 1 ? `${failed.length} cells failed. ${first}` : first;
 }
 
 function statesFor(scenario: Scenario): Map<string, StepState> {

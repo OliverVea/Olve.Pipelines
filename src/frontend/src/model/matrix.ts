@@ -99,3 +99,27 @@ export function progressOf(cells: readonly Pick<CellState, 'status'>[]): string 
   const done = cells.filter((c) => c.status === 'succeeded' || c.status === 'skipped');
   return `${done.length}/${cells.length}`;
 }
+
+/** The step a name belongs to: `build-cli[os=linux]` → `build-cli`; a step's own name is unchanged. */
+export const stepOf = (name: string): string => name.replace(/\[[^\]]*\]$/, '');
+
+/** The cell a cell name stands for, in axis order; null for a step's own name. */
+export function parseCellName(name: string): Cell | null {
+  const m = /\[([^\]]*)\]$/.exec(name);
+  if (!m) return null;
+  return Object.fromEntries(
+    m[1]!.split(',').map((part) => {
+      const i = part.indexOf('=');
+      return [part.slice(0, i), part.slice(i + 1)];
+    }),
+  );
+}
+
+/** A matrix step's reason: its first failed cell, as the server words it. */
+export function matrixReason(cells: readonly CellState[]): string | null {
+  const failed = cells.filter((c) => c.status === 'failed');
+  if (failed.length === 0) return null;
+  const first = failed[0]!;
+  const one = `${cellLabel(first.cell)} failed${first.reason ? `: ${first.reason}` : ''}`;
+  return failed.length > 1 ? `${failed.length} cells failed. ${one}` : one;
+}

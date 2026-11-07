@@ -58,6 +58,14 @@ import './log-pane.js';
 import './external-input-panel.js';
 import { renderAnswers } from './external-input-panel.js';
 import './relative-time.js';
+import './matrix-cells.js';
+import {
+  type Cell,
+  type CellState,
+  cellAddress,
+  matrixOf,
+  stepOf,
+} from '../model/matrix.js';
 import { LiveController } from '../api/events.js';
 
 type AttemptStatusFields = {
@@ -325,6 +333,18 @@ export class RunView extends LitElement {
     const states = new Map<string, StepState>();
     for (const stage of d.stages ?? []) {
       for (const s of stage.steps ?? []) {
+        const cells: CellState[] | undefined = s.cells?.map((c) => ({
+          cell: c.cell,
+          status: c.status,
+          reason: c.reason,
+          attemptCount: c.attemptCount,
+          latestAttempt: c.latestAttempt,
+          startedAt: c.startedAt,
+          finishedAt: c.finishedAt,
+          logsHref: c.latestAttempt
+            ? stepLogsPath(this.pipelineId, r.number, c.name, c.latestAttempt)
+            : undefined,
+        }));
         states.set(s.name ?? '', {
           status: s.status ?? '',
           reason: s.reason,
@@ -334,7 +354,19 @@ export class RunView extends LitElement {
           finishedAt: s.finishedAt,
           blocked: s.blocked ?? false,
           links: s.links,
+          ...(cells ? { cells } : {}),
         });
+        for (const c of s.cells ?? [])
+          states.set(c.name, {
+            status: c.status,
+            reason: c.reason,
+            attemptCount: c.attemptCount,
+            latestAttempt: c.latestAttempt,
+            startedAt: c.startedAt,
+            finishedAt: c.finishedAt,
+            blocked: s.blocked ?? false,
+            links: c.links,
+          });
       }
     }
     const running = r.status === 'Running';
@@ -452,9 +484,13 @@ export class RunView extends LitElement {
               .manifest=${m}
               .cases=${this._effective?.ok ? this._effective.cases : null}
               .states=${states}
-              .selected=${sheet ? this._step : ''}
-              @step-select=${(e: CustomEvent<{ step: string }>) =>
-                this._selectStep(e.detail.step)}
+              .selected=${sheet ? stepOf(this._step) : ''}
+              @step-select=${(e: CustomEvent<{ step: string; cell?: Cell }>) =>
+                this._selectStep(
+                  e.detail.cell
+                    ? cellAddress(e.detail.step, e.detail.cell)
+                    : e.detail.step,
+                )}
             ></stage-graph>`
           : html`<p class="muted">Loading the pinned version…</p>`}
       </section>
@@ -488,7 +524,7 @@ export class RunView extends LitElement {
   };
 
   private _renderSheet(m: Manifest, st: StepState | undefined, errors: unknown) {
-    const step = stepsByName(m).get(this._step);
+    const step = stepsByName(m).get(stepOf(this._step));
     const attempts = this._stepAttempts(this._step);
     const a = this._selectedAttempt();
     const as = a ? attemptStatus(a) : null;
@@ -544,54 +580,61 @@ export class RunView extends LitElement {
         </button>
         <a
           class="btn small"
-          href=${stepPath(this.pipelineId, this._step)}
+          href=${stepPath(this.pipelineId, stepOf(this._step))}
           @click=${navClick}
           >Step page</a
         >
       </span>
-      <div slot="attempt">
-        <h4 class="sheet-h">Attempts</h4>
-        ${attempts.length
-          ? html`<div class="attempts" role="tablist" aria-label="Attempts">
-              ${attempts.map((x) => {
-                const t = attemptStatus(x).type ?? '';
-                return html`<button
-                  class="attempt-tab"
-                  role="tab"
-                  aria-selected=${x.id === a?.id}
-                  @click=${() => this._selectStep(this._step, x.number ?? null)}
-                >
-                  <span class="dot t-${toneOf(t)}"></span>@${x.number} ${statusLabel(t)}
-                </button>`;
-              })}
-            </div>`
-          : html`<p class="muted">
-              No attempts${st ? ` (${statusLabel(st.status)})` : ''}.
-            </p>`}
-        ${a && as
-          ? html`<dl class="kv">
-                <dt>Created</dt>
-                <dd><relative-time .value=${a.createdAt}></relative-time></dd>
-                ${as.startedAt
-                  ? html`<dt>Ran</dt>
-                      <dd>
-                        ${formatDuration(as.startedAt, as.finishedAt ?? as.cancelledAt)}
-                      </dd>`
-                  : nothing}
-                ${a.inputHash
-                  ? html`<dt>Input hash</dt>
-                      <dd class="mono">${a.inputHash.slice(7, 17)}</dd>`
-                  : nothing}
-              </dl>
-              ${as.reason && as.reason !== st?.reason
-                ? html`<p class="reason">
-                    <b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b> ${as.reason}
-                  </p>`
-                : nothing}
-              ${renderAnswers(a)}`
-          : nothing}
-      </div>
-      ${errors}
+      ${step && matrixOf(step) && step.name === this._step
+        ? nothing
+        : html`<div slot="attempt">
+            <h4 class="sheet-h">Attempts</h4>
+            ${attempts.length
+              ? html`<div class="attempts" role="tablist" aria-label="Attempts">
+                  ${attempts.map((x) => {
+                    const t = attemptStatus(x).type ?? '';
+                    return html`<button
+                      class="attempt-tab"
+                      role="tab"
+                      aria-selected=${x.id === a?.id}
+                      @click=${() => this._selectStep(this._step, x.number ?? null)}
+                    >
+                      <span class="dot t-${toneOf(t)}"></span>@${x.number}
+                      ${statusLabel(t)}
+                    </button>`;
+                  })}
+                </div>`
+              : html`<p class="muted">
+                  No attempts${st ? ` (${statusLabel(st.status)})` : ''}.
+                </p>`}
+            ${a && as
+              ? html`<dl class="kv">
+                    <dt>Created</dt>
+                    <dd><relative-time .value=${a.createdAt}></relative-time></dd>
+                    ${as.startedAt
+                      ? html`<dt>Ran</dt>
+                          <dd>
+                            ${formatDuration(
+                              as.startedAt,
+                              as.finishedAt ?? as.cancelledAt,
+                            )}
+                          </dd>`
+                      : nothing}
+                    ${a.inputHash
+                      ? html`<dt>Input hash</dt>
+                          <dd class="mono">${a.inputHash.slice(7, 17)}</dd>`
+                      : nothing}
+                  </dl>
+                  ${as.reason && as.reason !== st?.reason
+                    ? html`<p class="reason">
+                        <b>${as.type === 'skipped' ? 'Skipped' : 'Reason'}:</b>
+                        ${as.reason}
+                      </p>`
+                    : nothing}
+                  ${renderAnswers(a)}`
+              : nothing}
+          </div>`}
+      ${this._renderCells(m, st)} ${errors}
       ${a && as?.type === 'waiting'
         ? html`<p class="reason">
             Waiting for input: answer it in the form above the stages.
@@ -729,6 +772,25 @@ export class RunView extends LitElement {
       this._continueDialog.close();
       await this._load();
     }, 'continue');
+
+  /** A matrix step's sheet lists its cells; picking one opens the cell's own sheet. */
+  private _renderCells(m: Manifest, st: StepState | undefined) {
+    const def = stepsByName(m).get(this._step);
+    const matrix = def && matrixOf(def);
+    if (!matrix) return nothing;
+    return html`<h4 class="sheet-h">Cells</h4>
+      <matrix-cells
+        .matrix=${matrix}
+        .cells=${st?.cells ?? null}
+        .step=${this._step}
+        @cell-select=${(e: CustomEvent<{ cell: Cell }>) =>
+          this._selectStep(cellAddress(this._step, e.detail.cell))}
+        @cell-rerun=${(e: CustomEvent<{ cell: Cell }>) => {
+          this._step = cellAddress(this._step, e.detail.cell);
+          this._rerunStep(false);
+        }}
+      ></matrix-cells>`;
+  }
 
   private _rerunStep = (cont: boolean) =>
     this._act(async () => {

@@ -28,13 +28,12 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
   on it.
 - Shipped in 2.1: the spec-first API, `pl dev run --from`, the cached `imageBuild` (`contentTag`
   hashes the build recipe), step destination links, every quality-inventory item, step reliability,
-  and config editing as a form generated from the schema.
+  config editing as a form generated from the schema, and matrix steps
+  ([matrix-builds.md](matrix-builds.md)).
 
 ## Next
 
-1. **Matrix builds.** One step run once per cell of its axes (platforms, targets, versions), shown
-   as one step with its cells: [matrix-builds.md](matrix-builds.md).
-2. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
+1. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
    (`pl run critical-path`), then:
    - **Output caching**: a step whose code hash, step version, pinned config and input match an
      earlier succeeded attempt reuses that attempt's output and files instead of running.
@@ -46,9 +45,9 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
      seccomp/AppArmor, which the gVisor step pods and PSS baseline don't give, so it is likely a
      long-running builder service with its own volume that steps send builds to. That is an
      infrastructure and security decision first.
-3. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
+2. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
    stored.
-4. **Packaged steps** with a public `defineStep(def, impl)`:
+3. **Packaged steps** with a public `defineStep(def, impl)`:
    - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
      list goes away.
    - Every step is versioned by its bundled code + config.

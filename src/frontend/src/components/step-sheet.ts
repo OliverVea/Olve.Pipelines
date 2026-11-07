@@ -1,3 +1,4 @@
+import { stepOf } from '../model/matrix.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import {
@@ -230,7 +231,7 @@ export class StepSheet extends LitElement {
 
   render() {
     const st = this.state;
-    const def = stepsByName(this.manifest).get(this.step);
+    const def = stepsByName(this.manifest).get(stepOf(this.step));
     const held = st?.blocked ? (st.heldRuns ?? []) : [];
     const tone = st && st.status !== 'not-run' ? toneOf(st.status) : null;
     return html`<aside class="sheet" aria-label="Step ${this.step}">
@@ -279,9 +280,11 @@ export class StepSheet extends LitElement {
 
   private _relations() {
     const steps = allSteps(this.manifest?.stages ?? []);
-    const def = steps.find((s) => s.name === this.step);
+    const def = steps.find((s) => s.name === stepOf(this.step));
     const from = def ? [...producersOf(def)] : [];
-    const by = steps.filter((s) => producersOf(s).has(this.step)).map((s) => s.name);
+    const by = steps
+      .filter((s) => producersOf(s).has(stepOf(this.step)))
+      .map((s) => s.name);
     const list = (names: string[]) =>
       names.length
         ? html`<div class="rel-list">

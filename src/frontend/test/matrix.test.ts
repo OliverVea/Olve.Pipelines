@@ -5,6 +5,7 @@ import {
   cellLabel,
   gridOf,
   matrixOf,
+  matrixReason,
   progressOf,
   rollUp,
 } from '../src/model/matrix.js';
@@ -90,4 +91,31 @@ describe('matrixOf', () => {
     ]));
 
   test('a plain step has no matrix', () => expect(matrixOf(step())).toBeUndefined());
+});
+
+describe('matrixReason', () => {
+  const sq = { shape: 'square', size: 'l' };
+  const ci = { shape: 'circle', size: 's' };
+  test.each([
+    ['no failure', [{ cell: sq, status: 'succeeded' }], null],
+    [
+      'one failed cell; the cancelled ones are not named',
+      [
+        { cell: sq, status: 'failed', reason: 'exit 1' },
+        { cell: ci, status: 'cancelled', reason: 'cancelled: square · l failed' },
+      ],
+      'square · l failed: exit 1',
+    ],
+    [
+      'several failed cells',
+      [
+        { cell: sq, status: 'failed', reason: 'exit 1' },
+        { cell: ci, status: 'failed' },
+      ],
+      '2 cells failed. square · l failed: exit 1',
+    ],
+  ] as [string, Parameters<typeof matrixReason>[0], string | null][])(
+    '%s',
+    (_, cells, expected) => expect(matrixReason(cells)).toBe(expected),
+  );
 });

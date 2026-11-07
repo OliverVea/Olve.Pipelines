@@ -1,3 +1,10 @@
+import {
+  type CellState,
+  matrixOf,
+  matrixReason,
+  parseCellName,
+  rollUp,
+} from '../model/matrix.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { api, errorMessages } from '../api/client.js';
@@ -174,13 +181,19 @@ export class PipelineDetailView extends LitElement {
         ? await loadEffective(this.pipelineId, this._active)
         : null;
       const effective = this._effectiveManifest();
-      const names = effective ? allSteps(effective.stages).map((s) => s.name) : [];
+      const steps = effective ? allSteps(effective.stages) : [];
       const latest = await Promise.all(
-        names.map((n) =>
+        steps.map(({ name: n, ...s }) =>
           stepsHistory({
             client: api,
             path: { ...path, step: n },
-            query: { limit: RECENT },
+            // A matrix step's history lists its cells' attempts: enough for every cell of the latest run.
+            query: {
+              limit: Math.max(
+                RECENT,
+                (matrixOf({ name: n, ...s })?.cells.length ?? 0) * 3,
+              ),
+            },
           })
             .then((r): [string, StepHistoryItem[]] => [n, r.data ?? []])
             .catch((): [string, StepHistoryItem[]] => [n, []]),
@@ -208,7 +221,9 @@ export class PipelineDetailView extends LitElement {
         heldRuns: held.get(step.name),
       });
     }
-    for (const [name, [a]] of this._history) {
+    for (const [name, items] of this._history) {
+      const a = items[0]!;
+      const cells = this._latestCells(items);
       out.set(name, {
         status: a.status ?? '',
         reason: a.reason,
@@ -229,9 +244,38 @@ export class PipelineDetailView extends LitElement {
           !this._blocked.has(name) &&
           !this._retrying.has(name),
         cancellable: isActiveStatus(a.status),
+        ...(cells
+          ? {
+              cells,
+              status: rollUp(cells),
+              reason: matrixReason(cells),
+              logsHref: undefined,
+              attemptCount: 1,
+              cancellable: cells.some((c) => isActiveStatus(c.status)),
+            }
+          : {}),
       });
     }
     return out;
+  }
+
+  /** The latest run's cells of a matrix step's history (newest first), each at its latest attempt. */
+  private _latestCells(items: StepHistoryItem[]): CellState[] | undefined {
+    if (!items[0]?.cell) return undefined;
+    const run = items[0].runNumber;
+    const seen = new Map<string, CellState>();
+    for (const i of items)
+      if (i.runNumber === run && i.cell && !seen.has(i.cell))
+        seen.set(i.cell, {
+          cell: parseCellName(i.cell) ?? {},
+          status: i.status ?? 'not-run',
+          reason: i.reason,
+          latestAttempt: i.attemptNumber,
+          startedAt: i.startedAt,
+          finishedAt: i.finishedAt,
+          logsHref: stepLogsPath(this.pipelineId, run, i.cell, i.attemptNumber),
+        });
+    return [...seen.values()];
   }
 
   render() {

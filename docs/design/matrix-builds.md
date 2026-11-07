@@ -1,9 +1,12 @@
 # Matrix builds
 
-A matrix step runs once per **cell**: one combination of its axes' values. It is designed, not
-built; the UI mock is `src/frontend/mocks/matrix.html` (`npm run dev`).
+A matrix step runs once per **cell**: one combination of its axes' values. How to write one is in
+[pipeline-reference.md](../setup/pipeline-reference.md), how its runs behave in
+[runs-and-operations.md](../setup/runs-and-operations.md). The UI mock it was designed from is
+`src/frontend/mocks/matrix.html` (`npm run dev`); the real-system tests run
+`tools/real-system/matrix-fixture`.
 
-## Agreed
+## Decisions
 
 - **Axes are a static list in code**, several at once, as a cross product with excludes
   (`{ os: ['linux', 'windows', 'macos'], arch: ['x64', 'arm64'] }` without `windows · arm64`).

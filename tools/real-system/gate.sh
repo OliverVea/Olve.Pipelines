@@ -97,7 +97,11 @@ browser() {
   cd src/frontend/e2e
   npm ci --no-audit --no-fund
   npx playwright install chromium
-  npm test
+  # The traces go with this copy of the tree, so a failure's page snapshot goes to the log.
+  npm test || {
+    find ../../../artifacts/real-system/browser/results -name error-context.md -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
+    return 1
+  }
 }
 
 stage contract

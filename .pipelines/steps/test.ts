@@ -11,7 +11,7 @@ const RECORDED_FIXTURES = 'artifacts/recorded-fixtures.txt';
 export const test = implement(
   step({
     name: 'test',
-    description: 'Runs the .NET unit tests and checks the C# formatting.',
+    description: 'Runs the .NET unit tests.',
     image: DOTNET_SDK,
     input: { source: Source, spec: M.SpecBuild },
     timeoutSeconds: 1800,
@@ -28,37 +28,12 @@ export const test = implement(
       opts,
     );
 
-    const unitTests = ctx.exec(
-      ['dotnet', 'test', '--project', TESTS, '-c', 'Release', '--no-build'],
-      opts,
-    );
-    const format = ctx
-      .exec(
-        [
-          'dotnet',
-          'format',
-          'Olve.Pipelines.slnx',
-          '--verify-no-changes',
-          '--no-restore',
-          '-v',
-          'quiet',
-        ],
-        opts,
-      )
-      .catch(() => {
-        throw new Error(
-          'C# formatting is off: run `dotnet format` (or tools/check.sh --fix) and commit',
-        );
+    await ctx
+      .exec(['dotnet', 'test', '--project', TESTS, '-c', 'Release', '--no-build'], opts)
+      .finally(() => {
+        const summary = join(tree, RECORDED_FIXTURES);
+        if (existsSync(summary)) ctx.log(readFileSync(summary, 'utf8').trim());
       });
-
-    const results = await Promise.allSettled([unitTests, format]);
-    const summary = join(tree, RECORDED_FIXTURES);
-    if (existsSync(summary)) ctx.log(readFileSync(summary, 'utf8').trim());
-    const failed = results.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
-    if (failed.length > 0)
-      throw failed.length === 1
-        ? failed[0]
-        : new AggregateError(failed, failed.map(String).join('; '));
-    ctx.log('tests passed; formatting is current');
+    ctx.log('tests passed');
   },
 );

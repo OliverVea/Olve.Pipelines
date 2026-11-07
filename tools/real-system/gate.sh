@@ -88,7 +88,7 @@ browser() {
 
 stage contract
 stage host up
-stage dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- --no-progress
+stage dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- --no-progress --output Detailed
 stage frontend
 stage tools/real-system/host.sh ui
 stage browser

@@ -11,13 +11,34 @@ const RECORDED_FIXTURES = 'artifacts/recorded-fixtures.txt';
 export const test = implement(
   step({
     name: 'test',
-    description: 'Runs the .NET unit tests.',
+    description: 'Checks the C# formatting and runs the .NET unit tests.',
     image: DOTNET_SDK,
     input: { source: Source, spec: M.SpecBuild },
     timeoutSeconds: 1800,
   }),
   async ({ source, spec }, ctx) => {
     const tree = await ctx.files.fetch(source.tree);
+    // Whitespace is all the repo's .editorconfig enforces; analyzer warnings already fail the build.
+    await ctx
+      .exec(
+        [
+          'dotnet',
+          'format',
+          'whitespace',
+          '--folder',
+          '--verify-no-changes',
+          '-v',
+          'quiet',
+        ],
+        {
+          cwd: tree,
+        },
+      )
+      .catch(() => {
+        throw new Error(
+          'C# formatting is off: run `dotnet format` (or tools/check.sh --fix) and commit',
+        );
+      });
     cpSync(await ctx.files.fetch(spec.artifacts), join(tree, 'artifacts'), {
       recursive: true,
     });

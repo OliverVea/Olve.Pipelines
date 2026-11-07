@@ -20,7 +20,6 @@ import { buildFrontend } from './steps/build-frontend';
 import { buildSdk } from './steps/build-sdk';
 import { buildServer } from './steps/build-server';
 import { compileServer } from './steps/compile-server';
-import { format } from './steps/format';
 import { promote } from './steps/promote';
 import { publishCli } from './steps/publish-cli';
 import { publishImages } from './steps/publish-images';
@@ -79,7 +78,7 @@ export default pipeline({
   .onPush((e) => ({ repo: e.repository.full_name, sha: e.after, deployTo: 'prod' }))
   .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(spec)
-  .stage(compileServer, buildFrontend, buildHarness, test, format, buildSdk, buildCli)
+  .stage(compileServer, buildFrontend, buildHarness, test, buildSdk, buildCli)
   .stage(buildServer, publishSdk, publishCli)
   .select(TARGET.beta, {
     ssh: (p, beta) =>

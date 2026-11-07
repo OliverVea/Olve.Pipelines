@@ -126,7 +126,7 @@ if [ -n "${want[cli]:-}" ]; then
 fi
 if [ -n "${want[dotnet]:-}" ]; then
   run "dotnet: build"                  dotnet build Olve.Pipelines.slnx --nologo -v quiet
-  run "dotnet: format"                 dotnet format Olve.Pipelines.slnx --verify-no-changes --no-restore -v quiet
+  run "dotnet: format"                 dotnet format whitespace --folder --verify-no-changes -v quiet
   [ $full = 0 ] || run "dotnet: unit tests" dotnet test --project src/backend/Olve.Pipelines.UnitTests --no-restore
   [ $full = 0 ] || [ ! -f artifacts/recorded-fixtures.txt ] || cat artifacts/recorded-fixtures.txt
 fi

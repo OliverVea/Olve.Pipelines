@@ -81,8 +81,10 @@ trap stop TERM HUP INT
 
 # A signal waits for a foreground command, which `dotnet run` outlives a hangup in. It interrupts `wait`.
 stage() {
+  local start=$SECONDS
   "$@" &
   wait $!
+  echo "gate: $* took $((SECONDS - start))s"
 }
 
 contract() { cd src/spec && bun install --frozen-lockfile && bun run build; }

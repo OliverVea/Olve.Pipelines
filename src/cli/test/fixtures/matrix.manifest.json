@@ -1,0 +1,55 @@
+{
+  "apiVersion": "2.0",
+  "name": "matrix",
+  "input": "Req",
+  "models": {
+    "Req": {
+      "output": {
+        "type": "object",
+        "properties": { "sha": { "type": "string" } },
+        "required": ["sha"]
+      }
+    }
+  },
+  "secrets": [],
+  "triggers": [],
+  "stages": [
+    {
+      "steps": [
+        {
+          "name": "build-cli",
+          "kind": "custom",
+          "image": "bun-img",
+          "output": "BuiltBinary",
+          "secrets": [],
+          "input": { "sha": { "ref": "input.sha" } },
+          "inputTypes": { "sha": { "schema": { "output": { "type": "string" } } } },
+          "matrix": {
+            "axes": [
+              { "name": "os", "values": ["linux", "windows"] },
+              { "name": "arch", "values": ["x64", "arm64"] }
+            ],
+            "exclude": [{ "arch": "arm64", "os": "windows" }],
+            "failure": { "kind": "keepRunning" }
+          }
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "name": "publish",
+          "kind": "custom",
+          "image": "alpine",
+          "output": null,
+          "secrets": [],
+          "input": { "binaries": { "ref": "build-cli" } },
+          "inputTypes": {
+            "binaries": { "model": "BuiltBinary", "optional": false, "cells": true }
+          }
+        }
+      ]
+    }
+  ],
+  "failureHandlers": []
+}

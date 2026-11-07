@@ -23,6 +23,10 @@ const selectText = readFileSync(
   join(import.meta.dir, 'fixtures/select.manifest.json'),
   'utf8',
 );
+const matrixText = readFileSync(
+  join(import.meta.dir, 'fixtures/matrix.manifest.json'),
+  'utf8',
+);
 const demo = () => parseManifest(demoText);
 const SHA = '0123456789abcdef0123456789abcdef01234567';
 const SSH: JsonObject = { target: { kind: 'ssh', host: 'box' } };
@@ -30,6 +34,7 @@ const SSH: JsonObject = { target: { kind: 'ssh', host: 'box' } };
 type Script = (
   input: JsonObject,
   olveDir: string,
+  env: Record<string, string | null | undefined>,
 ) => { envelope: JsonObject; exitCode: number };
 
 /** Stands in for bun: `describe` prints the manifest, `run` writes the step's envelope where the harness would. */
@@ -53,7 +58,7 @@ function fakeHarness(manifest: string) {
         readFileSync(join(olveDir, 'input.json'), 'utf8'),
       ) as JsonObject;
       inputs[step] = input;
-      const { envelope, exitCode } = steps[step]?.(input, olveDir) ?? {
+      const { envelope, exitCode } = steps[step]?.(input, olveDir, spec.env ?? {}) ?? {
         envelope: { status: 'succeeded', output: { from: step } },
         exitCode: 0,
       };
@@ -774,3 +779,93 @@ function fakeRunApi() {
       .map((r) => decodeURIComponent(r.path.split('/files/')[1]!));
   return { fetch, requests, run, outputs, content, downloads };
 }
+
+describe('pl dev matrix steps', () => {
+  const built = (h: ReturnType<typeof fakeHarness>) =>
+    h.calls.filter((c) => c.args[3] === 'build-cli').map((c) => c.env?.OLVE_CELL);
+  const byCell: Script = (input, _dir, env) => {
+    const cell = JSON.parse(env.OLVE_CELL!) as Record<string, string>;
+    return {
+      envelope: {
+        status: 'succeeded',
+        output: { name: `${input.sha}-${cell.os}-${cell.arch}` },
+      },
+      exitCode: 0,
+    };
+  };
+  test('pipeline runs every cell in order; a cells input reads them in cell order', async () => {
+    const p = pipelineDir();
+    const h = fakeHarness(matrixText);
+    h.steps['build-cli'] = byCell;
+    const r = await dev(['pipeline', '--field', 'sha=abc', '--json'], h, p);
+    expect(r.code).toBe(0);
+    expect(built(h)).toEqual([
+      '{"os":"linux","arch":"x64"}',
+      '{"os":"linux","arch":"arm64"}',
+      '{"os":"windows","arch":"x64"}',
+    ]);
+    expect(h.inputs.publish).toEqual({
+      binaries: [
+        { cell: { os: 'linux', arch: 'x64' }, output: { name: 'abc-linux-x64' } },
+        { cell: { os: 'linux', arch: 'arm64' }, output: { name: 'abc-linux-arm64' } },
+        { cell: { os: 'windows', arch: 'x64' }, output: { name: 'abc-windows-x64' } },
+      ],
+    });
+    expect(
+      (JSON.parse(r.stdout.trim()) as { step: string }[]).map((x) => x.step),
+    ).toEqual([
+      'build-cli[os=linux,arch=x64]',
+      'build-cli[os=linux,arch=arm64]',
+      'build-cli[os=windows,arch=x64]',
+      'publish',
+    ]);
+    expect(h.calls.find((c) => c.args[3] === 'publish')!.env!.OLVE_CELL).toBeNull();
+    expect((await dev(['describe'], h, p)).stdout).toContain(
+      'build-cli            bun-img -> BuiltBinary  [matrix: os × arch, 3 cells]',
+    );
+  });
+  test('a failed cell lets the other cells run, then stops the pipeline', async () => {
+    const p = pipelineDir();
+    const h = fakeHarness(matrixText);
+    h.steps['build-cli'] = (input, dir, env) =>
+      env.OLVE_CELL === '{"os":"linux","arch":"arm64"}'
+        ? { envelope: { status: 'failed', error: { message: 'boom' } }, exitCode: 1 }
+        : byCell(input, dir, env);
+    const r = await dev(['pipeline', '--field', 'sha=abc'], h, p);
+    expect(r.code).toBe(1);
+    expect(h.ran()).toEqual(['build-cli', 'build-cli', 'build-cli']);
+    expect(r.stderr).toContain("'build-cli' failed; stopping");
+    const publish = await dev(['run', 'publish'], h, p);
+    expect(publish.stderr).toContain(
+      "publish: input 'binaries' needs the output of 'build-cli[os=linux,arch=arm64]', which failed (boom); rerun `pl dev run build-cli --cell os=linux,arch=arm64`",
+    );
+  });
+  test('run --cell picks cells; a value that matches none, or a plain step, is refused', async () => {
+    const p = pipelineDir();
+    const h = fakeHarness(matrixText);
+    h.steps['build-cli'] = byCell;
+    const before = await dev(['run', 'publish'], h, p);
+    expect(before.stderr).toContain(
+      "publish: input 'binaries' needs the output of 'build-cli', which is not in the local pool; run `pl dev run build-cli` first",
+    );
+    const r = await dev(
+      ['run', 'build-cli', '--cell', 'os=linux', '--field', 'sha=abc'],
+      h,
+      p,
+    );
+    expect(r.code).toBe(0);
+    expect(built(h)).toEqual([
+      '{"os":"linux","arch":"x64"}',
+      '{"os":"linux","arch":"arm64"}',
+    ]);
+    expect(r.stdout).toContain('build-cli[os=linux,arch=arm64]: succeeded');
+    expect((await dev(['run', 'publish'], h, p)).code).toBe(0);
+    expect(h.inputs.publish!.binaries).toHaveLength(2);
+    const none = await dev(['run', 'build-cli', '--cell', 'os=solaris'], h, p);
+    expect(none.stderr).toContain(
+      "--cell os=solaris matches no cell of 'build-cli' (cells: build-cli[os=linux,arch=x64], build-cli[os=linux,arch=arm64], build-cli[os=windows,arch=x64]).",
+    );
+    const plain = await dev(['run', 'publish', '--cell', 'os=linux'], h, p);
+    expect(plain.stderr).toContain("--cell: 'publish' is not a matrix step.");
+  });
+});

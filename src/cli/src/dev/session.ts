@@ -20,6 +20,7 @@ import {
   type JsonObject,
 } from './manifest';
 import { ATTEMPT, Pool, RUN, Workspace } from './pool';
+import { cellName, type Cell } from './matrix';
 import type { Toolchain } from './toolchain';
 
 /** The step-pod init image, the server's default (`HarnessImage.cs`; `test/harness-image.test.ts` checks they match). */
@@ -27,6 +28,7 @@ export const HARNESS_BASE_IMAGE =
   'ghcr.io/olivervea/olve-pipelines-harness-base:src-1559dbe086e1';
 export const HARNESS_BASE_ENV = 'OLVE_HARNESS_BASE';
 const CASES_ENV = 'OLVE_CASES';
+const CELL_ENV = 'OLVE_CELL';
 const LOADER = '/olve/lib/ld-linux-x86-64.so.2';
 const RESULT_BEGIN = '---OLVE-RESULT-BEGIN---';
 const RESULT_END = '---OLVE-RESULT-END---';
@@ -102,6 +104,7 @@ export class DevSession {
     pool: Pool,
     options: RunOptions,
     cases: string[] = [],
+    cell?: Cell,
   ): Promise<StepOutcome> {
     const secrets = this.secretEnvironment(
       manifest,
@@ -110,14 +113,17 @@ export class DevSession {
       options.warnUndeclaredSecrets,
     );
     if (options.config) this.addConfigToInput(options.config);
-    const casesJson = cases.length ? JSON.stringify(cases) : undefined;
+    const extraEnv: Record<string, string> = {};
+    if (cases.length) extraEnv[CASES_ENV] = JSON.stringify(cases);
+    if (cell) extraEnv[CELL_ENV] = JSON.stringify(cell);
+    const name = cell ? cellName(step.name, cell) : step.name;
     mkdirSync(this.workspace.poolFiles, { recursive: true });
     rmSync(this.workspace.outputJson, { force: true }); // a usage or config failure writes none: never read a stale one
     const exitCode = options.docker
-      ? await this.runInDocker(manifest, step, secrets, casesJson)
-      : await this.runFromSource(manifest, step, secrets, casesJson);
+      ? await this.runInDocker(manifest, step, secrets, extraEnv, name)
+      : await this.runFromSource(manifest, step, secrets, extraEnv, name);
     const envelope = this.readEnvelope();
-    pool.record(step.name, envelope, this.workspace);
+    pool.record(name, envelope, this.workspace);
     return { envelope, exitCode };
   }
 
@@ -136,9 +142,10 @@ export class DevSession {
     manifest: DevManifest,
     step: DevStep,
     secrets: Record<string, string | null>,
-    casesJson?: string,
+    extraEnv: Record<string, string>,
+    name: string,
   ): Promise<number> {
-    status(this.console, `running '${step.name}' from source`);
+    status(this.console, `running '${name}' from source`);
     const env = {
       ...harnessEnvironment(
         manifest,
@@ -146,7 +153,9 @@ export class DevSession {
         this.workspace.tmp,
         this.workspace.poolFiles,
       ),
-      [CASES_ENV]: casesJson ?? null,
+      [CASES_ENV]: null,
+      [CELL_ENV]: null,
+      ...extraEnv,
       ...secrets,
     };
     const r = await this.run(
@@ -174,7 +183,8 @@ export class DevSession {
     manifest: DevManifest,
     step: DevStep,
     secrets: Record<string, string | null>,
-    casesJson?: string,
+    extraEnv: Record<string, string>,
+    name: string,
   ): Promise<number> {
     await this.build();
     const libDir = await this.loaderLibs();
@@ -184,7 +194,7 @@ export class DevSession {
       harnessEnvironment(manifest, '/olve', '/olve/tmp', '/olve-pool'),
     ))
       if (v !== null) args.push('-e', `${k}=${v}`);
-    if (casesJson) args.push('-e', `${CASES_ENV}=${casesJson}`);
+    for (const [k, v] of Object.entries(extraEnv)) args.push('-e', `${k}=${v}`);
     // Secrets by name only (`-e NAME`): docker reads the values from its own environment, so they never reach a command line.
     for (const name of step.secrets)
       if (name in secrets || this.env[name] !== undefined) args.push('-e', name);
@@ -198,7 +208,7 @@ export class DevSession {
       'run',
       step.name,
     );
-    status(this.console, `running '${step.name}' in ${step.image}`);
+    status(this.console, `running '${name}' in ${step.image}`);
     const created = await this.run(
       { command: 'docker', args, env: secrets, onStderrLine: (l) => this.console.err(l) },
       this.signal,

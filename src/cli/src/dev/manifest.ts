@@ -15,6 +15,14 @@ export type DevStep = {
   isFailureHandler: boolean;
   /** External input name -> its model. */
   externalInputs: Record<string, string>;
+  /** Inputs that read every cell of a matrix step (`cells(Model)`). */
+  cellsInputs: Record<string, boolean>;
+  matrix?: DevMatrix;
+};
+
+export type DevMatrix = {
+  axes: { name: string; values: string[] }[];
+  exclude: Record<string, string>[];
 };
 
 export type WhenCondition = { field: string; values: Json[] };
@@ -127,8 +135,12 @@ function parseNodes(nodes: Json[]): StageNode[] {
 
 function parseStep(step: JsonObject, isFailureHandler: boolean): DevStep {
   const optionalInputs: Record<string, boolean> = {};
-  for (const [key, type] of Object.entries(obj(step.inputTypes) ?? {}))
+  const cellsInputs: Record<string, boolean> = {};
+  for (const [key, type] of Object.entries(obj(step.inputTypes) ?? {})) {
     optionalInputs[key] = obj(type)?.optional === true;
+    if (obj(type)?.cells === true) cellsInputs[key] = true;
+  }
+  const matrix = obj(step.matrix);
   return {
     name: str(step.name) ?? '',
     kind: str(step.kind) ?? 'custom',
@@ -144,6 +156,36 @@ function parseStep(step: JsonObject, isFailureHandler: boolean): DevStep {
         str(obj(v)?.model) ?? '?',
       ]),
     ),
+    cellsInputs,
+    ...(matrix
+      ? {
+          matrix: {
+            axes: arr(matrix.axes).flatMap((a) =>
+              obj(a)
+                ? [
+                    {
+                      name: str(obj(a)!.name) ?? '',
+                      values: arr(obj(a)!.values).flatMap((v) =>
+                        typeof v === 'string' ? [v] : [],
+                      ),
+                    },
+                  ]
+                : [],
+            ),
+            exclude: arr(matrix.exclude).flatMap((x) =>
+              obj(x)
+                ? [
+                    Object.fromEntries(
+                      Object.entries(obj(x)!).flatMap(([k, v]) =>
+                        typeof v === 'string' ? [[k, v]] : [],
+                      ),
+                    ),
+                  ]
+                : [],
+            ),
+          },
+        }
+      : {}),
   };
 }
 

@@ -8,6 +8,7 @@ import {
   type StageNode,
 } from './manifest';
 import { outcomeStatus, type DevConsole, type StepOutcome } from './session';
+import { cellsOf } from './matrix';
 
 type Schema = Record<string, Json>;
 
@@ -118,6 +119,8 @@ export function renderManifest(o: (line: string) => void, m: DevManifest): void 
 function stepLine(step: DevStep): string {
   let line = `${step.name.padEnd(20)} ${step.image}`;
   if (step.output) line += ` -> ${step.output}`;
+  if (step.matrix)
+    line += `  [matrix: ${step.matrix.axes.map((a) => a.name).join(' × ')}, ${cellsOf(step.matrix).length} cells]`;
   if (step.secrets.length) line += `  [secrets: ${step.secrets.join(', ')}]`;
   const waits = Object.entries(step.externalInputs);
   if (waits.length)

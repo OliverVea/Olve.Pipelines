@@ -85,6 +85,12 @@ public static class ManifestIssueCodes
     public const string ExternalInputTitleEmpty = "external-input-title-empty";
     public const string ExternalInputSource = "external-input-source";
 
+    // ── matrix ──
+    public const string MatrixInvalid = "matrix-invalid";
+    public const string MatrixInFailureHandler = "matrix-in-failure-handler";
+    public const string RefMatrixStep = "ref-matrix-step";
+    public const string CellsInputInvalid = "cells-input-invalid";
+
     // ── when ──
     public const string WhenFieldUnknown = "when-field-unknown";
     public const string WhenFieldNotLiteral = "when-field-not-literal";

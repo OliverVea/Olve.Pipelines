@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Olve.Pipelines.Pipelines;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 
 namespace Olve.Pipelines.Kubernetes.Harness;
@@ -52,13 +53,20 @@ public sealed record HarnessJobRequest(
     /// <summary>The select cases the step sits in (<c>OLVE_CASES</c>): which variant of a same-named step to run.</summary>
     public IReadOnlyList<string> Cases { get; init; } = [];
 
-    /// <summary>Builds the request from an attempt; the step fields come from the pinned manifest.</summary>
+    /// <summary>A matrix cell's values as compact JSON in axis order (<c>OLVE_CELL</c>); null for a plain step.</summary>
+    public string? Cell { get; init; }
+
+    /// <summary>
+    /// Builds the request from an attempt; the step fields come from the pinned manifest. A cell's Job runs its
+    /// matrix step (<see cref="StepName"/>, also the <c>olve-step</c> label) with <see cref="Cell"/>.
+    /// </summary>
     public static HarnessJobRequest ForAttempt(
         Attempt attempt, string versionStamp, string stepImage, long? timeoutSeconds,
-        IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false)
+        IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false, MatrixCell? cell = null)
         => new(attempt.KubernetesJobName, attempt.Id, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
-            attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
-            PipelineSecrets.Name(attempt.PipelineId), urls, ClusterAccess: clusterAccess);
+            cell?.Step ?? attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
+            PipelineSecrets.Name(attempt.PipelineId), urls, ClusterAccess: clusterAccess)
+        { Cell = cell?.Json };
 }
 
 /// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
@@ -96,12 +104,13 @@ public static partial class HarnessJobBuilder
     public const string FileUrlsKey = "OLVE_FILE_URLS";
     public const string CallbackUrlsKey = "OLVE_CALLBACK_URLS";
     public const string CasesKey = "OLVE_CASES";
+    public const string CellKey = "OLVE_CELL";
 
     /// <summary>Env names the service sets itself; a declared secret must not shadow them.</summary>
     private static readonly HashSet<string> ReservedEnv = new(StringComparer.Ordinal)
     {
         "OLVE_DIR", "TMPDIR", "OLVE_PIPELINE", "OLVE_RUN_ID", "OLVE_RUN", "OLVE_ATTEMPT", "OLVE_VERSION_STAMP",
-        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey, CallbackUrlsKey, CasesKey,
+        StepUrlKey, InputUrlKey, ResultUrlKey, FileUrlsKey, CallbackUrlsKey, CasesKey, CellKey,
     };
 
     [GeneratedRegex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")]
@@ -161,6 +170,7 @@ public static partial class HarnessJobBuilder
             new("OLVE_VERSION_STAMP", request.VersionStamp),
         };
         if (request.Cases.Count > 0) stepEnv.Add(new K8sEnvVar(CasesKey, HarnessCases.ToJson(request.Cases)));
+        if (request.Cell is not null) stepEnv.Add(new K8sEnvVar(CellKey, request.Cell));
         if (secretData.ContainsKey(ResultUrlKey)) stepEnv.Add(Url(ResultUrlKey));
         if (secretData.ContainsKey(FileUrlsKey)) stepEnv.Add(Url(FileUrlsKey));
         if (secretData.ContainsKey(CallbackUrlsKey)) stepEnv.Add(Url(CallbackUrlsKey));

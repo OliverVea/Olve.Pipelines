@@ -77,9 +77,29 @@ public sealed record RunPlan(Manifest Manifest, IReadOnlyList<PlanStage> Stages)
         return cur.ValueKind == JsonValueKind.String ? cur.GetString() : null;
     }
 
-    /// <summary>Why <paramref name="stepName"/> is not part of a run with <paramref name="runInput"/> (its <c>when</c>), or null.</summary>
-    public string? ExcludedReason(string stepName, JsonElement runInput) =>
-        TryGetStep(stepName, out var stage, out _) ? stage.EvaluateWhen(runInput) : null;
+    /// <summary>Why <paramref name="name"/> (a step or a cell) is not part of a run with <paramref name="runInput"/> (its <c>when</c>), or null.</summary>
+    public string? ExcludedReason(string name, JsonElement runInput) =>
+        TryGetUnit(name, out var stage, out _) || TryGetStep(name, out stage, out _) ? stage.EvaluateWhen(runInput) : null;
+
+    /// <summary>The schedulable unit named <paramref name="name"/>: a plain step, or one cell of a matrix step.</summary>
+    public bool TryGetUnit(string name, [NotNullWhen(true)] out PlanStage? stage, [NotNullWhen(true)] out PlanUnit? unit)
+    {
+        var step = MatrixCells.StepOf(name);
+        foreach (var s in Stages)
+        {
+            foreach (var candidate in s.Units)
+            {
+                if (candidate.Step.Name != step || candidate.Name != name) continue;
+                stage = s;
+                unit = candidate;
+                return true;
+            }
+        }
+
+        stage = null;
+        unit = null;
+        return false;
+    }
 
     public bool TryGetStep(string stepName, [NotNullWhen(true)] out PlanStage? stage, [NotNullWhen(true)] out StepDescriptor? step)
     {
@@ -131,9 +151,25 @@ public sealed record RunPlan(Manifest Manifest, IReadOnlyList<PlanStage> Stages)
     }
 }
 
+/// <summary>
+/// What the scheduler runs and attempts are named after: a plain step (<see cref="Cell"/> null, <see cref="Name"/> = the
+/// step's name) or one cell of a matrix step (<see cref="Name"/> = the cell name).
+/// </summary>
+public sealed record PlanUnit(StepDescriptor Step, MatrixCell? Cell)
+{
+    public string Name => Cell?.Name ?? Step.Name;
+}
+
 /// <summary>One barrier stage: its steps run in parallel when every enclosing condition matches.</summary>
 public sealed record PlanStage(int Index, IReadOnlyList<WhenCondition> Conditions, IReadOnlyList<StepDescriptor> Steps)
 {
+    /// <summary>The stage's steps with each matrix step expanded into its cells, in cell order.</summary>
+    public IReadOnlyList<PlanUnit> Units { get; } = [.. Steps.SelectMany(UnitsOf)];
+
+    public static IEnumerable<PlanUnit> UnitsOf(StepDescriptor step) => step.Matrix is { } matrix
+        ? MatrixCells.Of(step.Name, matrix).Select(c => new PlanUnit(step, c))
+        : [new PlanUnit(step, null)];
+
     /// <summary>The select cases the stage is in (<c>target.prod.kind=ssh</c>); the harness picks a same-named step's variant by them.</summary>
     public IReadOnlyList<string> Cases { get; init; } = [];
 

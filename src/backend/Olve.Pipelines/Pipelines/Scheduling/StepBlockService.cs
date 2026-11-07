@@ -7,6 +7,7 @@ namespace Olve.Pipelines.Pipelines.Scheduling;
 /// incident (not an approval mechanism). A blocked step holds its run at that stage: the scheduler
 /// creates no attempt for it and marks the run <see cref="Runs.Run.HeldAt"/>. Unblocking fires the
 /// attachment's <c>OnSet</c>, which resumes held runs (see <see cref="RunSchedulingEventRegistration"/>).
+/// A matrix step is blocked by its own name and holds all its cells; a cell can't be blocked on its own.
 /// </summary>
 public class StepBlockService(
     AttachmentStore<Pipeline, PipelineBlockedSteps> blocked,
@@ -27,6 +28,8 @@ public class StepBlockService(
     {
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
+        if (Manifests.MatrixCells.TryParseName(stepName, out var matrixStep))
+            return new ResultProblem("'{0}' is a cell of matrix step '{1}'; block '{1}', which holds every cell.", stepName, matrixStep);
         if (!pipelines.Contains(pipelineId))
             return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
 

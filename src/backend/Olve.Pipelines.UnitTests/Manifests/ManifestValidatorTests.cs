@@ -19,6 +19,14 @@ public class ManifestValidatorTests
     }
 
     [Test]
+    public async Task AMatrixStep_ReadThroughCellsInputs_IsValid()
+    {
+        var report = ManifestValidator.Validate(Mutate(r => MatrixBuild(r, Matrix(failure: "cascadeFailure", maxParallel: 1, exclude: [new JsonObject { ["os"] = "windows", ["arch"] = "arm64" }]))));
+
+        await Assert.That(report.Errors).IsEmpty();
+    }
+
+    [Test]
     public async Task AllProblems_AreReported_NotJustTheFirst()
     {
         var report = ManifestValidator.Validate(Mutate(r =>

@@ -170,6 +170,7 @@ public static class ServiceConfiguration
             MaxConcurrentJobs = Math.Max(1, sp.GetRequiredService<IConfiguration>().GetValue<int?>("Jobs:MaxConcurrent") ?? JobRunner.DefaultMaxConcurrentJobs),
         });
         services.AddTransient<JobQueueService>();
+        services.AddTransient<MatrixParallelism>();
         services.AddSingleton<IRunOnStartup, JobEventRegistration>();
         // After every event registration: the sweep's writes must reach cleanup/obsoletion/scheduling.
         services.AddSingleton<IRunOnStartup, RunSchedulingEventRegistration>();

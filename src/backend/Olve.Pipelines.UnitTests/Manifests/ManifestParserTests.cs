@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Results.TUnit;
@@ -87,6 +88,30 @@ public class ManifestParserTests
         await Assert.That(TestRunDomain.Pick(reparsed).Retention).IsEqualTo(new ManifestRetention(50, 30, null));
         await Assert.That(ManifestVersioning.ManifestHash(with)).IsNotEqualTo(ManifestVersioning.ManifestHash(without));
         await Assert.That(ManifestWriter.ToCanonicalJson(without)).DoesNotContain("\"retention\"");
+    }
+
+    [Test]
+    public async Task Matrix_IsRead_AndTheWriterReproducesDescribesBytes()
+    {
+        var node = Node();
+        MatrixBuild(node, Matrix(failure: "cascadeFailure", maxParallel: 2, exclude: [new JsonObject { ["os"] = "windows", ["arch"] = "arm64" }]));
+        var bare = Node();
+        MatrixBuild(bare);
+
+        var m = ParseNode(node);
+        var build = ((StepsStage)m.Stages[1]).Steps[0];
+        var reader = ((StepsStage)m.Stages[2]).Steps[0];
+
+        await Assert.That(build.Matrix!.Axes.Select(a => a.Name)).IsEquivalentTo(["os", "arch"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        await Assert.That(build.Matrix.Exclude!.Single()["arch"]).IsEqualTo("arm64");
+        await Assert.That(build.Matrix.Cascades).IsTrue();
+        await Assert.That(build.Matrix.MaxParallel).IsEqualTo(2);
+        await Assert.That(((ModelInputType)reader.InputTypes["artifact"]).Cells).IsTrue();
+        foreach (var json in new[] { node, bare })
+        {
+            var canonical = CanonicalJson.Serialize(JsonDocument.Parse(json.ToJsonString()).RootElement);
+            await Assert.That(ManifestWriter.ToCanonicalJson(ParseNode(json))).IsEqualTo(canonical);
+        }
     }
 
     [Test]

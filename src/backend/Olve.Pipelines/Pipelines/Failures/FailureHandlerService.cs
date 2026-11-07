@@ -68,9 +68,9 @@ public class FailureHandlerService(
             return;
 
         var failed = new List<Attempt>();
-        foreach (var step in plan.Stages.SelectMany(s => s.Steps))
+        foreach (var unit in plan.Stages.SelectMany(s => s.Units))
         {
-            var latest = attempts.ListForStep(run.Id, step.Name).LastOrDefault();
+            var latest = attempts.ListForStep(run.Id, unit.Name).LastOrDefault();
             if (latest?.Status is AttemptStatus.Failed && !(run.ResumedAt is { } resumed && latest.CreatedAt < resumed))
                 failed.Add(latest);
         }

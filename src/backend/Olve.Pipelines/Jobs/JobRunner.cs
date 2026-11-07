@@ -1,3 +1,4 @@
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Runs;
 using static Olve.Pipelines.Pipelines.Runs.AttemptStatus;
 
@@ -38,6 +39,10 @@ public class JobRunner(
     {
         var attempts = GetActiveAttempts();
         var busyKeys = CollectInProgressKeys(attempts);
+        var cellsInFlight = attempts
+            .Where(a => a.Status is InProgress || registry.IsRunning(a.Id))
+            .GroupBy(MatrixParallelism.GroupOf)
+            .ToDictionary(g => g.Key, g => g.Count());
 
         foreach (var attempt in attempts)
         {
@@ -57,9 +62,23 @@ public class JobRunner(
                 continue;
             }
 
+            using var scope = sp.CreateScope();
+            if (attempt.Status is Scheduled && MatrixCells.TryParseName(attempt.StepName, out _)
+                && scope.ServiceProvider.GetRequiredService<MatrixParallelism>().LimitOf(attempt) is { } limit)
+            {
+                var group = MatrixParallelism.GroupOf(attempt);
+                var running = cellsInFlight.GetValueOrDefault(group);
+                if (running >= limit)
+                {
+                    logger.LogDebug("Holding Scheduled attempt '{AttemptId}' of cell '{StepName}': {Running} of its step's cells are in progress (maxParallel {MaxParallel})",
+                        attempt.Id, attempt.StepName, running, limit);
+                    continue;
+                }
+                cellsInFlight[group] = running + 1;
+            }
+
             ReserveKey(attempt, busyKeys);
 
-            using var scope = sp.CreateScope();
             var executor = scope.ServiceProvider.GetRequiredService<IJobExecutor>();
             executor.EnsureRunning(attempt.Id);
         }

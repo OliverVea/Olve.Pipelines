@@ -18,7 +18,13 @@ public abstract record PoolEntry
 
     /// <summary>The step has no successful attempt (and was not skipped).</summary>
     public sealed record Missing : PoolEntry;
+
+    /// <summary>A matrix step: each produced cell's output in cell order (skipped cells are left out).</summary>
+    public sealed record Cells(IReadOnlyList<CellOutput> Outputs) : PoolEntry;
 }
+
+/// <summary>One cell of a matrix step and its latest successful output.</summary>
+public sealed record CellOutput(MatrixCell Cell, JsonElement Output);
 
 /// <summary>A run's pool: the pipeline input plus each step's latest successful output.</summary>
 public interface IRunPool
@@ -42,6 +48,7 @@ public abstract record AttemptInputResult
 /// Builds a step's <c>input.json</c> from its tagged mappings over the run pool:
 /// <c>{ref:"input.sha"}</c> walks the pipeline input, <c>{ref:"build"}</c> takes a step's whole output,
 /// <c>{ref:"build.image"}</c> a field of it, <c>{const:…}</c> a literal, and nested objects compose these.
+/// A whole-step ref to a matrix step (a <c>cells</c> input) is the list <c>[{cell, output}, …]</c>.
 /// A ref whose path does not resolve is left out. A ref to a skipped (or never-produced) step makes the
 /// enclosing input key unavailable: a required key skips the step with a chained reason, an
 /// <c>optional(Model)</c> key is left out (the harness sees <c>undefined</c>, never <c>null</c>).
@@ -104,6 +111,7 @@ public static class AttemptInputBuilder
     private abstract record Value : Evaluated;
     private sealed record ElementValue(JsonElement? Element) : Value;
     private sealed record ObjectValue(IReadOnlyList<(string Key, Value Value)> Fields) : Value;
+    private sealed record CellsValue(IReadOnlyList<CellOutput> Outputs) : Value;
 
     private static Evaluated Evaluate(Mapping mapping, IRunPool pool)
     {
@@ -140,6 +148,7 @@ public static class AttemptInputBuilder
         {
             PoolEntry.Produced { Output: { } output } => Walk(output, r.Path),
             PoolEntry.Produced => r.Path.Count == 0 ? new ElementValue(null) : new Absent(),
+            PoolEntry.Cells c => r.Path.Count == 0 ? new CellsValue(c.Outputs) : new Absent(),
             PoolEntry.Skipped s => new Unavailable($"needs {r.Root} (skipped: {s.Reason})"),
             PoolEntry.Excluded e => new Unavailable($"needs {r.Root}, which is not part of this run ({e.Reason})"),
             _ => new Unavailable($"needs {r.Root}, which has no successful attempt"),
@@ -176,6 +185,20 @@ public static class AttemptInputBuilder
                     Write(writer, child);
                 }
                 writer.WriteEndObject();
+                break;
+            case CellsValue c:
+                writer.WriteStartArray();
+                foreach (var cell in c.Outputs)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteStartObject("cell");
+                    foreach (var (axis, v) in cell.Cell.Values) writer.WriteString(axis, v);
+                    writer.WriteEndObject();
+                    writer.WritePropertyName("output");
+                    cell.Output.WriteTo(writer);
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
                 break;
         }
     }

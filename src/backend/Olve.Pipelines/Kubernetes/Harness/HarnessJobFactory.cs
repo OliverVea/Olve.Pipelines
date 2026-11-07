@@ -20,7 +20,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
     /// <param name="input">The attempt's assembled <c>input.json</c>, scanned for file refs (→ <c>OLVE_FILE_URLS</c>); null = no input file.</param>
     public async Task<Result<HarnessJobSpec>> CreateStepJobAsync(
         Attempt attempt, string binaryKey, string versionStamp, StepDescriptor step, JsonElement? input,
-        IReadOnlyList<string>? cases = null, IReadOnlyDictionary<string, string>? callbackUrls = null, CancellationToken ct = default)
+        IReadOnlyList<string>? cases = null, IReadOnlyDictionary<string, string>? callbackUrls = null, MatrixCell? cell = null, CancellationToken ct = default)
     {
         var lateExpiry = options.LateUrlExpiry(step.TimeoutSeconds);
 
@@ -40,7 +40,7 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
         var request = HarnessJobRequest.ForAttempt(
             attempt, versionStamp, step.Image, step.TimeoutSeconds, step.Secrets,
             new HarnessUrls(stepUrl, inputUrl, resultUrl, fileUrls) { CallbackUrls = callbackUrls ?? new Dictionary<string, string>() },
-            step.ClusterAccess) with
+            step.ClusterAccess, cell) with
         { Cases = cases ?? [] };
         return HarnessJobBuilder.Build(request, options);
     }

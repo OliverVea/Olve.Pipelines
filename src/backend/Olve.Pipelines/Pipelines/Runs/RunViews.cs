@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Olve.Pipelines.Pipelines.Manifests;
 using Olve.Pipelines.Pipelines.Versions;
 
 using Contract = Olve.Pipelines.Api;
@@ -72,6 +73,57 @@ public record RunStepView(
 
     /// <summary>The succeeded attempt's links, else the latest attempt's.</summary>
     public IReadOnlyList<AttemptLink>? Links { get; init; }
+
+    /// <summary>A matrix step's cells, in cell order; the step's own fields are rolled up from them (null for a plain step).</summary>
+    public RunCellView[]? Cells { get; init; }
+}
+
+/// <summary>One cell of a matrix step in a run, with the fields a step has.</summary>
+/// <param name="Cell">The cell's values in axis order.</param>
+public record RunCellView(
+    string Name,
+    IReadOnlyList<KeyValuePair<string, string>> Cell,
+    Contract.RunStepStatus Status,
+    string? Reason,
+    int AttemptCount,
+    int? LatestAttempt,
+    int? SucceededAttempt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? FinishedAt,
+    AttemptPhases? Phases = null)
+{
+    public IReadOnlyList<AttemptLink>? Links { get; init; }
+}
+
+/// <summary>A matrix step's status and reason from its cells (<c>src/frontend/src/model/matrix.ts</c> <c>rollUp</c>).</summary>
+public static class MatrixRollUp
+{
+    private static readonly Contract.RunStepStatus[] Order =
+    [
+        Contract.RunStepStatus.Failed, Contract.RunStepStatus.InProgress, Contract.RunStepStatus.Waiting, Contract.RunStepStatus.Held,
+        Contract.RunStepStatus.Scheduled, Contract.RunStepStatus.Pending, Contract.RunStepStatus.Cancelled, Contract.RunStepStatus.Obsolete,
+        Contract.RunStepStatus.Succeeded, Contract.RunStepStatus.Skipped, Contract.RunStepStatus.NotRun, Contract.RunStepStatus.Excluded,
+    ];
+
+    /// <summary>Any failed cell fails it, else anything still going keeps it going; it succeeds when every cell succeeded or was skipped.</summary>
+    public static Contract.RunStepStatus Status(IReadOnlyCollection<Contract.RunStepStatus> cells)
+    {
+        var statuses = cells.ToHashSet();
+        if (statuses.Count == 0) return Contract.RunStepStatus.NotRun;
+        if (statuses.Count == 1) return statuses.Single();
+        if (statuses.All(s => s is Contract.RunStepStatus.Succeeded or Contract.RunStepStatus.Skipped)) return Contract.RunStepStatus.Succeeded;
+        return Order.First(statuses.Contains);
+    }
+
+    /// <summary><c>&lt;label&gt; failed: &lt;reason&gt;</c>, or <c>&lt;n&gt; cells failed. …</c> when several did; else the skip reason when every cell was skipped.</summary>
+    public static string? Reason(IReadOnlyList<(MatrixCell Cell, Contract.RunStepStatus Status, string? Reason)> cells)
+    {
+        var failed = cells.Where(c => c.Status is Contract.RunStepStatus.Failed).ToList();
+        if (failed.Count == 0)
+            return cells.Count > 0 && cells.All(c => c.Status == cells[0].Status) ? cells[0].Reason : null;
+        var first = failed[0].Reason is { } reason ? $"{failed[0].Cell.Label} failed: {reason}" : $"{failed[0].Cell.Label} failed";
+        return failed.Count > 1 ? $"{failed.Count} cells failed. {first}" : first;
+    }
 }
 
 /// <summary>
@@ -95,6 +147,9 @@ public record StepHistoryItem(
     AttemptPhases? Phases = null)
 {
     public IReadOnlyList<AttemptLink>? Links { get; init; }
+
+    /// <summary>The cell the attempt ran, in a matrix step's history (null for a plain step).</summary>
+    public string? Cell { get; init; }
 }
 
 internal static class JsonFields

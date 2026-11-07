@@ -50,7 +50,7 @@ public static partial class ManifestValidator
 
     public static ManifestValidationReport Validate(Manifest manifest) => new Checker(manifest).Run();
 
-    private readonly record struct Avail(string? Model, bool Maybe);
+    private readonly record struct Avail(string? Model, bool Maybe, bool Matrix = false);
 
     /// <summary>A select case a step sits in: the select (by reference), the value, and its condition text.</summary>
     private sealed record CaseOf(SelectStage Select, string Value)
@@ -67,7 +67,7 @@ public static partial class ManifestValidator
         private readonly HashSet<string> _usedModels = new(StringComparer.Ordinal);
         private readonly HashSet<string> _consumedRoots = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _stageSteps = new(StringComparer.Ordinal); // name → first path
-        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output)>> _placements = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<(string Path, IReadOnlyList<CaseOf> Cases, string? Output, bool Matrix)>> _placements = new(StringComparer.Ordinal);
         private readonly List<(string Name, string Path)> _producers = [];
 
         private void Error(string code, string path, string message, string? step = null) =>
@@ -216,7 +216,7 @@ public static partial class ManifestValidator
                         for (var j = 0; j < ss.Steps.Count; j++)
                         {
                             var step = ss.Steps[j];
-                            avail[step.Name] = new Avail(step.Output, false);
+                            avail[step.Name] = new Avail(step.Output, false, step.Matrix is not null);
                             if (step.Output is not null) _producers.Add((step.Name, $"{stagePath}.steps[{j}]"));
                         }
                         break;
@@ -248,8 +248,11 @@ public static partial class ManifestValidator
                 else if (!string.Equals(other.Output, step.Output, StringComparison.Ordinal))
                     Error(ManifestIssueCodes.SelectOutputMismatch, $"{path}.output",
                         $"step '{step.Name}' has output {step.Output ?? "none"} here and {other.Output ?? "none"} at {other.Path}; select cases must agree", step.Name);
+                else if (other.Matrix != step.Matrix is not null)
+                    Error(ManifestIssueCodes.MatrixInvalid, $"{path}.matrix",
+                        $"step '{step.Name}' is {(step.Matrix is null ? "not " : "")}a matrix step here and {(other.Matrix ? "is" : "is not")} at {other.Path}; select cases must agree", step.Name);
             }
-            placed.Add((path, cases, step.Output));
+            placed.Add((path, cases, step.Output, step.Matrix is not null));
         }
 
         private static bool Exclusive(IReadOnlyList<CaseOf> a, IReadOnlyList<CaseOf> b) =>
@@ -283,7 +286,7 @@ public static partial class ManifestValidator
             foreach (var name in branches.SelectMany(b => b.Keys).Where(k => !avail.ContainsKey(k)).Distinct(StringComparer.Ordinal).ToList())
             {
                 var present = branches.Where(b => b.ContainsKey(name)).Select(b => b[name]).ToList();
-                avail[name] = new Avail(present[0].Model, present.Count < branches.Count || present.Any(a => a.Maybe));
+                avail[name] = new Avail(present[0].Model, present.Count < branches.Count || present.Any(a => a.Maybe), present[0].Matrix);
             }
         }
 
@@ -350,6 +353,15 @@ public static partial class ManifestValidator
                 Error(ManifestIssueCodes.StepHashInvalid, $"{path}.handlerHash", s.HandlerHash is null ? $"step '{n}': no handlerHash, and the manifest has no codeHash" : $"step '{n}': handlerHash '{s.HandlerHash}' is not a sha256:<64 hex> hash", n);
             if (s.TimeoutSeconds is <= 0) Error(ManifestIssueCodes.StepTimeoutInvalid, $"{path}.timeoutSeconds", $"step '{n}': timeoutSeconds must be a positive integer", n);
             if (s.Retries is < 0) Error(ManifestIssueCodes.StepRetriesInvalid, $"{path}.retries", $"step '{n}': retries must be a non-negative integer", n);
+            if (s.Matrix is { } matrix)
+            {
+                if (failureHandler)
+                    Error(ManifestIssueCodes.MatrixInFailureHandler, $"{path}.matrix", $"failure handler '{n}': a failure handler can't be a matrix step", n);
+                else
+                    CheckMatrix(n, $"{path}.matrix", matrix);
+                if (s.ExternalInputs.Count > 0)
+                    Error(ManifestIssueCodes.MatrixInvalid, $"{path}.externalInputs", $"step '{n}': a matrix step can't wait for external inputs", n);
+            }
 
             var stepSecrets = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < s.Secrets.Count; i++)
@@ -411,7 +423,7 @@ public static partial class ManifestValidator
                 var at = $"step '{n}' input '{key}'";
                 if (failureHandler)
                 {
-                    var ok = type is ModelInputType { Model: ManifestRoots.FailureContextModel }
+                    var ok = type is ModelInputType { Model: ManifestRoots.FailureContextModel, Cells: false }
                              && mapping is RefMapping { Ref: ManifestRoots.Failure };
                     if (!ok)
                         Error(ManifestIssueCodes.FailureHandlerInputInvalid, mp,
@@ -439,12 +451,23 @@ public static partial class ManifestValidator
         /// </summary>
         private void CheckModelInput(string at, string path, string step, ModelInputType type, Mapping mapping, IReadOnlyDictionary<string, Avail> avail)
         {
+            if (type.Cells && mapping is not RefMapping { Path.Count: 0 })
+            {
+                Error(ManifestIssueCodes.CellsInputInvalid, path, $"{at}: a cells input maps a whole matrix step ({{\"ref\": \"<step>\"}})", step);
+                return;
+            }
             if (mapping is RefMapping { Path.Count: 0 } r)
             {
                 if (!CheckRefSyntax(at, path, step, r)) return;
-                if (!TryRoot(at, path, step, r, avail, type.Optional, out var a)) return;
+                if (!TryRoot(at, path, step, r, avail, type.Optional, out var a, cells: type.Cells)) return;
                 if (a.Model != type.Model)
                     Error(ManifestIssueCodes.InputTypeMismatch, path, $"{at}: expects {type.Model} but '{r.Root}' produces {a.Model} (models are nominal)", step);
+                if (type.Cells && a.Maybe)
+                {
+                    Error(ManifestIssueCodes.CellsInputInvalid, path,
+                        $"{at}: matrix step '{r.Root}' may be skipped (it runs inside a when block); a cells input reads a matrix step every run has", step);
+                    return;
+                }
                 if (a.Maybe && !type.Optional)
                     Error(ManifestIssueCodes.RefMaybeAvailable, path,
                         $"{at}: {a.Model} from '{r.Root}' is only maybe-available (produced inside a when block); declare it optional({type.Model})", step);
@@ -467,7 +490,7 @@ public static partial class ManifestValidator
         }
 
         /// <summary>Resolves a ref's root against what is available at this stage.</summary>
-        private bool TryRoot(string at, string path, string step, RefMapping r, IReadOnlyDictionary<string, Avail> avail, bool optionalTarget, out Avail a)
+        private bool TryRoot(string at, string path, string step, RefMapping r, IReadOnlyDictionary<string, Avail> avail, bool optionalTarget, out Avail a, bool cells = false)
         {
             _consumedRoots.Add(r.Root);
             if (r.Root == ManifestRoots.Failure)
@@ -483,12 +506,77 @@ public static partial class ManifestValidator
                 Error(ManifestIssueCodes.RefUnavailable, path, $"{at}: '{r.Root}' is not available at this stage{where}{hint}", step);
                 return false;
             }
+            if (a.Matrix != cells)
+            {
+                Error(cells ? ManifestIssueCodes.CellsInputInvalid : ManifestIssueCodes.RefMatrixStep, path, cells
+                    ? $"{at}: a cells input reads a matrix step, and '{r.Root}' is not one"
+                    : $"{at}: '{r.Root}' is a matrix step; read it through a cells input (a list of its cells' outputs)", step);
+                return false;
+            }
             if (a.Model is null)
             {
                 Error(ManifestIssueCodes.RefNoOutput, path, $"{at}: step '{r.Root}' produces no output", step);
                 return false;
             }
             return true;
+        }
+
+        // ── matrix ──
+        private void CheckMatrix(string n, string path, ManifestMatrix matrix)
+        {
+            var ok = true;
+            void Fail(string p, string message)
+            {
+                Error(ManifestIssueCodes.MatrixInvalid, p, $"step '{n}': {message}", n);
+                ok = false;
+            }
+
+            if (matrix.Axes.Count is < 1 or > MatrixCells.MaxAxes)
+                Fail($"{path}.axes", $"a matrix has 1 to {MatrixCells.MaxAxes} axes (it has {matrix.Axes.Count})");
+            var axes = new Dictionary<string, MatrixAxis>(StringComparer.Ordinal);
+            for (var i = 0; i < matrix.Axes.Count; i++)
+            {
+                var axis = matrix.Axes[i];
+                var ap = $"{path}.axes[{i}]";
+                if (!MatrixCells.AxisNameRegex().IsMatch(axis.Name))
+                    Fail($"{ap}.name", $"matrix axis name '{axis.Name}' must match {MatrixCells.AxisNameRegex()}");
+                else if (!axes.TryAdd(axis.Name, axis))
+                    Fail($"{ap}.name", $"matrix axis '{axis.Name}' is declared more than once");
+                if (axis.Values.Count == 0)
+                    Fail($"{ap}.values", $"matrix axis '{axis.Name}' has no values");
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                for (var j = 0; j < axis.Values.Count; j++)
+                {
+                    var value = axis.Values[j];
+                    if (!MatrixCells.ValueRegex().IsMatch(value))
+                        Fail($"{ap}.values[{j}]", $"matrix value '{value}' of axis '{axis.Name}' must match {MatrixCells.ValueRegex()}");
+                    else if (!seen.Add(value))
+                        Fail($"{ap}.values[{j}]", $"matrix axis '{axis.Name}' lists value '{value}' twice");
+                }
+            }
+
+            var exclude = matrix.Exclude ?? [];
+            for (var i = 0; i < exclude.Count; i++)
+            {
+                var xp = $"{path}.exclude[{i}]";
+                if (exclude[i].Count == 0)
+                    Fail(xp, "a matrix exclude entry names at least one axis");
+                foreach (var (axis, value) in exclude[i])
+                {
+                    if (!axes.TryGetValue(axis, out var declared))
+                        Fail($"{xp}.{axis}", $"matrix exclude names axis '{axis}', which the matrix does not have");
+                    else if (!declared.Values.Contains(value, StringComparer.Ordinal))
+                        Fail($"{xp}.{axis}", $"matrix exclude value '{value}' is not a value of axis '{axis}' ({string.Join(", ", declared.Values)})");
+                }
+            }
+
+            if (matrix.Failure is not (ManifestMatrix.KeepRunning or ManifestMatrix.CascadeFailure))
+                Fail($"{path}.failure.kind", $"unknown matrix failure strategy '{matrix.Failure}' ({ManifestMatrix.KeepRunning}, {ManifestMatrix.CascadeFailure})");
+            if (matrix.MaxParallel is < 1)
+                Fail($"{path}.maxParallel", "maxParallel must be at least 1");
+
+            if (ok && MatrixCells.Count(matrix) is var cells and (< 1 or > MatrixCells.MaxCells))
+                Fail(path, $"the matrix has {cells} cells; it needs 1 to {MatrixCells.MaxCells}");
         }
 
         /// <summary>

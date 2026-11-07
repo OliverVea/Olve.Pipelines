@@ -238,6 +238,41 @@ public static class ManifestWriter
         if (s.ConfigEntries.Count > 0) WriteStrings(w, "configEntries", s.ConfigEntries);
         if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
         WriteExternalInputs(w, s, model => model);
+        if (s.Matrix is { } matrix)
+        {
+            w.WritePropertyName("matrix");
+            Write(w, matrix);
+        }
+        w.WriteEndObject();
+    }
+
+    public static void Write(Utf8JsonWriter w, ManifestMatrix matrix)
+    {
+        w.WriteStartObject();
+        w.WriteStartArray("axes");
+        foreach (var axis in matrix.Axes)
+        {
+            w.WriteStartObject();
+            w.WriteString("name", axis.Name);
+            WriteStrings(w, "values", axis.Values);
+            w.WriteEndObject();
+        }
+        w.WriteEndArray();
+        if (matrix.Exclude is { } exclude)
+        {
+            w.WriteStartArray("exclude");
+            foreach (var entry in exclude)
+            {
+                w.WriteStartObject();
+                foreach (var (axis, value) in entry) w.WriteString(axis, value);
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+        }
+        w.WriteStartObject("failure");
+        w.WriteString("kind", matrix.Failure);
+        w.WriteEndObject();
+        if (matrix.MaxParallel is { } maxParallel) w.WriteNumber("maxParallel", maxParallel);
         w.WriteEndObject();
     }
 
@@ -283,6 +318,7 @@ public static class ManifestWriter
             case ModelInputType m:
                 w.WriteString("model", m.Model);
                 w.WriteBoolean("optional", m.Optional);
+                if (m.Cells) w.WriteBoolean("cells", true);
                 break;
             case SchemaInputType s:
                 w.WritePropertyName("schema");

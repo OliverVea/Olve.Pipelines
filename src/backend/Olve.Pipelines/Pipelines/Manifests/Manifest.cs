@@ -124,7 +124,27 @@ public sealed record StepDescriptor(
 
     /// <summary>Inputs whose values come from outside the run; the step waits for them before it runs.</summary>
     public IReadOnlyDictionary<string, ExternalInput> ExternalInputs { get; init; } = new Dictionary<string, ExternalInput>();
+
+    /// <summary>The step runs once per cell of this matrix (null = a plain step).</summary>
+    public ManifestMatrix? Matrix { get; init; }
 }
+
+/// <summary>A matrix step's axes (in order: the first is outermost), excluded cells, failure strategy and parallelism.</summary>
+/// <param name="Exclude">Each entry names axes with one value each; a cell matching every named axis is left out. Null when absent.</param>
+/// <param name="MaxParallel">At most this many of the step's cells in progress at once in a run (null = no limit).</param>
+public sealed record ManifestMatrix(
+    IReadOnlyList<MatrixAxis> Axes,
+    IReadOnlyList<IReadOnlyDictionary<string, string>>? Exclude,
+    string Failure,
+    long? MaxParallel)
+{
+    public const string KeepRunning = "keepRunning";
+    public const string CascadeFailure = "cascadeFailure";
+
+    public bool Cascades => Failure == CascadeFailure;
+}
+
+public sealed record MatrixAxis(string Name, IReadOnlyList<string> Values);
 
 /// <summary>An input answered from outside the run, validated against <see cref="Model"/>'s input view.</summary>
 public sealed record ExternalInput(string Model, string Title, string Description, IReadOnlyList<ExternalSource> From);
@@ -156,7 +176,11 @@ public abstract record ExternalSource
 public abstract record InputType;
 
 /// <summary>A model input; <see cref="Optional"/> = <c>optional(Model)</c> (may be absent because its producer was skipped).</summary>
-public sealed record ModelInputType(string Model, bool Optional) : InputType;
+public sealed record ModelInputType(string Model, bool Optional) : InputType
+{
+    /// <summary>Reads a matrix step: the value is a list of <c>{cell, output}</c>, one per produced cell.</summary>
+    public bool Cells { get; init; }
+}
 
 /// <summary>A plain (unnamed) schema input. Always explicitly mapped.</summary>
 public sealed record SchemaInputType(ModelSchemas Schema) : InputType;

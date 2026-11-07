@@ -215,6 +215,48 @@ describe('run get and list', () => {
     );
   });
 
+  test('get shows a matrix step with its progress and its cells under it', async () => {
+    const base = run();
+    const cell = (
+      arch: string,
+      status: 'succeeded' | 'failed',
+      reason: string | null,
+    ) => ({
+      name: `build[os=linux,arch=${arch}]`,
+      cell: { os: 'linux', arch },
+      status,
+      reason,
+      attemptCount: 1,
+      latestAttempt: 1,
+      succeededAttempt: status === 'succeeded' ? 1 : null,
+      startedAt: '2026-10-28T10:00:00Z',
+      finishedAt: '2026-10-28T10:00:30Z',
+    });
+    const step = {
+      ...base.stages[0]!.steps[0]!,
+      name: 'build',
+      status: 'failed' as const,
+      reason: 'linux · arm64 failed: exit 1',
+      latestAttempt: null,
+      succeededAttempt: null,
+      cells: [cell('x64', 'succeeded', null), cell('arm64', 'failed', 'exit 1')],
+    };
+    const body = { ...base, stages: [{ ...base.stages[0]!, steps: [step] }] };
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines' ? { body: [alpha] } : { body },
+    );
+    const result = await pl(['run', 'get', 'alpha#15'], { fetch });
+    const lines = result.stdout.split('\n');
+    const at = lines.findIndex((l) => l.startsWith('  build '));
+    expect(lines[at]).toMatch(
+      /^  build +failed +1\/2 cells .*linux · arm64 failed: exit 1/,
+    );
+    expect(lines[at + 1]).toMatch(/^    build\[os=linux,arch=x64\] +succeeded +@1\/1/);
+    expect(lines[at + 2]).toMatch(
+      /^    build\[os=linux,arch=arm64\] +failed +@1\/1 .*exit 1/,
+    );
+  });
+
   test('list pages with offset and limit', async () => {
     const { fetch, requests } = fakeFetch((req) =>
       req.path === '/api/pipelines'

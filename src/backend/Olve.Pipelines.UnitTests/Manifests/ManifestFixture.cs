@@ -101,6 +101,30 @@ internal static class ManifestFixture
 
     public static JsonNode ModelType(string model, bool optional = false) => new JsonObject { ["model"] = model, ["optional"] = optional };
 
+    public static JsonNode CellsType(string model, bool optional = false) => new JsonObject { ["model"] = model, ["optional"] = optional, ["cells"] = true };
+
+    /// <summary>A matrix: <c>os</c> × <c>arch</c> unless <paramref name="axes"/> says otherwise.</summary>
+    public static JsonObject Matrix(string failure = "keepRunning", long? maxParallel = null, JsonArray? exclude = null, params (string Name, string[] Values)[] axes)
+    {
+        if (axes.Length == 0) axes = [("os", ["linux", "windows"]), ("arch", ["x64", "arm64"])];
+        var matrix = new JsonObject
+        {
+            ["axes"] = new JsonArray(axes.Select(a => (JsonNode)new JsonObject { ["name"] = a.Name, ["values"] = new JsonArray(a.Values.Select(v => (JsonNode)v).ToArray()) }).ToArray()),
+            ["failure"] = new JsonObject { ["kind"] = failure },
+        };
+        if (exclude is not null) matrix["exclude"] = exclude;
+        if (maxParallel is { } n) matrix["maxParallel"] = n;
+        return matrix;
+    }
+
+    /// <summary>Makes <c>build</c> a matrix step and every reader of it a <c>cells</c> input.</summary>
+    public static void MatrixBuild(JsonObject root, JsonObject? matrix = null)
+    {
+        Step(root, "build")["matrix"] = matrix ?? Matrix();
+        foreach (var reader in new[] { "deploy-beta", "deploy-prod", "publish-cli" })
+            Step(root, reader)["inputTypes"]!["artifact"] = CellsType("BuildArtifact");
+    }
+
     /// <summary>The same JSON with every object's keys in reverse order (for order-independence tests).</summary>
     public static JsonNode? ReverseKeys(JsonNode? node) => node switch
     {

@@ -30,6 +30,7 @@ public class AttemptService(
     private readonly EntityStoreIndex<Attempt, Id<Pipeline>> _byPipeline = store.CreateIndex(a => a.PipelineId);
     private readonly EntityStoreIndex<Attempt, Id<Run>> _byRun = store.CreateIndex(a => a.RunId);
     private readonly EntityStoreIndex<Attempt, StepKey> _byStep = store.CreateIndex(a => a.Key);
+    private readonly EntityStoreIndex<Attempt, StepKey> _byDeclaredStep = store.CreateIndex(a => new StepKey(a.PipelineId, Manifests.MatrixCells.StepOf(a.StepName)));
     private readonly Lock _createGate = new();
 
     /// <summary>
@@ -89,6 +90,14 @@ public class AttemptService(
         => Resolve(_byStep.GetForKey(new StepKey(pipelineId, stepName)))
             .OrderByDescending(a => a.RunNumber)
             .ThenByDescending(a => a.Number)
+            .ToList();
+
+    /// <summary>Like <see cref="ListByStepName"/>, with a matrix step's cells counted as the step: newest run first.</summary>
+    public IReadOnlyList<Attempt> ListByDeclaredStep(Id<Pipeline> pipelineId, string stepName)
+        => Resolve(_byDeclaredStep.GetForKey(new StepKey(pipelineId, stepName)))
+            .OrderByDescending(a => a.RunNumber)
+            .ThenByDescending(a => a.Number)
+            .ThenBy(a => a.StepName, StringComparer.Ordinal)
             .ToList();
 
     public bool TryGetByNumber(Id<Run> runId, string stepName, int number, [NotNullWhen(true)] out Attempt? attempt)
@@ -236,7 +245,7 @@ public class AttemptService(
             : new ConflictProblem("Attempt '{0}' is no longer scheduled.", id);
     }
 
-    public Result Cancel(Id<Attempt> id)
+    public Result Cancel(Id<Attempt> id, string? reason = null)
     {
         if (!store.TryGet(id, out var attempt))
             return new NotFoundProblem("Attempt '{0}' not found.", id);
@@ -248,8 +257,8 @@ public class AttemptService(
         var now = timeProvider.GetUtcNow();
         return store.Mutate(id, a => a.Status switch
         {
-            Waiting or Scheduled => a with { Status = new Cancelled(null, now) },
-            InProgress ip => a with { Status = new Cancelled(ip.StartedAt, now) },
+            Waiting or Scheduled => a with { Status = new Cancelled(null, now, reason) },
+            InProgress ip => a with { Status = new Cancelled(ip.StartedAt, now, reason) },
             _ => a,
         });
     }

@@ -54,7 +54,7 @@ pl pipeline versions <pipeline>                        # > marks the version run
 pl pipeline manifest <pipeline> [--version <n>] [--json]
 pl pipeline switch <pipeline> <version> [--cancel-running]   # rollback = an older version
 
-# runs. Addresses: <pipeline>#<run>[/<step>[@<attempt>]]
+# runs. Addresses: <pipeline>#<run>[/<step>[@<attempt>]]; a matrix cell is a step: '<pipeline>#<run>/<step>[os=linux,arch=x64]' (quote it: [...] is a shell glob)
 pl trigger <pipeline> [--input <json|@file|@->] [--field k=v ...]   # prints <pipeline>#<run>
 pl run list <pipeline> [--page <n>] [--page-size <n>]
 pl run get <pipeline>#<run>
@@ -68,13 +68,13 @@ pl step output <pipeline>#<run>/<step>[@<attempt>]
 pl step files <pipeline>#<run>/<step>[@<attempt>]
 pl step file <pipeline>#<run>/<step>[@<attempt>] <path> [-o <file>]
 pl step logs <pipeline>#<run>/<step>[@<attempt>] [--follow] [--interval <seconds>]
-pl step rerun <pipeline>#<run>/<step> [--continue]
-pl step cancel <pipeline>#<run>/<step>                 # the run ends Cancelled once the stage settles
+pl step rerun <pipeline>#<run>/<step> [--continue]      # a cell reruns alone; a matrix step's name reruns every cell
+pl step cancel <pipeline>#<run>/<step>                 # the run ends Cancelled once the stage settles; a matrix step's name cancels its cells in flight
 pl step history <pipeline>/<step> [--limit <n>]
 
 # blocking steps (an operator hold; use sparingly)
 pl step blocked <pipeline>
-pl step block <pipeline>/<step>
+pl step block <pipeline>/<step>                        # a matrix step holds all its cells; a cell can't be blocked
 pl step unblock <pipeline>/<step>
 
 # what's running (scheduled/in-progress attempts across pipelines)

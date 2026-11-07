@@ -267,7 +267,9 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
     detail: `pl step rerun <pipeline>#<run>/<step> [--continue]
 
   Adds an attempt in the same run (same pinned version, current pool input). Rerun only by
-  default; --continue also continues the run downstream of the step.`,
+  default; --continue also continues the run downstream of the step. A matrix cell reruns on
+  its own ('olve-pipelines#412/build-cli[os=linux,arch=x64]', quoted for the shell); the
+  matrix step's own name reruns every cell.`,
     async run(ctx) {
       const addr = await resolveStep(ctx.api, ctx.args.operand(0)!);
       if (addr.address.attempt !== undefined)
@@ -302,7 +304,8 @@ pl step file <pipeline>#<run>/<step>[@<attempt>]/<path> [-o <file>]
 
   Cancels the step's scheduled or in-progress attempt (its K8s Job is deleted). Like any
   cancelled attempt, the other steps of its stage keep running and the run ends Cancelled
-  once the stage settles. \`pl step rerun <address> --continue\` re-opens the run.`,
+  once the stage settles. \`pl step rerun <address> --continue\` re-opens the run. A cell
+  address cancels that cell; the matrix step's own name cancels every cell in flight.`,
     async run(ctx) {
       const addr = await resolveStep(ctx.api, ctx.args.operand(0)!);
       if (addr.address.attempt !== undefined)

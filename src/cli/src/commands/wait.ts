@@ -30,7 +30,7 @@ const ACTIVE: readonly RunStepStatus[] = ['scheduled', 'in-progress'];
 const isTerminal = (status: RunStatus) => TERMINAL.includes(status);
 
 /** A step only a person can move on (a callback or poll answers by itself). */
-const needsPerson = (step: RunStep) =>
+const needsPerson = (step: Pick<RunStep, 'status' | 'waitingFor'>) =>
   step.status === 'waiting' && (!step.waitingFor || step.waitingFor.includes('person'));
 
 /** The run `cursor` points at, following `supersededBy` when `follow`: the newer run contains the commit. */
@@ -94,7 +94,10 @@ function stepState(
   attempt: number | undefined,
   until: string,
 ): WaitCheck {
-  const view = run.stages.flatMap((s) => s.steps).find((s) => s.name === step);
+  const steps = run.stages.flatMap((s) => s.steps);
+  const view =
+    steps.find((s) => s.name === step) ??
+    steps.flatMap((s) => s.cells ?? []).find((c) => c.name === step);
   if (!view) throw new CliError(`Run #${run.number} has no step '${step}'.`);
   const name = `${formatAddress(label, run.number)}/${step}`;
   if (attempt !== undefined && attempt !== view.latestAttempt)
@@ -137,6 +140,9 @@ export const waitCommands: Command[] = [
     summary:
       'Wait for a run or step to finish (or --until started/held); exit 0 on success',
     detail: `pl wait run <pipeline>#<run>[/<step>[@<attempt>]] [--until finished|started|held] [--timeout 45m] [--no-follow]
+
+  <step> may be a matrix cell, quoted: 'olve-pipelines#412/build-cli[os=linux,arch=x64]'. A matrix
+  step's own name waits for all its cells (its status is rolled up from them).
 
   Blocks until the run (or the step) reaches the state, then prints it. Re-checks on the
   pipeline's live events, and every minute in case the stream stalls. A superseded run is

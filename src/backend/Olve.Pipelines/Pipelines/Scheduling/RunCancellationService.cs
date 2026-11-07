@@ -47,8 +47,25 @@ public class RunCancellationService(
         return runs.TryGet(run.Id, out var current) ? current : run;
     });
 
-    /// <summary>Cancels the Scheduled/InProgress attempt of <paramref name="stepName"/> in a run (its K8s Job is
-    /// deleted); the attempt-finished event then advances the run. Also allowed on a finished run that still has the step in flight
+    /// <summary>
+    /// A matrix step's <c>cascadeFailure</c>: cancels the given active attempts of its other cells (their Jobs are
+    /// deleted), each with <paramref name="reason"/>. The scheduler calls it when a cell failed for good.
+    /// </summary>
+    public void CancelCells(Run run, IReadOnlyList<Attempt> active, string reason) => schedulingLock.Run(() =>
+    {
+        foreach (var attempt in active)
+        {
+            if (attempts.Cancel(attempt.Id, reason).TryPickProblems(out var problems))
+                logger.LogProblems(LogLevel.Warning, problems, "Could not cancel cell '{StepName}' attempt {AttemptNumber} in run #{RunNumber}",
+                    attempt.StepName, attempt.Number, run.Number);
+            else
+                logger.LogInformation("Cancelled cell '{StepName}' attempt {AttemptNumber} in run #{RunNumber} ('{RunId}'): {Reason}",
+                    attempt.StepName, attempt.Number, run.Number, run.Id, reason);
+        }
+    });
+
+    /// <summary>Cancels the Scheduled/InProgress attempt of <paramref name="stepName"/> (a step or a cell) in a run (its K8s Job is
+    /// deleted), or every cell in flight for a matrix step's name; the attempt-finished event then advances the run. Also allowed on a finished run that still has the step in flight
     /// (e.g. a superseded run's deploy).</summary>
     public Result<Attempt> CancelStep(Id<Run> runId, string stepName) => schedulingLock.Run<Result<Attempt>>(() =>
     {
@@ -56,6 +73,8 @@ public class RunCancellationService(
             return new NotFoundProblem("Run '{0}' not found.", runId);
 
         var stepAttempts = attempts.ListForStep(run.Id, stepName);
+        if (stepAttempts.Count == 0 && CancelCellsOf(run, stepName) is { } cells)
+            return cells;
         if (stepAttempts.Count == 0)
             return new NotFoundProblem("Run #{0} has no attempt of step '{1}'.", run.Number, stepName);
 
@@ -73,4 +92,28 @@ public class RunCancellationService(
         // The attempt-finished event advances the run (barrier) and checks a pending drain.
         return attempts.TryGet(active.Id, out var current) ? current : active;
     });
+
+    /// <summary>A matrix step's name cancels every cell in flight and returns the first; null when it has no cells in the run.</summary>
+    private Result<Attempt>? CancelCellsOf(Run run, string stepName)
+    {
+        var latest = attempts.ListByRun(run.Id)
+            .Where(a => a.StepName != stepName && Manifests.MatrixCells.StepOf(a.StepName) == stepName)
+            .GroupBy(a => a.StepName)
+            .Select(g => g.MaxBy(a => a.Number)!)
+            .ToList();
+        if (latest.Count == 0)
+            return null;
+        var active = latest.Where(a => a.Status.IsActive()).ToList();
+        if (active.Count == 0)
+            return new ConflictProblem("Matrix step '{0}' has no scheduled or in-progress cell in run #{1}.", stepName, run.Number);
+
+        foreach (var attempt in active)
+        {
+            if (attempts.Cancel(attempt.Id).TryPickProblems(out var problems))
+                return problems;
+        }
+        logger.LogInformation("Cancelled {CellCount} cell(s) of step '{StepName}' in run #{RunNumber} ('{RunId}') of pipeline '{PipelineId}'",
+            active.Count, stepName, run.Number, run.Id, run.PipelineId);
+        return attempts.TryGet(active[0].Id, out var current) ? current : active[0];
+    }
 }

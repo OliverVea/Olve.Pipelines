@@ -62,6 +62,16 @@ public class HarnessFileRefsTests
     }
 
     [Test]
+    public async Task UrlMap_ACellsRef_IsKeyedByTheCellName_AndItsUrlEncodesIt()
+    {
+        var map = await HarnessFileRefs.BuildUrlMapAsync(HarnessJobBuilderTests.PipelineId,
+            [new HarnessFileRef(7, "build[os=linux,arch=x64]", 1, "pl", Sha)], Presigner(), TimeSpan.FromMinutes(30));
+
+        await Assert.That(TestRunDomain.Pick(map)["7/build[os=linux,arch=x64]/1/pl"])
+            .StartsWith("http://garage.svc:3900/bucket/runs/11111111222233334444555555555555/7/build%5Bos%3Dlinux%2Carch%3Dx64%5D/1/files/pl?");
+    }
+
+    [Test]
     [Arguments(1, "build", 1, "../escape", "File ref '1/build/1' has an invalid path.")]
     [Arguments(1, "build", 1, "/abs", "File ref '1/build/1' has an invalid path.")]
     [Arguments(1, "build", 1, "a/../b", "File ref '1/build/1' has an invalid path.")]
@@ -70,6 +80,8 @@ public class HarnessFileRefsTests
     [Arguments(1, "build", 1, "", "File ref '1/build/1' has an invalid path.")]
     [Arguments(1, "Build", 1, "a", "File ref has an invalid step name 'Build'.")]
     [Arguments(1, "../x", 1, "a", "File ref has an invalid step name '../x'.")]
+    [Arguments(1, "build[os=linux", 1, "a", "File ref has an invalid step name 'build[os=linux'.")]
+    [Arguments(1, "build[os=../x]", 1, "a", "File ref has an invalid step name 'build[os=../x]'.")]
     [Arguments(-1, "build", 1, "a", "File ref '-1/build/1/a' has an invalid run or attempt number.")]
     [Arguments(1, "build", 0, "a", "File ref '1/build/0/a' has an invalid run or attempt number.")]
     public async Task UrlMap_RejectsInvalidRefs(int run, string step, int attempt, string path, string message)

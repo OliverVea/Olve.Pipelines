@@ -75,7 +75,7 @@ public static class ManifestVersioning
 
     /// <summary>
     /// Step content = kind, image, input types (models as <c>Name.Version</c>), mappings, output model version,
-    /// secrets (as a set), handler hash, config, timeout, retries.
+    /// secrets (as a set), handler hash, config, timeout, retries, matrix.
     /// </summary>
     public static string StepContentHash(StepDescriptor s, IReadOnlyDictionary<string, int> modelVersions, IReadOnlyList<ManifestConfigEntry>? config = null)
     {
@@ -94,6 +94,7 @@ public static class ManifestVersioning
                     case ModelInputType mt:
                         w.WriteString("model", Versioned(mt.Model));
                         w.WriteBoolean("optional", mt.Optional);
+                        if (mt.Cells) w.WriteBoolean("cells", true);
                         break;
                     case SchemaInputType st:
                         w.WritePropertyName("schema");
@@ -142,6 +143,11 @@ public static class ManifestVersioning
                 w.WriteEndObject();
             }
             if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
+            if (s.Matrix is { } matrix)
+            {
+                w.WritePropertyName("matrix");
+                ManifestWriter.Write(w, matrix);
+            }
             w.WriteEndObject();
         });
         return CanonicalJson.Hash(content);

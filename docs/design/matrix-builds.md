@@ -26,8 +26,10 @@ built; the UI mock is `src/frontend/mocks/matrix.html` (`npm run dev`).
 - Card: one pill per cell, or a grid for two axes with excluded cells hatched.
 - Step sheet: a table of cells with status, attempt, time, logs and a rerun.
 
-## Open
+## Steps around a matrix step
 
-- What a later step gets from a matrix step: every cell's output, keyed by cell.
-- How a handler learns its cell (`ctx.cell`), and whether a cell's input can depend on it.
-- Concurrency: whether cells count against `Jobs:MaxConcurrent` one by one, and a per-step limit.
+- **Input**: every cell gets the step's input; the handler reads its typed cell from `ctx.cell`.
+- **Output**: a later step that reads a matrix step gets a list of `{ cell, output }`, in cell
+  order.
+- **Concurrency**: each cell is its own Job and counts against `Jobs:MaxConcurrent`; a step may
+  set `maxParallel` to hold heavy cells back.

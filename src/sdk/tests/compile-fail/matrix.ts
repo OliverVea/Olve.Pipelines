@@ -66,3 +66,7 @@ p.stage([all, (from) => ({ binaries: from.checkout })]);
 testHandler(buildCli, { source: {} as never }, { cell: { os: "solaris", arch: "x64" } });
 // @ts-expect-error -- expect: is not assignable to type 'undefined'
 testHandler(lint, { source: {} as never }, { cell: { os: "linux" } });
+
+// cells() can't read a matrix step that may be skipped
+// @ts-expect-error -- expect: cells() cannot read a maybe-skipped matrix step
+base().stage([checkout, (from) => ({ repo: from.input.repo, sha: from.input.sha })]).when({ deployTo: "prod" }, (q) => q.stage(buildCli)).stage(all);

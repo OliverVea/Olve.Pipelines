@@ -493,7 +493,8 @@ ${dirOption}
                            from the environment; other pipeline secrets are not passed on
   --docker                 Compile with olve-build and run the binary in the step's image
                            like the pod (/olve layout, bundled loader, same env)
-  --json                   Print the raw envelope on stdout (step output goes to stderr)`,
+  --json                   Print the raw envelope on stdout, one line per cell for a matrix
+                           step (step output goes to stderr)`,
     async run(ctx) {
       const stepName = ctx.args.operand(0)!;
       const inputFile = ctx.args.option('input-file');

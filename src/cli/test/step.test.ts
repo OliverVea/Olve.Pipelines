@@ -87,6 +87,27 @@ describe('step', () => {
     expect(bad.stderr).toContain('drop the @1');
   });
 
+  test('a cell address goes to the API URL-encoded', async () => {
+    const { fetch, requests } = fakeFetch((req) =>
+      req.path === '/api/pipelines'
+        ? { body: [alpha] }
+        : {
+            body: {
+              ...attempt(3, 'scheduled', { submissionAttempts: 0 }),
+              stepName: 'build[os=linux,arch=x64]',
+            },
+          },
+    );
+    const result = await pl(['step', 'rerun', 'alpha#15/build[os=linux,arch=x64]'], {
+      fetch,
+    });
+    expect(result.code).toBe(0);
+    expect(requests.at(-1)!.path).toBe(
+      `/api/pipelines/${ID}/runs/15/steps/build%5Bos%3Dlinux%2Carch%3Dx64%5D/rerun`,
+    );
+    expect(result.stdout).toContain('alpha#15/build[os=linux,arch=x64]@3  scheduled');
+  });
+
   test('block and unblock print the blocked list', async () => {
     const { fetch, requests } = fakeFetch((req) =>
       req.path === '/api/pipelines' ? { body: [alpha] } : { body: ['deploy-prod'] },

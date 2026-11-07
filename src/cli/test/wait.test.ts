@@ -138,6 +138,35 @@ describe('wait', () => {
     expect(step.stdout).toBe('alpha#7/build  succeeded\n');
   });
 
+  test('a step wait takes a matrix cell', async () => {
+    const cell = {
+      name: 'build[os=linux]',
+      cell: { os: 'linux' },
+      status: 'failed' as const,
+      reason: 'exit 1',
+      attemptCount: 1,
+      latestAttempt: 1,
+      succeededAttempt: null,
+      startedAt: null,
+      finishedAt: null,
+    };
+    const stages: RunStage[] = [
+      {
+        index: 0,
+        when: [],
+        steps: [stepView('build', { status: 'failed', cells: [cell] })],
+      },
+    ];
+    const { fetch } = fakeFetch((req) => {
+      if (req.path === '/api/pipelines') return { body: [alpha] };
+      if (req.path.startsWith('/api/events')) return events;
+      return { body: run(7, 'Failed', { stages }) };
+    });
+    const result = await pl(['wait', 'run', 'alpha#7/build[os=linux]'], { fetch });
+    expect(result.code).toBe(1);
+    expect(result.stdout).toBe('alpha#7/build[os=linux]  failed (exit 1)\n');
+  });
+
   test('a step wait follows a rerun in an ended run; @<attempt> must be the latest', async () => {
     const stages = (status: RunStep['status'], latestAttempt: number): RunStage[] => [
       {

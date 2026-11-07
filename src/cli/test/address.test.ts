@@ -33,6 +33,19 @@ describe('addresses', () => {
     });
   });
 
+  test('a matrix cell is a step: its name keeps the brackets', () => {
+    expect(parseAddress('p#4/build-cli[os=linux,arch=x64]@2/dist/pl')).toEqual({
+      pipeline: 'p',
+      run: 4,
+      step: 'build-cli[os=linux,arch=x64]',
+      attempt: 2,
+      path: 'dist/pl',
+    });
+    expect(formatAddress('p', 4, 'build-cli[os=linux,arch=x64]', 1)).toBe(
+      'p#4/build-cli[os=linux,arch=x64]@1',
+    );
+  });
+
   test('rejects what is not an address', () => {
     expect(() => parseAddress('p')).toThrow('Expected an address');
     expect(() => parseAddress('p#0')).toThrow('positive integer');

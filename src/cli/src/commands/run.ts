@@ -10,6 +10,7 @@ import {
   type Run,
   type RunStart,
   type RunStep,
+  type RunStepCell,
   type RunSummary,
 } from '@olve/api';
 import { formatAddress, resolvePipeline, resolveRun } from '../address';
@@ -43,9 +44,9 @@ export function note(r: RunSummary): string {
   return notes.join('; ');
 }
 
-function stepNote(s: RunStep): string {
+function stepNote(s: RunStep | RunStepCell): string {
   const notes: string[] = [];
-  if (s.blocked) notes.push('blocked');
+  if ('blocked' in s && s.blocked) notes.push('blocked');
   if (s.succeededAttempt !== null && s.succeededAttempt !== s.latestAttempt)
     notes.push(`uses @${s.succeededAttempt}`);
   if (s.reason) notes.push(s.reason);
@@ -53,6 +54,13 @@ function stepNote(s: RunStep): string {
     notes.push(`→ ${l.url}${l.label ? ` (${l.label})` : ''}`);
   return notes.join('; ');
 }
+
+const attemptOf = (s: RunStep | RunStepCell) =>
+  s.latestAttempt != null ? `@${s.latestAttempt}/${s.attemptCount}` : '-';
+
+/** A matrix step's progress: its cells that succeeded or were skipped, out of all of them. */
+const cellsDone = (cells: RunStepCell[]) =>
+  `${cells.filter((c) => c.status === 'succeeded' || c.status === 'skipped').length}/${cells.length} cells`;
 
 export function printRun(out: Output, label: string, d: Run): void {
   out.line(`${formatAddress(label, d.number)}  ${d.status}`);
@@ -89,12 +97,21 @@ export function printRun(out: Output, label: string, d: Run): void {
     out.lines(
       table(
         ['  STEP', 'STATUS', 'ATTEMPT', 'TOOK', 'NOTE'],
-        stage.steps.map((s) => [
-          '  ' + s.name,
-          s.status,
-          s.latestAttempt != null ? `@${s.latestAttempt}/${s.attemptCount}` : '-',
-          duration(s.startedAt, s.finishedAt),
-          stepNote(s),
+        stage.steps.flatMap((s) => [
+          [
+            '  ' + s.name,
+            s.status,
+            s.cells ? cellsDone(s.cells) : attemptOf(s),
+            duration(s.startedAt, s.finishedAt),
+            stepNote(s),
+          ],
+          ...(s.cells ?? []).map((c) => [
+            '    ' + c.name,
+            c.status,
+            attemptOf(c),
+            duration(c.startedAt, c.finishedAt),
+            stepNote(c),
+          ]),
         ]),
       ),
     );

@@ -77,13 +77,13 @@ public sealed class PipelinesApi(HttpClient http)
         await ReadAsync<IReadOnlyList<Attempt>>(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/attempts"));
 
     public async Task<string> GetStepOutputAsync(Guid pipelineId, int number, string step) =>
-        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{step}/output"));
+        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{Uri.EscapeDataString(step)}/output"));
 
     public async Task<string> GetStepFileAsync(Guid pipelineId, int number, string step, string path) =>
-        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{step}/files/{path}"));
+        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{Uri.EscapeDataString(step)}/files/{path}"));
 
     public async Task<string> GetStepLogsAsync(Guid pipelineId, int number, string step) =>
-        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{step}/logs"));
+        await ReadTextAsync(await http.GetAsync($"api/pipelines/{pipelineId}/runs/{number}/steps/{Uri.EscapeDataString(step)}/logs"));
 
     private static StringContent JsonBody(JsonObject body) => new(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
 

@@ -32,8 +32,8 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
 
 ## Next
 
-1. **Matrix builds.** One step run once per entry of a list (platforms, targets, versions), shown
-   as one step with its cells in the UI. Starts with a UI mock.
+1. **Matrix builds.** One step run once per cell of its axes (platforms, targets, versions), shown
+   as one step with its cells: [matrix-builds.md](matrix-builds.md).
 2. **Caching.** Spend less time redoing work that hasn't changed. Start from where the time goes
    (`pl run critical-path`), then:
    - **Output caching**: a step whose code hash, step version, pinned config and input match an

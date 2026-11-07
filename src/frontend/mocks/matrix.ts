@@ -71,12 +71,14 @@ const manifest = {
   ],
 } as unknown as Manifest;
 
-type Scenario = 'running' | 'failed' | 'green';
+type Scenario = 'running' | 'failed' | 'cascaded' | 'green';
 const SCENARIOS: [Scenario, string][] = [
   ['running', 'Running'],
-  ['failed', 'A cell failed'],
+  ['failed', 'A cell failed (keepRunning)'],
+  ['cascaded', 'Failure cascaded (cascadeFailure)'],
   ['green', 'All green'],
 ];
+const WINDOWS_FAILED = 'bun build --compile: target bun-windows-x64 not found';
 
 const ago = (s: number) => new Date(Date.now() - s * 1000);
 
@@ -96,6 +98,14 @@ function cellStates(
   }));
 }
 
+/** The step's reason: the failure, and for a cascade only the failure that caused it. */
+function matrixReason(cells: CellState[]): string | null {
+  const failed = cells.filter((c) => c.status === 'failed');
+  if (failed.length === 0) return null;
+  const first = `${cellLabel(failed[0]!.cell)} failed: ${failed[0]!.reason}`;
+  return failed.length > 1 ? `${failed.length} cells failed. ${first}` : first;
+}
+
 function statesFor(scenario: Scenario): Map<string, StepState> {
   const done = (startedS: number, tookS: number): StepState => ({
     status: 'succeeded',
@@ -104,29 +114,37 @@ function statesFor(scenario: Scenario): Map<string, StepState> {
     finishedAt: ago(startedS - tookS),
     logsHref: '#logs',
   });
-  const cli = cellStates(buildCli, (c) =>
-    scenario === 'green'
-      ? {}
-      : c.os === 'macos' && c.arch === 'arm64'
-        ? {
-            status: 'scheduled',
+  const failed = scenario === 'failed' || scenario === 'cascaded';
+  const cascaded = 'cancelled: windows · x64 failed';
+  const cli = cellStates(buildCli, (c) => {
+    if (scenario === 'green') return {};
+    if (c.os === 'windows' && failed) return { status: 'failed', reason: WINDOWS_FAILED };
+    if (c.os !== 'macos') return {};
+    if (scenario === 'cascaded')
+      return c.arch === 'x64'
+        ? { status: 'cancelled', reason: cascaded }
+        : {
+            status: 'cancelled',
+            reason: cascaded,
             startedAt: null,
             finishedAt: null,
             latestAttempt: null,
             logsHref: undefined,
-          }
-        : c.os === 'macos'
-          ? { status: 'in-progress', finishedAt: null }
-          : c.os === 'windows' && scenario === 'failed'
-            ? {
-                status: 'failed',
-                reason: 'bun build --compile: target bun-windows-x64 not found',
-              }
-            : {},
-  );
+          };
+    return c.arch === 'arm64'
+      ? {
+          status: 'scheduled',
+          startedAt: null,
+          finishedAt: null,
+          latestAttempt: null,
+          logsHref: undefined,
+        }
+      : { status: 'in-progress', finishedAt: null };
+  });
   const sdk = cellStates(testSdk, () => ({}));
   const matrixState = (cells: CellState[]): StepState => ({
     status: rollUp(cells),
+    reason: matrixReason(cells),
     runNumber: 204,
     startedAt: cells[0]?.startedAt,
     finishedAt: rollUp(cells) === 'succeeded' ? cells.at(-1)?.finishedAt : null,

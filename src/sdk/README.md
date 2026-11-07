@@ -487,7 +487,7 @@ olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--s
 olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 ```
 
-`olve-dev` runs handlers from source, through the same validation path as the binary. `$OLVE_DIR` defaults to `<dir>/.olve`, and outputs land in `<dir>/.olve/work/`. Set `OLVE_FILES_DIR` to a local pool to fetch file refs. `--config-file` (a JSON object of config entries) becomes the input's `$config`.
+`olve-dev` runs handlers from source, through the same validation path as the binary. `$OLVE_DIR` defaults to `<dir>/.olve`, and outputs land in `<dir>/.olve/work/`. Set `OLVE_FILES_DIR` to a local pool to fetch file refs. `--config-file` (a JSON object of config entries) becomes the input's `$config`. A matrix step's cell comes from `OLVE_CELL` in the environment, as in the pod.
 
 ## Development
 

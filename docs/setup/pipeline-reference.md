@@ -101,7 +101,7 @@ export const deployBeta = step({
   name: "deploy-beta",                  // identity: lower-case kebab, ≤ 63 chars; not "input"/"failure"
   description: "Deploys to beta.",      // required (may be ""); shown in the UI
   image: "alpine:3.22",                 // any x86-64 image — the harness brings its own runtime
-  input: { artifact: M.BuildArtifact }, // model | optional(model) | plain zod schema | external(model, …)
+  input: { artifact: M.BuildArtifact }, // model | optional(model) | cells(model) | plain zod schema | external(model, …)
   output: M.BetaDeployment,             // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],
   config: [TARGET],                     // optional: config entries, read as ctx.config
@@ -153,6 +153,78 @@ export const deployBeta = step({
   pipeline bound on the instance, runs with the same token and so has that account's whole RBAC
   reach. Grant it only rights every bound repository may use, and keep the namespaces it can write
   to free of anything else.
+
+## Matrix steps
+
+A matrix step runs once per **cell**: one combination of its axes' values. It is one step in its
+stage, and the stage's barrier waits for every cell.
+
+```ts
+import { cascadeFailure, cells, implement, step } from "@olivervea/pipelines";
+
+export const buildCli = implement(
+  step({
+    name: "build-cli",
+    description: "Builds pl for one platform.",
+    image: "oven/bun:1.4.3-slim",
+    input: { source: Source },
+    output: M.BuiltBinary,
+    matrix: {
+      axes: { os: ["linux", "windows", "macos"], arch: ["x64", "arm64"] },
+      exclude: [{ os: "windows", arch: "arm64" }],
+      failure: cascadeFailure(), // default keepRunning()
+      maxParallel: 2,            // optional
+    },
+  }),
+  async ({ source }, ctx) => {
+    const { os, arch } = ctx.cell; // { os: "linux" | "windows" | "macos"; arch: "x64" | "arm64" }
+    // …
+  },
+);
+```
+
+- **Axes** are a static list in code: 1 to 4, in key order. The cells are their cross product, first
+  axis outermost, minus the excludes: at least 1, at most 64. An axis name matches
+  `^[a-z][a-zA-Z0-9]{0,30}$`, a value `^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`; values are unique per axis.
+- **`exclude`**: each entry names one or more axes with one of their values, and leaves out every
+  cell that matches all of them (`{ os: "windows" }` drops every windows cell). Keys and values are
+  type-checked against the axes.
+- **Every cell gets the step's input**; the handler reads its cell from `ctx.cell`, typed from the
+  axes' values. `ctx.cell` exists only on a matrix step.
+- **`failure`** says what a failed cell does to the others:
+  - `keepRunning()` (the default): every cell runs to the end.
+  - `cascadeFailure()`: once a cell has failed its last allowed attempt (its `retries` used up), the
+    step's cells still running or waiting are cancelled, each with the reason
+    `cancelled: <label> failed`.
+- **Status.** A failed cell fails the step, a cell still going keeps it going, and the step succeeds
+  when every cell did. Its reason names the failed cell: `windows · x64 failed: …`.
+- **`maxParallel`** holds heavy cells back: at most that many of the step's cells run at once in a
+  run. Each cell is its own Job and counts against the instance's `Jobs:MaxConcurrent`.
+- **Cell names and addresses.** A cell is `<step>[<axis>=<value>,…]` in axis order; its attempts,
+  logs, files and reruns use that name, and `ctx.run.step` holds it. Its label is the values joined
+  with ` · ` (`linux · x64`). Quote addresses in the shell, since `[…]` is a glob in zsh:
+  `pl step rerun 'Olve.Pipelines v2#412/build-cli[os=linux,arch=x64]'`.
+- **Reading a matrix step.** A later step reads every cell with a `cells(Model)` input, matched by
+  model like other inputs, or wired whole with a mapper:
+
+  ```ts
+  const publish = implement(
+    step({ name: "publish", description: "", image: "alpine", input: { binaries: cells(M.BuiltBinary) } }),
+    async ({ binaries }) => {
+      for (const { cell, output } of binaries) { /* cell.os, output.… */ }
+    },
+  );
+  pipeline.stage(publish);                                               // matched by model
+  pipeline.stage([publish, from => ({ binaries: from["build-cli"] })]); // or wired whole
+  ```
+
+  The value is a list in cell order, one `{ cell, output }` per cell that has an output (`cell` is a
+  `Record<string, string>`). A matrix step can be read only through `cells(…)`, never as one output or
+  by a field, and a `cells(…)` input reads only a matrix step. A matrix step inside a `when` can't be
+  read by `cells(…)`, since it may be skipped.
+- Failure handlers can't be matrix steps.
+- Tests run a cell with `testHandler(buildCli, input, { cell: { os: "linux", arch: "x64" } })`, and
+  `pl dev run build-cli` runs every cell in turn, or one with `--cell os=linux,arch=x64`.
 
 ## Library steps
 
@@ -543,6 +615,9 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | A step receives a config entry with a `secretRef` but doesn't declare that secret (a library step only the secrets of the parts it references, in its `select` case); a `secretRef` to an undeclared secret | describe, reconcile |
 | An input key starting with `$` (reserved) | describe |
 | A staged step without an implementation | describe |
+| A matrix exclude naming an unknown axis or value | TS, describe, reconcile |
+| A matrix with 0 or more than 4 axes, a bad axis name or value, a repeated value, no cells or more than 64, an unknown failure strategy, `maxParallel` below 1; a matrix failure handler | describe, reconcile |
+| A matrix step read other than whole through `cells(…)`, or `cells(…)` reading anything but a matrix step | TS, describe, reconcile |
 | No `main` in `package.json`, or a `main` whose file is missing | build |
 | Output nothing consumes | reconcile **warning** only (fine for gate steps like `test`) |
 
@@ -554,8 +629,8 @@ models also get their own versions (`deploy-beta.3`, `BuildArtifact.2`), bumped 
 declare changes. A code change alone bumps neither; `git diff` between two versions' commits shows it.
 
 - a model: its JSON Schema;
-- a step: image, input/output model versions, secrets, the schemas of its config entries, mappings
-  and settings;
+- a step: image, input/output model versions, secrets, the schemas of its config entries, mappings,
+  settings and its matrix (axes, excludes, failure strategy, `maxParallel`);
 - stage placement and `when` wrapping are pipeline changes, not step changes.
 
 Only commits that touch the binding path or one of its local package dependencies (`file:` /

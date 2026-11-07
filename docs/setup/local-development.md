@@ -72,6 +72,7 @@ pl dev run checkout --input-file in.json     # use input.json verbatim
 pl dev run deploy-beta                       # declared secrets come from your environment (or --secret NAME=value)
 pl dev run beta-test --config-from <pipeline>  # the config that pipeline's runs get
 pl dev run spec --from <pipeline>#<run>       # on a real run's input, outputs and config
+pl dev run build-cli --cell os=linux          # a matrix step: the cells with os=linux (default: every cell)
 ```
 
 The step runs through the same harness path as in the cluster: validate input → handler → validate
@@ -98,6 +99,10 @@ the raw envelope.
   and checked against their sha256. Later `pl dev run`s keep using that pool, so you can rerun one step
   of a real run on its real data, change it, and run it again. `--field` values go over the run's
   input. Needs a session on the run's instance (`pl login`).
+- **Matrix steps.** A matrix step runs every cell in turn, each with `OLVE_CELL` set as in the
+  cluster, or only the cells `--cell axis=value,…` matches (`--cell os=linux,arch=x64`). Each cell's
+  outcome is kept in the pool under its name (`build-cli[os=linux,arch=x64]`), and a later step's
+  `cells(…)` input gets the succeeded cells in cell order.
 - **Missing inputs.** If a required input's step never ran, `pl dev run` fails with a hint to run it
   first. If that step was skipped, an optional input is left out.
 - **Secrets.** Only the step's declared secrets reach it, from `--secret NAME=value` or your
@@ -125,7 +130,8 @@ image, no `/tmp` (kaniko), libc surprises. Needs Docker.
 pl dev pipeline --field sha=<sha> --field deployTo=beta [--until <step>] [--only a,b] [--docker] [--yes]
 ```
 
-- Runs the stages in order; the steps of a stage run one after another locally.
+- Runs the stages in order; the steps of a stage, and a matrix step's cells, run one after another
+  locally. A failed cell lets the step's other cells run, then stops the run.
 - Evaluates `when` blocks against the input and propagates skips. A failed step stops the run (exit =
   the harness exit code).
 - Asks for confirmation before each step that declares secrets (those do real things); without a

@@ -54,8 +54,8 @@ built; the UI mock is `src/frontend/mocks/matrix.html` (`npm run dev`).
   `^[a-z][a-zA-Z0-9]{0,30}$`, a value `^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`, values unique per axis.
 - `exclude` (optional): each entry names one or more axes with one of their values; a cell matching
   every named axis is left out (`{ "os": "windows" }` drops every windows cell).
-- `failure.kind`: `keepRunning` (default when the SDK omits nothing: it always writes it) or
-  `cascadeFailure`.
+- `failure.kind`: `keepRunning` or `cascadeFailure`. The SDK always writes it (`keepRunning` unless
+  the step says otherwise).
 - `maxParallel` (optional, ≥ 1): at most that many of the step's cells running at once in a run.
 - The cells are the cross product in axis order (first axis outermost) minus the excludes: at
   least 1, at most 64.

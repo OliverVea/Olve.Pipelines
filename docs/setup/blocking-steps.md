@@ -23,6 +23,7 @@ A held step shows as `held` in the run view (`pl run get` shows `held` / `blocke
 
 ## Rules
 
+- **A matrix step** is blocked by its own name and holds every cell; a cell name can't be blocked.
 - **Keyed on the step name**, not on a version. A blocked step stays blocked across version
   switches and restarts.
 - **Operational state, not config.** Blocks are not in `pipeline.ts`; reconcile never touches

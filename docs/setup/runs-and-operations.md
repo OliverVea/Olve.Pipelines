@@ -57,8 +57,12 @@ automatically (a new attempt in a fresh pod) until it has failed 1 + n times in 
 <pipeline>#<run>/<step>              latest successful attempt my-app#12/deploy-beta
 <pipeline>#<run>/<step>@<attempt>    a specific attempt        my-app#12/deploy-beta@1
 <pipeline>#<run>/<step>/<path>       a file of that attempt    my-app#12/build/image.tar
+<pipeline>#<run>/<step>[<axis>=<v>,…] a matrix cell           'my-app#12/build-cli[os=linux,arch=x64]@1'
 <pipeline>/<step>                    a step across runs        my-app/deploy-beta
 ```
+
+A matrix cell takes `@<attempt>` and `/<path>` like a step. Quote cell addresses in the shell:
+zsh and bash read an unquoted `[...]` as a glob.
 
 `<pipeline>` is the pipeline id or name (quote names with spaces). Without `@attempt`, `pl step logs`
 shows the latest attempt whatever its status; output and files use the latest successful one.
@@ -110,6 +114,35 @@ shows the latest attempt whatever its status; output and files use the latest su
   for, the UI offers a form only for inputs a person may answer, and `pl wait` exits 3 only then.
 - **Continue and rerun need the run's version to be active.** After a switch, re-trigger instead.
 - **Continue and step rerun keep the run's config snapshot.** To use newer config, start a new run.
+
+## Matrix runs
+
+A [matrix step](pipeline-reference.md#steps) runs once per cell, each cell its own attempt and K8s
+Job. A cell is named `<step>[<axis>=<value>,…]` in axis order (`build-cli[os=linux,arch=x64]`); its
+attempts, logs, files, reruns and addresses use that name, and its label is the values joined with
+` · ` (`linux · x64`).
+
+- **One step in its stage.** The cells start together and the stage barrier waits for every cell.
+  Each cell counts against `Jobs:MaxConcurrent`; with `maxParallel: n` at most n of the step's cells
+  run at once in a run, the rest stay scheduled.
+- **Status.** The step's status is rolled up from its cells: a failed cell fails it, a cell still
+  going keeps it going, and it succeeds when every cell succeeded or was skipped. Its reason names
+  the failure: `windows · x64 failed: <reason>`, or `2 cells failed. windows · x64 failed: <reason>`.
+  `pl run get` lists the cells under their step, with the cells finished (`3/5 cells`).
+- **Failure.** With `keepRunning()` (the default) every cell runs to the end. With
+  `cascadeFailure()`, once a cell's last allowed attempt failed (its `retries` used up), the step's
+  other scheduled and running cells are cancelled with the reason `cancelled: <label> failed`. A
+  failure that will still be retried cascades nothing.
+- **Reading a matrix step.** A later step gets one `{ cell, output }` per cell that produced an
+  output, in cell order; skipped cells are left out. When every cell was skipped, the reader is
+  skipped like the reader of a skipped step.
+- **Rerun and cancel.** A cell address reruns or cancels that cell; the matrix step's own name
+  reruns every cell (`pl step rerun` prints the first) or cancels every cell in flight. A cell a
+  cascade cancelled can be rerun like any other.
+- **Blocking** works on the matrix step's name and holds all its cells; a cell can't be blocked on
+  its own.
+- **History.** `pl step history <pipeline>/<step>` of a matrix step lists its cells' attempts; a
+  cell's own name lists only that cell.
 
 Health (`pl pipeline list`):
 

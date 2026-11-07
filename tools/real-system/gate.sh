@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # The real-system and browser tiers as one pass on this machine, from a copy of the tree: the deploy's
-# real-system-test step runs it over SSH. The two tiers run in turn, because the real-system tests can
-# reset the host the browser tests use. The host always comes down, and then this copy of the tree goes
-# too. A watchdog stops early when the machine runs short, because it also runs prod, and at a deadline.
-# A cancelled step reaches this script as SIGHUP, which needs the terminal the step asks SSH for.
+# real-system-test step runs it over SSH. The tests share a pool of hosts. The two tiers run in turn,
+# because the real-system tests can reset a host the browser tests use. The hosts always come down, and
+# then this copy of the tree goes too. A watchdog stops early when the machine runs short, because it
+# also runs prod, and at a deadline. A cancelled step reaches this script as SIGHUP, which needs the terminal the step asks SSH for.
 #
 #   tools/real-system/gate.sh
 #
-# Env: GATE_SLOT (default 9, away from the slots people use), GATE_MIN_START_GIB (default 8),
+# Env: GATE_SLOTS (default "7 8 9", away from the slots people use), GATE_MIN_START_GIB (default 8),
 # GATE_MIN_RUN_GIB (default 4), GATE_DEADLINE_SECONDS (default 1700, under the step's timeout).
 set -euo pipefail
 
@@ -18,14 +18,22 @@ export PATH="$HOME/.dotnet:$HOME/.bun/bin:$PATH"
 # shellcheck disable=SC1091
 [ ! -s "$HOME/.nvm/nvm.sh" ] || . "$HOME/.nvm/nvm.sh"
 
-slot="${GATE_SLOT:-9}"
+read -r -a slots <<< "${GATE_SLOTS:-7 8 9}"
 min_start="${GATE_MIN_START_GIB:-8}"
 min_run="${GATE_MIN_RUN_GIB:-4}"
 deadline=$((SECONDS + ${GATE_DEADLINE_SECONDS:-1700}))
-export TEST_TARGETS="http://localhost:$((5000 + slot * 10))"
+TEST_TARGETS="$(for s in "${slots[@]}"; do printf 'http://localhost:%d,' $((5000 + s * 10)); done)"
+export TEST_TARGETS="${TEST_TARGETS%,}"
 
 available_gib() { awk '/MemAvailable/ { print int($2 / 1048576) }' /proc/meminfo; }
-host() { tools/real-system/host.sh "$1" "$slot"; }
+down() { for s in "${slots[@]}"; do tools/real-system/host.sh down "$s" >/dev/null 2>&1 || true; done; }
+# The first slot builds the server every slot serves; the others start on it at once.
+up() {
+  tools/real-system/host.sh up "${slots[0]}"
+  local pids=() pid
+  for s in "${slots[@]:1}"; do NO_BUILD=1 tools/real-system/host.sh up "$s" & pids+=($!); done
+  for pid in "${pids[@]}"; do wait "$pid"; done
+}
 
 free_gib="$(available_gib)"
 if [ "$free_gib" -lt "$min_start" ]; then
@@ -33,7 +41,7 @@ if [ "$free_gib" -lt "$min_start" ]; then
   exit 1
 fi
 
-host down >/dev/null 2>&1 || true
+down
 # Only one attempt of the step runs at a time, so any other copy is one a cancelled step left.
 [ ! -d "$HOME/.cache/olve-gate" ] || find "$HOME/.cache/olve-gate" -mindepth 1 -maxdepth 1 ! -path "$PWD" -exec rm -rf {} +
 
@@ -56,7 +64,7 @@ watchdog=$!
 
 cleanup() {
   kill "$watchdog" 2>/dev/null || true
-  host down >/dev/null 2>&1 || true
+  down
   case "$PWD" in
     "$HOME/.cache/olve-gate/"*) cd / && rm -rf "$OLDPWD" ;;
   esac
@@ -87,7 +95,7 @@ browser() {
 }
 
 stage contract
-stage host up
+stage up
 stage dotnet run --project src/backend/Olve.Pipelines.RealSystemTests -- --no-progress --output Detailed
 stage frontend
 stage tools/real-system/host.sh ui

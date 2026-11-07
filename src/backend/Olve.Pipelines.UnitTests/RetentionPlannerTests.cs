@@ -212,6 +212,23 @@ public class RetentionPlannerTests
     // ---- binaries ----
 
     [Test]
+    public async Task DeletedPipelinesBinaries_GoAfterTheOrphanGrace()
+    {
+        var deleted = new Id<Pipeline>(new Id(Guid.NewGuid()));
+        var options = Options with { BuildGrace = TimeSpan.FromDays(7), OrphanGrace = TimeSpan.FromDays(1) };
+        var objects = new[]
+        {
+            Obj($"versions/{Hex(deleted)}/builds/aaa/step.tar.gz", 3),
+            Obj($"versions/{Hex(P)}/builds/bbb/step.tar.gz", 3),
+        };
+
+        var plan = RetentionPlanner.Plan(Inputs(objects: objects), options);
+
+        await Assert.That(plan.Objects.Where(o => o.Category == RetentionCategory.Build).Select(o => o.Object.Key))
+            .IsEquivalentTo(new[] { objects[0].Key });
+    }
+
+    [Test]
     public async Task Binaries_KeptForActiveDrainingAndRetainedRuns_OthersGoAfterTheGrace()
     {
         PipelineVersion Version(int n, string key) => new(Id.New<PipelineVersion>(), P, n, "{}", "h", "sha", key,

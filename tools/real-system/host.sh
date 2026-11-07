@@ -2,6 +2,7 @@
 # The throwaway host the real-system tests run against. The tests never create or start it.
 #
 #   tools/real-system/host.sh up [slot]      build the server, start the host, write its descriptor
+#                                            (NO_BUILD=1: start it on the server another slot built)
 #   tools/real-system/host.sh ui             build the web UI into the server build every slot serves, after up
 #   tools/real-system/host.sh reset [slot]   wipe the host's state; images stay cached
 #   tools/real-system/host.sh status [slot]  show the host's containers
@@ -86,7 +87,7 @@ write_descriptor() {
 
 case "$command" in
   up)
-    (cd "$REPO_ROOT" && dotnet publish src/backend/Olve.Pipelines -c Release -p:PublishAot=false -p:DebugType=none -o "$SERVER_DIR" -v quiet)
+    [ "${NO_BUILD:-}" = 1 ] || (cd "$REPO_ROOT" && dotnet publish src/backend/Olve.Pipelines -c Release -p:PublishAot=false -p:DebugType=none -o "$SERVER_DIR" -v quiet)
     compose up -d --wait server garage k3s github
     wait_ready
     write_descriptor
@@ -169,7 +170,7 @@ case "$command" in
     in_cluster "$@"
     ;;
   *)
-    sed -n '2,29p' host.sh | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,30p' host.sh | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

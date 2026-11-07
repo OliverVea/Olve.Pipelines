@@ -5,11 +5,12 @@ namespace Olve.Pipelines.Pipelines.Retention;
 /// failure-handler objects under <c>runs/&lt;p&gt;/&lt;run&gt;/</c> — is deleted only when it is BOTH older than
 /// <see cref="MinRunAge"/> AND not among its pipeline's <see cref="KeepLatestRuns"/> newest runs (v1's rule:
 /// 6 months / latest 20). A compiled binary (<c>step.tar.gz</c>) is kept while a pipeline's active/draining
-/// version or any retained run's version uses it, and otherwise deleted once older than <see cref="BuildGrace"/>.
+/// version or any retained run's version uses it, and otherwise deleted once older than <see cref="BuildGrace"/>
+/// (<see cref="OrphanGrace"/> once its pipeline is deleted).
 /// <see cref="DryRun"/> (the default) only logs what would be deleted.
 /// </summary>
 /// <param name="OrphanGrace">How old leftovers nothing references must be before they go: objects of runs
-/// that no longer exist (e.g. a deleted pipeline's), stale trigger events.</param>
+/// that no longer exist (e.g. a deleted pipeline's), a deleted pipeline's binaries, stale trigger events.</param>
 /// <param name="ResultArchiveGrace">Leftover <c>result.tar.gz</c> of finished attempts (normally deleted on collection).</param>
 /// <param name="ClusterGrace">Minimum age of a URL Secret or a leaked step Job before it may be deleted.</param>
 /// <param name="FinishedJobMaxAge">Finished v2 Jobs without a TTL are deleted after this.</param>

@@ -90,7 +90,9 @@ public static class RetentionPlanner
         if (inputs.Objects is { } listing)
         {
             objects.AddRange(RunObjects(listing, expired, retainedRuns, retainedAttempts, inputs.Now, options));
-            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.Activations, inputs.Now, p => PolicyOf(p).BuildGrace);
+            // A deleted pipeline's binaries can't become a version any more, so they are leftovers.
+            var (builds, keptCount) = Builds(listing, inputs.Versions, retainedRuns, inputs.Activations, inputs.Now,
+                p => inputs.Pipelines.Contains(p) ? PolicyOf(p).BuildGrace : options.OrphanGrace);
             objects.AddRange(builds);
             buildsKept = keptCount;
             objects.AddRange(listing

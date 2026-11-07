@@ -304,6 +304,52 @@ public class ManifestIssueTests
         ["select with a case for no value"] = Row(C.SelectCaseUnknown, "stages[1].cases.docker", "select 'target': 'docker' is not a value of kind (ssh, inCluster)", () => Selected(r => r["stages"]![1]!["cases"]!["docker"] = new JsonArray())),
         ["select cases disagreeing on output"] = Row(C.SelectOutputMismatch, "stages[1].cases.inCluster[0].steps[0].output", "step 'count' has output LineCount here and none at stages[1].cases.ssh[0].steps[0]; select cases must agree", () => Selected(r => r["stages"]![1]!["cases"]!["ssh"]![0]!["steps"]![0]!["output"] = null)),
 
+        // matrix
+        ["matrix with no axes"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes", "step 'test': a matrix has 1 to 4 axes (it has 0)", r =>
+        {
+            var matrix = Matrix();
+            matrix["axes"] = new JsonArray();
+            Step(r, "test")["matrix"] = matrix;
+        }
+        ),
+        ["matrix with five axes"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes", "step 'test': a matrix has 1 to 4 axes (it has 5)", r => Step(r, "test")["matrix"] = Matrix(axes: [("a", ["1"]), ("b", ["1"]), ("c", ["1"]), ("d", ["1"]), ("e", ["1"])])),
+        ["matrix axis name"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes[0].name", "step 'test': matrix axis name 'OS' must match ^[a-z][a-zA-Z0-9]{0,30}$", r => Step(r, "test")["matrix"] = Matrix(axes: [("OS", ["linux"])])),
+        ["matrix axis twice"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes[1].name", "step 'test': matrix axis 'os' is declared more than once", r => Step(r, "test")["matrix"] = Matrix(axes: [("os", ["linux"]), ("os", ["macos"])])),
+        ["matrix axis without values"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes[0].values", "step 'test': matrix axis 'os' has no values", r => Step(r, "test")["matrix"] = Matrix(axes: [("os", [])])),
+        ["matrix value"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes[0].values[1]", "step 'test': matrix value 'mac os' of axis 'os' must match ^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$", r => Step(r, "test")["matrix"] = Matrix(axes: [("os", ["linux", "mac os"])])),
+        ["matrix value twice"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.axes[0].values[1]", "step 'test': matrix axis 'os' lists value 'linux' twice", r => Step(r, "test")["matrix"] = Matrix(axes: [("os", ["linux", "linux"])])),
+        ["matrix exclude naming nothing"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.exclude[0]", "step 'test': a matrix exclude entry names at least one axis", r => Step(r, "test")["matrix"] = Matrix(exclude: [new JsonObject()])),
+        ["matrix exclude of an unknown axis"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.exclude[0].cpu", "step 'test': matrix exclude names axis 'cpu', which the matrix does not have", r => Step(r, "test")["matrix"] = Matrix(exclude: [new JsonObject { ["cpu"] = "x64" }])),
+        ["matrix exclude of an unknown value"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.exclude[0].os", "step 'test': matrix exclude value 'macos' is not a value of axis 'os' (linux, windows)", r => Step(r, "test")["matrix"] = Matrix(exclude: [new JsonObject { ["os"] = "macos" }])),
+        ["matrix failure strategy"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.failure.kind", "step 'test': unknown matrix failure strategy 'failFast' (keepRunning, cascadeFailure)", r => Step(r, "test")["matrix"] = Matrix(failure: "failFast")),
+        ["matrix maxParallel"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix.maxParallel", "step 'test': maxParallel must be at least 1", r => Step(r, "test")["matrix"] = Matrix(maxParallel: 0)),
+        ["matrix excluding every cell"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix", "step 'test': the matrix has 0 cells; it needs 1 to 64", r => Step(r, "test")["matrix"] = Matrix(exclude: [new JsonObject { ["os"] = "linux" }, new JsonObject { ["os"] = "windows" }])),
+        ["matrix with too many cells"] = Row(C.MatrixInvalid, "stages[1].steps[1].matrix", "step 'test': the matrix has 125 cells; it needs 1 to 64", r => Step(r, "test")["matrix"] = Matrix(axes: [("a", ["1", "2", "3", "4", "5"]), ("b", ["1", "2", "3", "4", "5"]), ("c", ["1", "2", "3", "4", "5"])])),
+        ["matrix failure handler"] = Row(C.MatrixInFailureHandler, "failureHandlers[0].step.matrix", "failure handler 'aoe-triage': a failure handler can't be a matrix step", r => r["failureHandlers"]![0]!["step"]!["matrix"] = Matrix()),
+        ["matrix step read by a model input"] = Row(C.RefMatrixStep, "stages[2].steps[0].input.artifact", "step 'deploy-beta' input 'artifact': 'build' is a matrix step; read it through a cells input (a list of its cells' outputs)", r => Step(r, "build")["matrix"] = Matrix()),
+        ["matrix step field read"] = Row(C.RefMatrixStep, "stages[2].steps[0].input.version", "step 'deploy-beta' input 'version': 'build' is a matrix step; read it through a cells input (a list of its cells' outputs)", r =>
+        {
+            MatrixBuild(r);
+            Step(r, "deploy-beta")["inputTypes"]!["version"] = StringSchema();
+            Step(r, "deploy-beta")["input"]!["version"] = Ref("build.version");
+        }
+        ),
+        ["cells input of a plain step"] = Row(C.CellsInputInvalid, "stages[2].steps[0].input.artifact", "step 'deploy-beta' input 'artifact': a cells input reads a matrix step, and 'build' is not one", r => Step(r, "deploy-beta")["inputTypes"]!["artifact"] = CellsType("BuildArtifact")),
+        ["cells input of a field"] = Row(C.CellsInputInvalid, "stages[2].steps[0].input.artifact", "step 'deploy-beta' input 'artifact': a cells input maps a whole matrix step ({\"ref\": \"<step>\"})", r =>
+        {
+            MatrixBuild(r);
+            Step(r, "deploy-beta")["input"]!["artifact"] = Ref("build.commit");
+        }
+        ),
+        ["cells false"] = Row(C.WrongType, "stages[2].steps[0].inputTypes.artifact.cells", "cells must be true (omit it otherwise)", r => Step(r, "deploy-beta")["inputTypes"]!["artifact"]!["cells"] = false),
+        ["unknown matrix property"] = Row(C.UnknownProperty, "stages[1].steps[1].matrix.include", "unknown property 'include'", r =>
+        {
+            var matrix = Matrix();
+            matrix["include"] = new JsonArray();
+            Step(r, "test")["matrix"] = matrix;
+        }
+        ),
+
         // warnings
         ["unused output"] = Row(C.OutputUnused, "stages[1].steps[1].output", "the output of step 'test' is not used by any later step (fine for gate steps)", _ => { }),
         ["unused model"] = Row(C.ModelUnused, "models.Spare", "model 'Spare' is not referenced by the pipeline", r => r["models"]!["Spare"] = new JsonObject { ["output"] = new JsonObject() }),

@@ -336,7 +336,7 @@ public static class ManifestParser
 
     private static StepDescriptor? ParseStep(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets"], ["description", "handlerHash", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs"]))
+        if (!ctx.Object(e, path, ["name", "kind", "image", "inputTypes", "input", "output", "secrets"], ["description", "handlerHash", "timeoutSeconds", "retries", "config", "configEntries", "clusterAccess", "externalInputs", "matrix"]))
             return null;
         var name = ctx.String(e, "name", path);
         // Optional only so versions built before step descriptions still load.
@@ -379,8 +379,10 @@ public static class ManifestParser
         var externalInputs = e.TryGetProperty("externalInputs", out _)
             ? ctx.Dictionary(e, "externalInputs", path, (v, xp) => ParseExternalInput(ctx, v, xp))
             : new Dictionary<string, ExternalInput>();
+        var matrix = e.TryGetProperty("matrix", out var matrixEl) ? ParseMatrix(ctx, matrixEl, Ctx.Child(path, "matrix")) : null;
+        var matrixOk = !e.TryGetProperty("matrix", out _) || matrix is not null;
 
-        if (name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
+        if (!matrixOk || name is null || description is null || kind is null || image is null || inputTypes is null || input is null || !outputOk || secrets is null
             || !timeoutOk || !retriesOk || !configOk || configEntries is null || !clusterAccessOk || externalInputs is null)
             return null;
         return new StepDescriptor(name, description, kind, image, inputTypes!, input!, output, secrets, handlerHash, timeout, retries, config)
@@ -388,7 +390,38 @@ public static class ManifestParser
             ConfigEntries = configEntries,
             ClusterAccess = e.TryGetProperty("clusterAccess", out _),
             ExternalInputs = externalInputs,
+            Matrix = matrix,
         };
+    }
+
+    private static ManifestMatrix? ParseMatrix(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["axes", "failure"], ["exclude", "maxParallel"])) return null;
+        var axes = ctx.Array(e, "axes", path, (v, ap) =>
+        {
+            if (!ctx.Object(v, ap, ["name", "values"], [])) return null;
+            var name = ctx.String(v, "name", ap);
+            var values = ctx.StringArray(v, "values", ap);
+            return name is null || values is null ? null : new MatrixAxis(name, values);
+        });
+        IReadOnlyList<IReadOnlyDictionary<string, string>>? exclude = null;
+        var excludeOk = true;
+        if (e.TryGetProperty("exclude", out _))
+        {
+            exclude = ctx.Array(e, "exclude", path, (v, xp) =>
+                ctx.Expect(v, JsonValueKind.Object, xp, "an object")
+                    ? ctx.Dictionary(v, xp, (x, vp) => ctx.Expect(x, JsonValueKind.String, vp, "a string") ? x.GetString() : null)
+                    : null);
+            excludeOk = exclude is not null;
+        }
+        string? failure = null;
+        var failureEl = e.GetProperty("failure");
+        var failurePath = Ctx.Child(path, "failure");
+        if (ctx.Object(failureEl, failurePath, ["kind"], []))
+            failure = ctx.String(failureEl, "kind", failurePath);
+        long? maxParallel = e.TryGetProperty("maxParallel", out _) ? ctx.Integer(e, "maxParallel", path) : null;
+        var maxParallelOk = !e.TryGetProperty("maxParallel", out _) || maxParallel is not null;
+        return axes is null || !excludeOk || failure is null || !maxParallelOk ? null : new ManifestMatrix(axes, exclude, failure, maxParallel);
     }
 
     private static ExternalInput? ParseExternalInput(Ctx ctx, JsonElement e, string path)
@@ -430,10 +463,16 @@ public static class ManifestParser
         if (!ctx.Expect(e, JsonValueKind.Object, path, "an object")) return null;
         if (e.TryGetProperty("model", out _))
         {
-            if (!ctx.Object(e, path, ["model", "optional"], [])) return null;
+            if (!ctx.Object(e, path, ["model", "optional"], ["cells"])) return null;
             var model = ctx.String(e, "model", path);
             var optional = ctx.Boolean(e, "optional", path);
-            return model is null || optional is null ? null : new ModelInputType(model, optional.Value);
+            var cellsOk = true;
+            if (e.TryGetProperty("cells", out var cells) && cells.ValueKind != JsonValueKind.True)
+            {
+                ctx.Error(ManifestIssueCodes.WrongType, Ctx.Child(path, "cells"), "cells must be true (omit it otherwise)");
+                cellsOk = false;
+            }
+            return model is null || optional is null || !cellsOk ? null : new ModelInputType(model, optional.Value) { Cells = e.TryGetProperty("cells", out _) };
         }
         if (e.TryGetProperty("schema", out var schema))
         {
@@ -565,9 +604,10 @@ public static class ManifestParser
             Array(obj, prop, path, (x, p) => Expect(x, JsonValueKind.String, p, "a string") ? x.GetString() : null);
 
         public IReadOnlyDictionary<string, T>? Dictionary<T>(JsonElement obj, string prop, string path, Func<JsonElement, string, T?> item)
+            => Dictionary(obj.GetProperty(prop), Child(path, prop), item);
+
+        public IReadOnlyDictionary<string, T>? Dictionary<T>(JsonElement e, string p, Func<JsonElement, string, T?> item)
         {
-            var e = obj.GetProperty(prop);
-            var p = Child(path, prop);
             if (!Expect(e, JsonValueKind.Object, p, "an object")) return null;
             var dict = new Dictionary<string, T>(StringComparer.Ordinal);
             var ok = true;

@@ -149,6 +149,32 @@ public class ManifestVersioningTests
     }
 
     [Test]
+    [Arguments("added")]
+    [Arguments("axis value")]
+    [Arguments("exclude")]
+    [Arguments("failure")]
+    [Arguments("maxParallel")]
+    public async Task EachMatrixField_BumpsTheStep(string field)
+    {
+        var v1 = ManifestVersioning.Compute(null, Mutate(r => Step(r, "test")["matrix"] = Matrix()));
+        var matrix = field switch
+        {
+            "added" => null,
+            "axis value" => Matrix(axes: [("os", ["linux", "windows", "macos"]), ("arch", ["x64", "arm64"])]),
+            "exclude" => Matrix(exclude: [new JsonObject { ["os"] = "windows" }]),
+            "failure" => Matrix(failure: "cascadeFailure"),
+            "maxParallel" => Matrix(maxParallel: 1),
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+        if (field == "added") v1 = ManifestVersioning.Compute(null, Parse());
+
+        var v2 = ManifestVersioning.Compute(v1.History, Mutate(r => Step(r, "test")["matrix"] = matrix ?? Matrix()));
+
+        await Assert.That(v2.ChangedSteps).IsEquivalentTo(["test"]);
+        await Assert.That(StepVersions(v2)["test"]).IsEqualTo(2);
+    }
+
+    [Test]
     public async Task ModelChange_RipplesToEveryStepUsingIt()
     {
         var v1 = ManifestVersioning.Compute(null, Parse());

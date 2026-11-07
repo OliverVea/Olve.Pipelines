@@ -67,6 +67,19 @@ wait_ready() {
   return 1
 }
 
+# What test pods run, from this machine's Docker cache: three cold clusters pulling at once from the
+# registries made the tests depend on them.
+load_images() {
+  local harness
+  harness="$(sed -n 's/.*Repository = "\(.*\)";/\1/p; s/.*Tag = "\(.*\)";/:\1/p' \
+    "$REPO_ROOT/src/backend/Olve.Pipelines/Kubernetes/Harness/HarnessImage.cs" | tr -d '\n')"
+  local images=(alpine:3.22 oven/bun:1.4.3-slim "$harness")
+  for image in "${images[@]}"; do
+    docker image inspect "$image" >/dev/null 2>&1 || docker pull -q "$image" >/dev/null
+  done
+  docker save --platform linux/amd64 "${images[@]}" | compose exec -T k3s ctr -n k8s.io images import - >/dev/null
+}
+
 write_descriptor() {
   local token ca
   token="$(compose exec -T k3s kubectl -n olve-runners get secret olve-pipelines-token -o jsonpath='{.data.token}' | base64 -d)"
@@ -89,6 +102,7 @@ case "$command" in
   up)
     [ "${NO_BUILD:-}" = 1 ] || (cd "$REPO_ROOT" && dotnet publish src/backend/Olve.Pipelines -c Release -p:PublishAot=false -p:DebugType=none -o "$SERVER_DIR" -v quiet)
     compose up -d --wait server garage k3s github
+    load_images
     wait_ready
     write_descriptor
     echo "host ready: http://localhost:$API_PORT (descriptor: $DESCRIPTOR)"

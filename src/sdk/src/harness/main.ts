@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { isImplementation } from '../core/handlers.ts';
 import { configRefPath, isConfigRef, unionAt } from '../core/config.ts';
 import type { AnyStep } from '../core/steps.ts';
+import { cellName, parseCell } from '../core/matrix.ts';
 import type { WebhookEvent } from '../core/webhooks.ts';
 import { pipelineData, type PipelineData, type StageNode } from '../builder/pipeline.ts';
 import { createCtx, formatLog } from '../ctx/index.ts';
@@ -193,17 +194,21 @@ async function runMode(
   mkdirSync(p.files, { recursive: true });
   mkdirSync(p.tmp, { recursive: true });
   const raw = readJson(p.input);
+  const cell = step.matrix
+    ? parseCell(step.name, step.matrix, process.env[ENV.cell])
+    : undefined;
   const cancel = cancellation();
   try {
     let exec: Execution;
-    if (!raw.ok) {
-      io.stderr(raw.message);
+    if (!raw.ok || (cell && !cell.ok)) {
+      const message = !raw.ok ? raw.message : cell && !cell.ok ? cell.message : '';
+      io.stderr(message);
       exec = {
-        envelope: { status: 'failed', error: { kind: 'input', message: raw.message } },
+        envelope: { status: 'failed', error: { kind: 'input', message } },
         exitCode: EXIT.inputInvalid,
       };
     } else {
-      const run = runInfoFromEnv(step.name);
+      const run = runInfoFromEnv(cell?.ok ? cellName(step.name, cell.cell) : step.name);
       const ctx = createCtx({
         run,
         secrets: step.secrets,
@@ -211,6 +216,7 @@ async function runMode(
         signal: cancel.signal,
         logSink: io.stderr,
         callbackUrls: callbackUrlsFromEnv(),
+        ...(cell?.ok ? { cell: cell.cell } : {}),
       });
       exec = await executeStep({
         step,

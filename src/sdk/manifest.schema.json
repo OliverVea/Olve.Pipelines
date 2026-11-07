@@ -5,6 +5,11 @@
         {
           "additionalProperties": false,
           "properties": {
+            "cells": {
+              "const": true,
+              "description": "cells(Model): every cell of a matrix step whose output is the model, mapped with a whole-step ref; the value is [{cell, output}, …] in cell order. Omitted otherwise.",
+              "type": "boolean"
+            },
             "model": {
               "description": "Model name (key of `models`).",
               "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
@@ -284,6 +289,84 @@
         }
       ]
     },
+    "Matrix": {
+      "additionalProperties": false,
+      "description": "A matrix step runs once per cell, named '<step>[<axis>=<value>,…]' in axis order; OLVE_CELL holds the cell as compact JSON.",
+      "properties": {
+        "axes": {
+          "description": "In order: the cells are the cross product, first axis outermost, minus the excludes (1 to 64 cells).",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "pattern": "^[a-z][a-zA-Z0-9]{0,30}$",
+                "type": "string"
+              },
+              "values": {
+                "description": "Unique per axis.",
+                "items": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$",
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "name",
+              "values"
+            ],
+            "type": "object"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": "array"
+        },
+        "exclude": {
+          "description": "Each entry names one or more axes with one of their values; a cell matching every named axis is left out (omitted when none).",
+          "items": {
+            "additionalProperties": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$",
+              "type": "string"
+            },
+            "propertyNames": {
+              "pattern": "^[a-z][a-zA-Z0-9]{0,30}$",
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "failure": {
+          "additionalProperties": false,
+          "description": "keepRunning: every cell runs to the end. cascadeFailure: a cell whose last allowed attempt failed cancels the step's other scheduled or running cells.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "keepRunning",
+                "cascadeFailure"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "maxParallel": {
+          "description": "At most this many of the step's cells running at once in a run.",
+          "maximum": 9007199254740991,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "axes",
+        "failure"
+      ],
+      "type": "object"
+    },
     "ModelSchemas": {
       "additionalProperties": false,
       "properties": {
@@ -555,6 +638,10 @@
           "description": "A label for the step's kind: 'custom' unless the step names one.",
           "minLength": 1,
           "type": "string"
+        },
+        "matrix": {
+          "$ref": "#/$defs/Matrix",
+          "description": "Set on a matrix step (never on a failure handler); omitted otherwise."
         },
         "name": {
           "description": "Step name: lower-case kebab, 1-63 chars. The step's identity.",

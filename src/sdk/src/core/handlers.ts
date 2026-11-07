@@ -4,8 +4,15 @@ import {
   type ImplementationBrand,
   type SkippedBrand,
 } from './brands.ts';
-import type { Ctx } from '../ctx/types.ts';
-import type { AnyStep, ConfigOf, OutputValue, SecretsOf, StepInput } from './steps.ts';
+import type { StepCtx } from '../ctx/types.ts';
+import type {
+  AnyStep,
+  CellOf,
+  ConfigOf,
+  OutputValue,
+  SecretsOf,
+  StepInput,
+} from './steps.ts';
 import type { Awaitable } from './types.ts';
 
 /** Returned by `ctx.skip(reason)`: the step produced no output on purpose. */
@@ -25,9 +32,11 @@ export function isSkipped(v: unknown): v is Skipped {
 }
 
 export type HandlerResult<S extends AnyStep> = OutputValue<S> | Skipped;
+/** The ctx a handler of `S` gets. */
+export type CtxOf<S extends AnyStep> = StepCtx<SecretsOf<S>, ConfigOf<S>, CellOf<S>>;
 export type Handler<S extends AnyStep> = (
   input: StepInput<S['input']>,
-  ctx: Ctx<SecretsOf<S>, ConfigOf<S>>,
+  ctx: CtxOf<S>,
 ) => Awaitable<HandlerResult<S>>;
 
 /** A step with its handler. It is itself a step: stage it like any value. */
@@ -58,7 +67,7 @@ export function implement<S extends AnyStep, R extends HandlerResult<S>>(
       : unknown),
   handler: (
     input: StepInput<S['input']>,
-    ctx: Ctx<SecretsOf<S>, ConfigOf<S>>,
+    ctx: CtxOf<S>,
   ) => Awaitable<R & NoExtraFields<R, OutputValue<S>>>,
 ): Implementation<S> {
   if (isImplementation(step))

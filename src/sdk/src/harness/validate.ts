@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isModel, isOptional } from '../core/models.ts';
 import { isExternal } from '../core/external.ts';
+import { isCells } from '../core/matrix.ts';
 import type { AnyStep } from '../core/steps.ts';
 
 export type Validation<T> = { ok: true; value: T } | { ok: false; issues: string[] };
@@ -57,6 +58,10 @@ export function parseStrict(
 }
 
 function entrySchema(e: unknown): z.ZodType {
+  if (isCells(e))
+    return z.array(
+      z.object({ cell: z.record(z.string(), z.string()), output: e.model.schema }),
+    );
   if (isOptional(e) || isExternal(e)) return e.model.schema;
   if (isModel(e)) return e.schema;
   return e as z.ZodType;

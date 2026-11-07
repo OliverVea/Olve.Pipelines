@@ -539,7 +539,7 @@ describe('describe-time checks', () => {
       'an input that is not a model or schema',
       () => base().stage(s({ name: 's', input: { x: 42 } })),
       [
-        "step 's' input 'x': must be a model, optional(model) or a zod schema",
+        "step 's' input 'x': must be a model, optional(model), cells(model) or a zod schema",
         "step 's': input 'x' is a plain schema, not a model, so it cannot be matched by model; add a mapper ([step, from => ({ ... })])",
       ],
     ],

@@ -76,6 +76,12 @@ export const InputType = z
       optional: z
         .boolean()
         .describe('optional(Model): may be absent because its producer was skipped.'),
+      cells: z
+        .literal(true)
+        .optional()
+        .describe(
+          'cells(Model): every cell of a matrix step whose output is the model, mapped with a whole-step ref; the value is [{cell, output}, …] in cell order. Omitted otherwise.',
+        ),
     }),
     z.strictObject({
       schema: ModelSchemas.describe(
@@ -84,6 +90,45 @@ export const InputType = z
     }),
   ])
   .meta({ id: 'InputType' });
+
+const axisName = z.string().regex(/^[a-z][a-zA-Z0-9]{0,30}$/);
+const axisValue = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/);
+
+export const Matrix = z
+  .strictObject({
+    axes: z
+      .array(
+        z.strictObject({
+          name: axisName,
+          values: z.array(axisValue).min(1).describe('Unique per axis.'),
+        }),
+      )
+      .min(1)
+      .max(4)
+      .describe(
+        'In order: the cells are the cross product, first axis outermost, minus the excludes (1 to 64 cells).',
+      ),
+    exclude: z
+      .array(z.record(axisName, axisValue))
+      .optional()
+      .describe(
+        'Each entry names one or more axes with one of their values; a cell matching every named axis is left out (omitted when none).',
+      ),
+    failure: z
+      .strictObject({ kind: z.enum(['keepRunning', 'cascadeFailure']) })
+      .describe(
+        "keepRunning: every cell runs to the end. cascadeFailure: a cell whose last allowed attempt failed cancels the step's other scheduled or running cells.",
+      ),
+    maxParallel: z
+      .int()
+      .min(1)
+      .optional()
+      .describe("At most this many of the step's cells running at once in a run."),
+  })
+  .describe(
+    "A matrix step runs once per cell, named '<step>[<axis>=<value>,…]' in axis order; OLVE_CELL holds the cell as compact JSON.",
+  )
+  .meta({ id: 'Matrix' });
 
 export const StepDescriptor = z
   .strictObject({
@@ -114,6 +159,9 @@ export const StepDescriptor = z
       ),
     timeoutSeconds: z.number().int().positive().optional(),
     retries: z.number().int().nonnegative().optional(),
+    matrix: Matrix.optional().describe(
+      'Set on a matrix step (never on a failure handler); omitted otherwise.',
+    ),
     config: z
       .record(z.string(), Json)
       .optional()

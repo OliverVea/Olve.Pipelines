@@ -48,11 +48,16 @@ export const FILE_PATH_PATTERN = `^(?:${SEGMENT}/)*${SEGMENT}/?$`;
 export const FILE_PATH = new RegExp(FILE_PATH_PATTERN);
 /** Step names: lower-case kebab, ≤ 63 chars (usable as K8s label values, URL segments and storage paths). */
 export const STEP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+const CELL_PART = String.raw`[a-z][a-zA-Z0-9]{0,30}=[A-Za-z0-9][A-Za-z0-9._-]{0,62}`;
+/** A step name, or a matrix cell's name (`build-cli[os=linux,arch=x64]`): what a file reference's `step` holds. */
+export const ATTEMPT_STEP = new RegExp(
+  String.raw`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\[${CELL_PART}(?:,${CELL_PART})*\])?$`,
+);
 
 const FileRefSchema = z
   .object({
     run: z.number().int().nonnegative(),
-    step: z.string().regex(STEP_NAME),
+    step: z.string().regex(ATTEMPT_STEP),
     attempt: z.number().int().positive(),
     path: z.string().regex(FILE_PATH),
     sha256: z.string().regex(/^[0-9a-f]{64}$/),

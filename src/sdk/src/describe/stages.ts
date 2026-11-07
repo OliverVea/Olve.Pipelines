@@ -54,6 +54,7 @@ function describeStage(
       avail.set(ss.step.name, {
         model: ss.step.output?.name ?? null,
         maybe: false,
+        ...(ss.step.matrix ? { matrix: true } : {}),
       });
   return descs.length ? { steps: descs } : undefined;
 }
@@ -96,7 +97,7 @@ function describeWhen(
   const inner = new Map(avail);
   const stages = describeStages(ctx, input, n.nodes, inner, cases);
   for (const [name, a] of inner)
-    if (!avail.has(name)) avail.set(name, { model: a.model, maybe: true });
+    if (!avail.has(name)) avail.set(name, { ...a, maybe: true });
   return { when, stages };
 }
 
@@ -153,7 +154,7 @@ function describeSelect(
       .map((b) => b.inner.get(name))
       .filter((a): a is Avail => a !== undefined);
     avail.set(name, {
-      model: present[0]!.model,
+      ...present[0]!,
       maybe: present.length < branches.length || present.some((a) => a.maybe),
     });
   }

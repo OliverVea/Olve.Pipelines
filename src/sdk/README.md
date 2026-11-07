@@ -79,7 +79,7 @@ export const deployBeta = step({
   name: "deploy-beta",                         // identity: lower-case kebab, ≤ 63 chars
   description: "Deploys to beta.",             // required (may be ""); shown in the UI, not versioned
   image: "alpine:latest",                      // any image; the harness brings its own runtime
-  input: { artifact: BuildArtifact },          // model | optional(model) | plain zod schema | external(model, …)
+  input: { artifact: BuildArtifact },          // model | optional(model) | cells(model) | plain zod schema | external(model, …)
   output: BetaDeployment,                      // a model, or omitted (no output)
   secrets: [SSH_PRIVATE_KEY],                  // only these are mounted; ctx.secrets is typed to them
   timeoutSeconds: 900,                         // optional
@@ -96,6 +96,7 @@ Rules:
 - **Trigger mappers** produce `z.input`, so fields with defaults may be left out. **Handlers, mapper refs and `when`** see `z.output`.
 - A **plain-schema input** has no model to match on, so the step needs a mapper.
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
+- **`cells(M)`** reads every cell of a matrix step whose output is `M` (see "Matrix steps").
 - **`external(M, { title, description?, from? })`** is answered from outside the run; `from` lists `callback()` (another system POSTs to the URL an earlier step gets from `ctx.inputUrl(step, input)`), `poll({ url, valuePath, intervalSeconds? })` and `person()` (the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one.
 
 ### Config
@@ -192,6 +193,37 @@ export function smokeTest<const N extends string>(def: { name: LiteralName<N>; d
 - **`settings`**: what the step was set up with, recorded as the step's manifest `config` (so part of its version). JSON values and config references; the step receives every entry its settings reference.
 - `implement` refuses a step that already carries an implementation.
 
+### Matrix steps
+
+```ts
+import { cascadeFailure, cells, implement, step } from "@olivervea/pipelines";
+
+export const buildCli = implement(step({
+  name: "build-cli", description: "", image: "oven/bun:1.4.3-slim",
+  input: { source: Source }, output: BuiltBinary,
+  matrix: {
+    axes: { os: ["linux", "windows", "macos"], arch: ["x64", "arm64"] },   // key order is the axis order
+    exclude: [{ os: "windows", arch: "arm64" }],                          // names one or more axes
+    failure: cascadeFailure(),                                            // default keepRunning()
+    maxParallel: 2,                                                       // optional
+  },
+}), async ({ source }, ctx) => {
+  const { os, arch } = ctx.cell;          // { os: "linux" | "windows" | "macos"; arch: "x64" | "arm64" }
+  // …
+});
+
+export const publish = implement(step({
+  name: "publish", description: "", image: "alpine", input: { binaries: cells(BuiltBinary) },
+}), async ({ binaries }) => { for (const { cell, output } of binaries) { /* … */ } });
+```
+
+- **Cells.** The step runs once per cell: the cross product of the axes (first axis outermost) minus the excludes. 1 to 4 axes, 1 to 64 cells. An axis name matches `^[a-z][a-zA-Z0-9]{0,30}$`, a value `^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$`, values unique per axis. Exclude keys and values are type-checked against the axes.
+- **`ctx.cell`** is the cell, typed from the axes' literals. It exists only on a matrix step's ctx.
+- **A cell's name** is `build-cli[os=linux,arch=x64]`: `ctx.run.step` and the `step` of the cell's file references hold it.
+- **Failure.** `keepRunning()` lets every cell run to the end; `cascadeFailure()` cancels the cells still running or waiting once a cell has failed its last allowed attempt.
+- **Reading a matrix step.** A later step reads it only through `cells(M)`, matched by model like other inputs or wired whole with a mapper (`[publish, from => ({ binaries: from["build-cli"] })]`; a field of a matrix step is a type error). The value is `{ cell, output }[]` in cell order, one entry per cell with an output; `cell` is `Readonly<Record<string, string>>`. A matrix step can't be read as one output, and a matrix step inside a `when` can't be read by `cells` (it may be skipped).
+- **Failure handlers** can't be matrix steps.
+
 ### Handlers
 
 ```ts
@@ -219,7 +251,8 @@ export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), as
 | `config.<entry>` | Typed to the step's declared config entries (output view, defaults applied). From input.json's `$config`. An optional entry that is not set is `undefined`. |
 | `log(message, fields?)` | Writes a `message k=v …` line to stderr. |
 | `signal` | Aborted on SIGTERM/SIGINT. Running commands are sent SIGTERM. |
-| `run` | `{ pipeline, id, number, attempt, step, version }` (from the env, see below). |
+| `run` | `{ pipeline, id, number, attempt, step, version }` (from the env, see below). For a matrix step `step` is the cell's name. |
+| `cell` | Matrix steps only: the cell being run, in axis order (from `OLVE_CELL`). |
 | `tmpDir` | A writable scratch directory (`$OLVE_DIR/tmp`). Kaniko has no `/tmp`. |
 | `skip(reason)` | Produce no output (prefer `when`). |
 
@@ -257,6 +290,8 @@ const r = await testHandler(deployBeta, { artifact }, { secrets: { SSH_PRIVATE_K
 expect(r).toMatchObject({ status: "succeeded", output: { release: "olve-pipelines" } });   // r.filesDir, r.logs, r.exitCode
 ```
 
+A matrix step takes the cell to run: `testHandler(buildCli, { source }, { cell: { os: "linux", arch: "x64" } })`; without one it fails with `kind: "input"` and exit code 65, like a pod without `OLVE_CELL`.
+
 `testHandler` uses the same validation path as a real run. Invalid input gives `status: "failed"` with `kind: "input"`; an invalid return value gives `kind: "output"`. Any part of `ctx` can be replaced; whatever you don't replace is the real implementation. `testHandler` takes any implementation: a custom step, a library step or a reusable step.
 
 ## Harness contract (service ⇄ step binary)
@@ -272,7 +307,7 @@ This section is everything the C# side needs in order to run the binary.
 | Mode | Reads | Writes | Notes |
 |---|---|---|---|
 | `describe [--sentinels]` | the binary itself | stdout: the manifest (canonical JSON) | With `--sentinels`, stdout gets the manifest between `---OLVE-MANIFEST-BEGIN---` and `---OLVE-MANIFEST-END---`. Needs no env and no files. |
-| `run <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json`, `$OLVE_DIR/work/files/…` | Steps in stages and failure-handler steps. |
+| `run <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json`, `$OLVE_DIR/work/files/…` | Steps in stages and failure-handler steps. A matrix step's cell runs as `run <step>` (the step's own name) with `OLVE_CELL`. |
 | `map-trigger <trigger>` | `$OLVE_DIR/input.json` (the event) | `$OLVE_DIR/work/output.json` | `<trigger>` is the trigger's `name` from the manifest. |
 
 `run` and `map-trigger` also print the envelope on stdout, as one compact JSON line between `---OLVE-RESULT-BEGIN---` and `---OLVE-RESULT-END---`. The block always comes last. Use it as a fallback channel from the pod log. User output and stderr logs also go to the pod log, so never parse anything outside the sentinels.
@@ -281,7 +316,7 @@ This section is everything the C# side needs in order to run the binary.
 
 | Path | Who | What |
 |---|---|---|
-| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. For a step with `configEntries`, the reserved key `"$config"` holds `{ <entry>: <value> }` from the run's config (entries that are not set are left out); each entry is parsed with its schema, and a missing required entry or an invalid value → exit 65 (`config.<entry>…`). Other steps ignore `$config`. **map-trigger push**: `{"ref": "refs/heads/<branch>", "after": "<sha>", "repository": {"full_name": "<owner>/<repo>"}}` (`PushEvent`). **map-trigger poll**: `{"value": "<extracted value as string>"}`. **map-trigger webhook**: `{"headers": {…}, "body": …}` (`WebhookEvent`). |
+| `input.json` | service (via olve-init) | **run**: a JSON object with exactly the step's input keys, built from the manifest's `input` mappings. Leave out a key whose ref root step was skipped; this is allowed only for `optional` inputs. Unknown keys → exit 65. For a step with `configEntries`, the reserved key `"$config"` holds `{ <entry>: <value> }` from the run's config (entries that are not set are left out); each entry is parsed with its schema, and a missing required entry or an invalid value → exit 65 (`config.<entry>…`). Other steps ignore `$config`. A `cells` input is a list in cell order, one entry per cell whose latest successful attempt has an output: `[{"cell": {"os": "linux", "arch": "x64"}, "output": {…}}, …]`. **map-trigger push**: `{"ref": "refs/heads/<branch>", "after": "<sha>", "repository": {"full_name": "<owner>/<repo>"}}` (`PushEvent`). **map-trigger poll**: `{"value": "<extracted value as string>"}`. **map-trigger webhook**: `{"headers": {…}, "body": …}` (`WebhookEvent`). |
 | `work/output.json` | harness | The envelope. Any stale copy is deleted at start, and the new file is written atomically. |
 | `work/files/<object path>` | harness | Output files and directory tars (see "File references"). |
 | `tmp/` | harness | Scratch space. Point `TMPDIR` here. |
@@ -298,6 +333,7 @@ This section is everything the C# side needs in order to run the binary.
 | `OLVE_RUN` | run | Run number (integer ≥ 0). Written into produced file refs. Default 0. |
 | `OLVE_ATTEMPT` | run | Attempt number (integer ≥ 1). Written into produced file refs. Default 1. |
 | `OLVE_VERSION_STAMP` | run | Derived version, e.g. `2026.10.21.412` → `ctx.run.version`. |
+| `OLVE_CELL` | run | Only for a matrix step: the cell, as compact JSON in axis order (`{"os":"linux","arch":"x64"}`) → `ctx.cell`. Missing, or not one of the step's cells → exit 65. `ctx.run.step` and produced file refs carry the cell's name, `build-cli[os=linux,arch=x64]`. |
 | `OLVE_CASES` | run | Only for a step inside a `select`: a JSON array of the case conditions it sits in (`["target.prod.kind=ssh"]`); `run <step>` uses it to pick the variant of a name several cases use. |
 | `<SECRET_NAME>` | per step | Each declared secret as an env var of the **same name**: `secretKeyRef` key = name. Mount only the step's `secrets` (for poll triggers, the poll's `secrets`). Child processes inherit them. The mount is optional: an unset secret leaves the variable unset and `ctx.secrets.<NAME>` throws on access, so a handler can check `process.env.<NAME>` first and skip. |
 | `OLVE_RESULT_URL` | optional | Pre-signed **PUT** for `result.tar.gz` (see below). Unset means no upload. |
@@ -336,7 +372,7 @@ For `map-trigger`, `output` is the pipeline input after it has been parsed by th
 | 0 | ok (succeeded or skipped) | yes |
 | 1 | the handler or trigger mapper threw | failed / `handler` |
 | 64 | usage: unknown mode, step or trigger | none |
-| 65 | `input.json` missing, not JSON, or invalid for the step (or event), including its `$config` | failed / `input` |
+| 65 | `input.json` missing, not JSON, or invalid for the step (or event), including its `$config`; a matrix step's `OLVE_CELL` missing or not one of its cells | failed / `input` |
 | 66 | the return value failed strict validation, or an own file ref is missing or changed | failed / `output` |
 | 74 | the `result.tar.gz` upload failed after retries. Used only when the step itself succeeded; otherwise the step's own code wins. | yes (printed) |
 | 78 | the pipeline is invalid (describe problems, or a step without an implementation) | none |
@@ -357,6 +393,8 @@ The service unpacks the archive into `runs/<p>/<run>/<step>/<attempt>/`.
 { "run": 412, "step": "build", "attempt": 1, "path": "chart/", "sha256": "<64 hex>" }
 ```
 
+- `step` is the step's name, or a matrix cell's name (`build-cli[os=linux,arch=x64]`).
+
 - In JSON Schema, a reference is marked `"x-olve-kind": "fileRef"`.
 - `path` is relative, with no `.`/`..` segments, no `\`, no NUL and no leading `/`. The pattern is in the schema. A **trailing `/` means a directory**.
 - **Storage rule:** the object path is `path` for files. For directories, it is `path` without the trailing `/`, plus `.tar`: `chart/` → `chart.tar`, an uncompressed deterministic tar.
@@ -365,7 +403,7 @@ The service unpacks the archive into `runs/<p>/<run>/<step>/<attempt>/`.
 
 ## Manifest
 
-Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-12, `$defs` `Manifest`, `Step`, `Stage`, `Mapping`, `Trigger`, `InputType`, `ModelSchemas`). The text is canonical JSON: sorted keys, 2-space indent, a trailing newline, and no `$schema` in the model schemas. Hash the text as printed.
+Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-12, `$defs` `Manifest`, `Step`, `Stage`, `Mapping`, `Trigger`, `InputType`, `ModelSchemas`, `Matrix`). The text is canonical JSON: sorted keys, 2-space indent, a trailing newline, and no `$schema` in the model schemas. Hash the text as printed.
 
 - **`apiVersion`** is `"2.0"`.
 - **`harness`** is `{ bun, sdk, sdkHash }`.
@@ -380,7 +418,8 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
-- **`inputTypes`** declares each input key: `{model, optional}`, or `{schema: {output, input?}}` for a plain schema.
+- **`inputTypes`** declares each input key: `{model, optional}`, `{model, optional: false, cells: true}` for a `cells` input (mapped with a whole-step ref to a matrix step whose output is that model), or `{schema: {output, input?}}` for a plain schema.
+- **Step `matrix`** (matrix steps only, never a failure handler) is `{axes: [{name, values}…], exclude?: [{axis: value…}…], failure: {kind: "keepRunning" | "cascadeFailure"}, maxParallel?}`. `axes` is a list because canonical JSON sorts keys; `exclude` is omitted when empty; `failure.kind` is always written. All of it is part of what the step declares.
 - **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point bundled with everything it imports, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
 - **`stages`** is an array whose items are either `{steps: [Step…]}` (parallel, with a barrier) or `{when: {field: [values]}, stages: [...]}`.
 - **`triggers`**:
@@ -404,7 +443,8 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 - a poll header referencing an undeclared secret, duplicate triggers;
 - conflicting secret descriptions;
 - config names, one description and schema per config name, a step receiving a `secretRef` without declaring its secret, and input keys starting with `$` (reserved);
-- an `onFailure` scope naming an unknown step, and failure-handler inputs.
+- an `onFailure` scope naming an unknown step, and failure-handler inputs;
+- a matrix's axes, values, excludes, cell count, failure strategy and `maxParallel`, a matrix failure handler, and reading a matrix step other than whole through a `cells` input (or a `cells` input reading anything else).
 
 ## Build tool
 

@@ -102,7 +102,7 @@ cd src/sdk && bun scripts/gen-manifest-schema.ts                # After changing
 pl dev describe [--dir .pipelines-test]                     # Describe a pipeline from source (see docs/setup/local-development.md)
 ```
 
-Keep the compile-fail checker green on both TypeScript lines (TS 7 and 5.9; `TSC=… bun scripts/check-compile-fail.ts`).
+The SDK and pipelines target the newest TypeScript only (the version pinned in `src/sdk/package.json`).
 
 ### Frontend
 

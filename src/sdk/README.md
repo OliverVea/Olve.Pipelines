@@ -455,7 +455,6 @@ olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 bun install
 bunx tsc --noEmit -p .                         # type-check (TS 7)
 bun scripts/check-compile-fail.ts              # compile-fail cases (also run by bun test)
-TSC=/path/to/tsc-5.9/bin/tsc bun scripts/check-compile-fail.ts   # the other TS line
 bun test                                       # runtime + build/e2e tests
 bun scripts/gen-manifest-schema.ts             # after changing src/describe/manifest-schema.ts
 ```

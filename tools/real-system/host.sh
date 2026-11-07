@@ -124,7 +124,7 @@ case "$command" in
   status) compose ps ;;
   logs) compose logs -f server ;;
   down)
-    compose down -v
+    compose down -v -t 0
     rm -f "$DESCRIPTOR" "$CLUSTER_ID_FILE"
     ;;
   sweep)

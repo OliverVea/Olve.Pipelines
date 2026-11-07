@@ -26,7 +26,11 @@ TEST_TARGETS="$(for s in "${slots[@]}"; do printf 'http://localhost:%d,' $((5000
 export TEST_TARGETS="${TEST_TARGETS%,}"
 
 available_gib() { awk '/MemAvailable/ { print int($2 / 1048576) }' /proc/meminfo; }
-down() { for s in "${slots[@]}"; do tools/real-system/host.sh down "$s" >/dev/null 2>&1 || true; done; }
+down() {
+  local pids=() pid
+  for s in "${slots[@]}"; do tools/real-system/host.sh down "$s" >/dev/null 2>&1 & pids+=($!); done
+  for pid in "${pids[@]}"; do wait "$pid" || true; done
+}
 # The first slot builds the server every slot serves; the others start on it at once.
 up() {
   tools/real-system/host.sh up "${slots[0]}"

@@ -112,8 +112,10 @@ case "$command" in
     cp -r "$REPO_ROOT/src/frontend/dist/." "$SERVER_DIR/wwwroot/"
     ;;
   reset)
+    # Pods go first, and gone: a pod still terminating would upload its result into the new Garage.
+    in_cluster -n olve-runners delete jobs --all --wait=false >/dev/null
+    in_cluster -n olve-runners delete pods --all --grace-period=0 --force --wait=true --timeout=60s >/dev/null 2>&1
     compose rm -fsv server garage bootstrap >/dev/null
-    in_cluster -n olve-runners delete jobs,pods --all --wait=false >/dev/null
     in_cluster -n olve-runners get secrets -o name \
       | { grep -v -E '^secret/(olve-pipelines-token|olve-real-system-marker)$' || true; } \
       | while read -r secret; do in_cluster -n olve-runners delete "$secret" >/dev/null; done

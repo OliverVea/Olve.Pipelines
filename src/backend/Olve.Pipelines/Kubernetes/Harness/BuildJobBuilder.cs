@@ -73,6 +73,8 @@ public static partial class BuildJobBuilder
         })().catch((e) => { console.error(`olve-build-job: ${e}`); process.exit(65); });'
         tar -xzf repo.tar.gz -C /work/src --strip-components=1
         rm -f repo.tar.gz
+        # The pipeline's install scripts and build-time code must not see the binding's token.
+        unset OLVE_GITHUB_TOKEN
         cd /work/src
         # A local file:/link: dependency (an in-repo SDK, "file:../sdk") resolves to its source directory, so
         # its own dependencies are installed there. Registry dependencies (the npm alias) need nothing extra.

@@ -24,8 +24,6 @@ export interface CtxOptions {
   callbackUrls?: Readonly<Record<string, string>>;
   /** A matrix step's cell (`ctx.cell`). */
   cell?: Cell;
-  /** Commands' output goes through this process (the harness masks secrets there). */
-  pipeOutput?: boolean;
 }
 
 export function formatLog(message: string, fields?: Record<string, unknown>): string {
@@ -146,11 +144,7 @@ export function createCtx(o: CtxOptions): Ctx {
   const sink = o.logSink ?? ((line: string) => process.stderr.write(line + '\n'));
   const log = (message: string, fields?: Record<string, unknown>) =>
     sink(formatLog(message, fields));
-  const { sh, exec } = createSh({
-    tmpDir: o.paths.tmp,
-    signal: o.signal,
-    pipeOutput: o.pipeOutput,
-  });
+  const { sh, exec } = createSh({ tmpDir: o.paths.tmp, signal: o.signal });
   const filesDeps = {
     run: o.run,
     workFiles: o.paths.workFiles,

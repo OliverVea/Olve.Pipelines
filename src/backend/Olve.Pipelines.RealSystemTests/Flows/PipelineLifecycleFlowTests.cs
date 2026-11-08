@@ -28,6 +28,9 @@ public class PipelineLifecycleFlowTests
         await Assert.That(output.ToJsonString()).Contains("through the file ref");
         await Assert.That(output.ToJsonString()).Contains("\"secretLength\":6");
         await Assert.That(await server.Api.GetStepLogsAsync(pipeline.Id, run.Number, "produce")).Contains("produced the message");
+        var consumeLog = await server.Api.GetStepLogsAsync(pipeline.Id, run.Number, "consume");
+        await Assert.That(consumeLog).Contains("read the secret: ***");
+        await Assert.That(consumeLog).DoesNotContain("s3cret");
 
         var hex = pipeline.Id.ToString("N");
         var secret = TestCluster.PipelineSecretName(pipeline.Id);

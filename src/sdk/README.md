@@ -333,6 +333,7 @@ This section is everything the C# side needs in order to run the binary.
 | `OLVE_RUN` | run | Run number (integer ≥ 0). Written into produced file refs. Default 0. |
 | `OLVE_ATTEMPT` | run | Attempt number (integer ≥ 1). Written into produced file refs. Default 1. |
 | `OLVE_VERSION_STAMP` | run | Derived version, e.g. `2026.10.21.412` → `ctx.run.version`. |
+| `OLVE_SECRETS` | run | The step's declared secret names, comma-separated: the values the binary masks in its output (above). Unset or empty: no masking. |
 | `OLVE_CELL` | run | Only for a matrix step: the cell, as compact JSON in axis order (`{"os":"linux","arch":"x64"}`) → `ctx.cell`. Missing, or not one of the step's cells → exit 65. `ctx.run.step` and produced file refs carry the cell's name, `build-cli[os=linux,arch=x64]`. |
 | `OLVE_CASES` | run | Only for a step inside a `select`: a JSON array of the case conditions it sits in (`["target.prod.kind=ssh"]`); `run <step>` uses it to pick the variant of a name several cases use. |
 | `<SECRET_NAME>` | per step | Each declared secret as an env var of the **same name**: `secretKeyRef` key = name. Mount only the step's `secrets` (for poll triggers, the poll's `secrets`). Child processes inherit them. The mount is optional: an unset secret leaves the variable unset and `ctx.secrets.<NAME>` throws on access, so a handler can check `process.env.<NAME>` first and skip. |
@@ -344,7 +345,9 @@ This section is everything the C# side needs in order to run the binary.
 
 `OLVE_RESULT_URL`, `OLVE_FILE_URLS`, `OLVE_FILES_TOKEN` and `OLVE_CALLBACK_URLS` are removed from the environment of child processes. URLs are never logged past `?`.
 
-**Secret masking** (`run`): every value of the step's declared secrets is replaced with `***` in what the step writes: `ctx.log`, `console`, anything written to stdout or stderr, the output of `ctx.exec` and `ctx.sh` commands (piped through the harness when the step has a secret; inherited otherwise), and the envelope's failure message or skip reason. Output is masked a line at a time; a multi-line value is masked line by line, and values (or lines) shorter than 4 characters are left alone. Outputs and files are data and are not masked. A process that writes to the pod's stdout around the harness (a file descriptor it opened itself) is not masked.
+**Secret masking** (`run`): with `OLVE_SECRETS` set, the binary runs the step as its own child and replaces every value of those secrets with `***` in the child's stdout and stderr, a line at a time, from the pipeline's first import to its exit. That covers every way of printing: logs, `console`, direct writes, commands and the processes they start. The envelope's failure message, skip reason and links are masked too; outputs and files are data and aren't. A multi-line value is masked line by line, and values (or lines) shorter than 4 characters are left alone. Not masked: a value the step transforms before printing (escaped, encoded, cut short) and a process writing to the pod's stdout directly (`/proc/1/fd/1`).
+
+An error nothing catches (a rejected promise, a throw in a timer) fails the step.
 
 `ctx.files.fetch` looks for a file in this order:
 

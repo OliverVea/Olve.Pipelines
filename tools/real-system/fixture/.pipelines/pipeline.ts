@@ -1,5 +1,5 @@
 // The pipeline the GitHub stand-in serves. Two stages: a file ref passes between steps, the second step
-// reads a declared secret, and `outcome: "fail"` fails the run.
+// reads a declared secret (and logs it, which the log must show masked), and `outcome: "fail"` fails the run.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileRef, implement, model, pipeline, secret, step, z } from "@olivervea/pipelines";
@@ -39,7 +39,9 @@ const consume = implement(step({
 }), async ({ request, produced }, ctx) => {
   if (request.outcome === "fail") throw new Error("the fixture was asked to fail");
   const text = readFileSync(await ctx.files.fetch(produced.file), "utf8");
-  return { text, secretLength: (ctx.secrets.FIXTURE_SECRET ?? "").length };
+  const secret = ctx.secrets.FIXTURE_SECRET ?? "";
+  ctx.log(`read the secret: ${secret}`);
+  return { text, secretLength: secret.length };
 });
 
 export default pipeline({

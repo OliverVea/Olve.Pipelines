@@ -106,6 +106,9 @@ public static partial class HarnessJobBuilder
     public const string CasesKey = "OLVE_CASES";
     public const string CellKey = "OLVE_CELL";
 
+    /// <summary>The step's declared secret names, comma-separated: what the step binary masks (<c>OLVE_SECRETS</c>).</summary>
+    public const string SecretsKey = "OLVE_SECRETS";
+
     /// <summary>Env names the service sets itself; a declared secret must not shadow them.</summary>
     private static readonly HashSet<string> ReservedEnv = new(StringComparer.Ordinal)
     {
@@ -176,8 +179,11 @@ public static partial class HarnessJobBuilder
         if (secretData.ContainsKey(CallbackUrlsKey)) stepEnv.Add(Url(CallbackUrlsKey));
         // Declared secrets only, one secretKeyRef each (key = name) — never envFrom of the whole Secret.
         // Optional: an unset secret leaves the variable unset, and ctx.secrets fails on access (a handler can check first).
-        foreach (var secret in request.Secrets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        var secrets = request.Secrets.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        foreach (var secret in secrets)
             stepEnv.Add(K8sEnvVar.FromSecret(secret, request.PipelineSecretName, secret, optional: true));
+        // The names the step binary masks the values of in everything the step prints.
+        if (secrets.Count > 0) stepEnv.Add(new K8sEnvVar(SecretsKey, string.Join(',', secrets)));
 
         var labels = new Dictionary<string, string>
         {

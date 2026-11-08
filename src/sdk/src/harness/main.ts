@@ -8,7 +8,7 @@ import { isImplementation } from '../core/handlers.ts';
 import { configRefPath, isConfigRef, unionAt } from '../core/config.ts';
 import type { AnyStep } from '../core/steps.ts';
 import { cellName, parseCell } from '../core/matrix.ts';
-import { installMasking, maskEnvelope, maskPatterns, maskText } from './mask.ts';
+import { maskEnvelope, maskPatterns } from './mask.ts';
 import type { WebhookEvent } from '../core/webhooks.ts';
 import { pipelineData, type PipelineData, type StageNode } from '../builder/pipeline.ts';
 import { createCtx, formatLog } from '../ctx/index.ts';
@@ -200,11 +200,11 @@ async function runMode(
     : undefined;
   const cancel = cancellation();
   const masks = maskPatterns(step.secrets.map((s) => process.env[s.name]));
-  const unmask = masks.length > 0 ? installMasking(masks) : () => {};
-  if (masks.length > 0) {
-    const stderr = io.stderr;
-    io = { ...io, stderr: (line) => stderr(maskText(line, masks)) };
-  }
+  // An error nothing caught (a rejected promise, a throw in a timer) fails the step.
+  let uncaught: unknown;
+  const onUncaught = (e: unknown) => void (uncaught ??= e);
+  process.on('unhandledRejection', onUncaught);
+  process.on('uncaughtException', onUncaught);
   try {
     let exec: Execution;
     if (!raw.ok || (cell && !cell.ok)) {
@@ -224,7 +224,6 @@ async function runMode(
         logSink: io.stderr,
         callbackUrls: callbackUrlsFromEnv(),
         ...(cell?.ok ? { cell: cell.cell } : {}),
-        pipeOutput: masks.length > 0,
       });
       exec = await executeStep({
         step,
@@ -235,10 +234,18 @@ async function runMode(
         log: io.stderr,
       });
     }
-    unmask();
+    if (uncaught !== undefined && exec.envelope.status !== 'failed') {
+      const message = `step '${step.name}' failed: an error nothing caught: ${uncaught instanceof Error ? uncaught.message : String(uncaught)}`;
+      io.stderr(message);
+      exec = {
+        envelope: { status: 'failed', error: { kind: 'handler', message } },
+        exitCode: EXIT.handlerFailed,
+      };
+    }
     return await finish({ ...exec, envelope: maskEnvelope(exec.envelope, masks) }, io);
   } finally {
-    unmask();
+    process.off('unhandledRejection', onUncaught);
+    process.off('uncaughtException', onUncaught);
     cancel.dispose();
   }
 }

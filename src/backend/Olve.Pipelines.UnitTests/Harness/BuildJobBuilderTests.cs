@@ -79,6 +79,17 @@ public class BuildJobBuilderTests
         await Assert.That(TestRunDomain.Pick(spec).UrlSecretData["OLVE_BINARY_URL"]).IsEqualTo("http://garage/versions/step.tar.gz?sig");
     }
 
+    // Catches: the pipeline's install scripts or build-time code reading the binding's GitHub token.
+    [Test]
+    public async Task Script_UnsetsTheToken_BeforeAnythingFromTheRepositoryRuns()
+    {
+        var script = BuildJobBuilder.Script;
+        var unset = script.IndexOf("unset OLVE_GITHUB_TOKEN", StringComparison.Ordinal);
+
+        await Assert.That(unset).IsGreaterThan(script.IndexOf("tar -xzf repo.tar.gz", StringComparison.Ordinal));
+        await Assert.That(unset).IsLessThan(script.IndexOf("bun install", StringComparison.Ordinal));
+    }
+
     [Test]
     public async Task ShellScript_StripsCarriageReturns()
     {

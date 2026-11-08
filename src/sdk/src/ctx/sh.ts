@@ -79,8 +79,6 @@ export function childEnv(extra?: Record<string, string>): Record<string, string>
 export interface ShDeps {
   tmpDir: string;
   signal: AbortSignal;
-  /** Pipe commands' output through this process's stdout/stderr (where secrets are masked). */
-  pipeOutput?: boolean;
   shellCandidates?: readonly string[];
 }
 
@@ -152,8 +150,8 @@ export function createSh(deps: ShDeps): {
         cwd: opts.cwd,
         env: childEnv(opts.env),
         stdin: 'ignore',
-        stdout: capture || idleSeconds || deps.pipeOutput ? 'pipe' : 'inherit',
-        stderr: idleSeconds || deps.pipeOutput ? 'pipe' : 'inherit',
+        stdout: capture || idleSeconds ? 'pipe' : 'inherit',
+        stderr: idleSeconds ? 'pipe' : 'inherit',
       });
     } catch (e) {
       throw new Error(`cannot start ${what} (${argv[0]}): ${(e as Error).message}`);
@@ -198,11 +196,11 @@ export function createSh(deps: ShDeps): {
       pumps.push(
         pump(proc.stdout as ReadableStream<Uint8Array>, (c) => captured.push(c)),
       );
-    else if (idleSeconds || deps.pipeOutput)
+    else if (idleSeconds)
       pumps.push(
         pump(proc.stdout as ReadableStream<Uint8Array>, (c) => process.stdout.write(c)),
       );
-    if (idleSeconds || deps.pipeOutput)
+    if (idleSeconds)
       pumps.push(
         pump(proc.stderr as ReadableStream<Uint8Array>, (c) => process.stderr.write(c)),
       );

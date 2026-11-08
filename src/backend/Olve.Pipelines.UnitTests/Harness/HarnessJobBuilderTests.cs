@@ -87,7 +87,8 @@ public class HarnessJobBuilderTests
                       { "name": "OLVE_RESULT_URL", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_RESULT_URL", "optional": false } } },
                       { "name": "OLVE_FILE_URLS", "valueFrom": { "secretKeyRef": { "name": "olve-urls-aaaaaaaabbbbccccddddeeeeeeeeeeee", "key": "OLVE_FILE_URLS", "optional": false } } },
                       { "name": "KUBECONFIG", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "KUBECONFIG", "optional": true } } },
-                      { "name": "SSH_KEY", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "SSH_KEY", "optional": true } } }
+                      { "name": "SSH_KEY", "valueFrom": { "secretKeyRef": { "name": "olve-pipeline-11111111222233334444555555555555", "key": "SSH_KEY", "optional": true } } },
+                      { "name": "OLVE_SECRETS", "value": "KUBECONFIG,SSH_KEY" }
                     ],
                     "volumeMounts": [{ "name": "olve", "mountPath": "/olve" }],
                     "securityContext": { "allowPrivilegeEscalation": false }
@@ -154,6 +155,7 @@ public class HarnessJobBuilderTests
         await Assert.That(json).DoesNotContain("OLVE_INPUT_URL");
         await Assert.That(json).DoesNotContain("OLVE_FILE_URLS");
         await Assert.That(json).DoesNotContain("olve-pipeline-");
+        await Assert.That(json).DoesNotContain("OLVE_SECRETS");
         await Assert.That(json).DoesNotContain("envFrom");
         await Assert.That(spec.UrlSecretData.Keys.Order().ToArray()).IsEquivalentTo(new[] { "OLVE_RESULT_URL", "OLVE_STEP_URL" });
     }

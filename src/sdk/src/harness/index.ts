@@ -7,6 +7,7 @@ export {
   type HarnessIO,
 } from './main.ts';
 export { EXIT } from './exit.ts';
+export { supervise } from './supervise.ts';
 export { ENV, paths, runInfoFromEnv } from './env.ts';
 export {
   executeStep,

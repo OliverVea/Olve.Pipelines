@@ -21,7 +21,7 @@ public class GitHubConfigSource(
 {
     private readonly string _apiBase = GitHubEndpoints.ApiUrl(configuration);
 
-    public async Task<Result<string>> GetBranchHeadShaAsync(PipelineConfigBinding binding, CancellationToken ct = default)
+    public async Task<Result<BranchHead>> GetBranchHeadAsync(PipelineConfigBinding binding, CancellationToken ct = default)
     {
         var token = await GetTokenAsync(binding, ct);
         using var client = new HttpClient();
@@ -36,7 +36,7 @@ public class GitHubConfigSource(
         if (commit is null || string.IsNullOrEmpty(commit.Sha))
             return new ResultProblem($"GitHub returned no commit SHA for '{binding.Repo}@{binding.Branch}'.");
 
-        return commit.Sha;
+        return new BranchHead(commit.Sha, commit.Commit?.Message ?? "", commit.Commit?.Committer?.Date);
     }
 
     /// <summary>

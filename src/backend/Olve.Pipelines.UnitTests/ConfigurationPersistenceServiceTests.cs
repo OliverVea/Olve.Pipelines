@@ -296,19 +296,27 @@ public class ConfigurationPersistenceServiceTests
         var pipelineId = Id.New<Pipeline>();
 
         // First instance: seed a pipeline and flush on stop.
-        var (writer, writerPipelines, _) = CreateService(store);
+        var writerBindings = new EntityStore<PipelineConfigBinding>([]);
+        var (writer, writerPipelines, _) = CreateService(store, bindings: writerBindings);
         await writer.StartingAsync(CancellationToken.None);
         writerPipelines.Set(new Pipeline(pipelineId, "survivor"));
+        var head = new BranchHead("head-1", "Fix the thing", DateTimeOffset.UnixEpoch);
+        var binding = new PipelineConfigBinding(Id.New<PipelineConfigBinding>(), pipelineId, "acme/widgets", "main", ".pipelines", null,
+            "head-1", "cfg-1", ReconcileStatus.NeverRun, DateTimeOffset.UnixEpoch, Head: head);
+        writerBindings.Set(binding);
         await writer.StoppingAsync(CancellationToken.None);
 
         await Assert.That(store.WriteCount).IsGreaterThan(0);
 
         // Second instance ("after restart"): same store, must reload the seeded pipeline.
-        var (reader, readerPipelines, readiness) = CreateService(store);
+        var readerBindings = new EntityStore<PipelineConfigBinding>([]);
+        var (reader, readerPipelines, readiness) = CreateService(store, bindings: readerBindings);
         await reader.StartingAsync(CancellationToken.None);
 
         await Assert.That(readiness.IsReady).IsTrue();
         await Assert.That(readerPipelines.TryGet(pipelineId, out var reloaded)).IsTrue();
         await Assert.That(reloaded!.Name).IsEqualTo("survivor");
+        await Assert.That(readerBindings.TryGet(binding.Id, out var reloadedBinding)).IsTrue();
+        await Assert.That(reloadedBinding!.Head).IsEqualTo(head);
     }
 }

@@ -59,12 +59,15 @@ public class PushTriggerService(
         if (services.GetRequiredService<PipelineConfigBindingService>().GetByPipelineId(pipelineId).TryPickProblems(out _, out var binding))
             return;
 
-        var headResult = await services.GetRequiredService<IConfigSource>().GetBranchHeadShaAsync(binding, ct);
-        if (headResult.TryPickProblems(out var problems, out var head))
+        var headResult = await services.GetRequiredService<IConfigSource>().GetBranchHeadAsync(binding, ct);
+        if (headResult.TryPickProblems(out var problems, out var branchHead))
         {
             logger.LogProblems(LogLevel.Warning, problems, "Push check: could not read branch head for '{Repo}@{Branch}'", binding.Repo, binding.Branch);
             return;
         }
+
+        LogIfFailed(services.GetRequiredService<PipelineConfigBindingService>().SetHead(binding.Id, branchHead), binding);
+        var head = branchHead.Sha;
 
         var origin = new RunOrigin(noticedAt, notice is null ? "poll" : "webhook",
             PushedAt: notice?.Push is { } push && push.Sha == head ? push.PushedAt : null, PushSha: head);

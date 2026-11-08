@@ -2,9 +2,9 @@
   "system": "github",
   "name": "branch-head",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-10-31",
+  "capturedAt": "2026-11-08",
   "systemVersion": "2022-11-28",
-  "elided": "author, comments_url, commit.author, commit.comment_count, commit.committer.email, commit.committer.name, commit.message, commit.tree, commit.url, commit.verification, committer, files, html_url, node_id, parents, stats, url",
+  "elided": "author, comments_url, commit.author, commit.comment_count, commit.committer.email, commit.committer.name, commit.tree, commit.url, commit.verification, committer, files, html_url, node_id, parents, stats, url",
   "request": {
     "method": "GET",
     "url": "/repos/OliverVea/Olve.Pipelines/commits/main",
@@ -17,16 +17,17 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"693458b35a173383f02e8449da3e325d883eb6aafe76fcebd24426df425facef\"",
+      "etag": "W/\"9db1531948a37e26a856cf748368cf635b0d28b04ce8a51a8bd9cbd8a1270abb\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": {
-      "sha": "74c1cdfec9d85138caa7a2f588761139285d8915",
+      "sha": "169c9c4c7753604af0b79a92029d4b3e53e9dbb4",
       "commit": {
         "committer": {
-          "date": "2026-10-31T03:57:20Z"
-        }
+          "date": "2026-11-08T05:32:50Z"
+        },
+        "message": "fix(sdk): mask secrets by running the step as a filtered child; uncaught errors fail the step (2.0.0-beta.32)\n\nA red-team pass found the in-process masking leaky: console methods past the five patched,\nBun.write and fd 1 writes, loggers captured at import, code at import, uncaught-error output,\nanything after the handler during the upload, 64 KB line cuts and values with a lone CR.\n\nWith OLVE_SECRETS (the step's declared secret names, set by the server on step Jobs) the binary\nnow runs the step as its own child and masks the child's stdout and stderr, from the pipeline's\nfirst import to its exit; the in-process patching is gone. The masker holds back the longest\nvalue at its 64 KB cut and splits values on CR too; the envelope's links are masked as well.\nAn error nothing caught now fails the step instead of letting it succeed. The build Job drops\nthe binding's GitHub token once the tarball is fetched, before the repository's install scripts\nand build-time code run. The real-system fixture logs its secret and the flow checks it is masked.\n\nCo-Authored-By: Claude Opus 5.5 <<scrubbed>>"
       }
     }
   }

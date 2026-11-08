@@ -12,6 +12,7 @@ namespace Olve.Pipelines.Pipelines.Sync;
 /// <param name="LastPushSha">The branch head the push trigger last fired for.</param>
 /// <param name="LastReconciledSha">The config commit (touching <see cref="Path"/> or a local <c>file:</c>/<c>link:</c> dependency of its
 /// <c>package.json</c>) the last successful reconcile applied.</param>
+/// <param name="Head">The branch head the last push check read, for display; null until one did.</param>
 /// <param name="WebhookSecret">HMAC key of the inbound push webhook (null on bindings from before webhooks; created when one is registered).</param>
 public record PipelineConfigBinding(
     Id<PipelineConfigBinding> Id,
@@ -25,4 +26,7 @@ public record PipelineConfigBinding(
     ReconcileStatus Status,
     DateTimeOffset CreatedAt,
     string? WebhookSecret = null,
-    bool Polls = true) : IHasId<Id<PipelineConfigBinding>>;
+    bool Polls = true,
+    BranchHead? Head = null) : IHasId<Id<PipelineConfigBinding>>;
+
+public record BranchHead(string Sha, string Message, DateTimeOffset? CommittedAt);

@@ -24,6 +24,7 @@ const bound: PipelineBinding = {
   credentialsSecret: 'GITHUB_TOKEN',
   lastPushSha: SHA,
   lastReconciledSha: OTHER,
+  head: null,
   status: {
     result: 'Error',
     lastSyncTime: '2026-10-28T11:59:30.123Z',
@@ -111,6 +112,7 @@ describe('binding status', () => {
     path: '.pipelines',
     lastPushSha: SHA,
     lastReconciledSha: SHA,
+    head: null,
     result: 'Success',
     lastSyncTime: '2026-10-28T11:59:30Z',
     problems: [],

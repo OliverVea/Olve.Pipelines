@@ -2,9 +2,9 @@
   "system": "github",
   "name": "config-cursor",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-10-31",
+  "capturedAt": "2026-11-08",
   "systemVersion": "2022-11-28",
-  "elided": "author, comments_url, commit.author, commit.comment_count, commit.committer.email, commit.committer.name, commit.message, commit.tree, commit.url, commit.verification, committer, files, html_url, node_id, parents, stats, url",
+  "elided": "author, comments_url, commit.author, commit.comment_count, commit.committer.email, commit.committer.name, commit.tree, commit.url, commit.verification, committer, files, html_url, node_id, parents, stats, url, commit.message",
   "request": {
     "method": "GET",
     "url": "/repos/OliverVea/Olve.Pipelines/commits?path=.pipelines&sha=main&per_page=1",
@@ -17,16 +17,16 @@
     "status": 200,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"6d46a3bd396dbd45880803d5a5e626fb03a1570f646727fbc40292be1f0b1ebf\"",
+      "etag": "W/\"bdec460bd6e80b2ea6c429869416d281d09c19ed7f018caa8d5f3d712db0c4d8\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },
     "body": [
       {
-        "sha": "3e6555d9cd1bb9fce6eadafb7ac627d36c24088d",
+        "sha": "37230e9f8af3ccc8d0dbef8717c4f9e70de86e50",
         "commit": {
           "committer": {
-            "date": "2026-10-31T03:07:03Z"
+            "date": "2026-11-08T04:28:41Z"
           }
         }
       }

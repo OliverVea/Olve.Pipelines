@@ -178,7 +178,7 @@ public class ConfigurationPersistenceService(
             Pipelines: pipelines.List().Select(p => new PipelineData(p.Id, p.Name, p.Description)).ToArray(),
             Bindings: bindings.List().Select(b => new PipelineConfigBindingData(
                 b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret, b.LastPushSha, b.LastReconciledSha, b.Status, b.CreatedAt,
-                b.WebhookSecret)).ToArray());
+                b.WebhookSecret, b.Head)).ToArray());
 
     private void LoadSnapshot(ConfigurationSnapshot snapshot)
     {
@@ -189,7 +189,7 @@ public class ConfigurationPersistenceService(
             bindings.Set(new PipelineConfigBinding(
                 b.Id, b.PipelineId, b.Repo, b.Branch, b.Path, b.CredentialsSecret,
                 b.LastPushSha ?? b.LastDeployedSha, b.LastReconciledSha ?? b.LastSyncedSha,
-                b.Status ?? ReconcileStatus.NeverRun, b.CreatedAt, b.WebhookSecret));
+                b.Status ?? ReconcileStatus.NeverRun, b.CreatedAt, b.WebhookSecret, Head: b.Head));
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -17,6 +17,7 @@ pipeline; every pipeline has exactly one.
 | `path` | pipeline directory in the repo (default `.pipelines`) |
 | `credentialsSecret` | the **key name** in the pipeline's Secret holding a GitHub token (omit for a public repo) — a reference, never the token |
 | `lastReconciledSha` / `lastPushSha` | the config commit last reconciled / the branch head last turned into a push trigger |
+| `head` | the newest commit on the branch (`sha`, `message`, `committedAt`) as the last push check read it, shown in the overview's status card; null for a pipeline without an `onPush` trigger |
 | `status` | last reconcile `result`, `lastSyncTime`, `problems`, `warnings`, `sha`, `inProgress`, `versionNumber` (the version it switched to) |
 
 | `pl` command | Purpose |

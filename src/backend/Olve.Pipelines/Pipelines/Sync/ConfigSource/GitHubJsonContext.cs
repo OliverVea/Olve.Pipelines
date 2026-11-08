@@ -2,11 +2,11 @@ using System.Text.Json.Serialization;
 
 namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 
-internal record GitHubCommitRef(string Sha);
+internal record GitHubCommitRef(string Sha, GitHubCommitDetail? Commit);
 
 internal record GitHubCommitListItem(string Sha, GitHubCommitDetail? Commit);
 
-internal record GitHubCommitDetail(GitHubCommitPerson? Committer);
+internal record GitHubCommitDetail(GitHubCommitPerson? Committer, string? Message = null);
 
 internal record GitHubCommitPerson(DateTimeOffset? Date);
 

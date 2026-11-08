@@ -79,6 +79,7 @@ public sealed class GetBindingStatusHandler(
             Path = binding.Path,
             LastPushSha = binding.LastPushSha,
             LastReconciledSha = binding.LastReconciledSha,
+            Head = BindingViews.ToApi(binding.Head),
             Result = BindingViews.ToApi(status.Result),
             LastSyncTime = status.LastSyncTime,
             Problems = status.Problems,
@@ -187,6 +188,7 @@ public static class BindingViews
         CredentialsSecret = b.CredentialsSecret,
         LastPushSha = b.LastPushSha,
         LastReconciledSha = b.LastReconciledSha,
+        Head = ToApi(b.Head),
         Status = new Contract.ReconcileStatus
         {
             Result = ToApi(b.Status.Result),
@@ -200,6 +202,10 @@ public static class BindingViews
         CreatedAt = b.CreatedAt,
         Polls = b.Polls,
     };
+
+    public static Contract.HeadCommit? ToApi(BranchHead? h) => h is null
+        ? null
+        : new() { Sha = h.Sha, Message = h.Message, CommittedAt = h.CommittedAt };
 
     public static Contract.ReconcileResult ToApi(ReconcileResult r) => r switch
     {

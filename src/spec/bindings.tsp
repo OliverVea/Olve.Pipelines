@@ -28,6 +28,16 @@ model ReconcileStatus {
   versionNumber: int32 | null;
 }
 
+/** The newest commit on the bound branch, as the last push check read it. */
+model HeadCommit {
+  sha: string;
+
+  /** The full commit message. */
+  message: string;
+
+  committedAt: utcDateTime | null;
+}
+
 /** A pipeline's GitOps binding: the repo, branch and path it reconciles its definition from. The webhook's HMAC key never leaves the service. */
 model PipelineBinding {
   @format("uuid") id: string;
@@ -41,6 +51,10 @@ model PipelineBinding {
 
   lastPushSha: string | null;
   lastReconciledSha: string | null;
+
+  /** Null until a push check read the branch: only pipelines with a push trigger check it. */
+  head: HeadCommit | null;
+
   status: ReconcileStatus;
   createdAt: utcDateTime;
 
@@ -56,6 +70,10 @@ model PipelineBindingStatus {
   path: string;
   lastPushSha: string | null;
   lastReconciledSha: string | null;
+
+  /** Null until a push check read the branch: only pipelines with a push trigger check it. */
+  head: HeadCommit | null;
+
   result: ReconcileResult;
   lastSyncTime: utcDateTime | null;
   problems: string[];

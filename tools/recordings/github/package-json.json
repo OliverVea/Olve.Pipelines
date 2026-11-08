@@ -2,12 +2,12 @@
   "system": "github",
   "name": "package-json",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-10-31",
+  "capturedAt": "2026-11-08",
   "systemVersion": "2022-11-28",
   "elided": "",
   "request": {
     "method": "GET",
-    "url": "/repos/OliverVea/Olve.Pipelines/contents/.pipelines/package.json?ref=3e6555d9cd1bb9fce6eadafb7ac627d36c24088d",
+    "url": "/repos/OliverVea/Olve.Pipelines/contents/.pipelines/package.json?ref=37230e9f8af3ccc8d0dbef8717c4f9e70de86e50",
     "headers": {
       "accept": "application/vnd.github.raw+json",
       "user-agent": "olve-pipelines"

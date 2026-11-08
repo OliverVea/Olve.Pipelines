@@ -17,13 +17,15 @@ internal static partial class GitHubCapture
 
     private static readonly string[] Headers = ["content-type", "etag", "x-github-api-version-selected", "x-github-media-type"];
 
-    /// <summary>Only what the service reads stays, with no author details and no diffs of the repo.</summary>
-    private static readonly string[] CommitElisions =
+    /// <summary>Only what the service reads stays, with no author details and no diffs of the repo; the head keeps its message.</summary>
+    private static readonly string[] HeadElisions =
     [
         "author", "comments_url", "commit.author", "commit.comment_count", "commit.committer.email", "commit.committer.name",
-        "commit.message", "commit.tree", "commit.url", "commit.verification", "committer", "files", "html_url", "node_id",
+        "commit.tree", "commit.url", "commit.verification", "committer", "files", "html_url", "node_id",
         "parents", "stats", "url",
     ];
+
+    private static readonly string[] CommitElisions = [.. HeadElisions, "commit.message"];
 
     public static async Task<IReadOnlyList<Recording>> CaptureAsync(DateOnly today)
     {
@@ -46,7 +48,7 @@ internal static partial class GitHubCapture
         }
 
         var head = $"/repos/{Repo}/commits/{Branch}";
-        await GetAsync("branch-head", head, elided: CommitElisions);
+        await GetAsync("branch-head", head, elided: HeadElisions);
         await GetAsync("no-user-agent", head, userAgent: false);
 
         var (cursor, cursorText) = await CursorAsync("config-cursor", Path);

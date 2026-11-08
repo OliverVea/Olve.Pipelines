@@ -4,7 +4,7 @@ namespace Olve.Pipelines.Pipelines.Sync.ConfigSource;
 public interface IConfigSource
 {
     /// <summary>The binding branch's head; moving past <see cref="PipelineConfigBinding.LastPushSha"/> fires the push trigger.</summary>
-    Task<Result<string>> GetBranchHeadShaAsync(PipelineConfigBinding binding, CancellationToken ct = default);
+    Task<Result<BranchHead>> GetBranchHeadAsync(PipelineConfigBinding binding, CancellationToken ct = default);
 
     /// <summary>
     /// The newest commit touching the binding's path (or a local path dependency of its <c>package.json</c>).

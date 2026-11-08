@@ -79,6 +79,12 @@ export class PipelineHeader extends LitElement {
       .ask {
         color: var(--color-primary);
       }
+      .subject {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow-wrap: normal;
+      }
       .alerts {
         display: flex;
         flex-direction: column;
@@ -283,6 +289,24 @@ export class PipelineHeader extends LitElement {
                 >${running} running</a
               >
               <span class="sub ${held ? 'warn' : ''}">${held} held</span>
+            </div>`
+          : nothing}
+        ${b?.head
+          ? html`<div class="cell grow">
+              <span class="label">Newest commit</span>
+              <a
+                class="value subject"
+                href="https://github.com/${b.repo}/commit/${b.head.sha}"
+                target="_blank"
+                rel="noopener"
+                title=${b.head.message}
+                >${b.head.message.split('\n', 1)[0] || shortSha(b.head.sha)}</a
+              >
+              <span class="sub"
+                ><span class="mono">${shortSha(b.head.sha)}</span>${b.head.committedAt
+                  ? html` · <relative-time .value=${b.head.committedAt}></relative-time>`
+                  : nothing}</span
+              >
             </div>`
           : nothing}
         ${b

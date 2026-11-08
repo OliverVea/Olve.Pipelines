@@ -62,6 +62,20 @@ public class PipelineConfigBindingService(
         return updated;
     }
 
+    /// <summary>Records the branch head a push check read. Idempotent.</summary>
+    public Result<PipelineConfigBinding> SetHead(Id<PipelineConfigBinding> id, BranchHead head)
+    {
+        if (!store.TryGet(id, out var binding))
+            return new NotFoundProblem("Binding '{0}' not found.", id);
+
+        if (binding.Head == head)
+            return binding;
+
+        var updated = binding with { Head = head };
+        store.Set(updated);
+        return updated;
+    }
+
     /// <summary>
     /// Advances the config cursor after a fully successful reconcile applied <paramref name="sha"/>.
     /// Idempotent: a no-op if the cursor already matches.

@@ -1,13 +1,14 @@
 // The GitHub the throwaway host binds to. Every repo exists and holds the fixture pipeline, named after
 // the repo, so a test gets a unique pipeline from a unique repo name. POST /_test/repos/<owner>/<name>/commit
-// with {"files": {"<path>": "<content>"}} lands a commit on top of it.
+// with {"files": {"<path>": "<content>"}, "message"?: "<message>"} lands a commit on top of it.
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const FIXTURE_DIR = process.env.FIXTURE_DIR!;
 const SDK_DIR = process.env.SDK_DIR!;
 
-type Repo = { commits: { sha: string; date: string }[]; files: Record<string, string> };
+type Commit = { sha: string; date: string; message: string };
+type Repo = { commits: Commit[]; files: Record<string, string> };
 const repos = new Map<string, Repo>();
 
 const hash = (text: string) => new Bun.CryptoHasher("sha1").update(text).digest("hex");
@@ -15,7 +16,10 @@ const hash = (text: string) => new Bun.CryptoHasher("sha1").update(text).digest(
 function repo(name: string): Repo {
   let found = repos.get(name);
   if (!found) {
-    found = { commits: [{ sha: hash(name), date: new Date().toISOString() }], files: {} };
+    found = {
+      commits: [{ sha: hash(name), date: new Date().toISOString(), message: "Initial commit" }],
+      files: {},
+    };
     repos.set(name, found);
   }
   return found;
@@ -69,9 +73,16 @@ Bun.serve({
     let m = /^\/_test\/repos\/([^/]+\/[^/]+)\/commit$/.exec(path);
     if (m && request.method === "POST") {
       const r = repo(m[1]!);
-      const { files } = (await request.json()) as { files: Record<string, string> };
+      const { files, message } = (await request.json()) as {
+        files: Record<string, string>;
+        message?: string;
+      };
       Object.assign(r.files, files);
-      const commit = { sha: hash(`${m[1]}#${r.commits.length}`), date: new Date().toISOString() };
+      const commit = {
+        sha: hash(`${m[1]}#${r.commits.length}`),
+        date: new Date().toISOString(),
+        message: message ?? `Commit ${r.commits.length}`,
+      };
       r.commits.push(commit);
       return Response.json({ sha: commit.sha });
     }
@@ -92,7 +103,10 @@ Bun.serve({
     m = /^\/repos\/([^/]+\/[^/]+)\/commits\/(.+)$/.exec(path);
     if (m) {
       const commit = head(repo(m[1]!));
-      return Response.json({ sha: commit.sha, commit: { committer: { date: commit.date } } });
+      return Response.json({
+        sha: commit.sha,
+        commit: { committer: { date: commit.date }, message: commit.message },
+      });
     }
 
     m = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(path);

@@ -10,7 +10,7 @@ namespace Olve.Pipelines.RealSystemTests.Contracts;
 /// <summary>A binding's repository as the deploy poll reads it: an idle poll is free, and an ETag the source can't use never hides a change.</summary>
 public abstract class ConfigSourceContract : ContractSuite
 {
-    public sealed record Repository(IConfigSource Source, string BranchHead, string ConfigSha);
+    public sealed record Repository(IConfigSource Source, string BranchHead, string HeadMessage, string ConfigSha);
 
     protected abstract Task<ContractSubject<Repository>> SubjectAsync();
 
@@ -28,13 +28,17 @@ public abstract class ConfigSourceContract : ContractSuite
     }
 
     [Test]
-    public async Task BranchHead_IsTheNewestCommitOfTheBranch()
+    public async Task BranchHead_IsTheNewestCommitOfTheBranch_WithItsMessage()
     {
         Rule();
         await using var s = await SubjectAsync();
 
-        await Assert.That(await s.Client.Source.GetBranchHeadShaAsync(Binding()))
-            .SucceededAndValue(sha => sha.IsEqualTo(s.Client.BranchHead));
+        var result = await s.Client.Source.GetBranchHeadAsync(Binding());
+        if (result.TryPickProblems(out var problems, out var head))
+            throw new InvalidOperationException(string.Join("; ", problems.Select(p => p.Message)));
+
+        await Assert.That(head.Sha).IsEqualTo(s.Client.BranchHead);
+        await Assert.That(head.Message).IsEqualTo(s.Client.HeadMessage);
     }
 
     [Test]

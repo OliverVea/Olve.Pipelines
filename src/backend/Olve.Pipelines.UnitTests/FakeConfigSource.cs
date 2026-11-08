@@ -12,14 +12,15 @@ namespace Olve.Pipelines.UnitTests;
 public sealed class FakeConfigSource : IConfigSource
 {
     public string BranchHeadSha { get; set; } = "head-0";
+    public string BranchHeadMessage { get; set; } = "Change something\n\nWhy it changed.";
     public string ConfigSha { get; set; } = "config-0";
     public string ConfigETag { get; set; } = "etag-0";
 
-    public Result<string>? BranchHeadOverride { get; set; }
+    public Result<BranchHead>? BranchHeadOverride { get; set; }
     public Result<ConfigFetch>? FetchOverride { get; set; }
 
-    public Task<Result<string>> GetBranchHeadShaAsync(PipelineConfigBinding binding, CancellationToken ct = default)
-        => Task.FromResult(BranchHeadOverride ?? BranchHeadSha);
+    public Task<Result<BranchHead>> GetBranchHeadAsync(PipelineConfigBinding binding, CancellationToken ct = default)
+        => Task.FromResult(BranchHeadOverride ?? new BranchHead(BranchHeadSha, BranchHeadMessage, DateTimeOffset.UnixEpoch));
 
     public Task<Result<ConfigFetch>> FetchConfigAsync(
         PipelineConfigBinding binding, string? etag = null, CancellationToken ct = default)

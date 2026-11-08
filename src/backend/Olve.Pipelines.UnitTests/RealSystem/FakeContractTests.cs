@@ -90,6 +90,6 @@ public class FakeConfigSourceContract : ConfigSourceContract
     protected override Task<ContractSubject<Repository>> SubjectAsync()
     {
         var source = new FakeConfigSource { BranchHeadSha = "head-sha", ConfigSha = "config-sha" };
-        return Task.FromResult(new ContractSubject<Repository>(new Repository(source, source.BranchHeadSha, source.ConfigSha), "", () => ""));
+        return Task.FromResult(new ContractSubject<Repository>(new Repository(source, source.BranchHeadSha, source.BranchHeadMessage, source.ConfigSha), "", () => ""));
     }
 }

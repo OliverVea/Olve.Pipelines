@@ -45,6 +45,9 @@ public class RecordedGitHubTests
         return (body is System.Text.Json.Nodes.JsonArray list ? list[0]! : body)["sha"]!.GetValue<string>();
     }
 
+    internal static string HeadMessage() =>
+        RecordingReplay.Get("github", "branch-head").Response.Body!["commit"]!["message"]!.GetValue<string>();
+
     [Test]
     public async Task EveryRequest_IsTheOneThatWasRecorded()
     {
@@ -52,7 +55,7 @@ public class RecordedGitHubTests
         var source = Source(server);
         var binding = Binding();
 
-        TestRunDomain.Pick(await source.GetBranchHeadShaAsync(binding));
+        TestRunDomain.Pick(await source.GetBranchHeadAsync(binding));
         var first = (ConfigFetch.Changed)TestRunDomain.Pick(await source.FetchConfigAsync(binding));
         TestRunDomain.Pick(await source.FetchConfigAsync(binding, first.ETag));
 
@@ -75,7 +78,7 @@ public class RecordedGitHubTests
         kubernetes.Secrets[PipelineSecrets.Name(binding.PipelineId)] = new Dictionary<string, string> { ["GITHUB_TOKEN"] = "the-token" };
         var source = Source(server, kubernetes);
 
-        TestRunDomain.Pick(await source.GetBranchHeadShaAsync(binding));
+        TestRunDomain.Pick(await source.GetBranchHeadAsync(binding));
         TestRunDomain.Pick(await source.FetchConfigAsync(binding));
 
         await Assert.That(server.Requests).IsNotEmpty();
@@ -89,7 +92,7 @@ public class RecordedGitHubTests
         await using var server = LoopbackHttpServer.Start(RecordingReplay.Respond(NoUserAgent));
         var source = Source(server);
 
-        var result = await source.GetBranchHeadShaAsync(Binding());
+        var result = await source.GetBranchHeadAsync(Binding());
 
         await Assert.That(result).Failed();
         result.TryPickProblems(out var problems, out _);
@@ -103,7 +106,7 @@ public class RecordedGitHubContract : ConfigSourceContract
     protected override Task<ContractSubject<Repository>> SubjectAsync()
     {
         var server = RecordedGitHubTests.GitHub();
-        var repository = new Repository(RecordedGitHubTests.Source(server), RecordedGitHubTests.Sha("branch-head"), RecordedGitHubTests.Sha("dependency-cursor"));
+        var repository = new Repository(RecordedGitHubTests.Source(server), RecordedGitHubTests.Sha("branch-head"), RecordedGitHubTests.HeadMessage(), RecordedGitHubTests.Sha("dependency-cursor"));
         return Task.FromResult(new ContractSubject<Repository>(repository, "", () => "", server));
     }
 }

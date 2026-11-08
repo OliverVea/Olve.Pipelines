@@ -2,7 +2,7 @@
   "system": "github",
   "name": "config-cursor-not-modified",
   "source": "https://api.github.com (anonymous)",
-  "capturedAt": "2026-10-31",
+  "capturedAt": "2026-11-08",
   "systemVersion": "2022-11-28",
   "elided": "",
   "request": {
@@ -10,7 +10,7 @@
     "url": "/repos/OliverVea/Olve.Pipelines/commits?path=.pipelines&sha=main&per_page=1",
     "headers": {
       "accept": "application/vnd.github+json",
-      "if-none-match": "W/\"6d46a3bd396dbd45880803d5a5e626fb03a1570f646727fbc40292be1f0b1ebf\"",
+      "if-none-match": "W/\"bdec460bd6e80b2ea6c429869416d281d09c19ed7f018caa8d5f3d712db0c4d8\"",
       "user-agent": "olve-pipelines"
     }
   },
@@ -18,7 +18,7 @@
     "status": 304,
     "headers": {
       "content-type": "application/json; charset=utf-8",
-      "etag": "W/\"6d46a3bd396dbd45880803d5a5e626fb03a1570f646727fbc40292be1f0b1ebf\"",
+      "etag": "W/\"bdec460bd6e80b2ea6c429869416d281d09c19ed7f018caa8d5f3d712db0c4d8\"",
       "x-github-api-version-selected": "2022-11-28",
       "x-github-media-type": "github.v3; format=json"
     },

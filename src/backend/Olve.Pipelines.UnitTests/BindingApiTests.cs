@@ -216,6 +216,24 @@ public class BindingApiTests
     }
 
     [Test]
+    public async Task Status_ShowsTheBranchHeadAPushCheckRead_WithItsMessage()
+    {
+        await using var api = Build();
+        var bound = await api.Bound();
+        var before = ((Contract.BindingsStatusResponse.Ok)await api.Status(bound.PipelineId)).Body;
+        api.Source.BranchHeadSha = "head-1";
+        api.Source.BranchHeadMessage = "Fix the thing\n\nAt length.";
+
+        await api.Get<PushTriggerService>().CheckAsync(new Id<Pipeline>(new Id(bound.PipelineId)), default);
+
+        var status = ((Contract.BindingsStatusResponse.Ok)await api.Status(bound.PipelineId)).Body;
+        await Assert.That(before.Head).IsNull();
+        await Assert.That(status.Head!.Sha).IsEqualTo("head-1");
+        await Assert.That(status.Head.Message).IsEqualTo("Fix the thing\n\nAt length.");
+        await Assert.That(status.Head.CommittedAt).IsEqualTo(DateTimeOffset.UnixEpoch);
+    }
+
+    [Test]
     [Arguments(ReconcileResult.Success, 1)]
     [Arguments(ReconcileResult.Error, null)]
     public async Task Status_WithoutARecordedVersion_FindsItByCommit_AfterASuccess(ReconcileResult result, int? expected)

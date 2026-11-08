@@ -34,12 +34,11 @@ export const FrontendBuild = model(
   }),
 );
 
-export const CliBuild = model(
-  'CliBuild',
+export const CliBinary = model(
+  'CliBinary',
   z.object({
     version: z.string(),
-    linuxX64: fileRef(),
-    winX64: fileRef(),
+    binary: fileRef(),
   }),
 );
 

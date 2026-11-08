@@ -15,7 +15,7 @@ import {
 } from './config';
 import * as M from './models';
 import { betaTest } from './steps/beta-test';
-import { buildCli } from './steps/build-cli';
+import { buildCli, checkCli } from './steps/build-cli';
 import { buildFrontend } from './steps/build-frontend';
 import { buildSdk } from './steps/build-sdk';
 import { buildServer } from './steps/build-server';
@@ -78,7 +78,7 @@ export default pipeline({
   .onPush((e) => ({ repo: e.repository.full_name, sha: e.after, deployTo: 'prod' }))
   .stage([source, (from) => ({ repo: from.input.repo, sha: from.input.sha })])
   .stage(spec)
-  .stage(compileServer, buildFrontend, buildHarness, test, buildSdk, buildCli)
+  .stage(compileServer, buildFrontend, buildHarness, test, buildSdk, checkCli, buildCli)
   .stage(buildServer, publishSdk, publishCli)
   .select(TARGET.beta, {
     ssh: (p, beta) =>

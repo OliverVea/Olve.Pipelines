@@ -169,7 +169,7 @@ re-record: commit the diff to approve, restore the directory to reject.
 
 ### Check before you push
 
-`tools/check.sh` runs what the deploy's `spec`, `test`, `build-sdk`, `build-frontend` and `build-cli`
+`tools/check.sh` runs what the deploy's `spec`, `test`, `build-sdk`, `build-frontend` and `check-cli`
 steps run, per project (SDK, `.pipelines`, the contract, frontend, `pl`, the .NET server), plus a rule
 that neither client builds an `/api/` URL by hand:
 

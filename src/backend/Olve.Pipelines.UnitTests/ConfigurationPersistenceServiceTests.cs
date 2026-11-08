@@ -302,7 +302,7 @@ public class ConfigurationPersistenceServiceTests
         writerPipelines.Set(new Pipeline(pipelineId, "survivor"));
         var head = new BranchHead("head-1", "Fix the thing", DateTimeOffset.UnixEpoch);
         var binding = new PipelineConfigBinding(Id.New<PipelineConfigBinding>(), pipelineId, "acme/widgets", "main", ".pipelines", null,
-            "head-1", "cfg-1", ReconcileStatus.NeverRun, DateTimeOffset.UnixEpoch, Head: head);
+            "head-1", "cfg-1", ReconcileStatus.NeverRun, DateTimeOffset.UnixEpoch, Polls: false, Head: head);
         writerBindings.Set(binding);
         await writer.StoppingAsync(CancellationToken.None);
 
@@ -318,5 +318,6 @@ public class ConfigurationPersistenceServiceTests
         await Assert.That(reloaded!.Name).IsEqualTo("survivor");
         await Assert.That(readerBindings.TryGet(binding.Id, out var reloadedBinding)).IsTrue();
         await Assert.That(reloadedBinding!.Head).IsEqualTo(head);
+        await Assert.That(reloadedBinding.Polls).IsFalse();
     }
 }

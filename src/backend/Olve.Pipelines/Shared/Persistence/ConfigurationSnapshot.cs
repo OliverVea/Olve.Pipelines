@@ -25,6 +25,7 @@ public record PipelineConfigBindingData(
     DateTimeOffset CreatedAt,
     string? WebhookSecret = null,
     BranchHead? Head = null,
+    bool? Polls = null,
     // Pre-rename names of LastPushSha/LastReconciledSha: read from older snapshots, never written.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LastDeployedSha = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LastSyncedSha = null);

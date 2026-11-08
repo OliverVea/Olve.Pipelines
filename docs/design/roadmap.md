@@ -38,8 +38,11 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
    - **Output caching**: a step whose code hash, step version, pinned config and input match an
      earlier succeeded attempt reuses that attempt's output and files instead of running.
    - **Build caching**: `imageBuild` reuses kaniko layers from `cacheRepo` (by default next to a
-     pushed image). Still open: dependency caches (bun, npm, NuGet) for step pods and the
-     build/describe Job, so a cold pod doesn't re-download them.
+     pushed image).
+   - **Dependency caches are not planned.** In a gVisor step pod, downloading is the small part of
+     an install: `npm ci` of the frontend takes 5.2 s cold and 3.4 s with nothing to download,
+     `dotnet restore` of the server 9.3 s and 5.3 s. A package proxy would save 2 to 4 s a step;
+     the rest is unpacking, which only skipping the step saves.
    - **BuildKit** in place of kaniko, which is no longer developed: faster builds, parallel stages
      and `RUN --mount=type=cache`. Rootless BuildKit needs user namespaces and relaxed
      seccomp/AppArmor, which the gVisor step pods and PSS baseline don't give, so it is likely a

@@ -8,6 +8,7 @@ import { isImplementation } from '../core/handlers.ts';
 import { configRefPath, isConfigRef, unionAt } from '../core/config.ts';
 import type { AnyStep } from '../core/steps.ts';
 import { cellName, parseCell } from '../core/matrix.ts';
+import { installMasking, maskEnvelope, maskPatterns, maskText } from './mask.ts';
 import type { WebhookEvent } from '../core/webhooks.ts';
 import { pipelineData, type PipelineData, type StageNode } from '../builder/pipeline.ts';
 import { createCtx, formatLog } from '../ctx/index.ts';
@@ -198,6 +199,12 @@ async function runMode(
     ? parseCell(step.name, step.matrix, process.env[ENV.cell])
     : undefined;
   const cancel = cancellation();
+  const masks = maskPatterns(step.secrets.map((s) => process.env[s.name]));
+  const unmask = masks.length > 0 ? installMasking(masks) : () => {};
+  if (masks.length > 0) {
+    const stderr = io.stderr;
+    io = { ...io, stderr: (line) => stderr(maskText(line, masks)) };
+  }
   try {
     let exec: Execution;
     if (!raw.ok || (cell && !cell.ok)) {
@@ -217,6 +224,7 @@ async function runMode(
         logSink: io.stderr,
         callbackUrls: callbackUrlsFromEnv(),
         ...(cell?.ok ? { cell: cell.cell } : {}),
+        pipeOutput: masks.length > 0,
       });
       exec = await executeStep({
         step,
@@ -227,8 +235,10 @@ async function runMode(
         log: io.stderr,
       });
     }
-    return await finish(exec, io);
+    unmask();
+    return await finish({ ...exec, envelope: maskEnvelope(exec.envelope, masks) }, io);
   } finally {
+    unmask();
     cancel.dispose();
   }
 }

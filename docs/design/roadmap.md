@@ -28,8 +28,8 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
   on it.
 - Shipped in 2.1: the spec-first API, `pl dev run --from`, the cached `imageBuild` (`contentTag`
   hashes the build recipe), step destination links, every quality-inventory item, step reliability,
-  config editing as a form generated from the schema, and matrix steps
-  ([matrix-builds.md](matrix-builds.md)).
+  config editing as a form generated from the schema, matrix steps
+  ([matrix-builds.md](matrix-builds.md)), and secret masking in step logs.
 
 ## Next
 
@@ -48,9 +48,7 @@ What is being worked on next, agreed with Oliver. The detail behind each item li
      seccomp/AppArmor, which the gVisor step pods and PSS baseline don't give, so it is likely a
      long-running builder service with its own volume that steps send builds to. That is an
      infrastructure and security decision first.
-2. **Secret masking in logs.** A declared secret's value never shows in a step's log, live or
-   stored.
-3. **Packaged steps** with a public `defineStep(def, impl)`:
+2. **Packaged steps** with a public `defineStep(def, impl)`:
    - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
      list goes away.
    - Every step is versioned by its bundled code + config.

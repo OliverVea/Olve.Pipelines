@@ -49,7 +49,7 @@ The SDK compiles the pipeline into **one executable** (`bun build --compile`) wi
 
 ### Pipeline secrets
 
-Each pipeline has a K8s Secret `olve-pipeline-{id:N}` in the runner namespace. Values are set via the API (`pl secret set`) and injected from K8s into Jobs — a step gets only the secrets it declares; they never pass through the app at runtime.
+Each pipeline has a K8s Secret `olve-pipeline-{id:N}` in the runner namespace. Values are set via the API (`pl secret set`) and injected from K8s into Jobs — a step gets only the secrets it declares; they never pass through the app at runtime. The step harness masks the declared values (`***`) in everything the step prints and in its failure message.
 
 ### Persistence
 

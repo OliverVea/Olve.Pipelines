@@ -75,6 +75,11 @@ Declared by name and description only. Values are set with `pl secret set <pipel
 live in the pipeline's Kubernetes Secret. **A step gets only the secrets it declares**, as env vars
 of the same name; `ctx.secrets` is typed to exactly that set.
 
+A declared secret's value never shows in the step's log or failure message: the harness replaces it
+with `***` in everything the step and its commands print. Values shorter than 4 characters aren't
+masked, and a multi-line value is masked line by line. Outputs are data and aren't masked, so never
+return a secret.
+
 ## Config
 
 ```ts

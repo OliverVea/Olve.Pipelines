@@ -344,6 +344,8 @@ This section is everything the C# side needs in order to run the binary.
 
 `OLVE_RESULT_URL`, `OLVE_FILE_URLS`, `OLVE_FILES_TOKEN` and `OLVE_CALLBACK_URLS` are removed from the environment of child processes. URLs are never logged past `?`.
 
+**Secret masking** (`run`): every value of the step's declared secrets is replaced with `***` in what the step writes: `ctx.log`, `console`, anything written to stdout or stderr, the output of `ctx.exec` and `ctx.sh` commands (piped through the harness when the step has a secret; inherited otherwise), and the envelope's failure message or skip reason. Output is masked a line at a time; a multi-line value is masked line by line, and values (or lines) shorter than 4 characters are left alone. Outputs and files are data and are not masked. A process that writes to the pod's stdout around the harness (a file descriptor it opened itself) is not masked.
+
 `ctx.files.fetch` looks for a file in this order:
 
 1. the attempt's own `work/files`;

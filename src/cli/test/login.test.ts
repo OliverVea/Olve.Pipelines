@@ -93,7 +93,46 @@ describe('pl login --device', () => {
         clientId: 'pl-cli',
         expiresAt: '2026-10-28T13:00:00.000Z',
       },
+      loginFlow: 'device',
     });
+  });
+
+  test('logging in again with only the profile reuses its instance and flow, until a flag replaces the flow', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'pl-login-'));
+    const env = { DISPLAY: ':0' };
+    const user = browser((state) => ({ code: 'c1', state }));
+    await pl(['login', '--device', '--api-url', API, '--profile', 'beta'], {
+      fetch: provider().fetch,
+      home,
+    });
+
+    const again = provider();
+    const out = await pl(['login', '--profile', 'beta'], {
+      fetch: again.fetch,
+      home,
+      env,
+    });
+
+    expect(out.code).toBe(0);
+    expect(out.stdout).toContain(`Logged in to ${API}.`);
+    expect(again.requests.some((r) => r.url === `${ID}/device/code`)).toBe(true);
+
+    await pl(['login', '--browser', '--profile', 'beta'], {
+      fetch: provider().fetch,
+      home,
+      env,
+      openBrowser: user.open,
+    });
+    const last = provider();
+    await pl(['login', '--profile', 'beta'], {
+      fetch: last.fetch,
+      home,
+      env: { SSH_CONNECTION: '1 2 3 4' },
+      openBrowser: user.open,
+    });
+
+    expect(last.requests.some((r) => r.url === `${ID}/device/code`)).toBe(false);
+    expect(saved(home).profiles.beta.loginFlow).toBe('browser');
   });
 
   test('without a refresh token, warns that the login will need repeating', async () => {

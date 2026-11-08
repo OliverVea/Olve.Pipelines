@@ -15,7 +15,7 @@ import {
 } from '../auth/oidc';
 import { renderQr } from '../auth/terminal-qr';
 import { CliError } from '../errors';
-import { saveProfile } from '../profiles';
+import { saveProfile, type LoginFlow } from '../profiles';
 import type { Command, CommandContext } from '../registry';
 
 // An older server sends no scopes.
@@ -42,7 +42,10 @@ Use --api-url (or PIPELINES_API_URL) to log in to a specific instance, and --pro
 several logins side by side (the profile is 'default' unless given), e.g.
   pl login --api-url https://pipelines-private.ovea.pro
   pl login --profile beta --api-url https://pipelines-beta.ovea.pro
-Then \`pl pipeline list --profile beta\`; \`pl profile list\` shows them.`,
+Then \`pl pipeline list --profile beta\`; \`pl profile list\` shows them.
+
+A profile remembers its instance and the flow its last login forced, so logging in again
+needs only \`pl login --profile beta\`; a new --api-url, --device or --browser replaces them.`,
   async run(ctx) {
     const frontend = await call(instanceFrontendConfig({ client: ctx.api }));
     if (!frontend.oidcAuthority || !frontend.oidcClientId)
@@ -52,18 +55,25 @@ Then \`pl pipeline list --profile beta\`; \`pl profile list\` shows them.`,
     const scope = `${frontend.oidcScopes || DEFAULT_SCOPES} offline_access`;
     const discovery = await discover(ctx.fetch, frontend.oidcAuthority);
 
+    const forced: LoginFlow | null = ctx.args.flag('device')
+      ? 'device'
+      : ctx.args.flag('browser')
+        ? 'browser'
+        : null;
+    const flow = forced ?? ctx.profile.loginFlow ?? null;
     const hasDevice = !!discovery.deviceAuthorizationEndpoint;
-    if (ctx.args.flag('device') && !hasDevice)
+    if (flow === 'device' && !hasDevice)
       throw new CliError(
         "This server's OIDC provider does not advertise a device-authorization endpoint.",
       );
     const useDevice =
-      hasDevice && !ctx.args.flag('browser') && (ctx.args.flag('device') || ctx.headless);
+      hasDevice && flow !== 'browser' && (flow === 'device' || ctx.headless);
     const tokens = useDevice
       ? await deviceFlow(ctx, discovery, frontend.oidcClientId, scope)
       : await browserFlow(ctx, discovery, frontend.oidcClientId, scope);
 
     ctx.profile.apiUrl = ctx.apiUrl;
+    ctx.profile.loginFlow = flow;
     ctx.profile.auth = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken ?? null,

@@ -29,7 +29,9 @@ pl login --profile beta --api-url https://pipelines-beta.ovea.pro
 ```
 
 `pl login` caches the token and the API URL in a **profile** of `~/.pl` (or `$PIPELINES_CONFIG`):
-`default`, or the one named by `--profile <name>` / `PIPELINES_PROFILE`. Every command uses the
+`default`, or the one named by `--profile <name>` / `PIPELINES_PROFILE`. The profile also keeps the
+flow its last login forced (`--device` or `--browser`), so logging in again is `pl login --profile beta`
+with the same instance and flow; a new `--api-url`, `--device` or `--browser` replaces them. Every command uses the
 selected profile; `pl profile list` shows them. `--api-url` / `PIPELINES_API_URL` override the URL per
 command (the profile's token is sent only to the server it logged in to), `--token` passes a bearer
 directly. Global flags and options (`--profile`, `--api-url`, `--token`, `--json`, `--verbose`) may come

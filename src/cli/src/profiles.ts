@@ -2,7 +2,7 @@
  * `~/.pl`: one profile per instance, with its login. The file is shared with every running `pl`
  * (saves go through a lock file beside it), owner-only, and keeps the shape the C# `pl` wrote:
  * `{ "profiles": { "<name>": { "apiUrl", "auth": { accessToken, refreshToken, tokenEndpoint,
- * clientId, expiresAt } } } }`; a file from before profiles existed reads as `default`.
+ * clientId, expiresAt }, "loginFlow"? } } }`; a file from before profiles existed reads as `default`.
  */
 import {
   mkdirSync,
@@ -35,10 +35,14 @@ export type AuthConfig = {
   expiresAt?: string | null;
 };
 
+export type LoginFlow = 'device' | 'browser';
+
 export type Profile = {
   name: string;
   apiUrl?: string | null;
   auth?: AuthConfig | null;
+  /** The flow the last login asked for with --device or --browser. */
+  loginFlow?: LoginFlow | null;
 };
 
 type ProfileFile = {
@@ -102,7 +106,11 @@ function saveLocked(path: string, profile: Profile): void {
     profiles: Object.fromEntries(
       Object.entries(profiles).map(([name, { name: _, ...rest }]) => [
         name,
-        { apiUrl: rest.apiUrl ?? null, auth: rest.auth ?? null },
+        {
+          apiUrl: rest.apiUrl ?? null,
+          auth: rest.auth ?? null,
+          ...(rest.loginFlow ? { loginFlow: rest.loginFlow } : {}),
+        },
       ]),
     ),
   };

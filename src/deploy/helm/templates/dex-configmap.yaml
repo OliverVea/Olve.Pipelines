@@ -24,6 +24,8 @@ data:
       http: 0.0.0.0:5558
     oauth2:
       skipApprovalScreen: true
+    expiry:
+      idTokens: {{ .Values.dex.tokenLifetime | quote }}
     connectors:
       - type: github
         id: github

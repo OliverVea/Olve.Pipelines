@@ -107,6 +107,10 @@ tokens in sqlite on a small PVC that survives `helm uninstall`. Route `<host>/de
 Dex has one public client, `olve-pipelines`, for the web UI and `pl`. It accepts only the UI's
 `https://<host>/callback` and the device flow, so sign in with `pl login --device`.
 
+A login lasts `dex.tokenLifetime` (default `168h`). Renewing a token re-checks the user with
+GitHub, which stops accepting the token Dex keeps for that within about a day, so in practice this
+is how often people log in again.
+
 ## Logging
 
 Logging is **backend-agnostic**: the app only writes to **stdout**. Shipping is the cluster's

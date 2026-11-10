@@ -105,6 +105,9 @@ dex:
   githubSecret: olve-pipelines-dex
   storage: 1Gi
   storageClass: ""
+  # How long a login's tokens last (Go duration). The renewal re-checks the user with GitHub, which
+  # rejects the token Dex saved within about a day, so this is how often people log in again.
+  tokenLifetime: 168h
   resources:
     requests:
       cpu: 10m

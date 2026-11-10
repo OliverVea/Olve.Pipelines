@@ -17,6 +17,11 @@ for a in "$@"; do
   esac
 done
 
+# The hook's `if` also matches commands it can't parse (heredocs, zsh expansions), so it checks itself.
+if [ $hook = 1 ] && [ ! -t 0 ]; then
+  grep -qE '(^|[^[:alnum:]_-])git[[:space:]]+push([^[:alnum:]_-]|$)' || exit 0
+fi
+
 log=$(mktemp -d); trap 'rm -rf "$log"' EXIT
 failed=()
 prettier=src/sdk/node_modules/.bin/prettier

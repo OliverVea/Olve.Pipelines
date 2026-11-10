@@ -8,19 +8,39 @@ export const EXAMPLE = join(SDK, 'examples/self-deploy');
 export const TMP = join(SDK, 'tests/.tmp');
 export const SHA = '0123456789abcdef0123456789abcdef01234567';
 
-/** A fresh directory inside the SDK (so `@olivervea/pipelines` resolves via tsconfig paths). */
+/**
+ * A fresh directory inside the SDK (so `@olivervea/pipelines` resolves via tsconfig paths). One made
+ * in a test is removed when the test ends, one made in a `beforeAll` when its file ends: builds are
+ * ~130 MB each and would otherwise pile up past the build-sdk step's scratch limit.
+ */
 export function tmp(prefix: string): string {
   mkdirSync(TMP, { recursive: true });
   const dir = mkdtempSync(join(TMP, `${prefix}-`));
-  made.push(dir);
+  (inTest ? madeInTest : made).push(dir);
   return dir;
 }
 
 const made: string[] = [];
+const madeInTest: string[] = [];
+let inTest = false;
 
-/** Removes every directory `tmp` made; `tests/cleanup.ts` calls it after the last test. */
+const remove = (dirs: string[]) => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+};
+
+/** `tests/cleanup.ts` calls these around every test. */
+export function testStarted(): void {
+  inTest = true;
+}
+export function testEnded(): void {
+  inTest = false;
+  remove(madeInTest);
+}
+
+/** Removes the directories made outside tests; each file that uses `tmp` calls it when it ends. */
 export function removeTmpDirs(): void {
-  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+  remove(madeInTest);
+  remove(made);
 }
 
 /** `step()` with a no-op implementation, for tests about anything but the handler. */

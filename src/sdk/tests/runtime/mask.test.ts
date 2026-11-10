@@ -1,10 +1,12 @@
 // Secret masking: the rules, then a step that leaks its secret every way it can, run the way the step
 // binary runs it (supervised, in a child process).
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { lineMasker, maskPatterns, maskText } from '../../src/harness/mask.ts';
-import { SDK, tmp } from './helpers.ts';
+import { SDK, tmp, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 describe('mask rules', () => {
   test.each([

@@ -41,7 +41,9 @@ import { checkout as checkoutImpl } from '../../examples/self-deploy/steps/check
 import { build as buildImpl } from '../../examples/self-deploy/steps/build.ts';
 import { deployBeta as deployBetaImpl } from '../../examples/self-deploy/steps/deploy-beta.ts';
 import { test as testImpl } from '../../examples/self-deploy/steps/test.ts';
-import { EXAMPLE, SHA, tmp, withEnv } from './helpers.ts';
+import { EXAMPLE, SHA, tmp, withEnv, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 const Out = model('Out', z.object({ text: z.string() }));
 const KEY = secret('API_KEY', 'an api key');

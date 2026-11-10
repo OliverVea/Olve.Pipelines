@@ -1,6 +1,6 @@
 // Library steps used by Olve.Pipelines' own deploy: gitHubSource, imageBuild, helmDeployOverSsh, httpHealthCheck.
 // Run through testHandler with faked ctx parts; the assertions pin the exact commands they run.
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -40,7 +40,9 @@ import { describePipeline } from '../../src/describe/describe.ts';
 import { Manifest } from '../../src/describe/manifest-schema.ts';
 import { testFileRef, testHandler } from '../../src/testing/index.ts';
 import { writeTarGz } from '../../src/util/tar.ts';
-import { SHA, tmp } from './helpers.ts';
+import { SHA, tmp, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 const settingsOf = (s: AnyStep) => recordConfigRefs(s.settings);
 

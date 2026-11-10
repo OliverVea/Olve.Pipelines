@@ -1,7 +1,7 @@
 // Matrix steps: the manifest's matrix and cells inputs, their describe-time checks, OLVE_CELL in
 // the harness and testHandler. Rejected pipelines are built untyped on purpose.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -19,7 +19,9 @@ import { testHandler } from '../../src/testing/index.ts';
 import { describePipeline, DescribeError } from '../../src/describe/describe.ts';
 import { runHarness } from '../../src/harness/main.ts';
 import { EXIT } from '../../src/harness/exit.ts';
-import { captureIO, tmp, withEnv } from './helpers.ts';
+import { captureIO, tmp, withEnv, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 const Req = model(

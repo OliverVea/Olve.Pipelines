@@ -1,6 +1,6 @@
 // Typed pipeline config: describe (manifest + checks), delivery through input.json's $config, testHandler.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -22,7 +22,9 @@ import { Manifest } from '../../src/describe/manifest-schema.ts';
 import { runHarness, type HarnessConfig } from '../../src/harness/main.ts';
 import { EXIT } from '../../src/harness/exit.ts';
 import { testHandler } from '../../src/testing/index.ts';
-import { captureIO, stubStep, tmp, withEnv } from './helpers.ts';
+import { captureIO, stubStep, tmp, withEnv, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 

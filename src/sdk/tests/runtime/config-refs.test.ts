@@ -1,7 +1,7 @@
 // Config references in step settings (`host: TARGET.beta.host`): recorded in the manifest,
 // delivered to the step automatically, resolved from ctx.config when the step runs. Plus select and the target deploys.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
@@ -30,7 +30,9 @@ import { describePipeline, DescribeError } from '../../src/describe/describe.ts'
 import { Manifest } from '../../src/describe/manifest-schema.ts';
 import { SERVICE_ACCOUNT_TOKEN } from '../../src/library/helm-deploy.ts';
 import { testFileRef, testHandler } from '../../src/testing/index.ts';
-import { SHA, stubStep, tmp } from './helpers.ts';
+import { SHA, stubStep, tmp, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 const harness = { bun: '1.4.3', sdk: '0.0.0', sdkHash: 'sha256:' + 'a'.repeat(64) };
 const KEY = secret('SSH_PRIVATE_KEY', 'ssh key');

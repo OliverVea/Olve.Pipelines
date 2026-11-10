@@ -1,6 +1,6 @@
 // olve-build: code-hash behaviour, determinism, the compiled binary end to end.
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import {
   cpSync,
   existsSync,
@@ -20,7 +20,9 @@ import { harnessInfo, loadPipeline, loadProject } from '../../src/build/project.
 import { devMain } from '../../src/dev/cli.ts';
 import { EXIT } from '../../src/harness/exit.ts';
 import { canonicalJson } from '../../src/util/canonical.ts';
-import { EXAMPLE, SDK, SHA, tmp, withEnv } from './helpers.ts';
+import { EXAMPLE, SDK, SHA, tmp, withEnv, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 function copyExample(dest: string): string {
   cpSync(EXAMPLE, dest, { recursive: true, filter: (src) => !src.includes('/.olve') });

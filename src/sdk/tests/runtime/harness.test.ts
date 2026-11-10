@@ -17,7 +17,9 @@ import {
 } from '../../src/harness/result.ts';
 import { parseStrict, strippedKeys } from '../../src/harness/validate.ts';
 import { config, fileRef, implement, model, pipeline, step, z } from '../../src/index.ts';
-import { EXAMPLE, SHA, captureIO, tmp, withEnv } from './helpers.ts';
+import { EXAMPLE, SHA, captureIO, tmp, withEnv, removeTmpDirs } from './helpers.ts';
+
+afterAll(removeTmpDirs);
 
 let cfg: HarnessConfig;
 beforeAll(async () => {

@@ -113,3 +113,22 @@ describe('runner', () => {
     );
   });
 });
+
+describe('a closed stdout', () => {
+  test('ends the command quietly, as `pl … | head` expects', async () => {
+    const { fetch } = fakeFetch(() => ({ body: [] }));
+    const closed = Object.assign(new Error('EPIPE: broken pipe, write'), {
+      code: 'EPIPE',
+    });
+
+    const out = await pl(['pipeline', 'list'], {
+      fetch,
+      onStdout: () => {
+        throw closed;
+      },
+    });
+
+    expect(out.code).toBe(0);
+    expect(out.stderr).toBe('');
+  });
+});

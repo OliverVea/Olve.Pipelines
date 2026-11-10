@@ -39,6 +39,10 @@ export class UsageError extends Error {
 }
 
 /** The message of any thrown value. */
+/** A write to a pipe whose reader has gone (`pl … | head`). */
+export const isClosedPipe = (error: unknown): boolean =>
+  (error as { code?: unknown } | null)?.code === 'EPIPE';
+
 export function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

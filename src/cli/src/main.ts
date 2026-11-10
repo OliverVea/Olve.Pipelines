@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { spawn } from 'node:child_process';
 import { run } from './cli';
+import { isClosedPipe } from './errors';
 
 /** Best effort: the login URL is always printed too. */
 function openBrowser(url: string): void {
@@ -46,6 +47,12 @@ function prompt(text: string, options?: { hidden?: boolean }): Promise<string> {
     stdin.on('data', onData);
   });
 }
+
+// The reader of stdout went away (`pl … | head`): stop quietly, as a filter does.
+process.stdout.on('error', (error) => {
+  if (isClosedPipe(error)) process.exit(0);
+  throw error;
+});
 
 // Ctrl+C aborts the running command (streams and waits end cleanly, exit 130); a second one forces it.
 const interrupt = new AbortController();

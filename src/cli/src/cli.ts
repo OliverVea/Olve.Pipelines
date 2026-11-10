@@ -9,7 +9,7 @@ import {
 } from './args';
 import { createApi } from './api';
 import { commands as defaultCommands } from './commands';
-import { CliError, ExitCode, UsageError, describe } from './errors';
+import { CliError, ExitCode, UsageError, describe, isClosedPipe } from './errors';
 import { commandHelp, nounHelp, usage } from './help';
 import { Output } from './output';
 import { runProcess, type ProcessRunner } from './process';
@@ -201,6 +201,7 @@ export async function run(
     return ctx.exitCode ?? ExitCode.Ok;
   } catch (error) {
     if (signal.aborted) return ExitCode.Cancelled;
+    if (isClosedPipe(error)) return ExitCode.Ok;
     if (error instanceof UsageError) return fail([error.message], ExitCode.Usage);
     if (error instanceof CliError) return fail(error.problems);
     if (verbose)

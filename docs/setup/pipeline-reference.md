@@ -139,6 +139,19 @@ export const deployBeta = step({
   | `poll({ url, valuePath, intervalSeconds? })` | the service: it GETs `url` every `intervalSeconds` (default 30, at least 10) while the step waits, and answers with the JSON at `valuePath` (`.` = the whole body) once it validates. `{run.id}` and `{run.number}` in the URL are filled in. Like poll triggers it only reaches public addresses, unless the instance allows the host (`ExternalInputs:Poll:AllowedHosts`). |
   | `person()` (the default) | a signed-in user, in the UI or with `pl input answer`. |
 
+  `link` shows a link on the step while it waits, taken from one of its regular inputs:
+
+  ```ts
+  input: { review: M.Review, verdict: external(M.Verdict, { title: "Screenshots accepted?", from: [callback()],
+    link: { input: "review", path: "url", label: "Review in VR" } }) },
+  ```
+
+  `input` names one of the step's inputs that is not external, `path` a dot path inside its value (no
+  path = the value itself is the URL), `label` defaults to the title. The link is on the step's tile
+  and in the step view while it waits, and stays first among the step's links once the handler has
+  added its own. A value that is not an absolute http(s) URL shows no link (the server logs a
+  warning); the step waits all the same.
+
   The first value that validates against the model answers; it arrives in the handler like any other
   input, and the attempt records it with its source. Only a listed source may answer or decline.
   Declining fails the step without running it. A newer run reaching the same step replaces the older

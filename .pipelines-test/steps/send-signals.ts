@@ -8,6 +8,7 @@ export const sendSignals = implement(step({
   description: "Asks the signal-test service to call back called-back and to publish the value polled polls.",
   image: "alpine:3.22",
   input: { request: M.TestInput },
+  output: M.SignalsSent,
   timeoutSeconds: 120,
 }), async (_, ctx) => {
   const send = async (path: string, method: string, body: unknown) => {
@@ -16,4 +17,5 @@ export const sendSignals = implement(step({
   };
   await send("/callback", "POST", { url: ctx.inputUrl(calledBack, "signal"), value: { ok: true, via: "callback" }, delaySeconds: 5 });
   await send(`/status/${ctx.run.id}`, "PUT", { value: { signal: { ok: true, via: "poll" } }, delaySeconds: 15 });
+  return { status: `${SIGNAL_TEST}/status/${ctx.run.id}` };
 });

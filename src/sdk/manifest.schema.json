@@ -584,6 +584,32 @@
                 "minItems": 1,
                 "type": "array"
               },
+              "link": {
+                "additionalProperties": false,
+                "description": "The link shown while the step waits: the absolute http(s) URL at 'path' inside the value of the step's input 'input'. Omitted when none.",
+                "properties": {
+                  "input": {
+                    "description": "One of the same step's inputs (not an external one).",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "Default: the input's title.",
+                    "maxLength": 100,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "path": {
+                    "description": "Dot path inside that input's value; omitted = the value itself is the URL.",
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              },
               "model": {
                 "description": "The value is validated against this model's input view.",
                 "pattern": "^[A-Za-z][A-Za-z0-9_]*$",

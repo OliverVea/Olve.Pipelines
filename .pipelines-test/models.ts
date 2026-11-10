@@ -26,6 +26,11 @@ export const Summary = model("Summary", z.object({
   summary: z.string(),
 }));
 
+/** Where send-signals asked the signal-test service to publish the polled value. */
+export const SignalsSent = model("SignalsSent", z.object({
+  status: z.string(),
+}));
+
 /** What the signal-test service sends back, through a callback or a polled status. */
 export const Signal = model("Signal", z.object({
   ok: z.boolean(),

@@ -19,6 +19,8 @@ public class ManifestAcceptanceTests
         ["poll input with run placeholders in the path"] = () => Externally(Poll("https://x.example/{run.id}/{run.number}", 30)),
         ["poll input with a run placeholder in the host"] = () => Externally(Poll("https://{run.id}.example/", 30)),
         ["input with one source of each kind"] = () => Externally(Source("person"), Source("callback"), Poll("https://x.example/", 30)),
+        ["input with a waiting link into a regular input"] = () => Linked(new JsonObject { ["input"] = "artifact", ["path"] = "version", ["label"] = "Review" }),
+        ["input with a waiting link to a whole regular input"] = () => Linked(new JsonObject { ["input"] = "artifact" }),
 
         // field resolution
         ["ref to a field several branches have, of unknown type"] = () => Edit(r => MapField(r, """{"oneOf":[{"properties":{"a":{"type":"string"}}},{"properties":{"a":{"type":"number"}}}]}""", ".a", """{"type":"boolean"}""")),
@@ -61,6 +63,11 @@ public class ManifestAcceptanceTests
     private static string Externally(JsonObject[] sources, string key) => Edit(r => Step(r, "deploy-beta")["externalInputs"] = new JsonObject
     {
         [key] = new JsonObject { ["model"] = "BuildArtifact", ["title"] = "Go?", ["from"] = new JsonArray(sources.Cast<JsonNode?>().ToArray()) },
+    });
+
+    private static string Linked(JsonObject link) => Edit(r => Step(r, "deploy-beta")["externalInputs"] = new JsonObject
+    {
+        ["decision"] = new JsonObject { ["model"] = "BuildArtifact", ["title"] = "Go?", ["from"] = new JsonArray(Source("person")), ["link"] = link },
     });
 
     private static string HelloRefersTo(string reference)

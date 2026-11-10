@@ -7,9 +7,11 @@ export const polled = implement(step({
   description: "Waits until the signal-test service's status has a value.",
   image: "alpine:3.22",
   input: {
+    sent: M.SignalsSent,
     signal: external(M.Signal, {
       title: "Did the polled value arrive?",
       from: [poll({ url: `${SIGNAL_TEST}/status/{run.id}`, valuePath: "signal", intervalSeconds: 10 })],
+      link: { input: "sent", path: "status", label: "Signal status" },
     }),
   },
   timeoutSeconds: 120,

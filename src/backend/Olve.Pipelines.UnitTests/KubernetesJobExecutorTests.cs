@@ -151,6 +151,22 @@ public class KubernetesJobExecutorTests
         await Assert.That(after.Links).IsEquivalentTo(links);
     }
 
+    // Catches: the handler's links replacing the waiting link the attempt already showed.
+    [Test]
+    public async Task FinishedPod_KeepsTheWaitingLinksFirst_AndAddsTheStepsNewOnes()
+    {
+        var h = Build();
+        AttemptLink review = new("https://vr.example/reviews/7", "Review");
+        await Assert.That(h.Scenario.D.AttemptService.Update(h.Hello.Id, a => a with { Links = [review] })).Succeeded();
+        h.K8s.States.Add(Exited0);
+        IReadOnlyList<AttemptLink> handler = [new("https://vr.example/reviews/7", "Same review"), new("https://app.example.com", "App")];
+        h.Storage.Collection = new(new HarnessResultContents(new HarnessEnvelope.Succeeded("null") { Links = handler }, "{}", []), []);
+
+        await RunWatcher(h, h.Hello.Id);
+
+        await Assert.That(h.Scenario.D.Get(h.Hello.Id).Links).IsEquivalentTo([review, new AttemptLink("https://app.example.com", "App")]);
+    }
+
     [Test]
     public async Task FinishedPod_RecordsItsTimings()
     {

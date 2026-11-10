@@ -147,7 +147,17 @@ public sealed record ManifestMatrix(
 public sealed record MatrixAxis(string Name, IReadOnlyList<string> Values);
 
 /// <summary>An input answered from outside the run, validated against <see cref="Model"/>'s input view.</summary>
-public sealed record ExternalInput(string Model, string Title, string Description, IReadOnlyList<ExternalSource> From);
+public sealed record ExternalInput(string Model, string Title, string Description, IReadOnlyList<ExternalSource> From)
+{
+    /// <summary>The link shown on the attempt while it waits (null = none).</summary>
+    public ExternalLink? Link { get; init; }
+}
+
+/// <summary>
+/// Where the waiting attempt's link comes from: the value of the step's regular input <see cref="Input"/>, or the
+/// field at the dot path <see cref="Path"/> inside it. <see cref="Label"/> defaults to the external input's title.
+/// </summary>
+public sealed record ExternalLink(string Input, string? Path, string? Label);
 
 /// <summary>Who or what may supply an external input's value.</summary>
 public abstract record ExternalSource

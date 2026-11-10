@@ -133,18 +133,23 @@ public class RunViewService(
     {
         private Attempt? Succeeded => Attempts.LastOrDefault(a => a.Status is AttemptStatus.Succeeded);
 
+        /// <summary>A waiting attempt's links, else the succeeded attempt's, else the latest's.</summary>
+        private IReadOnlyList<AttemptLink>? Links => Latest is { Status: AttemptStatus.Waiting, Links: not null }
+            ? Latest.Links
+            : (Succeeded ?? Latest)?.Links;
+
         public RunStepView View(string name, int? stepVersion, bool blocked) => new(
             name, stepVersion, Status, Reason, Attempts.Count, Latest?.Number, Succeeded?.Number,
             Latest?.StartedAt(), Latest?.FinishedAt(), blocked, Latest is null ? null : AttemptPhases.From(Latest))
         {
-            Links = (Succeeded ?? Latest)?.Links,
+            Links = Links,
         };
 
         public RunCellView CellView() => new(
             Unit.Name, Unit.Cell!.Values, Status, Reason, Attempts.Count, Latest?.Number, Succeeded?.Number,
             Latest?.StartedAt(), Latest?.FinishedAt(), Latest is null ? null : AttemptPhases.From(Latest))
         {
-            Links = (Succeeded ?? Latest)?.Links,
+            Links = Links,
         };
     }
 

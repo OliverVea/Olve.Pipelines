@@ -78,7 +78,7 @@ export class PipelineHeader extends LitElement {
         color: var(--color-danger);
       }
       .ask {
-        color: var(--color-primary);
+        color: var(--color-ask);
       }
       .subject {
         overflow: hidden;

@@ -36,9 +36,11 @@ public class AttemptService(
     /// <summary>
     /// Schedules the next attempt of <paramref name="stepName"/> in a run, carrying its assembled
     /// <c>input.json</c> (<paramref name="input"/>) and that input's canonical hash. With
-    /// <paramref name="awaitsInput"/> the attempt starts <see cref="Waiting"/> for the step's external inputs.
+    /// <paramref name="awaitsInput"/> the attempt starts <see cref="Waiting"/> for the step's external inputs, showing
+    /// <paramref name="links"/> while it waits.
     /// </summary>
-    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null, bool awaitsInput = false)
+    public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null, bool awaitsInput = false,
+        IReadOnlyList<AttemptLink>? links = null)
     {
         if (input is not null)
         {
@@ -48,7 +50,7 @@ public class AttemptService(
                 return new ResultProblem("Input of step '{0}' is not well-formed JSON.", stepName);
         }
 
-        return Create(runId, stepName, inputHash, now => awaitsInput ? new Waiting(now) : new Scheduled(), input);
+        return Create(runId, stepName, inputHash, now => awaitsInput ? new Waiting(now) : new Scheduled(), input, links);
     }
 
     /// <summary>Records an attempt the scheduler failed without running (e.g. its input exceeds the cap).</summary>
@@ -267,7 +269,8 @@ public class AttemptService(
     /// latest one would let its number (and storage prefix) be reused.</summary>
     internal DeletionResult Delete(Id<Attempt> id) => store.Delete(id);
 
-    private Result<Attempt> Create(Id<Run> runId, string stepName, string? inputHash, Func<DateTimeOffset, AttemptStatus> status, string? input = null)
+    private Result<Attempt> Create(Id<Run> runId, string stepName, string? inputHash, Func<DateTimeOffset, AttemptStatus> status, string? input = null,
+        IReadOnlyList<AttemptLink>? links = null)
     {
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
@@ -287,7 +290,8 @@ public class AttemptService(
                 status(now),
                 now,
                 inputHash,
-                Input: input);
+                Input: input,
+                Links: links);
             store.Set(attempt);
             return attempt;
         }

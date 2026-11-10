@@ -22,3 +22,19 @@ pipeline({ name: "a", input: M.DeployRequest }).stage(pick);
 // A mapper provides only the mapped inputs.
 pipeline({ name: "b", input: M.DeployRequest }).stage([pick, (from) => ({ req: from.input })]);
 
+
+// The waiting link names one of the step's regular inputs.
+const Review = model("Review", z.object({ run: z.string(), url: z.string() }));
+const review = step({
+  name: "review",
+  description: "",
+  image: "alpine",
+  input: {
+    review: Review,
+    verdict: external(Choice, { title: "Accepted?", link: { input: "review", path: "url", label: "Review" } }),
+  },
+});
+implement(review, ({ review: r, verdict }) => {
+  type _verdict = Expect<Equal<typeof verdict, Infer<typeof Choice>>>;
+  void r;
+});

@@ -29,7 +29,8 @@ public class RunContinuationService(
     StepBlockService blocks,
     PipelineActivationService activations,
     StageScheduler scheduler,
-    RunSchedulingLock schedulingLock)
+    RunSchedulingLock schedulingLock,
+    ILogger<RunContinuationService> logger)
 {
     /// <summary>
     /// Reruns one step, or one cell of a matrix step by its cell name. A matrix step's own name reruns every cell
@@ -88,7 +89,8 @@ public class RunContinuationService(
                 Attempt? first = null;
                 foreach (var name in units.Select(u => u.Name))
                 {
-                    if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0)
+                    if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0,
+                            links: WaitingLinks.For(step, schedule.Json, run, name, logger))
                         .TryPickProblems(out var problems, out var attempt))
                         return problems;
                     first ??= attempt;

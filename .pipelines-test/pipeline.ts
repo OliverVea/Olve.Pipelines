@@ -3,7 +3,7 @@
 //
 //   hello ─┬─ count ─┐
 //          └─ echo   ├─ send-signals ─┬─ called-back (callback input)
-//                    │                └─ polled (poll input)
+//                    │                └─ polled (poll input, linking to the status while it waits)
 //                    ├─ when(mode = normal): last
 //                    ┘     └─ when(target ∈ beta, prod): deploy-beta
 //                            └─ when(target = prod): deploy-prod

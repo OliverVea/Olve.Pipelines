@@ -124,6 +124,7 @@ function describeExternalInputs(
 ): ExternalInputs {
   const problems = ctx.problems;
   const externalInputs: ExternalInputs = {};
+  const regular = new Set(allEntries.filter(([, e]) => !isExternal(e)).map(([k]) => k));
   for (const [key, e] of allEntries) {
     if (!isExternal(e)) continue;
     if (failureHandler)
@@ -153,15 +154,47 @@ function describeExternalInputs(
       if (f.valuePath.trim() === '')
         problems.push(`${at} external input '${key}': poll valuePath must not be empty`);
     }
+    const link = e.link;
+    if (link !== undefined) {
+      if (!regular.has(link.input))
+        problems.push(
+          `${at} external input '${key}': link input '${link.input}' must name one of the step's regular (non-external) inputs`,
+        );
+      if (link.path !== undefined && !isDotPath(link.path))
+        problems.push(
+          `${at} external input '${key}': link path must be a dot path of non-empty field names`,
+        );
+      if (
+        link.label !== undefined &&
+        (typeof link.label !== 'string' ||
+          link.label.length < 1 ||
+          link.label.length > 100)
+      )
+        problems.push(
+          `${at} external input '${key}': link label must be 1 to 100 characters`,
+        );
+    }
     externalInputs[key] = {
       model: ctx.useModel(e.model, `${at} external input '${key}'`),
       title: e.title,
       description: e.description,
       from: e.from.map((f) => ({ ...f })),
+      ...(link !== undefined
+        ? {
+            link: {
+              input: link.input,
+              ...(link.path !== undefined ? { path: link.path } : {}),
+              ...(link.label !== undefined ? { label: link.label } : {}),
+            },
+          }
+        : {}),
     };
   }
   return externalInputs;
 }
+
+const isDotPath = (path: unknown): boolean =>
+  typeof path === 'string' && path.split('.').every((segment) => segment !== '');
 
 function describeInputTypes(
   ctx: DescribeContext,

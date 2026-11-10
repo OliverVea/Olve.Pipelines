@@ -97,7 +97,7 @@ Rules:
 - A **plain-schema input** has no model to match on, so the step needs a mapper.
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
 - **`cells(M)`** reads every cell of a matrix step whose output is `M` (see "Matrix steps").
-- **`external(M, { title, description?, from? })`** is answered from outside the run; `from` lists `callback()` (another system POSTs to the URL an earlier step gets from `ctx.inputUrl(step, input)`), `poll({ url, valuePath, intervalSeconds? })` and `person()` (the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one.
+- **`external(M, { title, description?, from? })`** is answered from outside the run; `from` lists `callback()` (another system POSTs to the URL an earlier step gets from `ctx.inputUrl(step, input)`), `poll({ url, valuePath, intervalSeconds? })` and `person()` (the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one. `link: { input, path?, label? }` is the link shown on the step while it waits: `input` is one of the same step's regular (non-external) inputs (typed to their names), `path` a dot path inside its value (`url` → `input.review.url`; none = the value itself is the URL), `label` defaults to `title`. A value that is not an absolute http(s) URL sets no link; the step waits all the same.
 
 ### Config
 
@@ -366,7 +366,7 @@ It retries network errors, 5xx, 408 and 429. It always verifies `sha256`.
 { "status": "failed",    "error": { "kind": "handler" | "input" | "output", "message": "…" } }
 ```
 
-Any of the three may carry `"links": [{ "url": "https://…", "label": "…" }]`, what the handler passed to `ctx.link` (absolute http(s) URLs of at most 2048 characters, labels of at most 100, at most 10). The key is left out when there are none. The server refuses an envelope whose links break these limits.
+Any of the three may carry `"links": [{ "url": "https://…", "label": "…" }]`, what the handler passed to `ctx.link` (absolute http(s) URLs of at most 2048 characters, labels of at most 100, at most 10). The key is left out when there are none. The server refuses an envelope whose links break these limits. The attempt keeps the links its external inputs' `link` gave it while it waited first, then adds the envelope's, leaving out a URL already there.
 
 For `map-trigger`, `output` is the pipeline input after it has been parsed by the input model, so defaults are applied. Validate it again server-side.
 
@@ -422,7 +422,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
   - a nested object of mappings.
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
-- **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`. Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
+- **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from, link?}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`, and `link` `{input, path?, label?}` (omitted when not set, as are its `path` and `label`). Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
 - **`inputTypes`** declares each input key: `{model, optional}`, `{model, optional: false, cells: true}` for a `cells` input (mapped with a whole-step ref to a matrix step whose output is that model), or `{schema: {output, input?}}` for a plain schema.
 - **Step `matrix`** (matrix steps only, never a failure handler) is `{axes: [{name, values}…], exclude?: [{axis: value…}…], failure: {kind: "keepRunning" | "cascadeFailure"}, maxParallel?}`. `axes` is a list because canonical JSON sorts keys; `exclude` is omitted when empty; `failure.kind` is always written. All of it is part of what the step declares.
 - **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point bundled with everything it imports, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
@@ -445,6 +445,7 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 - availability, ambiguity, maybe-available as required, `optional` without a producer, plain schema without a mapper;
 - mapper source analysis and recording, unknown fields in refs, mapper keys that are missing or extra;
 - `when` on an unknown or non-literal field, or with an invalid value;
+- an external input's `link` naming anything but one of the step's regular inputs, an empty path segment, a label that is empty or over 100 characters;
 - a poll header referencing an undeclared secret, duplicate triggers;
 - conflicting secret descriptions;
 - config names, one description and schema per config name, a step receiving a `secretRef` without declaring its secret, and input keys starting with `$` (reserved);

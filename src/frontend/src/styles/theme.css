@@ -37,6 +37,8 @@
   --color-success: #178351;
   --color-warning: var(--gold-400);
   --color-pending: var(--blue-200);
+  /* Waiting for input: a hue no other status uses. */
+  --color-ask: #6a4bbf;
 
   --radius: 6px;
   --radius-lg: 10px;
@@ -69,6 +71,7 @@
     --color-success: #4fbf8a;
     --color-warning: var(--gold-200);
     --color-pending: #6f8aa3;
+    --color-ask: #b7a2f2;
     --color-code-bg: #0f2033;
     --color-when: var(--gold-200);
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);

@@ -310,7 +310,7 @@ export const sharedStyles = css`
     --tone: var(--color-primary);
   }
   .t-ask {
-    --tone: var(--color-primary);
+    --tone: var(--color-ask);
   }
   .t-ask .dot,
   .dot.t-ask {

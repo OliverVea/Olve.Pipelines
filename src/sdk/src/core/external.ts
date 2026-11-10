@@ -47,32 +47,49 @@ export function poll(options: PollOptions): ExternalSource {
  * A step input whose value comes from outside the run. The step waits until it is answered (the value is
  * validated against `model`), then runs with the value in its input like any other.
  */
-export interface External<M extends AnyModel = AnyModel> {
+export interface External<M extends AnyModel = AnyModel, L extends string = string> {
   readonly kind: 'external';
   readonly model: M;
   readonly title: string;
   readonly description: string;
   readonly from: readonly ExternalSource[];
+  readonly link?: ExternalLink<L>;
 }
 
-export interface ExternalOptions {
+/**
+ * The link shown on the step while it waits: the URL is the value of one of the step's other
+ * (non-external) inputs, or a field inside it.
+ */
+export interface ExternalLink<L extends string = string> {
+  /** One of the same step's non-external inputs. */
+  readonly input: L;
+  /** Dot path inside that input's value (`url`, `review.url`); omitted = the value itself is the URL. */
+  readonly path?: string;
+  /** Default: the input's title. */
+  readonly label?: string;
+}
+
+export interface ExternalOptions<L extends string = string> {
   /** What is asked, shown to whoever answers. */
   title: string;
   description?: string;
   /** Who may answer (default: a person). */
   from?: readonly ExternalSource[];
+  /** The link shown while the step waits, e.g. `{ input: "review", path: "url" }`. */
+  link?: ExternalLink<L>;
 }
 
-export function external<M extends AnyModel>(
+export function external<M extends AnyModel, const L extends string = never>(
   model: M,
-  options: ExternalOptions,
-): External<M> {
+  options: ExternalOptions<L>,
+): External<M, L> {
   return Object.freeze({
     kind: 'external' as const,
     model,
     title: options.title,
     description: options.description ?? '',
     from: Object.freeze([...(options.from ?? [person()])]),
+    ...(options.link !== undefined ? { link: Object.freeze({ ...options.link }) } : {}),
   });
 }
 

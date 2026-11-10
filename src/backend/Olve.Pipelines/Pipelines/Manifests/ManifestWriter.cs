@@ -305,6 +305,14 @@ public static class ManifestWriter
                 w.WriteEndObject();
             }
             w.WriteEndArray();
+            if (input.Link is { } link)
+            {
+                w.WriteStartObject("link");
+                w.WriteString("input", link.Input);
+                if (link.Path is not null) w.WriteString("path", link.Path);
+                if (link.Label is not null) w.WriteString("label", link.Label);
+                w.WriteEndObject();
+            }
             w.WriteEndObject();
         }
         w.WriteEndObject();

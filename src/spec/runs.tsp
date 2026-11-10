@@ -117,7 +117,7 @@ model RunStep {
   /** For a waiting step: the source kinds that may still answer it (`person`, `callback`, `poll`). */
   waitingFor?: string[] | null;
 
-  /** What the step links to: its succeeded attempt's links, else its latest attempt's. */
+  /** What the step links to: a waiting attempt's links (from its external inputs), else its succeeded attempt's, else its latest attempt's. */
   links?: AttemptLink[] | null;
 
   /** A matrix step's cells, in cell order; null for a plain step. */

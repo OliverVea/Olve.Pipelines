@@ -310,6 +310,99 @@ public class ExternalInputTests
         await Assert.That(sources[1]).IsEqualTo(new ExternalSource.Poll("https://x.example/{run.id}", "a.b", 15));
     }
 
+    private const string ReviewUrl = "https://vr.example/reviews/7";
+
+    /// <summary>The gate with a waiting link into <c>artifact.version</c>, whose build put <paramref name="version"/> there.</summary>
+    private static (SchedulerScenario S, Run Run) AtALinkedGate(string version, string? label = "Review in VR")
+    {
+        var node = JsonNode.Parse(Manifest())!.AsObject();
+        var link = new JsonObject { ["input"] = "artifact", ["path"] = "version" };
+        if (label is not null) link["label"] = label;
+        ManifestFixture.Step(node, "deploy-beta")["externalInputs"]!["decision"]!["link"] = link;
+        var s = new SchedulerScenario(node.ToJsonString());
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        var output = JsonNode.Parse(DefaultOutput(run.Number, "build", 1)!)!;
+        output["version"] = version;
+        s.Succeed(run, "build", output.ToJsonString());
+        s.Succeed(run, "test");
+        return (s, run);
+    }
+
+    private static RunStepView ViewOf(SchedulerScenario s, Run run, string step)
+        => TestRunDomain.Pick(s.D.Views.Get(s.Pipeline.Id, run.Number)).Stages.SelectMany(st => st.Steps).Single(x => x.Name == step);
+
+    // Catches: a waiting step without the link its earlier step produced, in the run view or the step history.
+    [Test]
+    public async Task WaitingLink_IsResolvedFromTheInput_AndShownWhileTheStepWaits()
+    {
+        var (s, run) = AtALinkedGate(ReviewUrl);
+
+        var waiting = s.Latest(run, "deploy-beta")!;
+        await Assert.That(waiting.Status).IsTypeOf<Waiting>();
+        await Assert.That(waiting.Links).IsEquivalentTo([new AttemptLink(ReviewUrl, "Review in VR")]);
+        await Assert.That(ViewOf(s, run, "deploy-beta").Links!.Select(l => l.Url)).IsEquivalentTo([ReviewUrl]);
+        await Assert.That(s.D.Views.History(s.Pipeline.Id, "deploy-beta", limit: 1).Single().Links).IsEquivalentTo(waiting.Links!);
+    }
+
+    [Test]
+    public async Task WaitingLink_WithoutALabel_IsLabelledWithTheInputsTitle()
+    {
+        var (s, run) = AtALinkedGate(ReviewUrl, label: null);
+
+        await Assert.That(s.Latest(run, "deploy-beta")!.Links).IsEquivalentTo([new AttemptLink(ReviewUrl, "Deploy to beta?")]);
+    }
+
+    // Catches: a value that isn't a URL failing the step (or linking to it) instead of only leaving the link out.
+    [Test]
+    public async Task WaitingLink_ThatIsNotAUrl_IsLeftOut_AndTheStepStillWaits()
+    {
+        var (s, run) = AtALinkedGate("1.2.3");
+
+        var waiting = s.Latest(run, "deploy-beta")!;
+        await Assert.That(waiting.Status).IsTypeOf<Waiting>();
+        await Assert.That(waiting.Links).IsNull();
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Running);
+    }
+
+    // Catches: a rerun's waiting attempt showing the earlier succeeded attempt's links instead of its own.
+    [Test]
+    public async Task RerunThatWaits_GetsItsLink_AndTheViewShowsItOverTheSucceededAttempts()
+    {
+        var (s, run) = AtALinkedGate(ReviewUrl);
+        TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver"));
+        var first = s.Succeed(run, "deploy-beta");
+        await Assert.That(s.D.AttemptService.Update(first.Id, a => a with { Links = [new AttemptLink("https://beta.example", "App")] })).Succeeded();
+        s.Succeed(run, "summary");
+
+        var rerun = TestRunDomain.Pick(s.D.Continuations.RerunStep(run.Id, "deploy-beta", continueAfter: false));
+
+        await Assert.That(rerun.Status).IsTypeOf<Waiting>();
+        await Assert.That(rerun.Links).IsEquivalentTo([new AttemptLink(ReviewUrl, "Review in VR")]);
+        await Assert.That(ViewOf(s, run, "deploy-beta").Links!.Select(l => l.Url)).IsEquivalentTo([ReviewUrl]);
+    }
+
+    private static ExternalInput LinkedInput() => new("Approval", "Go?", "", [new ExternalSource.Person()]) { Link = new ExternalLink("review", "url", null) };
+
+    public static IEnumerable<(string Input, string Problem)> UnresolvedLinks() =>
+    [
+        ("""{"other":{}}""", "Input 'review' has no value."),
+        ("""{"review":null}""", "Input 'review' has no value."),
+        ("""{"review":{"run":"7"}}""", "'review.url' is not in the input."),
+        ("""{"review":"https://vr.example"}""", "'review.url' is not in the input."),
+        ("""{"review":{"url":"/reviews/7"}}""", "'review.url' is not an absolute http(s) URL of at most 2048 characters."),
+        ("""{"review":{"url":"ftp://vr.example"}}""", "'review.url' is not an absolute http(s) URL of at most 2048 characters."),
+        ("""{"review":{"url":7}}""", "'review.url' is not an absolute http(s) URL of at most 2048 characters."),
+        ("""{"review":{"url":"https://vr.example/""" + new string('a', 2048) + "\"}}", "'review.url' is not an absolute http(s) URL of at most 2048 characters."),
+    ];
+
+    [Test]
+    [MethodDataSource(nameof(UnresolvedLinks))]
+    public async Task WaitingLink_ThatDoesNotResolve_SaysWhy(string input, string problem)
+    {
+        await WaitingLinks.Resolve(LinkedInput(), Json(input)).Problems.IsSingle<ResultProblem>(problem);
+    }
+
     private static IEnumerable<StepDescriptor> Steps(ManifestStage stage) => stage switch
     {
         StepsStage s => s.Steps,

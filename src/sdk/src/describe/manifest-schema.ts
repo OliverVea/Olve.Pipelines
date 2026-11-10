@@ -211,6 +211,30 @@ export const StepDescriptor = z
             )
             .min(1)
             .describe('Who or what may answer.'),
+          link: z
+            .strictObject({
+              input: z
+                .string()
+                .min(1)
+                .describe("One of the same step's inputs (not an external one)."),
+              path: z
+                .string()
+                .min(1)
+                .optional()
+                .describe(
+                  "Dot path inside that input's value; omitted = the value itself is the URL.",
+                ),
+              label: z
+                .string()
+                .min(1)
+                .max(100)
+                .optional()
+                .describe("Default: the input's title."),
+            })
+            .optional()
+            .describe(
+              "The link shown while the step waits: the absolute http(s) URL at 'path' inside the value of the step's input 'input'. Omitted when none.",
+            ),
         }),
       )
       .optional()

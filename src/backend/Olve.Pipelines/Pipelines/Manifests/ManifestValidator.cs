@@ -402,6 +402,15 @@ public static partial class ManifestValidator
                     Error(ManifestIssueCodes.ExternalInputSource, $"{xp}.from", $"{at}: each source kind may be listed once", n);
                 if (external.From.Any(f => f is ExternalSource.Callback) && !key.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-'))
                     Error(ManifestIssueCodes.ExternalInputSource, xp, $"{at}: a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)", n);
+                if (external.Link is { } link)
+                {
+                    if (!s.InputTypes.ContainsKey(link.Input))
+                        Error(ManifestIssueCodes.ExternalInputLink, $"{xp}.link.input", $"{at}: link input '{link.Input}' must name one of the step's regular (non-external) inputs", n);
+                    if (link.Path is not null && link.Path.Split('.').Any(segment => segment.Length == 0))
+                        Error(ManifestIssueCodes.ExternalInputLink, $"{xp}.link.path", $"{at}: link path must be a dot path of non-empty field names", n);
+                    if (link.Label is not null && link.Label.Length is < 1 or > Runs.AttemptLink.MaxLabelLength)
+                        Error(ManifestIssueCodes.ExternalInputLink, $"{xp}.link.label", $"{at}: link label must be 1 to {Runs.AttemptLink.MaxLabelLength} characters", n);
+                }
                 foreach (var poll in external.From.OfType<ExternalSource.Poll>())
                 {
                     var url = poll.Url.Replace("{run.id}", "x", StringComparison.Ordinal).Replace("{run.number}", "1", StringComparison.Ordinal);

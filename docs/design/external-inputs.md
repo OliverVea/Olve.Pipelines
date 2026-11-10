@@ -76,6 +76,31 @@ link to it in what it sends out: `ctx.inputUrl("vr-verdict")` gives the URL for 
 of this run, minted when the run starts, and `ctx.runUrl()` links the run. The visual-regression
 flow (§6) uses this.
 
+**Linking to where the answer is given.** A waiting step's handler hasn't run, so it has no
+`ctx.link` links yet. `link` on the external input names where its link comes from: one of the same
+step's regular (non-external) inputs, and a dot path inside that input's value (no path = the value
+itself is the URL). It is data in the manifest, so the service resolves it without running
+TypeScript:
+
+```ts
+input: {
+  review: M.Review,                         // { run, url } from the step that submitted the screenshots
+  verdict: external(Verdict, {
+    title: "Screenshots accepted?",
+    from: [callback()],
+    link: { input: "review", path: "url", label: "Review in VR" },   // label defaults to the title
+  }),
+},
+```
+
+When the Waiting attempt is created, the service reads `review.url` from its `input.json` and sets
+it as the attempt's link, shown on the step's tile and in the step view while it waits. A value that
+is not an absolute http(s) URL (at most 2048 characters) sets no link and logs a warning; the step
+waits all the same. Once the handler has run, its own links follow the waiting ones (a URL already
+there is not repeated). `describe` (typed: `input` must be one of the step's regular input names)
+and reconcile reject a link to anything but a regular input of the step. The link is part of what
+the step declares, so changing it bumps the step's version.
+
 ## 4. Lifecycle
 
 A step with an external input gets an attempt as soon as everything else it needs is available. That
@@ -110,7 +135,8 @@ existing attempt from Waiting to Scheduled and never creates attempts directly.
 
 ## 5. Surfaces
 
-- **Manifest.** An input entry `{ external: { model, title, description, from: [...], timeout? } }`.
+- **Manifest.** An input entry `{ external: { model, title, description, from: [...], link?, timeout? } }`,
+  `link` being `{ input, path?, label? }`.
   Titles and descriptions can use mappings (`Deploy ${from.build.version}?`), recorded as tagged
   mappings and rendered by the service.
 - **API.** `GET /api/inputs?status=waiting` (everything waiting, across pipelines);
@@ -121,6 +147,8 @@ existing attempt from Waiting to Scheduled and never creates attempts directly.
   hands the decision to the user instead of hanging. Agents never answer inputs themselves.
 - **UI.** A "Waiting for you" list on the pipeline overview, and on the run page a form generated from
   the model, with the request's title, description, links and any files the earlier step produced.
+  Waiting has a colour of its own (violet) on the step's tile, its status and the "waiting for input"
+  chip in the pipeline list; the waiting link is on the tile and in the step view.
 - **Events.** `attempt` events carry `waiting`; a new `input` event when a value arrives. A future
   alerting listener (Slack, phone) only needs the stream.
 
@@ -130,8 +158,9 @@ The tool owns baselines, diffs and its review UI. The pipeline only hands work o
 
 ```ts
 .stage(test)                    // produces screenshots as files
-.stage(submitReview)            // posts them to the tool with ctx.inputUrl("verdict")
-.stage(reviewVerdict)           // input: verdict: external(Verdict, { from: [callback()] })
+.stage(submitReview)            // posts them to the tool with ctx.inputUrl("verdict"); outputs Review { run, url }
+.stage(reviewVerdict)           // input: review: Review, verdict: external(Verdict, { from: [callback()],
+                                //   link: { input: "review", path: "url" } })
 .stage(publish)
 ```
 

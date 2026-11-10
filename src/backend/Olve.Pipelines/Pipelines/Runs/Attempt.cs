@@ -15,7 +15,8 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// the executor uploads for the step; null for attempts the scheduler skipped or failed without running.</param>
 /// <param name="Timings">The pod's timestamps, recorded when its Job finished; null before that or when unknown.</param>
 /// <param name="Answers">The values given for the step's external inputs, by input name; null when it has none answered.</param>
-/// <param name="Links">What the handler linked to (<c>ctx.link</c>): what it made or deployed; null when none.</param>
+/// <param name="Links">The external inputs' waiting links, then what the handler linked to (<c>ctx.link</c>): what it made or
+/// deployed; null when none.</param>
 public record Attempt(
     Id<Attempt> Id,
     Id<Pipeline> PipelineId,
@@ -50,6 +51,10 @@ public record AttemptLink(string Url, string? Label = null)
     public const int MaxCount = 10;
     public const int MaxUrlLength = 2048;
     public const int MaxLabelLength = 100;
+
+    /// <summary><paramref name="first"/>, then the links of <paramref name="then"/> whose URL is not already there.</summary>
+    public static IReadOnlyList<AttemptLink> Merge(IReadOnlyList<AttemptLink>? first, IReadOnlyList<AttemptLink> then)
+        => first is null or [] ? then : [.. first.Concat(then).DistinctBy(l => l.Url, StringComparer.Ordinal)];
 }
 
 /// <summary>A value given for an external input: the JSON as validated (defaults applied), who gave it and when.</summary>

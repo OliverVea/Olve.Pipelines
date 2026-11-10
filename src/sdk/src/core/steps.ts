@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import { STEP, type StepBrand } from './brands.ts';
 import type { AnyModel, Infer, Optional } from './models.ts';
-import type { External } from './external.ts';
+import type { External, ExternalLink } from './external.ts';
 import type { AnyConfigEntry } from './config.ts';
 import { configRefsIn } from './config-refs.ts';
 import type { Secret } from './secrets.ts';
@@ -35,6 +35,23 @@ export type InferEntry<E> =
           : E extends z.ZodType
             ? z.output<E>
             : never;
+/** The keys of a step's inputs that are not external. */
+export type RegularInputKey<I> = {
+  [K in keyof I]: I[K] extends External ? never : K;
+}[keyof I] &
+  string;
+
+/** An external input's `link.input` must name one of the same step's non-external inputs. */
+export type ExternalLinksCheck<I> = {
+  [K in keyof I]: I[K] extends External<AnyModel, infer L>
+    ? [L] extends [never]
+      ? unknown
+      : [L] extends [RegularInputKey<I>]
+        ? unknown
+        : { readonly link?: ExternalLink<RegularInputKey<I>> }
+    : unknown;
+};
+
 /** What a handler receives: the output view of every input entry. */
 export type StepInput<I> = Simplify<{ -readonly [K in keyof I]: InferEntry<I[K]> }>;
 
@@ -106,7 +123,7 @@ export interface StepDef<
   description: string;
   /** Any image: the harness brings its own runtime. */
   image: string;
-  input?: I;
+  input?: I & ExternalLinksCheck<I>;
   output?: O;
   secrets?: Sec;
   /** Config entries delivered as `ctx.config` (typed to exactly these). */

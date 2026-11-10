@@ -296,8 +296,8 @@ export class PipelineListView extends LitElement {
         border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
       }
       .tag.ask {
-        color: var(--color-primary);
-        border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+        color: var(--color-ask);
+        border-color: color-mix(in srgb, var(--color-ask) 50%, transparent);
         border-style: dashed;
       }
       .tag.run {

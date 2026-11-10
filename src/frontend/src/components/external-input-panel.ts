@@ -84,7 +84,7 @@ export class ExternalInputPanel extends LitElement {
         max-width: 56rem;
       }
       .panel {
-        border-left: 3px solid var(--color-primary);
+        border-left: 3px solid var(--color-ask);
       }
       h3 {
         display: flex;

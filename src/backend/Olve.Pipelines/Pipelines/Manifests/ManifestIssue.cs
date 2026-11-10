@@ -84,6 +84,7 @@ public static class ManifestIssueCodes
     public const string ExternalInputInFailureHandler = "external-input-in-failure-handler";
     public const string ExternalInputTitleEmpty = "external-input-title-empty";
     public const string ExternalInputSource = "external-input-source";
+    public const string ExternalInputLink = "external-input-link";
 
     // ── matrix ──
     public const string MatrixInvalid = "matrix-invalid";

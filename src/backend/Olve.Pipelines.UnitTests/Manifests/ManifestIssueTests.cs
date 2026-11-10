@@ -88,6 +88,17 @@ public class ManifestIssueTests
         ["external input listing a source twice beside another"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': each source kind may be listed once", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", sources: ["person", "person", "callback"])),
         ["callback input with an unsafe key beside another source"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.a.b", "step 'deploy-beta' external input 'a.b': a callback input's key must be letters, digits, '_' or '-' (it is part of the URL)", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", key: "a.b", sources: ["person", "callback"])),
         ["poll input polling too often"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': poll intervalSeconds must be at least 10", r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("https://x.example/{run.id}", 5)),
+        ["waiting link to an unknown input"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.input", "step 'deploy-beta' external input 'decision': link input 'nope' must name one of the step's regular (non-external) inputs", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "nope" })),
+        ["waiting link to another external input"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.input", "step 'deploy-beta' external input 'decision': link input 'audit' must name one of the step's regular (non-external) inputs", r =>
+        {
+            var inputs = External("BuildArtifact", link: new JsonObject { ["input"] = "audit" });
+            inputs["audit"] = External("BuildArtifact")["decision"]!.DeepClone();
+            Step(r, "deploy-beta")["externalInputs"] = inputs;
+        }
+        ),
+        ["waiting link with an empty path segment"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.path", "step 'deploy-beta' external input 'decision': link path must be a dot path of non-empty field names", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["path"] = "a..b" })),
+        ["waiting link with an empty label"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.label", "step 'deploy-beta' external input 'decision': link label must be 1 to 100 characters", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["label"] = "" })),
+        ["waiting link with an unknown field"] = Row(C.UnknownProperty, "stages[2].steps[0].externalInputs.decision.link.url", "unknown property 'url'", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["url"] = "https://x.example" })),
         ["poll input with a non-http url"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': poll url must be an absolute http(s) URL", r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("ftp://x.example", 30)),
 
         // mapping keys / paths / types
@@ -369,15 +380,17 @@ public class ManifestIssueTests
         ["unused model"] = Row(C.ModelUnused, "models.Spare", "model 'Spare' is not referenced by the pipeline", r => r["models"]!["Spare"] = new JsonObject { ["output"] = new JsonObject() }),
     };
 
-    private static JsonObject External(string model, string key = "decision", string title = "Go?", string[]? sources = null) => new()
+    private static JsonObject External(string model, string key = "decision", string title = "Go?", string[]? sources = null, JsonObject? link = null)
     {
-        [key] = new JsonObject
+        var input = new JsonObject
         {
             ["model"] = model,
             ["title"] = title,
             ["from"] = new JsonArray((sources ?? ["person"]).Select(k => (JsonNode)new JsonObject { ["kind"] = k }).ToArray()),
-        },
-    };
+        };
+        if (link is not null) input["link"] = link;
+        return new JsonObject { [key] = input };
+    }
 
     private static JsonObject Webhook(string name = "hook", string secret = "GITHUB_TOKEN", string header = "X-Hub-Signature-256") => new()
     {

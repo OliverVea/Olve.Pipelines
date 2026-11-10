@@ -426,12 +426,28 @@ public static class ManifestParser
 
     private static ExternalInput? ParseExternalInput(Ctx ctx, JsonElement e, string path)
     {
-        if (!ctx.Object(e, path, ["model", "title", "from"], ["description"])) return null;
+        if (!ctx.Object(e, path, ["model", "title", "from"], ["description", "link"])) return null;
         var model = ctx.String(e, "model", path);
         var title = ctx.String(e, "title", path);
         var description = e.TryGetProperty("description", out _) ? ctx.String(e, "description", path) : "";
         var from = ctx.Array(e, "from", path, (v, sp) => ParseExternalSource(ctx, v, sp));
-        return model is null || title is null || description is null || from is null ? null : new ExternalInput(model, title, description, from!);
+        var link = e.TryGetProperty("link", out var linkEl) ? ParseExternalLink(ctx, linkEl, Ctx.Child(path, "link")) : null;
+        var linkOk = !e.TryGetProperty("link", out _) || link is not null;
+        return model is null || title is null || description is null || from is null || !linkOk
+            ? null
+            : new ExternalInput(model, title, description, from!) { Link = link };
+    }
+
+    private static ExternalLink? ParseExternalLink(Ctx ctx, JsonElement e, string path)
+    {
+        if (!ctx.Object(e, path, ["input"], ["path", "label"])) return null;
+        var input = ctx.String(e, "input", path);
+        var linkPath = e.TryGetProperty("path", out _) ? ctx.String(e, "path", path) : null;
+        var label = e.TryGetProperty("label", out _) ? ctx.String(e, "label", path) : null;
+        var ok = input is not null
+                 && (!e.TryGetProperty("path", out _) || linkPath is not null)
+                 && (!e.TryGetProperty("label", out _) || label is not null);
+        return ok ? new ExternalLink(input!, linkPath, label) : null;
     }
 
     private static ExternalSource? ParseExternalSource(Ctx ctx, JsonElement e, string path)

@@ -905,6 +905,29 @@ describe('describe-time checks', () => {
         "step 'bad' external input 'v': poll valuePath must not be empty",
       ],
     ],
+    [
+      'bad external links',
+      () =>
+        base().stage(
+          s({
+            name: 'bad',
+            input: {
+              req: Req,
+              other: external(V, { title: '?' }),
+              unknown: external(V, { title: '?', link: { input: 'nope' } }),
+              external: external(V, { title: '?', link: { input: 'other' } }),
+              path: external(V, { title: '?', link: { input: 'req', path: 'a..b' } }),
+              label: external(V, { title: '?', link: { input: 'req', label: '' } }),
+            },
+          }),
+        ),
+      [
+        "step 'bad' external input 'unknown': link input 'nope' must name one of the step's regular (non-external) inputs",
+        "step 'bad' external input 'external': link input 'other' must name one of the step's regular (non-external) inputs",
+        "step 'bad' external input 'path': link path must be a dot path of non-empty field names",
+        "step 'bad' external input 'label': link label must be 1 to 100 characters",
+      ],
+    ],
 
     // config
     [

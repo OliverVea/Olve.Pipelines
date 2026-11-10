@@ -196,7 +196,7 @@ public class KubernetesJobExecutor(
             HarnessSentinels.TryExtractResult(logs.Main));
 
         if (outcome.Links is { } links)
-            LogIfFailed(attempts.Update(attempt.Id, a => a with { Links = links }), attempt.Id);
+            LogIfFailed(attempts.Update(attempt.Id, a => a with { Links = AttemptLink.Merge(a.Links, links) }), attempt.Id);
 
         switch (outcome)
         {

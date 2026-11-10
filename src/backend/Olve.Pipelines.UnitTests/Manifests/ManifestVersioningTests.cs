@@ -174,6 +174,54 @@ public class ManifestVersioningTests
         await Assert.That(StepVersions(v2)["test"]).IsEqualTo(2);
     }
 
+    // Catches: the waiting link left out of the step's content (a changed link keeping the step's version) or of the
+    // canonical manifest.
+    [Test]
+    [Arguments("added")]
+    [Arguments("input")]
+    [Arguments("path")]
+    [Arguments("label")]
+    public async Task EachExternalInputLinkField_BumpsTheStep(string field)
+    {
+        static JsonObject Link(string input = "artifact", string? path = "version", string? label = "Review")
+        {
+            var link = new JsonObject { ["input"] = input };
+            if (label is not null) link["label"] = label;
+            if (path is not null) link["path"] = path;
+            return link;
+        }
+        static Manifest Waiting(JsonObject? link) => Mutate(r =>
+        {
+            var input = new JsonObject { ["model"] = "BuildArtifact", ["title"] = "Go?", ["from"] = new JsonArray(new JsonObject { ["kind"] = "person" }) };
+            if (link is not null) input["link"] = link;
+            Step(r, "deploy-beta")["externalInputs"] = new JsonObject { ["decision"] = input };
+        });
+        var v1 = ManifestVersioning.Compute(null, Waiting(field == "added" ? null : Link()));
+        var changed = field switch
+        {
+            "added" => Link(),
+            "input" => Link(input: "commit"),
+            "path" => Link(path: null),
+            "label" => Link(label: null),
+            _ => throw new ArgumentOutOfRangeException(nameof(field)),
+        };
+
+        var v2 = ManifestVersioning.Compute(v1.History, Waiting(changed));
+
+        await Assert.That(v2.ChangedSteps).IsEquivalentTo(["deploy-beta"]);
+        await Assert.That(StepVersions(v2)["deploy-beta"]).IsEqualTo(2);
+        var reparsed = ParseNode(JsonNode.Parse(v2.CanonicalManifest)!).Stages.SelectMany(StepsOf).Single(x => x.Name == "deploy-beta");
+        await Assert.That(reparsed.ExternalInputs["decision"].Link)
+            .IsEqualTo(new ExternalLink(changed["input"]!.GetValue<string>(), changed["path"]?.GetValue<string>(), changed["label"]?.GetValue<string>()));
+    }
+
+    private static IEnumerable<StepDescriptor> StepsOf(ManifestStage stage) => stage switch
+    {
+        StepsStage s => s.Steps,
+        WhenStage w => w.Stages.SelectMany(StepsOf),
+        _ => [],
+    };
+
     [Test]
     public async Task ModelChange_RipplesToEveryStepUsingIt()
     {

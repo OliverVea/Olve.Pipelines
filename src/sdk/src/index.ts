@@ -53,6 +53,7 @@ export {
   person,
   poll,
   type External,
+  type ExternalLink,
   type ExternalOptions,
   type ExternalSource,
   type PollOptions,

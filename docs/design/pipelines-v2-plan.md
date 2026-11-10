@@ -503,10 +503,11 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
 - **Step links** (built, SDK 2.0.0-beta.27): a handler calls `ctx.link(url, label?)`; the links
   travel in the result envelope on any status (`links`, strict on the server: absolute http(s), at
   most 10, URL ≤ 2048 and label ≤ 100 characters), are stored on the attempt and shown on the step
-  card (the run's succeeded attempt, else its latest; the pipeline overview's latest), the step
+  card (a waiting attempt's, else the run's succeeded attempt, else its latest; the pipeline overview's latest), the step
   page, `pl run get` and `pl dev run`. The library deploys link to their target's `link` (or the
   literal `helmDeployOverSsh`'s `link`). A step-declared link was not built: the URL usually depends
-  on config or on what the run did.
+  on config or on what the run did. A waiting step gets its link from an external input's `link`, a
+  path into one of its regular inputs (`docs/design/external-inputs.md`).
 
 ### Blocking, not gates (2026-10-22)
 

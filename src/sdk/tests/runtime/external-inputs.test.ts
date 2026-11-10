@@ -86,6 +86,41 @@ describe('external inputs in the manifest', () => {
     expect(Object.keys(m.models)).toContain('Choice');
   });
 
+  test('a waiting link is recorded with only the fields it sets', () => {
+    const Review = model('Review', z.object({ run: z.string(), url: z.string() }));
+    const linked = stubStep({
+      name: 'linked',
+      description: '',
+      image: 'alpine',
+      input: {
+        review: Review,
+        verdict: external(Verdict, {
+          title: 'Accepted?',
+          link: { input: 'review', path: 'url', label: 'Review in VR' },
+        }),
+        plain: external(Choice, { title: 'Where?', link: { input: 'review' } }),
+      },
+    });
+    const submit = stubStep({
+      name: 'submit',
+      description: '',
+      image: 'alpine',
+      input: { req: Req },
+      output: Review,
+    });
+    const m = describeIt(pipeline({ name: 't', input: Req }).stage(submit).stage(linked));
+    expect(Manifest.safeParse(m).success).toBe(true);
+    const inputs = stepsOf(m)[1]!.externalInputs!;
+    expect(inputs.verdict!.link).toEqual({
+      input: 'review',
+      path: 'url',
+      label: 'Review in VR',
+    });
+    expect(inputs.plain!.link).toEqual({ input: 'review' });
+    expect(stepsOf(m)[0]!.externalInputs).toBeUndefined();
+    expect('link' in pick.input.choice).toBe(false);
+  });
+
   test("a mapper doesn't provide them", () => {
     const m = describeIt(
       pipeline({ name: 't', input: Req })

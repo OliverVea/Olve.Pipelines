@@ -7,6 +7,7 @@ import {
   bindingsStatus,
   bindingsUpdate,
   type PipelineBinding,
+  type HeadCommit,
   type PipelineBindingStatus,
 } from '@olve/api';
 import { resolvePipeline } from '../address';
@@ -22,6 +23,9 @@ const utc = (iso: string) =>
     .replace('T', ' ')
     .replace(/\.\d{3}Z$/, 'Z');
 
+const newest = (head: HeadCommit | null | undefined) =>
+  head ? `${head.sha} ${head.message.split('\n', 1)[0]}` : null;
+
 const reconcileText = (result: string, at: string | null | undefined) =>
   at ? `${result} (last sync ${utc(at)})` : result;
 
@@ -32,6 +36,7 @@ export function printBinding(out: Output, b: PipelineBinding): void {
   out.line(`Credentials: ${b.credentialsSecret ?? '(none)'}`);
   if (!b.polls) out.line('Polling:     off (syncs only on reconcile or its webhook)');
   out.line(`Last push:   ${b.lastPushSha ?? '(none)'}`);
+  if (b.head) out.line(`Newest:      ${newest(b.head)}`);
   out.line(`Reconciled:  ${b.lastReconciledSha ?? '(none)'}`);
   out.line(`Reconcile:   ${reconcileText(b.status.result, b.status.lastSyncTime)}`);
   out.line(
@@ -57,6 +62,7 @@ export function printStatus(out: Output, s: PipelineBindingStatus): void {
   out.line(`Active:      ${describeActivation(s.activation) ?? '(no version)'}`);
   if (s.pending) out.line(`Pending:     ${describePending(s.pending)}`);
   out.line(`Last push:   ${s.lastPushSha ?? '(none)'}`);
+  if (s.head) out.line(`Newest:      ${newest(s.head)}`);
   out.line(`Reconciled:  ${s.lastReconciledSha ?? '(none)'}`);
   if (s.problems.length) {
     out.line('Problems:');

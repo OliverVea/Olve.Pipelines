@@ -24,7 +24,11 @@ const bound: PipelineBinding = {
   credentialsSecret: 'GITHUB_TOKEN',
   lastPushSha: SHA,
   lastReconciledSha: OTHER,
-  head: null,
+  head: {
+    sha: SHA,
+    message: 'Fix the thing\n\nAt length.',
+    committedAt: '2026-10-28T11:00:00Z',
+  },
   status: {
     result: 'Error',
     lastSyncTime: '2026-10-28T11:59:30.123Z',
@@ -43,6 +47,7 @@ const fresh: PipelineBinding = {
   credentialsSecret: null,
   lastPushSha: null,
   lastReconciledSha: null,
+  head: null,
   status: {
     result: 'NeverRun',
     lastSyncTime: null,
@@ -70,6 +75,7 @@ describe('binding get', () => {
         'Credentials: GITHUB_TOKEN',
         'Polling:     off (syncs only on reconcile or its webhook)',
         `Last push:   ${SHA}`,
+        `Newest:      ${SHA} Fix the thing`,
         `Reconciled:  ${OTHER}`,
         'Reconcile:   Error (last sync 2026-10-28 11:59:30Z)',
         `  commit:    ${OTHER} (in progress)`,
@@ -112,7 +118,7 @@ describe('binding status', () => {
     path: '.pipelines',
     lastPushSha: SHA,
     lastReconciledSha: SHA,
-    head: null,
+    head: { sha: SHA, message: 'Fix the thing', committedAt: null },
     result: 'Success',
     lastSyncTime: '2026-10-28T11:59:30Z',
     problems: [],
@@ -141,6 +147,7 @@ describe('binding status', () => {
         '  version:   v8',
         'Active:      active v7',
         `Last push:   ${SHA}`,
+        `Newest:      ${SHA} Fix the thing`,
         `Reconciled:  ${SHA}`,
       ],
     ],
@@ -148,6 +155,7 @@ describe('binding status', () => {
       'a pending version, problems and warnings',
       {
         ...status,
+        head: null,
         result: 'Error' as const,
         lastSyncTime: null,
         reconcileInProgress: true,

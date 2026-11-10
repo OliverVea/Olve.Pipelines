@@ -24,7 +24,7 @@ pipeline; every pipeline has exactly one.
 |---|---|
 | `pl binding create <repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]` | Create a pipeline bound to a repo. Rolls the pipeline back if the bind fails. |
 | `pl binding get <pipeline>` | Show the binding |
-| `pl binding status <pipeline>` | Reconcile result, commit, in-progress flag, resulting and active version, problems and warnings |
+| `pl binding status <pipeline>` | Reconcile result, commit, in-progress flag, resulting and active version, problems and warnings, the branch's newest commit |
 | `pl binding set-credentials <pipeline> [key]` | Set (or, with no key, clear) the token key |
 | `pl binding set-branch <pipeline> <branch>` | Move the binding to another branch of the same repo |
 | `pl binding set-polling <pipeline> on\|off` | Stop (or resume) polling GitHub for the binding |

@@ -25,7 +25,7 @@ public sealed class SetSecretHandler(PipelineSecretService secrets, ConfigActiva
     public async Task<Contract.SecretsSetResponse> HandleAsync(Contract.SecretsSetRequest request, CancellationToken cancellationToken)
     {
         var id = PipelineViews.PipelineId(request.PipelineId);
-        var result = await secrets.SetAsync(id, request.Name, request.Body.Value, cancellationToken);
+        var result = await secrets.SetAsync(id, request.Name, request.Body.Value, request.Body.ExpiresAt, cancellationToken);
         if (!result.TryPickProblems(out var problems))
             result = SecretViews.Recheck(gate, services, id, await secrets.ListSetAsync(id, cancellationToken));
         if (result.TryPickProblems(out problems))
@@ -107,6 +107,7 @@ public static class SecretViews
         DeclaredBy = s.DeclaredBy,
         IsSet = s.IsSet,
         Needed = s.Needed,
+        ExpiresAt = s.ExpiresAt,
     };
 
     public static Result Recheck(ConfigActivationService gate, IServiceProvider services, Id<Pipeline> pipelineId, IReadOnlySet<string>? setSecrets)

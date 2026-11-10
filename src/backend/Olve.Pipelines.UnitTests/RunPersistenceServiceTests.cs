@@ -63,7 +63,7 @@ public class RunPersistenceServiceTests
         var readiness = new PersistenceReadiness();
         var service = new RunPersistenceService(
             domain.Versions, domain.Runs, domain.Attempts, domain.Activations, domain.Sequences, domain.BlockedSteps, domain.PendingStarts, domain.EntityVersions, domain.PollTriggers,
-            domain.ConfigSnapshotStore, domain.PendingVersions,
+            domain.ConfigSnapshotStore, domain.PendingVersions, domain.SecretExpiries,
             new StorageOptions("test-bucket", Mode: mode), readiness,
             NullLogger<RunPersistenceService>.Instance, store);
         return new Node(domain, service, readiness);
@@ -137,7 +137,7 @@ public class RunPersistenceServiceTests
         var node = CreateNode(store);
         var service = new RunPersistenceService(
             node.Domain.Versions, node.Domain.Runs, node.Domain.Attempts, node.Domain.Activations, node.Domain.Sequences, node.Domain.BlockedSteps, node.Domain.PendingStarts, node.Domain.EntityVersions, node.Domain.PollTriggers,
-            node.Domain.ConfigSnapshotStore, node.Domain.PendingVersions,
+            node.Domain.ConfigSnapshotStore, node.Domain.PendingVersions, node.Domain.SecretExpiries,
             new StorageOptions("test-bucket"), new PersistenceReadiness(), NullLogger<RunPersistenceService>.Instance, store)
         { SaveTimeout = TimeSpan.FromMilliseconds(1) };
         await service.StartingAsync(CancellationToken.None);
@@ -389,6 +389,8 @@ public class RunPersistenceServiceTests
         // What an IRunOnStartup does between StartingAsync and StartedAsync (e.g. draining a queued start).
         var pipeline = a.Domain.CreatePipeline();
         a.Domain.BlockedSteps.Set(pipeline.Id, new PipelineBlockedSteps(["deploy-prod"]));
+        var expiresAt = new DateTimeOffset(2027, 1, 25, 0, 0, 0, TimeSpan.Zero);
+        a.Domain.SecretExpiryService.Set(pipeline.Id, "NPM_TOKEN", expiresAt);
         await a.Service.StartedAsync(CancellationToken.None);
         await a.Service.StoppingAsync(CancellationToken.None);
         a.Service.Dispose();
@@ -398,6 +400,7 @@ public class RunPersistenceServiceTests
 
         await Assert.That(b.Domain.BlockedSteps.TryGet(pipeline.Id, out var blocked)).IsTrue();
         await Assert.That(blocked!.BlockedSteps).IsEquivalentTo(["deploy-prod"]);
+        await Assert.That(b.Domain.SecretExpiryService.Get(pipeline.Id, "NPM_TOKEN")).IsEqualTo(expiresAt);
     }
 
     [Test]

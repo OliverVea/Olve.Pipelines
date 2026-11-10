@@ -40,6 +40,25 @@ async function readValue(ctx: CommandContext, name: string): Promise<string> {
   return piped;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** `--expires`: a date (`2027-01-25`, midnight UTC), a timestamp, or days from now (`90d`). */
+export function parseExpiry(text: string, now: Date): Date {
+  const days = /^(\d+)d$/.exec(text);
+  const at = days
+    ? new Date(now.getTime() + Number(days[1]) * DAY_MS)
+    : new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T00:00:00Z` : text);
+  if (Number.isNaN(at.getTime()))
+    throw new CliError(
+      `--expires must be a date (2027-01-25), a timestamp or a number of days (90d), not '${text}'.`,
+    );
+  if (at.getTime() <= now.getTime())
+    throw new CliError(`--expires ${text} is not in the future.`);
+  return at;
+}
+
+const day = (iso: string) => iso.slice(0, 10);
+
 /** `<source-pipeline>[/<name>]`. */
 export function splitSource(text: string): { pipeline: string; name?: string } {
   const slash = text.lastIndexOf('/');
@@ -68,9 +87,10 @@ export const secretCommands: Command[] = [
           ctx.out.line('(no secrets)');
           return;
         }
+        const now = ctx.now().getTime();
         ctx.out.lines(
           table(
-            ['NAME', 'SET', 'USED BY', 'DESCRIPTION'],
+            ['NAME', 'SET', 'EXPIRES', 'USED BY', 'DESCRIPTION'],
             secrets.map((s) => [
               s.name,
               s.isSet === true
@@ -80,6 +100,9 @@ export const secretCommands: Command[] = [
                     ? 'not needed'
                     : 'unset'
                   : 'unknown',
+              s.expiresAt
+                ? `${day(s.expiresAt)}${Date.parse(s.expiresAt) <= now ? ' (expired)' : ''}`
+                : '',
               s.declaredBy.length === 0 ? '(unused)' : s.declaredBy.join(', '),
               s.description ?? '',
             ]),
@@ -92,7 +115,7 @@ export const secretCommands: Command[] = [
     noun: 'secret',
     verb: 'set',
     operands: 2,
-    options: ['from-env', 'from-file'],
+    options: ['from-env', 'from-file', 'expires'],
     flags: ['trim'],
     summary: 'Set a secret value (from stdin by default)',
     detail: `pl secret set <pipeline> <name> [options]
@@ -105,14 +128,22 @@ export const secretCommands: Command[] = [
   --from-env <VAR>    Read the value from environment variable VAR
   --from-file <path>  Read the value from a file (verbatim)
   --trim              Drop trailing newlines from the value
+  --expires <when>    When the value expires: a date (2027-01-25), a timestamp or
+                      days from now (90d). The pipeline reports it from 14 days
+                      before; nothing is deleted. Setting a value again without
+                      --expires clears it.
 
   Examples:
     echo -n "$TOKEN" | pl secret set <pipeline> REGISTRY_TOKEN
     pl secret set <pipeline> REGISTRY_TOKEN --from-env TOKEN
-    pl secret set <pipeline> DEPLOY_KEY --from-file ./id_ed25519`,
+    pl secret set <pipeline> DEPLOY_KEY --from-file ./id_ed25519
+    pl secret set <pipeline> NPM_TOKEN --from-env NPM_TOKEN --expires 90d`,
     async run(ctx) {
       const { id, label } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
       const name = ctx.args.operand(1)!;
+      const expires = ctx.args.option('expires');
+      const expiresAt =
+        expires === undefined ? undefined : parseExpiry(expires, ctx.now());
       let value = await readValue(ctx, name);
       if (ctx.args.flag('trim')) value = value.replace(/[\r\n]+$/, '');
       else {
@@ -120,9 +151,16 @@ export const secretCommands: Command[] = [
         if (warning) ctx.stderr(warning);
       }
       await call(
-        secretsSet({ client: ctx.api, path: { pipelineId: id, name }, body: { value } }),
+        secretsSet({
+          client: ctx.api,
+          path: { pipelineId: id, name },
+          body: { value, ...(expiresAt ? { expiresAt: expiresAt.toISOString() } : {}) },
+        }),
       );
-      if (!ctx.json) ctx.out.line(`Set secret '${name}' for pipeline ${label}.`);
+      if (!ctx.json)
+        ctx.out.line(
+          `Set secret '${name}' for pipeline ${label}${expiresAt ? ` (expires ${day(expiresAt.toISOString())})` : ''}.`,
+        );
     },
   },
   {

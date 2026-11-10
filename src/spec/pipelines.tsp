@@ -78,6 +78,16 @@ model PipelineHealth {
 
   /** A version waiting for its config or secrets (or the active one, held), with the reasons. */
   pending?: PendingVersionInfo | null;
+
+  /** Secrets expired or expiring within 14 days, soonest first. */
+  expiringSecrets: ExpiringSecret[];
+}
+
+/** A secret whose value expires soon or has expired. */
+model ExpiringSecret {
+  name: string;
+  expiresAt: utcDateTime;
+  expired: boolean;
 }
 
 /** New runs start on this version. */

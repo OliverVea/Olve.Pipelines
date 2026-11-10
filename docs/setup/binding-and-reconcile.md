@@ -168,6 +168,13 @@ declared secrets are set: `pl secret list <pipeline>`.
 Secret state is computed live: `set`, `unset` (declared but not set — `pl secret set`), or `unknown`
 (Kubernetes couldn't be read; not the same as unset).
 
+A value can carry its expiry: `pl secret set <pipeline> NPM_TOKEN --expires 90d` (or a date,
+`--expires 2027-01-25`). From 14 days before, the pipeline's overview and the pipeline list say which
+secret to replace, and `pl secret list` shows the date; nothing is deleted when it passes. Setting the
+value again without `--expires` clears the date, deleting the secret removes it, and a copy carries it.
+The date is kept by the service beside the value, so editing the Kubernetes Secret directly doesn't
+change it.
+
 ## See also
 
 - [Pipeline Reference](pipeline-reference.md) — what gets reconciled

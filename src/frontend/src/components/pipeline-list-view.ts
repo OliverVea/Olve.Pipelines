@@ -20,8 +20,10 @@ import {
   statusLabel,
   navClick,
   runPath,
+  secretsPath,
   stepPath,
 } from '../styles/ui.js';
+import { expiryText } from '../model/secrets.js';
 import { toActivation } from '../model/versions.js';
 import { LiveController } from '../api/events.js';
 import { favorites, onFavoritesChanged } from '../model/favorites.js';
@@ -289,6 +291,10 @@ export class PipelineListView extends LitElement {
         color: var(--color-warning);
         border-color: color-mix(in srgb, var(--color-warning) 50%, transparent);
       }
+      .tag.bad {
+        color: var(--color-danger);
+        border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+      }
       .tag.ask {
         color: var(--color-primary);
         border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
@@ -529,6 +535,7 @@ export class PipelineListView extends LitElement {
     const last = h.lastRun;
     const held = h.heldRuns ?? [];
     const blocked = h.blockedSteps ?? [];
+    const expiring = h.expiringSecrets ?? [];
     const waiting = this._waiting.filter((w) => String(w.pipelineId) === p.id);
     return html`<div class="pc-foot">
       <span class="st t-${toneOf(h.status)}"
@@ -549,6 +556,15 @@ export class PipelineListView extends LitElement {
       ${a.kind === 'none' ? html`<span class="tag">no version</span>` : nothing}
       ${(h.runningRuns ?? 0) > 1
         ? html`<span class="tag run">${h.runningRuns} running</span>`
+        : nothing}
+      ${expiring.length
+        ? html`<a
+            class="tag ${expiring.some((e) => e.expired) ? 'bad' : 'warn'}"
+            href=${secretsPath(p.id ?? '')}
+            @click=${navClick}
+            title=${expiring.map((e) => expiryText(e, new Date())).join('\n')}
+            >${expiring.some((e) => e.expired) ? 'secret expired' : 'secret expiring'}</a
+          >`
         : nothing}
       ${waiting.length
         ? html`<a

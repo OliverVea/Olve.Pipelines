@@ -185,6 +185,15 @@ Details: \`pl pipeline health <pipeline>\`.`,
         ctx.out.line(`status:      ${h.status}`);
         ctx.out.line(`activation:  ${describeActivation(h.activation) ?? 'none'}`);
         if (h.pending) ctx.out.line(`pending:     ${describePending(h.pending)}`);
+        if (h.expiringSecrets.length)
+          ctx.out.line(
+            `secrets:     ${h.expiringSecrets
+              .map(
+                (e) =>
+                  `${e.name} ${e.expired ? 'expired' : 'expires'} ${e.expiresAt.slice(0, 10)}`,
+              )
+              .join(', ')}`,
+          );
         ctx.out.line(
           `last run:    ${h.lastRun ? `#${h.lastRun.number} ${h.lastRun.status} (${time(h.lastRun.createdAt)})` : '-'}`,
         );

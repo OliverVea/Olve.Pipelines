@@ -18,10 +18,16 @@ model PipelineSecret {
 
   /** False when a declared secret is optional for the current config. */
   needed?: boolean | null;
+
+  /** When the value expires, as it was set; null when no expiry was given. */
+  expiresAt?: utcDateTime | null;
 }
 
 model SetSecret {
   value: string;
+
+  /** When the value expires (a token's lifetime). The pipeline reports it from 14 days before; nothing is deleted. Omitted, an earlier expiry is cleared. */
+  expiresAt?: utcDateTime | null;
 }
 
 /** Copy secrets server-side from another pipeline on this instance. */
@@ -50,7 +56,7 @@ interface Secrets {
   @summary("List secrets")
   @get list(@path @format("uuid") pipelineId: string): PipelineSecret[] | NotFound;
 
-  /** Sets the value and re-checks a pending version. */
+  /** Sets the value, with its expiry if it has one, and re-checks a pending version. */
   @summary("Set a secret")
   @put @route("{name}") set(
     @path @format("uuid") pipelineId: string,

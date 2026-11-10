@@ -1,3 +1,4 @@
+import { expiryFromDate } from '../model/secrets.js';
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
@@ -68,8 +69,14 @@ export class PipelineSecretsView extends LitElement {
       .state.set {
         color: var(--color-success);
       }
-      .state.unset {
+      .state.unset,
+      .expires.unset {
         color: var(--color-danger);
+      }
+      .expires {
+        display: block;
+        font-size: 0.74rem;
+        color: var(--color-text-muted);
       }
       .actions {
         display: flex;
@@ -212,7 +219,13 @@ export class PipelineSecretsView extends LitElement {
         title=${!s.isSet && s.needed === false
           ? "The current config doesn't use it."
           : ''}
-        >${s.isSet ? 'set' : s.needed === false ? 'not needed' : 'not set'}</span
+        >${s.isSet ? 'set' : s.needed === false ? 'not needed' : 'not set'}${s.expiresAt
+          ? html`<span
+              class="expires ${Date.parse(s.expiresAt) <= Date.now() ? 'unset' : ''}"
+              >${Date.parse(s.expiresAt) <= Date.now() ? 'expired' : 'expires'}
+              ${s.expiresAt.slice(0, 10)}</span
+            >`
+          : nothing}</span
       >
       <span class="actions">
         <button
@@ -241,6 +254,14 @@ export class PipelineSecretsView extends LitElement {
               autocomplete="off"
               required
             />
+            <label class="note"
+              >expires
+              <input
+                type="date"
+                name="expires"
+                .value=${s.expiresAt?.slice(0, 10) ?? ''}
+                title="Optional: when the value expires. The pipeline warns 14 days before."
+            /></label>
             <button class="btn small primary" ?disabled=${this._busy}>Save</button>
           </form>`
         : nothing}
@@ -266,6 +287,13 @@ export class PipelineSecretsView extends LitElement {
           autocomplete="off"
           required
         />
+        <label class="note"
+          >expires
+          <input
+            type="date"
+            name="expires"
+            title="Optional: when the value expires. The pipeline warns 14 days before."
+        /></label>
         <button class="btn small primary" ?disabled=${this._busy}>Add</button>
       </form>
     </section>`;
@@ -292,9 +320,9 @@ export class PipelineSecretsView extends LitElement {
 
   private _submitValue(e: Event, name: string) {
     e.preventDefault();
-    const value = new FormData(e.target as HTMLFormElement).get('value') as string;
+    const data = new FormData(e.target as HTMLFormElement);
     this._act(async () => {
-      await this._put(name, value);
+      await this._put(name, data.get('value') as string, data.get('expires') as string);
       this._editing = null;
     });
   }
@@ -304,7 +332,11 @@ export class PipelineSecretsView extends LitElement {
     const form = e.target as HTMLFormElement;
     const data = new FormData(form);
     this._act(async () => {
-      await this._put(data.get('name') as string, data.get('value') as string);
+      await this._put(
+        data.get('name') as string,
+        data.get('value') as string,
+        data.get('expires') as string,
+      );
       form.reset();
     });
   }
@@ -328,11 +360,12 @@ export class PipelineSecretsView extends LitElement {
     });
   }
 
-  private _put(name: string, value: string) {
+  private _put(name: string, value: string, expires: string) {
+    const expiresAt = expiryFromDate(expires);
     return secretsSet({
       client: api,
       path: { pipelineId: this.pipelineId, name },
-      body: { value },
+      body: { value, ...(expiresAt ? { expiresAt } : {}) },
     });
   }
 

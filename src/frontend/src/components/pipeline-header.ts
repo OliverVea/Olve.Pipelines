@@ -45,6 +45,7 @@ import {
   type Activation,
 } from '../model/versions.js';
 import { LiveController, forPipeline } from '../api/events.js';
+import { expiryText } from '../model/secrets.js';
 import './clamped-text.js';
 import './relative-time.js';
 import './favorite-star.js';
@@ -333,6 +334,7 @@ export class PipelineHeader extends LitElement {
           : nothing}
       </div>
       ${unset.length ||
+      h?.expiringSecrets?.length ||
       h?.pending?.version != null ||
       (failed && b?.problems?.length) ||
       this._waiting.length
@@ -356,6 +358,15 @@ export class PipelineHeader extends LitElement {
                   >Unset secrets: ${unset.join(', ')}</a
                 >`
               : nothing}
+            ${(h?.expiringSecrets ?? []).map(
+              (e) =>
+                html`<a
+                  class="alert ${e.expired ? 'bad' : 'warn'}"
+                  href=${secretsPath(this.pipelineId)}
+                  @click=${navClick}
+                  >${expiryText(e, new Date())}</a
+                >`,
+            )}
             ${h?.pending?.version != null
               ? html`<a
                   class="alert warn"

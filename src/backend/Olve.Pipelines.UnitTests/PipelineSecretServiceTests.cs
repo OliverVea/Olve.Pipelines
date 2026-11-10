@@ -33,7 +33,7 @@ public class PipelineSecretServiceTests
             services.AddSingleton<IKubernetesClient>(_ => throw new InvalidOperationException("Kubernetes is not configured."));
 
         var service = new PipelineSecretService(new PipelineSecretEvents(), s.D.PipelineService, bindings, s.D.ActivationService, s.D.Plans, s.D.ConfigSnapshots,
-            services.BuildServiceProvider(), NullLogger<PipelineSecretService>.Instance);
+            s.D.SecretExpiryService, services.BuildServiceProvider(), NullLogger<PipelineSecretService>.Instance);
         return new Fixture(s, k8s, service);
     }
 
@@ -147,6 +147,25 @@ public class PipelineSecretServiceTests
         await Assert.That(await f.Service.DeleteAsync(f.S.Pipeline.Id, "ONLY")).Succeeded();
 
         await Assert.That(f.K8s.Secrets[name]).IsEquivalentTo(new Dictionary<string, string> { ["OTHER"] = "theirs" });
+    }
+
+    [Test]
+    public async Task AnExpiry_IsListedWithTheValue_AndGoesWhenTheValueIsSetWithoutOneOrDeleted()
+    {
+        var f = Create();
+        var at = new DateTimeOffset(2027, 1, 25, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset? Listed() => TestRunDomain.Pick(f.Service.ListAsync(f.S.Pipeline.Id).GetAwaiter().GetResult())
+            .Single(s => s.Name == "REGISTRY").ExpiresAt;
+
+        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v1", at)).Succeeded();
+        await Assert.That(Listed()).IsEqualTo(at);
+
+        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v2")).Succeeded();
+        await Assert.That(Listed()).IsNull();
+
+        await Assert.That(await f.Service.SetAsync(f.S.Pipeline.Id, "REGISTRY", "v3", at)).Succeeded();
+        await Assert.That(await f.Service.DeleteAsync(f.S.Pipeline.Id, "REGISTRY")).Succeeded();
+        await Assert.That(Listed()).IsNull();
     }
 
     [Test]

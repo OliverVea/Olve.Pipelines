@@ -15,6 +15,7 @@ namespace Olve.Pipelines.Kubernetes;
 public class PipelineSecretCopyService(
     PipelineSecretEvents secretEvents,
     PipelineService pipelines,
+    PipelineSecretExpiryService expiries,
     IKubernetesClient kubernetes,
     KubernetesOptions options,
     ILogger<PipelineSecretCopyService> logger)
@@ -54,6 +55,7 @@ public class PipelineSecretCopyService(
             actor, string.Join(", ", plan.Select(p => p.From)), source.Name, source.Id, string.Join(", ", copied),
             target.Name, target.Id, request.Overwrite);
 
+        expiries.Copy(source.Id, target.Id, plan);
         secretEvents.OnChanged.Invoke(targetId);
         return new CopySecretsResponse(copied);
     }

@@ -96,8 +96,8 @@ pl wait push <pipeline> <sha> [--until started|finished]   # the run the push tr
 pl wait reconcile <pipeline> <sha>                         # the binding applied that config commit
 
 # secrets and bindings
-pl secret list <pipeline>                              # declared-by and set/unset per secret
-pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>] [--trim]   # default: stdin, verbatim; --trim drops trailing newlines
+pl secret list <pipeline>                              # declared-by, set/unset and expiry per secret
+pl secret set <pipeline> <name> [--from-env <VAR> | --from-file <path>] [--trim] [--expires <date|90d>]   # default: stdin, verbatim; --trim drops trailing newlines
 pl secret delete <pipeline> <name> [--force]           # --force: a secret the current config references
 pl secret copy <source-pipeline>[/<name>] <target-pipeline> [--name <target-name>] [--overwrite]   # server-side; no /<name> = all
 pl binding create <owner/repo> [--branch <b>] [--path <dir>] [--credentials-secret <key>]

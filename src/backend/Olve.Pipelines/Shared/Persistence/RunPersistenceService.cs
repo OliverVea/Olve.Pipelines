@@ -21,7 +21,7 @@ namespace Olve.Pipelines.Shared.Persistence;
 /// <code>
 /// pipeline-versions.json              version metadata (no manifests)
 /// versions/&lt;p&gt;/&lt;n&gt;/manifest.json      one manifest per version, written once (immutable)
-/// pipeline-state.json                 activations (Active/Draining), sequences, blocked steps, queued run starts, poll values
+/// pipeline-state.json                 activations (Active/Draining), sequences, blocked steps, queued run starts, poll values, secret expiries
 /// runs.json                           which runs exist: (id, pipeline, number)
 /// runs/&lt;p&gt;/&lt;n&gt;/run.json              one run + all its attempts (incl. capped outputs)
 /// pipeline-config.json                config snapshot metadata
@@ -54,6 +54,7 @@ public class RunPersistenceService(
     AttachmentStore<Pipeline, PollTriggerStates> pollTriggers,
     EntityStore<ConfigSnapshot> configs,
     AttachmentStore<Pipeline, PendingVersion> pendingVersions,
+    AttachmentStore<Pipeline, PipelineSecretExpiries> secretExpiries,
     StorageOptions storageOptions,
     IPersistenceReadiness readiness,
     ILogger<RunPersistenceService> logger,
@@ -104,6 +105,8 @@ public class RunPersistenceService(
         sequences.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         blocked.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
         blocked.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
+        secretExpiries.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
+        secretExpiries.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         pendingStarts.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
         pendingStarts.OnRemoved.Subscribe(_ => MarkDirty(_stateDirty));
         entityVersions.OnSet.Subscribe(_ => MarkDirty(_stateDirty));
@@ -455,7 +458,8 @@ public class RunPersistenceService(
             EntityVersions: entityVersions.GetAll().Select(kv => new EntityVersionHistoryEntry(kv.Key, kv.Value)).ToArray(),
             PollTriggers: pollTriggers.GetAll().Select(kv => new PollTriggerStatesEntry(kv.Key, kv.Value)).ToArray(),
             BlockedSteps: blocked.GetAll().Select(kv => new PipelineBlockedStepsEntry(kv.Key, kv.Value)).ToArray(),
-            PendingVersions: pendingVersions.GetAll().Select(kv => new PendingVersionEntry(kv.Key, kv.Value)).ToArray());
+            PendingVersions: pendingVersions.GetAll().Select(kv => new PendingVersionEntry(kv.Key, kv.Value)).ToArray(),
+            SecretExpiries: secretExpiries.GetAll().Select(kv => new PipelineSecretExpiriesEntry(kv.Key, kv.Value)).ToArray());
 
     private ConfigSnapshotIndexSnapshot BuildConfigIndex() =>
         new(configs.List()
@@ -536,6 +540,8 @@ public class RunPersistenceService(
             sequences.Set(entry.PipelineId, entry.Sequences);
         foreach (var entry in state?.BlockedSteps ?? [])
             blocked.Set(entry.PipelineId, entry.Blocked);
+        foreach (var entry in state?.SecretExpiries ?? [])
+            secretExpiries.Set(entry.PipelineId, entry.Expiries);
         foreach (var entry in state?.Gates ?? [])
             blocked.Set(entry.PipelineId, entry.Gates);
         foreach (var entry in state?.PendingStarts ?? [])

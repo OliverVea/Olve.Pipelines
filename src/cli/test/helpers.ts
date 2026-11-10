@@ -100,13 +100,18 @@ export async function pl(
     stdinIsTerminal?: boolean;
     prompt?: (text: string) => Promise<string>;
     openBrowser?: (url: string) => void;
+    /** Sees each write to stdout before it is captured; throwing plays a failed write. */
+    onStdout?: (text: string) => void;
   } = {},
 ) {
   const home = options.home ?? mkdtempSync(join(tmpdir(), 'pl-test-'));
   const stdout: string[] = [];
   const stderr: string[] = [];
   const io: Io = {
-    stdout: (text) => stdout.push(text),
+    stdout: (text) => {
+      options.onStdout?.(text);
+      stdout.push(text);
+    },
     stderr: (line) => stderr.push(line),
     env: { HOME: home, ...(options.env ?? {}) },
     fetch: options.fetch,
@@ -133,6 +138,7 @@ export const health = (overrides: Partial<PipelineHealth> = {}): PipelineHealth 
   runningRuns: 0,
   activation: null,
   draining: false,
+  expiringSecrets: [],
   blockedSteps: [],
   heldRuns: [],
   pending: null,

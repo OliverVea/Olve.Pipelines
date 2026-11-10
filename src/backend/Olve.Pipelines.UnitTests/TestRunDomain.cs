@@ -38,6 +38,7 @@ internal sealed class TestRunDomain
         PollTriggers = new AttachmentStore<Pipeline, PollTriggerStates>(Pipelines);
         ConfigSnapshotStore = new EntityStore<ConfigSnapshot>([]);
         PendingVersions = new AttachmentStore<Pipeline, PendingVersion>(Pipelines);
+        SecretExpiries = new AttachmentStore<Pipeline, PipelineSecretExpiries>(Pipelines);
 
         var ids = new IdProvider();
         PipelineService = new PipelineService(Pipelines, ids);
@@ -53,6 +54,8 @@ internal sealed class TestRunDomain
 
     public EntityStore<ConfigSnapshot> ConfigSnapshotStore { get; }
     public AttachmentStore<Pipeline, PendingVersion> PendingVersions { get; }
+    public AttachmentStore<Pipeline, PipelineSecretExpiries> SecretExpiries { get; }
+    public PipelineSecretExpiryService SecretExpiryService => new(SecretExpiries, Time);
     public ConfigSnapshotService ConfigSnapshots { get; }
 
     /// <summary>Harness settings the gate reads (the step ServiceAccount); tests replace it with <c>with</c>.</summary>
@@ -164,7 +167,7 @@ internal sealed class TestRunDomain
     public RunViewService Views => new(RunService, AttemptService, VersionService, ActivationService, Plans,
         new StepBlockService(BlockedSteps, Pipelines, SchedulingLock));
 
-    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepBlockService(BlockedSteps, Pipelines, SchedulingLock), PendingVersions);
+    public PipelineHealthService Health => new(RunService, Views, ActivationService, new StepBlockService(BlockedSteps, Pipelines, SchedulingLock), PendingVersions, SecretExpiryService);
 
     public Pipeline CreatePipeline(string name = "p") => Pick(PipelineService.Create(name));
 

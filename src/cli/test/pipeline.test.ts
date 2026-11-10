@@ -277,3 +277,24 @@ describe('pipeline reliability', () => {
     expect(bad.stderr).toContain('--runs must be a number.');
   });
 });
+
+describe('pipeline health', () => {
+  test('names the secrets that expire soon or have expired', async () => {
+    const h = health({
+      expiringSecrets: [
+        { name: 'OLD', expiresAt: '2026-10-20T00:00:00Z', expired: true },
+        { name: 'NPM_TOKEN', expiresAt: '2026-11-05T00:00:00Z', expired: false },
+      ],
+    });
+    const { fetch } = fakeFetch((req) =>
+      req.path === '/api/pipelines' ? { body: [alpha({ health: h })] } : { body: h },
+    );
+
+    const out = await pl(['pipeline', 'health', 'alpha'], { fetch });
+
+    expect(out.code).toBe(0);
+    expect(out.stdout).toContain(
+      'secrets:     OLD expired 2026-10-20, NPM_TOKEN expires 2026-11-05\n',
+    );
+  });
+});

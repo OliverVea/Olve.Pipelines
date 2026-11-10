@@ -26,7 +26,8 @@ public interface IPipelineSecretNames
     Task<IReadOnlySet<string>?> ListSetAsync(Id<Pipeline> pipelineId, CancellationToken ct = default);
 }
 
-public record PipelineSecretInfo(string Name, string? Description, string[] DeclaredBy, bool? IsSet, bool? Needed = null);
+/// <param name="ExpiresAt">The expiry the value was set with; null when none was given.</param>
+public record PipelineSecretInfo(string Name, string? Description, string[] DeclaredBy, bool? IsSet, bool? Needed = null, DateTimeOffset? ExpiresAt = null);
 
 /// <summary>
 /// Lists, sets and deletes a pipeline's secret values in its K8s Secret. The K8s client is resolved
@@ -46,6 +47,7 @@ public class PipelineSecretService(
     PipelineActivationService activations,
     RunPlanCache plans,
     Configs.ConfigSnapshotService snapshots,
+    PipelineSecretExpiryService expiries,
     IServiceProvider services,
     ILogger<PipelineSecretService> logger) : IPipelineSecretNames
 {
@@ -89,11 +91,13 @@ public class PipelineSecretService(
                 declared.TryGetValue(n, out var d) ? d.Description : null,
                 d?.Users.ToArray() ?? [],
                 known ? values?.ContainsKey(n) ?? false : null,
-                Needed(n, declared.ContainsKey(n), configUse)))
+                Needed(n, declared.ContainsKey(n), configUse),
+                expiries.Get(pipelineId, n)))
             .ToArray();
     }
 
-    public async Task<Result> SetAsync(Id<Pipeline> pipelineId, string name, string value, CancellationToken ct = default)
+    /// <param name="expiresAt">Recorded beside the value; null clears an earlier one.</param>
+    public async Task<Result> SetAsync(Id<Pipeline> pipelineId, string name, string value, DateTimeOffset? expiresAt = null, CancellationToken ct = default)
     {
         if (!pipelines.TryGet(pipelineId, out _))
             return new NotFoundProblem("Pipeline '{0}' not found.", pipelineId);
@@ -110,6 +114,7 @@ public class PipelineSecretService(
         if (edit.TryPickProblems(out var problems, out _))
             return problems;
 
+        expiries.Set(pipelineId, name, expiresAt);
         secretEvents.OnChanged.Invoke(pipelineId);
         return Result.Success();
     }
@@ -133,6 +138,7 @@ public class PipelineSecretService(
         if (edit.TryPickProblems(out var problems, out var changed))
             return problems;
 
+        expiries.Set(pipelineId, name, null);
         if (changed)
             secretEvents.OnChanged.Invoke(pipelineId);
         return Result.Success();

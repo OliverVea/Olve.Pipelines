@@ -1,3 +1,4 @@
+using Olve.Pipelines.Shared;
 using Microsoft.Extensions.Logging;
 using Olve.Pipelines.Jobs;
 using Olve.Pipelines.Kubernetes;
@@ -126,7 +127,8 @@ public class PipelineSecretCopyServiceTests
         }
     }
 
-    private sealed record Fixture(PipelineSecretCopyService Service, FakeSecrets K8s, CapturingLogger Log, Pipeline Source, Pipeline Target);
+    private sealed record Fixture(PipelineSecretCopyService Service, FakeSecrets K8s, CapturingLogger Log, Pipeline Source, Pipeline Target,
+        PipelineSecretExpiryService Expiries);
 
     private static Fixture Build()
     {
@@ -137,9 +139,10 @@ public class PipelineSecretCopyServiceTests
         var k8s = new FakeSecrets();
         k8s.Secrets[PipelineSecrets.Name(source!.Id)] = new() { ["GITHUB_TOKEN"] = "gh-value-1", ["REGISTRY"] = "reg-value-2" };
         var log = new CapturingLogger();
-        var service = new PipelineSecretCopyService(new PipelineSecretEvents(), pipelines, k8s,
+        var expiries = new PipelineSecretExpiryService(new AttachmentStore<Pipeline, PipelineSecretExpiries>(store), TimeProvider.System);
+        var service = new PipelineSecretCopyService(new PipelineSecretEvents(), pipelines, expiries, k8s,
             new KubernetesOptions(Ns), log);
-        return new Fixture(service, k8s, log, source, target!);
+        return new Fixture(service, k8s, log, source, target!, expiries);
     }
 
     private static Dictionary<string, string>? TargetSecret(Fixture f) =>
@@ -189,6 +192,22 @@ public class PipelineSecretCopyServiceTests
         await Assert.That(result).Succeeded();
         await Assert.That(TargetSecret(f)!["GH"]).IsEqualTo("gh-value-1");
         await Assert.That(TargetSecret(f)!.ContainsKey("GITHUB_TOKEN")).IsFalse();
+    }
+
+    [Test]
+    public async Task ACopy_CarriesTheSourceExpiry_ToItsTargetName_AndOverwritingWithoutOneClearsIt()
+    {
+        var f = Build();
+        var at = new DateTimeOffset(2027, 1, 25, 0, 0, 0, TimeSpan.Zero);
+        f.Expiries.Set(f.Source.Id, "GITHUB_TOKEN", at);
+        f.K8s.Secrets[PipelineSecrets.Name(f.Target.Id)] = new() { ["REGISTRY"] = "old" };
+        f.Expiries.Set(f.Target.Id, "REGISTRY", at);
+
+        await Assert.That(await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id, ["GITHUB_TOKEN"], "GH"), "oliver")).Succeeded();
+        await Assert.That(await f.Service.CopyAsync(f.Target.Id, new CopySecretsRequest(f.Source.Id, ["REGISTRY"], Overwrite: true), "oliver")).Succeeded();
+
+        await Assert.That(f.Expiries.Get(f.Target.Id, "GH")).IsEqualTo(at);
+        await Assert.That(f.Expiries.Get(f.Target.Id, "REGISTRY")).IsNull();
     }
 
     [Test]

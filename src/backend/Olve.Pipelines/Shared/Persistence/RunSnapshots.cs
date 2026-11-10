@@ -32,7 +32,7 @@ public record PipelineVersionMetadata(
 
 /// <summary>
 /// <c>pipeline-state.json</c>: per-pipeline operational state (active version/switch, number sequences,
-/// blocked steps, the run start queued during a drain, entity-version history, poll-trigger last values).
+/// blocked steps, the run start queued during a drain, entity-version history, poll-trigger last values, secret expiries).
 /// Optional members may be missing from older files (null on load); <see cref="Gates"/> is the former name
 /// of <see cref="BlockedSteps"/>, read but no longer written.
 /// </summary>
@@ -44,7 +44,10 @@ public record PipelineStateSnapshot(
     EntityVersionHistoryEntry[]? EntityVersions = null,
     PollTriggerStatesEntry[]? PollTriggers = null,
     PipelineBlockedStepsEntry[]? BlockedSteps = null,
-    PendingVersionEntry[]? PendingVersions = null);
+    PendingVersionEntry[]? PendingVersions = null,
+    PipelineSecretExpiriesEntry[]? SecretExpiries = null);
+
+public record PipelineSecretExpiriesEntry(Id<Pipeline> PipelineId, PipelineSecretExpiries Expiries);
 
 public record PendingVersionEntry(Id<Pipeline> PipelineId, PendingVersion Pending);
 

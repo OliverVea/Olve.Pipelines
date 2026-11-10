@@ -71,6 +71,79 @@ describe('secret', () => {
     expect(requests.at(-1)!.body).toEqual({ value: 'typed' });
   });
 
+  test.each([
+    ['2027-01-25', '2027-01-25T00:00:00.000Z', 'expires 2027-01-25'],
+    ['90d', '2027-01-26T12:00:00.000Z', 'expires 2027-01-26'],
+    ['2027-01-25T08:30:00Z', '2027-01-25T08:30:00.000Z', 'expires 2027-01-25'],
+  ])('set --expires %s sends %s', async (expires, expiresAt, said) => {
+    const { fetch, requests } = api();
+
+    const out = await pl(['secret', 'set', 'alpha', 'TOKEN', '--expires', expires], {
+      fetch,
+      stdin: 't',
+    });
+
+    expect(out.code).toBe(0);
+    expect(requests.at(-1)!.body).toEqual({ value: 't', expiresAt });
+    expect(out.stdout).toBe(`Set secret 'TOKEN' for pipeline alpha (${said}).\n`);
+  });
+
+  test.each([
+    [
+      'soon',
+      "--expires must be a date (2027-01-25), a timestamp or a number of days (90d), not 'soon'.",
+    ],
+    ['2026-10-01', '--expires 2026-10-01 is not in the future.'],
+  ])('set --expires %s is refused before anything is sent', async (expires, message) => {
+    const { fetch, requests } = api();
+
+    const out = await pl(['secret', 'set', 'alpha', 'TOKEN', '--expires', expires], {
+      fetch,
+      stdin: 't',
+    });
+
+    expect(out.code).toBe(1);
+    expect(out.stderr).toContain(message);
+    expect(requests.some((r) => r.method === 'PUT')).toBe(false);
+  });
+
+  test('list shows when each value expires', async () => {
+    const secrets = [
+      {
+        name: 'NPM_TOKEN',
+        description: null,
+        declaredBy: ['publish-sdk'],
+        isSet: true,
+        expiresAt: '2027-01-25T00:00:00Z',
+      },
+      {
+        name: 'OLD',
+        description: null,
+        declaredBy: [],
+        isSet: true,
+        expiresAt: '2026-10-01T00:00:00Z',
+      },
+      {
+        name: 'REGISTRY',
+        description: 'creds',
+        declaredBy: ['build'],
+        isSet: true,
+        expiresAt: null,
+      },
+    ];
+    const { fetch } = api(secrets);
+
+    const out = await pl(['secret', 'list', 'alpha'], { fetch });
+
+    expect(out.stdout.split('\n').map((l) => l.trimEnd())).toEqual([
+      'NAME       SET  EXPIRES               USED BY      DESCRIPTION',
+      'NPM_TOKEN  set  2027-01-25            publish-sdk',
+      'OLD        set  2026-10-01 (expired)  (unused)',
+      'REGISTRY   set                        build        creds',
+      '',
+    ]);
+  });
+
   test('delete passes --force; copy sends the source and refuses --name for a whole pipeline', async () => {
     const { fetch, requests } = api({ copied: ['GITHUB_TOKEN'] });
     await pl(['secret', 'delete', 'alpha', 'A', '--force'], { fetch });

@@ -44,6 +44,7 @@ public static class ServiceConfiguration
         services.AddSingleton<PipelineSecretEvents>();
         services.AddTransient<PipelineSecretCopyService>();
         services.AddTransient<PipelineSecretService>();
+        services.AddTransient<PipelineSecretExpiryService>();
         services.AddTransient<IPipelineSecretNames>(sp => sp.GetRequiredService<PipelineSecretService>());
         services.AddSingleton<IRunOnStartup, PipelineSecretEventRegistration>();
         services.AddSingleton<IGitHubClient, GitHubClient>();
@@ -117,6 +118,7 @@ public static class ServiceConfiguration
         services.AddSingleton<RunSchedulingLock>();
         services.AddSingleton<RunPlanCache>();
         services.AddSingleton<AttachmentStore<Pipeline, PipelineBlockedSteps>>();
+        services.AddSingleton<AttachmentStore<Pipeline, PipelineSecretExpiries>>();
         services.AddSingleton<AttachmentStore<Pipeline, PendingRunStart>>();
         services.AddSingleton<AttachmentStore<Pipeline, PollTriggerStates>>();
         services.AddTransient<StepBlockService>();

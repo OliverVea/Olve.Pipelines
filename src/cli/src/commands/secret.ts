@@ -72,7 +72,8 @@ export const secretCommands: Command[] = [
     noun: 'secret',
     verb: 'list',
     operands: 1,
-    summary: "List a pipeline's secrets: who declares each and whether it is set",
+    summary:
+      "List a pipeline's secrets: who declares each, whether it is set and when it expires",
     detail: `pl secret list <pipeline>
 
   Every secret the active version declares (by step, onFailure handler or poll trigger) or

@@ -27,7 +27,8 @@ const BROWSER_TIMEOUT_MS = 5 * 60_000;
 export const loginCommand: Command = {
   noun: 'login',
   flags: ['device', 'browser'],
-  summary: 'Log in via the browser (OIDC auth-code + PKCE) and cache the token',
+  summary:
+    'Log in (browser or device flow) and cache the token; a profile remembers its instance and flow',
   detail: `pl login   Log in and cache the token in ~/.pl
 
 Discovers the OIDC client from the target server's /api/config/frontend and stores the

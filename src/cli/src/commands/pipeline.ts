@@ -171,11 +171,13 @@ Details: \`pl pipeline health <pipeline>\`.`,
     noun: 'pipeline',
     verb: 'health',
     operands: 1,
-    summary: 'Run-based health: last run, running/held runs, blocked steps, activation',
+    summary:
+      'Run-based health: last run, running/held runs, blocked steps, activation, expiring secrets',
     detail: `pl pipeline health <pipeline>
 
   Running if any run is running, else the latest succeeded/failed run's outcome
-  (cancelled and superseded runs are ignored; skipped steps never count as unhealthy).`,
+  (cancelled and superseded runs are ignored; skipped steps never count as unhealthy).
+  Also names secrets that expire within 14 days or have expired.`,
     async run(ctx) {
       const { id } = await resolvePipeline(ctx.api, ctx.args.operand(0)!);
       const h = await call(

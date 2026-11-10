@@ -95,7 +95,6 @@
       "Read(//tmp/**)",
       "Bash(git check-ignore *)",
       "Bash(git ls-tree *)",
-      "Skill(ovea-writing-self-burning-letters)",
       "Bash(git -C C:/Users/olive/RiderProjects/Olve.Pipelines diff src/clients/Olve.Pipelines.Client/Generated/Refitter.g.cs)",
       "Bash(git *)",
       "WebFetch(domain:refitter.github.io)",

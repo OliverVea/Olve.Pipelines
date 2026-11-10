@@ -1,20 +1,20 @@
 ---
 name: deploy
-description: Trigger the v2 self-deploy run of Olve.Pipelines (on v2 prod, from main's .pipelines/pipeline.ts), and monitor it through beta and prod.
+description: Trigger the self-deploy run of Olve.Pipelines (pipeline "Olve.Pipelines v2" on prod, from main's .pipelines/pipeline.ts), and monitor it through beta and prod.
 allowed-tools: Bash Read
 ---
 
 # Deploy Olve.Pipelines v2
 
-The pipeline **"Olve.Pipelines v2"** lives on **v2 prod** (`https://pipelines-private.ovea.pro`,
+The pipeline **"Olve.Pipelines v2"** lives on **prod** (`https://pipelines-private.ovea.pro`,
 Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
-`OliverVea/Olve.Pipelines@main`, path `.pipelines`. Stages: `source` →
-`build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`: `deploy-prod` →
-`publish-cli` ∥ `publish-sdk`.
+`OliverVea/Olve.Pipelines@main`, path `.pipelines`. Stages: `source` → `spec` → `compile-server` ∥
+`build-frontend` ∥ `build-harness` ∥ `test` ∥ `build-sdk` ∥ `check-cli` ∥ `build-cli` →
+`build-server` ∥ `publish-sdk` ∥ `publish-cli` → `deploy-beta` ∥ `publish-images` → `beta-test`
+(→ `real-system-test` on an ssh beta) → when `deployTo: "prod"`: `deploy-prod` → `promote`.
 
-- Every push to `main` starts a run (deploy poll, up to 15 min) that deploys **v2 beta**
-  (`https://pipelines-beta.ovea.pro`, release `olve-pipelines-v2` in `apps-beta`), smoke-tests it,
-  then deploys **v2 prod**. No manual promotion; `deployTo: "beta"` stops after beta.
+- Every push to `main` starts a run that deploys **beta** (`https://pipelines-beta.ovea.pro`,
+  release `olve-pipelines-v2` in `apps-beta`), tests it, then deploys **prod**. No manual promotion; `deployTo: "beta"` stops after beta.
 - Blocking a step is for special circumstances only (an incident, work on the pipeline, a change the user wants held). Never leave
   `deploy-prod` blocked as routine.
 - Claude Code's auto-mode classifier may refuse a trigger that deploys prod; then hand the command to
@@ -43,7 +43,7 @@ The input model requires a full 40-hex `sha`. `deployTo` defaults to `prod` (bet
 `--field deployTo=beta` to stop after beta:
 
 ```bash
-git fetch origin v2
+git fetch origin main
 pl trigger "$P" --field sha=$(git rev-parse origin/main)   # prints "Olve.Pipelines v2#<n>"
 ```
 
@@ -55,23 +55,22 @@ run; the per-step slot serialises them).
 ```bash
 R="Olve.Pipelines v2#<n>"
 pl run get "$R"                                  # stages + each step's status, attempt, reason
-pl step logs "$R/build" --follow                 # kaniko build
+pl step logs "$R/build-harness" --follow         # kaniko build of the step pods' init image
 pl step logs "$R/test" --follow                  # unit tests
 pl step logs "$R/deploy-beta" --follow
-pl step logs "$R/beta-test" --follow             # smoke test of the new beta
+pl step logs "$R/beta-test" --follow             # tests of the new beta
 pl step logs "$R/deploy-prod" --follow
+pl run critical-path "$P"                        # where the time goes, against earlier runs
 ```
 
-Expected: `source` ~5 s; `build` ~1.5 min cached, up to ~4.5 min cold; `test` ~1 min (parallel with
-build); `deploy-beta` ~20 s; `beta-test` a few seconds; `deploy-prod` ~45 s; `publish-cli` ~3.5 min. If `beta-test` fails, the
-run fails before prod.
+If `beta-test` (or `real-system-test`) fails, the run fails before prod.
 
 ## 4. Prod
 
 `deploy-prod` replaces the pod that runs the service: the new pod logs `Reattaching to K8s Job …
 deploy-prod`, collects it and finishes the run — a short API blip during that is normal.
-`publish-cli` then publishes the `pl` that prod serves at `/download`; `publish-sdk` runs `npm
-publish` if `src/sdk/`'s version is new. A beta-only run can still go to prod later with
+`promote` then moves the release tags: the images, the npm dist-tag, and the `pl` that prod serves
+at `/download`. A beta-only run can still go to prod later with
 `pl run continue "$R" --field deployTo=prod`.
 
 ## 5. On failure
@@ -79,7 +78,7 @@ publish` if `src/sdk/`'s version is new. A beta-only run can still go to prod la
 - `pl run get "$R"` shows the failed step's reason (includes the harness exit code); `pl step logs "$R/<step>"`.
 - **kaniko hangs at "Unpacking rootfs"** (a stalled base-image pull): `steps.imageBuild`'s stall
   watchdog fails the attempt after 300 s of silence, and the build's `timeoutSeconds: 900` bounds it
-  anyway. Rerun it: `pl step rerun "$R/build" --continue`, or the whole run:
+  anyway. Rerun it: `pl step rerun "$R/build-harness" --continue`, or the whole run:
   ```bash
   pl run cancel "$R" && pl run rerun "$R"
   ```

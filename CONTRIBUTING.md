@@ -39,8 +39,8 @@ src/
 └── deploy/
     ├── helm/                       Helm chart (values.yaml, values-beta.yaml, values-v2-beta.yaml, values-v2-prod.yaml, values-minimal.yaml)
     └── compose/                    The throwaway local instance's config and deployer (docker-compose.yml at the root)
-.pipelines/                         This repo's own pipeline (v2) + the paused v1 config.yaml
-.pipelines-test/                    v2 fixture pipeline (bound on v2 beta)
+.pipelines/                         This repo's own pipeline
+.pipelines-test/                    Beta's fixture pipeline (bound on beta)
 docs/setup/                         Setup guide, served at /docs
 docs/design/                        v2 spec, plan, spike findings (spike code: git history, `d269107:spikes/`)
 tools/real-system/                  The throwaway host the real-system tests run against

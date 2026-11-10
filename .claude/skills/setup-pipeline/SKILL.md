@@ -1,26 +1,25 @@
 ---
 name: setup-pipeline
-description: Recreate the v2 self-deploy pipeline ("Olve.Pipelines v2") on the v2 prod instance by binding it to the repo's main branch (GitOps); reconcile builds .pipelines/pipeline.ts into a version.
+description: Recreate the self-deploy pipeline ("Olve.Pipelines v2") on the prod instance by binding it to the repo's main branch (GitOps); reconcile builds .pipelines/pipeline.ts into a version.
 allowed-tools: Bash Read
 ---
 
-# Set up the v2 self-deploy pipeline (GitOps)
+# Set up the self-deploy pipeline (GitOps)
 
-The **bootstrap runbook** for v2 prod (`https://pipelines-private.ovea.pro`, release
+The **bootstrap runbook** for prod (`https://pipelines-private.ovea.pro`, release
 `olve-pipelines-v2` in `apps`, runners `olve-runners`, its bundled Dex): it creates the pipeline
 bound to `OliverVea/Olve.Pipelines@main`, path `.pipelines`, and sets its secrets. Reconcile then
-compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (`source` →
-`build` ∥ `test` → `deploy-beta` → `beta-test` → when `deployTo: "prod"`:
-`deploy-prod` → `publish-cli` ∥ `publish-sdk`). How it works: `docs/setup/getting-started.md` and
+compiles [`.pipelines/pipeline.ts`](../../../.pipelines/pipeline.ts) into a version (its stages:
+the `/deploy` skill). How it works: `docs/setup/getting-started.md` and
 `docs/setup/binding-and-reconcile.md`.
 
-Only needed after a hard reset (v2 prod Garage state deleted). To change *what* the pipeline does,
+Only needed after a hard reset (prod Garage state deleted). To change *what* the pipeline does,
 edit `.pipelines/` and push to `main` — there are no shape-mutation commands.
 
 **Never have two deployers active.** Exactly one "Olve.Pipelines v2" may run this pipeline, on
-v2 prod. Don't create it on v2 beta.
+prod. Don't create it on beta.
 
-## Step 0: v2 `pl` and session
+## Step 0: `pl` and session
 
 ```bash
 (cd src/spec && bun install && bun run build) && (cd src/cli && bun install && bun run build) && cp artifacts/cli/pl ~/.local/bin/   # a reset prod serves no pl yet
@@ -59,8 +58,8 @@ Expect `valid` (`output-unused` warnings on deploy-prod and publish-* are fine).
 
 ## Step 4: Create the pipeline bound to the repo
 
-The build Job fetches the repo tarball with the `GITHUB_TOKEN` pipeline secret. v2 prod has no
-public webhook route, so it polls (every 15 minutes).
+The build Job fetches the repo tarball with the `GITHUB_TOKEN` pipeline secret. `pl binding status`
+shows how pushes reach the binding.
 
 ```bash
 PID=$(pl binding create OliverVea/Olve.Pipelines --branch main --path .pipelines --credentials-secret GITHUB_TOKEN --json | jq -r .pipelineId)
@@ -102,12 +101,12 @@ only records the branch head; it does not deploy.
 
 ## Step 7: Verify a deploy
 
-Run `/deploy` (manual trigger with the current `v2` head), or push to `v2` and wait for the deploy
-poll (up to 15 min). Until `publish-cli` has succeeded once, prod's `/download` and `/install.sh`
+Run `/deploy` (manual trigger with the current `main` head), or push to `main` and
+`pl wait push "Olve.Pipelines v2" <sha>`. Until `promote` has succeeded once, prod's `/download` and `/install.sh`
 serve no `pl`.
 
 ## After setup
 
 Tell the user: the pipeline id, the binding (repo@branch, path, trigger), the reconcile result and
-the secrets' state; that pushes to `v2` now deploy v2 beta and then v2 prod automatically; that pipeline changes go through
+the secrets' state; that pushes to `main` now deploy beta and then prod automatically; that pipeline changes go through
 `.pipelines/pipeline.ts`; and that `/deploy` starts a run by hand.

@@ -111,6 +111,13 @@ A login lasts `dex.tokenLifetime` (default `168h`). Renewing a token re-checks t
 GitHub, which stops accepting the token Dex keeps for that within about a day, so in practice this
 is how often people log in again.
 
+## Health and restarts
+
+`/api/health` (the liveness probe) answers as long as the process runs, and `/api/ready` (the
+readiness probe) once persisted state is loaded. When the server runs out of memory it ends itself
+(`Out of memory: ending the process so it is restarted.` on stderr) and Kubernetes restarts it; runs
+carry on from their saved state.
+
 ## Logging
 
 Logging is **backend-agnostic**: the app only writes to **stdout**. Shipping is the cluster's

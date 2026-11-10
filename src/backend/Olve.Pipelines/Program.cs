@@ -2,6 +2,9 @@ using Olve.Pipelines.Api;
 using Olve.Pipelines.Configuration;
 using Olve.Pipelines.Kubernetes;
 
+using var outOfMemory = Olve.Pipelines.Health.OutOfMemoryGuard.Install(
+    e => Environment.FailFast(Olve.Pipelines.Health.OutOfMemoryGuard.Message, e));
+
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.ConfigureHost(args);

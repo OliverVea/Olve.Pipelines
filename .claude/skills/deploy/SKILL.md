@@ -11,7 +11,7 @@ Helm release `olve-pipelines-v2` in `apps`, runners in `olve-runners`), bound to
 `OliverVea/Olve.Pipelines@main`, path `.pipelines`. Stages: `source` → `spec` → `compile-server` ∥
 `build-frontend` ∥ `build-harness` ∥ `test` ∥ `build-sdk` ∥ `check-cli` ∥ `build-cli` →
 `build-server` ∥ `publish-sdk` ∥ `publish-cli` → `deploy-beta` ∥ `publish-images` → `beta-test`
-(→ `real-system-test` on an ssh beta) → when `deployTo: "prod"`: `deploy-prod` → `promote`.
+(∥ `real-system-test` on an ssh beta) → when `deployTo: "prod"`: `deploy-prod` → `promote`.
 
 - Every push to `main` starts a run that deploys **beta** (`https://pipelines-beta.ovea.pro`,
   release `olve-pipelines-v2` in `apps-beta`), tests it, then deploys **prod**. No manual promotion; `deployTo: "beta"` stops after beta.

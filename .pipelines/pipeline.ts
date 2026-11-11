@@ -1,5 +1,5 @@
 // Olve.Pipelines deploying itself: build and verify every component once, publish prereleases,
-// deploy beta, smoke-test it, run the real-system and browser tests, deploy prod, then promote the same artifacts. Where it all goes is the
+// deploy beta, smoke-test it while the real-system and browser tests run, deploy prod, then promote the same artifacts. Where it all goes is the
 // instance's config (config.ts).
 import { pipeline, steps, type ConfigRef } from '@olivervea/pipelines';
 import {
@@ -103,8 +103,7 @@ export default pipeline({
             (from) => ({ server: from['build-server'], harness: from['build-harness'] }),
           ],
         )
-        .stage(betaTest)
-        .stage(realSystemTest(beta.host)),
+        .stage(betaTest, realSystemTest(beta.host)),
     inCluster: (p, beta) =>
       p
         .stage(

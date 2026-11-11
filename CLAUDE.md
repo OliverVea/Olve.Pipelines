@@ -145,7 +145,7 @@ cd src/frontend && npm run test                                 # Unit tests (vi
 
 ## Conventions
 
-- .NET 10, C# with file-scoped namespaces, nullable enabled, implicit usings
+- .NET 11, C# with file-scoped namespaces, nullable enabled, implicit usings
 - Package versions managed centrally in `Directory.Packages.props` — do not add `Version` attributes in csproj files
 - Local config via `dotnet user-secrets`, not appsettings files
 - The API is the TypeSpec contract in `src/spec/` (one `.tsp` per area, `docs/design/spec-first.md`); the server build compiles it into the generated C# surface, the OpenAPI document and the Hey API client under `artifacts/` (gitignored). Every endpoint but the web UI is a contract operation (`EndpointAuthTests` enforces it), the inbound webhooks and the file downloads included

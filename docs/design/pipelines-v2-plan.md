@@ -529,7 +529,7 @@ kaniko unpacking and cached-layer extraction even when fully cached, then the Na
   prod: `-p:PublishAot=false`, framework-dependent, `JsonSerializerIsReflectionEnabledByDefault=false`
   so JIT runs the same source-generated JSON paths), `build-frontend` (was `frontend-lint`) lints and
   builds the frontend; each outputs a layer tarball. `build-server` is a crane step: `crane mutate
-  <base> --append …` onto `runtime-deps` (AOT) or `aspnet` (JIT) `10.0-noble-chiseled`, through
+  <base> --append …` onto `runtime-deps` (AOT) or `aspnet` (JIT) `11.0-resolute-chiseled`, through
   `mcr-cache.ovea.pro`, then pushes; ~5s. The image keeps the Dockerfile's layout (`/app`,
   `./Olve.Pipelines`, port 5000). The Dockerfile stays for Compose and local builds.
 - JIT vs AOT measured locally: ready in ~1s vs ~0.1s, ~114 MB vs ~70 MB RSS; deploys take 15–18s
@@ -626,7 +626,7 @@ library steps are defined with exactly the mechanism a pipeline uses, so steps c
   still running, unwritten (removal is the user's call). Builds and tests run on the container's rootfs
   (`/work`), not the 1 GiB `/olve`. Run #1 (manual, `publish=false`) passed. Open: `test` builds from
   source instead of testing the published build (the pytest harness is hardwired to
-  `bin/Release/net10.0` and `dotnet <dll>`). The binding was created before the push, so the first
+  `bin/Release/net11.0` and `dotnet <dll>`). The binding was created before the push, so the first
   reconcile took the newest v1-only commit and failed; `pl binding reconcile` fixed it. Trains'
   master requires a PR; pushed with the admin bypass at the user's say. Later the same day `test`
   moved after `build` and runs the published linux build (`TRAINS_GAME_DIR` in the pytest harness,

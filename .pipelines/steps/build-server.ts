@@ -5,8 +5,8 @@ import { CRANE_IMAGE } from '../images';
 import { dockerConfig } from '../registry';
 
 const BASE_IMAGES = {
-  aot: 'mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled',
-  jit: 'mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled',
+  aot: 'mcr.microsoft.com/dotnet/runtime-deps:11.0-resolute-chiseled',
+  jit: 'mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled',
 } as const;
 
 export const buildServer = implement(

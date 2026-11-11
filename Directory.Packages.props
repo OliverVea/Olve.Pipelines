@@ -7,8 +7,8 @@
 
   <ItemGroup>
     <PackageVersion Include="Duende.IdentityModel" Version="8.1.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="11.0.0" />
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.2" />
     <PackageVersion Include="Olve.MinimalApi" Version="0.61.0" />
     <PackageVersion Include="Olve.Results" Version="0.61.0" />

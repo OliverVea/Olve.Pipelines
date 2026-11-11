@@ -6,7 +6,7 @@
 set -u
 OUT=$(realpath -m "$1"); JOBS=${2:-4}; RUNS=${3:-20}; SEED=${4:-1}
 REPO=$(git rev-parse --show-toplevel)
-BIN=$REPO/src/backend/Olve.Pipelines.UnitTests/bin/Release/net10.0/Olve.Pipelines.UnitTests
+BIN=$REPO/src/backend/Olve.Pipelines.UnitTests/bin/Release/net11.0/Olve.Pipelines.UnitTests
 COMMON=(--no-ansi --disable-logo --no-progress --maximum-parallel-tests 1)
 mkdir -p "$OUT/logs"; cd "$(dirname "$BIN")" || exit 1
 

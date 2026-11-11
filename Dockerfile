@@ -6,7 +6,7 @@ RUN cd src/spec && bun install --frozen-lockfile
 COPY src/spec/ src/spec/
 RUN cd src/spec && bun run build
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0-resolute AS build
 RUN apt-get update && apt-get install -y clang zlib1g-dev
 WORKDIR /src
 
@@ -38,7 +38,7 @@ COPY --from=spec /src/artifacts/clients/ts artifacts/clients/ts
 COPY src/frontend/ ./src/frontend/
 RUN cd src/frontend && npm run build
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
+FROM mcr.microsoft.com/dotnet/runtime-deps:11.0-resolute-chiseled
 WORKDIR /app
 EXPOSE 5000
 COPY --from=build /app .

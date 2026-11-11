@@ -7,7 +7,7 @@ under [docs/setup](docs/setup)). Operations runbooks live in [docs/operations](d
 
 ## How it's built
 
-- .NET 10, Native-AOT published. Controller: `src/backend/Olve.Pipelines`. Operator CLI:
+- .NET 11, Native-AOT published. Controller: `src/backend/Olve.Pipelines`. Operator CLI:
   `src/cli` (binary `pl`, Bun + TypeScript compiled with `bun build --compile`).
 - `dotnet build` / `dotnet test`.
 - SDK (`src/sdk/`, Bun + TypeScript): `bun install && bunx tsc --noEmit -p . && bun test`.

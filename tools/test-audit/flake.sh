@@ -1,7 +1,7 @@
 #!/bin/bash
 # Flakiness and parallel-scaling measurement. Prints one CSV line per run.
 W=$(cd "$(dirname "$0")/../.." && pwd)
-B=$W/src/backend/Olve.Pipelines.UnitTests/bin/Release/net10.0/Olve.Pipelines.UnitTests
+B=$W/src/backend/Olve.Pipelines.UnitTests/bin/Release/net11.0/Olve.Pipelines.UnitTests
 O=$(realpath -m "${1:?usage: flake.sh <empty-output-dir>}"); mkdir -p "$O"
 cd "$W" || exit 1
 CSV=$O/runs.csv; echo "phase,run,par,exit,wall_s" > "$CSV"

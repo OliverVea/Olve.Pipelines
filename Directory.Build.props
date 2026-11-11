@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Features>runtime-async=on</Features>
     <UserSecretsId>bb7510ca-51f0-4345-a273-8368b69a2524</UserSecretsId>
   </PropertyGroup>
 

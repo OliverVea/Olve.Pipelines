@@ -173,10 +173,13 @@ describe('ctx.sh / ctx.exec', () => {
     const r = await testHandler(impl, { cmd: 'printf "%s|%s" "$1" "$2"' });
     expect(r).toMatchObject({ status: 'succeeded', output: { text: 'a b|$HOME' } });
   });
-  test('embedded scripts are copied out and run with args; harness credentials are not inherited', async () => {
+  test('embedded scripts are copied out and run with args; the harness env is not inherited', async () => {
     const dir = tmp('script');
     const script = join(dir, 's.sh');
-    writeFileSync(script, '#!/bin/sh\necho "args:$1,$2 url:${OLVE_RESULT_URL:-unset}"\n');
+    writeFileSync(
+      script,
+      '#!/bin/sh\necho "args:$1,$2 url:${OLVE_RESULT_URL:-unset} run:${OLVE_RUN:-unset}"\n',
+    );
     expect(isEmbeddedScript(script)).toBe(true);
     expect(isEmbeddedScript('echo hi')).toBe(false);
     expect(isEmbeddedScript('/$bunfs/root/x.sh')).toBe(true);
@@ -184,12 +187,12 @@ describe('ctx.sh / ctx.exec', () => {
       text: await ctx.sh.text(script, { args: ['a', 'b'] }),
     }));
     const r = await withEnv(
-      { OLVE_RESULT_URL: 'http://secret/?X-Amz-Credential=1' },
+      { OLVE_RESULT_URL: 'http://secret/?X-Amz-Credential=1', OLVE_RUN: '7' },
       () => testHandler(impl, { cmd: '' }),
     );
     expect(r).toMatchObject({
       status: 'succeeded',
-      output: { text: 'args:a,b url:unset' },
+      output: { text: 'args:a,b url:unset run:unset' },
     });
     expect(existsSync(join(r.dir, 'tmp', 'scripts', '1-s.sh'))).toBe(true);
   });
@@ -306,6 +309,18 @@ describe('ctx.sh / ctx.exec', () => {
     await expect(p).rejects.toThrow(CommandStalledError);
     expect(Date.now() - t0).toBeLessThan(15_000);
   }, 20_000);
+  test('a background child holding the pipes does not hang a finished command', async () => {
+    const { sh, exec } = createSh({
+      tmpDir: tmp('pipe-grace'),
+      signal: new AbortController().signal,
+      pipeGraceMs: 200,
+    });
+    const t0 = Date.now();
+    expect(await sh.text('sleep 13 & echo done')).toBe('done');
+    await exec(['/bin/sh', '-c', 'sleep 13 & echo done'], { idleTimeoutSeconds: 30 });
+    await expect(sh.text('sleep 13 & exit 3')).rejects.toThrow(/exit code 3/);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
   test('signal: cancellation kills the running command', async () => {
     const ac = new AbortController();
     const impl = implement(plain, async (_i, ctx) => {

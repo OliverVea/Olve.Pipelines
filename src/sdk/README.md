@@ -241,7 +241,7 @@ export const deployBeta = implement(step({ name: "deploy-beta", /* … */ }), as
 | `ctx.` | |
 |---|---|
 | `sh(cmd \| script, { env, cwd, args })`, `sh.text(…)` | Runs a command string, or an embedded script, through the image's shell. The script is copied to `$OLVE_DIR/tmp/scripts/` first. The shell is the first of `/bin/sh`, `/busybox/sh`, `/bin/bash` that exists; a shell-less image gets a clear `ShellNotFoundError`. A script's shebang is honoured when its interpreter exists. A string counts as an embedded script when it is a `/$bunfs/…` path, or an absolute path to an existing `*.sh` or `*.bash` file. Pass `{ script }` to force script mode. `args` are the script's arguments, or `$1`, `$2`… of a command string. A non-zero exit throws a `CommandError` that carries `exitCode`. |
-| `exec([argv…], { env, cwd, idleTimeoutSeconds })` | Runs a binary directly, with no shell (works on distroless). `idleTimeoutSeconds` (also on `sh`) is an inactivity watchdog: no stdout/stderr output for that long → SIGTERM, SIGKILL 10 s later, and a `CommandStalledError`. |
+| `exec([argv…], { env, cwd, idleTimeoutSeconds })` | Runs a binary directly, with no shell (works on distroless). `idleTimeoutSeconds` (also on `sh`) is an inactivity watchdog: no stdout/stderr output for that long → SIGTERM, SIGKILL 10 s later, and a `CommandStalledError`. Once a command exits, its output is read for at most 5 s more, so a leftover background child holding the pipes doesn't hang the step. |
 | `readText(path)`, `readJson(path)` | Paths are relative to the cwd. |
 | `files.fetch(ref)` | Downloads a file reference and verifies its sha256. Directory refs are extracted. Returns a local path. |
 | `output.write(name, content)`, `output.file(path, { name })`, `output.dir(path, { name })` | Adds a file to the step's output and returns its `FileRef`. A directory becomes a deterministic tar. |
@@ -343,7 +343,7 @@ This section is everything the C# side needs in order to run the binary.
 | `OLVE_FILES_BASE_URL` (+ `OLVE_FILES_TOKEN`) | optional | Fallback: `GET <base>/<run>/<step>/<attempt>/<object path>` with an optional `Authorization: Bearer <token>`. |
 | `OLVE_FILES_DIR` | dev | Local pool laid out as `<run>/<step>/<attempt>/files/<object path>`. |
 
-`OLVE_RESULT_URL`, `OLVE_FILE_URLS`, `OLVE_FILES_TOKEN` and `OLVE_CALLBACK_URLS` are removed from the environment of child processes. URLs are never logged past `?`.
+The variables in this table (the `OLVE_*` contract, credentials included) are removed from the environment of child processes `ctx.sh` and `ctx.exec` start; declared secrets are not. URLs are never logged past `?`.
 
 **Secret masking** (`run`): with `OLVE_SECRETS` set, the binary runs the step as its own child and replaces every value of those secrets with `***` in the child's stdout and stderr, a line at a time, from the pipeline's first import to its exit. That covers every way of printing: logs, `console`, direct writes, commands and the processes they start. The envelope's failure message, skip reason and links are masked too; outputs and files are data and aren't. A multi-line value is masked line by line, and values (or lines) shorter than 4 characters are left alone. Not masked: a value the step transforms before printing (escaped, encoded, cut short) and a process writing to the pod's stdout directly (`/proc/1/fd/1`).
 

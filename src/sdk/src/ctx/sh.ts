@@ -52,6 +52,9 @@ export class CommandStalledError extends CommandError {
 /** Grace between the watchdog's SIGTERM and SIGKILL (a process blocked in a socket read may ignore TERM). */
 export const STALL_KILL_GRACE_MS = 10_000;
 
+/** How long output is still read after a command exits; a leftover child (an MSBuild node) may hold the pipes. */
+export const PIPE_GRACE_MS = 5_000;
+
 export function detectShell(candidates: readonly string[] = SHELL_CANDIDATES): string {
   for (const c of candidates) if (existsSync(c)) return c;
   throw new ShellNotFoundError();
@@ -80,6 +83,7 @@ export interface ShDeps {
   tmpDir: string;
   signal: AbortSignal;
   shellCandidates?: readonly string[];
+  pipeGraceMs?: number;
 }
 
 export function createSh(deps: ShDeps): {
@@ -208,9 +212,16 @@ export function createSh(deps: ShDeps): {
 
     try {
       const code = await proc.exited;
-      // A killed command's children may still hold the pipes open: don't wait for them after a stall.
-      if (stalled) await Promise.all(readers.map((r) => r.cancel().catch(() => {})));
-      else await Promise.all(pumps);
+      // A command's leftover children may still hold the pipes open: don't wait for them long.
+      if (!stalled) {
+        let grace: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          Promise.all(pumps),
+          new Promise((r) => (grace = setTimeout(r, deps.pipeGraceMs ?? PIPE_GRACE_MS))),
+        ]);
+        clearTimeout(grace);
+      }
+      await Promise.all(readers.map((r) => r.cancel().catch(() => {})));
       if (stalled)
         throw new CommandStalledError(
           what,

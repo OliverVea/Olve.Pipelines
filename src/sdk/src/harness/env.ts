@@ -25,12 +25,12 @@ export const ENV = {
   filesDir: 'OLVE_FILES_DIR',
 } as const;
 
-/** Env vars never passed to child processes (they carry credentials for the harness only). */
+/** Env vars never passed to child processes: the harness's own contract, credentials included. */
 export const PRIVATE_ENV: readonly string[] = [
-  ENV.resultUrl,
-  ENV.fileUrls,
-  ENV.filesToken,
-  ENV.callbackUrls,
+  ...Object.values(ENV),
+  'OLVE_CASES',
+  'OLVE_SECRETS',
+  'OLVE_SUPERVISED',
 ];
 
 /** `OLVE_CALLBACK_URLS`, parsed; empty when unset or malformed. */

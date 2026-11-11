@@ -98,6 +98,7 @@ Rules:
 - **`optional(M)`** means "maybe skipped": `M` must still have an earlier producer.
 - **`cells(M)`** reads every cell of a matrix step whose output is `M` (see "Matrix steps").
 - **`external(M, { title, description?, from? })`** is answered from outside the run; `from` lists `callback()` (another system POSTs to the URL an earlier step gets from `ctx.inputUrl(step, input)`), `poll({ url, valuePath, intervalSeconds? })` and `person()` (the default). It needs no producer and no mapper entry; the step waits until it is answered, then the value (validated against `M`) is in its input like any other. Failure handlers can't have one. `link: { input, path?, label? }` is the link shown on the step while it waits: `input` is one of the same step's regular (non-external) inputs (typed to their names), `path` a dot path inside its value (`url` → `input.review.url`; none = the value itself is the URL), `label` defaults to `title`. A value that is not an absolute http(s) URL sets no link; the step waits all the same.
+- **`implement(step, handler, { preflight: async (input, ctx) => … })`** runs before a step with an external input waits: it hands the work and `ctx.inputUrl(step, input)` to whatever answers, and its `ctx.link` links join the waiting links. It gets the step's regular inputs only, and the handler's `ctx` without `output` and `skip`. Throwing fails the attempt without waiting. Only a step with an external input takes one (a type error, and a describe problem otherwise).
 
 ### Config
 
@@ -308,9 +309,10 @@ This section is everything the C# side needs in order to run the binary.
 |---|---|---|---|
 | `describe [--sentinels]` | the binary itself | stdout: the manifest (canonical JSON) | With `--sentinels`, stdout gets the manifest between `---OLVE-MANIFEST-BEGIN---` and `---OLVE-MANIFEST-END---`. Needs no env and no files. |
 | `run <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json`, `$OLVE_DIR/work/files/…` | Steps in stages and failure-handler steps. A matrix step's cell runs as `run <step>` (the step's own name) with `OLVE_CELL`. |
+| `preflight <step>` | `$OLVE_DIR/input.json` | `$OLVE_DIR/work/output.json` | A step's preflight (manifest `preflight: true`). Validates only the step's regular inputs (external values already in the input are ignored) and writes `{"status":"succeeded","output":null}` with the preflight's `links`, or a failed envelope whose message names the preflight. Keeps no files; the service sets no `OLVE_RESULT_URL` and reads the envelope from the log. |
 | `map-trigger <trigger>` | `$OLVE_DIR/input.json` (the event) | `$OLVE_DIR/work/output.json` | `<trigger>` is the trigger's `name` from the manifest. |
 
-`run` and `map-trigger` also print the envelope on stdout, as one compact JSON line between `---OLVE-RESULT-BEGIN---` and `---OLVE-RESULT-END---`. The block always comes last. Use it as a fallback channel from the pod log. User output and stderr logs also go to the pod log, so never parse anything outside the sentinels.
+`run`, `preflight` and `map-trigger` also print the envelope on stdout, as one compact JSON line between `---OLVE-RESULT-BEGIN---` and `---OLVE-RESULT-END---`. The block always comes last. Use it as a fallback channel from the pod log. User output and stderr logs also go to the pod log, so never parse anything outside the sentinels.
 
 ### Files (`$OLVE_DIR`, default `/olve`)
 
@@ -423,6 +425,7 @@ Exact format: [`manifest.schema.json`](manifest.schema.json) (JSON Schema 2020-1
 
   An object whose only key is `ref` (with a string value) or `const` is a tag. Describe never emits a nested object with exactly that key set. Model-matched inputs are emitted already resolved (`{"ref": "build"}`).
 - **Step `externalInputs`** (when present) maps each external input key to `{model, title, description, from, link?}`, `from` being `{kind: "person"}`, `{kind: "callback"}` or `{kind: "poll", url, valuePath, intervalSeconds}`, and `link` `{input, path?, label?}` (omitted when not set, as are its `path` and `label`). Those keys are not in `input` or `inputTypes`; the service merges the answers into `input.json`.
+- **Step `preflight: true`** (omitted otherwise): the step runs `preflight <step>` before it waits for its external inputs.
 - **`inputTypes`** declares each input key: `{model, optional}`, `{model, optional: false, cells: true}` for a `cells` input (mapped with a whole-step ref to a matrix step whose output is that model), or `{schema: {output, input?}}` for a plain schema.
 - **Step `matrix`** (matrix steps only, never a failure handler) is `{axes: [{name, values}…], exclude?: [{axis: value…}…], failure: {kind: "keepRunning" | "cascadeFailure"}, maxParallel?}`. `axes` is a list because canonical JSON sorts keys; `exclude` is omitted when empty; `failure.kind` is always written. All of it is part of what the step declares.
 - **`codeHash`** is the build's identity: `sha256(canonical {bundle, harness})`. `bundle` hashes the entry point bundled with everything it imports, with `@olivervea/pipelines` external. It is tree-shaken and includes embedded scripts and dependencies, so any change to code in use changes it, and with it the manifest, which makes a new pipeline version. A step version covers what the step declares: image, `inputTypes`/model versions, `output` model version, `secrets`, `configEntries` (and those entries' schemas), `input` mappings and `config`.
@@ -446,6 +449,7 @@ Describe runs these checks; reconcile should re-run the manifest-level ones:
 - mapper source analysis and recording, unknown fields in refs, mapper keys that are missing or extra;
 - `when` on an unknown or non-literal field, or with an invalid value;
 - an external input's `link` naming anything but one of the step's regular inputs, an empty path segment, a label that is empty or over 100 characters;
+- a preflight on a step without an external input;
 - a poll header referencing an undeclared secret, duplicate triggers;
 - conflicting secret descriptions;
 - config names, one description and schema per config name, a step receiving a `secretRef` without declaring its secret, and input keys starting with `$` (reserved);
@@ -490,6 +494,7 @@ The manifest is the text between the sentinels in the pod log. The manifest text
 ```
 olve-dev describe <dir> [--sentinels]                     # same bytes as the compiled binary's describe
 olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
+olve-dev preflight <dir> <step> [same options as run]
 olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 ```
 

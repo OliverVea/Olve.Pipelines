@@ -238,6 +238,7 @@ public static class ManifestWriter
         if (s.ConfigEntries.Count > 0) WriteStrings(w, "configEntries", s.ConfigEntries);
         if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
         WriteExternalInputs(w, s, model => model);
+        if (s.Preflight) w.WriteBoolean("preflight", true);
         if (s.Matrix is { } matrix)
         {
             w.WritePropertyName("matrix");

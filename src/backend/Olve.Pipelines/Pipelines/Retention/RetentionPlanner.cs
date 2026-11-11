@@ -67,6 +67,7 @@ public sealed record RetentionPlan(
 public static class RetentionPlanner
 {
     private const string RunStateFile = "run.json";
+    private const string PreflightSuffix = "-preflight";
     private const string ResultArchiveFile = "result.tar.gz";
     private const string BinaryFile = "step.tar.gz";
 
@@ -285,12 +286,14 @@ public static class RetentionPlanner
                 continue;
 
             string jobName;
-            if (secret.Name.StartsWith("olve-urls-", StringComparison.Ordinal) && IsHexId(secret.Name["olve-urls-".Length..]))
+            // An attempt's Job is olve-<hex>, its preflight's olve-<hex>-preflight; each has olve-urls-<the rest>.
+            var attemptJob = secret.Name.StartsWith("olve-urls-", StringComparison.Ordinal) ? secret.Name["olve-urls-".Length..] : null;
+            var attemptHex = attemptJob?.EndsWith(PreflightSuffix, StringComparison.Ordinal) == true ? attemptJob[..^PreflightSuffix.Length] : attemptJob;
+            if (attemptJob is not null && IsHexId(attemptHex!))
             {
-                var attemptHex = secret.Name["olve-urls-".Length..];
-                if (attempts.TryGetValue(attemptHex, out var attempt) && attempt.Status.IsActive())
+                if (attempts.TryGetValue(attemptHex!, out var attempt) && attempt.Status.IsActive())
                     continue;
-                jobName = $"olve-{attemptHex}";
+                jobName = $"olve-{attemptJob}";
             }
             else if (secret.Name.EndsWith("-urls", StringComparison.Ordinal)
                      && HelperJobPrefixes.Any(p => secret.Name.StartsWith(p, StringComparison.Ordinal)))

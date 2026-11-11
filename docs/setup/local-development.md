@@ -80,6 +80,9 @@ output → `<dir>/.olve/work/`. It prints the result envelope; the exit code is 
 skipped, 1 handler threw, 65 input invalid, 66 output invalid, 78 pipeline invalid). `--json` prints
 the raw envelope.
 
+- **External inputs.** Nothing waits locally: pass a step's external values in `--input-file`. A step
+  with a preflight runs it first (`running the preflight of '<step>'`); a failed preflight is the
+  step's outcome and the handler doesn't run.
 - **Config.** A step that declares config entries reads them from `$config` in its `input.json`.
   `--config-from <pipeline>` uses that pipeline's effective config (what `pl config check <pipeline>
   --json` prints as `effective`: the saved document with defaults applied); `--config <file.json>`

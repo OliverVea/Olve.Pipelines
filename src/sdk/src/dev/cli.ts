@@ -2,6 +2,7 @@
 // olve-dev — run a pipeline from source through the same harness path as the compiled binary.
 //   olve-dev describe <dir> [--sentinels]
 //   olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
+//   olve-dev preflight <dir> <step> [same options as run]
 //   olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]
 // $OLVE_DIR defaults to <dir>/.olve; outputs land in <dir>/.olve/work/.
 import {
@@ -25,6 +26,7 @@ import {
 
 const USAGE = `usage: olve-dev describe <dir> [--sentinels]
        olve-dev run <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
+       olve-dev preflight <dir> <step> [--input-file f] [--config-file f] [--olve-dir d] [--secret NAME=value]...
        olve-dev map-trigger <dir> <trigger> --event-file f [--olve-dir d]`;
 
 export async function devConfig(
@@ -71,10 +73,10 @@ export async function devMain(argv: string[]): Promise<number> {
         'describe',
         ...(values.sentinels ? ['--sentinels'] : []),
       ]);
-    if (mode !== 'run' && mode !== 'map-trigger')
+    if (mode !== 'run' && mode !== 'preflight' && mode !== 'map-trigger')
       return (console.error(USAGE), EXIT.usage);
     if (!name) return (console.error(USAGE), EXIT.usage);
-    const file = mode === 'run' ? values['input-file'] : values['event-file'];
+    const file = mode === 'map-trigger' ? values['event-file'] : values['input-file'];
     if (mode === 'map-trigger' && !file)
       return (console.error('--event-file is required'), EXIT.usage);
     const olveDir = resolve(values['olve-dir'] ?? join(dir, '.olve'));
@@ -88,7 +90,7 @@ export async function devMain(argv: string[]): Promise<number> {
       process.env[s.slice(0, i)] = s.slice(i + 1);
     }
     if (file) copyFileSync(resolve(file), join(olveDir, 'input.json'));
-    if (mode === 'run' && values['config-file']) {
+    if (mode !== 'map-trigger' && values['config-file']) {
       const inputFile = join(olveDir, 'input.json');
       const input = (
         existsSync(inputFile) ? JSON.parse(readFileSync(inputFile, 'utf8')) : {}

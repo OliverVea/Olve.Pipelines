@@ -56,17 +56,21 @@ public sealed record HarnessJobRequest(
     /// <summary>A matrix cell's values as compact JSON in axis order (<c>OLVE_CELL</c>); null for a plain step.</summary>
     public string? Cell { get; init; }
 
+    /// <summary>The harness mode the step container runs: <c>run</c>, or <c>preflight</c> for an attempt in preflight.</summary>
+    public string Mode { get; init; } = HarnessJobBuilder.RunMode;
+
     /// <summary>
     /// Builds the request from an attempt; the step fields come from the pinned manifest. A cell's Job runs its
-    /// matrix step (<see cref="StepName"/>, also the <c>olve-step</c> label) with <see cref="Cell"/>.
+    /// matrix step (<see cref="StepName"/>, also the <c>olve-step</c> label) with <see cref="Cell"/>. An attempt in
+    /// preflight runs <c>preflight</c> in a Job and URL Secret of its own.
     /// </summary>
     public static HarnessJobRequest ForAttempt(
         Attempt attempt, string versionStamp, string stepImage, long? timeoutSeconds,
         IReadOnlyList<string> secrets, HarnessUrls urls, bool clusterAccess = false, MatrixCell? cell = null)
         => new(attempt.KubernetesJobName, attempt.Id, attempt.PipelineId, attempt.RunId, attempt.RunNumber,
             cell?.Step ?? attempt.StepName, attempt.Number, versionStamp, stepImage, timeoutSeconds, secrets,
-            PipelineSecrets.Name(attempt.PipelineId), urls, ClusterAccess: clusterAccess)
-        { Cell = cell?.Json };
+            PipelineSecrets.Name(attempt.PipelineId), urls, UrlSecretNameOverride: HarnessStorageKeys.UrlSecretName(attempt), ClusterAccess: clusterAccess)
+        { Cell = cell?.Json, Mode = attempt.InPreflight ? HarnessJobBuilder.PreflightMode : HarnessJobBuilder.RunMode };
 }
 
 /// <summary>A <c>map-trigger</c> Job: the version's binary maps one event to pipeline input.</summary>
@@ -91,6 +95,12 @@ public static partial class HarnessJobBuilder
     public const string InitContainerName = "olve-init";
     public const string StepContainerName = "step";
     public const string ScratchVolumeName = "olve";
+
+    /// <summary>The harness mode of a step attempt's Job.</summary>
+    public const string RunMode = "run";
+
+    /// <summary>The harness mode of an attempt's preflight Job.</summary>
+    public const string PreflightMode = "preflight";
 
     /// <summary><c>olve-role</c> of step attempt Jobs.</summary>
     public const string StepRole = "step";
@@ -210,7 +220,7 @@ public static partial class HarnessJobBuilder
         var step = new K8sContainer(
             StepContainerName,
             request.StepImage,
-            Command: ["/olve/lib/ld-linux-x86-64.so.2", "--library-path", "/olve/lib", "/olve/step", "run", request.StepName],
+            Command: ["/olve/lib/ld-linux-x86-64.so.2", "--library-path", "/olve/lib", "/olve/step", request.Mode, request.StepName],
             Env: stepEnv.ToArray(),
             VolumeMounts: [new K8sVolumeMount(ScratchVolumeName, "/olve")],
             SecurityContext: HarnessSecurity.Container,

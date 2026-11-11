@@ -23,7 +23,8 @@ internal sealed class FakeKubernetes : IKubernetesClient, IHarnessKubernetesClie
     public HarnessPodState? Existing { get; set; }
     /// <summary>States returned after creation (or on reattach); the last one repeats.</summary>
     public List<HarnessPodState?> States { get; } = [];
-    public bool Created { get; private set; }
+    /// <summary>A Job was created (or reattached); reset it to have the next Job submitted fresh.</summary>
+    public bool Created { get; set; }
     public int CreateJobCalls { get; private set; }
     public int FailCreateJobTimes { get; set; }
     public K8sJobManifest? LastJob { get; private set; }

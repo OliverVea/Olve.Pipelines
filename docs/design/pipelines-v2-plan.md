@@ -507,7 +507,7 @@ the library as patterns repeat; Olve.Pipelines prod last; `v2` → `main`.
   page, `pl run get` and `pl dev run`. The library deploys link to their target's `link` (or the
   literal `helmDeployOverSsh`'s `link`). A step-declared link was not built: the URL usually depends
   on config or on what the run did. A waiting step gets its link from an external input's `link`, a
-  path into one of its regular inputs (`docs/design/external-inputs.md`).
+  path into one of its regular inputs, and from its preflight's `ctx.link` (`docs/design/external-inputs.md`).
 
 ### Blocking, not gates (2026-10-22)
 

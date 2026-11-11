@@ -37,10 +37,11 @@ public class AttemptService(
     /// Schedules the next attempt of <paramref name="stepName"/> in a run, carrying its assembled
     /// <c>input.json</c> (<paramref name="input"/>) and that input's canonical hash. With
     /// <paramref name="awaitsInput"/> the attempt starts <see cref="Waiting"/> for the step's external inputs, showing
-    /// <paramref name="links"/> while it waits.
+    /// <paramref name="links"/> while it waits; with <paramref name="preflight"/> as well, it is first Scheduled for the
+    /// step's preflight (<see cref="FinishPreflight"/>).
     /// </summary>
     public Result<Attempt> Schedule(Id<Run> runId, string stepName, string? inputHash = null, string? input = null, bool awaitsInput = false,
-        IReadOnlyList<AttemptLink>? links = null)
+        IReadOnlyList<AttemptLink>? links = null, bool preflight = false)
     {
         if (input is not null)
         {
@@ -50,7 +51,37 @@ public class AttemptService(
                 return new ResultProblem("Input of step '{0}' is not well-formed JSON.", stepName);
         }
 
+        if (awaitsInput && preflight)
+            return Create(runId, stepName, inputHash, _ => new Scheduled(), input, links, new AttemptPreflight());
         return Create(runId, stepName, inputHash, now => awaitsInput ? new Waiting(now) : new Scheduled(), input, links);
+    }
+
+    /// <summary>
+    /// The preflight of an attempt in preflight succeeded: its <paramref name="links"/> join the attempt's, and it waits
+    /// for its external inputs, or is Scheduled to run when every name in <paramref name="required"/> was answered
+    /// meanwhile.
+    /// </summary>
+    public Result<Attempt> FinishPreflight(Id<Attempt> id, IReadOnlyList<AttemptLink>? links, IReadOnlyCollection<string> required)
+    {
+        if (!store.TryGet(id, out var attempt))
+            return new NotFoundProblem("Attempt '{0}' not found.", id);
+        if (!attempt.InPreflight)
+            return new ConflictProblem("Step '{0}' is not in its preflight (it is {1}).", attempt.StepName, attempt.Status.Discriminator());
+
+        var now = timeProvider.GetUtcNow();
+        if (Update(id, a =>
+            {
+                if (!a.InPreflight) return a;
+                var complete = required.All(name => a.Answers?.ContainsKey(name) == true);
+                return a with
+                {
+                    Status = complete ? new Scheduled() : new Waiting(now),
+                    Preflight = new AttemptPreflight(now),
+                    Links = links is null ? a.Links : AttemptLink.Merge(a.Links, links),
+                };
+            }).TryPickProblems(out var problems))
+            return problems;
+        return store.TryGet(id, out var after) ? after : new NotFoundProblem("Attempt '{0}' not found.", id);
     }
 
     /// <summary>Records an attempt the scheduler failed without running (e.g. its input exceeds the cap).</summary>
@@ -197,13 +228,13 @@ public class AttemptService(
     /// <summary>
     /// Records <paramref name="answer"/> for external input <paramref name="name"/> of a Waiting attempt and
     /// writes it into the attempt's <c>input.json</c>; the attempt becomes Scheduled once every name in
-    /// <paramref name="required"/> is answered.
+    /// <paramref name="required"/> is answered. An attempt in preflight keeps the answer until its preflight succeeds.
     /// </summary>
     public Result<Attempt> Answer(Id<Attempt> id, string name, ExternalAnswer answer, IReadOnlyCollection<string> required)
     {
         if (!store.TryGet(id, out var attempt))
             return new NotFoundProblem("Attempt '{0}' not found.", id);
-        if (attempt.Status is not Waiting)
+        if (attempt.Status is not Waiting && !attempt.InPreflight)
             return new ConflictProblem("Step '{0}' is not waiting for input (it is {1}).", attempt.StepName, attempt.Status.Discriminator());
 
         var value = JsonNode.Parse(answer.Value);
@@ -215,9 +246,9 @@ public class AttemptService(
 
         if (Update(id, a =>
             {
-                if (a.Status is not Waiting) return a;
+                if (a.Status is not Waiting && !a.InPreflight) return a;
                 var answers = new Dictionary<string, ExternalAnswer>(a.Answers ?? new Dictionary<string, ExternalAnswer>(), StringComparer.Ordinal) { [name] = answer };
-                var complete = required.All(answers.ContainsKey);
+                var complete = a.Status is Waiting && required.All(answers.ContainsKey);
                 return a with { Input = inputJson, Answers = answers, Status = complete ? new Scheduled() : a.Status };
             }).TryPickProblems(out var problems))
             return problems;
@@ -270,7 +301,7 @@ public class AttemptService(
     internal DeletionResult Delete(Id<Attempt> id) => store.Delete(id);
 
     private Result<Attempt> Create(Id<Run> runId, string stepName, string? inputHash, Func<DateTimeOffset, AttemptStatus> status, string? input = null,
-        IReadOnlyList<AttemptLink>? links = null)
+        IReadOnlyList<AttemptLink>? links = null, AttemptPreflight? preflight = null)
     {
         if (string.IsNullOrWhiteSpace(stepName))
             return new ResultProblem("Step name is required.");
@@ -291,7 +322,8 @@ public class AttemptService(
                 now,
                 inputHash,
                 Input: input,
-                Links: links);
+                Links: links)
+            { Preflight = preflight };
             store.Set(attempt);
             return attempt;
         }

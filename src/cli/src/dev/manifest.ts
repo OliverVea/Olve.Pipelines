@@ -15,6 +15,8 @@ export type DevStep = {
   isFailureHandler: boolean;
   /** External input name -> its model. */
   externalInputs: Record<string, string>;
+  /** The step runs its preflight before it waits for its external inputs. */
+  preflight: boolean;
   /** Inputs that read every cell of a matrix step (`cells(Model)`). */
   cellsInputs: Record<string, boolean>;
   matrix?: DevMatrix;
@@ -156,6 +158,7 @@ function parseStep(step: JsonObject, isFailureHandler: boolean): DevStep {
         str(obj(v)?.model) ?? '?',
       ]),
     ),
+    preflight: step.preflight === true,
     cellsInputs,
     ...(matrix
       ? {

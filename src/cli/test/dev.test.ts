@@ -37,7 +37,10 @@ type Script = (
   env: Record<string, string | null | undefined>,
 ) => { envelope: JsonObject; exitCode: number };
 
-/** Stands in for bun: `describe` prints the manifest, `run` writes the step's envelope where the harness would. */
+/**
+ * Stands in for bun: `describe` prints the manifest, `run` (and `preflight`, scripted as `preflight:<step>`) writes
+ * the step's envelope where the harness would.
+ */
 function fakeHarness(manifest: string) {
   const calls: ProcessSpec[] = [];
   const inputs: Record<string, JsonObject> = {};
@@ -51,15 +54,18 @@ function fakeHarness(manifest: string) {
       return state.describeExit === 0
         ? { exitCode: 0, stdout: manifest, stderr: '' }
         : { exitCode: state.describeExit, stdout: '', stderr: state.describeStderr };
-    if (args[1] === 'run') {
-      const step = args[3]!;
+    if (args[1] === 'run' || args[1] === 'preflight') {
+      const step = args[1] === 'run' ? args[3]! : `preflight:${args[3]!}`;
       const olveDir = args[5]!;
       const input = JSON.parse(
         readFileSync(join(olveDir, 'input.json'), 'utf8'),
       ) as JsonObject;
       inputs[step] = input;
       const { envelope, exitCode } = steps[step]?.(input, olveDir, spec.env ?? {}) ?? {
-        envelope: { status: 'succeeded', output: { from: step } },
+        envelope: {
+          status: 'succeeded',
+          output: args[1] === 'run' ? { from: step } : null,
+        },
         exitCode: 0,
       };
       mkdirSync(join(olveDir, 'work'), { recursive: true });
@@ -72,7 +78,10 @@ function fakeHarness(manifest: string) {
     }
     return { exitCode: 0, stdout: '', stderr: '' };
   };
-  const ran = () => calls.filter((c) => c.args[1] === 'run').map((c) => c.args[3]);
+  const ran = () =>
+    calls
+      .filter((c) => c.args[1] === 'run' || c.args[1] === 'preflight')
+      .map((c) => (c.args[1] === 'run' ? c.args[3] : `preflight:${c.args[3]}`));
   return { run, calls, inputs, steps, state, ran };
 }
 
@@ -372,6 +381,29 @@ describe('pl dev', () => {
     expect(build.stderr).toContain('log from build');
     const unknown = await dev(['run', 'nope'], h, p);
     expect(unknown.stderr).toContain("Unknown step 'nope'");
+  });
+
+  test('a step with a preflight runs it first; a failed preflight is the outcome and the handler does not run', async () => {
+    const withPreflight = demoText.replace(
+      '"externalInputs": {',
+      '"preflight": true,\n                  "externalInputs": {',
+    );
+    const p = pipelineDir();
+    const h = fakeHarness(withPreflight);
+    const file = join(p.root, 'in.json');
+    writeFileSync(file, '{"release":{"url":"https://x"},"verdict":{"accepted":true}}');
+    const ok = await dev(['run', 'publish', '--input-file', file], h, p);
+    expect(ok.code).toBe(0);
+    expect(h.ran()).toEqual(['preflight:publish', 'publish']);
+    expect(ok.stderr).toContain("running the preflight of 'publish' from source");
+    h.steps['preflight:publish'] = () => ({
+      envelope: { status: 'failed', error: { kind: 'handler', message: 'tool down' } },
+      exitCode: 1,
+    });
+    const failed = await dev(['run', 'publish', '--input-file', file, '--json'], h, p);
+    expect(failed.code).toBe(1);
+    expect(h.ran()).toEqual(['preflight:publish', 'publish', 'preflight:publish']);
+    expect(JSON.parse(failed.stdout.trim()).error.message).toBe('tool down');
   });
 
   test('run --input-file is used verbatim; --input-file with --field is refused', async () => {

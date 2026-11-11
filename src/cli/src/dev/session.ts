@@ -55,6 +55,10 @@ export type DescribeOutcome = {
   problems: string;
 };
 export type StepOutcome = { envelope?: JsonObject; exitCode: number };
+
+type HarnessMode = 'run' | 'preflight';
+const describeRun = (mode: HarnessMode, name: string) =>
+  mode === 'preflight' ? `the preflight of '${name}'` : `'${name}'`;
 export const outcomeStatus = (o: StepOutcome) => str(o.envelope?.status) ?? 'no result';
 
 export type RunOptions = {
@@ -118,13 +122,24 @@ export class DevSession {
     if (cell) extraEnv[CELL_ENV] = JSON.stringify(cell);
     const name = cell ? cellName(step.name, cell) : step.name;
     mkdirSync(this.workspace.poolFiles, { recursive: true });
-    rmSync(this.workspace.outputJson, { force: true }); // a usage or config failure writes none: never read a stale one
-    const exitCode = options.docker
-      ? await this.runInDocker(manifest, step, secrets, extraEnv, name)
-      : await this.runFromSource(manifest, step, secrets, extraEnv, name);
-    const envelope = this.readEnvelope();
-    pool.record(name, envelope, this.workspace);
-    return { envelope, exitCode };
+    const harness = async (mode: HarnessMode): Promise<StepOutcome> => {
+      rmSync(this.workspace.outputJson, { force: true }); // a usage or config failure writes none: never read a stale one
+      const exitCode = options.docker
+        ? await this.runInDocker(manifest, step, secrets, extraEnv, name, mode)
+        : await this.runFromSource(manifest, step, secrets, extraEnv, name, mode);
+      return { envelope: this.readEnvelope(), exitCode };
+    };
+    // As the service does before the step waits: a failed preflight is the step's outcome.
+    if (step.preflight) {
+      const preflight = await harness('preflight');
+      if (preflight.exitCode !== 0 || preflight.envelope?.status !== 'succeeded') {
+        pool.record(name, preflight.envelope, this.workspace);
+        return preflight;
+      }
+    }
+    const outcome = await harness('run');
+    pool.record(name, outcome.envelope, this.workspace);
+    return outcome;
   }
 
   /** As the service does: the step reads its config from `$config` in input.json. */
@@ -144,8 +159,9 @@ export class DevSession {
     secrets: Record<string, string | null>,
     extraEnv: Record<string, string>,
     name: string,
+    mode: HarnessMode,
   ): Promise<number> {
-    status(this.console, `running '${name}' from source`);
+    status(this.console, `running ${describeRun(mode, name)} from source`);
     const env = {
       ...harnessEnvironment(
         manifest,
@@ -163,7 +179,7 @@ export class DevSession {
         command: this.tools.bun,
         args: [
           this.tools.devCli,
-          'run',
+          mode,
           this.pipelineDir,
           step.name,
           '--olve-dir',
@@ -185,6 +201,7 @@ export class DevSession {
     secrets: Record<string, string | null>,
     extraEnv: Record<string, string>,
     name: string,
+    mode: HarnessMode,
   ): Promise<number> {
     await this.build();
     const libDir = await this.loaderLibs();
@@ -205,10 +222,10 @@ export class DevSession {
       '--library-path',
       '/olve/lib',
       '/olve/step',
-      'run',
+      mode,
       step.name,
     );
-    status(this.console, `running '${name}' in ${step.image}`);
+    status(this.console, `running ${describeRun(mode, name)} in ${step.image}`);
     const created = await this.run(
       { command: 'docker', args, env: secrets, onStderrLine: (l) => this.console.err(l) },
       this.signal,

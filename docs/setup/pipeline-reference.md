@@ -135,7 +135,7 @@ export const deployBeta = step({
 
   | Source | Answered by |
   |---|---|
-  | `callback()` | another system, POSTing the value as JSON to the run's callback URL for the input. An earlier step hands it over: `ctx.inputUrl(reviewStep, "verdict")`. The URL is the credential (anonymous, under `Webhooks:PublicBaseUrl`) and works only while the step waits for that input: a POST before then gets 409, so callers retry. `{"$decline": "reason"}` declines. |
+  | `callback()` | another system, POSTing the value as JSON to the run's callback URL for the input. The step's preflight (below) or an earlier step hands it over: `ctx.inputUrl(reviewStep, "verdict")`. The URL is the credential (anonymous, under `Webhooks:PublicBaseUrl`) and works while the step waits for that input or runs its preflight: a POST before then gets 409, so callers retry. `{"$decline": "reason"}` declines. |
   | `poll({ url, valuePath, intervalSeconds? })` | the service: it GETs `url` every `intervalSeconds` (default 30, at least 10) while the step waits, and answers with the JSON at `valuePath` (`.` = the whole body) once it validates. `{run.id}` and `{run.number}` in the URL are filled in. Like poll triggers it only reaches public addresses, unless the instance allows the host (`ExternalInputs:Poll:AllowedHosts`). |
   | `person()` (the default) | a signed-in user, in the UI or with `pl input answer`. |
 
@@ -151,6 +151,30 @@ export const deployBeta = step({
   and in the step view while it waits, and stays first among the step's links once the handler has
   added its own. A value that is not an absolute http(s) URL shows no link (the server logs a
   warning); the step waits all the same.
+
+  A **preflight** hands the work to whatever answers, from the same step. Pass it to `implement`:
+
+  ```ts
+  export const visualReview = implement(review, ({ verdict }) => { if (!verdict.accepted) throw new Error("rejected"); }, {
+    preflight: async ({ screenshots }, ctx) => {
+      const submitted = await submit(screenshots, ctx.inputUrl(review, "verdict"));
+      ctx.link(submitted.url, "Review in VR");
+    },
+  });
+  ```
+
+  Only a step with an external input may have one. Once the step's other inputs are available, its
+  attempt runs the preflight first, as a short Job of its own (the step's image, secrets and timeout;
+  the attempt shows as in progress). The preflight gets the step's regular inputs (the external values
+  don't exist yet) and the handler's `ctx` without `output` and `skip`. When it returns, the step
+  waits as above, with no pod up; the preflight's `ctx.link` links join the waiting links (a URL
+  already there is not repeated) and stay on the attempt once the handler has run. Throwing fails the
+  attempt without waiting. A value that arrives while the preflight still runs is kept and answers the
+  step once the preflight succeeds; a decline then gets 409. A rerun runs the preflight again, with
+  the same callback URL (it is the run's). A step runs one attempt at a time, so a newer run's
+  preflight starts once an older run's preflight of the step has ended; the older attempt is then
+  replaced as soon as it would start waiting, and its run is superseded. Cancelling what the older
+  preflight handed over is the answering tool's business.
 
   The first value that validates against the model answers; it arrives in the handler like any other
   input, and the attempt records it with its source. Only a listed source may answer or decline.
@@ -635,6 +659,7 @@ reconcile (`pl dev validate`). A pipeline that fails any check never becomes a v
 | A matrix with no or more than 4 axes, an axis or value outside its pattern, a repeated value, an exclude naming an unknown axis or value, more than 64 cells or none, `maxParallel` below 1; a matrix failure handler; external inputs on a matrix step | reconcile |
 | A matrix step read other than whole through a `cells` input; a `cells` input of a plain step, or of a matrix step inside a `when`; select cases disagreeing on whether a step is a matrix step | reconcile |
 | An input key starting with `$` (reserved) | describe |
+| A preflight on a step without an external input | TS, describe, reconcile |
 | A staged step without an implementation | describe |
 | A matrix exclude naming an unknown axis or value | TS, describe, reconcile |
 | A matrix with 0 or more than 4 axes, a bad axis name or value, a repeated value, no cells or more than 64, an unknown failure strategy, `maxParallel` below 1; a matrix failure handler | describe, reconcile |
@@ -651,7 +676,8 @@ declare changes. A code change alone bumps neither; `git diff` between two versi
 
 - a model: its JSON Schema;
 - a step: image, input/output model versions, secrets, the schemas of its config entries, mappings,
-  settings and its matrix (axes, excludes, failure strategy, `maxParallel`);
+  settings, its external inputs, whether it has a preflight, and its matrix (axes, excludes, failure
+  strategy, `maxParallel`);
 - stage placement and `when` wrapping are pipeline changes, not step changes.
 
 Only commits that touch the binding path or one of its local package dependencies (`file:` /

@@ -16,7 +16,17 @@ import {
   uploadFile,
 } from '../../src/harness/result.ts';
 import { parseStrict, strippedKeys } from '../../src/harness/validate.ts';
-import { config, fileRef, implement, model, pipeline, step, z } from '../../src/index.ts';
+import {
+  callback,
+  config,
+  external,
+  fileRef,
+  implement,
+  model,
+  pipeline,
+  step,
+  z,
+} from '../../src/index.ts';
 import { EXAMPLE, SHA, captureIO, tmp, withEnv, removeTmpDirs } from './helpers.ts';
 
 afterAll(removeTmpDirs);
@@ -237,7 +247,7 @@ describe('run', () => {
     });
   });
   const USAGE =
-    'usage: step describe [--sentinels] | step run <step> | step map-trigger <trigger>';
+    'usage: step describe [--sentinels] | step run <step> | step preflight <step> | step map-trigger <trigger>';
   test.each([
     { args: ['run'], err: USAGE },
     { args: ['map-trigger'], err: USAGE },
@@ -677,6 +687,106 @@ describe('run', () => {
     const r = await run(['run', 'aoe-triage'], { failure });
     expect(r.code).toBe(0);
     expect(r.io.err.join('\n')).toMatch(/would open an agent session run=p#1/);
+  });
+});
+
+describe('preflight', () => {
+  const Review = model('PfReview', z.object({ url: z.string() }));
+  const Verdict = model('PfVerdict', z.object({ accepted: z.boolean() }));
+  const reviewStep = step({
+    name: 'review',
+    description: '',
+    image: 'alpine',
+    secrets: [],
+    input: {
+      review: Review,
+      verdict: external(Verdict, { title: 'Accepted?', from: [callback()] }),
+    },
+  });
+  const ran: unknown[] = [];
+  const reviewed = implement(
+    reviewStep,
+    ({ verdict }) => {
+      if (!verdict.accepted) throw new Error('rejected');
+    },
+    {
+      preflight: async (input, ctx) => {
+        ran.push(input);
+        if (input.review.url === 'boom') throw new Error('the tool is down');
+        ctx.link(input.review.url, 'Review');
+        ctx.log('submitted', { callback: ctx.inputUrl('review', 'verdict') });
+      },
+    },
+  );
+  const plain = custom('plain', {}, () => null);
+  const p = [reviewed, plain].reduce((acc: any, s) => acc.stage(s), bare());
+  const callbacks = {
+    OLVE_CALLBACK_URLS: JSON.stringify({ 'review/verdict': 'https://cb/x' }),
+  };
+
+  test('runs on the regular inputs, ignores an answer already given, and reports its links', async () => {
+    ran.length = 0;
+    const r = await runWith(
+      p,
+      ['preflight', 'review'],
+      { review: { url: 'https://vr/r/1' }, verdict: { accepted: true } },
+      callbacks,
+    );
+    expect(r.code).toBe(EXIT.ok);
+    expect(ran).toEqual([{ review: { url: 'https://vr/r/1' } }]);
+    expect(r.envelope).toEqual({
+      status: 'succeeded',
+      output: null,
+      links: [{ url: 'https://vr/r/1', label: 'Review' }],
+    });
+    expect(r.io.err).toContain('submitted callback=https://cb/x');
+    expect(r.io.out).toContain(RESULT_BEGIN);
+  });
+
+  test.each([
+    {
+      name: 'a throw fails it (exit 1)',
+      input: { review: { url: 'boom' } },
+      code: EXIT.handlerFailed,
+      error: {
+        kind: 'handler',
+        message: "step 'review' preflight failed: the tool is down",
+      },
+    },
+    {
+      name: 'a missing regular input fails it (exit 65)',
+      input: { verdict: { accepted: true } },
+      code: EXIT.inputInvalid,
+      error: {
+        kind: 'input',
+        message:
+          "step 'review' preflight: input does not match the step's inputs:\n  input.review: missing",
+      },
+    },
+  ])('$name', async ({ input, code, error }) => {
+    const r = await runWith(p, ['preflight', 'review'], input, callbacks);
+    expect(r.code).toBe(code);
+    expect(r.envelope).toEqual({ status: 'failed', error });
+  });
+
+  test('a step without a preflight exits 78 and says so', async () => {
+    const r = await runWith(p, ['preflight', 'plain'], {});
+    expect(r.code).toBe(EXIT.configInvalid);
+    expect(r.io.err).toEqual([
+      "step 'plain' has no preflight (implement(step, fn, { preflight }))",
+    ]);
+  });
+
+  test('implement refuses a preflight on a step without an external input', () => {
+    const noWait = step({
+      name: 'no-wait',
+      description: '',
+      image: 'alpine',
+      input: { review: Review },
+    });
+    expect(() => implement(noWait, () => {}, { preflight: () => {} } as never)).toThrow(
+      "step 'no-wait': a preflight needs a step with an external(...) input",
+    );
   });
 });
 

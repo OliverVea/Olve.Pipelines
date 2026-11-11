@@ -38,12 +38,26 @@ public record Attempt(
     public StepKey Key => new(PipelineId, StepName);
 
     /// <summary>
+    /// The step's preflight (null when the step has none): it runs as the attempt's first Job, before the attempt waits
+    /// for its external inputs.
+    /// </summary>
+    public AttemptPreflight? Preflight { get; init; }
+
+    /// <summary>The attempt's next or current Job is its preflight (Scheduled or InProgress).</summary>
+    [JsonIgnore]
+    public bool InPreflight => Preflight is { PassedAt: null } && Status is AttemptStatus.Scheduled or AttemptStatus.InProgress;
+
+    /// <summary>
     /// Deterministic K8s Job name. Load-bearing: after a restart the executor derives it from the
-    /// persisted id to decide between submitting and reattaching. <c>olve-</c> + 32 hex = 37 chars.
+    /// persisted id to decide between submitting and reattaching. <c>olve-</c> + 32 hex = 37 chars; a preflight's Job
+    /// adds <c>-preflight</c>.
     /// </summary>
     [JsonIgnore]
-    public string KubernetesJobName => $"olve-{Id.Value.Value:N}";
+    public string KubernetesJobName => InPreflight ? $"olve-{Id.Value.Value:N}-preflight" : $"olve-{Id.Value.Value:N}";
 }
+
+/// <summary>An attempt's preflight: pending until it succeeds (<see cref="PassedAt"/>).</summary>
+public record AttemptPreflight(DateTimeOffset? PassedAt = null);
 
 /// <summary>A link a step reported: an absolute http(s) URL and an optional label.</summary>
 public record AttemptLink(string Url, string? Label = null)

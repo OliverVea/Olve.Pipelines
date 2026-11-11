@@ -687,6 +687,11 @@
           ],
           "description": "Output model, or null if the step produces no output."
         },
+        "preflight": {
+          "const": true,
+          "description": "The step runs its preflight (the harness's 'preflight <step>' mode, on the step's non-external inputs) before it waits for its external inputs; only a step with external inputs has one. Omitted = none.",
+          "type": "boolean"
+        },
         "retries": {
           "maximum": 9007199254740991,
           "minimum": 0,

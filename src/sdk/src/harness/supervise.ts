@@ -30,10 +30,11 @@ function ownArgv(): string[] {
 
 /**
  * Runs the step as a masked child and answers its exit code, or undefined when this process should
- * run the step itself: it is the child, the mode isn't `run`, or there is nothing to mask.
+ * run the step itself: it is the child, the mode isn't `run` or `preflight`, or there is nothing to mask.
  */
 export async function supervise(argv: readonly string[]): Promise<number | undefined> {
-  if (argv[0] !== 'run' || process.env[SUPERVISED]) return undefined;
+  if ((argv[0] !== 'run' && argv[0] !== 'preflight') || process.env[SUPERVISED])
+    return undefined;
   const patterns = secretPatterns();
   if (patterns.length === 0) return undefined;
 

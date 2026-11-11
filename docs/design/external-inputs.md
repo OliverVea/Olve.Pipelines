@@ -1,6 +1,6 @@
 # External inputs: steps that wait for the outside world
 
-Status: built 2026-10-26 (person, callback, poll). Not built: per-input timeouts, `--reuse-input` on reruns, mappings in titles, callback HMAC secrets, poll headers. Callback URLs are `{Webhooks:PublicBaseUrl}/api/hooks/inputs/{run}/{step}/{input}/{mac}` (HMAC under an instance key kept in storage), not minted tokens; beta-test waits for the test fixture's callback and poll steps, answered by a signal-test service deployed next to beta. Replaces the "gating steps" candidate in the v2 plan.
+Status: built 2026-10-26 (person, callback, poll); preflight built 2026-11-11. Not built: per-input timeouts, `--reuse-input` on reruns, mappings in titles, callback HMAC secrets, poll headers. Callback URLs are `{Webhooks:PublicBaseUrl}/api/hooks/inputs/{run}/{step}/{input}/{mac}` (HMAC under an instance key kept in storage), not minted tokens; beta-test waits for the test fixture's callback step (which asks for its callback in its preflight) and poll step, answered by a signal-test service deployed next to beta. Replaces the "gating steps" candidate in the v2 plan.
 
 ## 1. Why
 
@@ -71,10 +71,19 @@ An external input lists one or more sources; the first value that arrives wins.
 Ideas, not planned until a pipeline needs them: `at(time)` (maintenance windows) and waiting for
 another pipeline (more likely a trigger, `onRun`, than an input).
 
-**Telling the outside world.** A step that runs earlier can include the wait's callback URL and a
-link to it in what it sends out: `ctx.inputUrl("vr-verdict")` gives the URL for that external input
-of this run, minted when the run starts, and `ctx.runUrl()` links the run. The visual-regression
-flow (§6) uses this.
+**Telling the outside world.** The step's own preflight (below), or a step that runs earlier, includes
+the wait's callback URL in what it sends out: `ctx.inputUrl(step, "verdict")` gives the URL for that
+external input of this run (one URL per run, step and input). The visual-regression flow (§6) uses
+this.
+
+**Preflight.** A step with an external input may run code before it waits:
+`implement(step, handler, { preflight: async (input, ctx) => … })`. The preflight gets the step's
+regular inputs (the external values don't exist yet) and the handler's `ctx` without `output` and
+`skip`; it hands the work and `ctx.inputUrl(...)` to the tool and can `ctx.link` to where the answer
+is given. It runs as a short Job of its own (the harness's `preflight <step>` mode, no result upload:
+its envelope, links only, comes from the log), after which the step waits with no pod up. The
+manifest records `preflight: true` on the step (part of its version); `describe`, the types and
+reconcile refuse one on a step without an external input.
 
 **Linking to where the answer is given.** A waiting step's handler hasn't run, so it has no
 `ctx.link` links yet. `link` on the external input names where its link comes from: one of the same
@@ -114,6 +123,25 @@ Waiting(since, request) ──value──▶ Scheduled ─▶ InProgress ─▶ 
         └─ run cancelled ▶ Cancelled
 ```
 
+A step with a preflight starts one step earlier:
+
+```
+Scheduled ─▶ InProgress (the preflight Job) ──returns──▶ Waiting … as above
+                       │                    └─ every input already answered ─▶ Scheduled
+                       └─ throws ─▶ Failed ("step '<step>' preflight failed: …")
+```
+
+- **The API shows the preflight as the attempt running**: `scheduled`, then `in-progress`, then
+  `waiting`; no new status. Its Job is `olve-<attempt>-preflight` (the attempt's own Job keeps
+  `olve-<attempt>`), and its log starts the attempt's log.
+- **Its links** join the waiting links (deduplicated by URL), and the handler's follow them.
+- **An answer during the preflight** (a tool that answers at once) is kept on the attempt and
+  applied when the preflight succeeds. A decline during it gets 409.
+- **Superseding.** A step runs one attempt at a time, so a newer run's preflight starts once an
+  older run's preflight has ended. An attempt contends for its step when it is added and again when
+  it starts waiting, so the older attempt becomes Obsolete as soon as its preflight succeeds. What
+  the older preflight handed over is the tool's to cancel (VR's `--supersede`).
+- **Reruns** run the preflight again; the callback URL is the run's, so it is the same URL.
 - **Waiting holds the run at the stage**, like any unfinished step. It isn't the operator hold of a
   blocked step (`Run.HeldAt`); the UI shows "waiting for input" with the request.
 - **Latest wins.** Waiting counts like Scheduled: a newer run that reaches the same step makes the
@@ -136,7 +164,7 @@ existing attempt from Waiting to Scheduled and never creates attempts directly.
 ## 5. Surfaces
 
 - **Manifest.** An input entry `{ external: { model, title, description, from: [...], link?, timeout? } }`,
-  `link` being `{ input, path?, label? }`.
+  `link` being `{ input, path?, label? }`; `preflight: true` on a step that runs a preflight.
   Titles and descriptions can use mappings (`Deploy ${from.build.version}?`), recorded as tagged
   mappings and rendered by the service.
 - **API.** `GET /api/inputs?status=waiting` (everything waiting, across pipelines);
@@ -154,13 +182,13 @@ existing attempt from Waiting to Scheduled and never creates attempts directly.
 
 ## 6. Visual regression with an external tool
 
-The tool owns baselines, diffs and its review UI. The pipeline only hands work over and waits:
+The tool owns baselines, diffs and its review UI. The pipeline only hands work over and waits, in one
+step:
 
 ```ts
 .stage(test)                    // produces screenshots as files
-.stage(submitReview)            // posts them to the tool with ctx.inputUrl("verdict"); outputs Review { run, url }
-.stage(reviewVerdict)           // input: review: Review, verdict: external(Verdict, { from: [callback()],
-                                //   link: { input: "review", path: "url" } })
+.stage(visualReview)            // input: screenshots, verdict: external(Verdict, { from: [callback()] });
+                                // its preflight posts the screenshots with ctx.inputUrl(...) and links the review
 .stage(publish)
 ```
 

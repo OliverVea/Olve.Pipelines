@@ -90,7 +90,7 @@ public class RunContinuationService(
                 foreach (var name in units.Select(u => u.Name))
                 {
                     if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0,
-                            links: WaitingLinks.For(step, schedule.Json, run, name, logger))
+                            links: WaitingLinks.For(step, schedule.Json, run, name, logger), preflight: step.Preflight)
                         .TryPickProblems(out var problems, out var attempt))
                         return problems;
                     first ??= attempt;

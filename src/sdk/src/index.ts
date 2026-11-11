@@ -79,6 +79,10 @@ export {
   type CtxOf,
   type Handler,
   type HandlerResult,
+  type ImplementOptions,
+  type Preflight,
+  type PreflightCtxOf,
+  type PreflightInput,
   type Skipped,
 } from './core/handlers.ts';
 export type {

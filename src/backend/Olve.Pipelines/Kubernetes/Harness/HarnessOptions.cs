@@ -125,4 +125,7 @@ public static class HarnessStorageKeys
 
     /// <summary>Per-attempt Secret carrying the pre-signed URLs (they embed the access key id).</summary>
     public static string UrlSecretName(Id<Attempt> attemptId) => $"olve-urls-{attemptId.Value.Value:N}";
+
+    /// <summary>The URL Secret of the attempt's current Job: its preflight's while it is in preflight.</summary>
+    public static string UrlSecretName(Attempt attempt) => $"olve-urls-{attempt.KubernetesJobName["olve-".Length..]}";
 }

@@ -1,6 +1,7 @@
 // The harness: one executable, three modes.
 //   describe [--sentinels]   → manifest (canonical JSON) on stdout
 //   run <step>               → $OLVE_DIR/input.json → handler → $OLVE_DIR/work/output.json (+ result upload)
+//   preflight <step>         → the step's non-external inputs → preflight → envelope (links only, no output)
 //   map-trigger <trigger>    → $OLVE_DIR/input.json (event) → pipeline input → $OLVE_DIR/work/output.json
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ import type { HarnessInfo } from '../util/code-hash.ts';
 import { callbackUrlsFromEnv, ENV, paths, runInfoFromEnv } from './env.ts';
 import { EXIT } from './exit.ts';
 import {
+  executePreflight,
   executeStep,
   type Envelope,
   type Execution,
@@ -56,7 +58,7 @@ export const defaultIO: HarnessIO = {
 };
 
 const USAGE =
-  'usage: step describe [--sentinels] | step run <step> | step map-trigger <trigger>';
+  'usage: step describe [--sentinels] | step run <step> | step preflight <step> | step map-trigger <trigger>';
 
 /** Every step with the `select` case conditions (`<ref>.<discriminator>=<value>`) it sits in. */
 export function stepsWithCases(data: PipelineData): { step: AnyStep; cases: string[] }[] {
@@ -125,6 +127,13 @@ export function resolveStepFunction(step: AnyStep): StepFunction | string {
   return `step '${step.name}' has no implementation (stage implement(step({...}), fn))`;
 }
 
+/** The preflight `step` carries, or what is wrong. */
+export function resolvePreflight(step: AnyStep): StepFunction | string {
+  if (isImplementation(step) && step.preflight)
+    return step.preflight as unknown as StepFunction;
+  return `step '${step.name}' has no preflight (implement(step, fn, { preflight }))`;
+}
+
 /** Writes output.json, prints the sentinel block and uploads result.tar.gz when OLVE_RESULT_URL is set. */
 export async function finish(exec: Execution, io: HarnessIO): Promise<number> {
   const p = paths();
@@ -182,12 +191,13 @@ async function runMode(
   cfg: HarnessConfig,
   name: string | undefined,
   io: HarnessIO,
+  mode: 'run' | 'preflight' = 'run',
 ): Promise<number> {
   if (!name) return (io.stderr(USAGE), EXIT.usage);
   const data = pipelineData(cfg.pipeline);
   const step = findStep(data, name, selectedCases());
   if (typeof step === 'string') return (io.stderr(step), EXIT.usage);
-  const fn = resolveStepFunction(step);
+  const fn = mode === 'run' ? resolveStepFunction(step) : resolvePreflight(step);
   if (typeof fn === 'string') return (io.stderr(fn), EXIT.configInvalid);
 
   const p = paths();
@@ -225,17 +235,18 @@ async function runMode(
         callbackUrls: callbackUrlsFromEnv(),
         ...(cell?.ok ? { cell: cell.cell } : {}),
       });
-      exec = await executeStep({
+      const args = {
         step,
         fn,
         rawInput: raw.value,
         ctx,
         workFiles: p.files,
         log: io.stderr,
-      });
+      };
+      exec = await (mode === 'run' ? executeStep(args) : executePreflight(args));
     }
     if (uncaught !== undefined && exec.envelope.status !== 'failed') {
-      const message = `step '${step.name}' failed: an error nothing caught: ${uncaught instanceof Error ? uncaught.message : String(uncaught)}`;
+      const message = `step '${step.name}'${mode === 'preflight' ? ' preflight' : ''} failed: an error nothing caught: ${uncaught instanceof Error ? uncaught.message : String(uncaught)}`;
       io.stderr(message);
       exec = {
         envelope: { status: 'failed', error: { kind: 'handler', message } },
@@ -365,6 +376,8 @@ export async function runHarness(
       return describeMode(cfg, rest, io);
     case 'run':
       return runMode(cfg, rest[0], io);
+    case 'preflight':
+      return runMode(cfg, rest[0], io, 'preflight');
     case 'map-trigger':
       return mapTriggerMode(cfg, rest[0], io);
     default:

@@ -153,6 +153,49 @@ describe('external inputs in the manifest', () => {
   });
 });
 
+describe('a preflight', () => {
+  const submit = implement(
+    step({
+      name: 'submit',
+      description: '',
+      image: 'alpine',
+      input: { art: Art, verdict: external(Verdict, { title: 'Accepted?' }) },
+    }),
+    () => {},
+    { preflight: () => {} },
+  );
+
+  test('is recorded on its step only', () => {
+    const m = describeIt(
+      pipeline({ name: 't', input: Req }).stage(build).stage(submit).stage(review),
+    );
+    expect(Manifest.safeParse(m).success).toBe(true);
+    const [built, submitted, reviewed] = stepsOf(m);
+    expect(submitted!.preflight).toBe(true);
+    expect('preflight' in built!).toBe(false);
+    expect('preflight' in reviewed!).toBe(false);
+  });
+
+  test('on a step without an external input is a describe problem', () => {
+    const noWait = implement(
+      step({ name: 'no-wait', description: '', image: 'alpine', input: { req: Req } }),
+      () => {},
+    );
+    let problems: string[] = [];
+    try {
+      describeIt(
+        pipeline({ name: 't', input: Req }).stage({ ...noWait, preflight: () => {} }),
+      );
+    } catch (e) {
+      if (e instanceof DescribeError) problems = [...e.problems];
+      else throw e;
+    }
+    expect(problems).toContain(
+      "step 'no-wait': a preflight needs at least one external input",
+    );
+  });
+});
+
 describe('the harness', () => {
   test('validates an answered external input like any input, with defaults', () => {
     const r = validateInput(pick, { art: { version: '1' }, choice: { target: 'prod' } });

@@ -125,6 +125,7 @@ function stepLine(step: DevStep): string {
   const waits = Object.entries(step.externalInputs);
   if (waits.length)
     line += `  [waits for: ${waits.map(([k, v]) => `${k} (${v})`).join(', ')}]`;
+  if (step.preflight) line += '  [preflight]';
   return line;
 }
 

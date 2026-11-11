@@ -215,6 +215,30 @@ public class ManifestVersioningTests
             .IsEqualTo(new ExternalLink(changed["input"]!.GetValue<string>(), changed["path"]?.GetValue<string>(), changed["label"]?.GetValue<string>()));
     }
 
+    // Catches: the preflight left out of the step's content (adding one keeping the step's version) or of the canonical
+    // manifest.
+    [Test]
+    public async Task AddingAPreflight_BumpsTheStep()
+    {
+        static Manifest Waiting(bool preflight) => Mutate(r =>
+        {
+            Step(r, "deploy-beta")["externalInputs"] = new JsonObject
+            {
+                ["decision"] = new JsonObject { ["model"] = "BuildArtifact", ["title"] = "Go?", ["from"] = new JsonArray(new JsonObject { ["kind"] = "callback" }) },
+            };
+            if (preflight) Step(r, "deploy-beta")["preflight"] = true;
+        });
+        var v1 = ManifestVersioning.Compute(null, Waiting(false));
+
+        var v2 = ManifestVersioning.Compute(v1.History, Waiting(true));
+
+        await Assert.That(v2.ChangedSteps).IsEquivalentTo(["deploy-beta"]);
+        await Assert.That(StepVersions(v2)["deploy-beta"]).IsEqualTo(2);
+        var reparsed = ParseNode(JsonNode.Parse(v2.CanonicalManifest)!).Stages.SelectMany(StepsOf).Single(x => x.Name == "deploy-beta");
+        await Assert.That(reparsed.Preflight).IsTrue();
+        await Assert.That(v1.CanonicalManifest).DoesNotContain("preflight");
+    }
+
     private static IEnumerable<StepDescriptor> StepsOf(ManifestStage stage) => stage switch
     {
         StepsStage s => s.Steps,

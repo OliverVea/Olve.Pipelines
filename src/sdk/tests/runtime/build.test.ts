@@ -694,6 +694,7 @@ describe('olve-dev run', () => {
     expect(again.exitCode).toBe(0);
     expect(existsSync(join(dir, '.olve/work/files/stale.txt'))).toBe(false);
     expect(await devMain(['run', dir])).toBe(EXIT.usage);
+    expect(await devMain(['preflight', dir])).toBe(EXIT.usage);
   });
 
   test('map-trigger maps an event file; without one it is a usage error', async () => {

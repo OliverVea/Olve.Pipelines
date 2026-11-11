@@ -68,6 +68,7 @@ export function describeStep(
     ),
   ].sort();
   const carried = isImplementation(s);
+  const preflight = carried && typeof s.preflight === 'function';
   const { settings, settingsProblem } = recordSettings(s, carried);
   const refs = settings ? recordedConfigRefs(settings) : [];
   checkConfigSecrets(ctx, at, configNames, refs, secretNames);
@@ -109,7 +110,10 @@ export function describeStep(
     ...(configNames.length ? { configEntries: configNames } : {}),
     ...(s.clusterAccess === true ? { clusterAccess: true as const } : {}),
     ...(Object.keys(externalInputs).length ? { externalInputs } : {}),
+    ...(preflight ? { preflight: true as const } : {}),
   };
+  if (preflight && Object.keys(externalInputs).length === 0)
+    problems.push(`${at}: a preflight needs at least one external input`);
   if (s.clusterAccess !== undefined && typeof s.clusterAccess !== 'boolean')
     problems.push(`${at}: clusterAccess must be a boolean`);
   if (s.output && !isModel(s.output)) problems.push(`${at}: output must be a model`);

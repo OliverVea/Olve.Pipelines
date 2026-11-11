@@ -24,6 +24,9 @@ namespace Olve.Pipelines.Jobs;
 /// attempt; once that is saved delete the archive, and delete the URL Secret. On controller shutdown (cancellation) nothing
 /// is cleaned up, so the reattach finds working URLs.</item>
 /// </list>
+/// An attempt in preflight runs the same way as a Job of its own (<c>preflight &lt;step&gt;</c>, no result upload): its
+/// envelope comes from the log, a success makes the attempt wait (<see cref="AttemptService.FinishPreflight"/>) and a
+/// failure fails it. Its log starts the attempt's log.
 /// </summary>
 public class KubernetesJobExecutor(
     IServiceScopeFactory scopeFactory,
@@ -64,7 +67,7 @@ public class KubernetesJobExecutor(
                     // Never re-run an attempt that already started: its Job is gone (deleted by hand, or
                     // collected by TTL during a long outage), so its outcome is unknown.
                     Fail(attempt, $"K8s Job '{attempt.KubernetesJobName}' no longer exists; the attempt's outcome is unknown", AttemptFailureKind.JobLost);
-                    await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt.Id));
+                    await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt));
                     return;
                 }
 
@@ -135,7 +138,7 @@ public class KubernetesJobExecutor(
     private async Task WatchAsync(Attempt attempt, string logKey, CancellationToken ct)
     {
         var jobName = attempt.KubernetesJobName;
-        var urlSecret = HarnessStorageKeys.UrlSecretName(attempt.Id);
+        var urlSecret = HarnessStorageKeys.UrlSecretName(attempt);
 
         var wait = await control.WaitAsync(jobName, PollInterval, () => IsAbandoned(attempt.Id), timeout: null, ct);
 
@@ -161,6 +164,11 @@ public class KubernetesJobExecutor(
                 await control.DeleteSecretAsync(urlSecret);
                 return;
 
+            case HarnessWait.Finished finished when attempt.InPreflight:
+                await FinishPreflightAsync(attempt, logKey, finished, ct);
+                await control.DeleteSecretAsync(urlSecret);
+                return;
+
             case HarnessWait.Finished finished:
                 await FinishAsync(attempt, logKey, finished, ct);
                 // Until the verdict is saved, a restarted server has only the archive to reach it again.
@@ -182,6 +190,8 @@ public class KubernetesJobExecutor(
         var logText = logs.Combined(HarnessJobBuilder.StepContainerName);
         if (finished.DeletedStuck)
             logText += $"controller: {HarnessExitCodes.Classify(finished.State)?.Message}; K8s Job deleted\n";
+        if (attempt.Preflight is { PassedAt: not null })
+            logText = await PreflightLogAsync(logKey, ct) + logText;
         await PutLogAsync(logKey, logText, ct);
 
         var state = finished.State;
@@ -213,6 +223,50 @@ public class KubernetesJobExecutor(
         }
 
         LogFinished(attempt.Id);
+    }
+
+    private async Task FinishPreflightAsync(Attempt attempt, string logKey, HarnessWait.Finished finished, CancellationToken ct)
+    {
+        var logs = await control.GetLogsAsync(attempt.KubernetesJobName, HarnessJobBuilder.StepContainerName, hasInit: true, ct);
+        var logText = logs.Combined(HarnessJobBuilder.StepContainerName);
+        if (finished.DeletedStuck)
+            logText += $"controller: {HarnessExitCodes.Classify(finished.State)?.Message}; K8s Job deleted\n";
+        await PutLogAsync(logKey, logText, ct);
+
+        switch (HarnessOutcome.ResolvePreflight(finished.State, HarnessSentinels.TryExtractResult(logs.Main)))
+        {
+            case HarnessAttemptResult.Failed f:
+                Fail(attempt, f.Message, f.Kind);
+                break;
+            case var passed:
+                if (launches.Get(attempt.Id).TryPickProblems(out var problems, out var launch))
+                {
+                    Fail(attempt, "cannot finish the preflight: " + string.Join("; ", problems.Select(p => p.FormattedMessage)), AttemptFailureKind.LaunchFailed);
+                    break;
+                }
+                if (attempts.FinishPreflight(attempt.Id, passed.Links, launch.Step.ExternalInputs.Keys.ToList()).TryPickProblems(out var finishProblems, out var after))
+                {
+                    LogIfFailed(Result.Failure(finishProblems), attempt.Id);
+                    break;
+                }
+                logger.LogInformation("Preflight of step '{StepName}' (run #{RunNumber}, attempt {AttemptNumber}, pipeline '{PipelineId}') succeeded; the attempt is {Status}",
+                    attempt.StepName, attempt.RunNumber, attempt.Number, attempt.PipelineId, after.Status.Discriminator());
+                break;
+        }
+    }
+
+    /// <summary>The preflight's stored log, which the attempt's log starts with ("" when there is none).</summary>
+    private async Task<string> PreflightLogAsync(string logKey, CancellationToken ct)
+    {
+        try
+        {
+            return await storage.GetTextAsync(logKey, ct) ?? "";
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            logger.LogWarning(e, "Could not read the preflight log at '{LogKey}'", logKey);
+            return "";
+        }
     }
 
     // Obsolete: latest-wins replaced the attempt while its Job was being submitted (MarkInProgress then failed).
@@ -253,7 +307,7 @@ public class KubernetesJobExecutor(
         {
             var reason = $"K8s submission failed after {submission} attempts: {ex.Message}";
             await AppendControllerLogAsync(logKey, $"controller: {reason} — giving up", ct);
-            await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt.Id));
+            await control.DeleteSecretAsync(HarnessStorageKeys.UrlSecretName(attempt));
             Fail(attempt, reason, AttemptFailureKind.LaunchFailed);
             logger.LogError(ex, "Giving up on attempt '{AttemptId}' of step '{StepName}' (pipeline '{PipelineId}') after {Submissions} failed submissions",
                 attempt.Id, attempt.StepName, attempt.PipelineId, submission);

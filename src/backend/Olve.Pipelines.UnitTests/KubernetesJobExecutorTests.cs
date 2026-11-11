@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -51,12 +53,12 @@ public class KubernetesJobExecutorTests
         public AttemptService Attempts => Scenario.D.AttemptService;
     }
 
-    private static Harness Build(string input = """{"sha":"abcdef1","mode":"normal"}""", TimeProvider? time = null)
+    private static Harness Build(string input = """{"sha":"abcdef1","mode":"normal"}""", TimeProvider? time = null, string? manifest = null)
     {
         var k8s = new FakeKubernetes();
         var storage = new FakeStorage();
         var durability = new FakeDurability();
-        var scenario = new SchedulerScenario(TestFixtureManifest.Text);
+        var scenario = new SchedulerScenario(manifest ?? TestFixtureManifest.Text);
         var run = scenario.Start(input);
 
         var registry = new JobWatcherRegistry(NullLogger<JobWatcherRegistry>.Instance);
@@ -165,6 +167,87 @@ public class KubernetesJobExecutorTests
         await RunWatcher(h, h.Hello.Id);
 
         await Assert.That(h.Scenario.D.Get(h.Hello.Id).Links).IsEquivalentTo([review, new AttemptLink("https://app.example.com", "App")]);
+    }
+
+    /// <summary>The fixture with <c>hello</c> waiting for a callback after its preflight.</summary>
+    private static string PreflightManifest()
+    {
+        var root = JsonNode.Parse(TestFixtureManifest.Text)!.AsObject();
+        root["models"]!["Go"] = new JsonObject
+        {
+            ["output"] = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" } },
+                ["required"] = new JsonArray("ok"),
+                ["additionalProperties"] = false,
+            },
+        };
+        var hello = ManifestFixture.Step(root, "hello");
+        hello["externalInputs"] = new JsonObject
+        {
+            ["go"] = new JsonObject { ["model"] = "Go", ["title"] = "Go?", ["from"] = new JsonArray(new JsonObject { ["kind"] = "callback" }) },
+        };
+        hello["preflight"] = true;
+        return root.ToJsonString();
+    }
+
+    private const string PreflightLog =
+        "submitted\n---OLVE-RESULT-BEGIN---\n{\"status\":\"succeeded\",\"output\":null,\"links\":[{\"url\":\"https://vr.example/reviews/7\",\"label\":\"Review\"}]}\n---OLVE-RESULT-END---\n";
+
+    // Catches: the preflight sharing the attempt's Job (a restart would reattach the wrong one), uploading a result, or
+    // the attempt not waiting with the preflight's link; then the handler's Job missing or its log dropping the preflight's.
+    [Test]
+    public async Task Preflight_RunsAsAJobOfItsOwn_ThenTheAttemptWaits_AndItsAnswerRunsTheHandler()
+    {
+        var h = Build(manifest: PreflightManifest());
+        var attempt = h.Hello;
+        var preflightJob = $"olve-{attempt.Id.Value.Value:N}-preflight";
+        var preflightSecret = $"olve-urls-{attempt.Id.Value.Value:N}-preflight";
+        await Assert.That(attempt.InPreflight).IsTrue();
+        h.K8s.Logs["step"] = PreflightLog;
+
+        await RunWatcher(h, attempt.Id);
+
+        var job = h.K8s.LastJob!;
+        await Assert.That(job.Metadata.Name).IsEqualTo(preflightJob);
+        await Assert.That(job.Spec.Template.Spec.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "preflight", "hello" });
+        await Assert.That(h.K8s.LastSecretData!.ContainsKey(HarnessJobBuilder.ResultUrlKey)).IsFalse();
+        await Assert.That(h.K8s.UpsertedSecrets).IsEquivalentTo(new[] { preflightSecret });
+        await Assert.That(h.K8s.DeletedSecrets).IsEquivalentTo(new[] { preflightSecret });
+        var waiting = h.Scenario.D.Get(attempt.Id);
+        await Assert.That(waiting.Status).IsTypeOf<Waiting>();
+        await Assert.That(waiting.Links).IsEquivalentTo([new AttemptLink("https://vr.example/reviews/7", "Review")]);
+
+        TestRunDomain.Pick(h.Scenario.D.Inputs.Answer(h.Scenario.Pipeline.Id, h.Run.Number, "hello", null,
+            JsonDocument.Parse("""{"ok":true}""").RootElement.Clone(), new Answerer("callback", "vr")));
+        h.K8s.Created = false;
+        h.K8s.Logs["step"] = "handled\n";
+
+        await RunWatcher(h, attempt.Id);
+
+        var after = h.Scenario.D.Get(attempt.Id);
+        await Assert.That(after.Status).IsTypeOf<Succeeded>();
+        await Assert.That(h.K8s.LastJob!.Metadata.Name).IsEqualTo($"olve-{attempt.Id.Value.Value:N}");
+        await Assert.That(h.K8s.LastJob!.Spec.Template.Spec.Containers.Single().Command!.TakeLast(2)).IsEquivalentTo(new[] { "run", "hello" });
+        await Assert.That(h.Storage.Objects[StorageLayout.AttemptLogKey(after)]).IsEqualTo(PreflightLog + "handled\n");
+        await Assert.That(after.Links).IsEquivalentTo([new AttemptLink("https://vr.example/reviews/7", "Review")]);
+    }
+
+    // Catches: a failed preflight leaving the attempt waiting (or running the handler) instead of failing it.
+    [Test]
+    public async Task FailedPreflight_FailsTheAttemptWithoutWaiting()
+    {
+        var h = Build(manifest: PreflightManifest());
+        h.K8s.States.Add(new HarnessPodState(null, null, InitOk, new HarnessContainerState("step", 1, "Error", null)));
+        h.K8s.Logs["step"] = "---OLVE-RESULT-BEGIN---\n{\"status\":\"failed\",\"error\":{\"kind\":\"handler\",\"message\":\"step 'hello' preflight failed: tool down\"}}\n---OLVE-RESULT-END---\n";
+
+        await RunWatcher(h, h.Hello.Id);
+
+        var after = h.Scenario.D.Get(h.Hello.Id);
+        await Assert.That(after.Status).IsEqualTo(new Failed(((Failed)after.Status).StartedAt, ((Failed)after.Status).FinishedAt,
+            "step 'hello' preflight failed: tool down", AttemptFailureKind.Handler));
+        await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(1);
     }
 
     [Test]
@@ -468,18 +551,21 @@ public class KubernetesJobExecutorTests
     }
 
     [Test]
-    public async Task SubmissionKeepsFailing_MarksFailedAfterMaxAttempts()
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task SubmissionKeepsFailing_MarksFailedAfterMaxAttempts(bool preflight)
     {
-        var h = Build();
+        var h = Build(manifest: preflight ? PreflightManifest() : null);
         h.K8s.FailCreateJobTimes = 99;
         var attempt = h.Hello;
+        var urlSecret = HarnessStorageKeys.UrlSecretName(attempt.Id) + (preflight ? "-preflight" : "");
 
         for (var i = 0; i < KubernetesJobExecutor.MaxSubmissionAttempts; i++)
             await RunWatcher(h, attempt.Id);
 
         await Assert.That(h.Hello.Status).IsTypeOf<Failed>();
         await Assert.That(h.K8s.CreateJobCalls).IsEqualTo(KubernetesJobExecutor.MaxSubmissionAttempts);
-        await Assert.That(h.K8s.DeletedSecrets).Contains(HarnessStorageKeys.UrlSecretName(attempt.Id));
+        await Assert.That(h.K8s.DeletedSecrets).Contains(urlSecret);
         await Assert.That(h.Storage.Objects[StorageLayout.AttemptLogKey(attempt)]).Contains("giving up");
     }
 

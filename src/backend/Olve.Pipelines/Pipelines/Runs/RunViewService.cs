@@ -133,8 +133,8 @@ public class RunViewService(
     {
         private Attempt? Succeeded => Attempts.LastOrDefault(a => a.Status is AttemptStatus.Succeeded);
 
-        /// <summary>A waiting attempt's links, else the succeeded attempt's, else the latest's.</summary>
-        private IReadOnlyList<AttemptLink>? Links => Latest is { Status: AttemptStatus.Waiting, Links: not null }
+        /// <summary>A waiting (or preflighting) attempt's links, else the succeeded attempt's, else the latest's.</summary>
+        private IReadOnlyList<AttemptLink>? Links => Latest is { Links: not null } && (Latest.Status is AttemptStatus.Waiting || Latest.InPreflight)
             ? Latest.Links
             : (Succeeded ?? Latest)?.Links;
 

@@ -26,7 +26,8 @@ public sealed class HarnessJobFactory(S3UrlPresigner presigner, HarnessOptions o
 
         var stepUrl = await presigner.PresignGetAsync(binaryKey, ct: ct);
         var inputUrl = input is null ? null : await presigner.PresignGetAsync(HarnessStorageKeys.AttemptInputKey(attempt), ct: ct);
-        var resultUrl = await presigner.PresignPutAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), lateExpiry, ct);
+        // A preflight uploads nothing: its envelope (links only) is read from the log.
+        var resultUrl = attempt.InPreflight ? null : await presigner.PresignPutAsync(HarnessStorageKeys.AttemptResultArchiveKey(attempt), lateExpiry, ct);
 
         IReadOnlyDictionary<string, string> fileUrls = new Dictionary<string, string>();
         if (input is { } json)

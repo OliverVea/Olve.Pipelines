@@ -68,7 +68,7 @@ interface WebhookTriggers {
     @body body: bytes,
   ): DeliveryAccepted | DeliveryUnauthorized | DeliveryNotFound | DeliveryTooLarge | DeliveryBusy | DeliveryUnavailable;
 
-  /** Another system answers a step's external input with `from: [callback()]`. The URL comes from `ctx.inputUrl(step, input)` and is the credential: valid while the step waits for that input. The body (at most 64 KB) is the value as JSON, or `{"$decline": "reason"}` to fail the step without running it. Answers 202. */
+  /** Another system answers a step's external input with `from: [callback()]`. The URL comes from `ctx.inputUrl(step, input)` and is the credential: valid while the step waits for that input or runs its preflight (a value that arrives during the preflight is kept and answers the step once the preflight succeeds; a decline then gets 409). The body (at most 64 KB) is the value as JSON, or `{"$decline": "reason"}` to fail the step without running it. Answers 202. */
   @summary("Answer a callback input")
   @useAuth(NoAuth)
   @post @route("inputs/{runId}/{step}/{input}/{mac}") answerCallback(

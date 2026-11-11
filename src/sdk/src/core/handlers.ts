@@ -5,11 +5,13 @@ import {
   type SkippedBrand,
 } from './brands.ts';
 import type { StepCtx } from '../ctx/types.ts';
+import { isExternal, type External } from './external.ts';
 import type {
   AnyStep,
   CellOf,
   ConfigOf,
   OutputValue,
+  RegularInputKey,
   SecretsOf,
   StepInput,
 } from './steps.ts';
@@ -39,12 +41,40 @@ export type Handler<S extends AnyStep> = (
   ctx: CtxOf<S>,
 ) => Awaitable<HandlerResult<S>>;
 
+/** What a preflight receives: the step's non-external inputs (the external values don't exist yet). */
+export type PreflightInput<S extends AnyStep> = StepInput<
+  Pick<S['input'], RegularInputKey<S['input']>>
+>;
+/** The ctx a preflight of `S` gets: the handler's, without output files and `skip` (the step still waits). */
+export type PreflightCtxOf<S extends AnyStep> = Omit<CtxOf<S>, 'output' | 'skip'>;
+export type Preflight<S extends AnyStep> = (
+  input: PreflightInput<S>,
+  ctx: PreflightCtxOf<S>,
+) => Awaitable<void>;
+
+/** True when some input of the step is `external(...)`. */
+type HasExternalInput<I> = true extends {
+  [K in keyof I]-?: I[K] extends External ? true : false;
+}[keyof I]
+  ? true
+  : false;
+
+export interface ImplementOptions<S extends AnyStep> {
+  /**
+   * Runs before the step starts waiting for its external inputs, e.g. to hand work and
+   * `ctx.inputUrl(...)` to the system that will answer. Throwing fails the attempt without waiting.
+   */
+  preflight?: Preflight<S>;
+}
+
 /** A step with its handler. It is itself a step: stage it like any value. */
 export type Implementation<S extends AnyStep = AnyStep> = S & {
   readonly [ImplementationBrand]: true;
   /** The step as defined. */
   readonly step: S;
   readonly handler: Handler<S>;
+  /** Runs before the step waits for its external inputs; absent when none. */
+  readonly preflight?: Preflight<S>;
 };
 
 /** Block-bodied/async returns get no excess-property check; this restores it for handler outputs. */
@@ -69,16 +99,29 @@ export function implement<S extends AnyStep, R extends HandlerResult<S>>(
     input: StepInput<S['input']>,
     ctx: CtxOf<S>,
   ) => Awaitable<R & NoExtraFields<R, OutputValue<S>>>,
+  options?: HasExternalInput<S['input']> extends true
+    ? ImplementOptions<S>
+    : '❌ a preflight needs a step with an external(...) input',
 ): Implementation<S> {
   if (isImplementation(step))
     throw new TypeError(
       `step '${(step as AnyStep).name}' already carries its implementation`,
+    );
+  const preflight =
+    typeof options === 'object' ? (options as ImplementOptions<S>).preflight : undefined;
+  if (
+    preflight !== undefined &&
+    !Object.values((step as AnyStep).input as Record<string, unknown>).some(isExternal)
+  )
+    throw new TypeError(
+      `step '${(step as AnyStep).name}': a preflight needs a step with an external(...) input`,
     );
   return Object.freeze({
     ...step,
     [IMPLEMENTATION]: true,
     step,
     handler: handler as unknown as Handler<S>,
+    ...(preflight !== undefined ? { preflight } : {}),
   }) as unknown as Implementation<S>;
 }
 

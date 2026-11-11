@@ -94,6 +94,24 @@ public class RunPersistenceServiceTests
         await Assert.That(again).IsEqualTo(status);
     }
 
+    // Catches: a restart forgetting that an attempt is in its preflight (it would reattach to the handler's Job name) or
+    // that its preflight passed (its log would lose the preflight's).
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task APreflight_SurvivesRunState(bool passed)
+    {
+        var info = (System.Text.Json.Serialization.Metadata.JsonTypeInfo<Attempt>)Json.GetTypeInfo(typeof(Attempt))!;
+        var attempt = new Attempt(new Id<Attempt>(new Id(Guid.NewGuid())), new Id<Pipeline>(new Id(Guid.NewGuid())), new Id<Run>(new Id(Guid.NewGuid())), 1, "review", 1,
+            passed ? new AttemptStatus.Waiting(DateTimeOffset.UnixEpoch) : new AttemptStatus.InProgress(DateTimeOffset.UnixEpoch), DateTimeOffset.UnixEpoch)
+        { Preflight = new AttemptPreflight(passed ? DateTimeOffset.UnixEpoch : null) };
+
+        var again = JsonSerializer.Deserialize(JsonSerializer.Serialize(attempt, info), info)!;
+
+        await Assert.That(again.Preflight).IsEqualTo(attempt.Preflight);
+        await Assert.That(again.KubernetesJobName).IsEqualTo(attempt.KubernetesJobName);
+    }
+
     [Test]
     public async Task Saved_WritesWhatChanged_WithoutWaitingForTheTimer()
     {

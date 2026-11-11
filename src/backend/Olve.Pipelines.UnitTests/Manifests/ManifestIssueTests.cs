@@ -99,6 +99,13 @@ public class ManifestIssueTests
         ["waiting link with an empty path segment"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.path", "step 'deploy-beta' external input 'decision': link path must be a dot path of non-empty field names", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["path"] = "a..b" })),
         ["waiting link with an empty label"] = Row(C.ExternalInputLink, "stages[2].steps[0].externalInputs.decision.link.label", "step 'deploy-beta' external input 'decision': link label must be 1 to 100 characters", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["label"] = "" })),
         ["waiting link with an unknown field"] = Row(C.UnknownProperty, "stages[2].steps[0].externalInputs.decision.link.url", "unknown property 'url'", r => Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact", link: new JsonObject { ["input"] = "artifact", ["url"] = "https://x.example" })),
+        ["preflight without an external input"] = Row(C.PreflightWithoutExternalInput, "stages[2].steps[0].preflight", "step 'deploy-beta': a preflight needs at least one external input", r => Step(r, "deploy-beta")["preflight"] = true),
+        ["preflight false"] = Row(C.WrongType, "stages[2].steps[0].preflight", "preflight must be true (omit it otherwise)", r =>
+        {
+            Step(r, "deploy-beta")["externalInputs"] = External("BuildArtifact");
+            Step(r, "deploy-beta")["preflight"] = false;
+        }
+        ),
         ["poll input with a non-http url"] = Row(C.ExternalInputSource, "stages[2].steps[0].externalInputs.decision.from", "step 'deploy-beta' external input 'decision': poll url must be an absolute http(s) URL", r => Step(r, "deploy-beta")["externalInputs"] = PollExternal("ftp://x.example", 30)),
 
         // mapping keys / paths / types

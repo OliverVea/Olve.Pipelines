@@ -5,11 +5,18 @@ namespace Olve.Pipelines.Jobs;
 
 /// <summary>
 /// Latest-wins among not-yet-started (Waiting or Scheduled) attempts sharing a (pipeline, step name) key. The loser
-/// becomes Obsolete; the scheduler then supersedes the loser's run by the winner's run.
+/// becomes Obsolete; the scheduler then supersedes the loser's run by the winner's run. Decided when an attempt is
+/// added, and again when one starts waiting: an attempt that ran its preflight meanwhile was InProgress, not a
+/// contender, when a newer one was added.
 /// </summary>
 public class JobObsoletionService(AttemptService attempts, ILogger<JobObsoletionService> logger)
 {
-    public void HandleAttemptAdded(Id<Attempt> attemptId)
+    public void HandleAttemptAdded(Id<Attempt> attemptId) => Contend(attemptId);
+
+    /// <summary>An attempt began to wait (its preflight succeeded): it contends like a newly added one.</summary>
+    public void HandleAttemptWaiting(Id<Attempt> attemptId) => Contend(attemptId);
+
+    private void Contend(Id<Attempt> attemptId)
     {
         if (!attempts.TryGet(attemptId, out var newAttempt))
             return;

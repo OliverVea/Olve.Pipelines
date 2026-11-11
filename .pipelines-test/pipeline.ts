@@ -2,7 +2,7 @@
 // the deployer's beta-test reconciles it and runs it at each commit (manual trigger).
 //
 //   hello ─┬─ count ─┐
-//          └─ echo   ├─ send-signals ─┬─ called-back (callback input)
+//          └─ echo   ├─ send-signals ─┬─ called-back (callback input, asked for by its preflight)
 //                    │                └─ polled (poll input, linking to the status while it waits)
 //                    ├─ when(mode = normal): last
 //                    ┘     └─ when(target ∈ beta, prod): deploy-beta

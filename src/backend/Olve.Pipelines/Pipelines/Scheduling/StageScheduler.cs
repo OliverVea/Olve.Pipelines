@@ -277,7 +277,7 @@ public class StageScheduler(
 
             case StepDecision.Schedule schedule:
                 if (attempts.Schedule(run.Id, name, schedule.Hash, schedule.Json, awaitsInput: step.ExternalInputs.Count > 0,
-                        links: WaitingLinks.For(step, schedule.Json, run, name, logger))
+                        links: WaitingLinks.For(step, schedule.Json, run, name, logger), preflight: step.Preflight)
                     .TryPickProblems(out var scheduleProblems, out var attempt))
                 {
                     logger.LogProblems(LogLevel.Warning, scheduleProblems, "Could not schedule step '{StepName}' in run #{RunNumber} ('{RunId}'); failing it",

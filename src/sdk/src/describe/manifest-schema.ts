@@ -180,6 +180,12 @@ export const StepDescriptor = z
       .describe(
         "The step pod gets the instance's step ServiceAccount token (Kubernetes:StepServiceAccount), if the instance grants one. Omitted = no token.",
       ),
+    preflight: z
+      .literal(true)
+      .optional()
+      .describe(
+        "The step runs its preflight (the harness's 'preflight <step>' mode, on the step's non-external inputs) before it waits for its external inputs; only a step with external inputs has one. Omitted = none.",
+      ),
     externalInputs: z
       .record(
         z.string(),

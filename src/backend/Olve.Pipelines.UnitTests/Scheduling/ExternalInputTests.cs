@@ -382,6 +382,133 @@ public class ExternalInputTests
         await Assert.That(ViewOf(s, run, "deploy-beta").Links!.Select(l => l.Url)).IsEquivalentTo([ReviewUrl]);
     }
 
+    /// <summary>The linked gate (<see cref="AtALinkedGate"/>) whose step runs a preflight before it waits.</summary>
+    private static (SchedulerScenario S, Run Run) AtAPreflightGate(JsonArray? from = null)
+    {
+        var node = JsonNode.Parse(PreflightManifest(from))!.AsObject();
+        var s = new SchedulerScenario(node.ToJsonString());
+        var run = s.Start(Input());
+        s.Succeed(run, "checkout");
+        var output = JsonNode.Parse(DefaultOutput(run.Number, "build", 1)!)!;
+        output["version"] = ReviewUrl;
+        s.Succeed(run, "build", output.ToJsonString());
+        s.Succeed(run, "test");
+        return (s, run);
+    }
+
+    private static string PreflightManifest(JsonArray? from = null)
+    {
+        var node = JsonNode.Parse(Manifest(from))!.AsObject();
+        var step = ManifestFixture.Step(node, "deploy-beta");
+        step["externalInputs"]!["decision"]!["link"] = new JsonObject { ["input"] = "artifact", ["path"] = "version", ["label"] = "Review in VR" };
+        step["preflight"] = true;
+        return node.ToJsonString();
+    }
+
+    private static readonly IReadOnlyList<AttemptLink> PreflightLinks = [new(ReviewUrl, "Same review"), new("https://vr.example/runs/7", "Run")];
+
+    // Catches: a preflight step waiting at once (no preflight), the API not showing it as running, or the preflight's links
+    // replacing the waiting link instead of joining it.
+    [Test]
+    public async Task Preflight_RunsBeforeTheStepWaits_AndItsLinksJoinTheWaitingLink()
+    {
+        var (s, run) = AtAPreflightGate();
+        var attempt = s.Latest(run, "deploy-beta")!;
+        await Assert.That(attempt.InPreflight).IsTrue();
+        await Assert.That(attempt.Status).IsTypeOf<Scheduled>();
+        s.MarkInProgress(run, "deploy-beta");
+        await Assert.That(ViewOf(s, run, "deploy-beta").Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.InProgress);
+        await Assert.That(ViewOf(s, run, "deploy-beta").Links!.Select(l => l.Url)).IsEquivalentTo([ReviewUrl]);
+
+        var waiting = TestRunDomain.Pick(s.D.AttemptService.FinishPreflight(attempt.Id, PreflightLinks, ["decision"]));
+
+        await Assert.That(waiting.Status).IsTypeOf<Waiting>();
+        await Assert.That(waiting.InPreflight).IsFalse();
+        await Assert.That(waiting.Links).IsEquivalentTo([new AttemptLink(ReviewUrl, "Review in VR"), new AttemptLink("https://vr.example/runs/7", "Run")]);
+        await Assert.That(ViewOf(s, run, "deploy-beta").Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Waiting);
+    }
+
+    // Catches: a callback that arrives before the preflight ends (a tool that answers at once) being refused or lost.
+    [Test]
+    public async Task AnAnswerDuringThePreflight_IsKept_AndRunsTheStepWhenThePreflightSucceeds()
+    {
+        var (s, run) = AtAPreflightGate();
+        var attempt = s.MarkInProgress(run, "deploy-beta");
+
+        var answered = TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver"));
+
+        await Assert.That(answered.Status).IsTypeOf<InProgress>();
+        await Assert.That(answered.Answers!["decision"].AnsweredBy).IsEqualTo("oliver");
+        await Assert.That(TestRunDomain.Pick(s.D.AttemptService.FinishPreflight(attempt.Id, null, ["decision"])).Status).IsTypeOf<Scheduled>();
+        s.Succeed(run, "deploy-beta");
+        await Assert.That(JsonNode.Parse(s.Latest(run, "deploy-beta")!.Input!)!["decision"]!["approved"]!.GetValue<bool>()).IsTrue();
+    }
+
+    // Catches: the callback endpoint refusing a value that arrives during the preflight (the tool would have to retry).
+    [Test]
+    public async Task ACallbackDuringThePreflight_IsAccepted_AndADeclineIsAConflict()
+    {
+        var (s, run) = AtAPreflightGate(new JsonArray(new JsonObject { ["kind"] = "callback" }));
+        s.MarkInProgress(run, "deploy-beta");
+        var urls = new CallbackInputUrls(new CallbackKeyStore(new MemorySnapshotStore(), NullLogger<CallbackKeyStore>.Instance), new WebhookOptions("https://hooks.example/"));
+        var url = (await urls.ForRunAsync(run.Id, TestRunDomain.Pick(s.D.Plans.ForRun(run)), CancellationToken.None))["deploy-beta/decision"];
+        var handler = new CallbackInputHandler(urls, s.D.RunService, s.D.Inputs, new Microsoft.AspNetCore.Http.HttpContextAccessor());
+        Olve.Pipelines.Api.WebhookTriggersAnswerCallbackRequest Post(string body) =>
+            new(run.Id.Value.Value, "deploy-beta", "decision", url[(url.LastIndexOf('/') + 1)..], new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body)));
+
+        await Assert.That((await handler.HandleAsync(Post("""{"$decline":"no"}"""), CancellationToken.None)).Status).IsEqualTo(409);
+        await Assert.That((await handler.HandleAsync(Post("""{"approved":true}"""), CancellationToken.None)).Status).IsEqualTo(202);
+
+        var attempt = s.Latest(run, "deploy-beta")!;
+        await Assert.That(attempt.Status).IsTypeOf<InProgress>();
+        await Assert.That(attempt.Answers!["decision"].Source).IsEqualTo("callback");
+    }
+
+    [Test]
+    public async Task ADeclineDuringThePreflight_IsAConflict()
+    {
+        var (s, run) = AtAPreflightGate();
+        s.MarkInProgress(run, "deploy-beta");
+
+        await s.D.Inputs.Decline(s.Pipeline.Id, run.Number, "deploy-beta", "no", "oliver").Problems
+            .IsSingle<ConflictProblem>("Step 'deploy-beta' of run #1 is not waiting for input (it is running its preflight).");
+    }
+
+    // Catches: a failed preflight leaving the run waiting at the gate.
+    [Test]
+    public async Task AFailedPreflight_FailsTheStepAndTheRun_AndARerunRunsThePreflightAgain()
+    {
+        var (s, run) = AtAPreflightGate();
+
+        s.Fail(run, "deploy-beta", "step 'deploy-beta' preflight failed: tool down");
+
+        await Assert.That(s.Get(run).Status).IsEqualTo(RunStatus.Failed);
+        var rerun = TestRunDomain.Pick(s.D.Continuations.RerunStep(run.Id, "deploy-beta", continueAfter: false));
+        await Assert.That(rerun.Number).IsEqualTo(2);
+        await Assert.That(rerun.InPreflight).IsTrue();
+        await Assert.That(rerun.Status).IsTypeOf<Scheduled>();
+    }
+
+    // Catches: the older run's attempt, in its preflight when the newer run reached the gate, waiting beside the newer one.
+    [Test]
+    public async Task AnOlderAttemptThatEndsItsPreflightAfterANewerRunArrived_IsReplaced()
+    {
+        var (s, older) = AtAPreflightGate();
+        var olderAttempt = s.MarkInProgress(older, "deploy-beta");
+        var newer = s.Start(Input(sha: OtherSha));
+        s.Succeed(newer, "checkout");
+        s.Succeed(newer, "build");
+        s.Succeed(newer, "test");
+        await Assert.That(s.Latest(newer, "deploy-beta")!.InPreflight).IsTrue();
+        await Assert.That(s.Latest(older, "deploy-beta")!.Status).IsTypeOf<InProgress>();
+
+        TestRunDomain.Pick(s.D.AttemptService.FinishPreflight(olderAttempt.Id, null, ["decision"]));
+
+        await Assert.That(s.Latest(older, "deploy-beta")!.Status).IsTypeOf<Obsolete>();
+        await Assert.That(s.Get(older).Status).IsEqualTo(RunStatus.Superseded);
+        await Assert.That(s.Latest(newer, "deploy-beta")!.InPreflight).IsTrue();
+    }
+
     private static ExternalInput LinkedInput() => new("Approval", "Go?", "", [new ExternalSource.Person()]) { Link = new ExternalLink("review", "url", null) };
 
     public static IEnumerable<(string Input, string Problem)> UnresolvedLinks() =>

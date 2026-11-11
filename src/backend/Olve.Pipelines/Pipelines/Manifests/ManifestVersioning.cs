@@ -143,6 +143,7 @@ public static class ManifestVersioning
                 w.WriteEndObject();
             }
             if (s.ClusterAccess) w.WriteBoolean("clusterAccess", true);
+            if (s.Preflight) w.WriteBoolean("preflight", true);
             if (s.Matrix is { } matrix)
             {
                 w.WritePropertyName("matrix");

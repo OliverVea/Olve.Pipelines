@@ -38,3 +38,19 @@ implement(review, ({ review: r, verdict }) => {
   type _verdict = Expect<Equal<typeof verdict, Infer<typeof Choice>>>;
   void r;
 });
+
+// A preflight gets the regular inputs only, and a ctx that can hand out the callback URL and link.
+const reviewed = implement(
+  review,
+  ({ verdict }) => {
+    if (!verdict.target) throw new Error("no target");
+  },
+  {
+    preflight: async (input, ctx) => {
+      type _input = Expect<Equal<typeof input, { review: Infer<typeof Review> }>>;
+      ctx.link(input.review.url, "Review");
+      ctx.log(ctx.inputUrl("review", "verdict"));
+    },
+  },
+);
+type _preflight = Expect<Equal<typeof reviewed.preflight extends undefined ? false : true, true>>;

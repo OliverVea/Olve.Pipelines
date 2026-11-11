@@ -30,6 +30,35 @@ public class HarnessOutcomeTests
         await Assert.That(HarnessExitCodes.Classify(Step(exitCode))).IsEqualTo(new HarnessFailure(kind, message));
     }
 
+    private const string Pass = "{\"status\":\"succeeded\",\"output\":null,\"links\":[{\"url\":\"https://vr.example/r/7\",\"label\":\"Review\"}]}";
+    private const string Threw = "{\"status\":\"failed\",\"error\":{\"kind\":\"handler\",\"message\":\"step 'review' preflight failed: tool down\"}}";
+
+    public static IEnumerable<(int ExitCode, string? Envelope, AttemptFailureKind Kind, string Message)> FailedPreflights() =>
+    [
+        (1, Threw, AttemptFailureKind.Handler, "step 'review' preflight failed: tool down"),
+        (137, null, AttemptFailureKind.OutOfMemory, "preflight: step container was killed (exit 137, SIGKILL) — out of memory?"),
+        (0, null, AttemptFailureKind.ResultInvalid, "preflight: the step exited 0 but printed no result"),
+        (0, "{\"status\":\"skipped\",\"reason\":\"x\"}", AttemptFailureKind.ResultInvalid, "preflight: the result is not a success or a failure"),
+        (0, "{\"status\":\"done\"}", AttemptFailureKind.ResultInvalid, "preflight: Invalid harness envelope: unknown envelope status 'done'"),
+    ];
+
+    // Catches: a preflight read as a run (no archive → "uploaded no result.tar.gz"), or a failure not saying it was the preflight.
+    [Test]
+    [MethodDataSource(nameof(FailedPreflights))]
+    public async Task FailedPreflight_FailsSayingSo(int exitCode, string? envelope, AttemptFailureKind kind, string message)
+    {
+        await Assert.That(HarnessOutcome.ResolvePreflight(Step(exitCode), envelope)).IsEqualTo(new HarnessAttemptResult.Failed(kind, message));
+    }
+
+    [Test]
+    public async Task PassedPreflight_CarriesItsLinks()
+    {
+        var verdict = HarnessOutcome.ResolvePreflight(Step(0), Pass);
+
+        await Assert.That(verdict).IsTypeOf<HarnessAttemptResult.Succeeded>();
+        await Assert.That(verdict.Links).IsEquivalentTo([new AttemptLink("https://vr.example/r/7", "Review")]);
+    }
+
     [Test]
     public async Task UnknownExitCode_NamesTheReason()
     {

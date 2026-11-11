@@ -85,6 +85,7 @@ public static class ManifestIssueCodes
     public const string ExternalInputTitleEmpty = "external-input-title-empty";
     public const string ExternalInputSource = "external-input-source";
     public const string ExternalInputLink = "external-input-link";
+    public const string PreflightWithoutExternalInput = "preflight-without-external-input";
 
     // ── matrix ──
     public const string MatrixInvalid = "matrix-invalid";

@@ -52,6 +52,35 @@ public static class HarnessOutcome
         return Verdict(failure, envelope, archiveProblem, fileKeys, logEnvelopeJson) with { Links = envelope?.Links };
     }
 
+    /// <summary>
+    /// The verdict of a preflight Job, which uploads nothing: the stdout result block is its envelope. A succeeded one
+    /// carries the preflight's links; anything else fails the attempt, its message saying it was the preflight.
+    /// </summary>
+    public static HarnessAttemptResult ResolvePreflight(HarnessPodState pod, string? logEnvelopeJson)
+    {
+        var failure = HarnessExitCodes.Classify(pod);
+        HarnessEnvelope? envelope = null;
+        string? envelopeProblem = null;
+        if (logEnvelopeJson is not null)
+        {
+            if (HarnessEnvelope.Parse(logEnvelopeJson).TryPickProblems(out var problems, out var parsed))
+                envelopeProblem = string.Join("; ", problems.Select(p => p.FormattedMessage));
+            else
+                envelope = parsed;
+        }
+
+        HarnessAttemptResult verdict = (failure, envelope) switch
+        {
+            (null, HarnessEnvelope.Succeeded) => new HarnessAttemptResult.Succeeded(null, []),
+            // The harness's own message names the preflight ("step 'x' preflight failed: …").
+            (_, HarnessEnvelope.Failed f) => new HarnessAttemptResult.Failed(failure?.Kind ?? EnvelopeKind(f.Kind), f.Message),
+            ({ } f, _) => new HarnessAttemptResult.Failed(f.Kind, $"preflight: {f.Message}"),
+            _ => new HarnessAttemptResult.Failed(AttemptFailureKind.ResultInvalid,
+                $"preflight: {envelopeProblem ?? (envelope is null ? "the step exited 0 but printed no result" : "the result is not a success or a failure")}"),
+        };
+        return verdict with { Links = envelope?.Links };
+    }
+
     private static HarnessAttemptResult Verdict(
         HarnessFailure? failure,
         HarnessEnvelope? envelope,

@@ -15,8 +15,9 @@ public sealed record Answerer(string Kind, string Name)
 
 /// <summary>
 /// Answers or declines a step that waits for its external inputs. The value is validated against the input's
-/// model in the run's pinned manifest; the last missing answer schedules the step. An answerer may only answer
-/// inputs whose <c>from</c> lists its kind. Transient; under the scheduling lock.
+/// model in the run's pinned manifest; the last missing answer schedules the step. An answer that arrives while the
+/// step runs its preflight is kept and applied when the preflight succeeds; a decline needs the step to wait. An
+/// answerer may only answer inputs whose <c>from</c> lists its kind. Transient; under the scheduling lock.
 /// </summary>
 public class ExternalInputService(
     RunService runs,
@@ -35,7 +36,7 @@ public class ExternalInputService(
     public Result<Attempt> Answer(Id<Pipeline> pipelineId, int runNumber, string stepName, string? name, JsonElement value, Answerer by)
         => schedulingLock.Run<Result<Attempt>>(() =>
         {
-            if (Find(pipelineId, runNumber, stepName).TryPickProblems(out var problems, out var found))
+            if (Find(pipelineId, runNumber, stepName, inPreflight: true).TryPickProblems(out var problems, out var found))
                 return problems;
             var (run, step, attempt, manifest) = found;
 
@@ -83,7 +84,9 @@ public class ExternalInputService(
             return attempts.TryGet(attempt.Id, out var current) ? current : attempt;
         });
 
-    private Result<(Run Run, StepDescriptor Step, Attempt Attempt, Manifest Manifest)> Find(Id<Pipeline> pipelineId, int runNumber, string stepName)
+    /// <param name="inPreflight">An attempt that runs its preflight counts as waiting.</param>
+    private Result<(Run Run, StepDescriptor Step, Attempt Attempt, Manifest Manifest)> Find(Id<Pipeline> pipelineId, int runNumber, string stepName,
+        bool inPreflight = false)
     {
         if (!runs.TryGetByNumber(pipelineId, runNumber, out var run))
             return new NotFoundProblem("Run #{0} not found.", runNumber);
@@ -94,9 +97,11 @@ public class ExternalInputService(
         if (step.ExternalInputs.Count == 0)
             return new ConflictProblem("Step '{0}' has no external inputs.", stepName);
         var latest = attempts.ListForStep(run.Id, stepName).LastOrDefault();
-        if (latest?.Status is not Waiting)
+        if (latest is null)
+            return new ConflictProblem("Step '{0}' of run #{1} is not waiting for input ({2}).", stepName, run.Number, "it has not started");
+        if (latest.Status is not Waiting && !(inPreflight && latest.InPreflight))
             return new ConflictProblem("Step '{0}' of run #{1} is not waiting for input ({2}).", stepName, run.Number,
-                latest is null ? "it has not started" : $"it is {latest.Status.Discriminator()}");
+                latest.InPreflight ? "it is running its preflight" : $"it is {latest.Status.Discriminator()}");
         return (run, step, latest, plan.Manifest);
     }
 

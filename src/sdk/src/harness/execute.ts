@@ -3,13 +3,14 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { isSkipped } from '../core/handlers.ts';
+import { isExternal } from '../core/external.ts';
 import type { AnyStep } from '../core/steps.ts';
 import type { Ctx, RunInfo } from '../ctx/types.ts';
 import { objectPath } from '../ctx/files.ts';
 import { createLinks, type StepLink } from '../ctx/links.ts';
 import { sha256File } from '../util/hash.ts';
 import { EXIT } from './exit.ts';
-import { validateConfig, validateInput, validateOutput } from './validate.ts';
+import { CONFIG_KEY, validateConfig, validateInput, validateOutput } from './validate.ts';
 
 export type FailureKind = 'handler' | 'input' | 'output';
 export type Envelope = (
@@ -133,6 +134,81 @@ export async function executeStep(args: {
   }
   return {
     envelope: withLinks({ status: 'succeeded', output: out.value }),
+    exitCode: EXIT.ok,
+  };
+}
+
+/**
+ * A step's preflight: validates the step's non-external inputs (external values already given are
+ * ignored), runs the preflight and reports its links. Succeeds with `output: null`; nothing is validated
+ * as output and no files are kept.
+ */
+export async function executePreflight(args: {
+  step: AnyStep;
+  fn: StepFunction;
+  rawInput: unknown;
+  ctx: Ctx;
+  workFiles: string;
+  log: (line: string) => void;
+}): Promise<Execution> {
+  const { step, log } = args;
+  const entries = Object.entries(step.input as Record<string, unknown>);
+  const external = new Set(entries.filter(([, e]) => isExternal(e)).map(([k]) => k));
+  const regular = {
+    ...step,
+    input: Object.fromEntries(entries.filter(([k]) => !external.has(k))),
+  };
+  const raw =
+    typeof args.rawInput === 'object' &&
+    args.rawInput !== null &&
+    !Array.isArray(args.rawInput)
+      ? Object.fromEntries(
+          Object.entries(args.rawInput).filter(
+            ([k]) => k === CONFIG_KEY || !external.has(k),
+          ),
+        )
+      : args.rawInput;
+  const input = validateInput(regular, raw);
+  const config = validateConfig(step, raw);
+  if (!input.ok || !config.ok) {
+    const issues = [
+      ...(input.ok ? [] : input.issues),
+      ...(config.ok ? [] : config.issues),
+    ];
+    const message = `step '${step.name}' preflight: input does not match the step's inputs:\n  ${issues.join('\n  ')}`;
+    log(message);
+    return {
+      envelope: { status: 'failed', error: { kind: 'input', message } },
+      exitCode: EXIT.inputInvalid,
+    };
+  }
+  const collected = createLinks();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { output: _output, skip: _skip, ...rest } = args.ctx;
+  const ctx = {
+    ...rest,
+    config: Object.freeze(config.value) as Ctx['config'],
+    link: collected.link,
+  };
+  const withLinks = (e: Envelope): Envelope =>
+    collected.links.length ? { ...e, links: [...collected.links] } : e;
+  try {
+    await args.fn(input.value, ctx as Ctx);
+  } catch (e) {
+    const cancelled = cancelExitCode(ctx.signal);
+    const message = cancelled
+      ? `step '${step.name}' preflight was cancelled (${String(ctx.signal.reason)}): ${errorMessage(e)}`
+      : `step '${step.name}' preflight failed: ${errorMessage(e)}`;
+    log(message);
+    if (e instanceof Error && e.stack && !cancelled) log(e.stack);
+    return {
+      envelope: withLinks({ status: 'failed', error: { kind: 'handler', message } }),
+      exitCode: cancelled ?? EXIT.handlerFailed,
+    };
+  }
+  log(`step '${step.name}' preflight succeeded`);
+  return {
+    envelope: withLinks({ status: 'succeeded', output: null }),
     exitCode: EXIT.ok,
   };
 }

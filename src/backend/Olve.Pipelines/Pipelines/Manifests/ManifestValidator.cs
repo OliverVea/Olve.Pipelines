@@ -383,6 +383,9 @@ public static partial class ManifestValidator
             foreach (var key in s.Input.Keys.Where(k => !s.InputTypes.ContainsKey(k)))
                 Error(ManifestIssueCodes.MappingKeyExtra, $"{path}.input.{key}", $"step '{n}': mapping '{key}' is not an input of the step", n);
 
+            if (s.Preflight && s.ExternalInputs.Count == 0)
+                Error(ManifestIssueCodes.PreflightWithoutExternalInput, $"{path}.preflight", $"step '{n}': a preflight needs at least one external input", n);
+
             foreach (var (key, external) in s.ExternalInputs)
             {
                 var xp = $"{path}.externalInputs.{key}";

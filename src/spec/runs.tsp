@@ -117,7 +117,7 @@ model RunStep {
   /** For a waiting step: the source kinds that may still answer it (`person`, `callback`, `poll`). */
   waitingFor?: string[] | null;
 
-  /** What the step links to: a waiting attempt's links (from its external inputs), else its succeeded attempt's, else its latest attempt's. */
+  /** What the step links to: a waiting (or preflighting) attempt's links (from its external inputs and its preflight), else its succeeded attempt's, else its latest attempt's. */
   links?: AttemptLink[] | null;
 
   /** A matrix step's cells, in cell order; null for a plain step. */
@@ -183,6 +183,7 @@ model AttemptStatusWaiting {
   since: utcDateTime;
 }
 
+/** Scheduled to run: the step's handler, or first its preflight when the step has one (then `in-progress` while the preflight runs, and `waiting` once it succeeds). */
 model AttemptStatusScheduled {
   submissionAttempts?: int32;
 }

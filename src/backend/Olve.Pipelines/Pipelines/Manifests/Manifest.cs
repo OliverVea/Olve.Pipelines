@@ -125,6 +125,9 @@ public sealed record StepDescriptor(
     /// <summary>Inputs whose values come from outside the run; the step waits for them before it runs.</summary>
     public IReadOnlyDictionary<string, ExternalInput> ExternalInputs { get; init; } = new Dictionary<string, ExternalInput>();
 
+    /// <summary>The step runs its preflight (harness <c>preflight &lt;step&gt;</c>) before it waits for its external inputs.</summary>
+    public bool Preflight { get; init; }
+
     /// <summary>The step runs once per cell of this matrix (null = a plain step).</summary>
     public ManifestMatrix? Matrix { get; init; }
 }

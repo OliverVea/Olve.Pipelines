@@ -346,6 +346,7 @@ public class RetentionPlannerTests
         var run = Run(P, 1, 1, RunStatus.Running);
         var active = new Attempt(Id.New<Attempt>(), P, run.Id, 1, "a", 1, new AttemptStatus.Scheduled(), Now);
         var done = new Attempt(Id.New<Attempt>(), P, run.Id, 1, "b", 1, new AttemptStatus.Succeeded(Now, Now), Now);
+        var preflighting = new Attempt(Id.New<Attempt>(), P, run.Id, 1, "c", 1, new AttemptStatus.InProgress(Now), Now) { Preflight = new AttemptPreflight() };
         string Urls(Attempt a) => $"olve-urls-{a.Id.Value.Value:N}";
         var unknown = $"olve-urls-{Guid.NewGuid():N}";
         var secrets = new[]
@@ -353,6 +354,8 @@ public class RetentionPlannerTests
             new ClusterSecret(Urls(active), Now.AddHours(-5)),          // active attempt (job not yet created): keep
             new ClusterSecret(Urls(done), Now.AddHours(-5)),            // finished attempt, job gone: delete
             new ClusterSecret(unknown, Now.AddHours(-5)),               // unknown attempt, job finished: delete
+            new ClusterSecret(Urls(preflighting) + "-preflight", Now.AddHours(-5)), // active attempt's preflight: keep
+            new ClusterSecret(Urls(done) + "-preflight", Now.AddHours(-5)), // finished attempt's preflight, job gone: delete
             new ClusterSecret("olve-map-0123-urls", Now.AddHours(-5)),  // map-trigger job gone: delete
             new ClusterSecret("olve-fh-abc-urls", Now.AddHours(-5)),    // failure handler still running: keep
             new ClusterSecret("olve-build-x-y-urls", Now.AddMinutes(-5)), // too young: keep
@@ -365,9 +368,9 @@ public class RetentionPlannerTests
             Job("olve-fh-abc", "on-failure", P, finished: false, 5),
         };
 
-        var plan = RetentionPlanner.Plan(Inputs([run], [active, done], jobs: jobs, secrets: secrets), Options);
+        var plan = RetentionPlanner.Plan(Inputs([run], [active, done, preflighting], jobs: jobs, secrets: secrets), Options);
 
-        await Assert.That(plan.Secrets.Select(s => s.Name)).IsEquivalentTo(new[] { Urls(done), unknown, "olve-map-0123-urls" });
+        await Assert.That(plan.Secrets.Select(s => s.Name)).IsEquivalentTo(new[] { Urls(done), unknown, Urls(done) + "-preflight", "olve-map-0123-urls" });
     }
 
     [Test]

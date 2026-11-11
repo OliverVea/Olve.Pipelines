@@ -20,29 +20,24 @@ export const buildSdk = implement(
       join(dir, 'package.json'),
     );
 
-    // Clean env for the checks: the harness's OLVE_* variables would leak into the SDK's own tests.
+    // Its own HOME, for bun's cache.
     const home = join(ctx.tmpDir, 'home');
     mkdirSync(home, { recursive: true });
-    const clean = [
-      'env',
-      '-i',
-      `PATH=${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
-      `HOME=${home}`,
-      `TMPDIR=${ctx.tmpDir}`,
-    ];
-    await ctx.exec([...clean, 'bun', 'install', '--frozen-lockfile'], { cwd: dir });
-    await ctx.exec([...clean, 'bun', 'run', 'check'], { cwd: dir });
+    const env = { HOME: home };
+    await ctx.exec(['bun', 'install', '--frozen-lockfile'], { cwd: dir, env });
+    await ctx.exec(['bun', 'run', 'check'], { cwd: dir, env });
 
     const pipelines = join(tree, '.pipelines');
-    await ctx.exec([...clean, 'bun', 'install', '--frozen-lockfile'], { cwd: pipelines });
-    await ctx.exec([...clean, 'bun', 'test'], { cwd: pipelines });
-    await ctx.exec([...clean, 'bun', 'test'], {
+    await ctx.exec(['bun', 'install', '--frozen-lockfile'], { cwd: pipelines, env });
+    await ctx.exec(['bun', 'test'], { cwd: pipelines, env });
+    await ctx.exec(['bun', 'test'], {
       cwd: join(tree, 'src/deploy/compose/deployer'),
+      env,
     });
 
     const out = join(ctx.tmpDir, 'pack');
     mkdirSync(out, { recursive: true });
-    await ctx.exec([...clean, 'bun', 'pm', 'pack', '--destination', out], { cwd: dir });
+    await ctx.exec(['bun', 'pm', 'pack', '--destination', out], { cwd: dir, env });
     const packed = readdirSync(out).filter((f) => f.endsWith('.tgz'));
     if (packed.length !== 1)
       throw new Error(`bun pm pack wrote ${JSON.stringify(packed)}, expected one .tgz`);

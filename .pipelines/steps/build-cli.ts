@@ -9,7 +9,7 @@ export const CLI_FILES = {
   'windows-x64': 'pl-win-x64.exe',
 } as const;
 
-/** src/cli/ with its dependencies installed, and a clean env for running it. */
+/** src/cli/ with its dependencies installed, and the options for running commands in it. */
 async function cliTree(
   ctx: Ctx,
   source: Infer<typeof Source>,
@@ -20,18 +20,12 @@ async function cliTree(
     recursive: true,
   });
   const dir = join(tree, 'src/cli');
-  // The harness's OLVE_* variables would leak into pl's own tests.
+  // Its own HOME, for bun's cache.
   const home = join(ctx.tmpDir, 'home');
   mkdirSync(home, { recursive: true });
-  const clean = [
-    'env',
-    '-i',
-    `PATH=${process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin'}`,
-    `HOME=${home}`,
-    `TMPDIR=${ctx.tmpDir}`,
-  ];
-  await ctx.exec([...clean, 'bun', 'install', '--frozen-lockfile'], { cwd: dir });
-  return { dir, clean };
+  const opts = { cwd: dir, env: { HOME: home } };
+  await ctx.exec(['bun', 'install', '--frozen-lockfile'], opts);
+  return opts;
 }
 
 export const checkCli = implement(
@@ -43,10 +37,10 @@ export const checkCli = implement(
     timeoutSeconds: 900,
   }),
   async ({ source, spec }, ctx) => {
-    const { dir, clean } = await cliTree(ctx, source, spec);
-    await ctx.exec([...clean, 'bun', 'run', 'format:check'], { cwd: dir });
-    await ctx.exec([...clean, 'bun', 'run', 'typecheck'], { cwd: dir });
-    await ctx.exec([...clean, 'bun', 'test'], { cwd: dir });
+    const opts = await cliTree(ctx, source, spec);
+    await ctx.exec(['bun', 'run', 'format:check'], opts);
+    await ctx.exec(['bun', 'run', 'typecheck'], opts);
+    await ctx.exec(['bun', 'test'], opts);
   },
 );
 
@@ -61,14 +55,13 @@ export const buildCli = implement(
     matrix: { axes: { os: ['linux', 'windows'], arch: ['x64'] } },
   }),
   async ({ source, spec }, ctx) => {
-    const { dir, clean } = await cliTree(ctx, source, spec);
+    const opts = await cliTree(ctx, source, spec);
     const { os, arch } = ctx.cell;
     const version = ctx.run.version;
     const name = CLI_FILES[`${os}-${arch}`];
     const path = join(ctx.tmpDir, 'cli', name);
     await ctx.exec(
       [
-        ...clean,
         'bun',
         'build',
         'src/main.ts',
@@ -80,7 +73,7 @@ export const buildCli = implement(
         '--outfile',
         path,
       ],
-      { cwd: dir },
+      opts,
     );
     if (os === 'linux') await ctx.exec([path, '--version']);
     ctx.log('built pl', { version, name });

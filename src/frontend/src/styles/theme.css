@@ -50,6 +50,8 @@
   /* Code/data surfaces and the `when` accent. */
   --color-code-bg: #eef3f8;
   --color-when: var(--gold-300);
+  /* The logo's outlined step. */
+  --color-brand: var(--gold-300);
   --color-diff-add: color-mix(in srgb, var(--color-success) 14%, transparent);
   --color-diff-del: color-mix(in srgb, var(--color-danger) 14%, transparent);
   color-scheme: light;
@@ -74,6 +76,7 @@
     --color-ask: #b7a2f2;
     --color-code-bg: #0f2033;
     --color-when: var(--gold-200);
+    --color-brand: var(--gold-200);
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     color-scheme: dark;
   }

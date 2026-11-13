@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, css, nothing, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { resolve, navigate, type ResolvedRoute } from '../router.js';
 import { onLiveState, type LiveState } from '../api/events.js';
@@ -11,6 +11,12 @@ import {
   type AuthUser,
 } from '../auth.js';
 
+const LOGO = svg`<svg viewBox="0 0 20 20" aria-hidden="true">
+  <rect x="1" y="7" width="6" height="6" rx="1.5" fill="var(--color-text)" />
+  <rect x="13" y="1" width="6" height="6" rx="1.5" fill="var(--color-text)" />
+  <path d="M7 10h3M13 4h-1.25A1.75 1.75 0 0 0 10 5.75v8.5A1.75 1.75 0 0 0 11.75 16H13" fill="none" stroke="var(--color-text)" stroke-width="1.5" />
+  <rect x="13.75" y="13.75" width="4.5" height="4.5" rx="1.25" fill="none" stroke="var(--color-brand)" stroke-width="1.5" />
+</svg>`;
 @customElement('app-shell')
 export class AppShell extends LitElement {
   static styles = css`
@@ -38,8 +44,17 @@ export class AppShell extends LitElement {
     }
 
     header a {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
       color: var(--color-text);
       text-decoration: none;
+    }
+
+    header h1 svg {
+      width: 20px;
+      height: 20px;
+      flex: none;
     }
 
     header a:hover {
@@ -173,7 +188,7 @@ export class AppShell extends LitElement {
 
     return html`
       <header>
-        <h1><a href="/" @click=${this._handleNav}>Olve Pipelines</a></h1>
+        <h1><a href="/" @click=${this._handleNav}>${LOGO}Olve Pipelines</a></h1>
         <span class="spacer"></span>
         ${this._live === 'reconnecting'
           ? html`<span

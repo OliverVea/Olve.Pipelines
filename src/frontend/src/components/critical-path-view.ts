@@ -417,6 +417,7 @@ export class CriticalPathView extends LitElement {
               <th class="num">Lead</th>
               <th class="num">Critical path</th>
               <th class="num">Idle</th>
+              <th class="num" title="Waiting for external inputs">Input</th>
               <th>Path</th>
             </tr>
           </thead>
@@ -440,6 +441,9 @@ export class CriticalPathView extends LitElement {
                 <td class="num">${formatSeconds(x.seconds)}</td>
                 <td class="num">
                   ${(x.idleSeconds ?? 0) >= 1 ? formatSeconds(x.idleSeconds) : '—'}
+                </td>
+                <td class="num">
+                  ${(x.inputSeconds ?? 0) >= 1 ? formatSeconds(x.inputSeconds) : '—'}
                 </td>
                 <td>
                   <div class="path">

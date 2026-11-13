@@ -7,7 +7,8 @@ namespace Olve.Pipelines.Pipelines.Runs;
 /// attempts finished last; it is charged from the stage's first attempt to that finish. Only one pass
 /// counts per stage: attempts created while the stage was running (automatic retries), none created
 /// after the next stage started (a later rerun). Time between stages (a held run, a continue) is idle,
-/// charged to no step. Stateless query; transient.
+/// and time a step waited for its external inputs is input time; neither is charged to a step, and a stage's
+/// critical step is the one that finished last once its input time is taken out. Stateless query; transient.
 /// </summary>
 public class CriticalPathService(RunService runs, AttemptService attempts, RunPlanCache plans)
 {
@@ -87,6 +88,7 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
         var path = new List<CriticalPathStage>();
         var notes = new List<string>();
         var idle = 0.0;
+        var waitingForInput = 0.0;
         DateTimeOffset? previousEnd = null;
         for (var i = 0; i < stages.Count; i++)
         {
@@ -110,22 +112,44 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
             var start = pass[0].CreatedAt;
             if (previousEnd is { } end && start > end)
                 idle += (start - end).TotalSeconds;
-            var last = pass.MaxBy(a => a.FinishedAt())!;
-            var mine = pass.Where(a => a.StepName == last.StepName).ToList();
-            var firstStart = mine.Select(a => a.StartedAt()).FirstOrDefault(t => t is not null) ?? last.FinishedAt()!.Value;
+            var critical = pass
+                .GroupBy(a => a.StepName, StringComparer.Ordinal)
+                .Select(g => (Step: g.Key, Attempts: g.ToList(), End: g.Max(a => a.FinishedAt()!.Value) - TimeSpan.FromSeconds(g.Sum(a => InputSeconds(a, null, null)))))
+                .MaxBy(g => g.End);
+            var mine = critical.Attempts;
+            var firstStart = mine.Select(a => a.StartedAt()).FirstOrDefault(t => t is not null) ?? mine.Max(a => a.FinishedAt()!.Value);
+            var seconds = Math.Max(0, (critical.End - start).TotalSeconds);
+            waitingForInput += Math.Max(0, (passEnd - start).TotalSeconds) - seconds;
             path.Add(new CriticalPathStage(
                 stages[i].Index,
-                last.StepName,
+                critical.Step,
                 mine.Count,
-                Math.Max(0, (passEnd - start).TotalSeconds),
-                Math.Max(0, (firstStart - start).TotalSeconds),
+                seconds,
+                Math.Max(0, (firstStart - start).TotalSeconds - mine.Sum(a => InputSeconds(a, start, firstStart))),
                 SumKnown(mine.Select(a => AttemptPhases.From(a)?.Active))));
             previousEnd = passEnd;
         }
 
         var firstAttempt = stages.Count > 0 ? stages[0].Attempts[0].CreatedAt : (DateTimeOffset?)null;
         return new CriticalPathRun(run.Number, run.Status, run.VersionNumber, run.VersionStamp, path.Sum(p => p.Seconds), idle, path.ToArray(), notes.ToArray(),
-            SumKnown(path.Select(p => p.ActiveSeconds)), Lead(run.Trigger.Origin, firstAttempt));
+            SumKnown(path.Select(p => p.ActiveSeconds)), Lead(run.Trigger.Origin, firstAttempt), waitingForInput);
+    }
+
+    /// <summary>
+    /// How long the attempt waited for its external inputs (from when it started waiting to its last answer, or to a
+    /// decline), within <paramref name="from"/>..<paramref name="to"/> when given.
+    /// </summary>
+    private static double InputSeconds(Attempt attempt, DateTimeOffset? from, DateTimeOffset? to)
+    {
+        var since = attempt.Preflight?.PassedAt ?? attempt.CreatedAt;
+        DateTimeOffset? until = attempt.Status is AttemptStatus.Failed { Kind: AttemptFailureKind.Declined } declined
+            ? declined.FinishedAt
+            : attempt.Answers is { Count: > 0 } answers ? answers.Values.Max(a => a.AnsweredAt) : null;
+        if (until is not { } end)
+            return 0;
+        var a = from is { } f && f > since ? f : since;
+        var b = to is { } t && t < end ? t : end;
+        return Math.Max(0, (b - a).TotalSeconds);
     }
 
     private static CriticalPathLead? Lead(RunOrigin? origin, DateTimeOffset? firstAttempt)
@@ -177,7 +201,10 @@ public record CriticalPathReport(
     double TotalSeconds,
     double AverageSeconds);
 
-/// <summary>One run's critical path: one entry per stage. <see cref="IdleSeconds"/> is time between stages charged to no step; <see cref="ActiveSeconds"/> the path's time in step containers.</summary>
+/// <summary>
+/// One run's critical path: one entry per stage. <see cref="IdleSeconds"/> is time between stages and <see cref="InputSeconds"/>
+/// time the path waited for external inputs, both charged to no step; <see cref="ActiveSeconds"/> the path's time in step containers.
+/// </summary>
 public record CriticalPathRun(
     int Number,
     RunStatus Status,
@@ -188,7 +215,8 @@ public record CriticalPathRun(
     CriticalPathStage[] Path,
     string[] Notes,
     double? ActiveSeconds = null,
-    CriticalPathLead? Lead = null);
+    CriticalPathLead? Lead = null,
+    double InputSeconds = 0);
 
 /// <summary>
 /// The time before a run's first step, from the push (GitHub's push time, when the webhook gave one) or else from when

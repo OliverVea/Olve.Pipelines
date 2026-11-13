@@ -138,6 +138,28 @@ public class CriticalPathTests
         await Assert.That(Math.Round(test.OverheadSeconds!.Value)).IsEqualTo(2);
     }
 
+    [Arguments(590, "test", 100, 10, 590)]
+    [Arguments(600, "build", 95, 0, 595)]
+    [Test]
+    public async Task WaitingForInput_IsChargedToNoStep(double answeredAfter, string critical, double seconds, double wait, double input)
+    {
+        var s = new SchedulerScenario();
+        var run = Complete(s, build: 95, test: 90, testWait: 600);
+        var test = s.Latest(run, "test")!;
+        Ok(s.D.AttemptService.Update(test.Id, x => x with
+        {
+            Answers = new Dictionary<string, ExternalAnswer> { ["verdict"] = new("true", "vr", x.CreatedAt.AddSeconds(answeredAfter), "callback") },
+        }));
+
+        var reported = TestRunDomain.Pick(Service(s).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false)).Runs.Single();
+
+        var stage = reported.Path.Single(p => p.Stage == 1);
+        await Assert.That(stage.Step).IsEqualTo(critical);
+        await Assert.That(Math.Round(stage.Seconds)).IsEqualTo(seconds);
+        await Assert.That(Math.Round(stage.WaitSeconds)).IsEqualTo(wait);
+        await Assert.That(Math.Round(reported.InputSeconds)).IsEqualTo(input);
+    }
+
     [Test]
     public async Task SinceVersion_StartsAtTheFirstRunOnThatVersion()
     {

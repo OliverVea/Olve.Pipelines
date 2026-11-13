@@ -167,8 +167,8 @@ waiting, scheduled or in-progress attempt by address (`<pipeline>#<run>/<step>@<
 run's critical path and each step's part in it:
 
 ```
-RUN  STATUS     PATH   IDLE  CRITICAL PATH
-#61  Succeeded  3m28s  -     source 7s → build-cli 2m08s → publish-images 20s → deploy-beta 18s → …
+RUN  STATUS     PATH   IDLE  INPUT  CRITICAL PATH
+#61  Succeeded  3m28s  -     -      source 7s → build-cli 2m08s → publish-images 20s → deploy-beta 18s → …
 
 STEP          ON PATH  TOTAL   SHARE  AVG WHEN ON  WAIT
 build-server  6/20     26m43s  28.7%  4m27s        2m08s
@@ -180,6 +180,9 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   (scheduling, image pull, pod start).
 - Automatic retries count toward their stage (`test×2`); a later rerun of a step doesn't, and is
   noted. Time between stages (a held run, a later `continue`) is **IDLE**, charged to no step.
+- Time a step waits for its [external inputs](pipeline-reference.md#steps) (a visual-regression verdict, a person's
+  answer) is **INPUT**, charged to no step either: a stage's critical step is the one that finished
+  last once its waiting is taken out, so a parallel step that ran longer is charged instead.
 - **LEAD** is the time before a run's first step: from the push (GitHub's push time, when the webhook
   carried it) or from when the server noticed the new commit, through *detect* (push → webhook or
   poll), *check* (branch head read and the config commit applied, a reconcile included), *map* (the

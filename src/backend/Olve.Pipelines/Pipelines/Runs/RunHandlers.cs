@@ -333,6 +333,7 @@ public static class RunViews
         VersionStamp = r.VersionStamp,
         Seconds = r.Seconds,
         IdleSeconds = r.IdleSeconds,
+        InputSeconds = r.InputSeconds,
         Path = [.. r.Path.Select(p => new Contract.CriticalPathStage
         {
             Stage = p.Stage,

@@ -348,13 +348,14 @@ export const runCommands: Command[] = [
         }
         ctx.out.lines(
           table(
-            ['RUN', 'STATUS', 'LEAD', 'PATH', 'IDLE', 'CRITICAL PATH'],
+            ['RUN', 'STATUS', 'LEAD', 'PATH', 'IDLE', 'INPUT', 'CRITICAL PATH'],
             report.runs.map((r) => [
               `#${r.number}`,
               r.status,
               r.lead ? seconds(r.lead.seconds) : '-',
               seconds(r.seconds),
               r.idleSeconds >= 1 ? seconds(r.idleSeconds) : '-',
+              r.inputSeconds >= 1 ? seconds(r.inputSeconds) : '-',
               r.path
                 .map(
                   (p) =>

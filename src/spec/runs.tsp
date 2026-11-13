@@ -398,7 +398,10 @@ model CriticalPathRun {
   versionNumber: int32;
   versionStamp: string;
   seconds: float64;
+  /** Time between stages, charged to no step. */
   idleSeconds: float64;
+  /** Time the path waited for external inputs (a person, a callback, a poll), charged to no step. */
+  inputSeconds: float64;
   path: CriticalPathStage[];
   notes: string[];
   activeSeconds?: float64 | null;

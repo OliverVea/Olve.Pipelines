@@ -26,7 +26,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   // The host has no sign-in: the app reads the session oidc-client-ts would have stored.
   context: async ({ context, api }, use) => {
     const { oidcAuthority, oidcClientId } = await api.frontendConfig();
-    await context.addInitScript(({ key, user }) => sessionStorage.setItem(key, user), {
+    await context.addInitScript(({ key, user }) => localStorage.setItem(key, user), {
       key: `oidc.user:${oidcAuthority}:${oidcClientId}`,
       user: JSON.stringify(signedInUser),
     });

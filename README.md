@@ -17,6 +17,8 @@ export default pipeline({ name: "my-app", input: M.DeployRequest })
 This repo deploys itself with it: [`.pipelines/`](.pipelines) builds every component once, deploys
 beta, smoke-tests it, deploys prod and promotes the same artifacts.
 
+![The Olve.Pipelines pipeline in the web UI: its last run succeeded, and the step graph runs from source through parallel build, test and publish steps to beta, prod and promote](docs/images/self-deploy.png)
+
 ## Install `pl`
 
 ```bash

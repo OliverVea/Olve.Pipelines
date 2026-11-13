@@ -115,6 +115,46 @@ export class AppShell extends LitElement {
       color: var(--color-text-muted);
       font-size: 0.9rem;
     }
+
+    .signed-out {
+      max-width: 28rem;
+      margin: 4rem auto;
+      text-align: center;
+    }
+
+    .signed-out h1 {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.55rem;
+      margin: 0 0 1rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .signed-out svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .signed-out p {
+      color: var(--color-text-muted);
+      margin: 0 0 1.5rem;
+    }
+
+    .sign-in {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--color-primary);
+      background: var(--color-primary);
+      color: var(--color-surface);
+      font-size: 0.9rem;
+      transition: background var(--transition);
+    }
+
+    .sign-in:hover {
+      background: var(--color-primary-hover);
+    }
   `;
 
   @state() declare private _route: ResolvedRoute;
@@ -183,7 +223,11 @@ export class AppShell extends LitElement {
     }
 
     if (!this._user) {
-      return html`<p class="loading">Redirecting to login...</p>`;
+      return html`<div class="signed-out">
+        <h1>${LOGO}Olve Pipelines</h1>
+        <p>Your session has ended. Sign in again to carry on where you were.</p>
+        <button class="sign-in" @click=${() => void login()}>Sign in with GitHub</button>
+      </div>`;
     }
 
     return html`

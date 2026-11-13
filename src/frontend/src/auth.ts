@@ -65,7 +65,8 @@ async function fetchOidcConfig(): Promise<{
   return {
     authority: config.oidcAuthority,
     clientId: config.oidcClientId,
-    scopes: config.oidcScopes || 'openid profile email',
+    // A refresh token keeps the session past the access token's expiry, as `pl login` does.
+    scopes: `${config.oidcScopes || 'openid profile email'} offline_access`,
   };
 }
 
@@ -81,7 +82,7 @@ function getUserManager(): Promise<UserManager> {
           response_type: 'code',
           scope: config.scopes,
           automaticSilentRenew: true,
-          userStore: new WebStorageStateStore({ store: sessionStorage }),
+          userStore: new WebStorageStateStore({ store: localStorage }),
         }),
     );
   }
@@ -100,8 +101,12 @@ export async function getAccessToken(): Promise<string | null> {
   if (devAuthBypass) return import.meta.env.VITE_DEV_TOKEN || null;
   const userManager = await getUserManager();
   const user = await userManager.getUser();
-  if (!user || user.expired) return null;
-  return user.access_token;
+  if (!user) return null;
+  if (!user.expired) return user.access_token;
+  if (!user.refresh_token) return null;
+  // Asleep past the renew timer: one refresh now, else the session has ended.
+  const renewed = await userManager.signinSilent().catch(() => null);
+  return renewed?.access_token ?? null;
 }
 
 export async function login(): Promise<void> {
@@ -125,7 +130,13 @@ export async function logout(): Promise<void> {
 export function onUserChanged(callback: (user: User | null) => void): () => void {
   const loaded = (user: User) => callback(user);
   const unloaded = () => callback(null);
-  const expired = () => callback(null);
+  const ended = () => {
+    void getUserManager().then((m) => m.removeUser());
+  };
+  // Expired without a renew (a sleeping laptop): one refresh, else signed out.
+  const expired = () => {
+    void getUserManager().then((m) => m.signinSilent().catch(ended));
+  };
 
   let unsubscribe = () => {};
   let cancelled = false;
@@ -136,10 +147,12 @@ export function onUserChanged(callback: (user: User | null) => void): () => void
     userManager.events.addUserLoaded(loaded);
     userManager.events.addUserUnloaded(unloaded);
     userManager.events.addAccessTokenExpired(expired);
+    userManager.events.addSilentRenewError(ended);
     unsubscribe = () => {
       userManager.events.removeUserLoaded(loaded);
       userManager.events.removeUserUnloaded(unloaded);
       userManager.events.removeAccessTokenExpired(expired);
+      userManager.events.removeSilentRenewError(ended);
     };
   });
 

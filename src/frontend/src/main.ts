@@ -11,3 +11,7 @@ import './components/pipeline-runs-view.js';
 import './components/pipeline-versions-view.js';
 import './components/pipeline-secrets-view.js';
 import './components/pipeline-binding-view.js';
+
+// Shows the offline page when the server can't be reached.
+if ('serviceWorker' in navigator && window.isSecureContext)
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});

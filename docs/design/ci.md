@@ -11,6 +11,23 @@ It shares the repo's binding, its secrets and step library, but has its own defi
 - **Forge actions as steps.** Library steps to open a PR, comment on it and merge it when its CI passes. Together with schedules, they replace a dependency bot.
 - **Shared steps, not shared runs.** CI and CD import the same steps (build, test). A CI run never deploys; CD never runs for a PR.
 
+## Requirements from Olve.Trains' interim CI
+
+Olve.Trains runs its PR checks on GitHub Actions with self-hosted runners in the homelab until this exists. Building that
+showed what CI needs to do:
+
+- **Cancel a PR's older run** when it gets a new push.
+- **Skip by changed paths.** A docs-only PR skips the heavy steps but still reaches the steps after them, such as the merge.
+- **Merge on green.** CI merges a PR itself when all its checks pass, the PR has opted in (a label, read when the checks
+  finish, not when the run starts), and it doesn't touch protected paths that need a person's review. Without paid GitHub
+  features there are no required checks or native auto-merge, so the merge is CI's job.
+- **Merge only into the default branch.** A stacked PR waits until its base has merged and it has been retargeted. A retarget
+  (`pull_request: edited`) starts a run, unlike pushes the forge makes itself.
+- **Merge exactly what was tested:** the head commit the run checked.
+- **CD on the merge.** A merge made by CI deploys like any other push.
+- **Runner capacity** shares the cluster with CD. CI needs a concurrency limit, and its build steps run noticeably slower under
+  gVisor than on GitHub's hosted runners.
+
 ## Open questions (for the spec)
 
 - Definition shape: a second entry point in `.pipelines/` (`ci.ts`) vs. `pipeline({ ci, cd })`.

@@ -25,8 +25,8 @@ showed what CI needs to do:
   (`pull_request: edited`) starts a run, unlike pushes the forge makes itself.
 - **Merge exactly what was tested:** the head commit the run checked.
 - **CD on the merge.** A merge made by CI deploys like any other push.
-- **Runner capacity** shares the cluster with CD. CI needs a concurrency limit, and its build steps run noticeably slower under
-  gVisor than on GitHub's hosted runners.
+- **Runner capacity** shares the cluster with CD. CI needs a concurrency limit. On the busy homelab node, the build took about
+  12 minutes, against about 5 on GitHub's hosted runners (cause not yet measured).
 
 ## Open questions (for the spec)
 

@@ -12,7 +12,10 @@ export const stageGraphStyles = css`
   .note {
     margin-left: auto;
   }
+  /* Wider than the page column on a wide screen: up to 90% of the viewport, centred on it. */
   .scroller {
+    width: max(100%, 90vw);
+    margin-left: min(0px, calc(50% - 45vw));
     overflow-x: auto;
     overscroll-behavior-x: contain;
     padding: 0.9rem 0 0.4rem;
@@ -22,6 +25,10 @@ export const stageGraphStyles = css`
     display: flex;
     align-items: stretch;
     min-width: min-content;
+  }
+  .row {
+    width: max-content;
+    margin-inline: auto;
   }
   .col {
     display: flex;

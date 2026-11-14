@@ -92,6 +92,8 @@ OpenObserve metrics.
   - `PipelineSecretService` / `GitHubConfigSource`
   - `RetentionService`
 - **Gitea / Forgejo sources.**
+- **CI** next to CD in the same project: PR runs, check runs on the forge, schedules, forge
+  actions, preview environments. Vision: [ci.md](ci.md).
 - **Packaged steps** with a public `defineStep(def, impl)`:
   - Built-in steps use the same API: internal tooling = public tooling. The closed `StepKind`
     list goes away.

@@ -9,7 +9,6 @@ It shares the repo's binding, its secrets and step library, but has its own defi
 - **Results on the forge.** A CI run reports to GitHub (and later Gitea/Forgejo) as check runs with a short summary of what failed. Agents read the result with `gh` alone.
 - **Schedules.** A cron trigger for CI and CD (e.g. weekly dependency updates), so nobody needs an outside CronJob or a poll on a clock URL.
 - **Forge actions as steps.** Library steps to open a PR, comment on it and merge it when its CI passes. Together with schedules, they replace a dependency bot.
-- **Preview environments.** A CI run can deploy its build to a per-PR address (e.g. `trains-ci-private.ovea.pro/<pr>`), kept while the PR is open and removed when it closes or merges.
 - **Shared steps, not shared runs.** CI and CD import the same steps (build, test). A CI run never deploys; CD never runs for a PR.
 
 ## Open questions (for the spec)

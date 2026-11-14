@@ -18,7 +18,7 @@ import {
   stepLinkStyles,
 } from '../styles/ui.js';
 import { LiveController } from '../api/events.js';
-import './phase-bar.js';
+import { barSeconds } from './phase-bar.js';
 import './pipeline-header.js';
 import './relative-time.js';
 
@@ -255,7 +255,12 @@ export class StepRunsView extends LitElement {
     const lastFail = rows.find((r) => kind(r.status) === 'failed');
     const overheads = rows
       .filter((r) => r.phases?.active != null && r.finishedAt)
-      .map((r) => (seconds(r.createdAt, r.finishedAt) ?? 0) - (r.phases!.active ?? 0));
+      .map(
+        (r) =>
+          (seconds(r.createdAt, r.finishedAt) ?? 0) -
+          (r.phases!.active ?? 0) -
+          (r.phases!.input ?? 0),
+      );
     return html`<div class="status">
       <div class="cell">
         <span class="label">Attempts</span>
@@ -318,14 +323,7 @@ export class StepRunsView extends LitElement {
     return Math.max(
       0,
       ...(this._rows ?? []).map((r) =>
-        r.phases?.active == null
-          ? 0
-          : (r.phases.queued ?? 0) +
-            (r.phases.podStart ?? 0) +
-            (r.phases.fetch ?? 0) +
-            (r.phases.image ?? 0) +
-            r.phases.active +
-            (r.phases.collect ?? 0),
+        r.phases?.active == null ? 0 : barSeconds(r.phases),
       ),
     );
   }

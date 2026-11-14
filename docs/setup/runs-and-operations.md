@@ -189,8 +189,9 @@ build-cli     9/20     20m32s  22.1%  2m17s        4m19s
   map-trigger Job) and *start* (→ the first stage's attempts). Automatic runs only; it is recorded on
   the run as `trigger.origin`.
 - **AVG OVERHEAD** is the average part of a step's time on the path spent outside its step container
-  once it was picked up (WAIT is not in it), over the runs that recorded it. An attempt's time splits
-  into *queued* (created → picked up), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*
+  once it was picked up (WAIT is not in it; a preflight is), over the runs that recorded it. An attempt's time splits
+  into *queued* (created → picked up), *preflight* (the step's preflight Job, when it has one), *input*
+  (waiting for its external inputs; not drawn in the UI's phase bar), *pod start* (Job submitted, pod scheduled, sandbox up), *fetch*
   (the init container downloading the step binary and input), *image* (pulling and starting the step's
   image), *active* (the step container), *notice* (until the server saw the pod finish) and *collect*
   (logs and result). Attempts from before these

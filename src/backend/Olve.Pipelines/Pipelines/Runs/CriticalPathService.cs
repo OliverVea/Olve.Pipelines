@@ -114,10 +114,10 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
                 idle += (start - end).TotalSeconds;
             var critical = pass
                 .GroupBy(a => a.StepName, StringComparer.Ordinal)
-                .Select(g => (Step: g.Key, Attempts: g.ToList(), End: g.Max(a => a.FinishedAt()!.Value) - TimeSpan.FromSeconds(g.Sum(a => InputSeconds(a, null, null)))))
+                .Select(g => (Step: g.Key, Attempts: g.ToList(), End: g.Max(a => a.FinishedAt()!.Value) - TimeSpan.FromSeconds(g.Sum(a => a.InputSeconds()))))
                 .MaxBy(g => g.End);
             var mine = critical.Attempts;
-            var firstStart = mine.Select(a => a.StartedAt()).FirstOrDefault(t => t is not null) ?? mine.Max(a => a.FinishedAt()!.Value);
+            var firstStart = mine.Select(a => a.FirstStartedAt()).FirstOrDefault(t => t is not null) ?? mine.Max(a => a.FinishedAt()!.Value);
             var seconds = Math.Max(0, (critical.End - start).TotalSeconds);
             waitingForInput += Math.Max(0, (passEnd - start).TotalSeconds) - seconds;
             path.Add(new CriticalPathStage(
@@ -125,7 +125,7 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
                 critical.Step,
                 mine.Count,
                 seconds,
-                Math.Max(0, (firstStart - start).TotalSeconds - mine.Sum(a => InputSeconds(a, start, firstStart))),
+                Math.Max(0, (firstStart - start).TotalSeconds - mine.Sum(a => a.InputSeconds(start, firstStart))),
                 SumKnown(mine.Select(a => AttemptPhases.From(a)?.Active))));
             previousEnd = passEnd;
         }
@@ -133,23 +133,6 @@ public class CriticalPathService(RunService runs, AttemptService attempts, RunPl
         var firstAttempt = stages.Count > 0 ? stages[0].Attempts[0].CreatedAt : (DateTimeOffset?)null;
         return new CriticalPathRun(run.Number, run.Status, run.VersionNumber, run.VersionStamp, path.Sum(p => p.Seconds), idle, path.ToArray(), notes.ToArray(),
             SumKnown(path.Select(p => p.ActiveSeconds)), Lead(run.Trigger.Origin, firstAttempt), waitingForInput);
-    }
-
-    /// <summary>
-    /// How long the attempt waited for its external inputs (from when it started waiting to its last answer, or to a
-    /// decline), within <paramref name="from"/>..<paramref name="to"/> when given.
-    /// </summary>
-    private static double InputSeconds(Attempt attempt, DateTimeOffset? from, DateTimeOffset? to)
-    {
-        var since = attempt.Preflight?.PassedAt ?? attempt.CreatedAt;
-        DateTimeOffset? until = attempt.Status is AttemptStatus.Failed { Kind: AttemptFailureKind.Declined } declined
-            ? declined.FinishedAt
-            : attempt.Answers is { Count: > 0 } answers ? answers.Values.Max(a => a.AnsweredAt) : null;
-        if (until is not { } end)
-            return 0;
-        var a = from is { } f && f > since ? f : since;
-        var b = to is { } t && t < end ? t : end;
-        return Math.Max(0, (b - a).TotalSeconds);
     }
 
     private static CriticalPathLead? Lead(RunOrigin? origin, DateTimeOffset? firstAttempt)

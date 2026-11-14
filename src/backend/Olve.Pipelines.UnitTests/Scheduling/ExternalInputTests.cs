@@ -428,6 +428,34 @@ public class ExternalInputTests
         await Assert.That(ViewOf(s, run, "deploy-beta").Status).IsEqualTo(Olve.Pipelines.Api.RunStepStatus.Waiting);
     }
 
+    // Catches: the preflight's run time counted as time queued, or the input wait charged to the step on the critical path.
+    [Test]
+    public async Task APreflightStep_IsTimedApartFromItsWaitForInput()
+    {
+        var (s, run) = AtAPreflightGate();
+        s.Clock.Advance(TimeSpan.FromSeconds(2));
+        var attempt = s.MarkInProgress(run, "deploy-beta");
+        s.Clock.Advance(TimeSpan.FromSeconds(20));
+        TestRunDomain.Pick(s.D.AttemptService.FinishPreflight(attempt.Id, null, ["decision"]));
+        s.Clock.Advance(TimeSpan.FromSeconds(60));
+        TestRunDomain.Pick(s.D.Inputs.Answer(s.Pipeline.Id, run.Number, "deploy-beta", null, Json("""{"approved":true}"""), "oliver"));
+        s.Clock.Advance(TimeSpan.FromSeconds(5));
+        s.MarkInProgress(run, "deploy-beta");
+        s.Clock.Advance(TimeSpan.FromSeconds(10));
+        s.Succeed(run, "deploy-beta");
+        s.Succeed(run, "summary");
+
+        var phases = AttemptPhases.From(s.Latest(run, "deploy-beta")!)!;
+        var stage = TestRunDomain.Pick(new CriticalPathService(s.D.RunService, s.D.AttemptService, s.D.Plans).Get(s.Pipeline.Id, null, null, includeUnsuccessful: false))
+            .Runs.Single().Path.Single(p => p.Step == "deploy-beta");
+
+        await Assert.That(Math.Round(phases.Queued)).IsEqualTo(7);
+        await Assert.That(Math.Round(phases.Preflight!.Value)).IsEqualTo(20);
+        await Assert.That(Math.Round(phases.Input)).IsEqualTo(60);
+        await Assert.That(Math.Round(stage.Seconds)).IsEqualTo(37);
+        await Assert.That(Math.Round(stage.WaitSeconds)).IsEqualTo(2);
+    }
+
     // Catches: a callback that arrives before the preflight ends (a tool that answers at once) being refused or lost.
     [Test]
     public async Task AnAnswerDuringThePreflight_IsKept_AndRunsTheStepWhenThePreflightSucceeds()

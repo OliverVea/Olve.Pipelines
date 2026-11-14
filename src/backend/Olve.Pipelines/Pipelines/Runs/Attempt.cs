@@ -56,8 +56,8 @@ public record Attempt(
     public string KubernetesJobName => InPreflight ? $"olve-{Id.Value.Value:N}-preflight" : $"olve-{Id.Value.Value:N}";
 }
 
-/// <summary>An attempt's preflight: pending until it succeeds (<see cref="PassedAt"/>).</summary>
-public record AttemptPreflight(DateTimeOffset? PassedAt = null);
+/// <summary>An attempt's preflight: pending until it succeeds (<see cref="PassedAt"/>); <see cref="StartedAt"/> is when its Job started.</summary>
+public record AttemptPreflight(DateTimeOffset? PassedAt = null, DateTimeOffset? StartedAt = null);
 
 /// <summary>A link a step reported: an absolute http(s) URL and an optional label.</summary>
 public record AttemptLink(string Url, string? Label = null)
@@ -85,14 +85,17 @@ public record AttemptTimings(
     DateTimeOffset? ObservedAt = null);
 
 /// <summary>
-/// Where an attempt's time went, in seconds: <see cref="Queued"/> (created → picked up), then from the pod's
+/// Where an attempt's time went, in seconds: <see cref="Queued"/> (created → picked up, less its <see cref="Preflight"/>
+/// and <see cref="Input"/>), <see cref="Preflight"/> (its preflight Job, null when it has none or it wasn't timed),
+/// <see cref="Input"/> (waiting for its external inputs), then from the pod's
 /// timestamps <see cref="PodStart"/> (Job submitted, pod scheduled, sandbox up), <see cref="Fetch"/> (the init
 /// container downloading the binary and input), <see cref="Image"/> (pulling and starting the step's image),
 /// <see cref="Active"/> (the step container), <see cref="Notice"/> (until the server saw the pod finish) and
 /// <see cref="Collect"/> (logs and result collected). Pod phases are null when the attempt has no timings;
 /// <see cref="Notice"/> is null for attempts recorded before it was, whose <see cref="Collect"/> includes it.
 /// </summary>
-public record AttemptPhases(double Queued, double? PodStart, double? Fetch, double? Image, double? Active, double? Collect, double? Notice = null)
+public record AttemptPhases(double Queued, double? PodStart, double? Fetch, double? Image, double? Active, double? Collect, double? Notice = null,
+    double? Preflight = null, double Input = 0)
 {
     public static AttemptPhases? From(Attempt attempt)
     {
@@ -100,20 +103,47 @@ public record AttemptPhases(double Queued, double? PodStart, double? Fetch, doub
             return null;
         var t = attempt.Timings;
         var finished = attempt.FinishedAt();
+        var preflight = Seconds(attempt.Preflight?.StartedAt, attempt.Preflight?.PassedAt);
+        var input = attempt.InputSeconds(attempt.CreatedAt, started);
         return new AttemptPhases(
-            Seconds(attempt.CreatedAt, started),
+            Math.Max(0, Seconds(attempt.CreatedAt, started) - (preflight ?? 0) - input),
             Seconds(started, t?.InitStartedAt ?? t?.StepStartedAt),
             Seconds(t?.InitStartedAt, t?.InitFinishedAt),
             Seconds(t?.InitFinishedAt, t?.StepStartedAt),
             Seconds(t?.StepStartedAt, t?.StepFinishedAt),
             Seconds(t?.ObservedAt ?? t?.StepFinishedAt, finished),
-            Seconds(t?.StepFinishedAt, t?.ObservedAt));
+            Seconds(t?.StepFinishedAt, t?.ObservedAt),
+            preflight,
+            input);
     }
 
     private static double Seconds(DateTimeOffset from, DateTimeOffset to) => Math.Max(0, (to - from).TotalSeconds);
 
     private static double? Seconds(DateTimeOffset? from, DateTimeOffset? to)
         => from is { } a && to is { } b ? Math.Max(0, (b - a).TotalSeconds) : null;
+}
+
+public static class AttemptTimes
+{
+    /// <summary>When the attempt's first Job started: its preflight's, else its own.</summary>
+    public static DateTimeOffset? FirstStartedAt(this Attempt attempt) => attempt.Preflight?.StartedAt ?? attempt.StartedAt();
+
+    /// <summary>
+    /// How long the attempt waited for its external inputs (from when it started waiting to its last answer, or to a
+    /// decline), within <paramref name="from"/>..<paramref name="to"/> when given.
+    /// </summary>
+    public static double InputSeconds(this Attempt attempt, DateTimeOffset? from = null, DateTimeOffset? to = null)
+    {
+        var since = attempt.Preflight?.PassedAt ?? attempt.CreatedAt;
+        DateTimeOffset? until = attempt.Status is AttemptStatus.Failed { Kind: AttemptFailureKind.Declined } declined
+            ? declined.FinishedAt
+            : attempt.Answers is { Count: > 0 } answers ? answers.Values.Max(a => a.AnsweredAt) : null;
+        if (until is not { } end)
+            return 0;
+        var a = from is { } f && f > since ? f : since;
+        var b = to is { } t && t < end ? t : end;
+        return Math.Max(0, (b - a).TotalSeconds);
+    }
 }
 
 /// <summary>A succeeded attempt's output: its Garage key and the (size-capped) raw output JSON.</summary>

@@ -168,5 +168,7 @@ public static class StepViews
         Active = p.Active,
         Collect = p.Collect,
         Notice = p.Notice,
+        Preflight = p.Preflight,
+        Input = p.Input,
     };
 }

@@ -148,7 +148,12 @@ model RunStepCell {
 
 /** How long an attempt spent in each phase, in seconds; a phase it never reached is null. */
 model AttemptPhases {
+  /** Created → its Job picked up, its preflight and its input wait left out. */
   queued: float64;
+  /** Its preflight Job; null when the step has none or the attempt predates its timing. */
+  preflight?: float64 | null;
+  /** Waiting for its external inputs: from when it started waiting to the last answer (or a decline). */
+  input?: float64;
   podStart: float64 | null;
   fetch: float64 | null;
   image: float64 | null;

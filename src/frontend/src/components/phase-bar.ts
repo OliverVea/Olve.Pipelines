@@ -5,6 +5,7 @@ import { formatSeconds } from '../styles/ui.js';
 
 const PHASES: [keyof AttemptPhases & string, string][] = [
   ['queued', 'Queued'],
+  ['preflight', 'Preflight'],
   ['podStart', 'Pod start'],
   ['fetch', 'Fetch'],
   ['image', 'Image'],
@@ -13,7 +14,15 @@ const PHASES: [keyof AttemptPhases & string, string][] = [
   ['collect', 'Collect'],
 ];
 
-/** Where an attempt's time went: a stacked bar of its phases, optionally scaled against `max` seconds. */
+/** The seconds a phase bar draws: every phase but the wait for external inputs. */
+export function barSeconds(p: AttemptPhases): number {
+  return PHASES.reduce((a, [k]) => a + ((p[k] as number | null | undefined) ?? 0), 0);
+}
+
+/**
+ * Where an attempt's time went: a stacked bar of its phases, optionally scaled against `max` seconds. The wait for
+ * external inputs isn't drawn; the title and legend name it.
+ */
 @customElement('phase-bar')
 export class PhaseBar extends LitElement {
   static styles = css`
@@ -33,6 +42,9 @@ export class PhaseBar extends LitElement {
     }
     .queued {
       background: color-mix(in srgb, var(--color-text-muted) 35%, transparent);
+    }
+    .preflight {
+      background: var(--blue-200);
     }
     .podStart {
       background: var(--gold-200);
@@ -92,7 +104,12 @@ export class PhaseBar extends LitElement {
     }));
     const total = parts.reduce((a, x) => a + x.s, 0);
     const width = Math.max(this.max ?? total, total, 0.001);
-    const title = parts.map((x) => `${x.label} ${formatSeconds(x.s)}`).join(' · ');
+    const input =
+      (p.input ?? 0) >= 1 ? `waited ${formatSeconds(p.input)} for input` : null;
+    const title = [
+      ...parts.map((x) => `${x.label} ${formatSeconds(x.s)}`),
+      ...(input ? [input] : []),
+    ].join(' · ');
     return html`<div class="bar" title=${title} role="img" aria-label=${title}>
         ${parts.map((x) =>
           x.s > 0
@@ -106,6 +123,7 @@ export class PhaseBar extends LitElement {
               (x) =>
                 html`<span><i class="${x.k}"></i>${x.label} ${formatSeconds(x.s)}</span>`,
             )}
+            ${input ? html`<span>(${input})</span>` : nothing}
           </div>`
         : nothing}`;
   }

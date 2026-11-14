@@ -76,7 +76,7 @@ public class AttemptService(
                 return a with
                 {
                     Status = complete ? new Scheduled() : new Waiting(now),
-                    Preflight = new AttemptPreflight(now),
+                    Preflight = (a.Preflight ?? new AttemptPreflight()) with { PassedAt = now },
                     Links = links is null ? a.Links : AttemptLink.Merge(a.Links, links),
                 };
             }).TryPickProblems(out var problems))
@@ -173,11 +173,13 @@ public class AttemptService(
         return store.Mutate(id, update);
     }
 
-    /// <summary>Scheduled → InProgress. Returns the start time (the existing one if already InProgress).</summary>
+    /// <summary>Scheduled → InProgress (its preflight's start, when in preflight). Returns the start time (the existing one if already InProgress).</summary>
     public Result<DateTimeOffset> MarkInProgress(Id<Attempt> id)
     {
         var now = timeProvider.GetUtcNow();
-        if (Update(id, a => a.Status is Scheduled ? a with { Status = new InProgress(now) } : a).TryPickProblems(out var problems))
+        if (Update(id, a => a.Status is not Scheduled ? a
+                : a.InPreflight ? a with { Status = new InProgress(now), Preflight = a.Preflight! with { StartedAt = now } }
+                : a with { Status = new InProgress(now) }).TryPickProblems(out var problems))
             return problems;
 
         return store.TryGet(id, out var after) && after.Status is InProgress ip

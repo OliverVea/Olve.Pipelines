@@ -92,6 +92,7 @@ pl ci logs <pipeline>#ci<run>/<step>[@<attempt>] [--follow]   # --follow streams
 pl ci merge <pipeline> <pr>                            # add to the merge queue: tested rebased onto main, merged when green; refused for a draft, a conflict or a fork
 pl ci dequeue <pipeline> <pr>                          # take it out; a queue run testing it is cancelled
 pl ci queue <pipeline>                                 # the entries in order (state, place, runs, how they entered), then those merged or removed in the last day with why
+pl ci reliability <pipeline> [--runs <n>]              # per CI step: flaky (passed on the same tree and code), reproduced, caught (a later head fixed it), unverified
 
 # what's running (scheduled/in-progress attempts across pipelines)
 pl attempts

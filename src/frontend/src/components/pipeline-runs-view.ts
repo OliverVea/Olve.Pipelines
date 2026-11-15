@@ -230,6 +230,7 @@ export class PipelineRunsView extends LitElement {
                 .changes=${c}
                 .versionNumber=${r.versionNumber}
                 .configSnapshot=${r.configSnapshot ?? null}
+                .runs=${this._runs}
               ></run-changes>
             </td>
           </tr>`

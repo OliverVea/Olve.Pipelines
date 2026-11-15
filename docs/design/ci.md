@@ -1,8 +1,8 @@
 # CI
 
 Status: partly built. Pull requests get CI runs, on the active version's definition and binary or,
-for a PR that changes the definition, on a build of its own, and report `olve/ci`; reuse by
-identical tree, the merge queue (and `olve/merge-queue`), the UI and `pl ci` are not built. The CI scheduler
+for a PR that changes the definition, on a build of its own, report `olve/ci`, and reuse steps that
+succeeded on an identical tree; the merge queue (and `olve/merge-queue`), the UI and `pl ci` are not built. The CI scheduler
 doesn't apply a matrix step's `cascadeFailure`, and CI stages can't branch on config (`select`).
 
 CI checks pull requests before they merge, and CD deploys what merged. They are separate: each has

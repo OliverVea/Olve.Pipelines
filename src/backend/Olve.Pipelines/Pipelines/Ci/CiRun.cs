@@ -63,6 +63,7 @@ public enum CiCancelReason
 /// <summary>
 /// One execution of one step (or matrix cell) of a CI run: one K8s Job, named <c>olve-ci-&lt;id&gt;</c>, stored under
 /// <c>ci/&lt;p&gt;/&lt;run&gt;/&lt;step&gt;/&lt;attempt&gt;/</c>. CI attempts never wait for input and have no preflight.
+/// A reused attempt ran no Job: it succeeded with the output of <see cref="ReusedFrom"/>, whose files and log are its own.
 /// </summary>
 public sealed record CiAttempt(
     Id<CiAttempt> Id,
@@ -77,7 +78,8 @@ public sealed record CiAttempt(
     AttemptOutput? Output = null,
     string? Input = null,
     AttemptTimings? Timings = null,
-    IReadOnlyList<AttemptLink>? Links = null) : IHasId<Id<CiAttempt>>
+    IReadOnlyList<AttemptLink>? Links = null,
+    CiReuse? ReusedFrom = null) : IHasId<Id<CiAttempt>>
 {
     public const string JobPrefix = "olve-ci-";
 
@@ -111,6 +113,9 @@ public sealed record CiAttempt(
         _ => null,
     };
 }
+
+/// <summary>The attempt a reused one stands for: always one that ran (chains resolve to it), by id and by address.</summary>
+public sealed record CiReuse(Id<CiAttempt> AttemptId, int Run, string Step, int Attempt);
 
 public class CiRunEvents
 {

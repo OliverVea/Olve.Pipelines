@@ -90,6 +90,7 @@ public static class ServiceConfiguration
         services.TryAddTransient<ICiDefinitionBuilder, KubernetesCiDefinitionBuilder>();
         services.AddSingleton<CiSchedulingLock>();
         services.AddTransient<CiScheduler>();
+        services.AddTransient<CiReuseService>();
         services.AddTransient<CiCancellationService>();
         services.AddTransient<CiRunStartService>();
         services.AddTransient<CiRunCleanupService>();

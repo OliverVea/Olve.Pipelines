@@ -90,20 +90,22 @@ public sealed class ListCiRunAttemptsHandler(CiRunService runs, CiAttemptService
 
 /// <summary>The stored files of a CI attempt (without <c>attempt</c> the latest successful one).</summary>
 [OperationHandler]
-public sealed class ListCiStepFilesHandler(CiAttemptResolver resolver, AttemptFileService files) : Contract.ICiRunStepsFilesHandler
+public sealed class ListCiStepFilesHandler(CiAttemptResolver resolver, CiAttemptService attempts, AttemptFileService files) : Contract.ICiRunStepsFilesHandler
 {
     public async Task<Contract.CiRunStepsFilesResponse> HandleAsync(Contract.CiRunStepsFilesRequest request, CancellationToken cancellationToken)
     {
         if (!resolver.TryResolve(request.PipelineId, request.Number, request.Step, request.Attempt, latestSucceeded: true, out var attempt))
             return new Contract.CiRunStepsFilesResponse.NotFound(ApiProblems.Of(CiAttemptResolver.NoAttempt(request.Number, request.Step, request.Attempt)));
-        var identity = HarnessAttemptIdentity.Of(attempt);
-        return new Contract.CiRunStepsFilesResponse.Ok(RunViews.ToApi(
-            await files.ListAsync(identity.FilesPrefix, attempt.RunNumber, attempt.StepName, attempt.Number, cancellationToken)));
+        if (attempts.Origin(attempt) is not { } origin)
+            return new Contract.CiRunStepsFilesResponse.NotFound(ApiProblems.Of(CiAttemptResolver.OriginGone(attempt)));
+        var identity = HarnessAttemptIdentity.Of(origin);
+        var listed = await files.ListAsync(identity.FilesPrefix, origin.RunNumber, origin.StepName, origin.Number, cancellationToken);
+        return new Contract.CiRunStepsFilesResponse.Ok(RunViews.ToApi(listed with { Run = attempt.RunNumber, Step = attempt.StepName, Attempt = attempt.Number }));
     }
 }
 
 [OperationHandler]
-public sealed class DownloadCiStepFileHandler(CiAttemptResolver resolver, AttemptFileService files, IHttpContextAccessor http) : Contract.ICiRunStepsDownloadHandler
+public sealed class DownloadCiStepFileHandler(CiAttemptResolver resolver, CiAttemptService attempts, AttemptFileService files, IHttpContextAccessor http) : Contract.ICiRunStepsDownloadHandler
 {
     public async Task<Contract.CiRunStepsDownloadResponse> HandleAsync(Contract.CiRunStepsDownloadRequest request, CancellationToken cancellationToken)
     {
@@ -113,7 +115,9 @@ public sealed class DownloadCiStepFileHandler(CiAttemptResolver resolver, Attemp
         if (!resolver.TryResolve(request.PipelineId, request.Number, request.Step, request.Attempt, latestSucceeded: true, out var attempt))
             return new Contract.CiRunStepsDownloadResponse.NotFound(ApiProblems.Of(CiAttemptResolver.NoAttempt(request.Number, request.Step, request.Attempt)));
 
-        var download = await files.OpenAsync($"{HarnessAttemptIdentity.Of(attempt).FilesPrefix}/{objectPath}", objectPath, cancellationToken);
+        if (attempts.Origin(attempt) is not { } origin)
+            return new Contract.CiRunStepsDownloadResponse.NotFound(ApiProblems.Of(CiAttemptResolver.OriginGone(attempt)));
+        var download = await files.OpenAsync($"{HarnessAttemptIdentity.Of(origin).FilesPrefix}/{objectPath}", objectPath, cancellationToken);
         if (download is null)
             return new Contract.CiRunStepsDownloadResponse.NotFound(ApiProblems.Of(new NotFoundProblem(
                 "Attempt {0} of step '{1}' in CI run #{2} has no file '{3}'.", attempt.Number, request.Step, request.Number, objectPath)));
@@ -192,6 +196,10 @@ public class CiAttemptResolver(CiRunService runs, CiAttemptService attempts)
         return attempt is not null;
     }
 
+    public static NotFoundProblem OriginGone(CiAttempt attempt) => new(
+        "Attempt {0} of step '{1}' in CI run #{2} reuses CI run #{3}/{4}@{5}, which no longer exists.",
+        attempt.Number, attempt.StepName, attempt.RunNumber, attempt.ReusedFrom!.Run, attempt.ReusedFrom.Step, attempt.ReusedFrom.Attempt);
+
     public static NotFoundProblem NoAttempt(int number, string step, int? attempt) => new(attempt is null
         ? "CI run #{0} has no successful attempt of step '{1}'."
         : "CI run #{0} has no attempt {2} of step '{1}'.", number, step, attempt ?? 0);
@@ -207,6 +215,10 @@ public class CiLogService(CiAttemptService attempts, IAmazonS3 s3, StorageOption
 
     public async Task<string> GetAsync(CiAttempt attempt, CancellationToken ct)
     {
+        if (attempt.ReusedFrom is { } reuse)
+            return attempts.Origin(attempt) is { } origin
+                ? await GetAsync(origin, ct)
+                : Note(attempt, $"reuses CI run #{reuse.Run}/{reuse.Step}@{reuse.Attempt}, which no longer exists");
         var identity = HarnessAttemptIdentity.Of(attempt);
         switch (attempt.Status)
         {

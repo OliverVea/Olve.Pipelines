@@ -66,6 +66,15 @@ running run and the build it waits for. CI runs are numbered per
 pipeline on their own, and `GET /api/pipelines/{id}/ci/runs/{number}` shows one, its steps and their
 logs, files and outputs; `POST …/ci/pulls/{pull}/runs` runs a pull request again.
 
+A step that already succeeded in a CI run of the same tree (the tested commit's tree, whatever the
+commit) with the same code (the definition's `codeHash`) isn't run again: the new run records it as
+succeeded, with `reusedFrom` naming the attempt that ran, whose output, files and log it shows. No Job
+runs for it. Failed, skipped and cancelled steps always run again, so running a pull request again
+after a failure runs only what didn't succeed. This relies on a rule for CI steps: no output may depend
+on which commit with that tree it ran on. `gitHubSource` reports the commit it fetched, so a reused
+source step names the earlier commit, and a step that puts `ctx.run.version` into its output keeps the
+earlier run's.
+
 Each CI run reports the commit status `olve/ci` on its pull request's head, linking the run's page:
 `pending` with how many steps are done, then `success` ("Succeeded in 6m12s") or `failure` naming the
 failed steps, or the problem with the definition. A cancelled or superseded run reports nothing more

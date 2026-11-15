@@ -61,7 +61,7 @@ public class PreviewTests
         await using var _ = s;
 
         await Assert.That(run.Status).IsEqualTo(RunStatus.Succeeded);
-        await Assert.That((PreviewOf(s).State, PreviewOf(s).Url, PreviewOf(s).DeployedByNumber)).IsEqualTo((PreviewState.Live, Url, run.Number));
+        await Assert.That((PreviewOf(s).State, PreviewOf(s).Links!.Single().Url, PreviewOf(s).DeployedByNumber)).IsEqualTo((PreviewState.Live, Url, run.Number));
         await Assert.That(await PreviewStatus(s)).IsEqualTo($"success: Preview is live ({Url})");
 
         s.Close(7, A, merged: true);
@@ -83,6 +83,27 @@ public class PreviewTests
         await s.Get<CiStatusDelivery>().DrainAsync();
         await Assert.That(s.Statuses.Posted.Last(p => p.Status.Context == CiCommitStatus.CiContext).Status.State).IsEqualTo("success");
         await Assert.That(await PreviewStatus(s)).IsEqualTo("success: Preview removed (no link)");
+    }
+
+    // Catches: a preview with several hosts (two frontends, an API) losing all but one, or the status linking one of them.
+    [Test]
+    public async Task A_preview_with_several_links_keeps_them_all_and_its_status_links_the_run()
+    {
+        await using var s = new CiScenario(WithPreview);
+        s.Push(7, A);
+        await s.SettleAsync();
+        var run = s.Run(7);
+        s.SucceedAll(run);
+        var deploy = s.Latest(run, "deploy-preview")!;
+        AttemptLink[] links = [new("https://web.pr-7.example", "web"), new("https://admin.pr-7.example", "admin"), new("https://api.pr-7.example", "api")];
+        CiScenario.Ok(s.Attempts.Update(deploy.Id, a => a with { Links = links }));
+        s.Succeed(run, "deploy-preview");
+
+        await Assert.That(PreviewOf(s).Links!).IsEquivalentTo(links, TUnit.Assertions.Enums.CollectionOrdering.Matching);
+        var page = CiStatusPlanner.Link(s.Get<CiStatusOptions>(), s.Pipeline.Id, run.Number) ?? "no link";
+        await Assert.That(await PreviewStatus(s)).IsEqualTo($"success: Preview is live (3 links) ({page})");
+        await Assert.That(s.Get<CiRunViewService>().Pull(s.Get<PullRequestService>().TryGet(s.Pipeline.Id, 7, out var pull) ? pull : null!).Preview!.Links
+            .Select(l => (l.Url, l.Label))).IsEquivalentTo(links.Select(l => (l.Url, l.Label)), TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 
     [Test]

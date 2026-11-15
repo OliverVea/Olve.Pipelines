@@ -86,11 +86,19 @@ always run.
 A **Preview** (pipeline, PR) is the server's record of a preview. Only a pipeline whose `checks()`
 declares `onClose` has previews. A preview is created when a `reuse: false` attempt of a PR run
 starts, before anything is deployed, so a deploy that fails or is cancelled halfway is still torn
-down. It holds the run that last deployed it, the last deploy time, the URL (the step's link) and its
-state: `Deploying`, `Live`, `Removing`, `Removed`, `Failing` (teardown failing, retried).
+down. It holds the run that last deployed it, the last deploy time, its links and its state. The
+links are every link the deploying run's `reuse: false` steps gave (`ctx.link(url, label)`), in step
+order: a preview may be several hosts, such as two frontends and an API. Its state is one of `Deploying`, `Live`, `Removing`, `Removed`, `Failing` (teardown failing, retried).
 
 A preview lives until its PR closes or merges; there is no cap. RAM is the node's limit, and a Trains
 preview requests 32 Mi and is limited to 128 Mi.
+
+### Later: GitHub deployments
+
+A GitHub deployment per link (Deployments API, environment `pr-<n>-<label>`) would give each a "View
+deployment" button in the PR's timeline, marked inactive when the close run removes the preview. It
+needs the binding's token to have Deployments: write. Built when the run page's list of links isn't
+enough.
 
 ### Later: cap and retirement
 
@@ -138,10 +146,11 @@ The cap is per pipeline, set to what the app costs. No RAM-aware scheduling.
   can stop there. The app chart labels every resource of a preview release `olve-preview=<app>`, so
   previews can be listed and swept by label.
 - **Finding it:** an `olve/preview` commit status on the PR's head links the preview: pending while
-  deploying, success with the URL when live, error ("Deploy failed, see olve/ci") when the deploy
+  deploying, success when live, linking the preview itself when it has one link and the CI run's page
+  (which lists every link with its label) when it has several ("Preview is live (3 links)"), error ("Deploy failed, see olve/ci") when the deploy
   fails, and after teardown success with the description "Preview removed" and no link. It is never
   `failure`: the deploy's failure is `olve/ci`'s to report. The CI tab shows each PR's preview, its
-  state and link.
+  state and links.
 - **Advisory, not a gate.** Branch protection requires only `olve/merge-queue`, and queue runs never
   deploy a preview. A failing preview turns `olve/ci` red but doesn't stop a merge: the preview is for
   people to look at, and tests that gate a merge run in the queue run.
@@ -185,4 +194,4 @@ Server first, then the SDK, then a pipeline.
    (`<app>-preview-wildcard`) and DNS record per app.
 6. Trains: after its PR checks move from GitHub Actions to `checks()`. Its chart gains the optional
    Ingress and the `olve-preview` label; its pipeline gains `deployPreview`, `smokePreview` and `removePreview`.
-7. Later: the cap and retirement, when previews' RAM calls for them.
+7. Later: the cap and retirement, when previews' RAM calls for them; GitHub deployments per link.

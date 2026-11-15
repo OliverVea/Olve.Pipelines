@@ -111,7 +111,7 @@ public class CiPersistenceServiceTests
         var writer = Service(written);
         await writer.StartingAsync(default);
         var preview = new Preview(Id.New<Preview>(), Id.New<Pipeline>(), 7, PreviewState.Failing, Id.New<CiRun>(), 12, DateTimeOffset.UnixEpoch,
-            "https://pr-7.example", Id.New<CiRun>(), 2, DateTimeOffset.UnixEpoch.AddMinutes(5));
+            [new Olve.Pipelines.Pipelines.Runs.AttemptLink("https://pr-7.example", "web")], Id.New<CiRun>(), 2, DateTimeOffset.UnixEpoch.AddMinutes(5));
         written.Set(preview);
         await writer.SaveIfDirtyAsync();
 

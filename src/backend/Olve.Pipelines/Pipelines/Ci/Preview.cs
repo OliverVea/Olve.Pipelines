@@ -11,7 +11,7 @@ namespace Olve.Pipelines.Pipelines.Ci;
 /// cancelled halfway is still removed. Only a pipeline whose CI declares <c>onClose</c> has previews.
 /// </summary>
 /// <param name="DeployedBy">The CI run that last deployed it; its definition and commit remove it.</param>
-/// <param name="Url">The first link a never-reused step of <see cref="DeployedBy"/> gave.</param>
+/// <param name="Links">Every link the never-reused steps of <see cref="DeployedBy"/> gave, in step order (null = none yet).</param>
 /// <param name="CloseRun">The close run removing it, the latest one once it is removed or failing.</param>
 /// <param name="Failures">Close runs that failed in a row; the next one is due at <see cref="RetryAt"/>.</param>
 public sealed record Preview(
@@ -22,7 +22,7 @@ public sealed record Preview(
     Id<CiRun> DeployedBy,
     int DeployedByNumber,
     DateTimeOffset DeployedAt,
-    string? Url = null,
+    IReadOnlyList<Runs.AttemptLink>? Links = null,
     Id<CiRun>? CloseRun = null,
     int Failures = 0,
     DateTimeOffset? RetryAt = null) : IHasId<Id<Preview>>;
@@ -71,7 +71,7 @@ public class PreviewService(EntityStore<Preview> store, IdProvider idProvider)
                 DeployedBy = run.Id,
                 DeployedByNumber = run.Number,
                 DeployedAt = now,
-                Url = existing.DeployedBy == run.Id ? existing.Url : null,
+                Links = existing.DeployedBy == run.Id ? existing.Links : null,
                 Failures = 0,
                 RetryAt = null,
             };

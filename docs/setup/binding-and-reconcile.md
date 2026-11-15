@@ -91,8 +91,10 @@ of the pull request is still running, reports no `olve/ci`, and a failed one is 
 then every 60 minutes) while the pull request stays closed, shown as a warning in `pl binding
 status`. A new deploy of the pull request waits for its running close run. The status `olve/preview`
 on the deployed head says where the preview is: `pending` "Deploying the preview" or "Removing the
-preview", `success` "Preview is live" (linking the deploy step's link) or "Preview removed", `error`
-"Deploy failed, see olve/ci". It is never `failure` and never a required check: a preview is for
+preview", `success` "Preview is live" or "Preview removed", `error` "Deploy failed, see olve/ci".
+A preview keeps every link its deploy steps give (`ctx.link(url, label)`, e.g. a frontend and an
+API): with one, the status links it; with several ("Preview is live (3 links)"), it links the CI
+run's page, which lists them all. It is never `failure` and never a required check: a preview is for
 people to look at, and tests that gate a merge run in the queue run.
 
 CI reports the commit status `olve/ci` on each pull request's head, linking the run's page:

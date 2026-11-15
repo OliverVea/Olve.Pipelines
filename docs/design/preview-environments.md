@@ -1,9 +1,10 @@
 # Preview environments
 
-Status: partly built. The server and the SDK (2.0.0-beta.40) have it: `kind`/`pull` in the CI input,
-`reuse: false`, `onClose` close runs, Preview records and `olve/preview`; `Ci:Authors` and no
-`clusterAccess` in CI are live (see [CI](ci.md)), and the CI tab shows each pull request's
-preview. The homelab pieces and Trains are not built.
+Status: built, except the pieces under "Later". The server and the SDK (2.0.0-beta.40) have
+`kind`/`pull` in the CI input, `reuse: false`, `onClose` close runs, Preview records and
+`olve/preview`; `Ci:Authors` and no `clusterAccess` in CI are live (see [CI](ci.md)), and the CI tab
+shows each pull request's preview. The homelab chart (Olve.Homelab) has the `previews` namespace, its
+deployer and Trains' wildcard host, and Trains deploys a preview per pull request.
 
 A preview environment is a live instance of an app for one open pull request, deployed by the PR's
 CI runs and torn down when the PR closes or merges. Previews are reachable over the tailnet only.
@@ -140,8 +141,9 @@ The cap is per pipeline, set to what the app costs. No RAM-aware scheduling.
 - **Routing:** the preview release renders its own Ingress for its host, with the wildcard Secret
   (`<app>-preview-wildcard`, named by the homelab chart; the app's pipeline passes the name). This
   breaks the convention that only the homelab chart owns Ingresses, on purpose: previews come and go
-  with PRs. App charts get an optional `ingress` value, off by default. external-dns ignores the
-  `previews` namespace: the wildcard record already routes every preview host.
+  with PRs. App charts get an optional `ingress` value, off by default. A preview's Ingress carries
+  `external-dns.alpha.kubernetes.io/controller: none`, so external-dns leaves it alone: the wildcard
+  record already routes every preview host.
 - **Namespace:** previews live in a namespace of their own (`previews`), so the preview credential
   can stop there. The app chart labels every resource of a preview release `olve-preview=<app>`, so
   previews can be listed and swept by label.
@@ -179,19 +181,20 @@ CI, and because `previews` holds nothing of value: a NetworkPolicy per release, 
 wildcard certificates of preview hosts, whose keys let someone impersonate
 `*.<app>-preview.ovea.pro` on the tailnet and nothing more. No CD credential belongs on the allow-list.
 
-## Pieces and order
+## Where it lives
 
-Server first, then the SDK, then a pipeline.
-
-1. Server and manifest: `reuse: false` and the reuse rule, `CiInput.kind`/`pull`, `onClose` and close
-   runs, the Preview entity, `olve/preview`.
-2. API: previews on the PR views (`GET pulls`, `GET pulls/{number}`). Spec diff for approval first.
-3. SDK: `reuse`, `onClose`, the wider `CiInput`. Version bump. The `ovea-olve-pipelines`
-   skill learns previews; the `ovea-workflow` plugin version is bumped.
-4. UI: the preview cell in the CI tab, mock first.
-5. Homelab: the `previews` namespace (left out by external-dns), the preview ServiceAccount, its Role
-   and a kubeconfig for it (set with `pl secret set`), a wildcard Certificate
-   (`<app>-preview-wildcard`) and DNS record per app.
-6. Trains: after its PR checks move from GitHub Actions to `checks()`. Its chart gains the optional
-   Ingress and the `olve-preview` label; its pipeline gains `deployPreview`, `smokePreview` and `removePreview`.
-7. Later: the cap and retirement, when previews' RAM calls for them; GitHub deployments per link.
+- **Olve.Pipelines:** the server (close runs, Preview records, `olve/preview`), the SDK (`reuse`,
+  `onClose`, `CiInput.kind`/`pull`) and the CI tab's preview cell.
+- **Olve.Homelab** (`helm/templates/previews.yaml`, prod release only):
+  - the `previews` namespace, with `restricted` pod security enforced;
+  - the `preview-deployer` ServiceAccount, its Role over `previews` and a long-lived token Secret,
+    from which `PREVIEW_KUBECONFIG` is built and set with `pl secret set`;
+  - per app, a wildcard Ingress for `*.<app>-preview.ovea.pro`. It exists only so that external-dns
+    writes the wildcard record and cert-manager issues `<app>-preview-wildcard`. Its backend Service
+    doesn't exist and its router priority is 1, so it never takes a preview's traffic.
+- **Step pods reach the K8s API.** The runner NetworkPolicy lets them reach the API's Service IP and
+  the host's :6443, so preview steps can run helm. A step pod mounts no ServiceAccount token unless it
+  declares `clusterAccess`, so RBAC is the boundary.
+- **Trains** (`.pipelines/ci.ts`, `steps/preview.ts`): a pull request's run builds the browser game after
+  the checks, pushes it to `olve-trains-web-preview`, then `deploy-preview` and `smoke-preview`; `onClose`
+  runs `remove-preview`.
